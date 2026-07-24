@@ -87,14 +87,14 @@ impl ChangeSource<'_> {
 }
 
 /// Tell the editor which of `all_changes` were consumed, so the checkout that
-/// provided them doesn't reintroduce them as uncommitted changes, and return them.
+/// provided them doesn't reintroduce them as uncommitted changes.
 fn cancel_consumed_changes<M: but_core::RefMetadata>(
     editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
     source: &ChangeSource<'_>,
     all_changes: Vec<DiffSpec>,
     rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
     context_lines: u32,
-) -> anyhow::Result<Vec<DiffSpec>> {
+) -> anyhow::Result<()> {
     let rejected_paths: std::collections::BTreeSet<_> =
         rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
     let consumed: Vec<_> = all_changes
@@ -102,17 +102,16 @@ fn cancel_consumed_changes<M: but_core::RefMetadata>(
         .filter(|spec| !rejected_paths.contains(&spec.path))
         .collect();
     if consumed.is_empty() {
-        return Ok(consumed);
+        return Ok(());
     }
-    let merge_base =
-        compute_merge_base_override(source.repo(editor), consumed.clone(), context_lines)?;
+    let merge_base = compute_merge_base_override(source.repo(editor), consumed, context_lines)?;
     match source {
         ChangeSource::Head => editor.set_merge_base_override(merge_base),
         ChangeSource::Worktree { name, .. } => {
             editor.set_worktree_merge_base_override(name, merge_base)?
         }
     }
-    Ok(consumed)
+    Ok(())
 }
 
 pub mod reword;

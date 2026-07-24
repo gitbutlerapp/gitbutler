@@ -17,11 +17,17 @@ use gix::{
 
 use crate::graph_rebase::{Checkout, MaterializeOutcome, SuccessfulRebase};
 
-struct LinkedCheckoutSpec {
-    name: BString,
-    initial_head: gix::ObjectId,
-    ref_name: Option<gix::refs::FullName>,
+pub(super) struct LinkedCheckoutSpec {
+    pub(super) name: BString,
+    pub(super) initial_head: gix::ObjectId,
+    pub(super) ref_name: Option<gix::refs::FullName>,
+    pub(super) target: gix::ObjectId,
+    pub(super) merge_base_override: Option<gix::ObjectId>,
+}
+
+struct HeadCheckout {
     target: gix::ObjectId,
+    ref_name: Option<gix::refs::FullName>,
     merge_base_override: Option<gix::ObjectId>,
 }
 
@@ -29,23 +35,66 @@ struct LinkedCheckoutRepo {
     name: BString,
     repo: gix::Repository,
     target: gix::ObjectId,
-    detached: bool,
     merge_base_override: Option<gix::ObjectId>,
+}
+
+/// Ref edits moving the `HEAD` of every detached linked worktree in `specs` to where
+/// the rewrite put it.
+///
+/// Attached worktrees need nothing here - their symbolic `HEAD` follows the branch
+/// edit that is already part of the transaction.
+///
+/// `worktrees/<name>/HEAD` addresses another worktree's `HEAD` from this repository,
+/// so this rides along in the same transaction as the branch updates instead of
+/// needing the worktree's own repository handle. Making `initial_head` the expected
+/// value lets the transaction reject a worktree that moved under us, rather than
+/// checking for it separately and racing.
+fn detached_worktree_head_edits(specs: &[LinkedCheckoutSpec]) -> Result<Vec<RefEdit>> {
+    specs
+        .iter()
+        .filter(|spec| spec.ref_name.is_none())
+        .map(|spec| {
+            let name: gix::refs::FullName = format!("worktrees/{}/HEAD", spec.name)
+                .try_into()
+                .with_context(|| {
+                    format!(
+                        "Worktree {} has a name that cannot address its HEAD",
+                        spec.name
+                    )
+                })?;
+            Ok(RefEdit {
+                change: Change::Update {
+                    log: LogChange {
+                        mode: RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: gix::reference::log::message("rebase", "HEAD".into(), 1),
+                    },
+                    expected: PreviousValue::MustExistAndMatch(Target::Object(spec.initial_head)),
+                    new: Target::Object(spec.target),
+                },
+                name,
+                deref: false,
+            })
+        })
+        .collect()
 }
 
 fn open_linked_checkout_repos(
     repo: &gix::Repository,
     specs: Vec<LinkedCheckoutSpec>,
 ) -> Result<Vec<LinkedCheckoutRepo>> {
+    if specs.is_empty() {
+        return Ok(Vec::new());
+    }
+    let proxies = repo.worktrees()?;
     specs
         .into_iter()
         .map(|spec| {
-            let proxy = repo
-                .worktrees()?
-                .into_iter()
+            let proxy = proxies
+                .iter()
                 .find(|proxy| proxy.id() == spec.name.as_bstr())
                 .with_context(|| format!("Visible worktree {} no longer exists", spec.name))?;
-            let worktree_repo = proxy.into_repo()?;
+            let worktree_repo = proxy.clone().into_repo()?;
             let actual_ref = worktree_repo.head_name()?;
             let actual_head = worktree_repo.head_id()?.detach();
             if actual_ref.as_ref() != spec.ref_name.as_ref() || actual_head != spec.initial_head {
@@ -67,33 +116,39 @@ fn open_linked_checkout_repos(
                 name: spec.name,
                 repo: worktree_repo,
                 target: spec.target,
-                detached: spec.ref_name.is_none(),
                 merge_base_override: spec.merge_base_override,
             })
         })
         .collect()
 }
 
-fn prepare_linked_checkouts(repos: &[LinkedCheckoutRepo]) -> Result<Vec<PreparedCheckout<'_>>> {
+fn prepare_linked_checkouts(
+    repos: &[LinkedCheckoutRepo],
+) -> Result<Vec<(&BString, PreparedCheckout<'_>)>> {
     repos
         .iter()
         .map(|checkout| {
-            prepare_safe_checkout_from_head(
+            let prepared = prepare_safe_checkout_from_head(
                 checkout.target,
                 &checkout.repo,
                 Options {
-                    skip_head_update: !checkout.detached,
+                    // `HEAD` movement is a ref edit in the shared transaction for attached
+                    // and detached worktrees alike, so the checkout only touches files.
+                    skip_head_update: true,
                     merge_base_override: checkout.merge_base_override,
                     allow_conflicted_commit_checkout: false,
                 },
             )
-            .with_context(|| format!("Cannot update linked worktree {}", checkout.name))
+            .with_context(|| format!("Cannot update linked worktree {}", checkout.name))?;
+            Ok((&checkout.name, prepared))
         })
         .collect()
 }
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
-    fn linked_checkout_specs(&self) -> Result<Vec<LinkedCheckoutSpec>> {
+    /// The linked worktrees this edit has to move, with where the rewrite put each
+    /// one, validated against the shape recorded at editor creation.
+    pub(super) fn linked_checkout_specs(&self) -> Result<Vec<LinkedCheckoutSpec>> {
         let mut specs = Vec::new();
         for checkout in &self.checkouts {
             let Checkout::Worktree {
@@ -110,7 +165,16 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 .checkout_target(*selector)?
                 .with_context(|| format!("Visible worktree {worktree_name} HEAD was removed"))?;
             if actual_ref.as_ref() != expected_ref.as_ref() {
-                bail!("Visible worktree {worktree_name} HEAD changed shape during the edit");
+                bail!(
+                    "Visible worktree {worktree_name} HEAD changed shape during the edit: \
+                     expected {}, got {}",
+                    expected_ref
+                        .as_ref()
+                        .map_or_else(|| "detached".into(), ToString::to_string),
+                    actual_ref
+                        .as_ref()
+                        .map_or_else(|| "detached".into(), ToString::to_string)
+                );
             }
             specs.push(LinkedCheckoutSpec {
                 name: worktree_name.clone(),
@@ -123,28 +187,28 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         Ok(specs)
     }
 
-    fn head_checkout(
-        &self,
-    ) -> Result<(
-        gix::ObjectId,
-        Option<gix::refs::FullName>,
-        Option<gix::ObjectId>,
-    )> {
-        let (selector, merge_base_override) = self
-            .checkouts
-            .iter()
-            .find_map(|checkout| match checkout {
+    /// The editor's own `HEAD` checkout, or `None` when `HEAD` wasn't on a ref
+    /// at editor creation and thus has nothing to follow.
+    fn head_checkout(&self) -> Result<Option<HeadCheckout>> {
+        let Some((selector, merge_base_override)) =
+            self.checkouts.iter().find_map(|checkout| match checkout {
                 Checkout::Head {
                     selector,
                     merge_base_override,
                 } => Some((*selector, *merge_base_override)),
                 Checkout::Worktree { .. } => None,
             })
-            .context("Editor has no HEAD checkout")?;
+        else {
+            return Ok(None);
+        };
         let (target, ref_name) = self
             .checkout_target(selector)?
             .context("Checkout selector is pointing to none")?;
-        Ok((target, ref_name, merge_base_override))
+        Ok(Some(HeadCheckout {
+            target,
+            ref_name,
+            merge_base_override,
+        }))
     }
 
     /// Materializes a history rewrite.
@@ -154,21 +218,29 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             memory.persist(&self.repo)?;
         }
 
-        let linked_repos = open_linked_checkout_repos(&repo, self.linked_checkout_specs()?)?;
+        let specs = self.linked_checkout_specs()?;
+        let detached_head_edits = detached_worktree_head_edits(&specs)?;
+        let linked_repos = open_linked_checkout_repos(&repo, specs)?;
         let prepared_linked = prepare_linked_checkouts(&linked_repos)?;
-        let (new_head, new_head_refname, merge_base_override) = self.head_checkout()?;
-        let prepared_head = prepare_safe_checkout_from_head(
-            new_head,
-            &repo,
-            Options {
-                skip_head_update: true,
-                merge_base_override,
-                allow_conflicted_commit_checkout: true,
-            },
-        )?;
+        let head = self.head_checkout()?;
+        let prepared_head = head
+            .as_ref()
+            .map(|head| {
+                prepare_safe_checkout_from_head(
+                    head.target,
+                    &repo,
+                    Options {
+                        skip_head_update: true,
+                        merge_base_override: head.merge_base_override,
+                        allow_conflicted_commit_checkout: true,
+                    },
+                )
+            })
+            .transpose()?;
 
         let mut ref_edits = self.ref_edits.clone();
-        if let Some(refname) = new_head_refname
+        ref_edits.extend(detached_head_edits);
+        if let Some(refname) = head.and_then(|head| head.ref_name)
             && repo.head_name()?.as_ref() != Some(&refname)
         {
             let ref_short_name = refname.shorten().to_owned();
@@ -190,12 +262,18 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 deref: false,
             });
         }
-        for (prepared, checkout) in prepared_linked.into_iter().zip(&linked_repos) {
+        // Checkouts execute before the ref transaction: the underlying `git2`
+        // checkout diffs against the still-current `HEAD`, so moving refs first
+        // would make it a no-op. Everything that can reject the edit was already
+        // resolved by the `prepare` calls above.
+        for (name, prepared) in prepared_linked {
             prepared
                 .execute()
-                .with_context(|| format!("Failed to update linked worktree {}", checkout.name))?;
+                .with_context(|| format!("Failed to update linked worktree {name}"))?;
         }
-        prepared_head.execute()?;
+        if let Some(prepared_head) = prepared_head {
+            prepared_head.execute()?;
+        }
 
         repo.edit_references(ref_edits)?;
 
@@ -212,13 +290,21 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     }
 
     /// Materializes a rebase without checking out the editor's own worktree.
+    ///
+    /// Linked worktrees aren't checked out either, but their `HEAD`s still follow the
+    /// rewrite, so what they had checked out surfaces as uncommitted changes there -
+    /// exactly like the editor's own worktree.
     pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
         }
 
-        repo.edit_references(self.ref_edits.clone())?;
+        let mut ref_edits = self.ref_edits.clone();
+        ref_edits.extend(detached_worktree_head_edits(
+            &self.linked_checkout_specs()?,
+        )?);
+        repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace

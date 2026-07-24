@@ -6,7 +6,7 @@
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
-use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun};
 use but_ctx::worktrees::WorktreeEntry;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
@@ -187,32 +187,13 @@ pub fn worktree_commit_amend(
     changes: Vec<DiffSpec>,
     dry_run: DryRun,
 ) -> Result<CommitCreateResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    worktree_commit_amend_with_perm(
-        ctx,
-        name,
-        commit_id,
-        changes,
-        dry_run,
-        guard.write_permission(),
-    )
-}
-
-/// Like [`worktree_commit_amend()`], under caller-held exclusive repository access.
-pub fn worktree_commit_amend_with_perm(
-    ctx: &mut but_ctx::Context,
-    name: String,
-    commit_id: gix::ObjectId,
-    changes: Vec<DiffSpec>,
-    dry_run: DryRun,
-    perm: &mut RepoExclusive,
-) -> Result<CommitCreateResult> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let context_lines = ctx.settings.context_lines;
+    let mut guard = ctx.exclusive_worktree_access();
     active_worktree(ctx, &name)?;
 
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
     let wt_repo = open_worktree_repo(&repo, BStr::new(name.as_str()))?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 

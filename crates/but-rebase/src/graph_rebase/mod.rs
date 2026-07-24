@@ -350,43 +350,15 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     }
 
     fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
-        self.checkouts
-            .iter()
-            .filter_map(|checkout| {
-                let Checkout::Worktree {
-                    worktree_name,
-                    selector,
-                    ref_name,
-                    ..
-                } = checkout
-                else {
-                    return None;
-                };
-                Some((worktree_name, selector, ref_name))
+        Ok(self
+            .linked_checkout_specs()?
+            .into_iter()
+            .map(|spec| but_graph::init::WorktreeTip {
+                name: spec.name,
+                ref_name: spec.ref_name,
+                id: spec.target,
             })
-            .map(|(worktree_name, selector, expected_ref)| {
-                let (id, actual_ref) = self
-                    .checkout_target(*selector)?
-                    .with_context(|| format!("Worktree {worktree_name} HEAD was removed"))?;
-                if actual_ref.as_ref() != expected_ref.as_ref() {
-                    bail!(
-                        "Worktree {worktree_name} HEAD changed shape during the edit: \
-                         expected {}, got {}",
-                        expected_ref
-                            .as_ref()
-                            .map_or_else(|| "detached".into(), ToString::to_string),
-                        actual_ref
-                            .as_ref()
-                            .map_or_else(|| "detached".into(), ToString::to_string)
-                    );
-                }
-                Ok(but_graph::init::WorktreeTip {
-                    name: worktree_name.clone(),
-                    ref_name: expected_ref.clone(),
-                    id,
-                })
-            })
-            .collect()
+            .collect())
     }
 
     /// Return the commit targeted by `ref_name` in the post-rebase step graph.
