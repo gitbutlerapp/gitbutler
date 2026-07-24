@@ -240,7 +240,8 @@ pub fn list(
 /// A local or remote branch ref resolved to its tip.
 struct BranchRef {
     ref_name: FullName,
-    /// The remote this ref belongs to, if it is a remote-tracking ref.
+    /// The symbolic name of the remote this ref belongs to, if it is a remote-tracking ref,
+    /// as extracted from the ref itself.
     remote: Option<String>,
     /// The branch name without ref prefix or remote name.
     identity: BString,
@@ -594,14 +595,20 @@ fn listed_stack(status: ListedStackStatus, branches: Vec<ListedBranch>) -> Liste
 /// GitButler-internal branches that are never interesting to users.
 fn is_technical_branch(identity: &BString) -> bool {
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
-        b"gitbutler/edit",
-        b"gitbutler/workspace",
-        b"gitbutler/integration",
-        b"gitbutler/target",
-        b"gitbutler/oplog",
         b"HEAD",
+        b"gitbutler/edit",
+        b"gitbutler/integration",
+        b"gitbutler/oplog",
+        b"gitbutler/target",
+        b"gitbutler/workspace",
     ];
-    TECHNICAL_IDENTITIES.contains(&identity.as_bytes())
+    debug_assert!(
+        TECHNICAL_IDENTITIES.is_sorted(),
+        "binary search requires sorted technical identities"
+    );
+    TECHNICAL_IDENTITIES
+        .binary_search(&identity.as_bytes())
+        .is_ok()
         || identity.starts_with(b"gitbutler/rename-backup/")
 }
 
