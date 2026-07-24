@@ -493,6 +493,7 @@ fn main() -> anyhow::Result<()> {
                 commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
                 commit::create::tauri_commit_create::commit_create,
                 commit::amend::tauri_commit_amend::commit_amend,
+                commit::cherry_pick::tauri_commit_cherry_pick::commit_cherry_pick,
                 commit::move_commit::tauri_commit_move::commit_move,
                 commit::move_changes::tauri_commit_move_changes_between::commit_move_changes_between,
                 commit::squash::tauri_commit_squash::commit_squash,

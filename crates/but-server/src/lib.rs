@@ -872,6 +872,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         )
         .route("/commit_amend", but_post(commit::amend::commit_amend_cmd))
         .route(
+            "/commit_cherry_pick",
+            but_post(commit::cherry_pick::commit_cherry_pick_cmd),
+        )
+        .route(
             "/commit_move",
             but_post(commit::move_commit::commit_move_cmd),
         )

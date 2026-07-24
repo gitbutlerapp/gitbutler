@@ -163,6 +163,35 @@ describe("buildStackEndpoints", () => {
 		});
 	});
 
+	test("uses commit_cherry_pick when copying a commit onto a stack tip", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.commitCherryPick.query;
+
+		expect(endpoints.commitCherryPick.extraOptions).toEqual({
+			command: "commit_cherry_pick",
+			actionName: "Cherry-pick Commit",
+		});
+		expect(query).toBeDefined();
+		expect(
+			query?.({
+				projectId: "project-1",
+				sourceCommitIds: ["commit-1"],
+				relativeTo: {
+					type: "reference",
+					subject: "refs/heads/my-branch",
+				},
+				side: "below",
+				dryRun: false,
+			}),
+		).toEqual({
+			projectId: "project-1",
+			sourceCommitIds: ["commit-1"],
+			relativeTo: { type: "reference", subject: "refs/heads/my-branch" },
+			side: "below",
+			dryRun: false,
+		});
+	});
+
 	test("invalidates branch and worktree state after commit moves", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 

@@ -56,16 +56,6 @@ export function buildGitEndpoints(build: BackendEndpointBuilder) {
 			invalidatesTags: [providesList(ReduxTag.AuthorInfo)],
 		}),
 
-		// ── Cherry Apply ────────────────────────────────────────────
-		cherryApplyStatus: build.query<CherryApplyStatus, { projectId: string; subject: string }>({
-			extraOptions: { command: "cherry_apply_status" },
-			query: (args) => args,
-		}),
-		cherryApply: build.mutation<void, { projectId: string; subject: string; target: string }>({
-			extraOptions: { command: "cherry_apply" },
-			query: (args) => args,
-		}),
-
 		// ── Git Hooks ───────────────────────────────────────────────
 		preCommitDiffspecs: build.mutation<HookStatus, { projectId: string; changes: DiffSpec[] }>({
 			extraOptions: { command: "pre_commit_hook_diffspecs" },
@@ -86,21 +76,6 @@ export type AuthorInfo = {
 	name: string | null;
 	email: string | null;
 };
-
-export type CherryApplyStatus =
-	| {
-			type: "causesWorkspaceConflict";
-	  }
-	| {
-			type: "lockedToStack";
-			subject: string;
-	  }
-	| {
-			type: "applicableToAnyStack";
-	  }
-	| {
-			type: "noStacks";
-	  };
 
 export type HookStatus =
 	| {

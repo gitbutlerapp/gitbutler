@@ -31,7 +31,6 @@ import { GITLAB_USER_SERVICE, GitLabUserService } from "$lib/forge/gitlab/gitlab
 import { LISTING_SERVICE, ListingService } from "$lib/forge/listingService.svelte";
 import { PR_SERVICE, PrService } from "$lib/forge/prService.svelte";
 import { REPO_SERVICE, RepoService } from "$lib/forge/repoService.svelte";
-import { CherryApplyService, CHERRY_APPLY_SERVICE } from "$lib/git/cherryApplyService";
 import { GitService, GIT_SERVICE } from "$lib/git/gitService";
 import { HOOKS_SERVICE, HooksService } from "$lib/git/hooksService";
 import { REMOTES_SERVICE, RemotesService } from "$lib/git/remotesService";
@@ -177,7 +176,6 @@ export function initDependencies(args: {
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const branchService = new BranchService(clientState.backendApi);
-	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);
 
@@ -301,7 +299,6 @@ export function initDependencies(args: {
 		[BACKEND, backend],
 		[BASE_BRANCH_SERVICE, baseBranchService],
 		[BRANCH_SERVICE, branchService],
-		[CHERRY_APPLY_SERVICE, cherryApplyService],
 		[CLIENT_STATE, clientState],
 		[CLIPBOARD_SERVICE, clipboardService],
 		[CLI_MANAGER, cliManager],

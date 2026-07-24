@@ -715,6 +715,10 @@ export class StackService {
 		return this.backendApi.endpoints.commitMove.mutate;
 	}
 
+	get commitCherryPick() {
+		return this.backendApi.endpoints.commitCherryPick.useMutation();
+	}
+
 	get moveBranch() {
 		return this.backendApi.endpoints.moveBranch.mutate;
 	}

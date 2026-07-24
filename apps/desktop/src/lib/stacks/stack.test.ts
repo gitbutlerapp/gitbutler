@@ -1,6 +1,16 @@
-import { toMoveBranchWarning } from "$lib/stacks/stack";
+import { cherryPickTargets, toMoveBranchWarning, type Stack } from "$lib/stacks/stack";
 import { TestId } from "@gitbutler/ui";
 import { describe, expect, test } from "vitest";
+
+function stackWithBranches(...branchNames: (string | null)[]): Stack {
+	return {
+		id: "stack-1",
+		base: null,
+		segments: branchNames.map((name) => ({
+			refName: name === null ? null : { displayName: name, fullNameBytes: [] },
+		})),
+	} as Stack;
+}
 
 describe("toMoveBranchWarning", () => {
 	test("returns undefined when tearing off leaves all stacks applied", () => {
@@ -40,5 +50,28 @@ describe("toMoveBranchWarning", () => {
 		}
 
 		expect(warning.message).toContain("2 stacks");
+	});
+});
+
+describe("cherryPickTargets", () => {
+	test("identifies each stack by its top branch and counts its branches", () => {
+		const targets = cherryPickTargets([
+			stackWithBranches("feature", "base"),
+			stackWithBranches("solo"),
+		]);
+
+		expect(targets).toEqual([
+			{ branchName: "feature", branchCount: 2 },
+			{ branchName: "solo", branchCount: 1 },
+		]);
+	});
+
+	test("skips stacks whose top branch lost its name", () => {
+		const targets = cherryPickTargets([
+			stackWithBranches(null, "base"),
+			stackWithBranches("feature"),
+		]);
+
+		expect(targets).toEqual([{ branchName: "feature", branchCount: 1 }]);
 	});
 });

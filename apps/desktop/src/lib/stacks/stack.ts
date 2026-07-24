@@ -66,6 +66,26 @@ export function getStackName(stack: Stack): string {
 	return firstSegment.refName.displayName;
 }
 
+/** A stack a commit can be cherry-picked onto, identified by its top branch. */
+export type CherryPickTarget = {
+	branchName: string;
+	branchCount: number;
+};
+
+/**
+ * Returns the stacks a commit can be cherry-picked onto.
+ *
+ * A cherry-pick is placed relative to the top branch's reference, so stacks
+ * whose top segment lost its name are not targetable and are left out.
+ */
+export function cherryPickTargets(stacks: Stack[]): CherryPickTarget[] {
+	return stacks.flatMap((stack) => {
+		const branchName = stack.segments.at(0)?.refName?.displayName;
+		if (!branchName) return [];
+		return [{ branchName, branchCount: stack.segments.length }];
+	});
+}
+
 export function getStackBranchNames(stack: Stack): string[] {
 	return stack.segments.map((segment) => {
 		if (!segment.refName) {
