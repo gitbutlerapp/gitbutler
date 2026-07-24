@@ -35,6 +35,32 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
+    /// Like [`Self::set_merge_base_override()`], but for the checkout of the linked
+    /// worktree named `worktree_name`, whose changes were consumed.
+    ///
+    /// Fails if that worktree has no checkout recorded in this editor - it is unknown,
+    /// archived, or worktree tips weren't seeded into the graph - so callers can bail
+    /// before mutating the step graph.
+    pub fn set_worktree_merge_base_override(
+        &mut self,
+        worktree_name: &gix::bstr::BStr,
+        tree_id: gix::ObjectId,
+    ) -> Result<()> {
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Worktree {
+                worktree_name: name,
+                merge_base_override,
+                ..
+            } = checkout
+                && name == worktree_name
+            {
+                *merge_base_override = Some(tree_id);
+                return Ok(());
+            }
+        }
+        bail!("Worktree {worktree_name} has no checkout recorded in the editor")
+    }
+
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::CommitOwned> {
         but_core::Commit::from_id(id.attach(&self.repo)).map(|c| c.detach())

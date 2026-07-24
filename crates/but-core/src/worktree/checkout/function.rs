@@ -74,7 +74,28 @@ pub fn prepare_safe_checkout_from_head(
     )?;
 
     let mut opts = git2::build::CheckoutBuilder::new();
-    let changed_files = delegate.changed_files;
+    let mut changed_files = delegate.changed_files;
+    if let Some(merge_base_override) = merge_base_override {
+        // The override is `HEAD^{tree}` + consumed changes, so the paths it adds are the
+        // ones whose consumed changes have to cancel out below. They may not be part of
+        // the checkout at all - amending into a commit outside this checkout's history
+        // leaves its tree untouched - and then there would be nothing to cancel against.
+        let base_tree = merge_base_override.attach(repo).object()?.peel_to_tree()?;
+        let mut delegate = super::utils::Delegate::default();
+        gix::diff::tree(
+            TreeRefIter::from_bytes(&source_tree.data, repo.object_hash()),
+            TreeRefIter::from_bytes(&base_tree.data, repo.object_hash()),
+            &mut gix::diff::tree::State::default(),
+            repo,
+            &mut delegate,
+        )?;
+        for (_, path) in delegate.changed_files {
+            // Additive by construction, so `Modification` is the only sensible kind.
+            if !changed_files.iter().any(|(_, known)| *known == path) {
+                changed_files.push((ChangeKind::Modification, path));
+            }
+        }
+    }
     let _ = merge_worktree_changes_into_destination_or_keep_snapshot(
         &changed_files,
         repo,

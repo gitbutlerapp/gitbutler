@@ -22,6 +22,7 @@ struct LinkedCheckoutSpec {
     initial_head: gix::ObjectId,
     ref_name: Option<gix::refs::FullName>,
     target: gix::ObjectId,
+    merge_base_override: Option<gix::ObjectId>,
 }
 
 struct LinkedCheckoutRepo {
@@ -29,6 +30,7 @@ struct LinkedCheckoutRepo {
     repo: gix::Repository,
     target: gix::ObjectId,
     detached: bool,
+    merge_base_override: Option<gix::ObjectId>,
 }
 
 fn open_linked_checkout_repos(
@@ -66,6 +68,7 @@ fn open_linked_checkout_repos(
                 repo: worktree_repo,
                 target: spec.target,
                 detached: spec.ref_name.is_none(),
+                merge_base_override: spec.merge_base_override,
             })
         })
         .collect()
@@ -80,7 +83,7 @@ fn prepare_linked_checkouts(repos: &[LinkedCheckoutRepo]) -> Result<Vec<Prepared
                 &checkout.repo,
                 Options {
                     skip_head_update: !checkout.detached,
-                    merge_base_override: None,
+                    merge_base_override: checkout.merge_base_override,
                     allow_conflicted_commit_checkout: false,
                 },
             )
@@ -91,35 +94,33 @@ fn prepare_linked_checkouts(repos: &[LinkedCheckoutRepo]) -> Result<Vec<Prepared
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn linked_checkout_specs(&self) -> Result<Vec<LinkedCheckoutSpec>> {
-        self.checkouts
-            .iter()
-            .filter_map(|checkout| {
-                let Checkout::Worktree {
-                    worktree_name,
-                    selector,
-                    ref_name,
-                    initial_head,
-                } = checkout
-                else {
-                    return None;
-                };
-                Some((worktree_name, selector, ref_name, initial_head))
-            })
-            .map(|(worktree_name, selector, expected_ref, initial_head)| {
-                let (target, actual_ref) = self.checkout_target(*selector)?.with_context(|| {
-                    format!("Visible worktree {worktree_name} HEAD was removed")
-                })?;
-                if actual_ref.as_ref() != expected_ref.as_ref() {
-                    bail!("Visible worktree {worktree_name} HEAD changed shape during the edit");
-                }
-                Ok(LinkedCheckoutSpec {
-                    name: worktree_name.clone(),
-                    initial_head: *initial_head,
-                    ref_name: expected_ref.clone(),
-                    target,
-                })
-            })
-            .collect()
+        let mut specs = Vec::new();
+        for checkout in &self.checkouts {
+            let Checkout::Worktree {
+                worktree_name,
+                selector,
+                ref_name: expected_ref,
+                initial_head,
+                merge_base_override,
+            } = checkout
+            else {
+                continue;
+            };
+            let (target, actual_ref) = self
+                .checkout_target(*selector)?
+                .with_context(|| format!("Visible worktree {worktree_name} HEAD was removed"))?;
+            if actual_ref.as_ref() != expected_ref.as_ref() {
+                bail!("Visible worktree {worktree_name} HEAD changed shape during the edit");
+            }
+            specs.push(LinkedCheckoutSpec {
+                name: worktree_name.clone(),
+                initial_head: *initial_head,
+                ref_name: expected_ref.clone(),
+                target,
+                merge_base_override: *merge_base_override,
+            });
+        }
+        Ok(specs)
     }
 
     fn head_checkout(

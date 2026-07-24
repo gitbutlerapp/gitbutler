@@ -706,3 +706,77 @@ fn every_linked_worktree_is_prepared_before_reference_edits() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-partial-amend")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+    let middle = repo.rev_parse_single("middle")?.detach();
+
+    // Stand in for `commit_amend_from_worktree`: bake the worktree's first hunk into
+    // its branch and hand the checkout the matching additive merge base.
+    let mut amended = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
+    let blob = repo
+        .write_blob("line 1\nline 1.1\nline 2\nline 3\n")?
+        .detach();
+    let mut tree = repo.edit_tree(amended.tree)?;
+    tree.upsert("test.txt", gix::objs::tree::EntryKind::Blob, blob)?;
+    let consumed_tree = tree.write()?.detach();
+    amended.tree = consumed_tree;
+    amended.message = "base, with line 1.1".into();
+    let amended = repo.write_object(amended.inner)?.detach();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        options_with_worktrees(&repo, &["wt"])?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let middle_selector = editor.select_commit(middle)?;
+    editor.replace(middle_selector, Step::new_pick(amended))?;
+    editor.set_worktree_merge_base_override(gix::bstr::BStr::new("wt"), consumed_tree)?;
+    editor.rebase()?.materialize()?;
+
+    assert_eq!(repo.rev_parse_single("middle")?.detach(), amended);
+    assert_eq!(
+        std::fs::read_to_string(worktree_dir.join("test.txt"))?,
+        "line 1\nline 1.1\nline 1.2\nline 2\nline 3\n",
+        "only the hunk that wasn't consumed is left in the worktree - \
+         without the merge-base override the consumed one is duplicated"
+    );
+    snapbox::assert_data_eq!(
+        git_status(&linked_repo(&repo, "wt")?)?,
+        snapbox::str![[r#"
+M  test.txt
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-partial-amend")?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        options_with_worktrees(&repo, &["wt"])?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let tree = repo.rev_parse_single("middle^{tree}")?.detach();
+
+    let err = editor
+        .set_worktree_merge_base_override(gix::bstr::BStr::new("nope"), tree)
+        .expect_err("callers must be able to bail before mutating the step graph");
+    assert!(
+        format!("{err:#}").contains("no checkout recorded"),
+        "{err:#}"
+    );
+    Ok(())
+}

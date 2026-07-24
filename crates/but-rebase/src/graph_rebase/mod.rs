@@ -264,6 +264,10 @@ pub(crate) enum Checkout {
         ref_name: Option<gix::refs::FullName>,
         /// The peeled `HEAD` at editor creation, used to reject stale worktree state.
         initial_head: gix::ObjectId,
+        /// Like [`Checkout::Head`]'s `merge_base_override`, but computed against this
+        /// worktree's own `HEAD^{tree}`, so changes consumed *from this worktree*
+        /// cancel out during its checkout.
+        merge_base_override: Option<gix::ObjectId>,
     },
 }
 
