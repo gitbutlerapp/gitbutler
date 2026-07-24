@@ -113,6 +113,7 @@ chrono.workspace = true
 bstr.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
+url.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"

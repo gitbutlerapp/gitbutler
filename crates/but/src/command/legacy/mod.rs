@@ -18,7 +18,6 @@ pub mod diff2;
 pub mod discard;
 pub mod forge;
 pub mod land;
-pub mod mcp;
 pub mod move2;
 pub mod oplog;
 pub mod pick;

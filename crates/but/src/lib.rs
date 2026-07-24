@@ -424,6 +424,7 @@ async fn match_subcommand(
             &cmd,
             Subcommands::Skill(_)
                 | Subcommands::Agent(_)
+                | Subcommands::Mcp(_)
                 | Subcommands::Help { .. }
                 | Subcommands::Completions { .. }
                 | Subcommands::Metrics { .. }
@@ -750,10 +751,9 @@ async fn match_subcommand(
             command::r#switch::handle(&mut ctx, out, target, workspace, new)
                 .emit_metrics(metrics_ctx)
         }
-        #[cfg(feature = "legacy")]
-        Subcommands::Mcp => command::legacy::mcp::start(app_settings)
-            .await
-            .map_err(CliError::from),
+        Subcommands::Mcp(args::mcp::Platform { cmd }) => match cmd {
+            args::mcp::Subcommands::Serve => command::mcp::serve().await.map_err(CliError::from),
+        },
         #[cfg(feature = "legacy")]
         Subcommands::Actions(actions::Platform { cmd }) => match cmd {
             Some(actions::Subcommands::HandleChanges {
