@@ -4,7 +4,6 @@
 
 pub mod absorb;
 pub mod askpass;
-pub mod cherry_apply;
 pub mod cli;
 pub mod config;
 pub mod forge;

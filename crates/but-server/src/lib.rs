@@ -581,14 +581,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(diff::changes_in_worktree_cmd),
         )
         .route("/assign_hunk", but_post(diff::assign_hunk_cmd))
-        .route(
-            "/cherry_apply_status",
-            but_post(legacy::cherry_apply::cherry_apply_status_cmd),
-        )
-        .route(
-            "/cherry_apply",
-            but_post(legacy::cherry_apply::cherry_apply_cmd),
-        )
         .route("/stacks", but_post(legacy::workspace::stacks_cmd))
         .route("/head_info", but_post(legacy::workspace::head_info_cmd));
 

@@ -27,7 +27,6 @@ legacy = [
     "dep:but-action",
     "dep:but-gerrit",
     "dep:but-worktrees",
-    "dep:but-cherry-apply",
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
     "dep:gitbutler-branch",
@@ -80,7 +79,6 @@ but-action = { workspace = true, optional = true }
 but-hunk-assignment.workspace = true
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
-but-cherry-apply = { workspace = true, optional = true }
 
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-commit = { workspace = true, optional = true }
