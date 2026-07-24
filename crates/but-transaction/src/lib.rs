@@ -598,6 +598,7 @@ where
                 side,
                 &message,
                 context_lines,
+                but_workspace::commit::ChangeSource::Head,
             )?;
 
             let new_commit = commit_selector
@@ -671,6 +672,7 @@ where
                 commit_mappings.map(target),
                 changes,
                 context_lines,
+                but_workspace::commit::ChangeSource::Head,
             )?;
 
             let new_commit = commit_selector

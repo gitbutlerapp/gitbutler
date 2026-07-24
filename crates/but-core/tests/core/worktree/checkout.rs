@@ -1428,6 +1428,50 @@ fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Resul
 }
 
 #[test]
+fn cancelling_a_consumed_addition_removes_it_and_leaves_other_dirt_alone() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let added_path = repo.workdir_path("added.txt").unwrap();
+    std::fs::write(&added_path, "added\n")?;
+
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"added\n")?;
+            tree.upsert("added.txt", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed addition",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert!(
+        !added_path.exists(),
+        "the file lives in a commit now, so it must not linger here as an untracked duplicate"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file").unwrap())?,
+        "line1\nadded-a\nadded-b\nline2\nline3\n",
+        "removing the consumed addition must not let the checkout loose on unrelated dirt"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file2").unwrap())?,
+        "line1\nnew-line\nline3\n"
+    );
+    Ok(())
+}
+
+#[test]
 fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("adjacent-line-additions");
     let file_path = repo.workdir_path("file").unwrap();

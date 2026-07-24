@@ -357,6 +357,7 @@ pub fn create_commit(
             but_rebase::graph_rebase::mutate::InsertSide::Below,
             message,
             ctx.settings.context_lines,
+            but_workspace::commit::ChangeSource::Head,
         )
         .and_then(|outcome| {
             let selector = outcome.commit_selector;

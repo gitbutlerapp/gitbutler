@@ -90,10 +90,22 @@ pub fn prepare_safe_checkout_from_head(
             &mut delegate,
         )?;
         for (_, path) in delegate.changed_files {
-            // Additive by construction, so `Modification` is the only sensible kind.
-            if !changed_files.iter().any(|(_, known)| *known == path) {
-                changed_files.push((ChangeKind::Modification, path));
+            if changed_files.iter().any(|(_, known)| *known == path) {
+                continue;
             }
+            // A consumed change that *added* a file leaves nothing behind in the
+            // destination, and `git2` never removes a file it considers untracked, so
+            // ask for its removal explicitly - otherwise it lingers as a duplicate of
+            // what is now committed elsewhere. Everything else is a content update.
+            let kind = if destination_tree
+                .lookup_entry_by_path(path.to_path()?)?
+                .is_none()
+            {
+                ChangeKind::Deletion
+            } else {
+                ChangeKind::Modification
+            };
+            changed_files.push((kind, path));
         }
     }
     let _ = merge_worktree_changes_into_destination_or_keep_snapshot(

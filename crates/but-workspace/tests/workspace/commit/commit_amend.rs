@@ -2,7 +2,7 @@ use anyhow::Result;
 use but_core::DiffSpec;
 use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use but_testsupport::git_status;
-use but_workspace::commit::commit_amend;
+use but_workspace::commit::{ChangeSource, commit_amend};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments,
@@ -50,7 +50,13 @@ fn amend_commit_smoke_test() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
-    let outcome = commit_amend(editor, two_id, worktree_changes_as_specs(&repo)?, 0)?;
+    let outcome = commit_amend(
+        editor,
+        two_id,
+        worktree_changes_as_specs(&repo)?,
+        0,
+        ChangeSource::Head,
+    )?;
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome.commit_selector.expect("selector exists");
@@ -106,6 +112,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
         save_1_id,
         worktree_changes_as_specs_with_hunks(&repo, context_lines)?,
         context_lines,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -177,7 +184,7 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-    let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0)?;
+    let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
 
     assert!(outcome.rejected_specs.is_empty());
     let _materialized = outcome.rebase.materialize()?;
@@ -200,4 +207,378 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     );
 
     Ok(())
+}
+
+/// Committing and amending uncommitted changes of a *linked worktree*.
+///
+/// The `worktree-amend` fixture has `main` checked out with commits
+/// `base -> M1`, plus a linked worktree `wt` on branch `feat` (`base -> F1`,
+/// adding `a-file`) with two uncommitted changes: a tracked modification of
+/// `a-file` and an untracked `new-file`. A second, detached worktree
+/// `wt-detached` carries a commit `D1` that no branch points at.
+mod from_worktree {
+    use anyhow::Result;
+    use but_core::DiffSpec;
+    use but_graph::Graph;
+    use but_meta::VirtualBranchesTomlMetadata;
+    use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
+    use but_testsupport::git_status_at_dir;
+    use but_workspace::{
+        commit::{ChangeSource, commit_amend, commit_create},
+        worktrees::open_worktree_repo,
+    };
+
+    use crate::utils::writable_scenario_slow;
+
+    /// The metadata is wrapped so its backing file is never written on drop.
+    fn scenario() -> (
+        gix::Repository,
+        but_testsupport::gix_testtools::tempfile::TempDir,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    ) {
+        let (repo, tmp) = writable_scenario_slow("worktree-amend");
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            repo.path().join("should-never-be-written.toml"),
+        )
+        .expect("in-memory metadata handle always opens");
+        (repo, tmp, std::mem::ManuallyDrop::new(meta))
+    }
+
+    /// Build the graph over `repo` with both linked worktrees seeded as tips,
+    /// mirroring what `but-ctx` does with the `worktreeManipulation` flag enabled.
+    fn graph_with_worktree_tips(
+        repo: &gix::Repository,
+        meta: &impl but_core::RefMetadata,
+    ) -> Result<Graph> {
+        let mut options = but_graph::init::Options::limited();
+        options.worktree_tips = vec![
+            but_graph::init::WorktreeTip {
+                name: "wt".into(),
+                ref_name: Some("refs/heads/feat".try_into()?),
+                id: repo.find_reference("feat")?.peel_to_id()?.detach(),
+            },
+            but_graph::init::WorktreeTip {
+                name: "wt-detached".into(),
+                ref_name: None,
+                id: detached_tip(repo)?,
+            },
+        ];
+        Graph::from_head(repo, meta, Default::default(), options)?.validated()
+    }
+
+    fn detached_tip(repo: &gix::Repository) -> Result<gix::ObjectId> {
+        Ok(open_worktree_repo(repo, "wt-detached".into())?
+            .head_id()?
+            .detach())
+    }
+
+    fn whole_file_spec(path: &str) -> Vec<DiffSpec> {
+        vec![DiffSpec {
+            path: path.into(),
+            ..Default::default()
+        }]
+    }
+
+    fn blob(repo: &gix::Repository, spec: &str) -> Result<String> {
+        Ok(String::from_utf8(
+            repo.rev_parse_single(spec)?.object()?.data.clone(),
+        )?)
+    }
+
+    #[test]
+    fn amend_into_the_worktrees_own_branch_moves_its_checkout() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let wt_dir = repo.workdir().expect("non-bare").join("wt");
+
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let f1_id = repo.rev_parse_single("feat")?.detach();
+
+        // Only the tracked modification - the untracked file must survive.
+        let outcome = commit_amend(
+            editor,
+            f1_id,
+            whole_file_spec("a-file"),
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )?;
+        assert!(
+            outcome.rejected_specs.is_empty(),
+            "{:?}",
+            outcome.rejected_specs
+        );
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            repo.rev_parse_single("feat")?.detach(),
+            new_id,
+            "the worktree's branch moved to the amended commit"
+        );
+        assert_eq!(
+            blob(&repo, &format!("{new_id}:a-file"))?,
+            "one\ntwo\nthree\nfour\n",
+            "the amended commit contains the worktree's uncommitted content"
+        );
+
+        let status = git_status_at_dir(&wt_dir)?;
+        assert!(
+            !status.contains("a-file"),
+            "the merge-base override cancelled the consumed change during the worktree checkout: {status}"
+        );
+        assert!(
+            status.contains("new-file"),
+            "the dirty file that wasn't amended survives in the worktree: {status}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_one_worktree_hunk_leaves_the_other_hunk_dirty() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let wt_dir = repo.workdir().expect("non-bare").join("wt");
+        std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
+
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let change = but_core::diff::worktree_changes(&wt_repo)?
+            .changes
+            .into_iter()
+            .find(|change| change.path == "a-file")
+            .expect("a-file is modified");
+        let but_core::UnifiedPatch::Patch { hunks, .. } = change
+            .unified_patch(&wt_repo, 0)?
+            .expect("text changes have a patch")
+        else {
+            panic!("text changes have a patch")
+        };
+        assert_eq!(hunks.len(), 2, "the fixture has two selectable hunks");
+        let selected = DiffSpec {
+            path: "a-file".into(),
+            hunk_headers: vec![(&hunks[0]).into()],
+            ..Default::default()
+        };
+
+        let outcome = commit_amend(
+            editor,
+            repo.rev_parse_single("feat")?.detach(),
+            vec![selected],
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )?;
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            blob(&repo, &format!("{new_id}:a-file"))?,
+            "ONE\ntwo\nthree\n",
+            "only the selected hunk enters the commit"
+        );
+        assert_eq!(
+            std::fs::read_to_string(wt_dir.join("a-file"))?,
+            "ONE\ntwo\nthree\nfour\n",
+            "the unselected hunk remains in the checkout"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_into_another_branch_leaves_the_worktree_tip_alone() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let wt_dir = repo.workdir().expect("non-bare").join("wt");
+
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let f1_id = repo.rev_parse_single("feat")?.detach();
+        let m1_id = repo.head_id()?.detach();
+
+        // The untracked addition applies cleanly onto a commit outside the
+        // worktree's history.
+        let outcome = commit_amend(
+            editor,
+            m1_id,
+            whole_file_spec("new-file"),
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )?;
+        assert!(
+            outcome.rejected_specs.is_empty(),
+            "{:?}",
+            outcome.rejected_specs
+        );
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            repo.rev_parse_single("feat")?.detach(),
+            f1_id,
+            "the worktree's own branch is untouched"
+        );
+        assert_eq!(
+            repo.head_id()?.detach(),
+            new_id,
+            "the target branch moved to the amended commit"
+        );
+        assert_eq!(blob(&repo, &format!("{new_id}:new-file"))?, "new\n");
+
+        // The worktree's tip didn't move, so there is no tree change for the
+        // cancellation to ride on - `merge_base_override` has to carry it alone.
+        assert_eq!(
+            open_worktree_repo(&repo, "wt".into())?.head_id()?.detach(),
+            f1_id
+        );
+        let status = git_status_at_dir(&wt_dir)?;
+        assert!(
+            !status.contains("new-file"),
+            "the consumed change was cancelled from the worktree: {status}"
+        );
+        assert!(
+            status.contains("a-file"),
+            "the dirty file that wasn't amended survives untouched: {status}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+
+        // The detached worktree's commit is in the graph, but no branch points at
+        // it, so it is never forced mutable. Amending into it used to write the
+        // amended commit and report success while no ref ever adopted it.
+        let d1_id = detached_tip(&repo)?;
+        let err = commit_amend(
+            editor,
+            d1_id,
+            whole_file_spec("a-file"),
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("the commit is immutable"), "{err}");
+        assert_eq!(detached_tip(&repo)?, d1_id, "nothing moved");
+        Ok(())
+    }
+
+    #[test]
+    fn amend_from_an_unknown_worktree_fails_without_moving_refs() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let f1_id = repo.rev_parse_single("feat")?.detach();
+        let m1_id = repo.head_id()?.detach();
+
+        let err = commit_amend(
+            editor,
+            f1_id,
+            whole_file_spec("a-file"),
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "not-a-worktree".into(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("no checkout recorded"), "{err}");
+
+        assert_eq!(
+            repo.rev_parse_single("feat")?.detach(),
+            f1_id,
+            "nothing moved"
+        );
+        assert_eq!(repo.head_id()?.detach(), m1_id, "nothing moved");
+        Ok(())
+    }
+
+    #[test]
+    fn commit_create_from_a_worktree_moves_its_branch_and_checkout() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let wt_dir = repo.workdir().expect("non-bare").join("wt");
+
+        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let f1_id = repo.rev_parse_single("feat")?.detach();
+
+        let outcome = commit_create(
+            editor,
+            whole_file_spec("a-file"),
+            but_rebase::graph_rebase::mutate::RelativeTo::Reference("refs/heads/feat".try_into()?),
+            InsertSide::Below,
+            "F2",
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )?;
+        assert!(
+            outcome.rejected_specs.is_empty(),
+            "{:?}",
+            outcome.rejected_specs
+        );
+        let selector = outcome.commit_selector.expect("a commit was created");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            repo.rev_parse_single("feat")?.detach(),
+            new_id,
+            "the worktree's branch moved to the new commit"
+        );
+        assert_eq!(
+            repo.find_commit(new_id)?
+                .parent_ids()
+                .next()
+                .unwrap()
+                .detach(),
+            f1_id,
+            "the new commit sits on top of the worktree's previous tip"
+        );
+        assert_eq!(
+            blob(&repo, &format!("{new_id}:a-file"))?,
+            "one\ntwo\nthree\nfour\n"
+        );
+        let status = git_status_at_dir(&wt_dir)?;
+        assert!(
+            !status.contains("a-file"),
+            "the committed change was cancelled from the worktree: {status}"
+        );
+        assert!(
+            status.contains("new-file"),
+            "the untracked file that wasn't committed survives: {status}"
+        );
+        Ok(())
+    }
 }
