@@ -410,6 +410,7 @@ Other Commands:
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
   agent        Set up GitButler for AI coding agents
+  mcp          Run GitButler as a Model Context Protocol server
   completions  Generate but shell completions
 
 Help Topics (view with but help <topic>):
