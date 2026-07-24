@@ -75,7 +75,9 @@ storybook-static
 /.agents/*
 !/.agents/skills/
 !/.agents/skills/**
-/.claude/
+/.claude/*
+# Symlink to /.agents/skills so Claude Code discovers the repo's skills.
+!/.claude/skills
 
 # Auto-generated design tokens
 packages/ui/src/styles/tokens.css
