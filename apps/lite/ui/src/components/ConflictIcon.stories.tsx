@@ -18,9 +18,18 @@ const meta = preview.meta({
 	},
 });
 
-export const Default = meta.story({});
+export const Default = meta.story({
+	args: {
+		variant: "conflict",
+		size: 16,
+	},
+});
 
 export const AllVariants = meta.story({
+	args: {
+		variant: "conflict",
+		size: 16,
+	},
 	render: (args) => (
 		<div style={{ display: "flex", gap: 16, alignItems: "center" }}>
 			{(["conflict", "plus", "minus"] as const).map((variant) => (

@@ -284,3 +284,8 @@
 	gap: 8px;
 	color: var(--text-3);
 }
+
+.commitConflictIcon {
+	flex-shrink: 0;
+	margin-right: 2px;
+}

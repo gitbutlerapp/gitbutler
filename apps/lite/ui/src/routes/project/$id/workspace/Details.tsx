@@ -40,6 +40,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
@@ -726,7 +727,9 @@ const Title: FC<{
 								<span className={styles.titleContent}>
 									{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								</span>
-								{commitDetails.commit.hasConflicts && " ⚠️"}
+								{commitDetails.commit.hasConflicts && (
+									<ConflictIcon variant="conflict" className={styles.commitConflictIcon} />
+								)}
 								{commitBody(commitDetails.commit.message) !== undefined && (
 									<Tooltip.Root>
 										<Tooltip.Trigger
