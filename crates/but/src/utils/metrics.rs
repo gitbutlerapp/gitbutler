@@ -22,7 +22,7 @@ const UNRECOGNIZED_SUBCOMMAND_MAX_CHARS: usize = 64;
 const INVALID_UNRECOGNIZED_SUBCOMMAND: &str = "<invalid>";
 
 pub(super) mod types {
-    use crate::{args::metrics::CommandName, utils::metrics::Event};
+    use crate::args::metrics::CommandName;
 
     /// All we need to emit metrics as part of a command invocation, in the background, as spun-off process.
     pub struct OneshotMetricsContext {
@@ -31,14 +31,8 @@ pub(super) mod types {
         pub(super) extra_props: Vec<(String, serde_json::Value)>,
         pub(super) current_dir: std::path::PathBuf,
     }
-
-    /// A metrics implementation to run in the background, receiving metrics to send through a channel.
-    #[derive(Debug, Clone)]
-    pub struct BackgroundMetrics {
-        pub(super) sender: Option<tokio::sync::mpsc::UnboundedSender<Event>>,
-    }
 }
-use types::{BackgroundMetrics, OneshotMetricsContext};
+use types::OneshotMetricsContext;
 
 impl OneshotMetricsContext {
     pub fn new(
@@ -179,11 +173,11 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
+            Subcommands::Mcp(_) => Unknown,
             #[cfg(feature = "legacy")]
-            Subcommands::Actions(_)
-            | Subcommands::Mcp
-            | Subcommands::Setup { .. }
-            | Subcommands::Teardown { .. } => Unknown,
+            Subcommands::Actions(_) | Subcommands::Setup { .. } | Subcommands::Teardown { .. } => {
+                Unknown
+            }
             Subcommands::Config(config::Platform { cmd }) => match cmd {
                 Some(config::Subcommands::Forge {
                     cmd: Some(config::ForgeSubcommand::Auth),
@@ -589,40 +583,6 @@ impl Event {
             "linux" => "Linux".to_string(),
             "android" => "Android".to_string(),
             _ => os.to_string(),
-        }
-    }
-}
-
-impl BackgroundMetrics {
-    pub fn new_in_background(app_settings: &AppSettings) -> Self {
-        let metrics_permitted = app_settings.telemetry.app_metrics_enabled;
-        // Only create client and sender if metrics are permitted
-        let client = posthog_client(app_settings.clone());
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-        let sender = if metrics_permitted {
-            Some(sender)
-        } else {
-            None
-        };
-        let metrics = BackgroundMetrics { sender };
-
-        if let Some(client_future) = client {
-            let mut receiver = receiver;
-            let app_settings = app_settings.clone();
-            tokio::task::spawn(async move {
-                let client = client_future.await;
-                while let Some(event) = receiver.recv().await {
-                    do_capture(&client, event, &app_settings).await.ok();
-                }
-            });
-        }
-
-        metrics
-    }
-
-    pub fn capture(&self, event: Event) {
-        if let Some(sender) = &self.sender {
-            let _ = sender.send(event);
         }
     }
 }
