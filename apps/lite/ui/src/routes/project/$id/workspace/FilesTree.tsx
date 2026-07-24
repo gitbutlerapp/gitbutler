@@ -29,7 +29,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow } from "./FileRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
-import { useOpenInEditor } from "#ui/api/mutations.ts";
+import { useOpenInProgram } from "#ui/api/mutations.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 
 const useFilesTreeHotkeys = ({
@@ -58,7 +58,7 @@ const useFilesTreeHotkeys = ({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
-	const { mutate: openInEditor } = useOpenInEditor();
+	const { mutate: openInProgram } = useOpenInProgram();
 
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -136,9 +136,9 @@ const useFilesTreeHotkeys = ({
 			callback: () => {
 				if (!preferredEditor || selectedChangesFile === null) return;
 
-				openInEditor({
+				openInProgram({
 					projectId,
-					editorId: preferredEditor.id,
+					programId: preferredEditor.id,
 					path: selectedChangesFile,
 					lineNr: null,
 				});

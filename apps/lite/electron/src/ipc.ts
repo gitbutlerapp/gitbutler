@@ -274,13 +274,6 @@ export interface MergeReviewParams {
 	mergeMethod: ReviewMergeMethod | null;
 }
 
-export interface OpenInEditorParams {
-	projectId: string;
-	editorId: string;
-	path: string;
-	lineNr: number | null;
-}
-
 export interface OpenInProgramParams {
 	projectId: string;
 	programId: string;
@@ -488,7 +481,6 @@ export interface LiteElectronApi {
 	mergeReview: (params: MergeReviewParams) => Promise<void>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInWebBrowser: (url: string) => Promise<void>;
-	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	openInProgram: (params: OpenInProgramParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	publishReview: (params: PublishReviewParams) => Promise<PublishReviewOutcome>;
@@ -577,7 +569,6 @@ export const liteIpcChannels = {
 	listReviewsForBranch: "workspace:list-reviews-for-branch",
 	mergeReview: "workspace:merge-review",
 	moveBranch: "workspace:move-branch",
-	openInEditor: "workspace:open-in-editor",
 	openInProgram: "workspace:open-in-program",
 	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",

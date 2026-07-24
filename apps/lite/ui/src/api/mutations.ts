@@ -23,7 +23,7 @@ import { Toast } from "@base-ui/react";
 import type { CommitAbsorption, InsertSide, RelativeTo, Snapshot } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import type { OpenInEditorParams } from "#electron/ipc.ts";
+import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 
@@ -301,11 +301,11 @@ export const useSetReviewDraftiness = () => {
 	});
 };
 
-export const useOpenInEditor = () => {
+export const useOpenInProgram = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: OpenInEditorParams) => window.lite.openInEditor(input),
+		mutationFn: (input: OpenInProgramParams) => window.lite.openInProgram(input),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

@@ -781,37 +781,3 @@ pub fn open_in_program(
         bail_precondition!("program_id '{program_id}' is not a GUI-compatible program");
     }
 }
-
-/// Open `path` within the given project's workdir using the editor specified by `editor_id`.
-///
-/// `path` is resolved relative to the repository workdir.
-///
-/// `line_nr` can be provided to open a file at a specific line.
-///
-/// [`list_editors`] provides the available `editor_id`s.
-#[but_api(napi)]
-#[instrument(skip(ctx), err(Debug))]
-pub fn open_in_editor(
-    ctx: &mut but_ctx::Context,
-    editor_id: String,
-    path: String,
-    line_nr: Option<u32>,
-) -> anyhow::Result<()> {
-    let repo = ctx.repo.get()?;
-    let resolved_path = repo
-        .workdir_path(path.as_str())
-        .context("project must have a workdir")?;
-
-    let program_specs = list_program_specs();
-    if let Some(editor) = program_specs.iter().find(|editor| editor.id == editor_id)
-        && editor.is_gui_editor()
-    {
-        let open_spec = match line_nr {
-            Some(line_nr) => OpenSpec::FileAtLine(resolved_path, line_nr),
-            None => OpenSpec::File(resolved_path),
-        };
-        open_in_program_unchecked(editor, open_spec)
-    } else {
-        bail_precondition!("editor_id '{editor_id}' is not a GUI-compatible editor");
-    }
-}

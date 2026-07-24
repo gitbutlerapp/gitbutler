@@ -32,7 +32,6 @@ import {
 	type MoveBranchParams,
 	type MergeReviewParams,
 	type ListReviewsForBranchParams,
-	type OpenInEditorParams,
 	type OpenInProgramParams,
 	type PublishReviewParams,
 	type WorkspaceBranchAndAncestorsPushParams,
@@ -103,7 +102,6 @@ import {
 	listReviewsForBranch,
 	mergeReview,
 	moveBranch,
-	openInEditor,
 	openInProgram,
 	publishReview,
 	removeBranch,
@@ -583,11 +581,6 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch, dryRun),
-	);
-	senderValidatingHandle(
-		liteIpcChannels.openInEditor,
-		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
-			openInEditor(projectId, editorId, path, lineNr),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.openInProgram,

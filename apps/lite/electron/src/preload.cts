@@ -180,7 +180,6 @@ const api: LiteElectronApi = {
 	mergeReview: (params) => ipcRenderer.invoke("workspace:merge-review", params) as Promise<void>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
-	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
 	openInProgram: (params) =>
 		ipcRenderer.invoke("workspace:open-in-program", params) as Promise<void>,
 	openInWebBrowser: (url) =>

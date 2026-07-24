@@ -2,7 +2,7 @@ import {
 	useCommitDiscardChanges,
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
-	useOpenInEditor,
+	useOpenInProgram,
 } from "#ui/api/mutations.ts";
 import {
 	guiSettingsQueryOptions,
@@ -49,7 +49,7 @@ export const useHunkMenuItems = ({
 		useCommitDiscardChanges();
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
-	const { isPending: isOpenInEditorPending, mutate: openInEditor } = useOpenInEditor();
+	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 
 	return ({ operand, change, lineNumber }) => {
 		const source = hunkOperand(operand);
@@ -73,12 +73,12 @@ export const useHunkMenuItems = ({
 				preferredEditor
 					? nativeMenuItem({
 							label: `Open in ${preferredEditor.name}`,
-							enabled: !isOpenInEditorPending,
+							enabled: !isOpenInProgramPending,
 							accelerator: toElectronAccelerator(diffHotkeys.openInEditor.hotkey),
 							onSelect: () =>
-								openInEditor({
+								openInProgram({
 									projectId,
-									editorId: preferredEditor.id,
+									programId: preferredEditor.id,
 									path: change.path,
 									lineNr: lineNumber,
 								}),
@@ -89,11 +89,11 @@ export const useHunkMenuItems = ({
 								editors?.map((editor) =>
 									nativeMenuItem({
 										label: editor.name,
-										enabled: !isOpenInEditorPending,
+										enabled: !isOpenInProgramPending,
 										onSelect: () =>
-											openInEditor({
+											openInProgram({
 												projectId,
-												editorId: editor.id,
+												programId: editor.id,
 												path: change.path,
 												lineNr: lineNumber,
 											}),

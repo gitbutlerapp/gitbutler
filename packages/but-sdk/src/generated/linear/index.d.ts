@@ -433,17 +433,6 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
- * Open `path` within the given project's workdir using the editor specified by `editor_id`.
- *
- * `path` is resolved relative to the repository workdir.
- *
- * `line_nr` can be provided to open a file at a specific line.
- *
- * [`list_editors`] provides the available `editor_id`s.
- */
-export declare function openInEditor(projectId: string, editorId: string, path: string, lineNr: number | null): Promise<void>
-
-/**
  * Open `path` within the given project's workdir using the program specified by `program_id`.
  *
  * `path` is resolved relative to the repository workdir.
