@@ -13,19 +13,31 @@ import {
 } from "../src/util.ts";
 import { expect, type Page } from "@playwright/test";
 
-async function addProjectAndOpenWorkspace(page: Page, projectPath: string) {
+async function addProjectAndOpenWorkspace(
+	page: Page,
+	projectPath: string,
+	resolveBlockingModal?: () => Promise<void>,
+) {
 	await gotoOnboarding(page);
 
 	await mockPickDirectory(page, projectPath);
 	await clickByTestId(page, "add-local-project");
 
 	await waitForTestId(page, "project-setup-page");
-	clickByTestId(page, "set-base-branch");
+	const setBaseBranch = clickByTestId(page, "set-base-branch");
+	await resolveBlockingModal?.();
+	await setBaseBranch;
 	await waitForTestId(page, "workspace-view");
 }
 
 async function writeCommitAndAssert(page: Page, filePath: string) {
 	writeToFile(filePath, "This is supper important content");
+
+	// Load the change directly instead of depending on the file watcher. During
+	// onboarding, the initial workspace queries can overlap briefly with Git
+	// releasing config.lock and miss the first worktree event.
+	await page.reload();
+	await waitForTestId(page, "workspace-view");
 
 	const files = getByTestId(page, "file-list-item");
 	await expect(files).toHaveCount(1);
@@ -80,13 +92,13 @@ test("no author setup - should start the application and be able to commit", asy
 			GIT_CONFIG_GLOBAL,
 		});
 
-		await addProjectAndOpenWorkspace(page, gitbutler.pathInWorkdir("local-clone/"));
-
-		await waitForTestId(page, "global-modal-author-missing");
-		await fillByTestId(page, "global-modal-author-missing-name-input", "Test User");
-		await fillByTestId(page, "global-modal-author-missing-email-input", "test@example.com");
-		await clickByTestId(page, "global-modal-author-missing-action-button");
-		await expect(getByTestId(page, "global-modal-author-missing")).toBeHidden();
+		await addProjectAndOpenWorkspace(page, gitbutler.pathInWorkdir("local-clone/"), async () => {
+			await waitForTestId(page, "global-modal-author-missing");
+			await fillByTestId(page, "global-modal-author-missing-name-input", "Test User");
+			await fillByTestId(page, "global-modal-author-missing-email-input", "test@example.com");
+			await clickByTestId(page, "global-modal-author-missing-action-button");
+			await expect(getByTestId(page, "global-modal-author-missing")).toBeHidden();
+		});
 
 		await writeCommitAndAssert(page, gitbutler.pathInWorkdir("local-clone/test-file.txt"));
 	} finally {

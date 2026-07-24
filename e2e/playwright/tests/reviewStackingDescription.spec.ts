@@ -745,6 +745,7 @@ test("a Git push failure does not start review synchronization", async ({
 	await openWorkspace(page);
 
 	await publishReview(page, "branch1", "Description for branch1");
+	await expect(page.getByText("PR #42 created successfully")).toBeVisible();
 	server.setListed(true);
 	writeFileSync(gitbutler.pathInWorkdir("local-clone/a_file"), "rejected Git push\n", {
 		flag: "a",
