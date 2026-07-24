@@ -14,9 +14,11 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///
 /// * `JSONReturnType`
 ///     - Use it like `but_api(JSONReturnType)` where `JSONReturnType::from(actual_return_type)` is implemented.
+///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is converted for JSON serialization in `func_json` and `func_cmd`.
 /// * `try_from = JSONReturnType`
 ///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
+///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
 /// # Parameter Attributes
@@ -81,7 +83,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = &sig.inputs;
     let output = &sig.output;
 
-    let is_result_option = is_result_option(match output {
+    let result_container = result_container(match output {
         syn::ReturnType::Type(_, ty) => ty.as_ref(),
         syn::ReturnType::Default => panic!("function must return a type"),
     });
@@ -90,7 +92,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         Options::default()
     } else {
         match syn::parse::Parser::parse(
-            |input: syn::parse::ParseStream| parse_options(input, is_result_option),
+            |input: syn::parse::ParseStream| parse_options(input, result_container),
             attr,
         ) {
             Ok(opts) => opts,
@@ -184,34 +186,37 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let (convert_to_json_result_type, json_ty) = if let Some(ResultConversion {
         mode,
-        is_result_option,
+        container,
         json_ty,
         json_ty_rval,
     }) = opts.result_conversion
     {
         let convert = match mode {
-            FromMode::From => {
-                if is_result_option {
-                    quote! {
-                        let result: Option<#json_ty> = result.map(Into::into);
-                    }
-                } else {
-                    quote! {
-                        let result: #json_ty = result.into();
-                    }
-                }
-            }
-            FromMode::TryFrom => {
-                if is_result_option {
-                    quote! {
-                        let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
-                    }
-                } else {
-                    quote! {
-                        let result: #json_ty = result.try_into()?;
-                    }
-                }
-            }
+            FromMode::From => match container {
+                ResultContainer::Value => quote! {
+                    let result: #json_ty = result.into();
+                },
+                ResultContainer::Option => quote! {
+                    let result: Option<#json_ty> = result.map(Into::into);
+                },
+                ResultContainer::Vec => quote! {
+                    let result: Vec<#json_ty> = result.into_iter().map(Into::into).collect();
+                },
+            },
+            FromMode::TryFrom => match container {
+                ResultContainer::Value => quote! {
+                    let result: #json_ty = result.try_into()?;
+                },
+                ResultContainer::Option => quote! {
+                    let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
+                },
+                ResultContainer::Vec => quote! {
+                    let result: Vec<#json_ty> = result
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<_, _>>()?;
+                },
+            },
         };
         (convert, json_ty_rval)
     } else {
@@ -1078,15 +1083,18 @@ struct Options {
 struct ResultConversion {
     /// If the result type conversion is fallbile.
     mode: FromMode,
-    /// If the function returns `Result<Option<T>>>`
-    is_result_option: bool,
+    /// Container around the converted value in the function's `Result`.
+    container: ResultContainer,
     /// The type to convert *to* for json.
     json_ty: syn::Type,
-    /// The resulting JSON type after applying option wrapping.
+    /// The resulting JSON type after applying container wrapping.
     json_ty_rval: syn::Type,
 }
 
-fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn::Result<Options> {
+fn parse_options(
+    input: syn::parse::ParseStream,
+    container: ResultContainer,
+) -> syn::Result<Options> {
     let mut napi = false;
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
 
@@ -1134,14 +1142,14 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
             qself: None,
             path: p,
         });
-        let json_ty_rval = if is_result_option {
-            syn::parse_quote! { Option<#base_ty> }
-        } else {
-            base_ty.clone()
+        let json_ty_rval = match container {
+            ResultContainer::Value => base_ty.clone(),
+            ResultContainer::Option => syn::parse_quote! { Option<#base_ty> },
+            ResultContainer::Vec => syn::parse_quote! { Vec<#base_ty> },
         };
         ResultConversion {
             mode,
-            is_result_option,
+            container,
             json_ty: base_ty,
             json_ty_rval,
         }
@@ -1153,8 +1161,15 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
     })
 }
 
-/// Detect `Result<Option<` type
-fn is_result_option(ty: &syn::Type) -> bool {
+#[derive(Clone, Copy)]
+enum ResultContainer {
+    Value,
+    Option,
+    Vec,
+}
+
+/// Detect the supported container directly inside `Result`.
+fn result_container(ty: &syn::Type) -> ResultContainer {
     if let syn::Type::Path(tp) = ty
         && let Some(seg) = tp.path.segments.last()
         && seg.ident == "Result"
@@ -1162,11 +1177,14 @@ fn is_result_option(ty: &syn::Type) -> bool {
         && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
         && let syn::Type::Path(tp) = inner
         && let Some(first) = tp.path.segments.last()
-        && first.ident == "Option"
     {
-        true
+        match first.ident.to_string().as_str() {
+            "Option" => ResultContainer::Option,
+            "Vec" => ResultContainer::Vec,
+            _ => ResultContainer::Value,
+        }
     } else {
-        false
+        ResultContainer::Value
     }
 }
 

@@ -1,7 +1,8 @@
 //! Tests for [`but_api::branch::branch_list()`].
 
-use but_api::branch::json::{BranchReviewStatus, ListedStackStatus};
+use but_branches::ListedStackStatus;
 use but_forge::ForgeReview;
+use gix::bstr::ByteSlice;
 
 use crate::support::{repo_with_feature_branch, set_project_target_to_feature};
 
@@ -52,7 +53,13 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
                 stack
                     .branches
                     .iter()
-                    .map(|branch| branch.display_name.as_str())
+                    .map(|branch| {
+                        branch
+                            .branch
+                            .display_name
+                            .to_str()
+                            .expect("fixture branch names are valid UTF-8")
+                    })
                     .collect(),
             )
         })
@@ -65,9 +72,9 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
     );
 
     let feature = &stacks[0].branches[0];
-    assert!(feature.has_local, "feature exists as a local branch");
+    assert!(feature.branch.has_local, "feature exists as a local branch");
     assert_eq!(
-        feature.commit_count,
+        feature.branch.commit_count,
         Some(0),
         "feature sits on the target commit and contributes nothing on top"
     );
@@ -86,8 +93,8 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
         "the listing carries what it takes to display and open the review"
     );
     assert!(
-        matches!(feature.review_status, Some(BranchReviewStatus::Open)),
-        "the server-derived review status matches the open review"
+        !review.draft && review.closed_at.is_none() && !review.is_merged(),
+        "the cached review is open"
     );
 
     let main = &stacks[1].branches[0];
@@ -96,7 +103,7 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
         "no cached review exists for the main branch"
     );
     assert_eq!(
-        main.commits_ahead_of_target,
+        main.branch.commits_ahead_of_target,
         Some(1),
         "main has one commit on top of the target"
     );

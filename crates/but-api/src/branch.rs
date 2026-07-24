@@ -71,6 +71,7 @@ pub struct BranchCheckoutResult {
 
 /// JSON transport types for branch APIs.
 pub mod json {
+    use bstr::ByteSlice;
     use but_workspace::{branch::apply::OutcomeStatus, ui::ref_info::BranchReference};
     use serde::{Deserialize, Serialize};
 
@@ -716,6 +717,46 @@ pub mod json {
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(BranchReviewStatus);
+
+    impl From<super::ListedStack> for ListedStack {
+        fn from(value: super::ListedStack) -> Self {
+            Self {
+                status: value.status.into(),
+                branches: value.branches.into_iter().map(Into::into).collect(),
+                updated_at_ms: value.updated_at_ms,
+            }
+        }
+    }
+
+    impl From<super::ListedBranch> for ListedBranch {
+        fn from(value: super::ListedBranch) -> Self {
+            let super::ListedBranch { branch, review } = value;
+            let review_status = review.as_ref().map(|review| {
+                if review.is_merged() {
+                    BranchReviewStatus::Merged
+                } else if review.closed_at.is_some() {
+                    BranchReviewStatus::Closed
+                } else if review.draft {
+                    BranchReviewStatus::Draft
+                } else {
+                    BranchReviewStatus::Open
+                }
+            });
+            Self {
+                ref_name: branch.ref_name.into(),
+                display_name: branch.display_name.to_str_lossy().into_owned(),
+                tip: branch.tip.into(),
+                has_local: branch.has_local,
+                remote_refs: branch.remote_refs.into_iter().map(Into::into).collect(),
+                commit_count: branch.commit_count,
+                commits_ahead_of_target: branch.commits_ahead_of_target,
+                last_author: branch.last_author.map(Into::into),
+                updated_at_ms: branch.updated_at_ms,
+                review: review.as_ref().map(Into::into),
+                review_status,
+            }
+        }
+    }
 
     impl TryFrom<but_workspace::branch::InitialBranchIntegration> for InitialBranchIntegration {
         type Error = anyhow::Error;
@@ -1607,9 +1648,9 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 /// workspace-related ones. Ahead-counts are relative to the
 /// project's configured target branch, which clients know from the project APIs.
 /// For the listing semantics, see [`but_branches::list()`].
-#[but_api(napi)]
+#[but_api(napi, json::ListedStack)]
 #[instrument(err(Debug))]
-pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<json::ListedStack>> {
+pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
     let meta = ctx.meta()?;
     let project_meta = ctx.project_meta()?;
     let _guard = ctx.shared_worktree_access();
@@ -1630,50 +1671,40 @@ pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<json::ListedStack>> {
     Ok(listing
         .stacks
         .into_iter()
-        .map(|stack| json::ListedStack {
-            status: stack.status.into(),
+        .map(|stack| ListedStack {
+            status: stack.status,
             updated_at_ms: stack.updated_at_ms,
             branches: stack
                 .branches
                 .into_iter()
-                .map(|branch| listed_branch_json(branch, &mut reviews_by_head))
+                .map(|branch| {
+                    let review =
+                        reviews_by_head.remove(branch.display_name.to_str_lossy().as_ref());
+                    ListedBranch { branch, review }
+                })
                 .collect(),
         })
         .collect())
 }
 
-/// Convert one listed branch to its transport form, joining the cached review that
-/// belongs to it. Reviews are cached under the pushed short branch name.
-fn listed_branch_json(
-    branch: but_branches::ListedBranch,
-    reviews_by_head: &mut std::collections::HashMap<String, but_forge::ForgeReview>,
-) -> json::ListedBranch {
-    let display_name = branch.display_name.to_str_lossy().into_owned();
-    let review = reviews_by_head.remove(&display_name);
-    let review_status = review.as_ref().map(|review| {
-        if review.is_merged() {
-            json::BranchReviewStatus::Merged
-        } else if review.closed_at.is_some() {
-            json::BranchReviewStatus::Closed
-        } else if review.draft {
-            json::BranchReviewStatus::Draft
-        } else {
-            json::BranchReviewStatus::Open
-        }
-    });
-    json::ListedBranch {
-        ref_name: branch.ref_name.into(),
-        display_name,
-        tip: branch.tip.into(),
-        has_local: branch.has_local,
-        remote_refs: branch.remote_refs.into_iter().map(Into::into).collect(),
-        commit_count: branch.commit_count,
-        commits_ahead_of_target: branch.commits_ahead_of_target,
-        last_author: branch.last_author.map(Into::into),
-        updated_at_ms: branch.updated_at_ms,
-        review: review.as_ref().map(Into::into),
-        review_status,
-    }
+/// A listed stack enriched with cached forge review data.
+#[derive(Debug)]
+pub struct ListedStack {
+    /// How the stack relates to the workspace.
+    pub status: but_branches::ListedStackStatus,
+    /// The branches in the stack, from tip to base.
+    pub branches: Vec<ListedBranch>,
+    /// The committer timestamp of the newest branch tip.
+    pub updated_at_ms: Option<i64>,
+}
+
+/// A listed branch and its cached forge review, if present.
+#[derive(Debug)]
+pub struct ListedBranch {
+    /// The branch listing data.
+    pub branch: but_branches::ListedBranch,
+    /// The cached review associated with the branch.
+    pub review: Option<but_forge::ForgeReview>,
 }
 
 /// Get the initial upstream integration script for `branch`.
