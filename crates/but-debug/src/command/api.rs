@@ -16,8 +16,16 @@ pub(crate) fn run(
     err: &mut dyn io::Write,
 ) -> Result<()> {
     match &api_args.cmd {
+        ApiSubcommands::BranchList => branch_list(args, out),
         ApiSubcommands::UnapplyStack(unapply_args) => unapply_stack(args, unapply_args, out, err),
     }
+}
+
+fn branch_list(args: &Args, out: &mut dyn io::Write) -> Result<()> {
+    let ctx = discover_context(args)?;
+    let branches = but_api::branch::branch_list(&ctx)?;
+    writeln!(out, "{branches:#?}")?;
+    Ok(())
 }
 
 fn unapply_stack(

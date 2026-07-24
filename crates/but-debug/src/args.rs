@@ -56,6 +56,8 @@ pub struct ApiArgs {
 /// The `but-api` entry points exposed by `but-debug`.
 #[derive(Debug, clap::Subcommand)]
 pub enum ApiSubcommands {
+    /// List branches through `but_api::branch::branch_list`.
+    BranchList,
     /// Unapply a stack through `but_api::legacy::virtual_branches::unapply_stack`.
     #[command(name = "unapply-stack", visible_alias = "unapply")]
     UnapplyStack(ApiUnapplyStackArgs),
