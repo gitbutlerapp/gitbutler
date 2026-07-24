@@ -429,6 +429,32 @@ fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
 }
 
 #[test]
+fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::Result<()> {
+    let root = TempDir::new()?;
+    gix::init(root.path().join("main"))?;
+    let repo = open_repo(&root.path().join("main"))?;
+    but_testsupport::invoke_bash(
+        "git commit --allow-empty -m M
+         git worktree add -b feat-a ../wt-a",
+        &repo,
+    );
+    let mut ctx = Context::from_repo_for_testing(repo)?;
+    ctx.settings.feature_flags.worktree_manipulation = true;
+
+    // Un-archiving is the very first worktree operation this project ever sees, so
+    // adoption still has to run. If it ran afterwards it would archive everything
+    // on disk and quietly undo this.
+    ctx.set_worktree_archived("wt-a".into(), false)?;
+
+    assert_eq!(
+        active_names(&ctx)?,
+        ["wt-a"],
+        "the explicit request outlives the adoption it triggered"
+    );
+    Ok(())
+}
+
+#[test]
 fn worktree_manipulation_flag_gates_worktree_state() -> anyhow::Result<()> {
     let root = TempDir::new()?;
     gix::init(root.path().join("main"))?;

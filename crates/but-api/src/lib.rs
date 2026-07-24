@@ -42,6 +42,9 @@ pub mod land;
 /// Functions that operate commits
 pub mod commit;
 
+/// Functions that operate on linked git worktrees (experimental).
+pub mod worktrees;
+
 /// Resolve the conflicts of a conflicted commit with an LLM.
 pub mod resolve;
 

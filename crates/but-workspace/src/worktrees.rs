@@ -122,19 +122,3 @@ pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result
         .with_context(|| format!("Worktree {name} does not exist"))?;
     proxy.into_repo().map_err(Into::into)
 }
-
-/// Persist the archived state of the worktree named `name`.
-///
-/// This is an upsert - a worktree without a row is simply active, so archiving
-/// creates its row on demand.
-pub fn set_worktree_archived(
-    db: &mut but_db::DbHandle,
-    name: &BStr,
-    archived: bool,
-) -> anyhow::Result<()> {
-    db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
-        name: name.to_vec(),
-        archived,
-    })?;
-    Ok(())
-}
