@@ -198,11 +198,34 @@ const mkCodeViewItem = (
 	};
 };
 
+const changesetKeyOf = (outlineSelection: Operand): string =>
+	Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef }) => decodeBytes(branchRef),
+			File: ({ path }) => path,
+			Commit: ({ commitId }) => commitId,
+		}),
+		Match.orElseAbsurd,
+	);
+
+const fileParentOf = (outlineSelection: Operand): FileParent =>
+	Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef }) => branchFileParent({ branchRef }),
+			File: ({ parent }) => parent,
+			Commit: ({ commitId }) => commitFileParent({ commitId }),
+		}),
+		Match.orElseAbsurd,
+	);
+
 type DiffViewDeps = {
-	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
-	changesetKey: string;
+	/**
+	 * Taken whole rather than pre-derived, so the caller can build this from
+	 * values that keep a stable identity across renders.
+	 */
+	outlineSelection: Operand;
 };
 
 type DiffViewFile = {
@@ -228,12 +251,10 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
-	changesetKey,
-}: DiffViewDeps): DiffView => {
+const getDiffView = ({ changes, treeChangeDiffs, outlineSelection }: DiffViewDeps): DiffView => {
+	const changesetKey = changesetKeyOf(outlineSelection);
+	const fileParent = fileParentOf(outlineSelection);
+
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -978,33 +999,23 @@ const Diff: FC<{
 		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
 	);
 
-	const changesetKey = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			File: ({ path }) => path,
-			Commit: ({ commitId }) => commitId,
-		}),
-		Match.orElseAbsurd,
-	);
-	const fileParent = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => branchFileParent({ branchRef }),
-			File: ({ parent }) => parent,
-			Commit: ({ commitId }) => commitFileParent({ commitId }),
-		}),
-		Match.orElseAbsurd,
-	);
+	const changesetKey = changesetKeyOf(outlineSelection);
+	const fileParent = fileParentOf(outlineSelection);
 
-	const treeChangeDiffs = useSuspenseQueries({
+	// Built inside `combine` so the result keeps a stable identity: react-query
+	// caches it on the query results and the combine reference, and the compiler
+	// memoizes this inline closure by its captures. Building it during render
+	// instead walks every file and hunk of the changeset on every pass — with a
+	// branch selected, that is one diff spanning the whole branch, so merely
+	// moving between files paid for rebuilding all of them.
+	const diffView = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => results.map((result) => result.data),
-	});
-
-	const diffView = getDiffView({
-		fileParent,
-		changes,
-		treeChangeDiffs,
-		changesetKey,
+		combine: (results) =>
+			getDiffView({
+				changes,
+				treeChangeDiffs: results.map((result) => result.data),
+				outlineSelection,
+			}),
 	});
 
 	const selectFileAndNavigateDiff = (selection: string) => {
