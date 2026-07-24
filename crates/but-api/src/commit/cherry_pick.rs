@@ -15,9 +15,10 @@ use super::types::CommitCherryPickResult;
 
 /// Cherry-picks `source_commit_ids` to `side` of `relative_to`.
 ///
-/// Sources are deduplicated and ordered by parentage. When `dry_run` is
-/// enabled, the returned workspace previews the rewritten graph without
-/// materializing it.
+/// Sources may live anywhere in the repository, including outside the
+/// workspace. They are deduplicated and applied in the order given. When
+/// `dry_run` is enabled, the returned workspace previews the rewritten graph
+/// without materializing it.
 #[but_api(try_from = crate::commit::json::CommitCherryPickResult)]
 #[instrument(err(Debug))]
 pub fn commit_cherry_pick_only(

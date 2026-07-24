@@ -148,3 +148,116 @@ fn cherry_pick_dry_run_does_not_persist_commits_or_move_the_reference() -> anyho
     }
     Ok(())
 }
+
+/// Add a branch holding `outside-one` and `outside-two` that the workspace traversal doesn't
+/// reach, the way the branches view offers commits from unapplied branches for cherry-picking.
+fn add_branch_outside_the_workspace(tmp: &std::path::Path) -> anyhow::Result<()> {
+    git_at_dir(tmp)
+        .args(["checkout", "-b", "unapplied", "refs/remotes/origin/main"])
+        .run();
+    for name in ["outside-one", "outside-two"] {
+        write_file(tmp, &format!("{name}.txt"), "outside\n")?;
+        git_at_dir(tmp).args(["add", "."]).run();
+        git_at_dir(tmp).args(["commit", "-m", name]).run();
+    }
+    git_at_dir(tmp).args(["checkout", "main"]).run();
+    Ok(())
+}
+
+#[test]
+fn cherry_pick_from_a_branch_outside_the_workspace() -> anyhow::Result<()> {
+    let (mut ctx, tmp) = context_with_cherry_pick_history()?;
+    add_branch_outside_the_workspace(tmp.path())?;
+
+    let (outside_commit, main_tip) = {
+        let repo = ctx.repo.get()?;
+        (
+            repo.rev_parse_single("refs/heads/unapplied")?.detach(),
+            repo.rev_parse_single("main")?.detach(),
+        )
+    };
+    let main_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
+
+    let result = but_api::commit::cherry_pick::commit_cherry_pick(
+        &mut ctx,
+        vec![outside_commit],
+        RelativeTo::Reference(main_ref.clone()),
+        InsertSide::Below,
+        DryRun::No,
+    )?;
+
+    assert_eq!(result.new_commits.len(), 1);
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        result.new_commits[0],
+        "the copy becomes the new branch tip"
+    );
+    assert_eq!(
+        repo.find_commit(result.new_commits[0])?
+            .parent_ids()
+            .next()
+            .expect("the copy is stacked onto the previous tip")
+            .detach(),
+        main_tip
+    );
+    assert_ne!(
+        result.new_commits[0], outside_commit,
+        "the source is copied, not moved"
+    );
+    Ok(())
+}
+
+#[test]
+fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<()> {
+    let (mut ctx, tmp) = context_with_cherry_pick_history()?;
+    add_branch_outside_the_workspace(tmp.path())?;
+
+    let (outside_first, outside_second) = {
+        let repo = ctx.repo.get()?;
+        (
+            repo.rev_parse_single("refs/heads/unapplied~1")?.detach(),
+            repo.rev_parse_single("refs/heads/unapplied")?.detach(),
+        )
+    };
+    let main_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
+
+    // This is what interactive `but pick` does: several commits off an unapplied branch, handed
+    // over oldest-first and applied in that order.
+    let result = but_api::commit::cherry_pick::commit_cherry_pick(
+        &mut ctx,
+        vec![outside_first, outside_second],
+        RelativeTo::Reference(main_ref.clone()),
+        InsertSide::Below,
+        DryRun::No,
+    )?;
+
+    assert_eq!(result.new_commits.len(), 2);
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        result.new_commits[1],
+        "the last source given ends up as the branch tip"
+    );
+    assert_eq!(
+        repo.find_commit(result.new_commits[1])?
+            .parent_ids()
+            .next()
+            .expect("the copies are stacked in the order given")
+            .detach(),
+        result.new_commits[0]
+    );
+    let titles = result
+        .new_commits
+        .iter()
+        .map(|id| -> anyhow::Result<String> {
+            Ok(repo.find_commit(*id)?.message()?.title.to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(
+        titles,
+        ["outside-one\n", "outside-two\n"],
+        "the copies keep the order the sources were given in"
+    );
+    Ok(())
+}
