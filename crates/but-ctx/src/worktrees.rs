@@ -36,6 +36,7 @@ impl Context {
             .worktree_tips
             .extend(self.active_worktrees()?.into_iter().map(|worktree| {
                 but_graph::init::WorktreeTip {
+                    name: worktree.name,
                     ref_name: worktree.ref_name,
                     id: worktree.head,
                 }

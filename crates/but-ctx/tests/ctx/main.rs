@@ -751,6 +751,16 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     }
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
+    let options = ctx.graph_options(Default::default())?;
+    assert_eq!(
+        options
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.to_string())
+            .collect::<Vec<_>>(),
+        ["wt-b"],
+        "graph options preserve the stable name of each active worktree"
+    );
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
         snapbox::str![[r#"

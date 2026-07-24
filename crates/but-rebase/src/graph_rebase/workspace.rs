@@ -259,14 +259,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
     fn head_index(&self) -> Option<StepGraphIndex> {
-        self.checkouts
-            .iter()
-            .find_map(|Checkout::Head { selector, .. }| {
-                self.history
-                    .normalize_selector(*selector)
-                    .ok()
-                    .map(|s| s.id)
-            })
+        self.checkouts.iter().find_map(|checkout| match checkout {
+            Checkout::Head { selector, .. } => self
+                .history
+                .normalize_selector(*selector)
+                .ok()
+                .map(|s| s.id),
+            Checkout::Worktree { .. } => None,
+        })
     }
 
     /// The target commit's node, if a target is configured and present.

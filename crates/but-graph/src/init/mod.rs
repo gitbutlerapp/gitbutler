@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail, ensure};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, extract_remote_name_and_short_name,
     ref_metadata::{self, ProjectMeta},
@@ -502,6 +502,11 @@ pub struct Options {
 /// [`Options::worktree_tips`].
 #[derive(Debug, Clone)]
 pub struct WorktreeTip {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    ///
+    /// Traversal does not consume it, but it travels with the graph for consumers
+    /// that need to identify the linked worktree.
+    pub name: BString,
     /// The branch the worktree has checked out, if its `HEAD` is symbolic.
     pub ref_name: Option<gix::refs::FullName>,
     /// The peeled `HEAD` commit at caller resolution time.

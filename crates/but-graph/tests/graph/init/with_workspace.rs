@@ -8125,6 +8125,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     // target, and remote computations undisturbed.
     let mut options = standard_options();
     options.worktree_tips = vec![but_graph::init::WorktreeTip {
+        name: "workspace-with-external-branch-feature".into(),
         ref_name: Some("refs/heads/wt-feature".try_into()?),
         id: repo.find_reference("wt-feature")?.peel_to_id()?.detach(),
     }];
