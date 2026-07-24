@@ -3,22 +3,18 @@
 use crate::legacy::workspace::HeadInfoStack;
 use crate::theme::{self, Paint};
 use anyhow::{Context as _, Result, bail};
-use but_api::legacy::{cherry_apply, virtual_branches};
-use but_cherry_apply::CherryApplyStatus;
-use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
+use but_api::legacy::virtual_branches;
+use but_core::{DryRun, RepositoryExt, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_branch_actions::BranchListingFilter;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
 use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{
     CliId, IdMap,
     command::legacy::workspace_target,
     id::CommitId,
-    utils::{OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id},
+    utils::{OutputChannel, WriteWithUtils, shorten_object_id},
 };
 
 /// Handle the `but pick` command.
@@ -40,68 +36,28 @@ pub fn handle(
         bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
     }
 
-    // If no target branch was specified, resolve it once upfront so the user
-    // isn't prompted repeatedly when picking multiple commits.
-    let target_branch_resolved: Option<String>;
-    let effective_target = if target_branch.is_some() {
-        target_branch
-    } else if stacks.len() > 1 && out.can_prompt() {
-        let mut input = out
-            .prepare_for_terminal_input()
-            .context("Human input required - run this in a terminal")?;
-        let (_stack_id, branch_name) = select_target_interactively(&mut input, &stacks)?;
-        target_branch_resolved = Some(branch_name);
-        target_branch_resolved.as_deref()
-    } else {
-        None
-    };
+    // Resolve the target before the source so an interactive run prompts for the branch first.
+    let target = resolve_target_stack(ctx, out, &id_map, &stacks, target_branch)?;
 
     // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
     let commit_oids = resolve_source_commits(ctx, guard.read_permission(), out, &id_map, source)?;
 
-    // Save an oplog snapshot before applying picks so the operation can be undone
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::CherryPick),
+    // All picks land on the target branch in one rebase, which also records the oplog snapshot.
+    but_api::commit::cherry_pick::commit_cherry_pick_with_perm(
+        ctx,
+        commit_oids.clone(),
+        RelativeTo::Reference(target.reference.clone()),
+        InsertSide::Below,
+        DryRun::No,
         guard.write_permission(),
-    );
-
-    let mut picked = Vec::new();
-    for commit_oid in &commit_oids {
-        let commit_hex = commit_oid.to_string();
-
-        // Check cherry-apply status for each commit
-        let status =
-            cherry_apply::cherry_apply_status_with_perm(ctx, *commit_oid, guard.read_permission())
-                .context("Failed to check cherry-apply status")?;
-
-        // Resolve the target stack based on status and user input
-        let (target_stack_id, target_branch_name) = resolve_target_stack(
-            ctx,
-            out,
-            &id_map,
-            &stacks,
-            effective_target,
-            &status,
-            &commit_hex,
-        )?;
-
-        // Execute cherry-apply
-        cherry_apply::cherry_apply_with_perm(
-            ctx,
-            *commit_oid,
-            target_stack_id,
-            guard.write_permission(),
-        )
-        .context("Failed to cherry-pick commit")?;
-
-        picked.push((commit_hex, target_branch_name, target_stack_id));
-    }
+    )
+    .context("Failed to cherry-pick commit")?;
 
     // Output results
     let t = theme::get();
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
-    for (commit_hex, target_branch_name, _) in &picked {
-        let commit_short = shorten_hex_object_id(&repo, commit_hex);
+    for commit_oid in &commit_oids {
+        let commit_short = shorten_object_id(&repo, *commit_oid);
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
@@ -109,38 +65,30 @@ pub fn handle(
                 t.success.paint("Picked commit"),
                 t.commit_id.paint(&commit_short),
                 t.success.paint("into branch"),
-                t.local_branch.paint(target_branch_name)
+                t.local_branch.paint(&target.name)
             )?;
         }
     }
 
     if let Some(out) = out.for_shell() {
-        for (commit_hex, _, _) in &picked {
-            writeln!(out, "{commit_hex}")?;
+        for commit_oid in &commit_oids {
+            writeln!(out, "{commit_oid}")?;
         }
     }
 
     if let Some(out) = out.for_json() {
-        if picked.len() == 1 {
-            let (commit_hex, target_branch_name, target_stack_id) = &picked[0];
-            out.write_value(serde_json::json!({
-                "picked_commit": commit_hex,
-                "target_branch": target_branch_name,
-                "target_stack_id": target_stack_id.to_string(),
-            }))?;
+        let picked = |commit_oid: &gix::ObjectId| {
+            serde_json::json!({
+                "picked_commit": commit_oid.to_string(),
+                "target_branch": target.name,
+                "target_stack_id": target.stack_id.to_string(),
+            })
+        };
+        if let [only] = commit_oids.as_slice() {
+            out.write_value(picked(only))?;
         } else {
-            let commits: Vec<_> = picked
-                .iter()
-                .map(|(commit_hex, target_branch_name, target_stack_id)| {
-                    serde_json::json!({
-                        "picked_commit": commit_hex,
-                        "target_branch": target_branch_name,
-                        "target_stack_id": target_stack_id.to_string(),
-                    })
-                })
-                .collect();
             out.write_value(serde_json::json!({
-                "picked_commits": commits,
+                "picked_commits": commit_oids.iter().map(picked).collect::<Vec<_>>(),
             }))?;
         }
     }
@@ -301,38 +249,24 @@ fn select_commits_from_branch(
         .collect())
 }
 
-/// Resolve the target stack based on user input and cherry-apply status.
+/// The branch that picked commits land on.
+#[derive(Clone)]
+struct PickTarget {
+    stack_id: StackId,
+    /// The branch tip the picks are placed below, i.e. on top of.
+    reference: gix::refs::FullName,
+    /// The branch name as shown to the user.
+    name: String,
+}
+
+/// Resolve the target stack based on user input.
 fn resolve_target_stack(
     ctx: &Context,
     out: &mut OutputChannel,
     id_map: &IdMap,
     stacks: &[HeadInfoStack],
     target_branch: Option<&str>,
-    status: &CherryApplyStatus,
-    commit_hex: &str,
-) -> Result<(StackId, String)> {
-    // Handle status-based constraints
-    match status {
-        CherryApplyStatus::NoStacks => {
-            // This shouldn't happen since we check earlier, but handle it gracefully
-            bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
-        }
-        CherryApplyStatus::CausesWorkspaceConflict => {
-            let repo = ctx.repo.get()?;
-            let commit_short = shorten_hex_object_id(&repo, commit_hex);
-            bail!(
-                "Commit {commit_short} would cause conflicts with multiple stacks. \
-                 Resolve workspace conflicts first."
-            );
-        }
-        CherryApplyStatus::LockedToStack(locked_stack_id) => {
-            return handle_locked_to_stack(out, stacks, target_branch, *locked_stack_id);
-        }
-        CherryApplyStatus::ApplicableToAnyStack => {
-            // Can apply to any stack, continue with target resolution
-        }
-    }
-
+) -> Result<PickTarget> {
     // If target is specified, find matching stack (by CLI ID or name)
     if let Some(target) = target_branch {
         return find_stack_by_target(ctx, id_map, stacks, target);
@@ -340,7 +274,7 @@ fn resolve_target_stack(
 
     // If only one stack, use it automatically
     if stacks.len() == 1 {
-        return get_stack_info(&stacks[0]);
+        return pick_target(&stacks[0]);
     }
 
     // Multiple stacks and no target specified - need interactive selection
@@ -358,61 +292,23 @@ Available stacks: {}",
     select_target_interactively(&mut input, stacks)
 }
 
-/// Handle the case where a commit is locked to a specific stack.
-fn handle_locked_to_stack(
-    out: &mut OutputChannel,
-    stacks: &[HeadInfoStack],
-    target_branch: Option<&str>,
-    locked_stack_id: StackId,
-) -> Result<(StackId, String)> {
-    let locked_stack = stacks
-        .iter()
-        .find(|stack| stack.id == Some(locked_stack_id))
-        .context("Locked stack not found in workspace")?;
-
-    let locked_branch_name = locked_stack
-        .top_branch_name()
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| locked_stack_id.to_string());
-
-    // Warn if user specified a different target
-    if let Some(target) = target_branch {
-        let target_lower = target.to_lowercase();
-        let target_matches = locked_stack
-            .branches
-            .iter()
-            .any(|branch| branch.name == target || branch.name.to_lowercase() == target_lower);
-
-        let t = theme::get();
-        if !target_matches && let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "{} Commit is locked to '{}' due to conflicts. Ignoring specified target.",
-                t.attention.paint("Warning:"),
-                t.local_branch.paint(&locked_branch_name)
-            )?;
-        }
-    }
-
-    Ok((locked_stack_id, locked_branch_name))
-}
-
 /// Find a stack by CLI ID or branch name (case-insensitive).
 fn find_stack_by_target(
     ctx: &Context,
     id_map: &IdMap,
     stacks: &[HeadInfoStack],
     target: &str,
-) -> Result<(StackId, String)> {
+) -> Result<PickTarget> {
     // Try parsing as CLI ID first
     if let Ok(cli_ids) = id_map.parse_using_context(target, ctx) {
         for cli_id in &cli_ids {
             if let CliId::Branch(branch) = cli_id
                 && let Some(stack_id) = branch.stack_id
             {
-                // Verify the stack is in our list of applied stacks
-                if stacks.iter().any(|stack| stack.id == Some(stack_id)) {
-                    return Ok((stack_id, branch.name.clone()));
+                // Verify the stack is in our list of applied stacks. Picks land on the stack's
+                // top branch even when the ID names one further down, as they always have.
+                if let Some(stack) = stacks.iter().find(|stack| stack.id == Some(stack_id)) {
+                    return pick_target(stack);
                 }
             }
         }
@@ -423,7 +319,7 @@ fn find_stack_by_target(
     for stack in stacks {
         for branch in &stack.branches {
             if branch.name == target || branch.name.to_lowercase() == target_lower {
-                return get_stack_info(stack);
+                return pick_target(stack);
             }
         }
     }
@@ -436,14 +332,18 @@ Available stacks: {}",
     );
 }
 
-/// Extract stack ID and branch name from a stack entry.
-fn get_stack_info(stack: &HeadInfoStack) -> Result<(StackId, String)> {
+/// Extract the pick target from a stack entry.
+fn pick_target(stack: &HeadInfoStack) -> Result<PickTarget> {
     let stack_id = stack.id.context("Stack has no ID")?;
-    let branch_name = stack
-        .top_branch_name()
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| stack_id.to_string());
-    Ok((stack_id, branch_name))
+    let top_branch = stack
+        .branches
+        .first()
+        .context("Stack has no branches to pick into")?;
+    Ok(PickTarget {
+        stack_id,
+        reference: top_branch.reference.clone(),
+        name: top_branch.name.clone(),
+    })
 }
 
 /// Format stack names for display in error messages.
@@ -459,13 +359,12 @@ fn format_stack_names(stacks: &[HeadInfoStack]) -> String {
 fn select_target_interactively(
     input: &mut crate::utils::InputOutputChannel<'_>,
     stacks: &[HeadInfoStack],
-) -> Result<(StackId, String)> {
+) -> Result<PickTarget> {
     let options = stacks
         .iter()
         .filter_map(|stack| {
-            let stack_id = stack.id?;
-            let branch_name = stack.top_branch_name()?.to_owned();
-            Some((branch_name.clone(), (stack_id, branch_name)))
+            let target = pick_target(stack).ok()?;
+            Some((target.name.clone(), target))
         })
         .collect::<Vec<_>>();
     let options =
