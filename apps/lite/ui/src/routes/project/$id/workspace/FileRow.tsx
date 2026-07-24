@@ -1,3 +1,4 @@
+import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -102,7 +103,13 @@ export const FileRow: FC<
 				</div>
 
 				<RowLabelContainer>
-					{item._tag === "Conflict" && "⚠️"}
+					{item._tag === "Conflict" && (
+						<ConflictIcon
+							variant="conflict"
+							className={styles.conflictIcon}
+							aria-label="Conflicted"
+						/>
+					)}
 					<RowLabel singleLine>
 						{fileName}
 						{directoryPath !== null && (

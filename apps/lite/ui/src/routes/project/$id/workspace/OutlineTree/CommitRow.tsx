@@ -9,6 +9,7 @@ import {
 } from "#ui/api/mutations.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
+import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -375,13 +376,19 @@ export const CommitRow: FC<
 				/>
 			) : (
 				<RowLabelContainer>
+					{hasConflicts && (
+						<ConflictIcon
+							variant="conflict"
+							className={styles.conflictIcon}
+							aria-label="Conflicted"
+						/>
+					)}
 					<RowLabel singleLine>
 						{title === undefined ? (
 							<span className={rowStyles.fadedText}>(no message)</span>
 						) : (
 							title
 						)}
-						{hasConflicts && " ⚠️"}
 					</RowLabel>
 				</RowLabelContainer>
 			)}

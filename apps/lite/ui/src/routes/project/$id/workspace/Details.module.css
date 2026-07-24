@@ -284,3 +284,7 @@
 	gap: 8px;
 	color: var(--text-3);
 }
+
+.commitConflictBadge {
+	flex-shrink: 0;
+}
