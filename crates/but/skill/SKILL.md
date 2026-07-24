@@ -138,7 +138,7 @@ To make one existing branch depend on another: `but move <child-branch> <parent-
 
 ### Create or manage pull requests
 
-`but pr new <branch-id>` pushes the branch and creates the PR in one step — no prior `but push`. Provide `-F pr_message.txt`, `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. If forge auth is missing, run `but config forge auth`. When the GitButler MCP server exposes `gitbutler_review_card`, call it with every review number returned by `but pr new` so the created PRs/MRs are shown to the user; omit `repository` when the MCP client has supplied the current repository as a filesystem root. The rendered card refreshes review and CI state itself while monitoring is active.
+`but pr new <branch-id>` pushes the branch and creates the PR in one step — no prior `but push`. Provide `-F pr_message.txt`, `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. If forge auth is missing, run `but config forge auth`. When the GitButler MCP server exposes `gitbutler_review_card`, call it with every review number returned by `but pr new` so the created PRs/MRs are shown to the user; pass the active repository path when it is known, and omit it only when the MCP client is known to supply that repository as a filesystem root. The rendered card refreshes review and CI state itself while monitoring is active.
 
 For stacked branches `but pr` is mandatory (it sets PR bases and stack metadata; `gh pr create` breaks that). To publish a whole stack: `but pr new <top-branch-id> -t`. Manage with `but pr auto-merge|set-draft|set-ready <selector>`. See `references/reference.md` for details.
 

@@ -540,26 +540,14 @@ function CommitDetail({
 
 			{stats && (
 				<div className="change-summary" aria-label="Commit change summary">
-					<strong>{stats.filesChanged}</strong> files
-					<span className="additions">+{stats.linesAdded}</span>
-					<span className="deletions">−{stats.linesRemoved}</span>
-				</div>
-			)}
-
-			{detail && detail.details.changes.length > 0 && (
-				<div className="changed-files">
-					<span className="section-label">Changed files</span>
-					<ul>
-						{detail.details.changes.slice(0, 6).map((change) => (
-							<li key={change.path}>
-								<span>{change.path}</span>
-								<small>{change.status.type}</small>
-							</li>
-						))}
-					</ul>
-					{detail.details.changes.length > 6 && (
-						<small className="more-files">+{detail.details.changes.length - 6} more files</small>
-					)}
+					<span>
+						<strong>{stats.filesChanged}</strong> {stats.filesChanged === 1 ? "file" : "files"}{" "}
+						changed
+					</span>
+					<span className="line-stats" title="Lines added/removed">
+						{stats.linesAdded > 0 && <span className="additions">+{stats.linesAdded}</span>}
+						{stats.linesRemoved > 0 && <span className="deletions">-{stats.linesRemoved}</span>}
+					</span>
 				</div>
 			)}
 		</>
@@ -713,6 +701,11 @@ function Workspace({ view, app }: { view: WorkspaceView; app: App }) {
 	const canMessage = capabilities?.message !== undefined;
 
 	async function select(nextSelection: Selection) {
+		if (selection !== null && selectionKey(selection) === selectionKey(nextSelection)) {
+			clearSelection();
+			return;
+		}
+
 		const request = ++detailRequest.current;
 		setSelection(nextSelection);
 		setDetail(null);
@@ -777,7 +770,11 @@ function Workspace({ view, app }: { view: WorkspaceView; app: App }) {
 		setDetailError(null);
 		try {
 			if (canUpdateContext) {
-				await app.updateModelContext(selectionContext(view, selection));
+				try {
+					await app.updateModelContext(selectionContext(view, selection));
+				} catch {
+					// The message below carries the same repository and selection context.
+				}
 			}
 			const identifier = selectionIdentifier(selection);
 			const subject =
@@ -808,6 +805,26 @@ function Workspace({ view, app }: { view: WorkspaceView; app: App }) {
 		setDetail(null);
 		setDetailError(null);
 		setDetailLoading(false);
+		setCopied(null);
+		setPendingAction(null);
+		if (canUpdateContext) {
+			void app
+				.updateModelContext({
+					content: [
+						{
+							type: "text",
+							text: `The user has no commit or branch selected in the GitButler workspace for ${view.repository.path}.`,
+						},
+					],
+					structuredContent: {
+						repository: view.repository,
+						selection: null,
+					},
+				})
+				.catch(() => {
+					// Clearing the visible selection still succeeds if context updates are rejected.
+				});
+		}
 	}
 
 	return (
@@ -896,9 +913,10 @@ export function WorkspaceApp() {
 
 	const view = workspaceViewFromToolResult(toolResult);
 	if (view === null) {
+		const resultText = toolResult.content?.find((content) => content.type === "text")?.text;
 		return (
 			<div className="message-state error-state">
-				The workspace result did not contain structured data.
+				{resultText || "Codex did not provide workspace data for this result."}
 			</div>
 		);
 	}
