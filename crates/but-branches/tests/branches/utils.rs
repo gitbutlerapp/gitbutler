@@ -23,12 +23,16 @@ pub fn named_read_only_in_memory_scenario(
 }
 
 /// Project metadata whose target is `refs/remotes/origin/main`, pinned to the
-/// commit `main` points to.
+/// commit that same ref points to.
 pub fn project_meta_with_target(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
+    const TARGET_REF: &str = "refs/remotes/origin/main";
     Ok(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(TARGET_REF.try_into()?),
+        // Peel the target ref itself: deriving the commit from a different ref,
+        // such as a local `main`, would silently disagree with `target_ref` in a
+        // fixture where the two diverge or the local branch is absent.
         target_commit_id: repo
-            .try_find_reference("main")?
+            .try_find_reference(TARGET_REF)?
             .map(|mut r| r.peel_to_id())
             .transpose()?
             .map(|id| id.detach()),
