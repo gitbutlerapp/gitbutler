@@ -385,8 +385,7 @@ code {
 	gap: 5px;
 }
 
-.detail-kind,
-.section-label {
+.detail-kind {
 	color: var(--gb-text-2);
 	font-weight: var(--text-weight-semibold);
 	font-size: 9px;
@@ -471,6 +470,7 @@ code {
 .change-summary {
 	display: flex;
 	align-items: baseline;
+	justify-content: space-between;
 	padding-block: 8px;
 	gap: 4px;
 	border-block: 1px solid var(--gb-border-3);
@@ -480,62 +480,23 @@ code {
 
 .change-summary strong {
 	color: var(--gb-text-1);
-	font-size: 14px;
+	font-size: 12px;
 }
 
-.change-summary .additions {
-	margin-left: auto;
-	color: var(--text-success);
-}
-
-.change-summary .deletions {
-	color: var(--gb-danger);
-}
-
-.changed-files {
-	display: grid;
-	min-width: 0;
-	gap: 5px;
-}
-
-.changed-files ul {
-	display: grid;
-	margin: 0;
-	padding: 0;
-	gap: 2px;
-	list-style: none;
-}
-
-.changed-files li {
+.line-stats {
 	display: flex;
 	align-items: center;
-	min-width: 0;
-	padding: 3px 5px;
-	gap: 8px;
-	border-radius: var(--radius-button);
-	font-size: 10px;
+	width: fit-content;
+	gap: 3px;
+	font-weight: var(--text-weight-semibold);
 }
 
-.changed-files li:hover {
-	background: var(--gb-hover);
+.line-stats .additions {
+	color: var(--fill-safe-bg);
 }
 
-.changed-files li span {
-	flex: 1;
-	overflow: hidden;
-	font-family: var(--fontfamily-mono);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.changed-files li small,
-.more-files {
-	color: var(--gb-text-2);
-	font-size: 9px;
-}
-
-.more-files {
-	padding-left: 5px;
+.line-stats .deletions {
+	color: var(--fill-danger-bg);
 }
 
 .branch-status {

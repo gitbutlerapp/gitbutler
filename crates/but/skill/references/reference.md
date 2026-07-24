@@ -574,9 +574,10 @@ Run GitButler's Model Context Protocol server over standard input/output.
 but mcp serve
 ```
 
-Workspace tools use filesystem roots supplied by the MCP client by default.
-Callers can provide a repository path in an individual tool call when the
-desired repository is not available as a client root.
+Pass the active repository path to workspace tools when it is known. Omit it
+only when the MCP client is known to expose the desired repository as a
+filesystem root.
+
 ## Selected Options
 
 Useful to agents:

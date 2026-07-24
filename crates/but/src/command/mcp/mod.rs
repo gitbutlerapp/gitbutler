@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
-const WORKSPACE_RESOURCE_URI: &str = "ui://gitbutler/workspace/v3.html";
+const WORKSPACE_RESOURCE_URI: &str = "ui://gitbutler/workspace/v6.html";
 const REVIEW_RESOURCE_URI: &str = "ui://gitbutler/review/v2.html";
 const MCP_APP_MIME_TYPE: &str = "text/html;profile=mcp-app";
 // Generated from packages/but-mcp-app and committed so Cargo builds stay self-contained.
@@ -51,7 +51,7 @@ impl Mcp {
     #[tool(
         name = "gitbutler_workspace",
         title = "View GitButler workspace",
-        description = "Returns a GitButler workspace as stacks of branch references and commits. Omit repository to use the first applicable filesystem root supplied by the MCP client. Pass repository only when the roots do not identify the desired repository.",
+        description = "Returns a GitButler workspace as stacks of branch references and commits. Pass the active repository path when it is known. Omit repository only when the MCP client is known to expose the desired repository as a filesystem root.",
         annotations(
             title = "View GitButler workspace",
             read_only_hint = true,
@@ -66,23 +66,11 @@ impl Mcp {
         Parameters(request): Parameters<WorkspaceRequest>,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let result = workspace_view_for_request(request, context).await;
+        let result = workspace_view_for_request(request, context)
+            .await
+            .and_then(workspace_view_result);
         Ok(match result {
-            Ok(view) => {
-                let text = format!(
-                    "GitButler workspace for {}: {} stacks, {} branches, {} commits.",
-                    view.repository.name,
-                    view.summary.stacks,
-                    view.summary.branches,
-                    view.summary.commits
-                );
-                CallToolResult {
-                    content: vec![Content::text(text)],
-                    structured_content: serde_json::to_value(view).ok(),
-                    is_error: Some(false),
-                    meta: None,
-                }
-            }
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not read the GitButler workspace: {err:#}"
             ))]),
@@ -251,7 +239,7 @@ impl ServerHandler for Mcp {
 
         ServerInfo {
             instructions: Some(
-                "Use gitbutler_workspace to inspect a repository's current GitButler workspace. After `but pr new`, call gitbutler_review_card with the returned review numbers so the user can see the created reviews. Omit repository arguments to use filesystem roots from the MCP client; pass a path only when the desired repository is not available as a root."
+                "Use gitbutler_workspace to inspect a repository's current GitButler workspace. Pass the active repository path when it is available; omit it only when the client is known to expose that repository as a filesystem root. After `but pr new`, call gitbutler_review_card with the returned review numbers so the user can see the created reviews."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()
@@ -304,8 +292,8 @@ impl ServerHandler for Mcp {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct WorkspaceRequest {
-    /// Repository to inspect when the MCP client's filesystem roots do not
-    /// identify the desired repository.
+    /// Active repository to inspect. Omit only when the MCP client exposes the
+    /// desired repository as a filesystem root.
     repository: Option<PathBuf>,
 }
 
@@ -604,6 +592,21 @@ fn workspace_view_from_context(ctx: &but_ctx::Context, repository: &Path) -> Res
             commits,
         },
         workspace,
+    })
+}
+
+fn workspace_view_result(view: WorkspaceView) -> Result<CallToolResult> {
+    let structured_content = serde_json::to_value(&view)
+        .context("Could not serialize the GitButler workspace for the MCP client")?;
+    let text = format!(
+        "GitButler workspace for {}: {} stacks, {} branches, {} commits.",
+        view.repository.name, view.summary.stacks, view.summary.branches, view.summary.commits
+    );
+    Ok(CallToolResult {
+        content: vec![Content::text(text)],
+        structured_content: Some(structured_content),
+        is_error: Some(false),
+        meta: None,
     })
 }
 
@@ -1425,6 +1428,11 @@ mod tests {
         assert!(
             view.summary.branches > 0,
             "one-stack fixture yields a visible branch"
+        );
+        let result = workspace_view_result(view)?;
+        assert!(
+            result.structured_content.is_some(),
+            "a successful workspace result always includes structured content"
         );
         Ok(())
     }
