@@ -821,6 +821,12 @@ impl Graph {
         )
     }
 
+    #[instrument(
+        name = "Graph::traverse_tips_with_overlay",
+        level = "trace",
+        skip_all,
+        err(Debug)
+    )]
     fn traverse_tips_with_overlay<T: RefMetadata>(
         repo: &OverlayRepo<'_>,
         tips: Vec<Tip>,
