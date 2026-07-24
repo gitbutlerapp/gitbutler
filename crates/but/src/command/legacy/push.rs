@@ -617,6 +617,9 @@ fn push_single_branch(
                     t.commit_id.paint(&after_str)
                 )?;
             }
+            if !gerrit_mode {
+                print_updated_reviews(ctx, std::slice::from_ref(&result), human);
+            }
         }
     }
 
@@ -782,6 +785,9 @@ fn push_all_branches(
                         t.commit_id.paint(&after_str)
                     )?;
                 }
+            }
+            if !gerrit_mode {
+                print_updated_reviews(ctx, &pushed_results, human);
             }
         }
 
@@ -1115,6 +1121,45 @@ fn gerrit_review_ref(
             .unwrap_or_else(|| target_ref_name.shorten().to_string());
 
     Ok(format!("refs/for/{target_branch}"))
+}
+
+fn print_updated_reviews(
+    ctx: &Context,
+    push_results: &[PushResult],
+    out: &mut dyn std::fmt::Write,
+) {
+    let result = (|| -> anyhow::Result<()> {
+        let repo = ctx.repo.get()?;
+        let remote_names = repo.remote_names();
+        let db = ctx.db.get_cache()?;
+        let reviews_by_head = but_forge::reviews_by_head(&db)?;
+        let t = theme::get();
+
+        for review in push_results
+            .iter()
+            .flat_map(|result| &result.branch_to_remote)
+            .filter_map(|(_, remote_ref)| {
+                let (_, head) =
+                    extract_remote_name_and_short_name(remote_ref.as_ref(), &remote_names)?;
+                reviews_by_head.get(&head.to_string())
+            })
+            .filter(|review| review.is_open())
+        {
+            writeln!(
+                out,
+                "  {} {}{} at {}",
+                t.success.paint("Updated review"),
+                t.pr_number.paint(&review.unit_symbol),
+                t.pr_number.paint(review.number.to_string()),
+                t.link.paint(&review.html_url)
+            )?;
+        }
+        Ok(())
+    })();
+
+    if let Err(err) = result {
+        tracing::warn!(?err, "Failed to print updated review links after push");
+    }
 }
 
 /// Update PR/MR target branches to match the current stack structure.

@@ -361,6 +361,7 @@ but push <branch-name> --no-hooks  # Bypass pre-push hooks (--no-verify also wor
 ```
 
 Force push is enabled by default with protection checks. Use `-s` only when intentionally skipping those checks.
+After a successful push, human and agent output links any open associated review found in the local forge cache.
 
 ### `but pull`
 
