@@ -410,6 +410,9 @@ export declare function listCiChecks(projectId: string, reference: string, cache
 /** List all editors that can be opened from a GUI client. */
 export declare function listEditors(): Promise<Array<Editor>>
 
+/** List all programs that can be opened from a GUI client. */
+export declare function listPrograms(): Promise<Array<Program>>
+
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
@@ -432,14 +435,24 @@ export declare function moveBranch(projectId: string, subjectBranch: string, tar
 /**
  * Open `path` within the given project's workdir using the editor specified by `editor_id`.
  *
- * `path` must be relative to the workdir of the repository and must resolve to a file or directory
- * within the workdir, including the workdir root itself. Otherwise an error is returned.
+ * `path` is resolved relative to the repository workdir.
  *
  * `line_nr` can be provided to open a file at a specific line.
  *
  * [`list_editors`] provides the available `editor_id`s.
  */
 export declare function openInEditor(projectId: string, editorId: string, path: string, lineNr: number | null): Promise<void>
+
+/**
+ * Open `path` within the given project's workdir using the program specified by `program_id`.
+ *
+ * `path` is resolved relative to the repository workdir.
+ *
+ * `line_nr` can be provided to open a file at a specific line.
+ *
+ * [`list_programs`] provides the available `program_id`s.
+ */
+export declare function openInProgram(projectId: string, programId: string, path: string, lineNr: number | null): Promise<void>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.
@@ -457,6 +470,28 @@ export declare function openInEditor(projectId: string, editorId: string, path: 
  * If the given snapshot is not a restore snapshot then the same snapshot will be returned.
  */
 export declare function peelRestoreSnapshot(projectId: string, sha: string): Promise<Snapshot | null>
+
+/** Supported program configuration for API clients. */
+export interface Program {
+  /** Identifier used to refer to the program. */
+  id: string
+  /** Name of the program. */
+  name: string
+  /** Category of the program. */
+  category: ProgramCategory
+  /** File extensions associated with the program, without leading periods. */
+  extensions?: Array<string>
+}
+
+/** Program category exposed to API clients. */
+export declare const enum ProgramCategory {
+  /** A text editor/IDE. */
+  Editor = 'editor',
+  /** A file manager such as Finder, Explorer or Thunar. */
+  FileManager = 'fileManager',
+  /** Anything that does not fit another category. */
+  Other = 'other'
+}
 
 export declare function publishReview(projectId: string, params: PublishReviewInput): Promise<PublishReviewOutcome>
 

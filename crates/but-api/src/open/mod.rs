@@ -11,8 +11,9 @@ use url::Url;
 use crate::open::program::FILE_EXTENSION_WILDCARD;
 use crate::open::{
     program::{
-        Editor, OpenSpec, PROGRAMS, ProgramSpec, USER_DEFINED_PROGRAMS_FILENAME,
-        UserDefinedProgramSpec, open_in_program_unchecked,
+        OpenSpec, PROGRAMS, ProgramSpec, USER_DEFINED_PROGRAMS_FILENAME, UserDefinedProgramSpec,
+        json::{Editor, Program},
+        open_in_program_unchecked,
     },
     spawn::spawn_and_reap,
 };
@@ -645,6 +646,17 @@ pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
         .collect())
 }
 
+/// List all programs that can be opened from a GUI client.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn list_programs() -> anyhow::Result<Vec<Program>> {
+    Ok(list_program_specs()
+        .iter()
+        .filter(|program| !program.requires_terminal())
+        .map(Into::into)
+        .collect())
+}
+
 /// List all user-defined programs.
 ///
 /// This function never fails, it only logs errors as warnings if something goes wrong.
@@ -734,10 +746,45 @@ pub fn list_program_specs_for_file(path: &Path) -> Vec<ProgramSpec> {
     }
 }
 
+/// Open `path` within the given project's workdir using the program specified by `program_id`.
+///
+/// `path` is resolved relative to the repository workdir.
+///
+/// `line_nr` can be provided to open a file at a specific line.
+///
+/// [`list_programs`] provides the available `program_id`s.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn open_in_program(
+    ctx: &mut but_ctx::Context,
+    program_id: String,
+    path: String,
+    line_nr: Option<u32>,
+) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    let resolved_path = repo
+        .workdir_path(path.as_str())
+        .context("project must have a workdir")?;
+
+    let program_specs = list_program_specs();
+    if let Some(program) = program_specs
+        .iter()
+        .find(|program| program.id == program_id)
+        && !program.requires_terminal()
+    {
+        let open_spec = match line_nr {
+            Some(line_nr) => OpenSpec::FileAtLine(resolved_path, line_nr),
+            None => OpenSpec::File(resolved_path),
+        };
+        open_in_program_unchecked(program, open_spec)
+    } else {
+        bail_precondition!("program_id '{program_id}' is not a GUI-compatible program");
+    }
+}
+
 /// Open `path` within the given project's workdir using the editor specified by `editor_id`.
 ///
-/// `path` must be relative to the workdir of the repository and must resolve to a file or directory
-/// within the workdir, including the workdir root itself. Otherwise an error is returned.
+/// `path` is resolved relative to the repository workdir.
 ///
 /// `line_nr` can be provided to open a file at a specific line.
 ///
@@ -751,22 +798,12 @@ pub fn open_in_editor(
     line_nr: Option<u32>,
 ) -> anyhow::Result<()> {
     let repo = ctx.repo.get()?;
-    let workdir_path = gix::path::realpath(repo.workdir().context("project must have a workdir")?)?;
-    let git_dir_path = gix::path::realpath(repo.path())?;
-    let resolved_path = gix::path::realpath(workdir_path.join(&path))?;
+    let resolved_path = repo
+        .workdir_path(path.as_str())
+        .context("project must have a workdir")?;
 
-    if resolved_path.strip_prefix(&workdir_path).is_err() {
-        bail_precondition!("{path:?} is outside repository workdir at {workdir_path:?}");
-    }
-
-    if resolved_path.strip_prefix(&git_dir_path).is_ok() {
-        bail_precondition!("{path:?} is inside repository .git directory at {git_dir_path:?}");
-    }
-
-    if let Some(editor) = list_user_defined_program_specs()
-        .iter()
-        .chain(PROGRAMS.iter())
-        .find(|editor| editor.id == editor_id)
+    let program_specs = list_program_specs();
+    if let Some(editor) = program_specs.iter().find(|editor| editor.id == editor_id)
         && editor.is_gui_editor()
     {
         let open_spec = match line_nr {

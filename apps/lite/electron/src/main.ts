@@ -33,6 +33,7 @@ import {
 	type MergeReviewParams,
 	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
+	type OpenInProgramParams,
 	type PublishReviewParams,
 	type WorkspaceBranchAndAncestorsPushParams,
 	type RemoveBranchParams,
@@ -96,12 +97,14 @@ import {
 	listBranches,
 	listCiChecks,
 	listEditors,
+	listPrograms,
 	listProjectsStateless,
 	listReviews,
 	listReviewsForBranch,
 	mergeReview,
 	moveBranch,
 	openInEditor,
+	openInProgram,
 	publishReview,
 	removeBranch,
 	tearOffBranch,
@@ -560,6 +563,7 @@ const registerIpcHandlers = (): void => {
 			listCiChecks(projectId, reference, cacheConfig),
 	);
 	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
+	senderValidatingHandle(liteIpcChannels.listPrograms, () => listPrograms());
 	senderValidatingHandle(liteIpcChannels.listProjectsStateless, () => listProjectsStateless());
 	senderValidatingHandle(
 		liteIpcChannels.listReviews,
@@ -584,6 +588,11 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.openInEditor,
 		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
 			openInEditor(projectId, editorId, path, lineNr),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.openInProgram,
+		(_e, { projectId, programId, path, lineNr }: OpenInProgramParams) =>
+			openInProgram(projectId, programId, path, lineNr),
 	);
 	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
