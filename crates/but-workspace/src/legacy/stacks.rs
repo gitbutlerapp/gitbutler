@@ -3,13 +3,11 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, bail};
-use bstr::BString;
 use but_core::{
     RefMetadata,
     ref_metadata::{ProjectMeta, StackId, StackKind, Workspace},
 };
 use but_ctx::Context;
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_stack::Stack;
 use gix::date::parse::TimeBuf;
 use tracing::instrument;
@@ -18,14 +16,13 @@ use crate::{
     RefInfo, branch, head_info,
     legacy::{
         StacksFilter,
-        integrated::IsCommitIntegrated,
         state_handle,
         ui::{StackEntry, StackHeadInfo},
     },
     ref_info,
     ref_info::Segment,
     ui,
-    ui::{CommitState, StackDetails},
+    ui::StackDetails,
 };
 
 fn default_workspace_metadata(meta: &impl RefMetadata) -> anyhow::Result<Option<Workspace>> {
@@ -536,166 +533,4 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
     }
     stack_branches.reverse();
     Ok(stack_branches)
-}
-
-/// Returns a list of commits belonging to this branch. Ordered from newest to oldest (child-most to parent-most).
-///
-/// These are the commits that are currently part of the workspace (applied).
-/// Created from the local pseudo branch (head currently stored in the TOML file)
-///
-/// When there is only one branch in the stack, this includes the commits
-/// from the tip of the stack to the merge base with the trunk / target branch (not including the merge base).
-///
-/// When there are multiple branches in the stack, this includes the commits from the branch head to the next branch in the stack.
-///
-/// In either case, this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
-pub fn stack_branch_local_and_remote_commits(
-    stack_id: StackId,
-    branch_name: String,
-    ctx: &Context,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<ui::Commit>> {
-    let state = state_handle(&ctx.project_data_dir());
-    let stack = state.get_stack(stack_id)?;
-
-    let branches = stack.branches();
-    let branch = branches
-        .iter()
-        .find(|b| b.name() == &branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Could not find branch {branch_name:?}"))?;
-    if branch.archived {
-        return Ok(vec![]);
-    }
-    local_and_remote_commits(ctx, repo, branch, &stack)
-}
-
-/// Returns a list of the commits that are local and optionally remote as well.
-pub fn local_and_remote_commits(
-    ctx: &Context,
-    repo: &gix::Repository,
-    stack_branch: &gitbutler_stack::StackBranch,
-    stack: &Stack,
-) -> anyhow::Result<Vec<ui::Commit>> {
-    let (target_ref_name, target_base_oid) = {
-        let project_meta = ctx.project_meta()?;
-        (
-            project_meta
-                .target_ref
-                .context("failed to get target reference")?
-                .clone(),
-            project_meta
-                .target_commit_id
-                .context("failed to get target base oid")?,
-        )
-    };
-    let cache = repo.commit_graph_if_enabled()?;
-    let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new_with_target(
-        repo,
-        target_ref_name.as_ref(),
-        target_base_oid,
-        &mut graph,
-    )?;
-
-    let branch_commits = stack_branch.commit_ids(repo, ctx, stack)?;
-    let mut local_and_remote: Vec<ui::Commit> = vec![];
-    let mut is_integrated = false;
-
-    let remote_commit_data = branch_commits
-        .remote_commits
-        .iter()
-        .filter_map(|commit_id| {
-            let gix_commit = repo.find_commit(*commit_id).ok()?;
-            let data = CommitData::try_from(&gix_commit).ok()?;
-            Some((data, *commit_id))
-        })
-        .collect::<HashMap<_, _>>();
-
-    // Local and remote
-    // Reverse first instead of later, so that we catch the first integrated commit
-    for commit_id in branch_commits.local_commits.iter().rev() {
-        if !is_integrated {
-            is_integrated = check_commit.is_integrated(*commit_id)?;
-        }
-        let gix_commit = repo.find_commit(*commit_id)?;
-        let copied_from_remote_id = CommitData::try_from(&gix_commit)
-            .ok()
-            .and_then(|data| remote_commit_data.get(&data).copied());
-        let change_id = gix_commit.change_id();
-
-        let state = if is_integrated {
-            CommitState::Integrated
-        } else {
-            // Can we find this as a remote commit by any of these options:
-            // - the commit is copied from a remote commit
-            // - the commit has an identical sha as the remote commit (the no brainer case)
-            // - the commit has a change id that matches a remote commit
-            if let Some(remote_id) = copied_from_remote_id {
-                CommitState::LocalAndRemote(remote_id)
-            } else if let Some(remote_id) = branch_commits
-                .remote_commits
-                .iter()
-                .find(|remote_id| {
-                    if **remote_id == *commit_id {
-                        return true;
-                    }
-
-                    repo.find_commit(**remote_id)
-                        .ok()
-                        .map(|c| c.change_id() == change_id)
-                        .unwrap_or(false)
-                })
-                .copied()
-            {
-                CommitState::LocalAndRemote(remote_id)
-            } else {
-                CommitState::LocalOnly
-            }
-        };
-
-        let authored_at = i128::from(gix_commit.author()?.time()?.seconds) * 1000;
-        let committed_at = i128::from(gix_commit.time()?.seconds) * 1000;
-
-        let api_commit = ui::Commit {
-            id: *commit_id,
-            parent_ids: gix_commit.parent_ids().map(|id| id.detach()).collect(),
-            message: gix_commit.message_bstr().into(),
-            has_conflicts: gix_commit.is_conflicted(),
-            state,
-            authored_at,
-            committed_at,
-            author: gix_commit.author()?.into(),
-            change_id: change_id
-                .unwrap_or_else(|| {
-                    but_core::commit::Headers::synthetic_change_id_from_commit_id(*commit_id)
-                })
-                .to_string(),
-            gerrit_review_url: None,
-        };
-        local_and_remote.push(api_commit);
-    }
-
-    Ok(local_and_remote)
-}
-
-/// The commit-data we can use for comparison to see which remote-commit was used to create
-/// a local commit from.
-/// Note that trees can't be used for comparison as these are typically rebased.
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub(crate) struct CommitData {
-    message: BString,
-    author: gix::actor::Signature,
-}
-
-impl TryFrom<&gix::Commit<'_>> for CommitData {
-    type Error = anyhow::Error;
-
-    fn try_from(commit: &gix::Commit<'_>) -> std::result::Result<Self, Self::Error> {
-        let raw_message: BString = commit.message_bstr().into();
-        let message = but_core::commit::strip_conflict_markers(raw_message.as_ref());
-        Ok(CommitData {
-            message,
-            author: commit.author()?.into(),
-        })
-    }
 }

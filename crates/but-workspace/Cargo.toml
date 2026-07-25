@@ -25,7 +25,6 @@ legacy = [
     "dep:but-ctx",
     "dep:git2",
     "dep:gitbutler-cherry-pick",
-    "dep:gitbutler-commit",
     "dep:gitbutler-repo",
     "dep:gitbutler-git",
     "dep:gitbutler-reference",
@@ -46,7 +45,6 @@ but-ctx = { workspace = true, optional = true }
 
 gitbutler-stack = { workspace = true, optional = true }
 gitbutler-cherry-pick = { workspace = true, optional = true }
-gitbutler-commit = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
 gitbutler-reference = { workspace = true, optional = true }

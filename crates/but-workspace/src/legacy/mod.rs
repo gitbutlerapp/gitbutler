@@ -10,7 +10,6 @@ use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
 pub mod head;
-mod integrated;
 mod stacks;
 pub use head::{
     merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2,
@@ -18,15 +17,10 @@ pub use head::{
 
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 #[expect(deprecated, reason = "re-exports stacks_v3 and stack_details_v3")]
-pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details_v3, stack_heads_info, stacks_v3,
-};
+pub use stacks::{stack_branches, stack_details_v3, stack_heads_info, stacks_v3};
 
 /// Various types for the frontend.
 pub mod ui;
-
-/// High level Stack functions that use primitives from this crate (`but-workspace`)
-pub mod stack_ext;
 
 pub mod push;
 pub use push::workspace_branch_and_ancestors_push;
