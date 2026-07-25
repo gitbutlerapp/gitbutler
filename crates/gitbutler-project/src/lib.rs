@@ -46,15 +46,6 @@ pub fn update(project: UpdateRequest) -> anyhow::Result<Project> {
     controller.update(project)
 }
 
-/// Testing purpose only.
-pub fn update_with_path<P: AsRef<Path>>(
-    app_data_dir: P,
-    project: UpdateRequest,
-) -> anyhow::Result<Project> {
-    let controller = Controller::from_path(app_data_dir.as_ref());
-    controller.update(project)
-}
-
 pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
     add_at_app_data_dir(but_path::app_data_dir()?, path)
 }
@@ -91,17 +82,6 @@ pub fn add_at_app_data_dir(
 /// NOTE: call [`Project::migrated()`] if the instance should be used for actual functionality.
 pub fn dangerously_list_projects_without_migration() -> anyhow::Result<Vec<Project>> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
-    controller.list()
-}
-
-/// Testing purpose only.
-///
-/// Like [`dangerously_list_projects_without_migration()`], but allows setting
-/// the `app_data_dir` explicitly for isolated tests and diagnostics.
-pub fn dangerously_list_projects_without_migration_with_path(
-    app_data_dir: impl AsRef<Path>,
-) -> anyhow::Result<Vec<Project>> {
-    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.list()
 }
 

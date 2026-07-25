@@ -173,23 +173,8 @@ impl Project {
 }
 
 /// Testing
-// TODO: remove once the remaining legacy testsupport constructor isn't needed anymore, and `gitbutler-repo`
+// TODO: remove once `gitbutler-repo` doesn't need this constructor anymore.
 impl Project {
-    /// A special constructor needed as `worktree_dir` isn't accessible anymore.
-    pub fn new_for_but_testsupport(title: String, worktree_dir: PathBuf) -> Self {
-        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
-            ProjectHandle::from_path(&worktree_dir)
-                .expect("testsupport projects require a valid path for ProjectHandle"),
-        );
-        Project {
-            title,
-            worktree_dir,
-            ..Project::default_with_id(project_id)
-        }
-        .migrated()
-        .unwrap()
-    }
-
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_repo(worktree_dir: PathBuf) -> Self {
         let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
