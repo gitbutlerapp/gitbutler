@@ -30,6 +30,7 @@ import type {
 	ListedStack,
 	MessageCombinationStrategy,
 	PushResult,
+	Program,
 	ProjectForFrontend,
 	PublishReviewInput,
 	PublishReviewOutcome,
@@ -273,9 +274,9 @@ export interface MergeReviewParams {
 	mergeMethod: ReviewMergeMethod | null;
 }
 
-export interface OpenInEditorParams {
+export interface OpenInProgramParams {
 	projectId: string;
-	editorId: string;
+	programId: string;
 	path: string;
 	lineNr: number | null;
 }
@@ -473,13 +474,14 @@ export interface LiteElectronApi {
 	listAvailableReviewTemplates: (projectId: string) => Promise<Array<string>>;
 	listCiChecks: (params: ListCiChecksParams) => Promise<Array<CiCheck>>;
 	listEditors: () => Promise<Array<Editor>>;
+	listPrograms: () => Promise<Array<Program>>;
 	listProjectsStateless: () => Promise<Array<ProjectForFrontend>>;
 	listReviews: (params: ListReviewsParams) => Promise<Array<ForgeReview>>;
 	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	mergeReview: (params: MergeReviewParams) => Promise<void>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInWebBrowser: (url: string) => Promise<void>;
-	openInEditor: (params: OpenInEditorParams) => Promise<void>;
+	openInProgram: (params: OpenInProgramParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	publishReview: (params: PublishReviewParams) => Promise<PublishReviewOutcome>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
@@ -561,12 +563,13 @@ export const liteIpcChannels = {
 	listAvailableReviewTemplates: "workspace:list-available-review-templates",
 	listCiChecks: "workspace:list-ci-checks",
 	listEditors: "workspace:list-editors",
+	listPrograms: "workspace:list-programs",
 	listProjectsStateless: "projects:list-stateless",
 	listReviews: "workspace:list-reviews",
 	listReviewsForBranch: "workspace:list-reviews-for-branch",
 	mergeReview: "workspace:merge-review",
 	moveBranch: "workspace:move-branch",
-	openInEditor: "workspace:open-in-editor",
+	openInProgram: "workspace:open-in-program",
 	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",
 	publishReview: "workspace:publish-review",

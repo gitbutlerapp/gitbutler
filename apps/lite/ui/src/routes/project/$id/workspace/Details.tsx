@@ -2,7 +2,7 @@ import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	useMergeReview,
-	useOpenInEditor,
+	useOpenInProgram,
 	usePublishReview,
 	useSaveGUISettings,
 	useSetReviewAutoMerge,
@@ -369,7 +369,7 @@ const DiffContents: FC<{
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.theme,
 	});
-	const { mutate: openInEditor } = useOpenInEditor();
+	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 
 	const diffSelection = useAppSelector((state) =>
@@ -436,9 +436,9 @@ const DiffContents: FC<{
 			callback: () =>
 				diffSelectionFile &&
 				preferredEditor &&
-				openInEditor({
+				openInProgram({
 					projectId,
-					editorId: preferredEditor.id,
+					programId: preferredEditor.id,
 					path: diffSelectionFile.change.path,
 					lineNr: selectedRange?.range.start ?? null,
 				}),

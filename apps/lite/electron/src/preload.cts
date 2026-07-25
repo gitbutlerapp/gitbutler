@@ -11,6 +11,7 @@ import type {
 	DiffSpec,
 	Editor,
 	ForgeReview,
+	Program,
 	ProjectForFrontend,
 	PublishReviewOutcome,
 	PushResult,
@@ -169,6 +170,7 @@ const api: LiteElectronApi = {
 	listCiChecks: (params) =>
 		ipcRenderer.invoke("workspace:list-ci-checks", params) as Promise<Array<CiCheck>>,
 	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
+	listPrograms: () => ipcRenderer.invoke("workspace:list-programs") as Promise<Array<Program>>,
 	listProjectsStateless: () =>
 		ipcRenderer.invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
 	listReviews: (params) =>
@@ -178,7 +180,8 @@ const api: LiteElectronApi = {
 	mergeReview: (params) => ipcRenderer.invoke("workspace:merge-review", params) as Promise<void>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
-	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
+	openInProgram: (params) =>
+		ipcRenderer.invoke("workspace:open-in-program", params) as Promise<void>,
 	openInWebBrowser: (url) =>
 		ipcRenderer.invoke("workspace:open-in-web-browser", url) as Promise<void>,
 	pathJoin: (path, ...paths) =>

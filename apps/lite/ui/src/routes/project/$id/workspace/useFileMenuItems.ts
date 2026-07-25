@@ -2,7 +2,7 @@ import {
 	useCommitDiscardChanges,
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
-	useOpenInEditor,
+	useOpenInProgram,
 } from "#ui/api/mutations.ts";
 import {
 	guiSettingsQueryOptions,
@@ -52,7 +52,7 @@ export const useFileMenuItems = ({
 		useCommitDiscardChanges();
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
-	const { isPending: isOpenInEditorPending, mutate: openInEditor } = useOpenInEditor();
+	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 	const cutFile = () => {
 		dispatch(
 			projectSlice.actions.enterKeyboardTransferMode({
@@ -68,12 +68,12 @@ export const useFileMenuItems = ({
 			preferredEditor
 				? nativeMenuItem({
 						label: `Open in ${preferredEditor.name}`,
-						enabled: !isOpenInEditorPending,
+						enabled: !isOpenInProgramPending,
 						accelerator: toElectronAccelerator(changesFileHotkeys.openInEditor.hotkey),
 						onSelect: () =>
-							openInEditor({
+							openInProgram({
 								projectId,
-								editorId: preferredEditor.id,
+								programId: preferredEditor.id,
 								path,
 								lineNr: null,
 							}),
@@ -84,11 +84,11 @@ export const useFileMenuItems = ({
 							editors?.map((editor) =>
 								nativeMenuItem({
 									label: editor.name,
-									enabled: !isOpenInEditorPending,
+									enabled: !isOpenInProgramPending,
 									onSelect: () =>
-										openInEditor({
+										openInProgram({
 											projectId,
-											editorId: editor.id,
+											programId: editor.id,
 											path,
 											lineNr: null,
 										}),
