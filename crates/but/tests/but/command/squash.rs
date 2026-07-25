@@ -937,7 +937,7 @@ fn amend_uncommitted_files_into_commit() {
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -964,7 +964,7 @@ Amended 7adb8e6 to create d2f176a
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 }
@@ -988,7 +988,7 @@ fn amend_all_uncommitted_changes_into_commit() {
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -1315,7 +1315,7 @@ Error: --target cannot be an empty branch
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
     // middle should be considered empty even though there are commits on its parent
@@ -1374,7 +1374,7 @@ Uncommitted f55169f
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -1436,7 +1436,7 @@ Uncommitted from f55169f
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 }
@@ -2214,7 +2214,7 @@ Hint: run `but help` for all commands
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -2422,7 +2422,7 @@ fn squashing_into_branch_that_sits_below_empty_branch() {
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 

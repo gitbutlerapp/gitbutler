@@ -58,7 +58,7 @@ pub struct Platform {
     ///
     /// If `TARGET` is a commit the sources will be added to the commit.
     ///
-    /// If `TARGET` is a branch the sources will be added to the first commit on the branch.
+    /// If `TARGET` is a branch the sources will be added to that branch's newest commit (its tip).
     ///
     /// If `TARGET` is the uncommitted area (`zz`) the sources will be uncommitted.
     #[clap(long, short)]

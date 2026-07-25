@@ -412,7 +412,7 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() -> anyho
 ├╯ 7f73771 (common base) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -447,7 +447,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "mes
 ┊
 ┴ 7f73771 (common base) 2000-01-02 upstream change
 
-Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "message" --changes <id>` to commit them
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
@@ -702,7 +702,7 @@ Found 1 upstream commits on origin/main
 There are uncommitted changes in the worktree that conflict with the updates:
   shared.txt
 To update anyway, park them on a temporary commit first:
-  1. Run `but commit <branch> --changes <file-id...> -m "wip"` with the files listed above (`but diff` shows their IDs)
+  1. Run `but commit -b <branch> -m "wip" <file-id...>` with the files listed above (`but diff` shows their IDs)
   2. Run `but pull` again; the parked commit may come back conflicted, ready for `but resolve`
   3. Run `but uncommit <commit>` afterwards to make those changes uncommitted again
 

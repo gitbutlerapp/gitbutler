@@ -381,7 +381,7 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
                 out,
                 "  1. Run {} with the files listed above ({} shows their IDs)",
                 t.command_suggestion
-                    .paint("`but commit <branch> --changes <file-id...> -m \"wip\"`"),
+                    .paint("`but commit -b <branch> -m \"wip\" <file-id...>`"),
                 t.command_suggestion.paint("`but diff`")
             )?;
             writeln!(
