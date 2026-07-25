@@ -1,14 +1,10 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::path::Path;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 pub(crate) use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_meta::virtual_branches_legacy_types;
-use but_rebase::ReferenceSpec;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
 use gix::validate::reference::name_partial;
 use itertools::Itertools;
@@ -339,50 +335,6 @@ impl Stack {
     /// Ordered from oldest to newest (most recent)
     pub fn branches(&self) -> Vec<StackBranch> {
         self.heads.clone()
-    }
-
-    /// Sets the stack heads to the provided commits.
-    /// This is useful multiple heads are updated and the intermediate states are not valid while the final state is.
-    fn set_all_heads(
-        &mut self,
-        gix_repo: &gix::Repository,
-        project_data_dir: &Path,
-        new_heads: HashMap<String, gix::ObjectId>,
-    ) -> Result<()> {
-        let mut state = branch_state_from_project_data_dir(project_data_dir);
-
-        // same heads, just different commits
-        if self
-            .heads
-            .iter()
-            .filter(|h| !h.archived)
-            .map(|h| h.name())
-            .collect::<HashSet<_>>()
-            != new_heads.keys().collect::<HashSet<_>>()
-        {
-            return Err(anyhow!("The new head names do not match the current heads"));
-        }
-        for head in &mut self.heads {
-            if let Some(commit) = new_heads.get(head.name()) {
-                head.set_head(*commit, gix_repo)?;
-            }
-        }
-        state.set_stack(self.clone())?;
-        Ok(())
-    }
-
-    /// Sets the stack heads according to the output from the rebase of a `but-rebase` rebase operation
-    pub fn set_heads_from_rebase_output(
-        &mut self,
-        ctx: &Context,
-        references: Vec<ReferenceSpec>,
-    ) -> anyhow::Result<()> {
-        let mut new_heads: HashMap<String, gix::ObjectId> = HashMap::new();
-        for spec in &references {
-            new_heads.insert(spec.reference.to_string(), spec.commit_id);
-        }
-
-        self.set_all_heads(&*ctx.repo.get()?, &ctx.project_data_dir(), new_heads)
     }
 }
 

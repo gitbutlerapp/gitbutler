@@ -4140,7 +4140,6 @@ dependencies = [
  "but-db",
  "but-error",
  "but-meta",
- "but-rebase",
  "but-testsupport",
  "ctor 0.6.3",
  "filetime",
