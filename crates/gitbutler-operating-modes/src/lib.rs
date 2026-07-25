@@ -230,11 +230,3 @@ pub fn in_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<boo
         OperatingMode::OutsideWorkspace(_)
     ))
 }
-
-pub fn ensure_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<()> {
-    if in_outside_workspace_mode(ctx, perm)? {
-        Ok(())
-    } else {
-        bail!("Expected to be in outside workspace mode")
-    }
-}

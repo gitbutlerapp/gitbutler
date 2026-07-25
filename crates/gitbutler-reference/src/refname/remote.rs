@@ -37,10 +37,6 @@ impl Refname {
     pub fn remote(&self) -> &str {
         &self.remote
     }
-
-    pub fn fullname(&self) -> String {
-        format!("{}/{}", &self.remote, &self.branch)
-    }
 }
 
 impl fmt::Display for Refname {
