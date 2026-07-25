@@ -188,13 +188,6 @@ fn list_series_default_head() -> Result<()> {
     // the number of series matches the number of heads
     assert_eq!(branches.len(), test_ctx.stack.heads.len());
     assert_eq!(branches[0].name(), "virtual");
-    let repo = ctx.repo.get()?;
-    assert_eq!(
-        branches[0]
-            .commit_ids(&repo, &ctx, &test_ctx.stack)?
-            .local_commits,
-        test_ctx.commits
-    );
     Ok(())
 }
 
@@ -217,20 +210,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     // the number of series matches the number of heads
     assert_eq!(branches.len(), test_ctx.stack.heads.len());
 
-    let repo = ctx.repo.get()?;
-    assert_eq!(
-        branches[0]
-            .commit_ids(&repo, &ctx, &test_ctx.stack)?
-            .local_commits,
-        test_ctx.commits
-    );
     assert_eq!(branches[0].name(), "head_before");
-    assert_eq!(
-        branches[1]
-            .commit_ids(&repo, &ctx, &test_ctx.stack)?
-            .local_commits,
-        Vec::<gix::ObjectId>::new()
-    );
     assert_eq!(branches[1].name(), "virtual");
     Ok(())
 }
@@ -252,22 +232,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let branches = test_ctx.stack.branches();
     // the number of series matches the number of heads
     assert_eq!(branches.len(), test_ctx.stack.heads.len());
-    let mut expected_patches = test_ctx.commits.clone();
-    let repo = ctx.repo.get()?;
-    assert_eq!(
-        branches[0]
-            .commit_ids(&repo, &ctx, &test_ctx.stack)?
-            .local_commits,
-        vec![expected_patches.remove(0)]
-    );
     assert_eq!(branches[0].name(), "head_before");
-    assert_eq!(expected_patches.len(), 2);
-    assert_eq!(
-        branches[1]
-            .commit_ids(&repo, &ctx, &test_ctx.stack)?
-            .local_commits,
-        expected_patches
-    ); // the other two patches are in the second series
     assert_eq!(branches[1].name(), "virtual");
 
     Ok(())

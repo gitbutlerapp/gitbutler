@@ -4144,7 +4144,6 @@ dependencies = [
  "filetime",
  "gitbutler-git",
  "gitbutler-reference",
- "gitbutler-repo",
  "gix",
  "itertools",
  "tempfile",

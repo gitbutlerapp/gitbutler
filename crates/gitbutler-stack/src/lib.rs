@@ -10,4 +10,4 @@ pub use stack::Stack;
 )]
 pub use state::VirtualBranchesHandle;
 mod stack_branch;
-pub use stack_branch::{BranchCommitIds, StackBranch};
+pub use stack_branch::StackBranch;
