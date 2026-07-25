@@ -17,7 +17,7 @@ pub use head::{
 
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 #[expect(deprecated, reason = "re-exports stacks_v3 and stack_details_v3")]
-pub use stacks::{stack_branches, stack_details_v3, stack_heads_info, stacks_v3};
+pub use stacks::{stack_branches, stack_details_v3, stacks_v3};
 
 /// Various types for the frontend.
 pub mod ui;

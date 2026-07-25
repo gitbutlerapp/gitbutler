@@ -1,5 +1,4 @@
-use anyhow::Context as _;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::BString;
 use but_core::ref_metadata::StackId;
 use serde::Serialize;
 
@@ -29,17 +28,6 @@ pub struct StackHeadInfo {
     pub is_checked_out: bool,
 }
 
-impl StackHeadInfo {
-    /// Delete the reference for this head from the repository if it exists and matches the expected OID.
-    pub fn delete_reference(&self, repo: &gix::Repository) -> anyhow::Result<()> {
-        let ref_name = format!("refs/heads/{}", self.name.to_str()?.trim_matches('/'));
-        let current_name: BString = ref_name.into();
-        if let Some(reference) = repo.try_find_reference(&current_name)? {
-            but_core::branch::SafeDelete::new(repo)?.delete_reference(&reference)?;
-        }
-        Ok(())
-    }
-}
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(StackHeadInfo);
 
@@ -105,21 +93,7 @@ pub struct StackEntryNoOpt {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(StackEntryNoOpt);
 
-impl From<StackEntryNoOpt> for crate::commit::Stack {
-    fn from(value: StackEntryNoOpt) -> Self {
-        crate::commit::Stack {
-            tip: value.tip,
-            name: value.name().map(ToOwned::to_owned),
-        }
-    }
-}
-
 impl StackEntry {
-    /// The name of the stack, which is the name of the top-most branch.
-    pub fn name(&self) -> Option<&BStr> {
-        self.heads.first().map(|head| head.name.as_ref())
-    }
-
     /// Get the associated reviews in the stack. Top to bottom.
     ///
     /// If there are no reviews associated with any of the branches, they'll be skipped.
@@ -131,65 +105,5 @@ impl StackEntry {
             .iter()
             .filter_map(|head| head.review_id)
             .collect()
-    }
-
-    /// Get the associated review id for a given branch head.
-    ///
-    /// Return `None` if, well, there's none associated.
-    pub fn review_for_head(&self, name: &str) -> Option<usize> {
-        self.heads
-            .iter()
-            .find(|h| h.name == name)
-            .and_then(|h| h.review_id)
-    }
-}
-
-impl StackEntryNoOpt {
-    /// The name of the stack, which is the name of the top-most branch.
-    pub fn name(&self) -> Option<&BStr> {
-        self.heads.first().map(|head| head.name.as_ref())
-    }
-}
-
-impl TryFrom<StackEntry> for StackEntryNoOpt {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        StackEntry {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }: StackEntry,
-    ) -> Result<Self, Self::Error> {
-        let id = id.context("BUG(opt-stack-id)")?;
-        Ok(StackEntryNoOpt {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        })
-    }
-}
-
-impl From<StackEntryNoOpt> for StackEntry {
-    fn from(
-        StackEntryNoOpt {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }: StackEntryNoOpt,
-    ) -> Self {
-        StackEntry {
-            id: Some(id),
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }
     }
 }

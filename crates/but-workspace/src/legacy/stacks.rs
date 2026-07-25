@@ -8,15 +8,13 @@ use but_core::{
     ref_metadata::{ProjectMeta, StackId, StackKind, Workspace},
 };
 use but_ctx::Context;
-use gitbutler_stack::Stack;
 use gix::date::parse::TimeBuf;
 use tracing::instrument;
 
 use crate::{
     RefInfo, branch, head_info,
     legacy::{
-        StacksFilter,
-        state_handle,
+        StacksFilter, state_handle,
         ui::{StackEntry, StackHeadInfo},
     },
     ref_info,
@@ -86,29 +84,6 @@ fn review_id_from_meta(
         .branch_opt(name)?
         .and_then(|ref_meta| ref_meta.review.pull_request);
     Ok(pull_request)
-}
-
-/// Returns the list of branch information for the branches in a stack.
-pub fn stack_heads_info(
-    stack: &Stack,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<StackHeadInfo>> {
-    let branches = stack
-        .branches()
-        .into_iter()
-        .rev()
-        .filter_map(|branch| {
-            let tip = branch.head_oid(repo).ok()?;
-            Some(StackHeadInfo {
-                name: branch.name().to_owned().into(),
-                review_id: branch.pr_number,
-                tip,
-                is_checked_out: false,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    Ok(branches)
 }
 
 fn try_from_stack_v3(
@@ -504,7 +479,7 @@ impl ui::BranchDetails {
     }
 }
 
-/// Return the branches that belong to a particular [`Stack`]
+/// Return the branches that belong to a particular [`Stack`](gitbutler_stack::Stack)
 /// The entries are ordered from newest to oldest.
 pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project_data_dir());
