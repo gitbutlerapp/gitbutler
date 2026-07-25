@@ -360,11 +360,10 @@ pub async fn create_review(
 /// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
 async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Error> {
     let (storage, forge_repo_info, preferred_forge_user) = {
-        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(
-            ctx,
-            ctx.shared_worktree_access().read_permission(),
-        )?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
+        let remote_url = ctx
+            .project_meta()?
+            .remote_url_with_fallback(&*ctx.repo.get()?)?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url);
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -539,12 +538,12 @@ fn prompt_for_branch_selection(
     applied_stacks: &[HeadInfoStack],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(
-        ctx,
-        ctx.shared_worktree_access().read_permission(),
-    )?;
-    let base_branch_id = base_branch.current_sha;
+    let project_meta = ctx.project_meta()?;
     let repo = &*ctx.repo.get()?;
+    let base_branch_id = repo
+        .find_reference(project_meta.target_ref_or_err()?)?
+        .id()
+        .detach();
 
     let mut branch_options = Vec::new();
     for stack_entry in applied_stacks {
@@ -614,10 +613,8 @@ async fn publish_reviews_for_branch_and_dependents(
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let t = theme::get();
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-    };
+    let base_branch_short_name =
+        but_api::legacy::forge::target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let all_branches_up_to_subject = stack_entry
         .branches
         .iter()
@@ -659,7 +656,7 @@ async fn publish_reviews_for_branch_and_dependents(
 
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
-    let mut current_target_branch = base_branch.short_name.as_str();
+    let mut current_target_branch = base_branch_short_name.as_str();
     for branch in stack_entry.branches.iter().rev() {
         if let Some(out) = out.for_human() {
             let draftiness = if draft { "draft " } else { "" };

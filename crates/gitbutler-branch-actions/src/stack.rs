@@ -4,19 +4,9 @@ use but_ctx::Context;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_stack::Stack;
 use serde::{Deserialize, Serialize};
 
 use crate::{VirtualBranchesExt, actions::Verify};
-
-/// Return the legacy stack identified by `stack_id`.
-///
-/// This keeps legacy virtual-branches access encapsulated within
-/// `gitbutler-branch-actions` for callers that still operate on
-/// `gitbutler_stack::Stack`.
-pub fn get_stack(ctx: &Context, stack_id: StackId) -> Result<Stack> {
-    ctx.virtual_branches().get_stack(stack_id)
-}
 
 /// Request to create a new series in a stack
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

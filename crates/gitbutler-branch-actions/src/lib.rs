@@ -41,5 +41,4 @@ pub use branch::{
     list_branches,
 };
 
-pub mod hooks;
 pub mod stack;

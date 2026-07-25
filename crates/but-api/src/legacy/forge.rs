@@ -19,6 +19,16 @@ pub fn remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<
     project_meta.remote_url_with_fallback(repo)
 }
 
+/// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
+///
+/// Errors if no target is set, or if its remote cannot be determined.
+pub fn target_short_name(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
+    let target_ref = project_meta.target_ref_or_err()?;
+    but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+        .map(|(_remote_name, short_name)| short_name.to_string())
+        .with_context(|| format!("failed to determine remote for branch {target_ref}"))
+}
+
 pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
     project_meta.push_remote_url(repo)
 }
@@ -1436,11 +1446,7 @@ fn review_updates_after_push(
         }
     }
 
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-            .short_name
-    };
+    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     Ok(affected_stack_indices
         .into_iter()
         .map(|index| {
@@ -1456,11 +1462,7 @@ fn review_updates_for_branch(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
 ) -> Result<Vec<but_forge::ForgeReviewUpdate>> {
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-            .short_name
-    };
+    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let info = crate::legacy::workspace::head_info(ctx)?;
     let (stack, _) = stack_and_segment_for_branch(&info, branch)?;
     Ok(review_updates_for_stack(stack, &base_branch)
@@ -1488,11 +1490,7 @@ pub(crate) fn review_target_updates_for_branch(
     {
         return Ok(Vec::new());
     }
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-            .short_name
-    };
+    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let updates = review_updates_for_stack(stack, &base_branch);
     let db = ctx.db.get_cache()?;
     let cached_targets = but_forge::list_cached_forge_reviews(&db)?
@@ -1543,11 +1541,6 @@ fn review_updates_for_stack(
 }
 
 fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-            .short_name
-    };
     let info = crate::legacy::workspace::head_info(ctx)?;
     let (stack, selected_index) = stack_and_segment_for_branch(&info, branch)?;
     let repo = ctx.repo.get()?;
@@ -1575,10 +1568,10 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
         }
     }
 
-    Ok(reviewed_ancestors
-        .pop()
-        .map(|head| head.branch_name)
-        .unwrap_or(base_branch))
+    match reviewed_ancestors.pop() {
+        Some(nearest_reviewed_ancestor) => Ok(nearest_reviewed_ancestor.branch_name),
+        None => target_short_name(&ctx.project_meta()?, &repo),
+    }
 }
 
 #[derive(Debug)]
