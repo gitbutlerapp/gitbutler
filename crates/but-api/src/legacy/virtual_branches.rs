@@ -246,7 +246,11 @@ pub fn set_base_branch_with_perm(
 
     // if they also sent a different push remote, set that too
     if let Some(push_remote) = push_remote {
-        gitbutler_branch_actions::set_target_push_remote(ctx, &push_remote)?;
+        {
+            let repo = ctx.repo.get()?;
+            but_workspace::init::set_push_remote(&repo, push_remote)?;
+        }
+        ctx.invalidate_workspace_cache()?;
     }
     {
         crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();

@@ -270,24 +270,6 @@ pub(crate) fn set_base_branch(
     get_base_branch_data(ctx, perm)
 }
 
-pub(crate) fn set_target_push_remote(ctx: &mut Context, push_remote_name: &str) -> Result<()> {
-    ctx.repo
-        .get()?
-        .find_remote(push_remote_name)
-        .context(format!("failed to find remote {push_remote_name}"))?;
-
-    let mut project_meta = ctx.project_meta()?;
-    project_meta
-        .target_ref
-        .as_ref()
-        .context(Code::DefaultTargetNotFound)
-        .context("there is no default target")?;
-    project_meta.push_remote = Some(push_remote_name.to_owned());
-    ctx.set_project_meta(project_meta)?;
-
-    Ok(())
-}
-
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
     let repo = ctx.repo.get()?;
     edit_repo_config(&repo, gix::config::Source::Local, |config| {
