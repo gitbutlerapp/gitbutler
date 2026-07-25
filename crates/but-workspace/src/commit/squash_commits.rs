@@ -208,6 +208,12 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         editor.replace(selector, Step::None)?;
     }
 
+    // Removing a subject that sits below the target rewrites every commit above it, including
+    // the target. Rebase before building the squashed commit so it is created on top of the
+    // rebased parents. Otherwise the squashed commit would be replayed as a diff against its
+    // old parent, and the subject's changes would disappear along with the subject commit.
+    let editor = editor.rebase()?.into_editor();
+
     let (editor, new_target_selector) = construct_new_squashed_commit(
         editor,
         squashed_tree,
