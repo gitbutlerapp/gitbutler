@@ -5,10 +5,9 @@ use but_api_macros::but_api;
 use but_askpass as askpass;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use gitbutler_branch_actions::hooks;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
-    hooks::{HookResult, MessageHookResult},
+    hooks::{self, HookResult, MessageHookResult},
 };
 use tracing::instrument;
 
