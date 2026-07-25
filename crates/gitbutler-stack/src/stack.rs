@@ -326,11 +326,6 @@ impl Stack {
         state.set_stack(self.clone())
     }
 
-    /// Returns the branch that precedes the given branch in the stack, if any.
-    pub(crate) fn branch_predacessor(&self, branch: &StackBranch) -> Option<&StackBranch> {
-        self.heads.iter().take_while(|head| *head != branch).last()
-    }
-
     /// Returns a list of all branches/series in the stack.
     /// Ordered from oldest to newest (most recent)
     pub fn branches(&self) -> Vec<StackBranch> {

@@ -1,14 +1,10 @@
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
-use gitbutler_repo::first_parent_commit_ids_until;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
-
-use crate::{Stack, target::default_target_push_remote_name};
 
 /// Legacy metadata for a branch within a stack, paired with a local Git reference.
 /// The persisted `head` value remains as a fallback for restoring that reference.
@@ -206,67 +202,6 @@ impl StackBranch {
     pub fn remote_reference(&self, remote: &str) -> String {
         remote_reference(self.name(), remote)
     }
-
-    /// Returns `true` if the reference is pushed to the provided remote.
-    fn pushed(&self, remote: &str, repo: &gix::Repository) -> bool {
-        repo.find_reference(&self.remote_reference(remote)).is_ok()
-    }
-
-    /// Returns the commit IDs that are part of the branch.
-    pub fn commit_ids(
-        &self,
-        repo: &gix::Repository,
-        ctx: &Context,
-        stack: &Stack,
-    ) -> Result<BranchCommitIds> {
-        let merge_base = stack.merge_base(ctx)?;
-        let head_commit = match repo.find_commit(self.head_oid(repo)?) {
-            Ok(commit) => commit.id,
-            Err(_) => {
-                return Ok(BranchCommitIds {
-                    local_commits: vec![],
-                    remote_commits: vec![],
-                });
-            }
-        };
-
-        // Find the previous head in the stack - if it is not archived, use it as base.
-        // Otherwise use the merge base.
-        let previous_head = stack
-            .branch_predacessor(self)
-            .filter(|predacessor| !predacessor.archived)
-            .map_or(merge_base, |predacessor| {
-                predacessor.head_oid(repo).unwrap_or(merge_base)
-            });
-
-        let mut local_patches = first_parent_commit_ids_until(repo, head_commit, previous_head)?;
-        local_patches.reverse();
-
-        let push_remote_name = default_target_push_remote_name(ctx)?;
-
-        // Use remote from upstream if available, otherwise default to push remote.
-        let remote = stack
-            .upstream
-            .clone()
-            .map(|ref_name| ref_name.remote().to_owned())
-            .unwrap_or(push_remote_name);
-
-        let mut remote_patches = vec![];
-        if self.pushed(&remote, repo) {
-            let upstream_head = repo
-                .find_reference(self.remote_reference(&remote).as_str())?
-                .peel_to_commit()?
-                .id;
-
-            remote_patches = first_parent_commit_ids_until(repo, upstream_head, previous_head)?;
-            remote_patches.reverse();
-        }
-
-        Ok(BranchCommitIds {
-            local_commits: local_patches,
-            remote_commits: remote_patches,
-        })
-    }
 }
 
 /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
@@ -277,13 +212,4 @@ pub fn remote_reference(name: &String, remote: &str) -> String {
 /// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
 fn qualified_reference_name(name: &str) -> String {
     format!("refs/heads/{}", name.trim_matches('/'))
-}
-
-/// Represents the commits that belong to a `Branch` within a `Stack`.
-#[derive(Debug, Clone)]
-pub struct BranchCommitIds {
-    /// The local commits that are part of this series.
-    pub local_commits: Vec<gix::ObjectId>,
-    /// The remote commits that are part of this series.
-    pub remote_commits: Vec<gix::ObjectId>,
 }
