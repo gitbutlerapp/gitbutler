@@ -7,15 +7,6 @@ use crate::{
 };
 
 pub trait SnapshotExt {
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        error: Option<&anyhow::Error>,
-        commit_message: String,
-        sha: Option<gix::ObjectId>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-
     fn snapshot_stash_into_branch(
         &self,
         branch_name: String,
@@ -49,24 +40,6 @@ pub trait SnapshotExt {
 
 /// Snapshot functionality
 impl SnapshotExt for but_ctx::Context {
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: gix::ObjectId,
-        error: Option<&anyhow::Error>,
-        commit_message: String,
-        sha: Option<gix::ObjectId>,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
-            [Trailer::Message(commit_message)]
-                .into_iter()
-                .chain(sha.map(Trailer::Sha))
-                .chain(error_trailer(error)),
-        );
-        self.commit_snapshot(snapshot_tree, details, perm)?;
-        Ok(())
-    }
-
     fn snapshot_stash_into_branch(
         &self,
         branch_name: String,
@@ -121,8 +94,4 @@ impl SnapshotExt for but_ctx::Context {
         self.create_snapshot(details, perm)?;
         Ok(())
     }
-}
-
-fn error_trailer(error: Option<&anyhow::Error>) -> Option<Trailer> {
-    error.map(|e| Trailer::Error(e.to_string()))
 }

@@ -12,7 +12,10 @@ use but_testsupport::{
     open_repo,
 };
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
-use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails, Trailer},
+};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gix::refs::transaction::PreviousValue;
@@ -364,13 +367,15 @@ pub fn create_commit(
         })
     };
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_commit_creation(
-            snapshot_tree,
-            outcome.as_ref().err(),
-            message.to_owned(),
-            None,
-            guard.write_permission(),
-        )
+        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
+            [Trailer::Message(message.to_owned())].into_iter().chain(
+                outcome
+                    .as_ref()
+                    .err()
+                    .map(|e| Trailer::Error(e.to_string())),
+            ),
+        );
+        ctx.commit_snapshot(snapshot_tree, details, guard.write_permission())
     });
     let new_commit = outcome?.ok_or(anyhow::anyhow!("No new commit created"))?;
     ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
