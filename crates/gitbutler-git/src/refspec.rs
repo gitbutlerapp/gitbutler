@@ -20,27 +20,6 @@ pub struct RefSpec {
 }
 
 impl RefSpec {
-    /// Sets the `update_non_fastforward` flag
-    #[inline]
-    pub fn with_update_non_fastforward(mut self, update_non_fastforward: bool) -> Self {
-        self.update_non_fastforward = update_non_fastforward;
-        self
-    }
-
-    /// Sets the `source` refspec
-    #[inline]
-    pub fn with_source(mut self, source: Option<String>) -> Self {
-        self.source = source;
-        self
-    }
-
-    /// Sets the `destination` refspec
-    #[inline]
-    pub fn with_destination(mut self, destination: Option<String>) -> Self {
-        self.destination = destination;
-        self
-    }
-
     /// Parses a refspec from a string.
     pub fn parse<S: AsRef<str>>(refspec: S) -> Result<Self, Error> {
         let s = refspec.as_ref();

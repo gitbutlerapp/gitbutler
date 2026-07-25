@@ -6,7 +6,6 @@ use but_core::{ChangeId, commit::Headers};
 /// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
     fn change_id(&self) -> Option<ChangeId>;
-    fn is_signed(&self) -> bool;
     fn is_conflicted(&self) -> bool;
 }
 
@@ -19,11 +18,6 @@ impl CommitExt for gix::Commit<'_> {
     fn change_id(&self) -> Option<ChangeId> {
         let commit = self.decode().ok()?;
         Headers::try_from_commit_headers(|| commit.extra_headers())?.change_id
-    }
-
-    fn is_signed(&self) -> bool {
-        self.decode()
-            .is_ok_and(|decoded| decoded.extra_headers().pgp_signature().is_some())
     }
 
     fn is_conflicted(&self) -> bool {

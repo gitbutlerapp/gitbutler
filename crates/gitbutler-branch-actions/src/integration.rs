@@ -48,10 +48,6 @@ fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()>
 }
 
 /// Update `gitbutler/workspace` using the current virtual branch state from `ctx`.
-///
-/// Prefer this helper unless the caller is already carrying a `VirtualBranchesHandle` through a
-/// stack/target mutation flow. In those cases use [`update_workspace_commit_with_vb_state()`] so
-/// the dependency on that handle stays explicit at the call-site.
 pub fn update_workspace_commit(
     ctx: &Context,
     checkout_new_worktree: bool,
@@ -70,7 +66,7 @@ pub fn update_workspace_commit(
 /// handle is already part of the operation itself, such as branch creation, base-branch changes,
 /// or rebases that update stack metadata before refreshing the workspace commit.
 #[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
-pub fn update_workspace_commit_with_vb_state(
+pub(crate) fn update_workspace_commit_with_vb_state(
     vb_state: &VirtualBranchesHandle,
     ctx: &Context,
     checkout_new_worktree: bool,

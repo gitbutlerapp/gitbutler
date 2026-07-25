@@ -15,7 +15,6 @@ doctest = false
 [dependencies]
 but-error.workspace = true
 but-path.workspace = true
-but-serde = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-utils = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true

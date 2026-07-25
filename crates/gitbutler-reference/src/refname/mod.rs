@@ -65,15 +65,6 @@ impl Refname {
         }
     }
 
-    pub fn simple_name(&self) -> String {
-        match self {
-            Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
-            Refname::Local(local) => local.branch().to_string(),
-            Refname::Remote(remote) => remote.fullname(),
-            Refname::Other(raw) => raw.to_string(),
-        }
-    }
-
     pub fn remote(&self) -> Option<&str> {
         match self {
             Self::Remote(remote) => Some(remote.remote()),

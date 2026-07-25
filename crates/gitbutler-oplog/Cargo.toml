@@ -20,7 +20,6 @@ but-utils.workspace = true
 but-ctx = { workspace = true }
 but-schemars = { workspace = true, optional = true }
 
-gitbutler-branch.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-cherry-pick.workspace = true
 

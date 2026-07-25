@@ -65,27 +65,6 @@ impl WorkspaceState {
             base: base_tree_id,
         })
     }
-
-    pub fn create_from_heads(
-        ctx: &Context,
-        _perm: &RepoShared,
-        heads: &[gix::ObjectId],
-    ) -> Result<Self> {
-        let repo = &*ctx.repo.get()?;
-        let target_base_oid = legacy_target_base_oid(ctx)?;
-        Self::create_from_heads_and_target(repo, heads, target_base_oid)
-    }
-}
-
-/// Update the uncommitted changes from one snapshot of the workspace and rebase
-/// them on top of the new snapshot.
-pub fn update_uncommitted_changes(
-    ctx: &Context,
-    old: WorkspaceState,
-    new: WorkspaceState,
-    perm: &mut RepoExclusive,
-) -> Result<()> {
-    update_uncommitted_changes_with_tree(ctx, old, new, None, None, perm)
 }
 
 /// Pass `None` for `old_uncommitted_changes` to transition the worktree via safe checkout;
@@ -202,15 +181,4 @@ pub fn merge_workspace(
     }
 
     Ok(output)
-}
-
-pub fn move_tree_has_conflicts(
-    ctx: &Context,
-    tree: gix::ObjectId,
-    old_workspace: gix::ObjectId,
-    new_workspace: gix::ObjectId,
-) -> Result<bool> {
-    #[expect(deprecated, reason = "tree merge/index materialization boundary")]
-    let repo = &*ctx.git2_repo.get()?;
-    Ok(move_tree(repo, tree, old_workspace, new_workspace)?.has_conflicts())
 }
