@@ -10,7 +10,7 @@ use std::path::Path;
 pub use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use controller::Controller;
 use project::ApiProject;
-pub use project::{AddProjectOutcome, CodePushState, FetchResult, Project};
+pub use project::{AddProjectOutcome, FetchResult, Project};
 pub use storage::UpdateRequest;
 
 /// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.

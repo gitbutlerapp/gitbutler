@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use serde::Deserialize;
 
-use crate::{ApiProject, CodePushState, FetchResult, Project, ProjectHandleOrLegacyProjectId};
+use crate::{ApiProject, FetchResult, Project, ProjectHandleOrLegacyProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -26,7 +26,6 @@ pub struct UpdateRequest {
     pub ok_with_force_push: Option<bool>,
     pub force_push_protection: Option<bool>,
     pub husky_hooks_enabled: Option<bool>,
-    pub gitbutler_code_push_state: Option<CodePushState>,
     pub project_data_last_fetched: Option<FetchResult>,
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
@@ -52,7 +51,6 @@ impl UpdateRequest {
             ok_with_force_push: None,
             force_push_protection: None,
             husky_hooks_enabled: None,
-            gitbutler_code_push_state: None,
             project_data_last_fetched: None,
             omit_certificate_check: None,
             use_diff_context: None,
@@ -77,7 +75,6 @@ impl From<Project> for UpdateRequest {
             husky_hooks_enabled,
             api,
             gitbutler_data_last_fetch,
-            gitbutler_code_push_state,
             project_data_last_fetch,
             omit_certificate_check,
             snapshot_lines_threshold,
@@ -97,7 +94,6 @@ impl From<Project> for UpdateRequest {
             ok_with_force_push: Some(ok_with_force_push.into()),
             force_push_protection: Some(force_push_protection),
             husky_hooks_enabled: Some(husky_hooks_enabled),
-            gitbutler_code_push_state,
             project_data_last_fetched: project_data_last_fetch,
             omit_certificate_check,
             use_diff_context: None,
@@ -168,7 +164,6 @@ impl Storage {
             ok_with_force_push,
             force_push_protection,
             husky_hooks_enabled,
-            gitbutler_code_push_state,
             project_data_last_fetched,
             omit_certificate_check,
             use_diff_context: _, /* seemingly not used for a while */
@@ -226,10 +221,6 @@ impl Storage {
 
         if let Some(project_data_last_fetched) = project_data_last_fetched.as_ref() {
             project.project_data_last_fetch = Some(project_data_last_fetched.clone());
-        }
-
-        if let Some(state) = gitbutler_code_push_state {
-            project.gitbutler_code_push_state = Some(state);
         }
 
         if let Some(ok_with_force_push) = ok_with_force_push {

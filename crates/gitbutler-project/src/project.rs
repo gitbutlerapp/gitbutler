@@ -54,18 +54,6 @@ impl FetchResult {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-pub struct CodePushState {
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
-    pub id: gix::ObjectId,
-    pub timestamp: time::SystemTime,
-}
-
 /// Not registered for the frontend types because it is consumed flattened
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -117,9 +105,6 @@ pub struct Project {
     pub gitbutler_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     #[cfg_attr(feature = "export-schema", schemars(skip))]
-    pub gitbutler_code_push_state: Option<CodePushState>,
-    #[serde(default)]
-    #[cfg_attr(feature = "export-schema", schemars(skip))]
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
@@ -148,7 +133,6 @@ impl Project {
             husky_hooks_enabled: false,
             api: None,
             gitbutler_data_last_fetch: None,
-            gitbutler_code_push_state: None,
             project_data_last_fetch: None,
             omit_certificate_check: None,
             snapshot_lines_threshold: None,
@@ -383,51 +367,5 @@ impl AddProjectOutcome {
                 Err(anyhow::anyhow!("not a git repository: {msg}"))
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::{Duration, UNIX_EPOCH};
-
-    use serde_json::json;
-
-    use super::CodePushState;
-
-    #[test]
-    fn code_push_state_json_roundtrip() {
-        let state = CodePushState {
-            id: "0123456789abcdef0123456789abcdef01234567"
-                .parse()
-                .expect("valid object id"),
-            timestamp: UNIX_EPOCH + Duration::from_secs(123),
-        };
-
-        let value = serde_json::to_value(state).expect("serializes");
-
-        assert_eq!(
-            value,
-            json!({
-                "id": "0123456789abcdef0123456789abcdef01234567",
-                "timestamp": {
-                    "secs_since_epoch": 123,
-                    "nanos_since_epoch": 0
-                }
-            })
-        );
-
-        let state: CodePushState = serde_json::from_value(value).expect("deserializes");
-
-        assert_eq!(
-            state.id.to_string(),
-            "0123456789abcdef0123456789abcdef01234567"
-        );
-        assert_eq!(
-            state
-                .timestamp
-                .duration_since(UNIX_EPOCH)
-                .expect("after epoch"),
-            Duration::from_secs(123)
-        );
     }
 }

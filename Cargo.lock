@@ -4075,7 +4075,6 @@ dependencies = [
  "but-path",
  "but-project-handle",
  "but-schemars",
- "but-serde",
  "but-testsupport",
  "but-utils",
  "gix",
