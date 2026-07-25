@@ -725,7 +725,7 @@ fn print_hint(
         Some("Hint: run `but branch new` to create a new branch to work on")
     } else if has_uncommitted_files {
         Some(
-            "Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m \"message\" --changes <id>` to commit them",
+            "Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m \"message\" <id>` to commit them",
         )
     } else if shown_situational_hint {
         // The generic catch-all adds nothing when a situational hint is

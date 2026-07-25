@@ -37,8 +37,8 @@ fn parse_scoped(
 /// interpretations (container selectors the scoped parser does not model) and
 /// turns everything else into a targeted error naming what the selector is.
 ///
-/// This is the single home of that policy — `but commit --changes`, amend,
-/// stage, and unstage all resolve through it so they cannot diverge.
+/// This is the single home of that policy, used by callers that resolve a
+/// selector under [`SourceScope::UncommittedOnly`] — currently `but absorb`.
 pub(crate) fn resolve_uncommitted_part(
     ctx: &mut Context,
     id_map: &IdMap,

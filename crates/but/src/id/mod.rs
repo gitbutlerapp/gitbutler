@@ -651,7 +651,6 @@ pub struct IdMap {
     uncommitted: CliId,
 
     /// Maps full reverse hex IDs to uncommitted files.
-    /// It's public for convenience in `but rub` currently.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
@@ -1259,8 +1258,8 @@ impl IdMap {
     /// Like [IdMap::parse], but the leading element resolves in the
     /// uncommitted namespace: commit change IDs and branch/stack short IDs
     /// never shadow a file ID. Use this for selectors that must name
-    /// uncommitted changes (e.g. `--changes`), so a file ID handed out by an
-    /// earlier command cannot be invalidated by a commit minted in between.
+    /// uncommitted changes, so a file ID handed out by an earlier command cannot
+    /// be invalidated by a commit minted in between.
     ///
     /// Container selectors still surface their containers: bare `zz` yields
     /// [`CliId::Uncommitted`], `dir/` yields [`CliId::PathPrefix`], and

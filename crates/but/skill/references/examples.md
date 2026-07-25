@@ -22,15 +22,15 @@ but branch new ui-styling
 # 4. Check what's uncommitted
 but status -fv
 
-# 5. Commit specific files directly using --changes (recommended for agents)
+# 5. Commit specific files by passing their CLI IDs (recommended for agents)
 # Use CLI ID values from but status -fv output (e.g., branch IDs and file IDs)
-# For multiple IDs, use one comma-separated argument or repeat --changes.
-but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id>
-but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
+# Multiple IDs are space-separated positional arguments.
+but commit -b <api-branch-id> -m "Add user details endpoint" <api-file-id>
+but commit -b <ui-branch-id> -m "Update button hover styles" <ui-file-id>
 
 # Follow-up fix that belongs in a commit you just made? Amend it in.
 # Each mutation returns updated workspace state — take any new IDs you need from it.
-# but amend <api-commit-id> --changes <api-fix-file-id>,<api-fix-hunk-id>
+# but amend -t <api-commit-id> <api-fix-file-id> <api-fix-hunk-id>
 
 # 6. Create pull requests (auto-pushes the branches)
 but pr new <api-branch-id>
@@ -54,7 +54,7 @@ but branch new add-authentication
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
 but status -fv
-but commit bu -m "Add JWT authentication" --changes <file-ids>
+but commit -b bu -m "Add JWT authentication" <file-ids>
 
 # 4. Create stacked branch anchored on authentication
 but branch new user-profile -a bu
@@ -62,7 +62,7 @@ but branch new user-profile -a bu
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
 but status -fv
-but commit bv -m "Add user profile page" --changes <file-ids>
+but commit -b bv -m "Add user profile page" <file-ids>
 
 # 6. Create stacked pull requests through GitButler (auto-pushes the stack)
 but pr new bv -t
@@ -90,7 +90,7 @@ but status -fv
 # (the typo is in code introduced by nn, so it belongs in nn)
 
 # 3. Amend the file into that commit
-but amend nn --changes a1    # Amend just this file + get updated status
+but amend -t nn a1    # Amend just this file + get updated status
 ```
 
 **Why amend?** Keeps history clean. Small fixes belong in the commits they fix, not as separate "fix typo" commits. You know what you changed and why — pick the target commit yourself.
@@ -109,14 +109,11 @@ but amend nn --changes a1    # Amend just this file + get updated status
 # mm: Adjust logic
 # kk: Initial implementation
 
-# Squash all commits in branch
-but squash bu
+# Squash all commits in the branch into one
+but squash bu -m "Implement feature"
 
-# Or squash specific range
-but squash mm..rr    # Squashes mm, nn, pp, rr into one
-
-# Or squash specific commits
-but squash mm nn pp    # Squashes these three
+# Or squash specific commits into a target commit
+but squash rr pp nn mm -t kk -m "Implement feature"
 ```
 
 ### Scenario B: Moving Files Between Commits
@@ -128,11 +125,14 @@ but squash mm nn pp    # Squashes these three
 but status -fv
 
 # Output shows:
-# nn: api.js, utils.js
-# mm: config.js
+# nn: Add API layer
+#   nn:a1  api.js
+#   nn:a2  utils.js
+# mm: Add config
+#   mm:c1  config.js
 
 # 2. Move utils.js from nn to mm
-but rub a2 mm    # File a2 (utils.js) → commit mm + get updated status
+but squash nn:a2 -t mm -u    # Committed file nn:a2 (utils.js) → commit mm, keep mm's message
 ```
 
 ### Scenario C: Moving Commit to Different Branch
@@ -152,7 +152,7 @@ but status -fv
 but branch new feature-b    # Creates branch bv
 
 # 3. Move the commit
-but move nn bv    # Move nn to top of branch bv
+but move nn -b bv    # Move nn to top of branch bv
 ```
 
 ## Example 5: Stacking Existing Branches
@@ -169,15 +169,15 @@ but status -fv
 
 # 2. Frontend now depends on backend API — stack frontend on backend
 #    IMPORTANT: Prefer full branch NAMES here; branch CLI IDs are also accepted
-but move feature/frontend feature/backend
+but move feature/frontend --above feature/backend
 
 # Result: Both branches are now in the same stack:
 # Stack 1: feature/backend → feature/frontend (stacked)
 
 # 3. Continue working — commits go to the right branch
 but status -fv
-but commit bu -m "Add caching layer" --changes <id>   # To backend
-but commit bv -m "Add dialog component" --changes <id> # To frontend
+but commit -b bu -m "Add caching layer" <id>   # To backend
+but commit -b bv -m "Add dialog component" <id> # To frontend
 ```
 
 **Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. Commit reordering still uses commit IDs.
@@ -209,7 +209,7 @@ but resolve nn
 # 3. Edit each conflicted file to resolve
 # IMPORTANT: You MUST edit the files — do NOT just run `but resolve finish`
 # NEVER use `git add`, `git checkout --theirs/--ours`, or any git write command — just edit the files directly with the Edit tool, then `but resolve finish`
-# (edit to remove <<<<<<< ======= >>>>>>> markers and keep correct content;
+# (edit to remove every marker — <<<<<<< ||||||| ======= >>>>>>> — and keep correct content;
 #  with several conflicted files, `but resolve status` re-lists what remains)
 
 # 4. Finalize
@@ -240,19 +240,19 @@ but branch new user-dashboard
 but status -fv
 
 # 5. First commit
-but commit bu -m "Add dashboard route and basic layout" --changes <file-ids>
+but commit -b bu -m "Add dashboard route and basic layout" <file-ids>
 
 # 6. Continue iterating
 # (add widgets, styling)
-but commit bu -m "Add dashboard widgets" --changes <file-ids>
-but commit bu -m "Style dashboard components" --changes <file-ids>
+but commit -b bu -m "Add dashboard widgets" <file-ids>
+but commit -b bu -m "Style dashboard components" <file-ids>
 
 # 7. Make small fix
 # (fix typo in widget)
-but amend <commit-id> --changes a1    # Amend fix into the commit it belongs to
+but amend -t <commit-id> a1    # Amend fix into the commit it belongs to
 
 # 8. Clean up if needed
-but squash bu    # Combine all commits (optional)
+but squash bu -m "Add user dashboard"    # Combine all commits (optional)
 
 # 9. Create pull request (auto-pushes the branch)
 but pr new bu
@@ -285,7 +285,7 @@ but unapply bw
 
 # 3. Focus on feature-a
 # (make changes, commit)
-but commit bu -m "Complete feature-a" --changes <file-ids>
+but commit -b bu -m "Complete feature-a" <file-ids>
 
 # 4. Create PR for feature-a (auto-pushes)
 but pr new bu
@@ -321,15 +321,15 @@ but reword nn -m "Fix edge case in parser"
 but reword mm -m "Update error messages"
 
 # 3. Move rr to be earlier
-but move rr nn    # Move rr before nn
+but move rr --below nn    # Place rr directly below nn
 
 # 4. Squash similar commits
-but squash mm nn    # Combine error handling commits; target nn keeps its ref
+but squash mm -t nn -u    # Combine error handling commits; -u keeps nn's message, drops mm's
 
 # Output (newest first):
 # Branch: feature-x (bu)
 #   pp: Add validation logic
-#   nn: Fix edge case in parser and update error messages
+#   nn: Fix edge case in parser
 #   rr: final commit
 #   kk: Initial
 
@@ -351,29 +351,29 @@ but branch new fix-auth-bug  # Create branch for today's work
 # Work and commit iteratively
 # (make changes)
 but status -fv              # Check changes
-but commit bu -m "Identify auth bug source" --changes <file-ids>
+but commit -b bu -m "Identify auth bug source" <file-ids>
 # (make more changes)
-but commit bu -m "Fix token expiration handling" --changes <file-ids>
+but commit -b bu -m "Fix token expiration handling" <file-ids>
 # (small fix to existing code)
-but amend <commit-id> --changes a1  # Amend fix into the commit it belongs to
+but amend -t <commit-id> a1  # Amend fix into the commit it belongs to
 
 # Mid-day: Start urgent fix on different branch
 but branch new hotfix-login  # Parallel branch for urgent work
 # (make fix)
-but commit bv -m "Fix login redirect loop" --changes <file-ids>
+but commit -b bv -m "Fix login redirect loop" <file-ids>
 but pr new bv      # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
-but commit bu -m "Add tests for token handling" --changes <file-ids>
+but commit -b bu -m "Add tests for token handling" <file-ids>
 
 # End of day: Clean up and create PR
-but squash bu    # Combine into clean history
+but squash bu -m "Fix auth bug"    # Combine into clean history
 but pr new bu      # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)
-but amend <commit-id> --changes <file-id>  # Amend each fix into the commit it belongs to
+but amend -t <commit-id> <file-id>  # Amend each fix into the commit it belongs to
 but push fix-auth-bug   # Push updated history
 ```
 
@@ -385,7 +385,7 @@ but push fix-auth-bug   # Push updated history
 
 ```bash
 # Made a mistake
-but squash bu    # Oops! Didn't mean to squash
+but squash bu -m "..."    # Oops! Didn't mean to squash
 
 # Undo it
 but undo         # Reverts the squash
@@ -397,15 +397,14 @@ but undo         # Reverts the squash
 # View operation history
 but oplog
 
-# Output:
-# s5: squash branch bu
-# s4: commit bu "message"
-# s3: amend a1 into mm
-# s2: create branch bu
-# s1: pull from remote
+# Output (snapshot refs are git SHAs, not CLI IDs):
+# 9c1f2ab 2026-01-02 [SQUASH] Squashed commits
+# f8a3733 2026-01-02 [COMMIT] Created commit
+# 4b70e19 2026-01-02 [AMEND] Amended commit
+# 1d5c806 2026-01-02 [BRANCH] Created branch
 
-# Restore to before squash
-but oplog restore s4
+# Restore to before the squash, using the SHA from the output
+but oplog restore f8a3733
 ```
 
 ### Discard Uncommitted Changes
@@ -445,8 +444,8 @@ one go:
 ```bash
 but diff   # read the file/hunk IDs once
 
-but commit my-branch -m "Add parser" --changes qs:5,qs:2 \
-  && but commit my-branch -m "Add tests" --changes uo:d
+but commit -b my-branch -m "Add parser" qs:5 qs:2 \
+  && but commit -b my-branch -m "Add tests" uo:d
 ```
 
 The commits stack in the order you write them, so `Add parser` ends up below (older

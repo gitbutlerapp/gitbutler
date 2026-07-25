@@ -7,7 +7,7 @@ Agent-focused reference for useful `but` commands.
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Committing](#committing) - `commit`
-- [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
+- [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
@@ -57,7 +57,9 @@ but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 ```
 
-**Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits.
+**Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
+
+For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
 
 ## Branching
 
@@ -89,7 +91,7 @@ but branch new feature -a <anchor>  # Stacked branch (dependent work)
 
 Use parallel branches for independent tasks. Use stacked branches when work depends on another branch.
 
-For "commit these selected changes on a new branch", prefer `but commit <branch> -c -m "message" --changes <ids>` instead of a separate `but branch new` or preflight `but status -fv`.
+For "commit these selected changes on a new branch", prefer `but commit -b <branch> -m "message" <ids>` instead of a separate `but branch new` or preflight `but status -fv` — `-b` creates the branch when it does not exist.
 
 ### `but apply <branch-name>`
 
@@ -139,167 +141,163 @@ Cherry-pick commits from unapplied branches into applied branches.
 ```bash
 but pick <commit-sha> <branch>       # Pick specific commit into branch
 but pick <cli-id> <branch>           # Pick using CLI ID (e.g., "nn")
-but pick <unapplied-branch>          # Interactive commit selection from branch
-but pick <commit-sha>                # Auto-select target if only one branch
 ```
 
-The source can be:
-- A commit SHA (full or short)
-- A CLI ID from `but status`
-- An unapplied branch name (shows interactive commit picker)
-
-If no target is specified and multiple branches exist, prompts for selection interactively.
+Name both the source commit and the target branch. Passing a branch as the source opens an
+interactive commit picker, and omitting the target prompts for one when several branches exist —
+both block. The source can be a commit SHA (full or short) or a CLI ID from `but status`.
 
 ## Committing
 
-### `but commit [branch]`
+### `but commit [CHANGES]...`
 
-Commit changes to a branch.
+Create a commit. Changes are positional CLI IDs; where the commit goes is a flag.
 
 ```bash
-but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
-but commit <branch> -am "message"        # Accepted Git muscle-memory form; -a is a no-op
-but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
-but commit <branch> -m "message" --changes <id> --changes <id>  # Alternative: repeat flag
-but commit <branch> -m "message" --changes <id>,<id> --before <target>  # Insert before commit/branch
-but commit <branch> -m "message" --changes <id>,<id> --after <target>   # Insert after commit/branch
-but commit <branch> --message-file msg.txt  # Read commit message from file
-but commit <branch> -c -m "message"      # Create new branch (or use existing) and commit
-but commit <branch> -n -m "message"      # Bypass git commit hooks (pre-commit, commit-msg, post-commit)
-but commit empty                         # Insert empty commit at top of first branch
-but commit empty -m "message"            # Insert empty commit with message
-but commit empty <target>                # Insert empty commit before target
-but commit empty --before <target>       # Insert empty commit before target
-but commit empty --after <target>        # Insert empty commit after target
+but commit -b <branch> -m "message"          # Commit ALL uncommitted changes to branch
+but commit -b <branch> -m "message" <id> <id>  # Commit specific files or hunks by CLI ID
+but commit -b <branch> -m "msg" -m "body"    # Repeat -m; parts joined by a blank line
+but commit --above <target> -m "message" <id>  # Place the commit above a commit or branch
+but commit --below <target> -m "message" <id>  # Place the commit below a commit or branch
+but commit -b <branch> --no-message <id>     # Commit without a message
+but commit --empty -b <branch> -m "message"  # Insert an empty commit
 ```
 
-**Important:** Plain `but commit <branch> -m` commits ALL uncommitted changes to the branch. Use `--changes` to commit only specific files or hunks.
+**Where the commit goes:** `-b`/`--branch`, `-A`/`--above`, and `-B`/`--below` are mutually exclusive.
+
+- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error.
+- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it.
+- With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
+
+**Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
 `but commit` is not supported from linked worktrees. Use Git directly for the worktree-local commit, and do not run `but setup` there.
 
-**Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
+**Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
-- **Hunk IDs** from `but diff`: commits individual hunks
-- `--changes` takes one argument per flag. Use `--changes a1,b2` or `--changes a1 --changes b2`, not `--changes a1 b2`.
+- **Hunk IDs** (`<file-id>:<hunk-id>`) from `but diff`: commits individual hunks
+- IDs are space-separated (`<id> <id>`). Commas are not separators — `a1,b2` is parsed as a single ID and fails to resolve.
 
-**Creating branches on commit:** Use `-c` / `--create` to create a new branch for the commit. If the branch name matches an existing branch, that branch is used instead.
+**Placing commits:** Use `--above <target>` or `--below <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — use refs from the returned status output for subsequent history edits.
 
-**Placing commits:** Use `--before <target>` or `--after <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — use refs from the returned status output for subsequent history edits.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints, and take follow-up refs from the returned workspace state. If a commit must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit them, then `but move <preserved-commit-id> -b <branch>` rather than anchoring with `--above`/`--below`.
 
-**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit <branch> -m "msg1" --changes a1,b2 && but commit <branch> -m "msg2" --changes c3,d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints, and take follow-up refs from the returned workspace state. If a commit must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit them, then `but move <preserved-commit-id> <branch>` rather than anchoring with `--before`/`--after`.
+Example: `but commit -b my-branch -m "Fix bug" ab cd` commits files/hunks `ab` and `cd`.
 
-Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
-
-Example new branch: `but commit feature/contact-form -c -m "Validate contact form input" --changes ab,cd` creates `feature/contact-form` and commits only those selected file or hunk IDs.
+Example new branch: `but commit -b feature/contact-form -m "Validate contact form input" ab cd` creates `feature/contact-form` and commits only those selected file or hunk IDs.
 
 To commit specific hunks from a file with multiple changes, use `but diff` to see hunk IDs, then specify them individually.
 
-Edge case: if wanted and unwanted edits are in the same hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit with `--changes`, then restore the leftover lines so they remain uncommitted.
-
-If only one branch is applied, you can omit the branch ID.
+Edge case: if wanted and unwanted edits are in the same hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit those IDs, then restore the leftover lines so they remain uncommitted.
 
 ## Editing History
 
-### `but rub <source> <dest>`
+### `but squash <SOURCES>... [-t <target>]`
 
-Universal editing primitive that does different operations based on types.
-
-```bash
-but rub <file> <commit>      # Amend file into commit
-but rub <commit> <commit>    # Squash commits together
-but rub <commit> <branch>    # Move commit to branch
-but rub <commit> zz          # Undo commit to uncommitted
-but rub zz <commit>          # Amend all uncommitted changes into commit
-but rub <file-in-commit> zz  # Uncommit specific file from its commit
-but rub <file-in-commit> <commit>  # Move file from one commit to another
-```
-
-The core "rub two things together" operation. `zz` is a special target meaning "uncommitted" (no branch).
-
-### `but squash <commits>`
-
-Squash commits together. With explicit commit IDs, all commits except the last
-are squashed into the last commit. Use `-m` to provide the resulting commit
-message.
+Move changes into a target. Sources are positional; the target is `-t`/`--target`.
+This one command covers squashing, amending, and uncommitting.
 
 ```bash
-but squash <source> <target> -m "msg"           # Squash source into target
-but squash <source> <source> <target> -m "msg"  # Squash multiple commits into target
-but squash <start>..<end> -m "msg"              # Squash a contiguous range
-but squash <branch>                             # Squash all commits in branch into bottom-most
-but squash <branch> -d                          # Squash and drop source commit messages (keep target's)
-but squash <branch> -m "msg"                    # Squash with a new commit message
-but squash <branch> -i                          # Squash with AI-generated commit message
+but squash <commit> -t <commit> -m "msg"           # Squash one commit into another
+but squash <commit> <commit> -t <commit> -m "msg"  # Squash several commits into a target
+but squash <branch> -m "msg"                       # Squash all commits on a branch into one
+but squash <branch> -t <commit> -m "msg"           # Squash a branch into a commit, removing the branch
+but squash <commit> -t <branch> -m "msg"           # Target a branch: squashes into its newest commit
+but squash <file-or-hunk-id> -t <commit>           # Amend an uncommitted change (`but amend` does this)
+but squash zz -t <commit>                          # Amend all uncommitted changes into a commit
+but squash <commit> -t zz                          # Uncommit a commit
+but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
 ```
 
-Use explicit IDs when the target commit must be unambiguous. For multiple
-independent squash groups, prefer newer/top groups first; change-ID refs from
+All sources must be the same kind (all commits, all branches, all uncommitted changes, `zz`, or all
+committed files) and committed-file sources must come from one commit. If `-t` is omitted, `<SOURCES>`
+must be exactly one branch, which squashes that branch's commits together.
+
+Message flags (mutually exclusive). Commit and branch sources compose a new message, so without a
+flag they open an editor and block — always pass one. Uncommitted and committed-file sources reuse
+the target's message and need no flag:
+
+```bash
+-m "msg"                # New message; repeat -m to append paragraphs
+--no-message            # No message
+-u, --use-target-message  # Keep the target's message, drop the sources'
+--use-source-message      # Keep the sources' message, drop the target's
+```
+
+None of the message flags may be used when the target is `zz`.
+
+For multiple independent squash groups, prefer newer/top groups first; change-ID refs from
 one status read stay valid across squashes (the target keeps its ref), so the
 groups may run in sequence — take fresh refs from the returned status only
 when a ref is sha-based or `#N`-suffixed.
 
-### `but amend <commit> --changes <file>[,<file>...]`
+### `but amend -t <commit-or-branch> <SOURCES>...`
 
-Amend one or more files/hunks into a specific commit. Use when you know exactly which commit the change belongs to.
+Amend uncommitted files/hunks into a specific commit. Use when you know exactly which commit the change belongs to — prefer it over the equivalent `squash` form. Sources must be uncommitted; `amend` rejects commits and committed files, so use `squash` or `move` for those. A branch target resolves to that branch's newest commit, so name the commit explicitly when the change belongs further down.
 
 ```bash
-but amend <commit-id> --changes <file-id>,<hunk-id>
+but amend -t <commit-id> <file-id> <hunk-id>
+but amend -t <branch> <file-id>       # Amends into the branch's newest commit (its tip)
 ```
 
 Decide the target commit yourself: check `but status -fv`, find the commit the change logically belongs to, then amend into it.
 
-Convenience wrapper around `rub` for amending uncommitted files or hunks into a known commit.
+### `but move <SOURCES>... <--above|--below|--branch|--unstack>`
 
-### `but move <source> <target>`
-
-Move commits or branches to a different location.
-
-```bash
-but move <commit> <target-commit>            # Move before target commit
-but move <commit>,<commit> <target-commit>   # Move multiple commits before target commit
-but move <commit> <target-commit> --after    # Move after target commit
-but move <commit>,<commit> <target-commit> --after # Move multiple commits after target commit
-but move <commit> <branch>                   # Move commit to top of branch
-but move <commit>,<commit> <branch>          # Move multiple commits to top of branch
-but move <branch> <target-branch>            # Stack branch on top of target branch
-but move <branch> zz                          # Tear off (unstack) branch
-```
-
-Comma-separated multi-source moves are valid for commit sources only, not branch sources.
-`--after` is valid only for commit-to-commit moves.
-
-### `but uncommit <source>`
-
-Uncommit changes back to uncommitted changes.
+Move commits, committed files, or a branch to a different location. Sources are positional and
+space-separated; a target flag is required.
 
 ```bash
-but uncommit <commit-id>      # Uncommit entire commit
-but uncommit <file-id>        # Uncommit specific file from its commit
-but uncommit <commit-id> --diff  # Also show resulting dirty diff with hunk IDs
-but uncommit <commit-id> -d   # Discard committed changes instead of moving to uncommitted
-but uncommit <file-id> --discard  # Discard committed file changes completely
+but move <commit> --below <target-commit>          # Place below target (older) — matches status order
+but move <commit> --above <target-commit>          # Place above target (newer)
+but move <commit> <commit> --below <target-commit> # Move an adjacent block in one command
+but move <commit> -b <branch>                      # Move commit to the tip of a branch (created if missing)
+but move <commit> --unstack                        # Move commit onto a new unstacked branch
+but move <branch> --above <target-branch>          # Stack branch on top of target branch
+but move <branch> --unstack                        # Tear off (unstack) a branch
+but move <commit-id>:<file-id> --above <commit>    # Move a committed file into a new commit above another
 ```
 
-Use `--diff` when you plan to recommit selected files or hunks immediately after uncommitting.
+Sources may not mix kinds, all committed files must come from the same commit, and only one branch
+may be moved at a time. Source order does not matter. For a branch source only `--above` and
+`--unstack` apply; `--below` and `-b <name>` require commit or committed-file sources. `--branch`
+with no value is equivalent to `--unstack`.
+
+### `but uncommit <SOURCES>...`
+
+Move commits or committed files back to the uncommitted area.
+
+```bash
+but uncommit <commit-id>                 # Uncommit an entire commit
+but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
+```
+
+The returned status lists the resulting uncommitted file IDs. Run `but diff` afterwards when you also
+need hunk IDs to recommit selectively.
 
 ### `but reword <id>`
 
 Reword commit message or rename branch.
 
 ```bash
-but reword <id>               # Interactive editor
-but reword <id> -m "new"      # Non-interactive
+but reword <id> -m "new"          # Always pass -m; without it an editor opens and blocks
 but reword <id> --fix-formatting  # Format to 72-char wrapping
 ```
 
-### `but discard <id>`
+### `but discard <CHANGES>...`
 
-Discard uncommitted changes.
+Permanently drop branches, commits, or changes. Undo with `but undo`.
 
 ```bash
-but discard <file-id>         # Discard file changes
-but discard <hunk-id>         # Discard hunk changes
+but discard <file-id>              # Discard an uncommitted file's changes
+but discard <hunk-id>              # Discard a single hunk
+but discard zz                     # Discard all uncommitted changes
+but discard <commit-id>            # Drop a commit
+but discard <commit-id>:<file-id>  # Drop one file's changes from its commit
+but discard <branch>               # Drop a branch and its commits
 ```
+
+All provided IDs must be the same kind, and committed files must come from the same commit.
 
 ## Conflict Resolution
 
@@ -341,7 +339,7 @@ but resolve cancel --force
 **Workflow:**
 
 1. `but resolve <commit-id>` — enter resolution mode using the commit ID from the `but pull` summary (or `but status`); the conflict regions are printed with line numbers
-2. Edit the conflicted files — remove `<<<<<<<`, `=======`, `>>>>>>>` markers and keep the correct content (`but resolve status` re-lists what remains when several files are conflicted)
+2. Edit the conflicted files — remove every marker (`<<<<<<<`, `|||||||`, `=======`, `>>>>>>>`; conflicts are diff3-style, so the `|||||||` common-ancestor section is present too) and keep the correct content (`but resolve status` re-lists what remains when several files are conflicted)
 3. `but resolve finish` — finalize and return to normal mode; the output reports leftover markers and the surviving uncommitted changes, so no follow-up status is needed
 4. If multiple commits are conflicted, repeat steps 1-3 for each one, oldest commit first — finishing a lower commit rebases the ones above it
 

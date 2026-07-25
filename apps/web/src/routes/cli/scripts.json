@@ -39,7 +39,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but commit -m 'Add liked tweets feature' liked-tweets"]
+				"lines": ["$ but commit -b liked-tweets -m 'Add liked tweets feature'"]
 			},
 			{
 				"type": "output",
@@ -191,7 +191,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but amend app/models/user.rb da42d06"]
+				"lines": ["$ but amend -t da42d06 app/models/user.rb"]
 			},
 			{
 				"type": "output",
@@ -202,7 +202,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but squash da42d06 fdbd753"]
+				"lines": ["$ but squash da42d06 -t fdbd753"]
 			},
 			{
 				"type": "output",
@@ -213,7 +213,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but move 21 feature-branch"]
+				"lines": ["$ but move 21 -b feature-branch"]
 			},
 			{
 				"type": "output",

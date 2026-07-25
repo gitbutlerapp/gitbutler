@@ -79,7 +79,7 @@ impl WorkspaceStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Stack {
-    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `rub`)
+    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
     cli_id: String,
     /// Represents uncommitted changes assigned to this stack
     assigned_changes: Vec<FileChange>,
@@ -101,7 +101,7 @@ impl Stack {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Branch {
-    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `rub`)
+    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
     cli_id: String,
     /// The name of the branch, e.g. "feature/add-new-api"
     name: String,
@@ -197,7 +197,7 @@ pub(crate) enum BranchStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Commit {
-    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `rub`)
+    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
     cli_id: String,
     /// Full change ID, including a synthetic one if the commit does not persist one.
     ///
@@ -226,7 +226,7 @@ pub(crate) struct Commit {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FileChange {
-    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `rub`)
+    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
     cli_id: String,
     /// The file path, UTF-8 encoded (note - this can be lossy for some Operating Systems)
     file_path: String,
