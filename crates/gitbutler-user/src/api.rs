@@ -80,7 +80,7 @@ pub struct LoginToken {
 ///
 /// The returned [`LoginToken::url`] should be opened in the user's browser.
 /// After the user authenticates, they receive a token that can be validated
-/// with [`validate_token_owner`].
+/// with [`fetch_user_by_token`].
 pub fn fetch_login_token() -> Result<LoginToken> {
     let api_url = default_api_url();
     run_async(async move {
@@ -236,35 +236,6 @@ pub fn update_user_profile(params: UpdateUserParams) -> Result<serde_json::Value
             .await
             .context("Failed to parse profile update response")
     })
-}
-
-/// Check whether a token belongs to a specific user.
-///
-/// This is a convenience wrapper around [`fetch_user_by_token`] used by
-/// the remote-access auth middleware to verify that the authenticated user
-/// matches the local machine owner.
-///
-/// Returns `Ok(false)` for authentication failures (401/403) so that
-/// callers can distinguish "not the owner" from actual errors. Other HTTP
-/// errors (e.g. 429 rate-limit, 5xx) and network failures produce `Err`.
-pub fn validate_token_owner(token: &str, expected_user_id: u64) -> Result<bool> {
-    let user = match fetch_user_by_token(token) {
-        Ok(user) => user,
-        Err(e) => match e.downcast_ref::<ApiHttpError>() {
-            Some(http_err)
-                if http_err.status == StatusCode::UNAUTHORIZED
-                    || http_err.status == StatusCode::FORBIDDEN =>
-            {
-                return Ok(false);
-            }
-            _ => return Err(e),
-        },
-    };
-    let id = user
-        .get("id")
-        .and_then(|v| v.as_u64())
-        .context("whoami response missing 'id' field")?;
-    Ok(id == expected_user_id)
 }
 
 /// Execute an async future on a dedicated thread with its own Tokio runtime.
