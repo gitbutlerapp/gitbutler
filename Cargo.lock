@@ -829,7 +829,6 @@ dependencies = [
  "but-api",
  "but-askpass",
  "but-bitbucket",
- "but-cherry-apply",
  "but-core",
  "but-ctx",
  "but-db",
@@ -977,7 +976,6 @@ dependencies = [
  "but-askpass",
  "but-bitbucket",
  "but-branches",
- "but-cherry-apply",
  "but-core",
  "but-ctx",
  "but-db",
@@ -1109,23 +1107,6 @@ dependencies = [
  "gitbutler-reference",
  "gix",
  "snapbox",
-]
-
-[[package]]
-name = "but-cherry-apply"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-meta",
- "but-rebase",
- "but-testsupport",
- "but-workspace",
- "gitbutler-branch-actions",
- "gitbutler-workspace",
- "gix",
- "serde",
 ]
 
 [[package]]

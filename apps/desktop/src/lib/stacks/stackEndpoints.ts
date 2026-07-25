@@ -37,6 +37,7 @@ import type {
 	CommitDetails,
 	DiffSpec,
 	MoveChangesResult,
+	CommitCherryPickResult,
 	CommitCreateResult,
 	CommitRewordResult,
 	CommitSquashResult,
@@ -698,6 +699,36 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.Stacks), // Probably still needed
 				invalidatesItem(ReduxTag.StackDetails, args.stackId), // This probably is still needed as well
 				invalidatesList(ReduxTag.BranchListing),
+			],
+		}),
+		/**
+		 * Copies commits from anywhere in the repository into the workspace.
+		 *
+		 * Placement follows the same `relativeTo`/`side` rules as `commitMove`,
+		 * so targeting a branch reference with `side: "below"` copies the commits
+		 * onto the tip of that stack.
+		 */
+		commitCherryPick: build.mutation<
+			CommitCherryPickResult,
+			{
+				projectId: string;
+				sourceCommitIds: string[];
+				relativeTo: RelativeTo;
+				side: InsertSide;
+				dryRun: boolean;
+			}
+		>({
+			extraOptions: {
+				command: "commit_cherry_pick",
+				actionName: "Cherry-pick Commit",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges), // Cherry-picking can cause conflicts
+				invalidatesList(ReduxTag.BranchChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
 			],
 		}),
 		/**

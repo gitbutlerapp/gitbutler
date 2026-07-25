@@ -77,7 +77,6 @@ legacy = [
     "dep:but-action",
     "dep:but-gerrit",
     "dep:but-worktrees",
-    "dep:but-cherry-apply",
 ]
 
 [dependencies]
@@ -110,7 +109,6 @@ itertools.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
-but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
