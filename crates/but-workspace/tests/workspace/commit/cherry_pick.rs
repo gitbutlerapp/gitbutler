@@ -138,7 +138,7 @@ fn insert_below_reference() -> anyhow::Result<()> {
 }
 
 #[test]
-fn parent_ordered() -> anyhow::Result<()> {
+fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -164,7 +164,7 @@ fn parent_ordered() -> anyhow::Result<()> {
     let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
     let (rebase, _) = but_workspace::commit::cherry_pick_commits(
         editor,
-        [c, b],
+        [b, c],
         RelativeTo::Reference(a_ref),
         InsertSide::Below,
     )?;
