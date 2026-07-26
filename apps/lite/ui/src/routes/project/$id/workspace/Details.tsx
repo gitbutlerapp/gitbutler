@@ -1053,9 +1053,9 @@ const Diff: FC<{
 		() =>
 			Match.value(outlineSelection).pipe(
 				Match.tags({
-					Branch: ({ branchRef }) => decodeBytes(branchRef),
-					File: ({ path }) => path,
-					Commit: ({ commitId }) => commitId,
+					Branch: ({ branchRef }) => `branch:${decodeBytes(branchRef)}`,
+					File: ({ path }) => `file:${path}`,
+					Commit: ({ commitId }) => `commit:${commitId}`,
 				}),
 				Match.orElseAbsurd,
 			),
