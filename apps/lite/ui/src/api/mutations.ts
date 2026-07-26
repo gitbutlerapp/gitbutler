@@ -696,11 +696,15 @@ export const useWorkspaceIntegrateUpstream = () => {
 	});
 };
 
-export const useRemoveBranch = () => {
+export const useBranchRemove = () => {
+	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.removeBranch,
+		mutationFn: window.lite.branchRemove,
+		onSuccess: (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

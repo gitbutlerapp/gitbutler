@@ -1,8 +1,8 @@
 import rowStyles from "../Row.module.css";
 import {
 	useBranchCreate,
+	useBranchRemove,
 	useCommitInsertBlank,
-	useRemoveBranch,
 	useTearOffBranch,
 	useBranchRename,
 	useWorkspaceBranchAndAncestorsPush,
@@ -98,7 +98,6 @@ export const BranchRow: FC<
 	{
 		projectId: string;
 		refName: BranchReference;
-		stackId: string;
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
 		downstackPushStatus: DownstackPushStatus;
@@ -110,7 +109,6 @@ export const BranchRow: FC<
 > = ({
 	projectId,
 	refName,
-	stackId,
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
@@ -180,7 +178,7 @@ export const BranchRow: FC<
 	} = useWorkspaceBranchAndAncestorsPush();
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
-	const { mutate: removeBranch } = useRemoveBranch();
+	const { mutate: branchRemove } = useBranchRemove();
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -359,10 +357,9 @@ export const BranchRow: FC<
 			label: "Delete Branch Reference",
 			enabled: canRemoveBranch,
 			onSelect: () =>
-				removeBranch({
+				branchRemove({
 					projectId,
-					stackId,
-					branchName: decodeBytes(refName.fullNameBytes),
+					refName: refName.fullNameBytes,
 				}),
 		}),
 	];

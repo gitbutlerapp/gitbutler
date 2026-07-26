@@ -8,6 +8,7 @@ import type {
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
+	BranchRemoveResult,
 	BranchRenameResult,
 	BottomUpdate,
 	CacheConfig,
@@ -300,10 +301,9 @@ export interface WorkspaceBranchAndAncestorsPushParams {
 	pushOpts: Array<PushFlag>;
 }
 
-export interface RemoveBranchParams {
+export interface BranchRemoveParams {
 	projectId: string;
-	stackId: string;
-	branchName: string;
+	refName: FullNameBytes;
 }
 
 export interface RestoreSnapshotWithKindParams {
@@ -488,7 +488,7 @@ export interface LiteElectronApi {
 	workspaceBranchAndAncestorsPush: (
 		params: WorkspaceBranchAndAncestorsPushParams,
 	) => Promise<PushResult>;
-	removeBranch: (params: RemoveBranchParams) => Promise<void>;
+	branchRemove: (params: BranchRemoveParams) => Promise<BranchRemoveResult>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	reviewTemplate: (projectId: string) => Promise<ReviewTemplateInfo | null>;
 	setReviewAutoMerge: (params: SetReviewAutoMergeParams) => Promise<void>;
@@ -575,7 +575,7 @@ export const liteIpcChannels = {
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	workspaceBranchAndAncestorsPush: "workspace:push-stack",
-	removeBranch: "workspace:remove-branch",
+	branchRemove: "workspace:branch-remove",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	reviewTemplate: "workspace:review-template",
 	setReviewAutoMerge: "workspace:set-review-auto-merge",

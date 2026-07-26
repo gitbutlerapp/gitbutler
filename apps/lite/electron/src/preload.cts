@@ -42,6 +42,7 @@ import type {
 	RepoInfo,
 	ReviewMergeStatus,
 	ReviewTemplateInfo,
+	BranchRemoveResult,
 	BranchRenameResult,
 } from "@gitbutler/but-sdk";
 import type { GUISettings } from "./settings";
@@ -198,7 +199,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	workspaceBranchAndAncestorsPush: (params) =>
 		ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
-	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
+	branchRemove: (params) =>
+		ipcRenderer.invoke("workspace:branch-remove", params) as Promise<BranchRemoveResult>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	reviewTemplate: (projectId) =>

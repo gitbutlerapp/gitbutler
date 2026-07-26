@@ -305,7 +305,6 @@ const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
 	refName: BranchReference;
-	stackId: string;
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
 	downstackPushStatus: DownstackPushStatus;
@@ -315,7 +314,6 @@ const BranchSegment: FC<{
 	projectId,
 	segment,
 	refName,
-	stackId,
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
@@ -335,7 +333,6 @@ const BranchSegment: FC<{
 			<BranchRow
 				projectId={projectId}
 				refName={refName}
-				stackId={stackId}
 				canTearOffBranch={canTearOffBranch}
 				canRemoveBranch={canRemoveBranch}
 				downstackPushStatus={downstackPushStatus}
@@ -440,8 +437,7 @@ const StackC: FC<{
 	// For now we'll treat this as non-nullable until we identify cases where it
 	// could genuinely be null (assuming backend correctness).
 	// [tag:stack-id-required]
-	const stackId = assert(stack.id);
-	const operand = stackOperand({ stackId });
+	const operand = stackOperand({ stackId: assert(stack.id) });
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -476,7 +472,6 @@ const StackC: FC<{
 										projectId={projectId}
 										segment={segment}
 										refName={segment.refName}
-										stackId={stackId}
 										canTearOffBranch={canTearOffBranch}
 										canRemoveBranch={canRemoveBranchReference(stack, index)}
 										downstackPushStatus={downstackPushStatus}

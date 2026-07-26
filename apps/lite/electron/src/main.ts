@@ -35,7 +35,7 @@ import {
 	type OpenInProgramParams,
 	type PublishReviewParams,
 	type WorkspaceBranchAndAncestorsPushParams,
-	type RemoveBranchParams,
+	type BranchRemoveParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type BranchRenameParams,
@@ -70,6 +70,7 @@ import {
 	branchDetails,
 	branchDiff,
 	branchList,
+	branchRemove,
 	branchRename,
 	changesInWorktree,
 	commitAmend,
@@ -105,7 +106,6 @@ import {
 	moveBranch,
 	openInProgram,
 	publishReview,
-	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -652,9 +652,8 @@ const registerIpcHandlers = (): void => {
 			),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.removeBranch,
-		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
-			removeBranch(projectId, stackId, branchName),
+		liteIpcChannels.branchRemove,
+		(_e, { projectId, refName }: BranchRemoveParams) => branchRemove(projectId, refName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.restoreSnapshotWithKind,
