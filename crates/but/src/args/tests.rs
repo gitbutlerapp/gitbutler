@@ -410,6 +410,26 @@ fn status_short_is_not_shown_in_help() {
     );
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn diff_help_explains_single_target() {
+    use clap::CommandFactory;
+
+    let mut command = Args::command();
+    let diff = command.find_subcommand_mut("diff").expect("diff command");
+    let help = diff.render_long_help().to_string();
+    let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    assert!(
+        help.contains("TARGET accepts at most one entity"),
+        "diff help should state that only one target is accepted"
+    );
+    assert!(
+        help.contains("run this command once per entity"),
+        "diff help should explain how to inspect several targets"
+    );
+}
+
 #[test]
 fn status_after_is_hidden_noop_compatibility_flag() {
     use clap::Parser;

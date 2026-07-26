@@ -226,16 +226,19 @@ pub enum Subcommands {
     /// Displays the diff of changes in the repo.
     ///
     /// Without any arguments, it shows the diff of all uncommitted changes.
-    /// Optionally, a CLI ID argument can be provided, which chan show the diff specific to
+    /// Optionally, provide one CLI ID to show the diff specific to:
     /// - an uncommitted file
     /// - a branch
     /// - an entire stack
     /// - a commit
     /// - a file change within a commit
+    ///
+    /// `TARGET` accepts at most one entity. To show several entities, run this command once per
+    /// entity.
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Diff {
-        /// The CLI ID of the entity to show the diff for
+        /// The CLI ID of one entity to show the diff for
         target: Option<String>,
         /// Open an interactive TUI diff viewer
         #[clap(long = "tui", conflicts_with = "no_tui")]
