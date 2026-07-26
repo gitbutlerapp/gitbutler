@@ -1,12 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi, UpdateBranchNameResult, WatcherSubscribeResult } from "./ipc";
+import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
 import type {
 	CommitAbsorption,
 	ApplyOutcome,
 	BranchCheckoutResult,
 	BranchCreateResult,
 	BranchDetails,
-	BranchListing,
 	CommitDetails,
 	DiffSpec,
 	Editor,
@@ -42,6 +41,8 @@ import type {
 	RepoInfo,
 	ReviewMergeStatus,
 	ReviewTemplateInfo,
+	BranchRemoveResult,
+	BranchRenameResult,
 } from "@gitbutler/but-sdk";
 import type { GUISettings } from "./settings";
 
@@ -159,10 +160,6 @@ const api: LiteElectronApi = {
 		ipcRenderer.on("lite:full-screen-change", listener);
 		return () => ipcRenderer.removeListener("lite:full-screen-change", listener);
 	},
-	listBranches: (projectId, filter) =>
-		ipcRenderer.invoke("workspace:list-branches", projectId, filter) as Promise<
-			Array<BranchListing>
-		>,
 	listAvailableReviewTemplates: (projectId) =>
 		ipcRenderer.invoke("workspace:list-available-review-templates", projectId) as Promise<
 			Array<string>
@@ -188,8 +185,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	publishReview: (params) =>
 		ipcRenderer.invoke("workspace:publish-review", params) as Promise<PublishReviewOutcome>,
-	updateBranchName: (params) =>
-		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
+	branchRename: (params) =>
+		ipcRenderer.invoke("workspace:branch-rename", params) as Promise<BranchRenameResult>,
 	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
@@ -197,7 +194,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	workspaceBranchAndAncestorsPush: (params) =>
 		ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
-	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
+	branchRemove: (params) =>
+		ipcRenderer.invoke("workspace:branch-remove", params) as Promise<BranchRemoveResult>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	reviewTemplate: (projectId) =>

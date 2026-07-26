@@ -8,9 +8,9 @@ import {
 	uncommittedChangesFileParent,
 	commitOperand,
 	operandIdentityKey,
-	stackOperand,
 	type Operand,
 	operandEquals,
+	commitIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getTransferTarget } from "#ui/outline/mode.ts";
@@ -304,7 +304,6 @@ const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
 	refName: BranchReference;
-	stackId: string;
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
 	downstackPushStatus: DownstackPushStatus;
@@ -314,7 +313,6 @@ const BranchSegment: FC<{
 	projectId,
 	segment,
 	refName,
-	stackId,
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
@@ -334,7 +332,6 @@ const BranchSegment: FC<{
 			<BranchRow
 				projectId={projectId}
 				refName={refName}
-				stackId={stackId}
 				canTearOffBranch={canTearOffBranch}
 				canRemoveBranch={canRemoveBranch}
 				downstackPushStatus={downstackPushStatus}
@@ -392,11 +389,11 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const operand = commitOperand({ commitId: commit.id });
+				const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
-						? (dryRunHeadInfoIndex?.commitContextById(dryRunCommitId)?.commit ?? null)
+						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
 					<TreeItem
@@ -431,28 +428,16 @@ const StackC: FC<{
 	stack: Stack;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 }> = ({ projectId, stack, checkCommit }) => {
-	// From Caleb:
-	// > There shouldn't be a way within GitButler to end up with a stack without a
-	//   StackId. Users can disrupt our matching against our metadata by playing
-	//   with references, but we currently also try to patch it up at certain points
-	//   so it probably isn't too common.
-	// For now we'll treat this as non-nullable until we identify cases where it
-	// could genuinely be null (assuming backend correctness).
-	// [tag:stack-id-required]
-	const stackId = assert(stack.id);
-	const operand = stackOperand({ stackId });
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
+		<div
+			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
+			role="group"
 			aria-label="Stack"
-			aria-expanded
 			className={classes(styles.section, styles.stack)}
-			render={<OperandC projectId={projectId} operand={operand} outline="outside" />}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 
@@ -475,7 +460,6 @@ const StackC: FC<{
 										projectId={projectId}
 										segment={segment}
 										refName={segment.refName}
-										stackId={stackId}
 										canTearOffBranch={canTearOffBranch}
 										canRemoveBranch={canRemoveBranchReference(stack, index)}
 										downstackPushStatus={downstackPushStatus}
@@ -498,7 +482,10 @@ const StackC: FC<{
 										navigationIndex,
 										segment.commits.length === 0
 											? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-											: commitOperand({ commitId: assert(segment.commits.at(-1)).id }),
+											: commitOperand({
+													commitId: assert(segment.commits.at(-1)).id,
+													changeId: assert(segment.commits.at(-1)).changeId,
+												}),
 										operandIdentityKey,
 									)
 								}
@@ -518,7 +505,7 @@ const StackC: FC<{
 					);
 				})}
 			</div>
-		</TreeItem>
+		</div>
 	);
 };
 
@@ -646,7 +633,7 @@ export const OutlineTree: FC<
 
 	const rangeResolver = navigationIndexRange<Operand, string>({
 		navigationIndex,
-		getKey: (commitId) => operandIdentityKey(commitOperand({ commitId })),
+		getKey: (commitId) => commitIdentityKey({ commitId }),
 		filterMap: (item) => (item._tag === "Commit" ? item.commitId : null),
 	});
 	const getCheckedRange = checkedRange(rangeResolver);
@@ -673,14 +660,20 @@ export const OutlineTree: FC<
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(checkedCommits, (commitId) => commitOperand({ commitId })),
+				operands: Array.from(checkedCommits).flatMap((commitId) => {
+					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
+					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+				}),
 				checked: true,
 			}),
 		);
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(uncheckedCommits, (commitId) => commitOperand({ commitId })),
+				operands: Array.from(uncheckedCommits).flatMap((commitId) => {
+					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
+					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+				}),
 				checked: false,
 			}),
 		);

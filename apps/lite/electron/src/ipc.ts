@@ -3,12 +3,11 @@ import type {
 	ApplyOutcome,
 	BranchCheckoutResult,
 	BranchIntegrationStrategy,
-	BranchReference,
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
-	BranchListing,
-	BranchListingFilter,
+	BranchRemoveResult,
+	BranchRenameResult,
 	BottomUpdate,
 	CacheConfig,
 	CiCheck,
@@ -234,11 +233,6 @@ export interface CommitUncommitChangesParams {
 	dryRun: boolean;
 }
 
-export interface ListBranchesParams {
-	projectId: string;
-	filter: BranchListingFilter | null;
-}
-
 export interface ListReviewsForBranchParams {
 	projectId: string;
 	branch: string;
@@ -300,10 +294,9 @@ export interface WorkspaceBranchAndAncestorsPushParams {
 	pushOpts: Array<PushFlag>;
 }
 
-export interface RemoveBranchParams {
+export interface BranchRemoveParams {
 	projectId: string;
-	stackId: string;
-	branchName: string;
+	refName: FullNameBytes;
 }
 
 export interface RestoreSnapshotWithKindParams {
@@ -362,10 +355,9 @@ export interface WorkspaceFetchFromRemotesParams {
 	action: string | null;
 }
 
-export interface UpdateBranchNameParams {
+export interface BranchRenameParams {
 	projectId: string;
-	stackId: string;
-	branchName: string;
+	refName: FullNameBytes;
 	newName: string;
 }
 
@@ -382,8 +374,6 @@ export interface UpdateReviewFootersParams {
 	projectId: string;
 	reviews: Array<ForgeReviewUpdate>;
 }
-
-export type UpdateBranchNameResult = BranchReference;
 
 export interface WatcherSubscribeParams {
 	projectId: string;
@@ -467,10 +457,6 @@ export interface LiteElectronApi {
 	headInfo: (projectId: string) => Promise<RefInfo>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
-	listBranches: (
-		projectId: string,
-		filter: BranchListingFilter | null,
-	) => Promise<Array<BranchListing>>;
 	listAvailableReviewTemplates: (projectId: string) => Promise<Array<string>>;
 	listCiChecks: (params: ListCiChecksParams) => Promise<Array<CiCheck>>;
 	listEditors: () => Promise<Array<Editor>>;
@@ -484,14 +470,14 @@ export interface LiteElectronApi {
 	openInProgram: (params: OpenInProgramParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	publishReview: (params: PublishReviewParams) => Promise<PublishReviewOutcome>;
-	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
+	branchRename: (params: BranchRenameParams) => Promise<BranchRenameResult>;
 	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	workspaceBranchAndAncestorsPush: (
 		params: WorkspaceBranchAndAncestorsPushParams,
 	) => Promise<PushResult>;
-	removeBranch: (params: RemoveBranchParams) => Promise<void>;
+	branchRemove: (params: BranchRemoveParams) => Promise<BranchRemoveResult>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	reviewTemplate: (projectId: string) => Promise<ReviewTemplateInfo | null>;
 	setReviewAutoMerge: (params: SetReviewAutoMergeParams) => Promise<void>;
@@ -559,7 +545,6 @@ export const liteIpcChannels = {
 	headInfo: "workspace:head-info",
 	isFullScreen: "lite:is-full-screen",
 	fullScreenChange: "lite:full-screen-change",
-	listBranches: "workspace:list-branches",
 	listAvailableReviewTemplates: "workspace:list-available-review-templates",
 	listCiChecks: "workspace:list-ci-checks",
 	listEditors: "workspace:list-editors",
@@ -573,12 +558,12 @@ export const liteIpcChannels = {
 	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",
 	publishReview: "workspace:publish-review",
-	updateBranchName: "workspace:update-branch-name",
+	branchRename: "workspace:branch-rename",
 	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	workspaceBranchAndAncestorsPush: "workspace:push-stack",
-	removeBranch: "workspace:remove-branch",
+	branchRemove: "workspace:branch-remove",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	reviewTemplate: "workspace:review-template",
 	setReviewAutoMerge: "workspace:set-review-auto-merge",

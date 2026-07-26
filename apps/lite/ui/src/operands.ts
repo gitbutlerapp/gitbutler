@@ -3,7 +3,6 @@ import type { HunkLineSelection } from "#ui/hunk.ts";
 
 export type Operand =
 	| { _tag: "UncommittedChanges" }
-	| ({ _tag: "Stack" } & StackOperand)
 	| ({ _tag: "Branch" } & BranchOperand)
 	| ({ _tag: "Commit" } & CommitOperand)
 	| ({ _tag: "File" } & FileOperand)
@@ -11,16 +10,17 @@ export type Operand =
 
 export type FileParent = Extract<Operand, { _tag: "UncommittedChanges" | "Branch" | "Commit" }>;
 
-export type StackOperand = {
-	stackId: string;
-};
-
 export type BranchOperand = {
 	branchRef: Array<number>;
 };
 
+/**
+ * The commit operand holds two forms of identity, the commit ID and the change ID, corresponding to
+ * strong and weak identity respectively. Use one or the other as needed.
+ */
 export type CommitOperand = {
 	commitId: string;
+	changeId: string;
 };
 
 export type FileOperand = {
@@ -37,11 +37,6 @@ export const uncommittedChangesOperand: Operand = {
 	_tag: "UncommittedChanges",
 };
 
-export const stackOperand = ({ stackId }: StackOperand): Operand => ({
-	_tag: "Stack",
-	stackId,
-});
-
 export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
 	_tag: "Branch",
 	branchRef,
@@ -49,9 +44,11 @@ export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
 
 export const commitOperand = ({
 	commitId,
+	changeId,
 }: CommitOperand): Extract<Operand, { _tag: "Commit" }> => ({
 	_tag: "Commit",
 	commitId,
+	changeId,
 });
 
 export const fileOperand = ({ parent, path }: FileOperand): Extract<Operand, { _tag: "File" }> => ({
@@ -80,29 +77,54 @@ export const branchFileParent = ({ branchRef }: BranchOperand): FileParent => ({
 	branchRef,
 });
 
-export const commitFileParent = ({ commitId }: CommitOperand): FileParent => ({
+export const commitFileParent = ({ commitId, changeId }: CommitOperand): FileParent => ({
 	_tag: "Commit",
 	commitId,
+	changeId,
 });
 
-export const operandIdentityKey = (operand: Operand): string =>
-	Match.value(operand).pipe(
-		Match.tagsExhaustive({
-			UncommittedChanges: () => JSON.stringify(["UncommittedChanges"]),
-			File: (x) => JSON.stringify(["File", x.parent, x.path]),
-			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
-			Branch: (x) => JSON.stringify(["Branch", x.branchRef]),
-			Commit: (x) => JSON.stringify(["Commit", x.commitId]),
-			Hunk: (x) =>
-				JSON.stringify([
-					"Hunk",
-					x.parent,
-					x.hunkHeader,
-					x.lineGroups,
-					x.isResultOfBinaryToTextConversion,
-				]),
-		}),
-	);
+const uncommittedChangesIdentityKey = "uncommitted_changes";
+
+export const branchIdentityKey = (operand: BranchOperand) =>
+	`branch:${operand.branchRef.join(",")}`;
+
+export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
+	`commit:${operand.commitId}`;
+
+export const weakCommitIdentityKey = (operand: Pick<CommitOperand, "changeId">) =>
+	`commit:${operand.changeId}`;
+
+const fileParentIdentityKey = (fp: FileParent): string => {
+	switch (fp._tag) {
+		case "UncommittedChanges":
+			return uncommittedChangesIdentityKey;
+		case "Branch":
+			return branchIdentityKey(fp);
+		case "Commit":
+			return commitIdentityKey(fp);
+	}
+};
+
+export const fileIdentityKey = (operand: FileOperand) =>
+	`file:${operand.path} <- ${fileParentIdentityKey(operand.parent)}`;
+
+const hunkIdentityKey = (operand: HunkOperand) =>
+	`hunk:${JSON.stringify(operand.hunkHeader)}:${JSON.stringify(operand.lineGroups)}:${operand.isResultOfBinaryToTextConversion} <- ${fileIdentityKey(operand.parent)}`;
+
+export const operandIdentityKey = (operand: Operand): string => {
+	switch (operand._tag) {
+		case "UncommittedChanges":
+			return uncommittedChangesIdentityKey;
+		case "File":
+			return fileIdentityKey(operand);
+		case "Branch":
+			return branchIdentityKey(operand);
+		case "Commit":
+			return commitIdentityKey(operand);
+		case "Hunk":
+			return hunkIdentityKey(operand);
+	}
+};
 
 export const operandEquals = (a: Operand, b: Operand): boolean =>
 	operandIdentityKey(a) === operandIdentityKey(b);

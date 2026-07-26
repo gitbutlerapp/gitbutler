@@ -35,10 +35,10 @@ import {
 	type OpenInProgramParams,
 	type PublishReviewParams,
 	type WorkspaceBranchAndAncestorsPushParams,
-	type RemoveBranchParams,
+	type BranchRemoveParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
-	type UpdateBranchNameParams,
+	type BranchRenameParams,
 	type UpdateReviewParams,
 	type ApplyParams,
 	type AskpassSubmitPromptResponseParams,
@@ -70,6 +70,8 @@ import {
 	branchDetails,
 	branchDiff,
 	branchList,
+	branchRemove,
+	branchRename,
 	changesInWorktree,
 	commitAmend,
 	commitCreate,
@@ -93,7 +95,6 @@ import {
 	getReviewBaseRepoUrl,
 	getReviewMergeStatus,
 	listAvailableReviewTemplates,
-	listBranches,
 	listCiChecks,
 	listEditors,
 	listPrograms,
@@ -104,14 +105,11 @@ import {
 	moveBranch,
 	openInProgram,
 	publishReview,
-	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
-	updateBranchName,
 	updateReview,
 	workspaceBranchAndAncestorsPush,
-	type BranchListingFilter,
 	commitUncommit,
 	reviewTemplate,
 	restoreSnapshotWithKind,
@@ -548,10 +546,6 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.isFullScreen, (event) =>
 		Promise.resolve(BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false),
 	);
-	senderValidatingHandle(
-		liteIpcChannels.listBranches,
-		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
-	);
 	senderValidatingHandle(liteIpcChannels.listAvailableReviewTemplates, (_e, projectId: string) =>
 		listAvailableReviewTemplates(projectId),
 	);
@@ -611,9 +605,9 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.updateBranchName,
-		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
-			updateBranchName(projectId, stackId, branchName, newName),
+		liteIpcChannels.branchRename,
+		(_e, { projectId, refName, newName }: BranchRenameParams) =>
+			branchRename(projectId, refName, newName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.updateReview,
@@ -652,9 +646,8 @@ const registerIpcHandlers = (): void => {
 			),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.removeBranch,
-		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
-			removeBranch(projectId, stackId, branchName),
+		liteIpcChannels.branchRemove,
+		(_e, { projectId, refName }: BranchRemoveParams) => branchRemove(projectId, refName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.restoreSnapshotWithKind,

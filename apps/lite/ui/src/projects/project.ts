@@ -338,8 +338,12 @@ export const projectReducers = {
 		const selection = workspaceState.selection.outline;
 		if (selection?._tag === "Commit") {
 			const newId = replacedCommits[selection.commitId];
-			if (newId !== undefined)
-				workspaceState.selection.outline = commitOperand({ commitId: newId });
+			if (newId !== undefined) {
+				workspaceState.selection.outline = commitOperand({
+					commitId: newId,
+					changeId: selection.changeId,
+				});
+			}
 		}
 
 		branchesReducers.updateRewrittenCommitReferences(state.branches, { replacedCommits });
@@ -348,12 +352,13 @@ export const projectReducers = {
 			let newOperand: CheckableOperand | null = null;
 			if (operand._tag === "Commit") {
 				const newId = replacedCommits[operand.commitId];
-				if (newId !== undefined) newOperand = commitOperand({ commitId: newId });
+				if (newId !== undefined)
+					newOperand = commitOperand({ commitId: newId, changeId: operand.changeId });
 			} else if (operand.parent._tag === "Commit") {
 				const newId = replacedCommits[operand.parent.commitId];
 				if (newId !== undefined) {
 					newOperand = fileOperand({
-						parent: commitFileParent({ commitId: newId }),
+						parent: commitFileParent({ commitId: newId, changeId: operand.parent.changeId }),
 						path: operand.path,
 					});
 				}
@@ -366,8 +371,11 @@ export const projectReducers = {
 
 		if (workspaceState.mode._tag === "RewordCommit") {
 			const newId = replacedCommits[workspaceState.mode.operand.commitId];
-			if (newId !== undefined)
-				workspaceState.mode = rewordCommitOutlineMode({ operand: { commitId: newId } });
+			if (newId !== undefined) {
+				workspaceState.mode = rewordCommitOutlineMode({
+					operand: { commitId: newId, changeId: workspaceState.mode.operand.changeId },
+				});
+			}
 		}
 	},
 	toggleFiles: (state: ProjectState) => {

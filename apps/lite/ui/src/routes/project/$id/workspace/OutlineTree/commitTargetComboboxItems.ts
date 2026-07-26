@@ -15,7 +15,7 @@ export const buildCommitTargetComboboxItems = ({
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
 		outlineSelection?._tag === "Commit"
-			? headInfoIndex?.commitContextById(outlineSelection.commitId)?.commit
+			? headInfoIndex?.commitContextByCommitId(outlineSelection.commitId)?.commit
 			: null;
 
 	return [
@@ -23,7 +23,7 @@ export const buildCommitTargetComboboxItems = ({
 			? ([
 					{
 						label: commitTitle(commitTarget.message) ?? "(no message)",
-						operand: { _tag: "Commit", commitId: commitTarget.id },
+						operand: { _tag: "Commit", commitId: commitTarget.id, changeId: commitTarget.changeId },
 						relativeTo: { type: "commit", subject: commitTarget.id },
 					},
 				] satisfies Array<CommitTargetComboboxItem>)

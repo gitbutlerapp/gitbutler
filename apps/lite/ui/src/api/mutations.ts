@@ -1,5 +1,5 @@
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
-import { renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewMergeStatusQueryOptions,
@@ -15,7 +15,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitOperand, type BranchOperand } from "#ui/operands.ts";
+import { commitOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
@@ -411,12 +411,20 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
-				dispatch(
-					projectSlice.actions.selectOutline({
-						projectId,
-						selection: commitOperand({ commitId: response.newCommit }),
-					}),
-				);
+				const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
+				const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
+
+				if (newCommitCtx) {
+					dispatch(
+						projectSlice.actions.selectOutline({
+							projectId,
+							selection: commitOperand({
+								commitId: response.newCommit,
+								changeId: newCommitCtx.commit.changeId,
+							}),
+						}),
+					);
+				}
 			}
 
 			if (response.rejectedChanges.length > 0) {
@@ -520,12 +528,20 @@ export const useCommitInsertBlank = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
-			dispatch(
-				projectSlice.actions.selectOutline({
-					projectId: input.projectId,
-					selection: commitOperand({ commitId: response.newCommit }),
-				}),
-			);
+			const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
+			const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
+
+			if (newCommitCtx) {
+				dispatch(
+					projectSlice.actions.selectOutline({
+						projectId: input.projectId,
+						selection: commitOperand({
+							commitId: response.newCommit,
+							changeId: newCommitCtx.commit.changeId,
+						}),
+					}),
+				);
+			}
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -680,11 +696,15 @@ export const useWorkspaceIntegrateUpstream = () => {
 	});
 };
 
-export const useRemoveBranch = () => {
+export const useBranchRemove = () => {
+	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.removeBranch,
+		mutationFn: window.lite.branchRemove,
+		onSuccess: (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -798,54 +818,37 @@ export const useUnapplyStack = () => {
 	});
 };
 
-export const useUpdateBranchName = ({
-	projectId,
-	branchRef,
-	oldBranch,
-}: {
-	projectId: string;
-	branchRef: Array<number>;
-	oldBranch: BranchOperand;
-}) => {
+export const useBranchRename = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (newRef, _input, _context, mutation) => {
-			const newBranch: BranchOperand = {
-				branchRef: newRef.fullNameBytes,
-			};
-
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
-				if (!headInfo) return headInfo;
-
-				return renameBranchInHeadInfo({
-					headInfo,
-					branchRef,
-					newName: newRef.displayName,
-					newBranchRef: newRef.fullNameBytes,
-				});
-			});
+		mutationFn: window.lite.branchRename,
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			dispatch(
 				projectSlice.actions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch,
-					newBranch,
+					projectId: input.projectId,
+					oldBranch: {
+						branchRef: input.refName,
+					},
+					newBranch: {
+						branchRef: response.newRef.fullNameBytes,
+					},
 				}),
 			);
 
 			await moveDraftPR({
 				queryClient: mutation.client,
-				projectId,
+				projectId: input.projectId,
 				oldBranch:
 					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-					decodeBytes(oldBranch.branchRef).replace(/^refs\/heads\//, ""),
-				newBranch: newRef.displayName,
+					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
+				newBranch: response.newRef.displayName,
 			});
 
-			dispatch(projectSlice.actions.exitMode({ projectId }));
+			dispatch(projectSlice.actions.exitMode({ projectId: input.projectId }));
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

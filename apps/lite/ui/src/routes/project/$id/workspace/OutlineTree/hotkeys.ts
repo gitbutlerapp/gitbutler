@@ -85,9 +85,8 @@ export const useOutlineTreeHotkeys = ({
 
 	const selectionStack = Match.value(selection).pipe(
 		Match.tags({
-			Stack: (stack) => headInfoIndex?.stackContextById(stack.stackId)?.stack,
 			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef)?.stack,
-			Commit: (commit) => headInfoIndex?.commitContextById(commit.commitId)?.stack,
+			Commit: (commit) => headInfoIndex?.commitContextByCommitId(commit.commitId)?.stack,
 		}),
 		Match.orElse(() => undefined),
 	);
@@ -102,14 +101,14 @@ export const useOutlineTreeHotkeys = ({
 					projectSlice.selectors.selectOperandChecked(
 						state,
 						projectId,
-						commitOperand({ commitId: commit.id }),
+						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
 					),
 				)
 			: false,
 	);
 	const selectedCommit =
 		selection?._tag === "Commit"
-			? (headInfoIndex?.commitContextById(selection.commitId) ?? null)?.commit
+			? (headInfoIndex?.commitContextByCommitId(selection.commitId) ?? null)?.commit
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -225,7 +224,7 @@ export const useOutlineTreeHotkeys = ({
 			projectSlice.actions.checkOperands({
 				projectId,
 				operands: selectedBranchSegment.commits.map((commit) =>
-					commitOperand({ commitId: commit.id }),
+					commitOperand({ commitId: commit.id, changeId: commit.changeId }),
 				),
 				checked: !selectedBranchCommitsChecked,
 			}),
@@ -268,7 +267,7 @@ export const useOutlineTreeHotkeys = ({
 
 		const selectionAfterDiscard = selectAfterDiscardedCommit({
 			navigationIndex,
-			commit: { commitId: selection.commitId },
+			commit: { commitId: selection.commitId, changeId: selection.changeId },
 			headInfoIndex,
 		});
 
@@ -280,12 +279,17 @@ export const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					const newId =
-						selectionAfterDiscard?._tag === "Commit"
-							? response.workspace.replacedCommits[selectionAfterDiscard.commitId]
-							: undefined;
-					const latestSelectionAfterDiscard =
-						newId === undefined ? selectionAfterDiscard : commitOperand({ commitId: newId });
+					let latestSelectionAfterDiscard = selectionAfterDiscard;
+
+					rewrite: if (selectionAfterDiscard?._tag === "Commit") {
+						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
+						if (newId === undefined) break rewrite;
+
+						latestSelectionAfterDiscard = commitOperand({
+							commitId: newId,
+							changeId: selectionAfterDiscard.changeId,
+						});
+					}
 
 					dispatch(
 						projectSlice.actions.selectOutline({
@@ -302,7 +306,7 @@ export const useOutlineTreeHotkeys = ({
 		selection?._tag === "Branch"
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
 			: selection?._tag === "Commit"
-				? headInfoIndex?.commitContextById(selection.commitId)?.segmentIndex
+				? headInfoIndex?.commitContextByCommitId(selection.commitId)?.segmentIndex
 				: undefined;
 
 	const selectedPushContext =

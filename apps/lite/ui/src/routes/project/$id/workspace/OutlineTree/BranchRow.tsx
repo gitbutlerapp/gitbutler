@@ -1,10 +1,10 @@
 import rowStyles from "../Row.module.css";
 import {
 	useBranchCreate,
+	useBranchRemove,
 	useCommitInsertBlank,
-	useRemoveBranch,
 	useTearOffBranch,
-	useUpdateBranchName,
+	useBranchRename,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
 import {
@@ -98,7 +98,6 @@ export const BranchRow: FC<
 	{
 		projectId: string;
 		refName: BranchReference;
-		stackId: string;
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
 		downstackPushStatus: DownstackPushStatus;
@@ -110,7 +109,6 @@ export const BranchRow: FC<
 > = ({
 	projectId,
 	refName,
-	stackId,
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
@@ -160,11 +158,7 @@ export const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const { mutateAsync: updateBranchName } = useUpdateBranchName({
-		projectId,
-		branchRef: refName.fullNameBytes,
-		oldBranch: branchOperandV,
-	});
+	const { mutateAsync: branchRename } = useBranchRename();
 
 	const startEditing = () => {
 		dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: branchOperandV }));
@@ -184,7 +178,7 @@ export const BranchRow: FC<
 	} = useWorkspaceBranchAndAncestorsPush();
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
-	const { mutate: removeBranch } = useRemoveBranch();
+	const { mutate: branchRemove } = useBranchRemove();
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -195,10 +189,9 @@ export const BranchRow: FC<
 		startRenameTransition(async () => {
 			setOptimisticBranchDisplayName(trimmed);
 			try {
-				await updateBranchName({
+				await branchRename({
 					projectId,
-					stackId,
-					branchName: refName.displayName,
+					refName: refName.fullNameBytes,
 					newName: trimmed,
 				});
 			} catch (error) {
@@ -364,10 +357,9 @@ export const BranchRow: FC<
 			label: "Delete Branch Reference",
 			enabled: canRemoveBranch,
 			onSelect: () =>
-				removeBranch({
+				branchRemove({
 					projectId,
-					stackId,
-					branchName: decodeBytes(refName.fullNameBytes),
+					refName: refName.fullNameBytes,
 				}),
 		}),
 	];

@@ -57,15 +57,17 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 	);
 
 	const unfoldedBranchRefs = active ? Object.keys(unfoldedBranches) : [];
-	const commitIdsByRef = useQueries({
+	const commitsByRef = useQueries({
 		queries: unfoldedBranchRefs.map((refName) =>
 			branchDetailsQueryOptions({ projectId, ...branchDetailsParams(refName) }),
 		),
 		combine: (results) =>
-			new Map<string, Array<string>>(
+			new Map(
 				unfoldedBranchRefs.map((refName, index) => [
 					refName,
-					results[index]?.data?.commits.map((commit) => commit.id) ?? [],
+					results[index]?.data?.commits.map((commit) =>
+						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+					) ?? [],
 				]),
 			),
 	});
@@ -94,9 +96,7 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 						// its own cannot be unfolded, and an unfolded one shows only the
 						// commits it contributes itself.
 						...(unfoldedBranches[branch.refName.full] && !branchIsEmpty(branch)
-							? branchOwnCommits(branch, commitIdsByRef.get(branch.refName.full) ?? []).map(
-									(commitId) => commitOperand({ commitId }),
-								)
+							? branchOwnCommits(branch, commitsByRef.get(branch.refName.full) ?? [])
 							: []),
 					],
 				),

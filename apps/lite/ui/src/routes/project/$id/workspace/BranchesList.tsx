@@ -88,7 +88,7 @@ const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }
 
 const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, commit }) => {
 	const dispatch = useAppDispatch();
-	const operand = commitOperand({ commitId: commit.id });
+	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(projectId, operand);
 	const title = commitTitle(commit.message);
 

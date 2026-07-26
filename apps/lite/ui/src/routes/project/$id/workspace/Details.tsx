@@ -36,6 +36,9 @@ import {
 	type FileParent,
 	type HunkOperand,
 	type Operand,
+	branchIdentityKey,
+	fileIdentityKey,
+	weakCommitIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -1053,9 +1056,9 @@ const Diff: FC<{
 		() =>
 			Match.value(outlineSelection).pipe(
 				Match.tags({
-					Branch: ({ branchRef }) => decodeBytes(branchRef),
-					File: ({ path }) => path,
-					Commit: ({ commitId }) => commitId,
+					Branch: (x) => branchIdentityKey(x),
+					File: (x) => fileIdentityKey(x),
+					Commit: (x) => weakCommitIdentityKey(x),
 				}),
 				Match.orElseAbsurd,
 			),
@@ -1067,7 +1070,7 @@ const Diff: FC<{
 				Match.tags({
 					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
 					File: ({ parent }) => parent,
-					Commit: ({ commitId }) => commitFileParent({ commitId }),
+					Commit: ({ commitId, changeId }) => commitFileParent({ commitId, changeId }),
 				}),
 				Match.orElseAbsurd,
 			),

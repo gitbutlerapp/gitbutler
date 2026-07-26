@@ -1,10 +1,8 @@
-import { encodeBytes } from "#ui/api/bytes.ts";
 import { useApply } from "#ui/api/mutations.ts";
-import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { headInfoQueryOptions, listBranchesQueryOptions } from "#ui/api/queries.ts";
+import { branchListQueryOptions } from "#ui/api/queries.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { formatRelativeTime } from "#ui/time.ts";
-import type { BranchListing } from "@gitbutler/but-sdk";
+import type { ListedBranch, ListedStack } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 
@@ -12,7 +10,7 @@ type ApplyBranchPickerOption = {
 	branchRef: string;
 	label: string;
 	type: string;
-	updatedAt: number;
+	updatedAt: number | null;
 };
 
 type Props = {
@@ -21,26 +19,32 @@ type Props = {
 	projectId: string;
 };
 
-const branchListingToApplyBranchPickerOptions = (
-	branch: BranchListing,
+const listedBranchToApplyBranchPickerOptions = (
+	branch: ListedBranch,
 ): Array<ApplyBranchPickerOption> => {
 	if (branch.hasLocal) {
 		return [
 			{
-				branchRef: `refs/heads/${branch.name}`,
-				label: branch.name,
+				branchRef: branch.refName.full,
+				label: branch.displayName,
 				type: "Local",
-				updatedAt: branch.updatedAt,
+				updatedAt: branch.updatedAtMs,
 			},
 		];
 	}
 
-	return branch.remotes.map((remote) => ({
-		branchRef: `refs/remotes/${remote}/${branch.name}`,
-		label: branch.name,
-		type: remote,
-		updatedAt: branch.updatedAt,
-	}));
+	return branch.remoteRefs.flatMap(({ full }) => {
+		const type = /^refs\/remotes\/([^/]+)\//.exec(full)?.[1];
+
+		return type !== undefined
+			? {
+					branchRef: full,
+					label: branch.displayName,
+					type,
+					updatedAt: branch.updatedAtMs,
+				}
+			: [];
+	});
 };
 
 const groupApplyBranchPickerOptions = (
@@ -51,7 +55,8 @@ const groupApplyBranchPickerOptions = (
 		([value, items]): PickerDialogGroup<ApplyBranchPickerOption> => ({
 			value,
 			items: items.toSorted((a, b) => {
-				if (value === "Local" && a.updatedAt !== b.updatedAt) return b.updatedAt - a.updatedAt;
+				if (value === "Local" && a.updatedAt !== b.updatedAt)
+					return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
 				return a.label.localeCompare(b.label);
 			}),
 		}),
@@ -61,32 +66,32 @@ const groupApplyBranchPickerOptions = (
 		return a.value.localeCompare(b.value);
 	});
 
+const listedStacksToApplyBranchPickerGroups = (
+	stacks: Array<ListedStack>,
+): Array<PickerDialogGroup<ApplyBranchPickerOption>> =>
+	groupApplyBranchPickerOptions(
+		stacks.flatMap(({ status, branches }) =>
+			status === "unapplied" || status === "standalone"
+				? branches.flatMap(listedBranchToApplyBranchPickerOptions)
+				: [],
+		),
+	);
+
 export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
 	const {
-		data: items = [],
+		data: groups,
 		isError,
 		isPending,
 	} = useQuery({
-		...listBranchesQueryOptions({ projectId, filter: null }),
-		select: (branches) =>
-			branches
-				.flatMap(branchListingToApplyBranchPickerOptions)
-				// Filter out branches that are applied in the *current* workspace.
-				.filter((option) => !headInfoIndex?.branchContextByRefBytes(encodeBytes(option.branchRef))),
+		...branchListQueryOptions(projectId),
+		select: listedStacksToApplyBranchPickerGroups,
 	});
 	const [now] = useState(() => Date.now());
 	const { mutate: apply } = useApply();
-	const statusLabel =
-		items.length === 0
-			? isPending
-				? "Loading branches…"
-				: isError
-					? "Unable to load branches."
-					: undefined
+	const statusLabel = isPending
+		? "Loading branches…"
+		: isError
+			? "Unable to load branches."
 			: undefined;
 
 	const selectBranch = (option: ApplyBranchPickerOption) => {
@@ -101,9 +106,9 @@ export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) 
 			emptyLabel="No available branches found."
 			getItemKey={(x) => x.branchRef}
 			getItemLabel={(x) => x.label}
-			getItemType={(x) => formatRelativeTime(x.updatedAt, now)}
+			getItemType={(x) => (x.updatedAt === null ? undefined : formatRelativeTime(x.updatedAt, now))}
 			itemToStringValue={(x) => x.label}
-			items={groupApplyBranchPickerOptions(items)}
+			items={groups ?? []}
 			open={open}
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}

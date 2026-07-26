@@ -1,4 +1,4 @@
-import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
+import { encodeBytes } from "#ui/api/bytes.ts";
 import type { Commit, RefInfo, RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
 
 type StackIndex = {
@@ -17,26 +17,30 @@ type CommitIndex = {
 };
 
 export type HeadInfoIndex = {
-	stackContextById: (stackId: string) => StackIndex | undefined;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
-	/** Prefer lookups by commit ID which is globally unique. */
-	commitContextById: (
-		commitOrChangeId: string,
+	commitContextByCommitId: (
+		commitId: string,
 	) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
+	commitContextsByChangeId: (
+		changeId: string,
+	) =>
+		| [StackIndex & SegmentIndex & CommitIndex, ...Array<StackIndex & SegmentIndex & CommitIndex>]
+		| undefined;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
 
 const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
-	const stackContextById = new Map<string, StackIndex>();
 	const branchContextByRef = new Map<string, StackIndex & SegmentIndex>();
-	const commitContextById = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
+	const commitContextByCommitId = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
+	const commitContextsByChangeId = new Map<
+		string,
+		[StackIndex & SegmentIndex & CommitIndex, ...Array<StackIndex & SegmentIndex & CommitIndex>]
+	>();
 
 	const branchRefKey = (ref: Array<number>): string => ref.join(",");
 
 	for (const [stackIndex, stack] of headInfo.stacks.entries()) {
-		if (stack.id !== null) stackContextById.set(stack.id, { stack, stackIndex });
-
 		for (const [segmentIndex, segment] of stack.segments.entries()) {
 			if (segment.refName) {
 				branchContextByRef.set(branchRefKey(segment.refName.fullNameBytes), {
@@ -56,17 +60,19 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 					commit,
 					commitIndex,
 				};
-				commitContextById.set(commit.id, ctx);
-				// Change IDs aren't globally unique, in which case this is last write wins.
-				commitContextById.set(commit.changeId, ctx);
+				commitContextByCommitId.set(commit.id, ctx);
+
+				const prev = commitContextsByChangeId.get(commit.changeId);
+				if (prev) prev.push(ctx);
+				else commitContextsByChangeId.set(commit.changeId, [ctx]);
 			}
 		}
 	}
 
 	return {
-		stackContextById: (stackId: string) => stackContextById.get(stackId),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
-		commitContextById: (commitOrChangeId: string) => commitContextById.get(commitOrChangeId),
+		commitContextByCommitId: (commitId: string) => commitContextByCommitId.get(commitId),
+		commitContextsByChangeId: (changeId: string) => commitContextsByChangeId.get(changeId),
 	};
 };
 
@@ -78,35 +84,6 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	headInfoIndexCache.set(headInfo, index);
 	return index;
 };
-
-export const renameBranchInHeadInfo = ({
-	headInfo,
-	branchRef,
-	newName,
-	newBranchRef,
-}: {
-	headInfo: RefInfo;
-	branchRef: Array<number>;
-	newName: string;
-	newBranchRef: Array<number>;
-}): RefInfo => ({
-	...headInfo,
-	stacks: headInfo.stacks.map((stack) => ({
-		...stack,
-		segments: stack.segments.map((segment) => {
-			if (!segment.refName || !bytesEqual(segment.refName.fullNameBytes, branchRef)) return segment;
-
-			return {
-				...segment,
-				refName: {
-					...segment.refName,
-					displayName: newName,
-					fullNameBytes: newBranchRef,
-				},
-			};
-		}),
-	})),
-});
 
 export const resolveRelativeTo = ({
 	headInfoIndex,
