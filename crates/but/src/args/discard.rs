@@ -11,6 +11,8 @@ use crate::args::atoms::CliIdArg;
 ///
 /// All provided changes must be the same kind. Committed files must come from the same commit.
 ///
+/// The entire operation is recorded as a single oplog entry, so it can be undone with `but undo`.
+///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
