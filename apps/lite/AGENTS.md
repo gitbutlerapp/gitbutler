@@ -19,7 +19,7 @@ $ pnpm -F @gitbutler/lite check
 
 # Components
 
-Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are redundant as we use React Compiler.
+Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are usually redundant as we use React Compiler, however may be necessary in hot paths where the compiler fails to understand that a computation is pure and therefore safe to memoise.
 
 The compiler does not prevent re-render regressions: it silently skips memoizing calls to imported functions, and context still re-renders every consumer. Before writing code that derives values during render, adds a context, subscribes to the store, or renders lists of rows — or when the UI is slow or re-renders too much — use the `lite-render-perf` skill (`.agents/skills/lite-render-perf/SKILL.md`).
 
