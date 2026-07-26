@@ -18,7 +18,6 @@ import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import type { ComponentProps, FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { Row, RowToolbar } from "../Row.tsx";
-import { assert } from "#ui/assert.ts";
 import styles from "./StackRow.module.css";
 
 export const StackRow: FC<
@@ -37,8 +36,10 @@ export const StackRow: FC<
 
 	const { isPending: isUnapplyStackPending, mutate: unapplyStack } = useUnapplyStack();
 	const unapply = () => {
-		// [ref:stack-id-required]
-		unapplyStack({ projectId, stackId: assert(stack.id) });
+		// In the future we should have an unapply API that doesn't require an ID.
+		if (stack.id === null) throw new Error("Require stack ID in order to unapply");
+
+		unapplyStack({ projectId, stackId: stack.id });
 	};
 
 	const { mutate: workspaceIntegrateUpstream } = useWorkspaceIntegrateUpstream();

@@ -8,7 +8,6 @@ import {
 	uncommittedChangesFileParent,
 	commitOperand,
 	operandIdentityKey,
-	stackOperand,
 	type Operand,
 	operandEquals,
 	commitIdentityKey,
@@ -429,27 +428,16 @@ const StackC: FC<{
 	stack: Stack;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 }> = ({ projectId, stack, checkCommit }) => {
-	// From Caleb:
-	// > There shouldn't be a way within GitButler to end up with a stack without a
-	//   StackId. Users can disrupt our matching against our metadata by playing
-	//   with references, but we currently also try to patch it up at certain points
-	//   so it probably isn't too common.
-	// For now we'll treat this as non-nullable until we identify cases where it
-	// could genuinely be null (assuming backend correctness).
-	// [tag:stack-id-required]
-	const operand = stackOperand({ stackId: assert(stack.id) });
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
+		<div
+			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
+			role="group"
 			aria-label="Stack"
-			aria-expanded
 			className={classes(styles.section, styles.stack)}
-			render={<OperandC projectId={projectId} operand={operand} outline="outside" />}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 
@@ -517,7 +505,7 @@ const StackC: FC<{
 					);
 				})}
 			</div>
-		</TreeItem>
+		</div>
 	);
 };
 
