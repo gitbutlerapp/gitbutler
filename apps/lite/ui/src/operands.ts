@@ -93,27 +93,51 @@ export const commitFileParent = ({ commitId, changeId }: CommitOperand): FilePar
 	changeId,
 });
 
-export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
-	JSON.stringify(["Commit", operand.commitId]);
+const uncommittedChangesIdentityKey = "uncommitted_changes";
 
-export const operandIdentityKey = (operand: Operand): string =>
-	Match.value(operand).pipe(
-		Match.tagsExhaustive({
-			UncommittedChanges: () => JSON.stringify(["UncommittedChanges"]),
-			File: (x) => JSON.stringify(["File", x.parent, x.path]),
-			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
-			Branch: (x) => JSON.stringify(["Branch", x.branchRef]),
-			Commit: (x) => commitIdentityKey(x),
-			Hunk: (x) =>
-				JSON.stringify([
-					"Hunk",
-					x.parent,
-					x.hunkHeader,
-					x.lineGroups,
-					x.isResultOfBinaryToTextConversion,
-				]),
-		}),
-	);
+const stackIdentityKey = (operand: StackOperand) => `stack:${operand.stackId}`;
+
+const branchIdentityKey = (operand: BranchOperand) => `branch:${operand.branchRef.join(",")}`;
+
+export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
+	`commit:${operand.commitId}`;
+
+export const weakCommitIdentityKey = (operand: Pick<CommitOperand, "changeId">) =>
+	`commit:${operand.changeId}`;
+
+const fileParentIdentityKey = (fp: FileParent): string => {
+	switch (fp._tag) {
+		case "UncommittedChanges":
+			return uncommittedChangesIdentityKey;
+		case "Branch":
+			return branchIdentityKey(fp);
+		case "Commit":
+			return commitIdentityKey(fp);
+	}
+};
+
+const fileIdentityKey = (operand: FileOperand) =>
+	`file:${operand.path} <- ${fileParentIdentityKey(operand.parent)}`;
+
+const hunkIdentityKey = (operand: HunkOperand) =>
+	`hunk:${JSON.stringify(operand.hunkHeader)}:${JSON.stringify(operand.lineGroups)}:${operand.isResultOfBinaryToTextConversion} <- ${fileIdentityKey(operand.parent)}`;
+
+export const operandIdentityKey = (operand: Operand): string => {
+	switch (operand._tag) {
+		case "UncommittedChanges":
+			return uncommittedChangesIdentityKey;
+		case "File":
+			return fileIdentityKey(operand);
+		case "Stack":
+			return stackIdentityKey(operand);
+		case "Branch":
+			return branchIdentityKey(operand);
+		case "Commit":
+			return commitIdentityKey(operand);
+		case "Hunk":
+			return hunkIdentityKey(operand);
+	}
+};
 
 export const operandEquals = (a: Operand, b: Operand): boolean =>
 	operandIdentityKey(a) === operandIdentityKey(b);

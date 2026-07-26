@@ -1055,7 +1055,7 @@ const Diff: FC<{
 				Match.tags({
 					Branch: ({ branchRef }) => `branch:${decodeBytes(branchRef)}`,
 					File: ({ path }) => `file:${path}`,
-					Commit: ({ commitId }) => `commit:${commitId}`,
+					Commit: ({ changeId }) => `commit:${changeId}`,
 				}),
 				Match.orElseAbsurd,
 			),
