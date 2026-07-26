@@ -34,12 +34,12 @@ export const useStateReconciler = (): void => {
 	const reconcileSelectedCommit = useEffectEvent((headInfoIndex: HeadInfoIndex) => {
 		if (outlineSelection?._tag !== "Commit") return;
 
-		const curr = headInfoIndex.commitContextById(outlineSelection.commitId);
+		const curr = headInfoIndex.commitContextByCommitId(outlineSelection.commitId);
 		if (curr) return;
 
-		// Change IDs are not necessarily globally unique, but typically will be. In any case this is
-		// a best-effort fallback.
-		const commit = headInfoIndex.commitContextById(outlineSelection.changeId)?.commit;
+		// Change IDs are not necessarily globally unique, but typically will be. In any case this
+		// is a best-effort fallback.
+		const commit = headInfoIndex.commitContextsByChangeId(outlineSelection.changeId)?.[0].commit;
 
 		dispatch(
 			projectSlice.actions.selectOutline({
@@ -58,7 +58,7 @@ export const useStateReconciler = (): void => {
 	const checkedCommits = checkedOperands.filter((operand) => operand._tag === "Commit");
 	const reconcileCheckedCommits = useEffectEvent((headInfoIndex: HeadInfoIndex) => {
 		const invalidated = checkedCommits.filter(
-			(commit) => !headInfoIndex.commitContextById(commit.commitId),
+			(commit) => !headInfoIndex.commitContextByCommitId(commit.commitId),
 		);
 
 		if (invalidated.length > 0) {
@@ -92,7 +92,7 @@ export const useStateReconciler = (): void => {
 		(headInfoIndex: HeadInfoIndex, checkedCommitFilesByCommitId: Map<string, Set<string>>) => {
 			const invalidated = checkedCommitFiles.filter(
 				(file) =>
-					!headInfoIndex.commitContextById(file.parent.commitId) ||
+					!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
 					checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false,
 			);
 

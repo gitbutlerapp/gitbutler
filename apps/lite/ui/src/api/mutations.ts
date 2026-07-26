@@ -412,7 +412,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
 				const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
-				const newCommitCtx = headInfoIndex.commitContextById(response.newCommit);
+				const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
 
 				if (newCommitCtx) {
 					dispatch(
@@ -529,7 +529,7 @@ export const useCommitInsertBlank = () => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
-			const newCommitCtx = headInfoIndex.commitContextById(response.newCommit);
+			const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
 
 			if (newCommitCtx) {
 				dispatch(

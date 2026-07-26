@@ -19,10 +19,14 @@ type CommitIndex = {
 export type HeadInfoIndex = {
 	stackContextById: (stackId: string) => StackIndex | undefined;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
-	/** Prefer lookups by commit ID which is globally unique. */
-	commitContextById: (
-		commitOrChangeId: string,
+	commitContextByCommitId: (
+		commitId: string,
 	) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
+	commitContextsByChangeId: (
+		changeId: string,
+	) =>
+		| [StackIndex & SegmentIndex & CommitIndex, ...Array<StackIndex & SegmentIndex & CommitIndex>]
+		| undefined;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
@@ -30,7 +34,11 @@ const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
 const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const stackContextById = new Map<string, StackIndex>();
 	const branchContextByRef = new Map<string, StackIndex & SegmentIndex>();
-	const commitContextById = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
+	const commitContextByCommitId = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
+	const commitContextsByChangeId = new Map<
+		string,
+		[StackIndex & SegmentIndex & CommitIndex, ...Array<StackIndex & SegmentIndex & CommitIndex>]
+	>();
 
 	const branchRefKey = (ref: Array<number>): string => ref.join(",");
 
@@ -56,9 +64,11 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 					commit,
 					commitIndex,
 				};
-				commitContextById.set(commit.id, ctx);
-				// Change IDs aren't globally unique, in which case this is last write wins.
-				commitContextById.set(commit.changeId, ctx);
+				commitContextByCommitId.set(commit.id, ctx);
+
+				const prev = commitContextsByChangeId.get(commit.changeId);
+				if (prev) prev.push(ctx);
+				else commitContextsByChangeId.set(commit.changeId, [ctx]);
 			}
 		}
 	}
@@ -66,7 +76,8 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	return {
 		stackContextById: (stackId: string) => stackContextById.get(stackId),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
-		commitContextById: (commitOrChangeId: string) => commitContextById.get(commitOrChangeId),
+		commitContextByCommitId: (commitId: string) => commitContextByCommitId.get(commitId),
+		commitContextsByChangeId: (changeId: string) => commitContextsByChangeId.get(changeId),
 	};
 };
 

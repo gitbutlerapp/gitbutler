@@ -397,7 +397,7 @@ const SegmentContent: FC<{
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
-						? (dryRunHeadInfoIndex?.commitContextById(dryRunCommitId)?.commit ?? null)
+						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
 					<TreeItem
@@ -678,7 +678,7 @@ export const OutlineTree: FC<
 			projectSlice.actions.checkOperands({
 				projectId,
 				operands: Array.from(checkedCommits).flatMap((commitId) => {
-					const ctx = headInfoIndex?.commitContextById(commitId);
+					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
 					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: true,
@@ -688,7 +688,7 @@ export const OutlineTree: FC<
 			projectSlice.actions.checkOperands({
 				projectId,
 				operands: Array.from(uncheckedCommits).flatMap((commitId) => {
-					const ctx = headInfoIndex?.commitContextById(commitId);
+					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
 					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: false,

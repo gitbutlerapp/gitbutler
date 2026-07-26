@@ -87,7 +87,7 @@ export const useOutlineTreeHotkeys = ({
 		Match.tags({
 			Stack: (stack) => headInfoIndex?.stackContextById(stack.stackId)?.stack,
 			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef)?.stack,
-			Commit: (commit) => headInfoIndex?.commitContextById(commit.commitId)?.stack,
+			Commit: (commit) => headInfoIndex?.commitContextByCommitId(commit.commitId)?.stack,
 		}),
 		Match.orElse(() => undefined),
 	);
@@ -109,7 +109,7 @@ export const useOutlineTreeHotkeys = ({
 	);
 	const selectedCommit =
 		selection?._tag === "Commit"
-			? (headInfoIndex?.commitContextById(selection.commitId) ?? null)?.commit
+			? (headInfoIndex?.commitContextByCommitId(selection.commitId) ?? null)?.commit
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -307,7 +307,7 @@ export const useOutlineTreeHotkeys = ({
 		selection?._tag === "Branch"
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
 			: selection?._tag === "Commit"
-				? headInfoIndex?.commitContextById(selection.commitId)?.segmentIndex
+				? headInfoIndex?.commitContextByCommitId(selection.commitId)?.segmentIndex
 				: undefined;
 
 	const selectedPushContext =

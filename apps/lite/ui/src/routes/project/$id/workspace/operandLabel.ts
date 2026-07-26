@@ -20,7 +20,7 @@ export const operandLabel = ({
 			File: ({ path }) => path,
 			UncommittedChanges: () => "Uncommitted changes",
 			Commit: ({ commitId }) => {
-				const commit = headInfoIndex.commitContextById(commitId)?.commit;
+				const commit = headInfoIndex.commitContextByCommitId(commitId)?.commit;
 				return commit
 					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);

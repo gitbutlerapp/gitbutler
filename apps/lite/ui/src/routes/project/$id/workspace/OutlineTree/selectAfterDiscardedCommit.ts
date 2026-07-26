@@ -26,7 +26,7 @@ export const selectAfterDiscardedCommit = ({
 	const prevCommit = navigationIndex.items[commitIndex - 1];
 	if (prevCommit?._tag === "Commit") return prevCommit;
 
-	const commitCtx = headInfoIndex?.commitContextById(commit.commitId);
+	const commitCtx = headInfoIndex?.commitContextByCommitId(commit.commitId);
 	if (!commitCtx?.segment.refName) return null;
 
 	const branchIdx = navigationIndex.indexByKey.get(

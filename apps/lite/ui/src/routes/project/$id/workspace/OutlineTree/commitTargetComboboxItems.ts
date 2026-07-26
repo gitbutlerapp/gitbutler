@@ -15,7 +15,7 @@ export const buildCommitTargetComboboxItems = ({
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
 		outlineSelection?._tag === "Commit"
-			? headInfoIndex?.commitContextById(outlineSelection.commitId)?.commit
+			? headInfoIndex?.commitContextByCommitId(outlineSelection.commitId)?.commit
 			: null;
 
 	return [
