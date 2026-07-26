@@ -6,8 +6,6 @@ import type {
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
-	BranchListing,
-	BranchListingFilter,
 	BranchRemoveResult,
 	BranchRenameResult,
 	BottomUpdate,
@@ -235,11 +233,6 @@ export interface CommitUncommitChangesParams {
 	dryRun: boolean;
 }
 
-export interface ListBranchesParams {
-	projectId: string;
-	filter: BranchListingFilter | null;
-}
-
 export interface ListReviewsForBranchParams {
 	projectId: string;
 	branch: string;
@@ -464,10 +457,6 @@ export interface LiteElectronApi {
 	headInfo: (projectId: string) => Promise<RefInfo>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
-	listBranches: (
-		projectId: string,
-		filter: BranchListingFilter | null,
-	) => Promise<Array<BranchListing>>;
 	listAvailableReviewTemplates: (projectId: string) => Promise<Array<string>>;
 	listCiChecks: (params: ListCiChecksParams) => Promise<Array<CiCheck>>;
 	listEditors: () => Promise<Array<Editor>>;
@@ -556,7 +545,6 @@ export const liteIpcChannels = {
 	headInfo: "workspace:head-info",
 	isFullScreen: "lite:is-full-screen",
 	fullScreenChange: "lite:full-screen-change",
-	listBranches: "workspace:list-branches",
 	listAvailableReviewTemplates: "workspace:list-available-review-templates",
 	listCiChecks: "workspace:list-ci-checks",
 	listEditors: "workspace:list-editors",

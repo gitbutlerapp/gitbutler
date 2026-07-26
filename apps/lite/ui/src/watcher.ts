@@ -13,11 +13,10 @@ export const handleWatcher = (
 				queryKey: ["workspaceFetchStatus" satisfies QueryKey, projectId],
 			});
 			void client.invalidateQueries({ queryKey: ["reviews" satisfies QueryKey, projectId] });
-			// A fetch moves remote-tracking refs, so both branch listings go stale,
+			// A fetch moves remote-tracking refs, so the branch listing goes stale,
 			// and it can advance a remote branch whose commits or diff are already
 			// cached (unfolded or selected in the Branches tab). This case does not
 			// fall through to the gitActivity invalidations below.
-			void client.invalidateQueries({ queryKey: ["branches" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchList" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDetails" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });
@@ -25,7 +24,6 @@ export const handleWatcher = (
 		case "gitActivity":
 		case "workspaceActivity": {
 			void client.invalidateQueries({ queryKey: ["absorptionPlan" satisfies QueryKey, projectId] });
-			void client.invalidateQueries({ queryKey: ["branches" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDetails" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchList" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });

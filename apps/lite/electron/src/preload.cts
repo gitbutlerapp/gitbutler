@@ -6,7 +6,6 @@ import type {
 	BranchCheckoutResult,
 	BranchCreateResult,
 	BranchDetails,
-	BranchListing,
 	CommitDetails,
 	DiffSpec,
 	Editor,
@@ -161,10 +160,6 @@ const api: LiteElectronApi = {
 		ipcRenderer.on("lite:full-screen-change", listener);
 		return () => ipcRenderer.removeListener("lite:full-screen-change", listener);
 	},
-	listBranches: (projectId, filter) =>
-		ipcRenderer.invoke("workspace:list-branches", projectId, filter) as Promise<
-			Array<BranchListing>
-		>,
 	listAvailableReviewTemplates: (projectId) =>
 		ipcRenderer.invoke("workspace:list-available-review-templates", projectId) as Promise<
 			Array<string>

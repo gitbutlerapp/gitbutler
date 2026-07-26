@@ -4,7 +4,6 @@ import type {
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
 	GetReviewParams,
-	ListBranchesParams,
 	ListCiChecksParams,
 	ListReviewsParams,
 	TreeChangeDiffParams,
@@ -27,7 +26,6 @@ export type QueryKey =
 	| "review"
 	| "reviewMergeStatus"
 	| "reviews"
-	| "branches"
 	| "editors"
 	| "projects"
 	| "treeChangeDiffs"
@@ -144,12 +142,6 @@ export const listReviewsQueryOptions = ({ projectId, ...params }: ListReviewsPar
 			};
 		},
 		staleTime: 60_000,
-	});
-
-export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesParams) =>
-	queryOptions({
-		queryKey: ["branches" satisfies QueryKey, projectId, params],
-		queryFn: () => window.lite.listBranches(projectId, params.filter),
 	});
 
 export const listProjectsQueryOptions = queryOptions({

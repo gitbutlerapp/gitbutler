@@ -95,7 +95,6 @@ import {
 	getReviewBaseRepoUrl,
 	getReviewMergeStatus,
 	listAvailableReviewTemplates,
-	listBranches,
 	listCiChecks,
 	listEditors,
 	listPrograms,
@@ -111,7 +110,6 @@ import {
 	unapplyStack,
 	updateReview,
 	workspaceBranchAndAncestorsPush,
-	type BranchListingFilter,
 	commitUncommit,
 	reviewTemplate,
 	restoreSnapshotWithKind,
@@ -547,10 +545,6 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfo(projectId));
 	senderValidatingHandle(liteIpcChannels.isFullScreen, (event) =>
 		Promise.resolve(BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false),
-	);
-	senderValidatingHandle(
-		liteIpcChannels.listBranches,
-		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
 	);
 	senderValidatingHandle(liteIpcChannels.listAvailableReviewTemplates, (_e, projectId: string) =>
 		listAvailableReviewTemplates(projectId),
