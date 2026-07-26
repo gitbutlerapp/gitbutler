@@ -80,6 +80,7 @@ import {
 	Suspense,
 	useId,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -1040,21 +1041,31 @@ const Diff: FC<{
 		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
 	);
 
-	const changesetKey = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			File: ({ path }) => path,
-			Commit: ({ commitId }) => commitId,
-		}),
-		Match.orElseAbsurd,
+	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
+	// the outline selection, even with the helpers inlined, hence manual memoisation.
+	const changesetKey = useMemo(
+		() =>
+			Match.value(outlineSelection).pipe(
+				Match.tags({
+					Branch: ({ branchRef }) => decodeBytes(branchRef),
+					File: ({ path }) => path,
+					Commit: ({ commitId }) => commitId,
+				}),
+				Match.orElseAbsurd,
+			),
+		[outlineSelection],
 	);
-	const fileParent = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => branchFileParent({ branchRef }),
-			File: ({ parent }) => parent,
-			Commit: ({ commitId }) => commitFileParent({ commitId }),
-		}),
-		Match.orElseAbsurd,
+	const fileParent = useMemo(
+		() =>
+			Match.value(outlineSelection).pipe(
+				Match.tags({
+					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
+					File: ({ parent }) => parent,
+					Commit: ({ commitId }) => commitFileParent({ commitId }),
+				}),
+				Match.orElseAbsurd,
+			),
+		[outlineSelection],
 	);
 
 	const treeChangeDiffs = useSuspenseQueries({
