@@ -11,6 +11,7 @@ import {
 	stackOperand,
 	type Operand,
 	operandEquals,
+	commitIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getTransferTarget } from "#ui/outline/mode.ts";
@@ -392,7 +393,7 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const operand = commitOperand({ commitId: commit.id });
+				const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
@@ -498,7 +499,10 @@ const StackC: FC<{
 										navigationIndex,
 										segment.commits.length === 0
 											? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-											: commitOperand({ commitId: assert(segment.commits.at(-1)).id }),
+											: commitOperand({
+													commitId: assert(segment.commits.at(-1)).id,
+													changeId: assert(segment.commits.at(-1)).changeId,
+												}),
 										operandIdentityKey,
 									)
 								}
@@ -646,7 +650,7 @@ export const OutlineTree: FC<
 
 	const rangeResolver = navigationIndexRange<Operand, string>({
 		navigationIndex,
-		getKey: (commitId) => operandIdentityKey(commitOperand({ commitId })),
+		getKey: (commitId) => commitIdentityKey({ commitId }),
 		filterMap: (item) => (item._tag === "Commit" ? item.commitId : null),
 	});
 	const getCheckedRange = checkedRange(rangeResolver);
@@ -673,14 +677,20 @@ export const OutlineTree: FC<
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(checkedCommits, (commitId) => commitOperand({ commitId })),
+				operands: Array.from(checkedCommits).flatMap((commitId) => {
+					const ctx = headInfoIndex?.commitContextById(commitId);
+					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+				}),
 				checked: true,
 			}),
 		);
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(uncheckedCommits, (commitId) => commitOperand({ commitId })),
+				operands: Array.from(uncheckedCommits).flatMap((commitId) => {
+					const ctx = headInfoIndex?.commitContextById(commitId);
+					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+				}),
 				checked: false,
 			}),
 		);

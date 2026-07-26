@@ -19,8 +19,13 @@ export type BranchOperand = {
 	branchRef: Array<number>;
 };
 
+/**
+ * The commit operand holds two forms of identity, the commit ID and the change ID, corresponding to
+ * strong and weak identity respectively. Use one or the other as needed.
+ */
 export type CommitOperand = {
 	commitId: string;
+	changeId: string;
 };
 
 export type FileOperand = {
@@ -49,9 +54,11 @@ export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
 
 export const commitOperand = ({
 	commitId,
+	changeId,
 }: CommitOperand): Extract<Operand, { _tag: "Commit" }> => ({
 	_tag: "Commit",
 	commitId,
+	changeId,
 });
 
 export const fileOperand = ({ parent, path }: FileOperand): Extract<Operand, { _tag: "File" }> => ({
@@ -80,10 +87,14 @@ export const branchFileParent = ({ branchRef }: BranchOperand): FileParent => ({
 	branchRef,
 });
 
-export const commitFileParent = ({ commitId }: CommitOperand): FileParent => ({
+export const commitFileParent = ({ commitId, changeId }: CommitOperand): FileParent => ({
 	_tag: "Commit",
 	commitId,
+	changeId,
 });
+
+export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
+	JSON.stringify(["Commit", operand.commitId]);
 
 export const operandIdentityKey = (operand: Operand): string =>
 	Match.value(operand).pipe(
@@ -92,7 +103,7 @@ export const operandIdentityKey = (operand: Operand): string =>
 			File: (x) => JSON.stringify(["File", x.parent, x.path]),
 			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
 			Branch: (x) => JSON.stringify(["Branch", x.branchRef]),
-			Commit: (x) => JSON.stringify(["Commit", x.commitId]),
+			Commit: (x) => commitIdentityKey(x),
 			Hunk: (x) =>
 				JSON.stringify([
 					"Hunk",

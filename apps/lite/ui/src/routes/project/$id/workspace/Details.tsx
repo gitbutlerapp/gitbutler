@@ -1067,7 +1067,7 @@ const Diff: FC<{
 				Match.tags({
 					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
 					File: ({ parent }) => parent,
-					Commit: ({ commitId }) => commitFileParent({ commitId }),
+					Commit: ({ commitId, changeId }) => commitFileParent({ commitId, changeId }),
 				}),
 				Match.orElseAbsurd,
 			),

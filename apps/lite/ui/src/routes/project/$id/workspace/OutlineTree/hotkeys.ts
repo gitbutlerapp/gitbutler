@@ -102,7 +102,7 @@ export const useOutlineTreeHotkeys = ({
 					projectSlice.selectors.selectOperandChecked(
 						state,
 						projectId,
-						commitOperand({ commitId: commit.id }),
+						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
 					),
 				)
 			: false,
@@ -225,7 +225,7 @@ export const useOutlineTreeHotkeys = ({
 			projectSlice.actions.checkOperands({
 				projectId,
 				operands: selectedBranchSegment.commits.map((commit) =>
-					commitOperand({ commitId: commit.id }),
+					commitOperand({ commitId: commit.id, changeId: commit.changeId }),
 				),
 				checked: !selectedBranchCommitsChecked,
 			}),
@@ -268,7 +268,7 @@ export const useOutlineTreeHotkeys = ({
 
 		const selectionAfterDiscard = selectAfterDiscardedCommit({
 			navigationIndex,
-			commit: { commitId: selection.commitId },
+			commit: { commitId: selection.commitId, changeId: selection.changeId },
 			headInfoIndex,
 		});
 
@@ -280,12 +280,17 @@ export const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					const newId =
-						selectionAfterDiscard?._tag === "Commit"
-							? response.workspace.replacedCommits[selectionAfterDiscard.commitId]
-							: undefined;
-					const latestSelectionAfterDiscard =
-						newId === undefined ? selectionAfterDiscard : commitOperand({ commitId: newId });
+					let latestSelectionAfterDiscard = selectionAfterDiscard;
+
+					rewrite: if (selectionAfterDiscard?._tag === "Commit") {
+						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
+						if (newId === undefined) break rewrite;
+
+						latestSelectionAfterDiscard = commitOperand({
+							commitId: newId,
+							changeId: selectionAfterDiscard.changeId,
+						});
+					}
 
 					dispatch(
 						projectSlice.actions.selectOutline({

@@ -206,7 +206,9 @@ const buildOutlineNavigationIndex = ({
 						...(segment.refName
 							? [branchOperand({ branchRef: segment.refName.fullNameBytes })]
 							: []),
-						...segment.commits.map((commit) => commitOperand({ commitId: commit.id })),
+						...segment.commits.map((commit) =>
+							commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+						),
 					],
 				),
 			) ?? [];

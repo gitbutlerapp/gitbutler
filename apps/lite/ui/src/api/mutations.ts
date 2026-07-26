@@ -1,5 +1,5 @@
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
-import { renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewMergeStatusQueryOptions,
@@ -411,12 +411,20 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
-				dispatch(
-					projectSlice.actions.selectOutline({
-						projectId,
-						selection: commitOperand({ commitId: response.newCommit }),
-					}),
-				);
+				const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
+				const newCommitCtx = headInfoIndex.commitContextById(response.newCommit);
+
+				if (newCommitCtx) {
+					dispatch(
+						projectSlice.actions.selectOutline({
+							projectId,
+							selection: commitOperand({
+								commitId: response.newCommit,
+								changeId: newCommitCtx.commit.changeId,
+							}),
+						}),
+					);
+				}
 			}
 
 			if (response.rejectedChanges.length > 0) {
@@ -520,12 +528,20 @@ export const useCommitInsertBlank = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
-			dispatch(
-				projectSlice.actions.selectOutline({
-					projectId: input.projectId,
-					selection: commitOperand({ commitId: response.newCommit }),
-				}),
-			);
+			const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
+			const newCommitCtx = headInfoIndex.commitContextById(response.newCommit);
+
+			if (newCommitCtx) {
+				dispatch(
+					projectSlice.actions.selectOutline({
+						projectId: input.projectId,
+						selection: commitOperand({
+							commitId: response.newCommit,
+							changeId: newCommitCtx.commit.changeId,
+						}),
+					}),
+				);
+			}
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

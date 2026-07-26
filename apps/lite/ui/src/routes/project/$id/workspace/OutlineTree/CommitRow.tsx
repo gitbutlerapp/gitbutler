@@ -54,6 +54,7 @@ export const CommitRow: FC<
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 	const commitOperandV: CommitOperand = {
 		commitId: commit.id,
+		changeId: commit.changeId,
 	};
 	const operand = commitOperand(commitOperandV);
 
@@ -152,12 +153,17 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newId =
-						selectionAfterDiscard?._tag === "Commit"
-							? response.workspace.replacedCommits[selectionAfterDiscard.commitId]
-							: undefined;
-					const latestSelectionAfterDiscard =
-						newId === undefined ? selectionAfterDiscard : commitOperand({ commitId: newId });
+					let latestSelectionAfterDiscard = selectionAfterDiscard;
+
+					rewrite: if (selectionAfterDiscard?._tag === "Commit") {
+						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
+						if (newId === undefined) break rewrite;
+
+						latestSelectionAfterDiscard = commitOperand({
+							commitId: newId,
+							changeId: selectionAfterDiscard.changeId,
+						});
+					}
 
 					dispatch(
 						projectSlice.actions.selectOutline({

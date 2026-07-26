@@ -61,7 +61,8 @@ const branchesSlice = createSlice({
 			if (state.selection?._tag !== "Commit") return;
 
 			const newId = replacedCommits[state.selection.commitId];
-			if (newId !== undefined) state.selection = commitOperand({ commitId: newId });
+			if (newId !== undefined)
+				state.selection = commitOperand({ commitId: newId, changeId: state.selection.changeId });
 		},
 		toggleUnfolded: (state, { payload: { branchRef } }: PayloadAction<{ branchRef: string }>) => {
 			if (state.unfolded[branchRef]) delete state.unfolded[branchRef];
