@@ -3,17 +3,12 @@ import type { HunkLineSelection } from "#ui/hunk.ts";
 
 export type Operand =
 	| { _tag: "UncommittedChanges" }
-	| ({ _tag: "Stack" } & StackOperand)
 	| ({ _tag: "Branch" } & BranchOperand)
 	| ({ _tag: "Commit" } & CommitOperand)
 	| ({ _tag: "File" } & FileOperand)
 	| ({ _tag: "Hunk" } & HunkOperand);
 
 export type FileParent = Extract<Operand, { _tag: "UncommittedChanges" | "Branch" | "Commit" }>;
-
-export type StackOperand = {
-	stackId: string;
-};
 
 export type BranchOperand = {
 	branchRef: Array<number>;
@@ -41,11 +36,6 @@ export type HunkOperand = HunkLineSelection & {
 export const uncommittedChangesOperand: Operand = {
 	_tag: "UncommittedChanges",
 };
-
-export const stackOperand = ({ stackId }: StackOperand): Operand => ({
-	_tag: "Stack",
-	stackId,
-});
 
 export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
 	_tag: "Branch",
@@ -95,8 +85,6 @@ export const commitFileParent = ({ commitId, changeId }: CommitOperand): FilePar
 
 const uncommittedChangesIdentityKey = "uncommitted_changes";
 
-const stackIdentityKey = (operand: StackOperand) => `stack:${operand.stackId}`;
-
 export const branchIdentityKey = (operand: BranchOperand) =>
 	`branch:${operand.branchRef.join(",")}`;
 
@@ -129,8 +117,6 @@ export const operandIdentityKey = (operand: Operand): string => {
 			return uncommittedChangesIdentityKey;
 		case "File":
 			return fileIdentityKey(operand);
-		case "Stack":
-			return stackIdentityKey(operand);
 		case "Branch":
 			return branchIdentityKey(operand);
 		case "Commit":

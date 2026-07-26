@@ -25,7 +25,6 @@ export const operandLabel = ({
 					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);
 			},
-			Stack: () => "Stack",
 			Hunk: ({ lineGroups }) => {
 				const count = lineGroups.reduce((sum, group) => sum + group.lines, 0);
 				return `${count} changed line${count !== 1 ? "s" : ""}`;
