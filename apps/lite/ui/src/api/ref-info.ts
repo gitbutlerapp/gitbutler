@@ -17,7 +17,6 @@ type CommitIndex = {
 };
 
 export type HeadInfoIndex = {
-	stackContextById: (stackId: string) => StackIndex | undefined;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
 	commitContextByCommitId: (
 		commitId: string,
@@ -32,7 +31,6 @@ export type HeadInfoIndex = {
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
 
 const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
-	const stackContextById = new Map<string, StackIndex>();
 	const branchContextByRef = new Map<string, StackIndex & SegmentIndex>();
 	const commitContextByCommitId = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
 	const commitContextsByChangeId = new Map<
@@ -43,8 +41,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const branchRefKey = (ref: Array<number>): string => ref.join(",");
 
 	for (const [stackIndex, stack] of headInfo.stacks.entries()) {
-		if (stack.id !== null) stackContextById.set(stack.id, { stack, stackIndex });
-
 		for (const [segmentIndex, segment] of stack.segments.entries()) {
 			if (segment.refName) {
 				branchContextByRef.set(branchRefKey(segment.refName.fullNameBytes), {
@@ -74,7 +70,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	}
 
 	return {
-		stackContextById: (stackId: string) => stackContextById.get(stackId),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
 		commitContextByCommitId: (commitId: string) => commitContextByCommitId.get(commitId),
 		commitContextsByChangeId: (changeId: string) => commitContextsByChangeId.get(changeId),

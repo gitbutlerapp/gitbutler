@@ -85,7 +85,6 @@ export const useOutlineTreeHotkeys = ({
 
 	const selectionStack = Match.value(selection).pipe(
 		Match.tags({
-			Stack: (stack) => headInfoIndex?.stackContextById(stack.stackId)?.stack,
 			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef)?.stack,
 			Commit: (commit) => headInfoIndex?.commitContextByCommitId(commit.commitId)?.stack,
 		}),
