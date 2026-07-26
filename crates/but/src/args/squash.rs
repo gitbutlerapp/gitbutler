@@ -15,8 +15,8 @@ use crate::args::atoms::CliIdArg;
 /// - Uncommit commits
 /// - Uncommit changes in commits
 ///
-/// If no message-related flag is passed an editor will be opened where the new message can be
-/// composed.
+/// If no message-related flag is passed when squashing commits or branches, an editor may be
+/// opened where the new message can be composed; other squashes keep the target's message.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]

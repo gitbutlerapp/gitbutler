@@ -11,8 +11,8 @@ use crate::args::atoms::CliIdArg;
 /// arguments.
 ///
 /// If there are no branches applied, a new branch is created for the commit. If there is only one
-/// branch applied, the commit is placed at the tip of that branch. Otherwise, the targeting flags
-/// `--above`, `--below` and `--branch` must be used to control where the commit is placed. Note
+/// stack of branches applied, the commit is placed at the tip of that stack. Otherwise, the
+/// targeting flags `--above`, `--below` and `--branch` control where the commit is placed. Note
 /// that only one of the targeting flags can be provided at a time.
 ///
 /// The commit is expected to have a commit message unless `--no-message` is provided. If neither of
