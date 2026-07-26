@@ -47,6 +47,7 @@ The skill directory contains both distributable skill files and development docu
 ```text
 crates/but/skill/
 ├── SKILL.md                   ← Skill entry point (INSTALLED)
+├── AGENTS.md                  ← Rules for editing these files (NOT installed)
 ├── README.md                  ← This file - development docs (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
     ├── reference.md           - Command reference
@@ -61,6 +62,7 @@ The `but skill install` command only copies the distributable files to the user'
 
 **What stays in the repository:**
 Development documentation remains in the source tree and is not installed:
+- `AGENTS.md` - Rules for anyone editing the skill files (symlinked as `CLAUDE.md`)
 - `README.md` - This file (development and maintenance docs)
 
 ## When This Skill Is Invoked
@@ -93,7 +95,7 @@ The YAML `description` field contains all triggering information so Claude knows
 
 ### Lean Entry Point
 
-SKILL.md is kept under 150 lines as a "table of contents" that points to detailed materials.
+SKILL.md acts as a "table of contents" that points to detailed materials.
 
 ### Domain Separation
 
@@ -128,10 +130,6 @@ Uses directive language ("do this") rather than passive ("this might happen").
 - New workflow patterns
 - Common user questions
 - Real-world scenarios
-
-### Line Count Guideline
-
-Keep SKILL.md at or under 250 lines. Split content into reference files if approaching the limit.
 
 ## Testing the Skill
 

@@ -12,7 +12,7 @@ Agent-focused reference for useful `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`, `gui`
+- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
 
 ## Inspection (Understanding State)
@@ -539,17 +539,6 @@ Manage installed GitButler skill files.
 but skill check
 but skill check --update
 but skill install --detect
-```
-
-### `but gui [path]`
-
-Open the GitButler desktop app for a project directory.
-
-```bash
-but gui                     # Open the current directory in the app
-but gui ../other-repo       # Open a specific project directory
-but gui --new-window        # Open the current project in a new app window
-but gui -n ../other-repo    # Short flag for opening another project in a new window
 ```
 
 ## Selected Options
