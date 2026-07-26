@@ -78,7 +78,7 @@ The first token on each `but diff` / `but status` line is that line's ID — pas
 - Tear off a branch: `but move <branch> --unstack`
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed files, uncommitted files/hunks, or `zz` for all uncommitted changes
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
-- Pull (update workspace from the target): `but pull` — the output reports the result; `--check` is only a dry-run preview
+- Pull (update workspace from the target): `but pull` — the output reports the result
 - Create PR: `but pr new <branch-id> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
@@ -89,8 +89,6 @@ For "get latest from main", "update/sync this workspace", "rebase onto main", or
 
 1. `but pull` — one command; no preflight needed. Its output reports the resulting state, it refuses safely when uncommitted changes conflict, and `but undo` reverts it.
 2. If commits come back conflicted, resolve them oldest-first following the printed instructions: `but resolve <commit>`, edit the files, `but resolve finish`. Finishing a lower commit rebases the ones above it, so always work bottom-up.
-
-`but pull --check` answers "would this conflict?" without updating. For a straightforward update, run `but pull` directly; use `--check` first when the user or repository policy requires a preview.
 
 Rebasing applied branches onto the latest target IS `but pull` — never `move`, `config target`, `unapply`, or raw `git pull`/`git rebase`. The base shown in status is the last FETCHED state: when `git log` shows `main` (local or remote) ahead of it, that is exactly the update `but pull` fetches and applies — the target setting is not stale and repointing it is never the fix. Pull carries uncommitted changes along, and its output reports the resulting state. If it refuses because uncommitted changes conflict, park them: `but commit -b <branch> -m "wip" <ids>`, pull again, then `but uncommit` the parked commit (there is no stash; do not hand-revert files).
 
