@@ -57,6 +57,10 @@ but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 ```
 
+`but diff` accepts at most one target. Bare `but diff` shows every uncommitted file;
+inspect committed files or other entities one target at a time. Unlike `commit`,
+`amend`, and `discard`, it does not accept several positional IDs.
+
 **Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
 
 For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
@@ -180,7 +184,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Placing commits:** Use `--above <target>` or `--below <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — use refs from the returned status output for subsequent history edits.
 
-**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints, and take follow-up refs from the returned workspace state. If a commit must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit them, then `but move <preserved-commit-id> -b <branch>` rather than anchoring with `--above`/`--below`.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints, and take follow-up refs from the returned workspace state. Bare `but diff` needs no ID from the preceding command, so `but uncommit <id> && but diff` is safe. If commits from that branch must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit the replacements, then move the preserved block together with `but move <preserved-id> [<preserved-id>...] -b <branch>` so its internal order stays intact.
 
 Example: `but commit -b my-branch -m "Fix bug" ab cd` commits files/hunks `ab` and `cd`.
 
@@ -251,6 +255,7 @@ space-separated; a target flag is required.
 but move <commit> --below <target-commit>          # Place below target (older) — matches status order
 but move <commit> --above <target-commit>          # Place above target (newer)
 but move <commit> <commit> --below <target-commit> # Move an adjacent block in one command
+but move <commit> <commit> --above <target-commit> # Same block move, anchored from the other side
 but move <commit> -b <branch>                      # Move commit to the tip of a branch (created if missing)
 but move <commit> --unstack                        # Move commit onto a new unstacked branch
 but move <branch> --above <target-branch>          # Stack branch on top of target branch
@@ -272,8 +277,8 @@ but uncommit <commit-id>                 # Uncommit an entire commit
 but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
 ```
 
-The returned status lists the resulting uncommitted file IDs. Run `but diff` afterwards when you also
-need hunk IDs to recommit selectively.
+The returned status lists the resulting uncommitted file IDs. When you also need hunk IDs to
+recommit selectively, use `but uncommit <id> && but diff` in one shell call.
 
 ### `but reword <id>`
 
@@ -340,7 +345,7 @@ but resolve cancel --force
 
 1. `but resolve <commit-id>` — enter resolution mode using the commit ID from the `but pull` summary (or `but status`); the conflict regions are printed with line numbers
 2. Edit the conflicted files — remove every marker (`<<<<<<<`, `|||||||`, `=======`, `>>>>>>>`; conflicts are diff3-style, so the `|||||||` common-ancestor section is present too) and keep the correct content (`but resolve status` re-lists what remains when several files are conflicted)
-3. `but resolve finish` — finalize and return to normal mode; the output reports leftover markers and the surviving uncommitted changes, so no follow-up status is needed
+3. `but resolve finish` — finalize and return to normal mode; the output reports leftover markers, surviving uncommitted changes, every remaining conflicted commit with the exact next `but resolve <id>` command, and the resulting workspace state. When it says no conflicted commits remain, do not run a follow-up status
 4. If multiple commits are conflicted, repeat steps 1-3 for each one, oldest commit first — finishing a lower commit rebases the ones above it
 
 **Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly.
@@ -373,8 +378,9 @@ but pull                      # Fetch and rebase applied branches
 but pull --check              # Dry-run preview: report what would happen, change nothing
 ```
 
-Run `but pull` directly; its output reports the result and `but undo`
-reverts it. Use `--check` only when you want a preview without updating.
+Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
+reverts it. Use `--check` first when the user or repository policy requires a preview without
+updating.
 Do not use raw `git pull` or `git rebase`.
 
 ### `but pr`
@@ -563,6 +569,7 @@ but --help                    # List all commands
 but <subcommand> --help       # Detailed help for specific command
 ```
 
-Use help only after a command fails or the installed references do not contain the syntax you need.
+Prefer this reference over exploratory help calls. Use command-specific help when required syntax
+is missing or a command fails; use top-level help only to discover an undocumented command.
 
 Full documentation: <https://docs.gitbutler.com/cli-overview>

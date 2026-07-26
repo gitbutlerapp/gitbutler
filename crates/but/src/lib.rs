@@ -1405,6 +1405,8 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit, ai } => {
+            let status_after = args.status_after
+                && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -1413,8 +1415,11 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::resolve::handle(&mut ctx, out, cmd, commit, ai)
-                .context("Failed to handle conflict resolution.")
+            out.begin_status_after(status_after);
+            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, commit, ai)
+                .context("Failed to handle conflict resolution.");
+            run_status_after_if_ok(status_after, &result, &mut ctx, out);
+            result
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }

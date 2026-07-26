@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Write,
 };
 
@@ -467,8 +467,10 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
         }
     }
 
-    // Check for new conflicts introduced during the rebase
-    check_for_new_conflicts_after_rebase(ctx, out, conflicts_before)?;
+    // Report the complete remaining resolution state. Descendant commits that
+    // were already conflicted before this resolution are just as actionable as
+    // conflicts introduced by the rebase.
+    report_conflicts_after_rebase(ctx, out, conflicts_before)?;
 
     Ok(())
 }
@@ -733,15 +735,18 @@ fn sanitize_terminal_text(text: &str) -> String {
 }
 
 /// Structure to hold information about a conflicted commit
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ConflictedCommit {
     pub(crate) commit_oid: gix::ObjectId,
+    /// Stable across rebases when the commit carries GitButler's change-id header.
+    pub(crate) change_id: but_core::ChangeId,
     pub(crate) commit_short_id: String,
     pub(crate) commit_message: String,
 }
 
-/// Check for new conflicts introduced during rebase and report them
-fn check_for_new_conflicts_after_rebase(
+/// Report every conflicted commit left after the rebase, highlighting any that
+/// were newly introduced.
+fn report_conflicts_after_rebase(
     ctx: &mut Context,
     out: &mut OutputChannel,
     conflicts_before: BTreeMap<String, Vec<ConflictedCommit>>,
@@ -750,73 +755,157 @@ fn check_for_new_conflicts_after_rebase(
     // Get the current list of conflicted commits after the rebase
     let conflicts_after = find_conflicted_commits(ctx)?;
 
-    // Build a set of commit OIDs that were conflicted before
-    let mut oids_before = HashSet::new();
-    for commits in conflicts_before.values() {
-        for commit in commits {
-            oids_before.insert(commit.commit_oid);
-        }
+    let mut change_ids_before = HashMap::new();
+    for commit in unique_conflict_queue(&conflicts_before) {
+        *change_ids_before
+            .entry(commit.change_id.clone())
+            .or_insert(0usize) += 1;
     }
-
-    // Find newly conflicted commits (present after but not before)
-    let mut newly_conflicted: Vec<&ConflictedCommit> = Vec::new();
-    for commits in conflicts_after.values() {
-        for commit in commits {
-            if !oids_before.contains(&commit.commit_oid) {
-                newly_conflicted.push(commit);
+    let resolution_queue = unique_conflict_queue(&conflicts_after);
+    let newly_conflicted = resolution_queue
+        .iter()
+        .filter(|commit| {
+            let remaining = change_ids_before
+                .entry(commit.change_id.clone())
+                .or_insert(0);
+            if *remaining == 0 {
+                true
+            } else {
+                *remaining -= 1;
+                false
             }
-        }
-    }
+        })
+        .copied()
+        .collect::<Vec<_>>();
 
-    // Report newly conflicted commits if any
-    if !newly_conflicted.is_empty() {
-        if let Some(human_out) = out.for_human() {
-            writeln!(human_out)?;
+    if let Some(human_out) = out.for_human() {
+        if conflicts_after.is_empty() {
             writeln!(
                 human_out,
                 "{}",
-                t.attention
-                    .paint("⚠ Warning: New conflicts were introduced during the rebase:")
+                t.success.paint("No conflicted commits remain.")
             )?;
+        } else {
             writeln!(human_out)?;
-
-            for commit in &newly_conflicted {
+            if newly_conflicted.is_empty() {
                 writeln!(
                     human_out,
-                    "  {} {} {}",
-                    t.sym().dot.error(),
-                    t.hint.paint(&commit.commit_short_id),
-                    commit.commit_message
+                    "{}",
+                    t.attention
+                        .paint("Remaining conflicted commits (oldest first):")
+                )?;
+            } else {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention
+                        .paint("⚠ Warning: New conflicts were introduced during the rebase.")
+                )?;
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention
+                        .paint("Remaining conflicted commits (oldest first):")
                 )?;
             }
 
-            writeln!(human_out)?;
+            for (branch_name, commits) in &conflicts_after {
+                writeln!(
+                    human_out,
+                    "  {} {}",
+                    t.important.paint("Branch:"),
+                    t.local_branch.paint(branch_name)
+                )?;
+                for commit in commits {
+                    writeln!(
+                        human_out,
+                        "    {} {} {}",
+                        t.sym().dot.error(),
+                        t.hint.paint(&commit.commit_short_id),
+                        commit.commit_message
+                    )?;
+                }
+            }
+
+            let next_commit = resolution_queue
+                .first()
+                .copied()
+                .expect("non-empty conflicts map contains a commit");
             writeln!(
                 human_out,
-                "Run {} to see all conflicted commits, or {} to resolve them.",
-                t.command_suggestion.paint("but status"),
-                t.command_suggestion.paint("but resolve <commit>")
+                "Resolve the next commit with {}.",
+                t.command_suggestion
+                    .paint(format!("but resolve {}", next_commit.commit_short_id))
             )?;
-        } else if let Some(json_out) = out.for_json() {
-            let newly_conflicted_json: Vec<serde_json::Value> = newly_conflicted
-                .iter()
-                .map(|c| {
-                    serde_json::json!({
-                        "commit_id": c.commit_oid.to_string(),
-                        "commit_short_id": c.commit_short_id,
-                        "commit_message": c.commit_message,
-                    })
-                })
-                .collect();
-
-            json_out.write_value(serde_json::json!({
-                "newly_conflicted_commits": newly_conflicted_json,
-                "count": newly_conflicted.len(),
-            }))?;
         }
     }
 
+    if let Some(json_out) = out.for_json() {
+        let conflicts_by_branch = conflicts_after
+            .iter()
+            .map(|(branch_name, commits)| {
+                (
+                    branch_name,
+                    commits
+                        .iter()
+                        .map(|commit| {
+                            serde_json::json!({
+                                "commit_id": commit.commit_oid.to_string(),
+                                "commit_short_id": commit.commit_short_id,
+                                "commit_message": commit.commit_message,
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let newly_conflicted_json = newly_conflicted
+            .iter()
+            .map(|commit| {
+                serde_json::json!({
+                    "commit_id": commit.commit_oid.to_string(),
+                    "commit_short_id": commit.commit_short_id,
+                    "commit_message": commit.commit_message,
+                })
+            })
+            .collect::<Vec<_>>();
+        let resolution_queue_json = resolution_queue
+            .iter()
+            .map(|commit| {
+                serde_json::json!({
+                    "commit_id": commit.commit_oid.to_string(),
+                    "commit_short_id": commit.commit_short_id,
+                    "commit_message": commit.commit_message,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        json_out.write_value(serde_json::json!({
+            "remaining_conflicted_commits_by_branch": conflicts_by_branch,
+            "resolution_queue": resolution_queue_json,
+            "total_remaining_conflicted_commits": resolution_queue.len(),
+            "newly_conflicted_commits": newly_conflicted_json,
+            "count": newly_conflicted.len(),
+        }))?;
+    }
+
     Ok(())
+}
+
+/// Merge each branch's oldest-first conflict list into one stable queue.
+///
+/// A descendant branch's walk contains its conflicted ancestors, so preserving
+/// each list's order keeps dependencies bottom-up. The branch-map order only
+/// breaks ties between independent histories, where either order is valid.
+fn unique_conflict_queue(
+    conflicts_by_branch: &BTreeMap<String, Vec<ConflictedCommit>>,
+) -> Vec<&ConflictedCommit> {
+    let mut seen = HashSet::new();
+    conflicts_by_branch
+        .values()
+        .flatten()
+        .filter(|commit| seen.insert(commit.commit_oid))
+        .collect()
 }
 
 /// Find all conflicted commits across all stacks, grouped by branch
@@ -870,8 +959,10 @@ pub(crate) fn find_conflicted_commits(
                             .collect::<String>(),
                     );
 
+                    let change_id = crate::utils::get_change_id_for_commit(&repo, oid)?;
                     let conflicted = ConflictedCommit {
                         commit_oid: oid,
+                        change_id,
                         commit_short_id: id_map
                             .get_or_insert_with(|| IdMap::legacy_new_from_context(ctx, None).ok())
                             .as_ref()
@@ -1138,7 +1229,9 @@ fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::write_conflict_regions;
+    use std::collections::BTreeMap;
+
+    use super::{ConflictedCommit, unique_conflict_queue, write_conflict_regions};
 
     fn render(content: &str) -> String {
         let mut out = String::new();
@@ -1182,5 +1275,33 @@ mod tests {
         let out = render(&content);
         assert!(out.contains("conflicts at lines 1-72"));
         assert!(!out.contains("line 3"));
+    }
+
+    #[test]
+    fn conflict_queue_deduplicates_oids_not_colliding_change_ids() {
+        let change_id = but_core::ChangeId::from_bytes(b"same");
+        let first = ConflictedCommit {
+            commit_oid: gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")
+                .unwrap(),
+            change_id: change_id.clone(),
+            commit_short_id: "same".into(),
+            commit_message: "first".into(),
+        };
+        let second = ConflictedCommit {
+            commit_oid: gix::ObjectId::from_hex(b"2222222222222222222222222222222222222222")
+                .unwrap(),
+            change_id,
+            commit_short_id: "same#2".into(),
+            commit_message: "second".into(),
+        };
+        let conflicts = BTreeMap::from([
+            ("A".into(), vec![first.clone(), second.clone()]),
+            ("B".into(), vec![first.clone()]),
+        ]);
+
+        let queue = unique_conflict_queue(&conflicts);
+        assert_eq!(queue.len(), 2, "distinct commits must remain in the queue");
+        assert_eq!(queue[0].commit_oid, first.commit_oid);
+        assert_eq!(queue[1].commit_oid, second.commit_oid);
     }
 }

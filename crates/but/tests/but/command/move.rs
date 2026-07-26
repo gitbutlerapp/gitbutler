@@ -2577,3 +2577,31 @@ fn move_commit_to_branch_smoke() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn move_multiple_commits_to_branch_tip_preserves_order() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a1.txt", "a2.txt", "first");
+    commit_two_files_as_two_hunks_each(&env, "A", "a3.txt", "a4.txt", "second");
+
+    let before = status_json(&env)?;
+    let branch_a = branch_commit_cli_ids(&before, "A");
+    let newer = branch_a[0].clone();
+    let older = branch_a[1].clone();
+
+    env.but(format!("move {older} {newer} -b B"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    let branch_b = branch_commit_cli_ids(&after, "B");
+    assert_eq!(
+        &branch_b[..2],
+        &[newer, older],
+        "moving a block to a branch tip should preserve its history order"
+    );
+
+    Ok(())
+}

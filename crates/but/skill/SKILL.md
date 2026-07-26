@@ -43,11 +43,12 @@ but commit -b <branch> -m "<msg>" <id> <id>
 The first token on each `but diff` / `but status` line is that line's ID — pass it to commands as-is; never hardcode or invent IDs. IDs may be a single character when unambiguous; copy them exactly from command output.
 
 - Changes and sources are **positional, space-separated** IDs (`but commit -b feat -m "msg" qs:5 uo`). A hunk ID is written `<file-id>:<hunk-id>` (e.g. `qs:5`, copied from `but diff`) — the part after the colon is the hunk's ID, **not** a line range (`qs:16-40` is invalid). Do not invent flags like `--changes` / `--hunk` / `--ids`, pass a line range, or comma-separate IDs — `nk,pn` is parsed as one ID and fails.
+- `but diff` is the exception: it accepts at most **one** target. Bare `but diff` shows all uncommitted files; inspect committed files or other entities one target at a time — never `but diff <id> <id>`.
 - A committed file is `<commit-id>:<file-id>` (e.g. `uyr:n`, shown under each commit). `zz` means the uncommitted area.
 - Commit IDs are stable change IDs that survive history edits (`amend`, `squash`, `move`, `uncommit`, `reword`). Commits without a change ID (e.g. upstream-only) lead with a sha prefix instead, and `#N`-suffixed refs disambiguate duplicates — both go stale after history edits, and a stale sha can silently resolve to the wrong commit. The `(sha …)` on verbose commit lines is informational — do not pass it to commands.
 - File/hunk IDs copied from one diff read generally remain usable across chained commits; branch IDs are stable. If an ID stops resolving, re-read `but status`/`but diff` and retry.
 
-**Chaining:** you may chain mutations with `&&` off one inspection read. Chained `but commit` calls stack in the order written — the first is oldest, each later one goes on top. History edits may run in sequence when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints (e.g. recommitting after `but uncommit`). Take follow-up refs from the returned workspace state.
+**Chaining:** you may chain mutations with `&&` off one inspection read. Chained `but commit` calls stack in the order written — the first is oldest, each later one goes on top. History edits may run in sequence when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints (e.g. recommitting after `but uncommit`). Chaining `but uncommit <id> && but diff` is safe because bare `diff` needs no ID from the uncommit output. Take follow-up refs from the returned workspace state.
 
 ## Non-Negotiable Rules
 
@@ -55,7 +56,7 @@ The first token on each `but diff` / `but status` line is that line's ID — pas
 2. After a mutation, read the workspace state it returned — it replaces a follow-up status command. Re-run `but status`/`but diff` only if that output lacks the ID you need or files changed since.
 3. Never commit or push to a branch marked `(merged upstream)`; run `but pull` to remove it, or create/use another branch for new work.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
-5. Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a command fails or required syntax is missing from the installed references.
+5. Prefer this skill and `references/reference.md` over exploratory help calls. Use `<command> --help` when required syntax is missing or a command fails; use top-level help only when you genuinely need to discover an undocumented command.
 
 ## Command Patterns
 
@@ -71,7 +72,7 @@ The first token on each `but diff` / `but status` line is that line's ID — pas
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] -t <target-commit-id> -m "<msg>"`
 - Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
-- Reorder a block: `but move <commit-id> <commit-id> --below <commit-id>` (space-separated commit IDs)
+- Reorder a block: `but move <commit-id> <commit-id> --below <following-commit-id>` or `--above <preceding-commit-id>` (both anchors accept multiple space-separated sources)
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Stack branches: `but move <branch> --above <target-branch>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch> --unstack`
@@ -89,7 +90,7 @@ For "get latest from main", "update/sync this workspace", "rebase onto main", or
 1. `but pull` — one command; no preflight needed. Its output reports the resulting state, it refuses safely when uncommitted changes conflict, and `but undo` reverts it.
 2. If commits come back conflicted, resolve them oldest-first following the printed instructions: `but resolve <commit>`, edit the files, `but resolve finish`. Finishing a lower commit rebases the ones above it, so always work bottom-up.
 
-Use `but pull --check` only to answer "would this conflict?" without updating (a dry-run preview), not as a step before every pull.
+`but pull --check` answers "would this conflict?" without updating. For a straightforward update, run `but pull` directly; use `--check` first when the user or repository policy requires a preview.
 
 Rebasing applied branches onto the latest target IS `but pull` — never `move`, `config target`, `unapply`, or raw `git pull`/`git rebase`. The base shown in status is the last FETCHED state: when `git log` shows `main` (local or remote) ahead of it, that is exactly the update `but pull` fetches and applies — the target setting is not stale and repointing it is never the fix. Pull carries uncommitted changes along, and its output reports the resulting state. If it refuses because uncommitted changes conflict, park them: `but commit -b <branch> -m "wip" <ids>`, pull again, then `but uncommit` the parked commit (there is no stash; do not hand-revert files).
 
@@ -112,10 +113,10 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 Use this when an existing commit should be replaced by selected smaller commits.
 
 1. `but status -fv` when you need the source commit, branch name, or placement anchor.
-2. `but uncommit <source-commit-id>` exposes the commit's changes as uncommitted; the returned status lists the resulting file IDs. Run `but diff` after it when you need hunk IDs too.
+2. `but uncommit <source-commit-id> && but diff` in one shell call exposes the commit's changes and prints the resulting file and hunk IDs.
 3. Pick replacement contents from that dirty diff, not from the old committed diff.
-4. Create the replacement commits oldest-first by chaining `but commit` calls. `-b <branch>` puts each new commit at the TOP of that branch — if the split commit had commits above it, the replacements now sit above those preserved commits.
-5. **If a commit must stay ABOVE the replacements, put it back on top instead of fighting anchors.** Do not anchor with `--above <top>`/`--below <top>` (sha/`#N` anchors go stale as each insert rewrites history). Take the preserved commit's ref from the last returned workspace state, then `but move <preserved-commit-id> -b <branch>` (several: `but move <id1> <id2> -b <branch>` in one command).
+4. Determine the requested chronological order from the user's wording, then create the replacement commits oldest-first by chaining `but commit` calls. Do not reverse that order to match `but status`, which displays commits newest-first. `-b <branch>` puts each new commit at the TOP of that branch — if the split commit had commits above it, the replacements now sit above those preserved commits.
+5. **If commits from that branch must stay ABOVE the replacements, put the preserved block back on top instead of fighting anchors.** Do not anchor with `--above <top>`/`--below <top>` (sha/`#N` anchors go stale as each insert rewrites history). Move the block together so its internal order stays intact: append `&& but move <preserved-id> [<preserved-id>...] -b <branch>` to the commit chain. Change-ID refs from step 1 stay valid; wait for fresh output first if any preserved ref is sha-based or `#N`-suffixed.
 6. Leave unwanted changes uncommitted. Remember the returned state lists commits newest first: replacements created oldest-first therefore appear in reverse request order under the preserved commits — that is correct; do not reorder them. Stop when the history matches.
 
 ### Reorder commits
@@ -124,7 +125,7 @@ Use this when an existing commit should be replaced by selected smaller commits.
 
 1. `but status` once to get commit IDs (use `-fv` only if you also need file details).
 2. `but move <source> --below <target-commit>` places source immediately below target in `but status` (older in oldest-to-newest history). `--above` places it immediately above (newer). `but move <source> -b <branch>` moves it to branch top/newest.
-3. For an adjacent block, run ONE move: `but move <block-id> <block-id> --below <following-commit-id>` — do not sort the whole branch or move members one by one. Source order does not matter; the block keeps its internal order. After a successful block move, stop if the returned status shows the requested order; do not move the anchor or block members again.
+3. For an adjacent block, run ONE move, anchored either way: `but move <block-id> <block-id> --below <following-commit-id>` or `but move <block-id> <block-id> --above <preceding-commit-id>`. Pick an anchor outside the block; source order does not matter and the block keeps its internal order. After a successful block move, stop if the returned status shows the requested order; do not move the anchor or block members again.
 4. For other reorders, make the smallest set of moves.
 
 ### Squash commits
@@ -162,7 +163,7 @@ If that `but move` fails, do NOT try `uncommit`, `squash`, or `undo` as a workar
 1. Find conflicted commits: the `but pull` summary lists them oldest-first; otherwise `but status` marks them.
 2. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 3. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
-4. `but resolve finish` — reports leftover markers and surviving uncommitted changes; no follow-up status needed.
+4. `but resolve finish` — reports leftover markers, surviving uncommitted changes, every remaining conflicted commit with the exact next `but resolve <id>` command, and the resulting workspace state. When it says no conflicted commits remain, stop; do not run a follow-up status.
 5. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
 
 ### Conflicts in uncommitted files
