@@ -97,7 +97,8 @@ const uncommittedChangesIdentityKey = "uncommitted_changes";
 
 const stackIdentityKey = (operand: StackOperand) => `stack:${operand.stackId}`;
 
-const branchIdentityKey = (operand: BranchOperand) => `branch:${operand.branchRef.join(",")}`;
+export const branchIdentityKey = (operand: BranchOperand) =>
+	`branch:${operand.branchRef.join(",")}`;
 
 export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
 	`commit:${operand.commitId}`;
@@ -116,7 +117,7 @@ const fileParentIdentityKey = (fp: FileParent): string => {
 	}
 };
 
-const fileIdentityKey = (operand: FileOperand) =>
+export const fileIdentityKey = (operand: FileOperand) =>
 	`file:${operand.path} <- ${fileParentIdentityKey(operand.parent)}`;
 
 const hunkIdentityKey = (operand: HunkOperand) =>
