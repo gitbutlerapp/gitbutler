@@ -1118,12 +1118,12 @@ fn print_assignments(
     if let Some(stack) = stack
         && (!unstaged && !assignments.is_empty())
     {
-        let staged_changes_cli_id = status_ctx
+        let assigned_changes_cli_id = status_ctx
             .id_map
             .resolve_stack(stack)
             .cloned()
             .with_context(|| {
-                format!("Could not resolve stack CLI id for staged changes. stack_id={stack:?}")
+                format!("Could not resolve stack CLI id for assigned changes. stack_id={stack:?}")
             })?;
 
         output.staged_changes(
@@ -1134,8 +1134,8 @@ fn print_assignments(
                 Span::styled(
                     branch_name
                         .as_ref()
-                        .map(|name| format!("staged to {name}"))
-                        .unwrap_or_else(|| "staged to ".to_string()),
+                        .map(|name| format!("assigned to {name}"))
+                        .unwrap_or_else(|| "assigned".to_string()),
                     t.info,
                 ),
                 Span::raw("]"),
@@ -1149,7 +1149,7 @@ fn print_assignments(
                     .flatten(),
             )
             .collect(),
-            staged_changes_cli_id,
+            assigned_changes_cli_id,
         )?;
     }
 

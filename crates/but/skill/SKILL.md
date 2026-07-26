@@ -36,7 +36,7 @@ but diff
 but commit -b <branch> -m "<msg>" <id> <id>
 ```
 
-`but commit -b <branch> ...` creates the branch when it does not exist and prints the resulting workspace state. Do not run a separate `but branch new`, staging command, status command, or verification diff unless the returned output lacks information you need.
+`but commit -b <branch> ...` creates the branch when it does not exist and prints the resulting workspace state. Do not run a separate `but branch new`, status command, or verification diff unless the returned output lacks information you need.
 
 ## IDs
 
