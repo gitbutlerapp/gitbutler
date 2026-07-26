@@ -180,8 +180,8 @@ impl HelpTopic {
 pub enum Subcommands {
     /// Overview of the project workspace state.
     ///
-    /// This shows unstaged files, files staged to stacks, all applied
-    /// branches (stacked or parallel), commits on each of those branches,
+    /// This shows uncommitted files, all applied branches (stacked or
+    /// parallel), commits on each of those branches,
     /// upstream commits that are unintegrated, commit status (pushed or local),
     /// and base branch information.
     ///
@@ -524,14 +524,13 @@ pub enum Subcommands {
     /// The semantic for finding "the appropriate commit" is as follows:
     ///
     /// - If a change has a dependency to a particular commit, it will be amended into that particular commit
-    /// - If a change is staged to a particular lane (branch), it will be amended into a commit there
-    /// - If there are no commits in this branch, a new commit is created
-    /// - Changes are amended into the topmost commit of the leftmost (first) lane (branch)
+    /// - If a change is assigned to a branch in the GitButler app, it will be amended into a commit there
+    /// - If there are no commits on that branch, a new commit is created there
+    /// - Changes are amended into the topmost commit of the leftmost (first) branch
     ///
-    /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
+    /// Optionally an identifier to an Uncommitted File may be provided.
     ///
     /// - If an Uncommitted File id is provided, absorb will be performed for just that file
-    /// - If a Branch (stack) id is provided, absorb will be performed for all changes staged to that stack
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
     /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
@@ -541,7 +540,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
-        /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
         /// If not provided, everything that is uncommitted will be absorbed.
         source: Option<String>,
         /// Show the absorption plan without making any changes.
@@ -777,8 +775,9 @@ pub enum Subcommands {
 
     /// Remove empty branches from the workspace.
     ///
-    /// A branch is considered empty if it has no local commits, no assigned
-    /// changes, and (by default) no upstream-only commits.
+    /// A branch is considered empty if it has no local commits and (by default)
+    /// no upstream-only commits. Stacks with uncommitted changes assigned to them
+    /// in the GitButler app are skipped entirely.
     ///
     /// The entire operation is recorded as a single oplog entry, so it can
     /// be undone with `but undo`.
