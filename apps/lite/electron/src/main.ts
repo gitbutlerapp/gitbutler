@@ -38,7 +38,7 @@ import {
 	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
-	type UpdateBranchNameParams,
+	type BranchRenameParams,
 	type UpdateReviewParams,
 	type ApplyParams,
 	type AskpassSubmitPromptResponseParams,
@@ -70,6 +70,7 @@ import {
 	branchDetails,
 	branchDiff,
 	branchList,
+	branchRename,
 	changesInWorktree,
 	commitAmend,
 	commitCreate,
@@ -108,7 +109,6 @@ import {
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
-	updateBranchName,
 	updateReview,
 	workspaceBranchAndAncestorsPush,
 	type BranchListingFilter,
@@ -611,9 +611,9 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.updateBranchName,
-		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
-			updateBranchName(projectId, stackId, branchName, newName),
+		liteIpcChannels.branchRename,
+		(_e, { projectId, refName, newName }: BranchRenameParams) =>
+			branchRename(projectId, refName, newName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.updateReview,

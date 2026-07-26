@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi, UpdateBranchNameResult, WatcherSubscribeResult } from "./ipc";
+import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
 import type {
 	CommitAbsorption,
 	ApplyOutcome,
@@ -42,6 +42,7 @@ import type {
 	RepoInfo,
 	ReviewMergeStatus,
 	ReviewTemplateInfo,
+	BranchRenameResult,
 } from "@gitbutler/but-sdk";
 import type { GUISettings } from "./settings";
 
@@ -188,8 +189,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	publishReview: (params) =>
 		ipcRenderer.invoke("workspace:publish-review", params) as Promise<PublishReviewOutcome>,
-	updateBranchName: (params) =>
-		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
+	branchRename: (params) =>
+		ipcRenderer.invoke("workspace:branch-rename", params) as Promise<BranchRenameResult>,
 	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,

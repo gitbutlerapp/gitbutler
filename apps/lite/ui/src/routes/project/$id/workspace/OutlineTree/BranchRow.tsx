@@ -4,7 +4,7 @@ import {
 	useCommitInsertBlank,
 	useRemoveBranch,
 	useTearOffBranch,
-	useUpdateBranchName,
+	useBranchRename,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
 import {
@@ -160,11 +160,7 @@ export const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const { mutateAsync: updateBranchName } = useUpdateBranchName({
-		projectId,
-		branchRef: refName.fullNameBytes,
-		oldBranch: branchOperandV,
-	});
+	const { mutateAsync: branchRename } = useBranchRename();
 
 	const startEditing = () => {
 		dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: branchOperandV }));
@@ -195,10 +191,9 @@ export const BranchRow: FC<
 		startRenameTransition(async () => {
 			setOptimisticBranchDisplayName(trimmed);
 			try {
-				await updateBranchName({
+				await branchRename({
 					projectId,
-					stackId,
-					branchName: refName.displayName,
+					refName: refName.fullNameBytes,
 					newName: trimmed,
 				});
 			} catch (error) {

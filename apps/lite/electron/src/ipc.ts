@@ -3,12 +3,12 @@ import type {
 	ApplyOutcome,
 	BranchCheckoutResult,
 	BranchIntegrationStrategy,
-	BranchReference,
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
+	BranchRenameResult,
 	BottomUpdate,
 	CacheConfig,
 	CiCheck,
@@ -362,10 +362,9 @@ export interface WorkspaceFetchFromRemotesParams {
 	action: string | null;
 }
 
-export interface UpdateBranchNameParams {
+export interface BranchRenameParams {
 	projectId: string;
-	stackId: string;
-	branchName: string;
+	refName: FullNameBytes;
 	newName: string;
 }
 
@@ -382,8 +381,6 @@ export interface UpdateReviewFootersParams {
 	projectId: string;
 	reviews: Array<ForgeReviewUpdate>;
 }
-
-export type UpdateBranchNameResult = BranchReference;
 
 export interface WatcherSubscribeParams {
 	projectId: string;
@@ -484,7 +481,7 @@ export interface LiteElectronApi {
 	openInProgram: (params: OpenInProgramParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	publishReview: (params: PublishReviewParams) => Promise<PublishReviewOutcome>;
-	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
+	branchRename: (params: BranchRenameParams) => Promise<BranchRenameResult>;
 	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
@@ -573,7 +570,7 @@ export const liteIpcChannels = {
 	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",
 	publishReview: "workspace:publish-review",
-	updateBranchName: "workspace:update-branch-name",
+	branchRename: "workspace:branch-rename",
 	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
