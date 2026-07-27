@@ -110,7 +110,7 @@ impl CliOutput for ExpandOutcome {
 
 pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutcome> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let matches = cli_id.parse(&repo, &id_map)?;
     let resources = matches

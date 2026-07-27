@@ -35,7 +35,7 @@ pub fn handle(
         .ok_or_else(|| anyhow::anyhow!("BUG: clap requires target, --workspace, or --new"))?;
     let branch = {
         let repo = ctx.repo.get()?;
-        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
         target.resolve_existing_local_branch(&repo, &id_map)?
     };
     but_api::branch::branch_checkout_with_perm(ctx, branch.clone(), guard.write_permission())?;

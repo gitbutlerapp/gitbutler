@@ -22,7 +22,7 @@ pub fn amend(
 ) -> CliResult<squash::SquashOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);

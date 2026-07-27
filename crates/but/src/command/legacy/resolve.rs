@@ -62,7 +62,7 @@ pub(crate) fn handle(
 /// object id, along with its display ref rendered from the same map.
 fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::ObjectId, String)> {
     // Create an IdMap to resolve commit IDs (supports both CLI IDs and partial SHAs)
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
 
     // Resolve the commit ID using the IdMap
     let matches = id_map.parse_using_context(commit_id_str, ctx)?;
@@ -960,7 +960,7 @@ pub(crate) fn find_conflicted_commits(
                         commit_oid: oid,
                         change_id,
                         commit_short_id: id_map
-                            .get_or_insert_with(|| IdMap::legacy_new_from_context(ctx, None).ok())
+                            .get_or_insert_with(|| IdMap::legacy_new_from_context(ctx).ok())
                             .as_ref()
                             .and_then(|id_map| id_map.change_id_ref(oid))
                             .map(|change_id| change_id.padded_short_id())

@@ -23,7 +23,7 @@ pub fn show(
 ) -> CliResult<()> {
     let (branch_arg, id_map) = {
         let guard = ctx.exclusive_worktree_access();
-        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
         let repo = ctx.repo.get()?;
         let branch_arg = branch_arg
             .try_resolve_branch(&repo, &id_map)?

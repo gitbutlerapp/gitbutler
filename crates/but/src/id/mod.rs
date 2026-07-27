@@ -214,6 +214,25 @@ fn short_ids_from_tree_changes(
     Ok(short_ids)
 }
 
+/// Split every uncommitted change in `repo` into the hunks the CLI addresses by ID.
+///
+/// Hunks are a pure function of the diff, so this needs no database and works for any
+/// checkout, not just the one the workspace is on. A change whose patch cannot be
+/// computed yields a whole-file hunk rather than disappearing, matching what
+/// `but_hunk_assignment` derives before reconciling against its database.
+fn uncommitted_hunks_in_checkout(
+    repo: &gix::Repository,
+    context_lines: u32,
+) -> anyhow::Result<Vec<HunkAssignment>> {
+    let changes = but_core::diff::worktree_changes(repo)?.changes;
+    let mut hunks = Vec::new();
+    for change in &changes {
+        let patch = change.unified_patch(repo, context_lines).ok().flatten();
+        hunks.extend(HunkAssignment::from_tree_change(change, patch));
+    }
+    Ok(hunks)
+}
+
 type ChangesInCommitFn<'a> = Box<
     dyn FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>
         + 'a,
@@ -907,12 +926,9 @@ impl IdMap {
     // TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
     // Use `new_from_context` instead - it takes `perm`, and forces you to think about repository locks
     // in the light of mutations.
-    pub fn legacy_new_from_context(
-        ctx: &Context,
-        assignments: Option<Vec<HunkAssignment>>,
-    ) -> anyhow::Result<Self> {
+    pub fn legacy_new_from_context(ctx: &Context) -> anyhow::Result<Self> {
         let guard = ctx.shared_worktree_access();
-        Self::new_from_context(ctx, assignments, guard.read_permission())
+        Self::new_from_context(ctx, guard.read_permission())
     }
 
     ///
@@ -921,28 +937,14 @@ impl IdMap {
     ///
     /// # NOTE: claims a read-only workspace lock!
     /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
-    pub fn new_from_context(
-        ctx: &Context,
-        assignments: Option<Vec<HunkAssignment>>,
-        perm: &RepoShared,
-    ) -> anyhow::Result<Self> {
+    pub fn new_from_context(ctx: &Context, perm: &RepoShared) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+        // The database handle is bound to `_` so that it is dropped right away: hunks are
+        // derived from the diff alone, and holding it would block `Context` accessors that
+        // need the cache.
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-        let hunk_assignments = match assignments {
-            Some(assignments) => assignments,
-            None => {
-                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-                let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-                    db.hunk_assignments_mut()?,
-                    &repo,
-                    &ws,
-                    Some(changes),
-                    context_lines,
-                )?;
-                assignments
-            }
-        };
+        let hunk_assignments = uncommitted_hunks_in_checkout(&repo, context_lines)?;
 
         let commit_ids = ws
             .stacks

@@ -42,7 +42,7 @@ pub(crate) fn handle(
     allow_merged: crate::args::atoms::AllowMergedArg,
 ) -> anyhow::Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let source: Option<CliId> = source
         .map(|s| -> anyhow::Result<CliId> {
             // Uncommitted selectors resolve in the uncommitted namespace first

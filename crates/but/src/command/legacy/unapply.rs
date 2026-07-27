@@ -22,7 +22,7 @@ pub fn handle(
     // Fetch stacks once at the start
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
 
     // Try to find the stack to unapply

@@ -109,7 +109,7 @@ pub(crate) fn open(
     program_id: Option<String>,
 ) -> CliResult<()> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
 
     let to_open = match sources.as_slice() {
