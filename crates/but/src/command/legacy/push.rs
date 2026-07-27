@@ -7,11 +7,13 @@ use gitbutler_git::PushResult;
 use serde::Serialize;
 
 use crate::{
-    CliId, IdMap,
+    CliId, CliResultExt as _, IdMap,
     args::{push, push::Command},
     command::legacy::workspace_target,
     theme::{self, Paint},
-    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id},
+    utils::{
+        OutputChannel, merged_upstream::MergedUpstream, shorten_hex_object_id, shorten_object_id,
+    },
 };
 
 /// Represents the result of branch selection when no branch is specified
@@ -73,6 +75,27 @@ pub async fn handle(
     } else {
         handle_no_branch_specified(ctx, out)?
     };
+
+    // Pushing a branch that already landed in the target recreates or rewrites
+    // remote state for work that is finished. The lower push layer silently
+    // skips branches with an integrated push status, but that misses branches
+    // that never had a remote; refuse explicitly-selected merged branches here.
+    {
+        let selected_branches = match &branch_selection {
+            BranchSelection::Single(name) => std::slice::from_ref(name),
+            BranchSelection::Multiple(names) => names.as_slice(),
+            BranchSelection::All | BranchSelection::None => &[],
+        };
+        if !selected_branches.is_empty() {
+            let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
+            for name in selected_branches {
+                let full_name = gix::refs::FullName::try_from(format!("refs/heads/{name}"))?;
+                merged
+                    .ensure_branch_not_merged(full_name.as_ref())
+                    .into_internal_error()?;
+            }
+        }
+    }
 
     // Handle branch selection
     match branch_selection {

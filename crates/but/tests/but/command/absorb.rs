@@ -600,3 +600,102 @@ fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn absorb_skips_merged_upstream_commits() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // This change depends on branch A's commit, whose content already landed
+    // on origin/main; absorb must not amend it.
+    env.file("file-a.txt", "change-A-modified\n");
+
+    env.but("absorb")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Skipped: not absorbing into 756ee31 A-change: commit is merged upstream
+Hint: most likely you want `but pull`, which removes landed work; in rare cases pass --allow-merged to absorb anyway
+Nothing left to absorb
+
+"#]]);
+}
+
+#[test]
+fn absorb_json_reports_skipped_merged_upstream_commits_on_stderr() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file-a.txt", "change-A-modified\n");
+
+    env.but("--json absorb")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "ok": false,
+  "skippedMergedUpstream": [
+    "756ee31783c2adf1542abe10ea254866d1464983"
+  ]
+}
+
+"#]])
+        .stderr_eq(str![[r#"
+warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.
+
+"#]]);
+}
+
+#[test]
+fn absorb_json_reports_partially_skipped_merged_upstream_commits() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    // file-a.txt depends on branch A's landed commit (skipped); file-b.txt on
+    // branch B's live commit (absorbed).
+    env.file("file-a.txt", "change-A-modified\n");
+    env.file("file-b.txt", "change-B-modified\n");
+
+    env.but("--json absorb")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "ok": true,
+  "rejected": 0,
+  "plan": {
+    "total_files": 1,
+    "commits": [
+      {
+        "commit_id": "536958e9343fce0fa27fd4d51f88317cca5ff78f",
+        "commit_summary": "B-change",
+        "reason": "hunk_dependency",
+        "reason_description": "files locked to commit due to hunk range overlap",
+        "files": [
+          {
+            "path": "file-b.txt",
+            "hunks": [
+              "@1,1 +1,1"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "skippedMergedUpstream": [
+    "756ee31783c2adf1542abe10ea254866d1464983"
+  ]
+}
+
+"#]])
+        .stderr_eq(str![[r#"
+warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.
+
+"#]]);
+}

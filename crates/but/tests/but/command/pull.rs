@@ -1,11 +1,3 @@
-use std::ops::DerefMut;
-
-use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
-    ref_metadata::{
-        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
-    },
-};
 use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
@@ -88,7 +80,7 @@ fn pull_prunes_integrated_branch_from_partial_stack() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-partially-integrated-multi-branch-stack",
     );
-    setup_single_stack_metadata_at_target(&env, &["A", "C"], "refs/heads/base")?;
+    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base")?;
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -146,7 +138,7 @@ fn pull_keeps_empty_branch_above_merged_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-merged-branch-below-empty-branch",
     );
-    setup_single_stack_metadata_at_target(&env, &["top", "bottom"], "refs/heads/main")?;
+    env.setup_single_stack_metadata_at_target(&["top", "bottom"], "refs/heads/main")?;
     env.invoke_git("remote set-url origin .");
 
     env.but("pull").assert().success();
@@ -173,7 +165,7 @@ fn pull_check_uses_workspace_dry_run_for_partial_stack() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-partially-integrated-multi-branch-stack",
     );
-    setup_single_stack_metadata_at_target(&env, &["A", "C"], "refs/heads/base")?;
+    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base")?;
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -523,7 +515,7 @@ fn pull_reports_conflict_in_lower_branch_of_stack() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflict-in-lower-branch-of-stack",
     );
-    setup_single_stack_metadata_at_target(&env, &["A", "B"], "main")?;
+    env.setup_single_stack_metadata_at_target(&["A", "B"], "main")?;
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -591,7 +583,7 @@ fn pull_reports_conflicts_in_multiple_branches_of_stack() -> anyhow::Result<()> 
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflicts-in-both-branches-of-stack",
     );
-    setup_single_stack_metadata_at_target(&env, &["A", "B"], "main")?;
+    env.setup_single_stack_metadata_at_target(&["A", "B"], "main")?;
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -711,33 +703,6 @@ To update anyway, park them on a temporary commit first:
     Ok(())
 }
 
-fn setup_single_stack_metadata_at_target(
-    env: &Sandbox,
-    branch_names: &[&str],
-    target_spec: &str,
-) -> anyhow::Result<()> {
-    let mut meta = env.meta();
-    let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
-    let repo = env.open_repo();
-    let ws_data = ws.deref_mut();
-    ws_data.stacks = vec![WorkspaceStack {
-        id: StackId::from_number_for_testing(0),
-        branches: branch_names
-            .iter()
-            .map(|branch_name| WorkspaceStackBranch {
-                ref_name: r(&format!("refs/heads/{branch_name}")).to_owned(),
-                archived: false,
-            })
-            .collect(),
-        workspacecommit_relation: WorkspaceCommitRelation::Merged,
-    }];
-    let mut project_meta = ProjectMeta::resolve(&repo)?;
-    project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec)?.detach());
-    meta.set_workspace(&ws)?;
-    project_meta.persist(&repo)?;
-    Ok(())
-}
-
 fn git_ref_exists(env: &Sandbox, ref_name: &str) -> anyhow::Result<bool> {
     Ok(env.open_repo().try_find_reference(ref_name)?.is_some())
 }
@@ -756,10 +721,6 @@ fn rev_parse_all(env: &Sandbox, spec: &str) -> anyhow::Result<Vec<String>> {
         .lines()
         .map(str::to_owned)
         .collect())
-}
-
-fn r(name: &str) -> &gix::refs::FullNameRef {
-    name.try_into().expect("statically known valid ref-name")
 }
 
 fn status_stack_count(env: &Sandbox) -> anyhow::Result<usize> {

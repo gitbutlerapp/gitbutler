@@ -9,7 +9,7 @@ use ratatui::{prelude::Backend, text::Span};
 
 use crate::{
     CliId, CliResultExt,
-    args::atoms::{BranchArg, ResolvedCliIdArgRef},
+    args::atoms::{AllowMergedArg, BranchArg, ResolvedCliIdArgRef},
     command::legacy::{
         reword2::RewordCommitOperation,
         squash::{
@@ -29,6 +29,7 @@ use crate::{
     },
     id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
     tui::TerminalGuard,
+    utils::merged_upstream::MergedUpstream,
 };
 
 use super::mark::{Marks, MarksRef};
@@ -439,10 +440,13 @@ impl App {
         };
 
         let mut guard = ctx.exclusive_worktree_access();
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, AllowMergedArg::default());
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let mut meta = ctx.meta()?;
 
-        let Some(squash_op) = resolve_squash_operation(source, target, *reword, &repo, &ws, &meta)?
+        let Some(squash_op) =
+            resolve_squash_operation(source, target, *reword, &repo, &ws, &head_info, &merged)?
         else {
             return Ok(());
         };
@@ -491,7 +495,8 @@ fn resolve_squash_operation<'a>(
     reword: SquashReword,
     repo: &gix::Repository,
     ws: &Workspace,
-    meta: &impl but_core::RefMetadata,
+    head_info: &but_workspace::RefInfo,
+    merged: &MergedUpstream,
 ) -> anyhow::Result<Option<SquashOperation<'a>>> {
     let Some(op) = source.route(target) else {
         return Ok(None);
@@ -513,7 +518,7 @@ fn resolve_squash_operation<'a>(
         SquashRoute::UncommittedToBranch { target } => {
             let source = Vec::from([ResolvedCliIdArgRef::Uncommitted]);
             let target = ResolvedCliIdArgRef::Branch(target);
-            resolve_squash_operation_with_branch(source, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(source, target, reword, head_info)?
         }
         SquashRoute::UncommittedHunkToCommit { sources, target } => ResolvedSquashArgsRef::Normal {
             sources: sources
@@ -541,7 +546,7 @@ fn resolve_squash_operation<'a>(
                 .map(ResolvedCliIdArgRef::UncommittedHunkOrFile)
                 .collect();
             let target = ResolvedCliIdArgRef::Branch(target);
-            resolve_squash_operation_with_branch(source, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(source, target, reword, head_info)?
         }
         SquashRoute::CommitToCommit { sources, target } => ResolvedSquashArgsRef::Normal {
             sources: sources
@@ -561,7 +566,7 @@ fn resolve_squash_operation<'a>(
                 .map(|branch| ResolvedCliIdArgRef::Branch(&branch.name))
                 .collect();
             let target = ResolvedCliIdArgRef::Commit(target, None);
-            resolve_squash_operation_with_branch(sources, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(sources, target, reword, head_info)?
         }
         SquashRoute::BranchToBranch { sources, target } => {
             let sources = sources
@@ -569,7 +574,7 @@ fn resolve_squash_operation<'a>(
                 .map(|branch| ResolvedCliIdArgRef::Branch(&branch.name))
                 .collect();
             let target = ResolvedCliIdArgRef::Branch(target);
-            resolve_squash_operation_with_branch(sources, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(sources, target, reword, head_info)?
         }
         SquashRoute::CommitToBranch { sources, target } => {
             let sources = sources
@@ -579,7 +584,7 @@ fn resolve_squash_operation<'a>(
                 })
                 .collect();
             let target = ResolvedCliIdArgRef::Branch(target);
-            resolve_squash_operation_with_branch(sources, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(sources, target, reword, head_info)?
         }
         SquashRoute::CommittedFileToBranch { sources, target } => {
             let sources = sources
@@ -587,7 +592,7 @@ fn resolve_squash_operation<'a>(
                 .map(ResolvedCliIdArgRef::CommittedFile)
                 .collect();
             let target = ResolvedCliIdArgRef::Branch(target);
-            resolve_squash_operation_with_branch(sources, target, reword, repo, ws, meta)?
+            resolve_squash_operation_with_branch(sources, target, reword, head_info)?
         }
         SquashRoute::BranchToSelf { source } => {
             ResolvedSquashArgsRef::SingleBranchSourceAndTarget {
@@ -613,7 +618,7 @@ fn resolve_squash_operation<'a>(
         },
     };
 
-    let op = squash::resolve(resolved_args, ws, repo).into_internal_error()?;
+    let op = squash::resolve(resolved_args, ws, repo, merged).into_internal_error()?;
 
     Ok(Some(op))
 }
@@ -622,21 +627,9 @@ fn resolve_squash_operation_with_branch<'a>(
     sources: Vec<ResolvedCliIdArgRef<'a>>,
     target: ResolvedCliIdArgRef<'_>,
     reword: HowToRewordTarget,
-    repo: &gix::Repository,
-    ws: &Workspace,
-    meta: &impl but_core::RefMetadata,
+    head_info: &but_workspace::RefInfo,
 ) -> anyhow::Result<ResolvedSquashArgsRef<'a>> {
-    let head_info = but_workspace::head_info(
-        repo,
-        meta,
-        but_workspace::ref_info::Options {
-            project_meta: ws.graph.project_meta.clone(),
-            expensive_commit_info: false,
-            ..Default::default()
-        },
-    )?;
-
-    let target = resolve_target(target, reword, &head_info).map_err(|err| match err {
+    let target = resolve_target(target, reword, head_info).map_err(|err| match err {
         squash::ResolveTargetError::Other(err) => err,
         other => {
             anyhow::anyhow!("BUG: failed to compute squash target: {other:?}")

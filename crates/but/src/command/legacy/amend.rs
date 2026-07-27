@@ -12,7 +12,7 @@ use crate::{
     command::legacy::squash::{
         self, HowToRewordTarget, ResolveTargetError, ResolvedSquashArgsRef, SquashOperation,
     },
-    utils::IntermediateChannel,
+    utils::{IntermediateChannel, merged_upstream::MergedUpstream},
 };
 
 pub fn amend(
@@ -24,17 +24,11 @@ pub fn amend(
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
+
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let head_info = but_workspace::head_info(
-        &repo,
-        &meta,
-        but_workspace::ref_info::Options {
-            project_meta: ctx.project_meta()?,
-            expensive_commit_info: false,
-            ..Default::default()
-        },
-    )?;
-    let operation = resolve(args, &ws, &repo, &id_map, &head_info)?;
+    let operation = resolve(args, &ws, &repo, &id_map, &head_info, &merged)?;
     drop(repo);
     drop(ws);
 
@@ -52,8 +46,13 @@ fn resolve(
     repo: &gix::Repository,
     id_map: &IdMap,
     head_info: &RefInfo,
+    merged: &MergedUpstream,
 ) -> CliResult<SquashOperation<'static>> {
-    let Platform { target, sources } = args;
+    let Platform {
+        target,
+        sources,
+        allow_merged: _,
+    } = args;
 
     let mut resolved_sources = Vec::new();
     for source in sources {
@@ -104,5 +103,5 @@ fn resolve(
     };
 
     let args = ResolvedSquashArgsRef::Normal { sources, target };
-    Ok(squash::resolve(args, ws, repo)?.into_fully_owned())
+    Ok(squash::resolve(args, ws, repo, merged)?.into_fully_owned())
 }

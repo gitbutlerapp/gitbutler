@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::CliIdArg;
+use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
 /// Amend uncommitted changes into a commit or branch.
 ///
@@ -23,4 +23,8 @@ pub struct Platform {
     /// One or more uncommitted files or hunks to amend.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

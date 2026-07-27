@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::CliIdArg;
+use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
 /// Squash commits, branches, or changes.
 ///
@@ -88,4 +88,8 @@ pub struct Platform {
     /// commits, branches, uncommitted files, `zz`, or committed files.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::CliIdArg;
+use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
 /// Create a commit.
 ///
@@ -88,4 +88,8 @@ pub struct Platform {
     /// A change can either be a file or a hunk.
     #[clap(group = "changes_to_commit")]
     pub changes: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

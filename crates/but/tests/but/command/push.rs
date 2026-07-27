@@ -147,3 +147,25 @@ Please resolve conflicts before pushing using 'but resolve <commit>'.
 
     Ok(())
 }
+
+#[test]
+fn push_rejects_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // Branch A's content already landed on origin/main; pushing it would
+    // publish finished work to a branch nobody needs anymore.
+    env.but("push A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+
+"#]]);
+}

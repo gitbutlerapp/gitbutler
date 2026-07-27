@@ -15,7 +15,10 @@ use crate::{
     },
     command::legacy::squash::{self, ResolvedSquashArgsRef, SquashOperation, SquashTarget},
     theme::Theme,
-    utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
+    utils::{
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        merged_upstream::MergedUpstream,
+    },
 };
 
 pub fn uncommit(
@@ -27,8 +30,10 @@ pub fn uncommit(
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
+    let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
+
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let op = resolve(args, &ws, &repo, &id_map)?;
+    let op = resolve(args, &ws, &repo, &id_map, &merged)?;
     drop(repo);
     drop(ws);
 
@@ -40,8 +45,12 @@ fn resolve(
     ws: &Workspace,
     repo: &gix::Repository,
     id_map: &IdMap,
+    merged: &MergedUpstream,
 ) -> CliResult<SquashOperation<'static>> {
-    let Platform { sources } = args;
+    let Platform {
+        sources,
+        allow_merged: _,
+    } = args;
 
     let sources = sources
         .into_iter()
@@ -59,5 +68,5 @@ fn resolve(
         target: SquashTarget::Uncommitted,
     };
 
-    Ok(squash::resolve(squash_args, ws, repo)?.into_fully_owned())
+    Ok(squash::resolve(squash_args, ws, repo, merged)?.into_fully_owned())
 }

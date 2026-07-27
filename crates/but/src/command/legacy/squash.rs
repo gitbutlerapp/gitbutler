@@ -26,7 +26,8 @@ use crate::{
     id::{CommittedFileId, UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream,
     },
 };
 
@@ -150,21 +151,14 @@ pub fn squash(
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-    let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let head_info = but_workspace::head_info(
-        &repo,
-        &meta,
-        but_workspace::ref_info::Options {
-            project_meta: ctx.project_meta()?,
-            expensive_commit_info: false,
-            ..Default::default()
-        },
-    )?;
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
+    let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     let resolved_args = resolve_args(&repo, args, &id_map, &head_info)?;
     let resolved_args = resolved_args.as_ref();
 
-    let squash_op = resolve(resolved_args, &ws, &repo)?;
+    let squash_op = resolve(resolved_args, &ws, &repo, &merged)?;
 
     drop(repo);
     drop(ws);
@@ -185,6 +179,8 @@ fn resolve_args(
         no_message,
         use_target_message,
         use_source_message,
+        // Consumed by the caller when building the `MergedUpstream` guard.
+        allow_merged: _,
     } = args;
 
     let reword = resolve_reword(message, no_message, use_target_message, use_source_message);
@@ -306,6 +302,7 @@ pub fn resolve<'a>(
     args: ResolvedSquashArgsRef<'a>,
     ws: &Workspace,
     repo: &gix::Repository,
+    merged: &MergedUpstream,
 ) -> CliResult<SquashOperation<'a>> {
     let resolved_squash = match args {
         ResolvedSquashArgsRef::Normal { sources, target } => {
@@ -473,9 +470,57 @@ pub fn resolve<'a>(
         },
     };
 
+    ensure_not_touching_merged_upstream(&squash_op, merged)?;
+
     fix_up_unnecessary_reword_via_editor(&mut squash_op, repo)?;
 
     Ok(squash_op)
+}
+
+/// Reject operations whose sources or target have already landed in the
+/// target branch. This covers every entrypoint into the squash machinery:
+/// `squash`, `amend`, `uncommit`, and the status TUI.
+fn ensure_not_touching_merged_upstream(
+    op: &SquashOperation<'_>,
+    merged: &MergedUpstream,
+) -> CliResult<()> {
+    match op {
+        SquashOperation::Commits(SquashCommitsOperation {
+            sources, target, ..
+        }) => {
+            merged.ensure_commit_not_merged(*target)?;
+            for source in sources {
+                merged.ensure_commit_not_merged(*source)?;
+            }
+        }
+        SquashOperation::Branch(SquashBranchOperation {
+            sources, target, ..
+        }) => {
+            merged.ensure_commit_not_merged(*target)?;
+            for source in sources {
+                merged.ensure_commit_not_merged(*source)?;
+            }
+        }
+        SquashOperation::UncommittedHunks(AmendUncommittedHunks { target, .. })
+        | SquashOperation::Uncommitted { target, .. } => {
+            merged.ensure_commit_not_merged(*target)?;
+        }
+        SquashOperation::MoveCommittedFiles { target, source, .. } => {
+            merged.ensure_commit_not_merged(*target)?;
+            merged.ensure_commit_not_merged(*source)?;
+        }
+        SquashOperation::Uncommit(UncommitOperation { sources }) => {
+            for source in sources {
+                merged.ensure_commit_not_merged(*source)?;
+            }
+        }
+        SquashOperation::UncommitCommittedFiles(UncommitCommittedFilesOperation {
+            source, ..
+        }) => {
+            merged.ensure_commit_not_merged(*source)?;
+        }
+    }
+    Ok(())
 }
 
 fn cannot_uncommit_uncommitted_changes_error() -> CliError {

@@ -64,11 +64,12 @@ pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
     BadInput::new(message)
 }
 
+// The `Error: ` prefix is added by the consumer: `print_and_exit_non_zero`
+// for directly printed errors, and anyhow's termination handler for errors
+// converted via `into_internal`. Embedding it here would double it up.
 impl Display for BadInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = theme::get();
-
-        write!(f, "{}", t.error.paint("Error: "))?;
 
         match (&self.arg_name, &self.arg_value) {
             (Some(name), Some(value)) => {

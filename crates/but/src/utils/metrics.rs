@@ -868,6 +868,7 @@ mod tests {
                 below: None,
                 unstack: false,
                 sources: Vec::from([CliIdArg("ci".to_owned())]),
+                allow_merged: Default::default(),
             }),
             "move",
         );
@@ -888,6 +889,7 @@ mod tests {
                 Subcommands::Amend(crate::args::amend::Platform {
                     target: CliIdArg("c1".into()),
                     sources: vec![CliIdArg("a1".into())],
+                    allow_merged: Default::default(),
                 }),
                 "amend",
             );
@@ -904,6 +906,7 @@ mod tests {
                 below: None,
                 unstack: false,
                 sources: Vec::from([CliIdArg("ci".to_owned())]),
+                allow_merged: Default::default(),
             });
             let props = moved.to_metrics_extra_props();
             assert_eq!(

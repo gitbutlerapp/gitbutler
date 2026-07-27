@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::CliIdArg;
+use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
 /// Uncommit changes from commits or committed files to the uncommitted area.
 ///
@@ -16,4 +16,8 @@ pub struct Platform {
     /// `<commit-id>:<file-id>`.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }
