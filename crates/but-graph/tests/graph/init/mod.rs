@@ -1850,6 +1850,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     let wt_head_id = repo.find_reference("wt-feature")?.peel_to_id()?.detach();
     let with_worktree_tip = |ref_name: Option<gix::refs::FullName>| but_graph::init::Options {
         worktree_tips: vec![but_graph::init::WorktreeTip {
+            name: "worktree-ahead-feature".into(),
             ref_name,
             id: wt_head_id,
         }],
@@ -1903,6 +1904,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         but_core::ref_metadata::ProjectMeta::default(),
         but_graph::init::Options {
             worktree_tips: vec![but_graph::init::WorktreeTip {
+                name: "worktree-ahead-feature".into(),
                 ref_name: Some("refs/heads/wt-feature".try_into()?),
                 id: repo.head_id()?.detach(),
             }],
@@ -1927,10 +1929,12 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     // the graph exactly as if no worktree tips were given.
     for tip in [
         but_graph::init::WorktreeTip {
+            name: "worktree-at-head".into(),
             ref_name: None,
             id: repo.head_id()?.detach(),
         },
         but_graph::init::WorktreeTip {
+            name: "worktree-with-missing-ref".into(),
             ref_name: Some("refs/heads/does-not-exist".try_into()?),
             id: wt_head_id,
         },
