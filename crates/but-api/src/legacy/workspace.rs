@@ -354,6 +354,7 @@ pub fn stash_into_branch(
             InsertSide::Below,
             "Mo-Stashed changes",
             ctx.settings.context_lines,
+            but_workspace::commit::ChangeSource::Head,
         )?;
 
         let new_commit = commit_selector

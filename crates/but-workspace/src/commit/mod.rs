@@ -45,6 +45,75 @@ fn compute_merge_base_override(
     Ok(committed_tree.detach())
 }
 
+/// Which checkout the changes to commit are read from, and hence which one has to
+/// cancel them out during materialization.
+pub enum ChangeSource<'a> {
+    /// The worktree of the repository the editor was created for.
+    Head,
+    /// A linked worktree, whose branch may live anywhere in the editor graph.
+    ///
+    /// The commit being created or amended may still live anywhere else - on a
+    /// workspace stack or on the branch of another worktree.
+    Worktree {
+        /// A plain from-disk open of the linked worktree, as returned by
+        /// [`crate::worktrees::open_worktree_repo()`].
+        ///
+        /// It must share the editor repo's object database and have no object
+        /// memory: new objects are written loose to disk, which makes them
+        /// immediately visible to the editor's in-memory repository.
+        repo: &'a gix::Repository,
+        /// The stable worktree name, i.e. the directory name under
+        /// `$GIT_COMMON_DIR/worktrees/`.
+        ///
+        /// Committing fails without mutating the editor graph when this worktree
+        /// has no checkout recorded in the editor - it is unknown, archived, or
+        /// worktree tips weren't seeded into the graph.
+        name: &'a bstr::BStr,
+    },
+}
+
+impl ChangeSource<'_> {
+    /// The repository the `changes` are read from, and whose `HEAD^{tree}` the
+    /// merge-base override is built on.
+    fn repo<'a, M: but_core::RefMetadata>(
+        &'a self,
+        editor: &'a but_rebase::graph_rebase::Editor<'_, '_, M>,
+    ) -> &'a gix::Repository {
+        match self {
+            ChangeSource::Head => editor.repo(),
+            ChangeSource::Worktree { repo, .. } => repo,
+        }
+    }
+}
+
+/// Tell the editor which of `all_changes` were consumed, so the checkout that
+/// provided them doesn't reintroduce them as uncommitted changes.
+fn cancel_consumed_changes<M: but_core::RefMetadata>(
+    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
+    source: &ChangeSource<'_>,
+    all_changes: Vec<DiffSpec>,
+    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
+    context_lines: u32,
+) -> anyhow::Result<()> {
+    let rejected_paths: std::collections::BTreeSet<_> =
+        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
+    let consumed: Vec<_> = all_changes
+        .into_iter()
+        .filter(|spec| !rejected_paths.contains(&spec.path))
+        .collect();
+    if consumed.is_empty() {
+        return Ok(());
+    }
+    let merge_base = compute_merge_base_override(source.repo(editor), consumed, context_lines)?;
+    match source {
+        ChangeSource::Head => editor.set_merge_base_override(merge_base),
+        ChangeSource::Worktree { name, .. } => {
+            editor.set_worktree_merge_base_override(name, merge_base)?
+        }
+    }
+    Ok(())
+}
+
 pub mod reword;
 pub use reword::reword;
 pub mod commit_create;

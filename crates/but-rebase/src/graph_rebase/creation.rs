@@ -342,6 +342,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 },
                 ref_name: tip.ref_name,
                 initial_head: tip.id,
+                merge_base_override: None,
             };
             if worktree_checkouts.insert(name.clone(), checkout).is_some() {
                 bail!("Visible worktree {name} was listed more than once");

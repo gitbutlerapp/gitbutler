@@ -122,6 +122,7 @@ pub(crate) fn handle_changes(
             InsertSide::Below,
             &commit_message,
             context_lines,
+            but_workspace::commit::ChangeSource::Head,
         )?;
 
         if !outcome.rejected_specs.is_empty() {

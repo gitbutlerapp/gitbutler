@@ -8,7 +8,7 @@ use but_rebase::graph_rebase::{
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::compute_merge_base_override;
+use super::{ChangeSource, cancel_consumed_changes};
 
 /// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
@@ -33,8 +33,10 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// gives it back as a [`SuccessfulRebase`] which can be used to chain more
 /// operations or just materialize the result.
 ///
-/// `changes` defines which changes from the worktree should be committed.
-/// See [`create_commit`] for more details.
+/// `changes` defines which changes should be committed, and `source` which
+/// checkout they are read from - see [`create_commit`] for more details, and
+/// [`commit_amend`](super::commit_amend()) for what a [`ChangeSource::Worktree`]
+/// requires.
 ///
 /// `relative_to` and `side` determine the position to insert the commit.
 /// See [`InsertSide`] to learn more about insertion semantics.
@@ -52,6 +54,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     side: InsertSide,
     message: &str,
     context_lines: u32,
+    source: ChangeSource<'_>,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
@@ -61,7 +64,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     // to determine which changes were consumed (not rejected).
     let all_changes = changes.clone();
     let create_out = create_commit(
-        editor.repo(),
+        source.repo(&editor),
         Destination::NewCommit {
             parent_commit_id,
             stack_segment: None,
@@ -79,21 +82,14 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
         });
     };
 
-    // Tell the editor which changes were consumed so the checkout's snapshot
-    // merge doesn't reintroduce them as uncommitted changes.
-    let rejected_paths: std::collections::BTreeSet<_> = create_out
-        .rejected_specs
-        .iter()
-        .map(|(_, spec)| &spec.path)
-        .collect();
-    let consumed: Vec<_> = all_changes
-        .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
-        .collect();
-    if !consumed.is_empty() {
-        let merge_base = compute_merge_base_override(editor.repo(), consumed, context_lines)?;
-        editor.set_merge_base_override(merge_base);
-    }
+    // Runs before `insert` so an unknown worktree fails with zero graph mutation.
+    cancel_consumed_changes(
+        &mut editor,
+        &source,
+        all_changes,
+        &create_out.rejected_specs,
+        context_lines,
+    )?;
 
     let commit_selector = editor.insert(
         relative_to_selector,

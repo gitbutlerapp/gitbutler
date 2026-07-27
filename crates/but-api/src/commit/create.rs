@@ -72,6 +72,7 @@ pub(crate) fn commit_create_only_impl(
         side,
         &message,
         context_lines,
+        but_workspace::commit::ChangeSource::Head,
     )?;
 
     let new_commit = commit_selector

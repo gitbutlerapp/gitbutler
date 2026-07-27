@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bstr::BString;
-use but_workspace::worktrees::{WorktreeSource, list_worktrees, set_worktree_archived};
+use but_workspace::worktrees::{WorktreeSource, list_worktrees};
 
 use crate::utils::writable_scenario_slow;
 
@@ -31,6 +31,15 @@ fn worktree_sources(repo: &gix::Repository, db: &but_db::DbHandle) -> Result<Vec
     Ok(out)
 }
 
+/// Set the archived state the way `but-ctx` does, without its adoption side effect.
+fn archive(db: &mut but_db::DbHandle, name: &str, archived: bool) -> Result<()> {
+    db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+        name: name.into(),
+        archived,
+    })?;
+    Ok(())
+}
+
 #[test]
 fn list_worktrees_splits_by_archived_state() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
@@ -54,7 +63,7 @@ fn list_worktrees_splits_by_archived_state() -> Result<()> {
     );
     assert_eq!(listing.archived.len(), 0);
 
-    set_worktree_archived(&mut db, "wt-b".into(), true)?;
+    archive(&mut db, "wt-b", true)?;
     let sources = worktree_sources(&repo, &db)?;
     let listing = list_worktrees(sources);
 
@@ -108,7 +117,7 @@ fn list_worktrees_splits_by_archived_state() -> Result<()> {
         "the detached HEAD is resolved directly"
     );
 
-    set_worktree_archived(&mut db, "wt-b".into(), false)?;
+    archive(&mut db, "wt-b", false)?;
     let sources = worktree_sources(&repo, &db)?;
     let listing = list_worktrees(sources);
     assert_eq!(
@@ -119,26 +128,6 @@ fn list_worktrees_splits_by_archived_state() -> Result<()> {
             .collect::<Vec<_>>(),
         ["wt-a", "wt-b", "wt-detached", "wt-gone"],
         "unarchiving brings the worktree back into the active listing"
-    );
-    Ok(())
-}
-
-#[test]
-fn set_worktree_archived_upserts_rows() -> Result<()> {
-    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
-
-    set_worktree_archived(&mut db, "wt".into(), true)?;
-    assert_eq!(
-        db.worktree_meta().get(b"wt")?.map(|row| row.archived),
-        Some(true),
-        "archiving creates the row on demand"
-    );
-
-    set_worktree_archived(&mut db, "wt".into(), false)?;
-    assert_eq!(
-        db.worktree_meta().get(b"wt")?.map(|row| row.archived),
-        Some(false),
-        "the same call unarchives"
     );
     Ok(())
 }

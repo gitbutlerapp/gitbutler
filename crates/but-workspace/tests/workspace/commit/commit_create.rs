@@ -4,7 +4,7 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeToRef},
 };
-use but_workspace::commit::commit_create;
+use but_workspace::commit::{ChangeSource, commit_create};
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 
@@ -36,6 +36,7 @@ fn commit_above_commit() -> Result<()> {
         InsertSide::Above,
         "insert above commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -83,6 +84,7 @@ fn commit_below_commit() -> Result<()> {
         InsertSide::Below,
         "insert below commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -124,6 +126,7 @@ fn commit_above_reference() -> Result<()> {
         InsertSide::Above,
         "insert above reference",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -176,6 +179,7 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         InsertSide::Below,
         "insert below merge",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -219,6 +223,7 @@ fn commit_all_rejected_is_noop() -> Result<()> {
         InsertSide::Above,
         "no-op commit",
         0,
+        ChangeSource::Head,
     )?;
 
     assert!(

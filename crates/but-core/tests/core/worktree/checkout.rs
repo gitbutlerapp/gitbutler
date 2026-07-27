@@ -1379,4 +1379,136 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
     Ok(())
 }
 
+#[test]
+fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let file_path = repo.workdir_path("file").unwrap();
+    let file2_path = repo.workdir_path("file2").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nadded-a\nadded-b\nline2\nline3\n"
+    );
+
+    // Amending `added-a` into a commit outside this checkout's history leaves its
+    // `HEAD` where it is, so the checkout has no tree change of its own to ride on.
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"line1\nadded-a\nline2\nline3\n")?;
+            tree.upsert("file", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed change",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nadded-b\nline2\nline3\n",
+        "the consumed line is gone - it lives in the commit now - and the one that \
+         wasn't consumed stays behind"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file2_path)?,
+        "line1\nnew-line\nline3\n",
+        "dirt in files the override doesn't mention is untouched"
+    );
+    Ok(())
+}
+
+#[test]
+fn cancelling_a_consumed_addition_removes_it_and_leaves_other_dirt_alone() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let added_path = repo.workdir_path("added.txt").unwrap();
+    std::fs::write(&added_path, "added\n")?;
+
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"added\n")?;
+            tree.upsert("added.txt", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed addition",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert!(
+        !added_path.exists(),
+        "the file lives in a commit now, so it must not linger here as an untracked duplicate"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file").unwrap())?,
+        "line1\nadded-a\nadded-b\nline2\nline3\n",
+        "removing the consumed addition must not let the checkout loose on unrelated dirt"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file2").unwrap())?,
+        "line1\nnew-line\nline3\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let file_path = repo.workdir_path("file").unwrap();
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"line1\nadded-a\nline2\nline3\n")?;
+            tree.upsert("file", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed change",
+    )?
+    .tree_id()?
+    .detach();
+
+    // Someone writes to the file between computing the override and checking out.
+    std::fs::write(
+        &file_path,
+        "line1\nadded-a\nadded-b\nline2\nline3\nappended\n",
+    )?;
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nadded-b\nline2\nline3\nappended\n",
+        "the snapshot is taken live, so the concurrent edit survives the cancellation"
+    );
+    Ok(())
+}
+
 mod utils {}

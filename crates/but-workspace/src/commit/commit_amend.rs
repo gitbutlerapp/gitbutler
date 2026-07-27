@@ -2,11 +2,13 @@
 
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata};
-use but_rebase::graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
+};
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::compute_merge_base_override;
+use super::{ChangeSource, cancel_consumed_changes};
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
@@ -32,8 +34,19 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// gives it back as a [`SuccessfulRebase`] which can be used to chain more
 /// operations or just materialize the result.
 ///
-/// `changes` defines which changes from the worktree should be committed.
-/// See [`create_commit`] for more details.
+/// `changes` defines which changes should be committed, and `source` which
+/// checkout they are read from - see [`create_commit`] for more details.
+///
+/// With a [`ChangeSource::Worktree`] source, `commit` may still live anywhere in
+/// the editor graph - on a workspace stack or on the branch of any (other)
+/// worktree seeded into it. The merge-base override that cancels the consumed
+/// changes is keyed to the source checkout, so this must be the first operation
+/// on a fresh editor: that checkout must still describe the pre-amend state.
+///
+/// When the source worktree has no checkout recorded in the editor, this fails
+/// without mutating the editor graph. Note that the amended commit may already
+/// have been written to the shared object database at that point; it is
+/// unreachable and gets garbage-collected eventually.
 ///
 /// `context_lines` define how many diff context lines are being used for
 /// this particular function call. The provided `context_lines` MUST align
@@ -44,6 +57,7 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
+    source: ChangeSource<'_>,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
@@ -51,12 +65,24 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     if target.attach(editor.repo()).is_conflicted() {
         bail!("Cannot amend a conflicted commit")
     }
+    // An immutable pick would be replaced in the step graph while the rebase copies
+    // its descendants verbatim and never moves the (immutable) refs pointing at it -
+    // the amended commit would be written but stay unreachable, with this function
+    // still reporting success. Fail fast instead.
+    let Step::Pick(target_pick) = editor.lookup_step(target_selector)? else {
+        bail!("BUG: Expected pick step from commit selector. This should never happen");
+    };
+    if !target_pick.mutable {
+        bail!(
+            "cannot amend into {target_id}: the commit is immutable (not part of a mutable branch)"
+        );
+    }
 
     // Clone before `create_commit` consumes the vec — needed afterwards
     // to determine which changes were consumed (not rejected).
     let all_changes = changes.clone();
     let create_out = create_commit(
-        editor.repo(),
+        source.repo(&editor),
         Destination::AmendCommit {
             commit_id: target_id,
             new_message: None,
@@ -73,21 +99,14 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
         });
     };
 
-    // Tell the editor which changes were consumed so the checkout's snapshot
-    // merge doesn't reintroduce them as uncommitted changes.
-    let rejected_paths: std::collections::BTreeSet<_> = create_out
-        .rejected_specs
-        .iter()
-        .map(|(_, spec)| &spec.path)
-        .collect();
-    let consumed: Vec<_> = all_changes
-        .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
-        .collect();
-    if !consumed.is_empty() {
-        let merge_base = compute_merge_base_override(editor.repo(), consumed, context_lines)?;
-        editor.set_merge_base_override(merge_base);
-    }
+    // Runs before `replace` so an unknown worktree fails with zero graph mutation.
+    cancel_consumed_changes(
+        &mut editor,
+        &source,
+        all_changes,
+        &create_out.rejected_specs,
+        context_lines,
+    )?;
 
     editor.replace(target_selector, Step::new_pick(new_commit_id))?;
 
