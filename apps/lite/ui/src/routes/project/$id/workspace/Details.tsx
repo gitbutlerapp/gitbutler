@@ -562,7 +562,7 @@ const DiffContents: FC<{
 
 	// We must change the version for updates to the collapsed property to be respected. The versions
 	// should be as stable as possible, collapsed or not, for performance.
-	const enhanceCollapsed = (item: CodeViewDiffItem): CodeViewDiffItem => ({
+	const enhanceCollapsed = <T,>(item: CodeViewDiffItem<T>): CodeViewDiffItem<T> => ({
 		...item,
 		collapsed: true,
 		// We always use versions.
@@ -667,7 +667,7 @@ const DiffContents: FC<{
 
 type DiffFileHeaderProps = {
 	projectId: string;
-	item: CodeViewDiffItem;
+	item: CodeViewDiffItem<unknown>;
 	operand: FileOperand;
 	change: TreeChange;
 	hasDiff: boolean;
