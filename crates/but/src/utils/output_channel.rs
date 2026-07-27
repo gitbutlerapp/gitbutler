@@ -802,7 +802,6 @@ impl OutputChannel {
                 let value = output.on_json();
                 Ok(self.write_value(value)?)
             }
-            OutputFormat::None => Ok(()),
         }
     }
 

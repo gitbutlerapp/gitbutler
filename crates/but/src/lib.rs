@@ -825,8 +825,7 @@ async fn match_subcommand(
                 use std::fmt::Write;
                 let mut progress = out.progress_channel();
                 writeln!(progress, "Pulling latest...")?;
-                let mut pull_out = OutputChannel::new(OutputFormat::None);
-                command::legacy::pull::handle(&mut ctx, &mut pull_out, false).await?;
+                command::legacy::pull::handle(&mut ctx, out, false).await?;
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);

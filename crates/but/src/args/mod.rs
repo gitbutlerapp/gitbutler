@@ -75,8 +75,6 @@ pub enum OutputFormat {
     Agent,
     /// Output detailed information as JSON for tool consumption.
     Json,
-    /// Do not output anything, like redirecting to `/dev/null`.
-    None,
 }
 
 impl OutputFormat {
