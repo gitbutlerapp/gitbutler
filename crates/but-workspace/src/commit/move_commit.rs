@@ -9,28 +9,6 @@ use but_rebase::graph_rebase::{
 
 use crate::graph_manipulation::determine_parent_selector;
 
-/// Move a commit.
-///
-/// `editor` is assumed to be aligned with the graph being mutated.
-///
-/// `subject_commit` - The commit to be moved.
-///
-/// `anchor` - A git graph node selector to move the subject commit relative to.
-///
-/// `side` - The side relative to the anchor at which to insert the subject commit.
-///
-/// The subject commit will be detached from the source segment, and inserted relative
-/// to a given anchor (branch or commit).
-pub fn move_commit<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
-    subject_commit: impl ToCommitSelector,
-    anchor: impl ToSelector,
-    side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
-    editor.rebase()
-}
-
 /// Move multiple commits.
 ///
 /// The commits are ordered by parentage before moving so callers do not need to
@@ -99,37 +77,6 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     }
 
     editor.rebase()
-}
-
-/// Move a commit without rebasing.
-///
-/// `editor` is assumed to be aligned with the graph being mutated.
-///
-/// `subject_commit` - The commit to be moved.
-///
-/// `anchor` - A git graph node selector to move the subject commit relative to.
-///
-/// `side` - The side relative to the anchor at which to insert the subject commit.
-///
-/// The subject commit will be detached from the source segment, and inserted relative
-/// to a given anchor (branch or commit).
-///
-/// This function mutates the editor graph but does not execute a rebase.
-pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-    subject_commit: impl ToCommitSelector,
-    anchor: impl ToSelector,
-    side: InsertSide,
-) -> anyhow::Result<Editor<'ws, 'meta, M>> {
-    let subject_commit_selector = disconnect_commit(&mut editor, subject_commit, None)?;
-
-    let commit_delimiter = SegmentDelimiter {
-        child: subject_commit_selector,
-        parent: subject_commit_selector,
-    };
-
-    editor.insert_segment(anchor, commit_delimiter, side)?;
-    Ok(editor)
 }
 
 /// Detach `subject_commit` from its source segment and close the gap, returning its

@@ -41,7 +41,7 @@ pub fn commit_move_only(
 /// This returns the post-operation workspace view without creating an oplog
 /// entry. When `dry_run` is enabled, it returns a preview of the resulting
 /// workspace state without materializing the rebase. For lower-level
-/// implementation details, see [`but_workspace::commit::move_commit()`].
+/// implementation details, see [`but_workspace::commit::move_commits()`].
 pub fn commit_move_only_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
@@ -96,7 +96,7 @@ pub fn commit_move(
 /// and commits the snapshot only if the operation succeeds. When `dry_run` is
 /// enabled, it returns a preview of the resulting workspace state and skips
 /// oplog persistence. For lower-level implementation details, see
-/// [`but_workspace::commit::move_commit()`].
+/// [`but_workspace::commit::move_commits()`].
 pub fn commit_move_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,

@@ -130,7 +130,7 @@ pub use uncommit_changes::{
     UncommitChangesSource, uncommit_changes, uncommit_changes_from_commits,
 };
 pub mod move_commit;
-pub use move_commit::{move_commit, move_commit_no_rebase, move_commits};
+pub use move_commit::move_commits;
 pub mod cherry_pick;
 pub use cherry_pick::cherry_pick_commits;
 pub mod discard_commit;
