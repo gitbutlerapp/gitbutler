@@ -1137,3 +1137,92 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
     Ok(())
 }
+#[test]
+fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
+    use but_graph::Graph;
+    use but_meta::VirtualBranchesTomlMetadata;
+    use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+    use but_testsupport::git_status_at_dir;
+
+    let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
+    let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let mut options = but_graph::init::Options::limited();
+    for (name, branch) in [("wt", "feat"), ("other", "other")] {
+        options.worktree_tips.push(but_graph::init::WorktreeTip {
+            name: name.into(),
+            ref_name: Some(format!("refs/heads/{branch}").try_into()?),
+            id: repo.find_reference(branch)?.peel_to_id()?.detach(),
+        });
+    }
+    let graph = Graph::from_head(&repo, &*meta, Default::default(), options)?.validated()?;
+
+    // `main` stacks two commits above `stack-base`; `feat` is a linked worktree with one
+    // commit; `other`, `stable` and `target` are all co-located at the base commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 57d0038 (feat) worktree source
+| * baa5a4c (HEAD -> main) workspace source
+| * 4119f49 (stack-base) stack base
+|/  
+* 35b8235 (target, stable, other) base
+
+"#]]
+        .raw()
+    );
+
+    let main = repo.rev_parse_single("main")?.detach();
+    let feat = repo.rev_parse_single("feat")?.detach();
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    but_workspace::commit::move_commits(
+        editor,
+        [main, feat],
+        RelativeTo::Reference("refs/heads/other".try_into()?),
+        InsertSide::Below,
+    )?
+    .materialize()?;
+
+    // Both moved commits land on `other`; `main` falls back onto `stack-base`; the source
+    // ref `feat` and the co-located `stable`/`target` all stay pinned to the base commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 0529812 (HEAD -> main, stack-base) stack base
+* 9a81bea (other) worktree source
+* 6f6bfe8 workspace source
+* 35b8235 (target, stable, feat) base
+
+"#]]
+        .raw()
+    );
+
+    let workdir = repo.workdir().expect("non-bare repo");
+    assert_eq!(
+        git_status_at_dir(workdir.join("wt"))?,
+        "",
+        "the source linked checkout follows its reset ref"
+    );
+    assert_eq!(
+        git_status_at_dir(workdir.join("other"))?,
+        "",
+        "the destination linked checkout follows its rewritten ref"
+    );
+    assert!(
+        !workdir.join("wt/wt-file").exists(),
+        "the moved source leaves the source linked checkout"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/ws-file"))?,
+        "workspace\n",
+        "the destination checkout contains the main source"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/wt-file"))?,
+        "worktree\n",
+        "the destination checkout contains the worktree source"
+    );
+    Ok(())
+}
