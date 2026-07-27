@@ -377,7 +377,7 @@ fn print_err_infallible<T: std::fmt::Display>(err: T) {
 }
 
 fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
-    print_err_infallible(err);
+    print_err_infallible(format!("{}{err}", theme::get().error.paint("Error: ")));
     std::process::exit(1)
 }
 
@@ -1103,6 +1103,7 @@ async fn match_subcommand(
             format,
             diff,
             no_diff,
+            allow_merged,
         } => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
@@ -1123,6 +1124,7 @@ async fn match_subcommand(
                 // clap's `conflicts_with` should prevent this being `None` but better safe than
                 // sorry
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
+                allow_merged,
             )
             .emit_metrics(metrics_ctx);
             run_status_after_if_ok(status_after, &result, &mut ctx, out);
@@ -1175,7 +1177,11 @@ async fn match_subcommand(
                 .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Absorb { source, dry_run } => {
+        Subcommands::Absorb {
+            source,
+            dry_run,
+            allow_merged,
+        } => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
@@ -1187,8 +1193,14 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let result = command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
-                .emit_metrics(metrics_ctx);
+            let result = command::legacy::absorb::handle(
+                &mut ctx,
+                out,
+                source.as_deref(),
+                dry_run,
+                allow_merged,
+            )
+            .emit_metrics(metrics_ctx);
             if result.is_ok() {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,

@@ -29,7 +29,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, targeting::Side,
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, targeting::Side,
     },
 };
 
@@ -150,7 +150,10 @@ fn resolve(
         below,
         interactive,
         changes,
+        allow_merged,
     } = args;
+
+    let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
 
     let target_ish = match (branch, above, below) {
         (Some(Some(branch)), None, None) => CommitOperationTargetIsh::Branch(branch),
@@ -217,7 +220,7 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish)?
+        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged)?
     };
 
     let reword_op = RewordCommitOperation::resolve(no_message, message);
@@ -311,15 +314,16 @@ fn route_commit_operation(
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
+    merged: &MergedUpstream,
 ) -> CliResult<CommitOperation> {
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
             let side = Side::Above;
-            route_commit_above_or_below(repo, id_map, cli_id, side)
+            route_commit_above_or_below(repo, id_map, cli_id, side, merged)
         }
         CommitOperationTargetIsh::Below(cli_id) => {
             let side = Side::Below;
-            route_commit_above_or_below(repo, id_map, cli_id, side)
+            route_commit_above_or_below(repo, id_map, cli_id, side, merged)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
             if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
@@ -327,6 +331,7 @@ fn route_commit_operation(
                 let ref_info = segment.ref_info.with_context(|| {
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
                 })?;
+                merged.ensure_branch_not_merged(ref_info.ref_name.as_ref())?;
 
                 let target = CommitRelativeToTarget::BranchTip {
                     name: ref_info.ref_name,
@@ -348,71 +353,86 @@ fn route_commit_operation(
         CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
             CommitToNewBranchOperation { branch_name: None },
         )),
-        CommitOperationTargetIsh::Default => match &head_info.stacks[..] {
-            [] => Ok(CommitOperation::CommitToNewBranch(
-                CommitToNewBranchOperation { branch_name: None },
-            )),
-            [stack] => {
-                let ref_info = stack
-                    .segments
-                    .first()
-                    .and_then(|segment| segment.ref_info.as_ref())
-                    .context("Head stack has no ref")?;
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip {
-                        name: ref_info.ref_name.clone(),
-                    },
-                }))
-            }
-            stacks => {
-                let stack_heads = stacks
-                    .iter()
-                    .filter_map(|stack| stack.segments.first())
-                    .filter_map(|segment| segment.ref_info.as_ref())
-                    .map(|ref_info| (ref_info.ref_name.shorten(), &ref_info.ref_name))
-                    .collect::<Vec<_>>();
+        CommitOperationTargetIsh::Default => {
+            // Branches that have landed upstream are not sensible default targets;
+            // skip them so new work goes to a live branch or a fresh one.
+            let stacks = head_info
+                .stacks
+                .iter()
+                .filter(|stack| {
+                    !stack
+                        .segments
+                        .first()
+                        .is_some_and(|segment| merged.contains_segment(segment))
+                })
+                .collect::<Vec<_>>();
 
-                let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
-                    return Err(anyhow::anyhow!(
-                        "BUG: found multiple stacks but none of them have heads"
-                    )
-                    .into());
-                };
+            match &stacks[..] {
+                [] => Ok(CommitOperation::CommitToNewBranch(
+                    CommitToNewBranchOperation { branch_name: None },
+                )),
+                [stack] => {
+                    let ref_info = stack
+                        .segments
+                        .first()
+                        .and_then(|segment| segment.ref_info.as_ref())
+                        .context("Head stack has no ref")?;
+                    Ok(CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::BranchTip {
+                            name: ref_info.ref_name.clone(),
+                        },
+                    }))
+                }
+                stacks => {
+                    let stack_heads = stacks
+                        .iter()
+                        .filter_map(|stack| stack.segments.first())
+                        .filter_map(|segment| segment.ref_info.as_ref())
+                        .map(|ref_info| (ref_info.ref_name.shorten(), &ref_info.ref_name))
+                        .collect::<Vec<_>>();
 
-                let Some(mut input) = out.prepare_for_terminal_input() else {
-                    return Err(
-                        bad_input("Unclear where to commit. Found more than one stack")
-                            .hint("You can specify where to commit with `--branch [<BRANCH>]`")
-                            .into(),
-                    );
-                };
+                    let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
+                        return Err(anyhow::anyhow!(
+                            "BUG: found multiple stacks but none of them have heads"
+                        )
+                        .into());
+                    };
 
-                let mut stack_heads =
-                    stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
-                stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
+                    let Some(mut input) = out.prepare_for_terminal_input() else {
+                        return Err(bad_input(
+                            "Unclear where to commit. Found more than one stack",
+                        )
+                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                        .into());
+                    };
 
-                let Some(selection) = input.prompt_select(
-                    "Multiple stacks found. Choose one to commit to",
-                    &stack_heads,
-                )?
-                else {
-                    return Err(bad_input("No stack picked").into());
-                };
+                    let mut stack_heads =
+                        stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
+                    stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
 
-                match selection {
-                    PickerItem::StackHead(full_name) => {
-                        Ok(CommitOperation::CommitAt(CommitAtOperation {
-                            target: CommitRelativeToTarget::BranchTip {
-                                name: (*full_name).clone(),
-                            },
-                        }))
+                    let Some(selection) = input.prompt_select(
+                        "Multiple stacks found. Choose one to commit to",
+                        &stack_heads,
+                    )?
+                    else {
+                        return Err(bad_input("No stack picked").into());
+                    };
+
+                    match selection {
+                        PickerItem::StackHead(full_name) => {
+                            Ok(CommitOperation::CommitAt(CommitAtOperation {
+                                target: CommitRelativeToTarget::BranchTip {
+                                    name: (*full_name).clone(),
+                                },
+                            }))
+                        }
+                        PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
+                            CommitToNewBranchOperation { branch_name: None },
+                        )),
                     }
-                    PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
-                        CommitToNewBranchOperation { branch_name: None },
-                    )),
                 }
             }
-        },
+        }
     }
 }
 
@@ -426,6 +446,7 @@ fn route_commit_above_or_below(
     id_map: &IdMap,
     cli_id: CliIdArg,
     side: Side,
+    merged: &MergedUpstream,
 ) -> CliResult<CommitOperation> {
     let target = match cli_id
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
@@ -435,11 +456,15 @@ fn route_commit_above_or_below(
         .into_branch_or_commit()
         .hint("Run `but status` to show applicable targets")?
     {
-        BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit { commit_id, side },
-        BranchOrCommit::Branch(arg) => CommitRelativeToTarget::BranchBucket {
-            name: arg.resolve_local_branch_name()?,
-            side,
-        },
+        BranchOrCommit::Commit(commit_id) => {
+            merged.ensure_commit_not_merged(commit_id)?;
+            CommitRelativeToTarget::Commit { commit_id, side }
+        }
+        BranchOrCommit::Branch(arg) => {
+            let name = arg.resolve_local_branch_name()?;
+            merged.ensure_branch_not_merged(name.as_ref())?;
+            CommitRelativeToTarget::BranchBucket { name, side }
+        }
     };
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }

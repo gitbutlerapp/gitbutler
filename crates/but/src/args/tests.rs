@@ -671,6 +671,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -692,6 +693,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -718,6 +720,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -741,6 +744,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -764,6 +768,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -798,6 +803,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -829,6 +835,7 @@ mod push {
                 topic_from_branch: true,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "my-branch-name", true);
@@ -860,6 +867,7 @@ mod push {
                 topic_from_branch: false,
                 private: true,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -888,6 +896,7 @@ mod push {
                 topic_from_branch: false,
                 private: true,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -934,6 +943,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -960,6 +970,7 @@ mod push {
                 topic_from_branch: false,
                 private: false,
                 dry_run: false,
+                allow_merged: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);

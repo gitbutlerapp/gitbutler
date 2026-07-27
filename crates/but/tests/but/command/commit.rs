@@ -1962,3 +1962,171 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn branch_flag_rejects_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message --branch A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn default_target_skips_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file.txt", "Some text");
+
+    // A has landed upstream, so the commit goes to B without prompting.
+    env.but("commit --no-message")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit e4531e0 on branch 'B'
+
+"#]]);
+}
+
+#[test]
+fn default_target_creates_new_branch_when_all_branches_merged_upstream() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-single-stack");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.file("file.txt", "Some text");
+
+    // The only branch has landed upstream, so the commit starts a new branch.
+    env.but("commit --no-message")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit b9049c6 on new branch 'a-branch-1'
+
+"#]]);
+}
+
+#[test]
+fn above_below_reject_merged_upstream_targets() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file.txt", "Some text");
+
+    // `nyq` is branch A's commit, whose content already landed on origin/main.
+    env.but("commit --no-message --below nyq")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 756ee31 is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+
+    env.but("commit --no-message --above A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn branch_flag_with_allow_merged_permits_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message --branch A --allow-merged")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit db11aaa on branch 'A'
+
+"#]]);
+}
+
+#[test]
+fn partially_integrated_stack_guards_only_the_landed_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-partially-integrated-multi-branch-stack",
+    );
+    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base")
+        .unwrap();
+    env.file("file.txt", "Some text");
+
+    // Branch C at the bottom has landed; branch A on top is live. Committing
+    // to the live tip must still work.
+    env.but("commit --no-message --branch A")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit aff34b9 on branch 'A'
+
+"#]]);
+
+    // The landed bottom branch stays refused.
+    env.but("commit --no-message --branch C")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'C' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn branch_flag_rejects_empty_merged_upstream_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch");
+
+    env.but("apply origin/document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    env.file("file.txt", "Some text");
+
+    // The applied branch has no local commits, but its remote tip has been
+    // merged into the target; status marks it `(merged upstream)`.
+    env.but("commit --no-message --branch document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'document-but-pr-skill' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}

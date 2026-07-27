@@ -538,6 +538,7 @@ fn prepare_commit_absorptions(
 /// Get the commit summary message
 fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<String> {
     let commit = repo.find_commit(commit_id)?;
-    let message = commit.message()?.title.to_string();
+    // The title still carries the trailing newline of single-paragraph messages.
+    let message = commit.message()?.title.trim_end().as_bstr().to_string();
     Ok(message)
 }

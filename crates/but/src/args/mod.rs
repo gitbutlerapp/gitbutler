@@ -548,6 +548,8 @@ pub enum Subcommands {
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]
         dry_run: bool,
+        #[clap(flatten)]
+        allow_merged: atoms::AllowMergedArg,
     },
 
     /// Edit the commit message of the specified commit.
@@ -586,6 +588,8 @@ pub enum Subcommands {
         /// Never show the diff inside the editor.
         #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "fix_formatting"])]
         no_diff: bool,
+        #[clap(flatten)]
+        allow_merged: atoms::AllowMergedArg,
     },
 
     #[cfg(feature = "legacy")]

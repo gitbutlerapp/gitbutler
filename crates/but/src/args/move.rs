@@ -1,4 +1,4 @@
-use crate::args::atoms::CliIdArg;
+use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
 /// Move commits and changes around.
 ///
@@ -92,4 +92,8 @@ pub struct Platform {
     /// an error.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

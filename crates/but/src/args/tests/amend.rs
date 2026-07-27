@@ -16,7 +16,11 @@ fn parse_amend(args: &[&str]) -> Platform {
 
 #[test]
 fn parses_sources_followed_by_long_target() {
-    let Platform { target, sources } = parse_amend(&["amend", "a1", "b2", "c3", "--target", "d4"]);
+    let Platform {
+        target,
+        sources,
+        allow_merged: _,
+    } = parse_amend(&["amend", "a1", "b2", "c3", "--target", "d4"]);
 
     assert_eq!(target.0, "d4");
     assert_eq!(
@@ -30,7 +34,11 @@ fn parses_sources_followed_by_long_target() {
 
 #[test]
 fn parses_sources_followed_by_short_target() {
-    let Platform { target, sources } = parse_amend(&["amend", "a1", "b2", "-t", "d4"]);
+    let Platform {
+        target,
+        sources,
+        allow_merged: _,
+    } = parse_amend(&["amend", "a1", "b2", "-t", "d4"]);
 
     assert_eq!(target.0, "d4");
     assert_eq!(

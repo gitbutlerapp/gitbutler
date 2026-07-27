@@ -43,4 +43,7 @@ pub struct Command {
     /// Show what would be pushed without actually pushing
     #[clap(long, short = 'd')]
     pub dry_run: bool,
+
+    #[clap(flatten)]
+    pub allow_merged: crate::args::atoms::AllowMergedArg,
 }

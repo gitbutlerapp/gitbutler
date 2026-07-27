@@ -282,3 +282,23 @@ fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn reword_rejects_merged_upstream_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    // `nyq` is branch A's commit, whose content already landed on origin/main.
+    env.but("reword nyq -m 'new message'")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Commit 756ee31 is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}

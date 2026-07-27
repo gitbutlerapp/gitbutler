@@ -22,7 +22,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
-        targeting::Side,
+        merged_upstream::MergedUpstream, targeting::Side,
     },
 };
 
@@ -131,9 +131,54 @@ pub fn r#move(
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
+    let allow_merged = args.allow_merged;
     let move_op = resolve(ctx, guard.write_permission(), args, &id_map)?;
+    ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
     Ok(run(ctx, &mut meta, guard.write_permission(), move_op)?)
+}
+
+/// Reject moves whose committed sources or targets have already landed in the
+/// target branch. Purely structural branch moves ([`MoveOperation::StackBranch`]
+/// and [`MoveOperation::UnstackBranch`]) stay allowed: they re-anchor commits
+/// without changing their content, so upstream-integration detection still
+/// recognizes them.
+fn ensure_not_touching_merged_upstream(
+    op: &MoveOperation,
+    merged: &MergedUpstream,
+) -> CliResult<()> {
+    let (source_commits, target) = match op {
+        MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation { sources, target }) => {
+            (sources.iter().copied().collect::<Vec<_>>(), Some(target))
+        }
+        MoveOperation::CommitsToNewBranch(MoveCommitsToNewBranchOperation { sources, .. }) => {
+            (sources.iter().copied().collect(), None)
+        }
+        MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
+            source_commit_id,
+            target,
+            ..
+        }) => (vec![*source_commit_id], Some(target)),
+        MoveOperation::ChangesToNewBranch(MoveChangesToNewBranchOperation {
+            source_commit_id,
+            ..
+        }) => (vec![*source_commit_id], None),
+        MoveOperation::StackBranch(_) | MoveOperation::UnstackBranch(_) => return Ok(()),
+    };
+
+    for commit_id in source_commits {
+        merged.ensure_commit_not_merged(commit_id)?;
+    }
+    match target {
+        Some(MoveTarget::Commit { commit_id, .. }) => {
+            merged.ensure_commit_not_merged(*commit_id)?
+        }
+        Some(MoveTarget::BranchTip { name } | MoveTarget::BranchBucket { name, .. }) => {
+            merged.ensure_branch_not_merged(name.as_ref())?
+        }
+        None => {}
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -373,6 +418,8 @@ fn resolve(
         sources,
         branch,
         unstack,
+        // Consumed by the caller when building the `MergedUpstream` guard.
+        allow_merged: _,
     } = args;
 
     let context_lines = ctx.settings.context_lines;

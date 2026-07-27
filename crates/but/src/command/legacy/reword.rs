@@ -13,7 +13,7 @@ use crate::{
     CliResult, IdMap,
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
     bad_input, tui,
-    utils::{OutputChannel, get_change_id_for_commit},
+    utils::{OutputChannel, get_change_id_for_commit, merged_upstream::MergedUpstream},
 };
 
 pub(crate) fn reword_target(
@@ -23,6 +23,7 @@ pub(crate) fn reword_target(
     message: Option<&str>,
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
+    allow_merged: crate::args::atoms::AllowMergedArg,
 ) -> CliResult<()> {
     // Formats without an interactive editor must provide the new message up front.
     if message.is_none() && !format && !out.format().allows_human_ui() {
@@ -57,6 +58,9 @@ pub(crate) fn reword_target(
             edit_branch_name(ctx, &name, out, message, guard.write_permission())?;
         }
         BranchOrCommit::Commit(commit) => {
+            // Rewording a landed commit is lost work: the rewritten commit is
+            // dropped again on the next `but pull`.
+            MergedUpstream::from_ctx(ctx, allow_merged)?.ensure_commit_not_merged(commit)?;
             edit_commit_message_by_id_and_reword_commit(
                 ctx,
                 commit,
