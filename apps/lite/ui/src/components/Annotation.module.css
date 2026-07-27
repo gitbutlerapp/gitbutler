@@ -1,0 +1,35 @@
+.wrapper {
+	display: flex;
+	flex-direction: column;
+	max-width: 100ch;
+	margin: 12px;
+	padding: 18px;
+	gap: 12px;
+	border-radius: var(--radius-card);
+	border-top-left-radius: 0;
+	background: var(--bg-1);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.author {
+	font-weight: bold;
+}
+
+.date {
+	translate: 0 1px;
+	color: var(--text-2);
+}
+
+.body {
+	line-height: 21px;
+}
+
+.actions {
+	display: flex;
+	gap: 12px;
+}
