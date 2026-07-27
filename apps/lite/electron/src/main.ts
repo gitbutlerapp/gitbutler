@@ -417,13 +417,15 @@ const registerIpcHandlers = (): void => {
 	});
 	senderValidatingHandle(
 		liteIpcChannels.commitAmend,
-		(_e, { projectId, commitId, changes, dryRun }: CommitAmendParams) =>
-			commitAmend(projectId, commitId, changes, dryRun),
+		(_e, { projectId, commitId, changes, changesSource, dryRun }: CommitAmendParams) =>
+			commitAmend(projectId, commitId, changes, changesSource, dryRun),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.commitCreate,
-		(_e, { projectId, relativeTo, side, changes, message, dryRun }: CommitCreateParams) =>
-			commitCreate(projectId, relativeTo, side, changes, message, dryRun),
+		(
+			_e,
+			{ projectId, relativeTo, side, changes, changesSource, message, dryRun }: CommitCreateParams,
+		) => commitCreate(projectId, relativeTo, side, changes, changesSource, message, dryRun),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.commitDiscard,

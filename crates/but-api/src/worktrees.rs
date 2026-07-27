@@ -1,4 +1,6 @@
-//! Commands for listing and committing from linked git worktrees (experimental).
+//! Commands for listing linked git worktrees (experimental), and the resolution
+//! of a [`ChangesSource`](crate::commit::json::ChangesSource) for the commands
+//! that can commit from one.
 //!
 //! All commands here are gated on the `featureFlags.worktreeManipulation` setting.
 //! Linked worktrees are identified by their stable *name*, i.e. the directory name
@@ -6,20 +8,12 @@
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
-use but_core::{DiffSpec, DryRun};
 use but_ctx::worktrees::WorktreeEntry;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
-use but_workspace::{
-    commit::ChangeSource,
-    worktrees::{WorktreeListing, WorktreeSource, open_worktree_repo},
-};
-use gix::bstr::BStr;
+use but_workspace::worktrees::{WorktreeListing, WorktreeSource, open_worktree_repo};
+use gix::bstr::{BStr, BString, ByteSlice};
 use tracing::instrument;
 
-use crate::{WorkspaceState, commit::types::CommitCreateResult};
+use crate::commit::json::ChangesSource;
 
 /// Fail unless the user opted into worktree manipulation.
 fn ensure_worktree_manipulation_enabled(ctx: &but_ctx::Context) -> Result<()> {
@@ -46,6 +40,28 @@ fn active_worktree(ctx: &but_ctx::Context, name: &str) -> Result<WorktreeEntry> 
         bail!("Worktree {name} is archived");
     }
     Ok(worktree)
+}
+
+/// Open the checkout that `source` reads its changes from, returning its stable
+/// name along with a plain from-disk open of it, or `None` for the main worktree.
+///
+/// Callers turn this into a [`ChangeSource`](but_workspace::commit::ChangeSource)
+/// for the duration of an editor-backed operation.
+///
+/// Must not be called while a database handle is borrowed, see
+/// [`but_ctx::Context::worktrees_with_state()`].
+pub(crate) fn open_changes_source(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<Option<(BString, gix::Repository)>> {
+    let ChangesSource::Worktree(name) = source else {
+        return Ok(None);
+    };
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let name = active_worktree(ctx, name)?.name;
+    let repo = ctx.repo.get()?;
+    let wt_repo = open_worktree_repo(&repo, name.as_bstr())?;
+    Ok(Some((name, wt_repo)))
 }
 
 /// List all usable linked worktrees, split by archived state.
@@ -104,122 +120,4 @@ pub fn linked_worktree_changes(
     let repo = ctx.repo.get()?;
     let wt_repo = open_worktree_repo(&repo, BStr::new(name.as_str()))?;
     Ok(but_core::diff::worktree_changes(&wt_repo)?.into())
-}
-
-/// Create a commit from `changes` in the linked worktree named `name`, on top of
-/// the branch that worktree has checked out.
-///
-/// The worktree's branch and checkout move together, with the consumed changes
-/// cancelled from the checkout. Note that unlike
-/// [`commit_create`](crate::commit::create::commit_create), no oplog snapshot is
-/// recorded - oplog coverage of linked worktrees is deferred.
-#[but_api(try_from = crate::commit::json::CommitCreateResult)]
-#[instrument(err(Debug))]
-pub fn worktree_commit_create(
-    ctx: &mut but_ctx::Context,
-    name: String,
-    changes: Vec<DiffSpec>,
-    message: String,
-    dry_run: DryRun,
-) -> Result<CommitCreateResult> {
-    ensure_worktree_manipulation_enabled(ctx)?;
-    let context_lines = ctx.settings.context_lines;
-    let mut guard = ctx.exclusive_worktree_access();
-    let ref_name = active_worktree(ctx, &name)?
-        .ref_name
-        .with_context(|| format!("Worktree {name} has a detached HEAD"))?;
-
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-    let wt_repo = open_worktree_repo(&repo, BStr::new(name.as_str()))?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-
-    let but_workspace::commit::CommitCreateOutcome {
-        rebase,
-        commit_selector,
-        rejected_specs,
-    } = but_workspace::commit::commit_create(
-        editor,
-        changes,
-        RelativeTo::Reference(ref_name),
-        InsertSide::Below,
-        &message,
-        context_lines,
-        ChangeSource::Worktree {
-            repo: &wt_repo,
-            name: BStr::new(name.as_str()),
-        },
-    )?;
-
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
-
-    Ok(CommitCreateResult {
-        new_commit,
-        rejected_specs,
-        workspace,
-    })
-}
-
-/// Amend `changes` - uncommitted changes of the linked worktree named `name` -
-/// into the commit at `commit_id`, which may live on any workspace stack or on
-/// the branch of any active worktree, including `name`'s own.
-///
-/// The worktree's branch is rebased if the target is in its history, and its
-/// checkout follows. Either way the consumed changes are cancelled from that
-/// checkout. When the rewrite would leave any linked worktree's branch on a
-/// conflict-encoded commit, materialization fails before any ref moves, leaving
-/// every checkout untouched.
-///
-/// Note that unlike [`commit_amend`](crate::commit::amend::commit_amend), no oplog
-/// snapshot is recorded - oplog coverage of linked worktrees is deferred. Also,
-/// `dry_run` skips materialization, but the previewed commit is still written
-/// loose into the shared object database, where it stays unreachable until
-/// garbage-collected.
-#[but_api(try_from = crate::commit::json::CommitCreateResult)]
-#[instrument(err(Debug))]
-pub fn worktree_commit_amend(
-    ctx: &mut but_ctx::Context,
-    name: String,
-    commit_id: gix::ObjectId,
-    changes: Vec<DiffSpec>,
-    dry_run: DryRun,
-) -> Result<CommitCreateResult> {
-    ensure_worktree_manipulation_enabled(ctx)?;
-    let context_lines = ctx.settings.context_lines;
-    let mut guard = ctx.exclusive_worktree_access();
-    active_worktree(ctx, &name)?;
-
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-    let wt_repo = open_worktree_repo(&repo, BStr::new(name.as_str()))?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-
-    let but_workspace::commit::CommitAmendOutcome {
-        rebase,
-        commit_selector,
-        rejected_specs,
-    } = but_workspace::commit::commit_amend(
-        editor,
-        commit_id,
-        changes,
-        context_lines,
-        ChangeSource::Worktree {
-            repo: &wt_repo,
-            name: BStr::new(name.as_str()),
-        },
-    )?;
-
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
-
-    Ok(CommitCreateResult {
-        new_commit,
-        rejected_specs,
-        workspace,
-    })
 }

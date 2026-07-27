@@ -364,6 +364,25 @@ impl TryFrom<EngineUncommitResult> for UncommitResult {
     }
 }
 
+/// Which checkout the changes to commit are read from, and hence which one has
+/// to cancel them out.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum ChangesSource {
+    /// The main worktree of the project.
+    Head,
+    /// A linked worktree, identified by its stable name, i.e. the directory name
+    /// under `$GIT_COMMON_DIR/worktrees/`.
+    ///
+    /// Requires the `worktreeManipulation` feature flag, and the worktree has to
+    /// be active.
+    Worktree(String),
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ChangesSource);
+
 /// Specifies a location, usually used to either have something inserted
 /// relative to it, or for the selected object to actually be replaced.
 #[derive(Debug, Clone, Serialize, Deserialize)]

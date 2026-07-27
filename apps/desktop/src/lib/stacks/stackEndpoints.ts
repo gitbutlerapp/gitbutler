@@ -344,6 +344,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 					relativeTo,
 					side,
 					changes: args.worktreeChanges,
+					changesSource: { type: "head" },
 					message: args.message,
 					dryRun: args.dryRun,
 				};
@@ -545,6 +546,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				projectId,
 				commitId,
 				changes: worktreeChanges,
+				changesSource: { type: "head" },
 				dryRun,
 			}),
 			transformResponse: normalizeCreateCommitOutcome,

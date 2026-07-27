@@ -336,6 +336,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 				projectId,
 				commitId,
 				changes,
+				changesSource: { type: "head" },
 				dryRun: false,
 			});
 		},
@@ -396,6 +397,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 				projectId,
 				relativeTo,
 				changes,
+				changesSource: { type: "head" },
 				side: Match.value(relativeTo).pipe(
 					Match.withReturnType<InsertSide>(),
 					Match.when({ type: "commit" }, () => "above"),

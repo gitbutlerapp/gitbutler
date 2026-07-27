@@ -1,4 +1,4 @@
-use crate::WorkspaceState;
+use crate::{WorkspaceState, commit::json::ChangesSource};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -6,12 +6,14 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeTo},
 };
+use but_workspace::commit::ChangeSource;
+use gix::bstr::ByteSlice;
 use tracing::instrument;
 
 use super::types::CommitCreateResult;
 
-/// Creates a commit from `changes` with `message`, inserted on `side` of
-/// `relative_to`.
+/// Creates a commit from the `changes` of `changes_source` with `message`,
+/// inserted on `side` of `relative_to`.
 ///
 /// This acquires exclusive worktree access from `ctx` before creating the
 /// commit. For lower-level implementation details, see
@@ -25,6 +27,7 @@ pub fn commit_create_only(
     #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
+    changes_source: ChangesSource,
     message: String,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCreateResult> {
@@ -35,6 +38,7 @@ pub fn commit_create_only(
         relative_to,
         side,
         changes,
+        &changes_source,
         message,
         dry_run,
         context_lines,
@@ -52,11 +56,13 @@ pub(crate) fn commit_create_only_impl(
     relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
+    changes_source: &ChangesSource,
     message: String,
     dry_run: DryRun,
     context_lines: u32,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
+    let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -72,7 +78,12 @@ pub(crate) fn commit_create_only_impl(
         side,
         &message,
         context_lines,
-        but_workspace::commit::ChangeSource::Head,
+        worktree
+            .as_ref()
+            .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
+                repo,
+                name: name.as_bstr(),
+            }),
     )?;
 
     let new_commit = commit_selector
@@ -87,22 +98,25 @@ pub(crate) fn commit_create_only_impl(
     })
 }
 
-/// Insert a new commit built from `changes` and record an oplog snapshot on
-/// success.
+/// Insert a new commit built from the `changes` of `changes_source` and record
+/// an oplog snapshot on success.
 ///
 /// `relative_to` and `side` choose where the commit is inserted. `message` is
 /// the entire commit message text, not just the title. On success, this commits
-/// a best-effort `CreateCommit` oplog snapshot using the same lock. When
+/// a best-effort `CreateCommit` oplog snapshot using the same lock, which covers
+/// the main checkout only even when `changes_source` is a linked worktree. When
 /// `dry_run` is enabled, the returned workspace previews the inserted commit
 /// and no oplog entry is persisted. For lower-level implementation details, see
 /// [`but_workspace::commit::commit_create()`].
 #[but_api(napi, try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
+#[expect(clippy::too_many_arguments)]
 pub fn commit_create(
     ctx: &mut but_ctx::Context,
     #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
+    changes_source: ChangesSource,
     message: String,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
@@ -120,6 +134,7 @@ pub fn commit_create(
         relative_to,
         side,
         changes,
+        &changes_source,
         message,
         dry_run,
         context_lines,

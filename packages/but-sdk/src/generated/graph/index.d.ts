@@ -171,15 +171,17 @@ export declare function changesInWorktree(projectId: string, computeDepsAndAssig
 export declare function changesInWorktreeWithPerm(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
- * Amend the commit at `commit_id` with `changes` and record an oplog snapshot on success.
+ * Amend the commit at `commit_id` with the `changes` of `changes_source` and
+ * record an oplog snapshot on success.
  *
  * This performs the rewrite under exclusive worktree access and creates a
- * best-effort `AmendCommit` oplog entry if the operation succeeds. When
+ * best-effort `AmendCommit` oplog entry if the operation succeeds, which covers
+ * the main checkout only even when `changes_source` is a linked worktree. When
  * `dry_run` is enabled, the returned workspace previews the amended commit
  * and no oplog entry is persisted. For lower-level implementation details, see
  * [`but_workspace::commit::commit_amend()`].
  */
-export declare function commitAmend(projectId: string, commitId: string, changes: Array<DiffSpec>, dryRun: boolean): Promise<CommitCreateResult>
+export declare function commitAmend(projectId: string, commitId: string, changes: Array<DiffSpec>, changesSource: ChangesSource, dryRun: boolean): Promise<CommitCreateResult>
 
 /**
  * Cherry-picks `source_commit_ids` to `side` of `relative_to` and records an
@@ -188,17 +190,18 @@ export declare function commitAmend(projectId: string, commitId: string, changes
 export declare function commitCherryPick(projectId: string, sourceCommitIds: Array<string>, relativeTo: RelativeTo, side: InsertSide, dryRun: boolean): Promise<CommitCherryPickResult>
 
 /**
- * Insert a new commit built from `changes` and record an oplog snapshot on
- * success.
+ * Insert a new commit built from the `changes` of `changes_source` and record
+ * an oplog snapshot on success.
  *
  * `relative_to` and `side` choose where the commit is inserted. `message` is
  * the entire commit message text, not just the title. On success, this commits
- * a best-effort `CreateCommit` oplog snapshot using the same lock. When
+ * a best-effort `CreateCommit` oplog snapshot using the same lock, which covers
+ * the main checkout only even when `changes_source` is a linked worktree. When
  * `dry_run` is enabled, the returned workspace previews the inserted commit
  * and no oplog entry is persisted. For lower-level implementation details, see
  * [`but_workspace::commit::commit_create()`].
  */
-export declare function commitCreate(projectId: string, relativeTo: RelativeTo, side: InsertSide, changes: Array<DiffSpec>, message: string, dryRun: boolean): Promise<CommitCreateResult>
+export declare function commitCreate(projectId: string, relativeTo: RelativeTo, side: InsertSide, changes: Array<DiffSpec>, changesSource: ChangesSource, message: string, dryRun: boolean): Promise<CommitCreateResult>
 
 /**
  * Computes commit details for `commit_id` with line statistics enabled.
@@ -1227,6 +1230,17 @@ export type CalculationError = {
 export type ChangeState = {
   id: string;
   kind: EntryKind;
+};
+
+/**
+ * Which checkout the changes to commit are read from, and hence which one has
+ * to cancel them out.
+ */
+export type ChangesSource = {
+  type: "head";
+} | {
+  type: "worktree";
+  subject: string;
 };
 
 export type CiCheck = {
