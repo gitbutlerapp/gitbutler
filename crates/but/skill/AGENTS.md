@@ -19,6 +19,9 @@ reference file there.
 - **Never document commands agents should not run:** subcommands and flags
   marked `hide = true` in `crates/but/src/args/` (the hidden flags on `push` are
   the usual trap), and the TUI/GUI surfaces.
+- **Never mention `--format json` or other output formats.** Agents read the
+  default agent output; format-specific notes (flags, streams, JSON shapes)
+  don't belong in skill files.
 - **When a command changes, re-derive its guidance** instead of syntax-swapping
   the prose; rationale written for the old implementation dies with it. The same
   facts are deliberately repeated across the four installed files — grep and

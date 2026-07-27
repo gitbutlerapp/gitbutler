@@ -158,7 +158,7 @@ If that `but move` fails, do NOT try `uncommit`, `squash`, or `undo` as a workar
 
 **NEVER use `git add`, `git commit`, `git checkout --theirs/--ours`, or any git write command during resolution.** Only `but resolve` commands plus direct file edits.
 
-1. Find conflicted commits: the `but pull` summary lists them oldest-first; otherwise `but status` marks them.
+1. Find conflicted commits: history-editing commands (`move`, `discard`, …) warn about newly conflicted commits in their output, and the `but pull` summary lists them oldest-first; otherwise `but status` marks them.
 2. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 3. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
 4. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status.

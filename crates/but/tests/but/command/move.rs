@@ -2605,3 +2605,47 @@ fn move_multiple_commits_to_branch_tip_preserves_order() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn move_that_conflicts_warns_about_newly_conflicted_commits() -> anyhow::Result<()> {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-commits");
+    env.setup_metadata(&["A"]);
+
+    let status = status_json(&env)?;
+    let commits = branch_commit_cli_ids(&status, "A");
+    let (top, bottom) = (&commits[0], &commits[1]);
+
+    // Swapping two commits that edit the same line leaves the rebased commit
+    // conflicted; the command output must say so.
+    env.but(format!("move {bottom} --above {top}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved [..] above commit [..]
+
+⚠ This operation left a commit conflicted:
+  ● [..] [conflict] set two
+Resolve with but resolve, or back out with but undo.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn move_without_conflicts_prints_no_conflict_warning() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    // The commits touch different files, so the swap rebases cleanly.
+    env.but("move zll --above ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved [..] above commit [..]
+
+"#]]);
+
+    Ok(())
+}

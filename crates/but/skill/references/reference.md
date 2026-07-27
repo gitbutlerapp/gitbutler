@@ -306,7 +306,7 @@ All provided IDs must be the same kind, and committed files must come from the s
 
 ## Conflict Resolution
 
-When commits have conflicts (the `but pull` summary lists them; `but status` marks them as conflicted):
+When commits have conflicts (history-editing commands warn about newly conflicted commits in their output; the `but pull` summary lists them; `but status` marks them as conflicted):
 
 ### `but resolve <commit>`
 

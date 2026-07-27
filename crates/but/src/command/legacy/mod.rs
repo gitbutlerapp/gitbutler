@@ -11,6 +11,7 @@ pub mod branch;
 pub mod clean;
 pub mod commit;
 pub mod commit_message_prep;
+pub(crate) mod conflict_notice;
 pub mod diff;
 #[cfg(feature = "legacy")]
 pub mod diff2;
