@@ -36,9 +36,7 @@ import {
 	type FileParent,
 	type HunkOperand,
 	type Operand,
-	branchIdentityKey,
-	fileIdentityKey,
-	weakCommitIdentityKey,
+	weakFileIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -140,12 +138,6 @@ const diffDefaults = {
 	diffStyle: "split",
 } satisfies Partial<GUISettings>;
 
-const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
-	`${changesetKey}:${path}`;
-
-const codeViewItemIdPath = ({ changesetKey, id }: { changesetKey: string; id: string }): string =>
-	id.slice(changesetKey.length + 1);
-
 const hunkOperandIdentityKey = (operand: HunkOperand): string =>
 	operandIdentityKey(hunkOperand(operand));
 
@@ -193,8 +185,8 @@ const getBranchFileRowItems = ({ branchDiff }: { branchDiff: TreeChanges }): Arr
 	);
 
 const mkCodeViewItem = (
+	id: string,
 	change: TreeChange,
-	changesetKey: string,
 	hunks: Array<DiffHunk>,
 ): CodeViewDiffItem => {
 	const combinedFilePatch = synthesizeFilePatch(change, hunks);
@@ -203,7 +195,7 @@ const mkCodeViewItem = (
 
 	return {
 		type: "diff",
-		id: codeViewItemId({ changesetKey, path: change.path }),
+		id,
 		version,
 		// There should always be exactly one result given our one parsed hunk.
 		fileDiff: assert(assert(parsed[0]).files[0]),
@@ -214,7 +206,6 @@ type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
-	changesetKey: string;
 };
 
 type DiffViewFile = {
@@ -240,12 +231,7 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
-	changesetKey,
-}: DiffViewDeps): DiffView => {
+const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -261,18 +247,18 @@ const getDiffView = ({
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
 
+		const file: FileOperand = {
+			parent: fileParent,
+			path: change.path,
+		};
 		const item = mkCodeViewItem(
+			weakFileIdentityKey(file),
 			change,
-			changesetKey,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
 		);
 
 		items.push(item);
 
-		const file: FileOperand = {
-			parent: fileParent,
-			path: change.path,
-		};
 		const diffViewFile: DiffViewFile = {
 			operand: file,
 			item,
@@ -327,9 +313,8 @@ const getDiffView = ({
 
 const DiffContents: FC<{
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
-	onViewerFileSelection: (selection: string) => void;
+	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
-	changesetKey: string;
 	projectId: string;
 	diffView: DiffView;
 	diffBackgrounds?: GUISettings["diffBackground"];
@@ -341,7 +326,6 @@ const DiffContents: FC<{
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
-	changesetKey,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	diffBackgrounds,
@@ -469,7 +453,10 @@ const DiffContents: FC<{
 		// This can happen on very fast scroll.
 		if (activeItem === undefined) return;
 
-		onViewerFileSelection(codeViewItemIdPath({ changesetKey, id: activeItem.id }));
+		const file = fileByItemId.get(activeItem.id);
+		if (!file) return;
+
+		onViewerFileSelection(file.operand.path);
 	};
 
 	// We currently only support selecting contiguous blocks.
@@ -1052,18 +1039,6 @@ const Diff: FC<{
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
 	// the outline selection, even with the helpers inlined, hence manual memoisation.
-	const changesetKey = useMemo(
-		() =>
-			Match.value(outlineSelection).pipe(
-				Match.tags({
-					Branch: (x) => branchIdentityKey(x),
-					File: (x) => fileIdentityKey(x),
-					Commit: (x) => weakCommitIdentityKey(x),
-				}),
-				Match.orElseAbsurd,
-			),
-		[outlineSelection],
-	);
 	const fileParent = useMemo(
 		() =>
 			Match.value(outlineSelection).pipe(
@@ -1086,23 +1061,25 @@ const Diff: FC<{
 		fileParent,
 		changes,
 		treeChangeDiffs,
-		changesetKey,
 	});
 
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
 
+		const file = diffView.fileByPath.get(selection);
+		if (!file) return;
+
 		dispatch(
 			projectSlice.actions.selectDiff({
 				projectId,
-				selection: diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null,
+				selection: file.hunks[0]?.operand ?? null,
 			}),
 		);
 
 		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
 			type: "item",
-			id: codeViewItemId({ changesetKey, path: selection }),
+			id: file.item.id,
 		});
 	};
 
@@ -1241,7 +1218,6 @@ const Diff: FC<{
 						<DiffContents
 							onViewerFileSelection={onFileSelection}
 							fileParent={fileParent}
-							changesetKey={changesetKey}
 							projectId={projectId}
 							diffView={diffView}
 							diffBackgrounds={diffSettings?.diffBackground}
