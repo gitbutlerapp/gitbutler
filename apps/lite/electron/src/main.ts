@@ -794,6 +794,12 @@ void app.whenReady().then(async () => {
 	await initApplicationNamespace(null);
 	configureAskpass();
 
+	// GitHub Markdown images use github.com URLs that may redirect to GitHub's S3 bucket,
+	// while anonymized images are served from githubusercontent.com subdomains.
+	// See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-anonymized-urls
+	const githubImageSources =
+		"https://github.com https://*.githubusercontent.com https://github-production-user-asset-6210df.s3.amazonaws.com";
+
 	if (app.isPackaged) {
 		registerLiteProtocolHandler();
 
@@ -808,7 +814,7 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data: https://*.gravatar.com;" +
+			`img-src 'self' data: https://*.gravatar.com ${githubImageSources};` +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -842,7 +848,7 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data: https://*.gravatar.com;" +
+			`img-src 'self' data: https://*.gravatar.com ${githubImageSources};` +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
