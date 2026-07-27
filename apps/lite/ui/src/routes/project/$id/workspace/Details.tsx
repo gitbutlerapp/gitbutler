@@ -193,12 +193,19 @@ const mkCodeViewItem = (
 	const version = hash(combinedFilePatch);
 	const parsed = parsePatchFiles(combinedFilePatch, String(version));
 
+	const [patch, ...restPatches] = parsed;
+	if (!patch) throw new Error("Failed to parse any patches");
+	if (restPatches.length > 0) throw new Error("Parsed more than one patch");
+
+	const [fileDiff, ...restFiles] = patch.files;
+	if (!fileDiff) throw new Error("Failed to parse any files in patch");
+	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
+
 	return {
 		type: "diff",
 		id,
 		version,
-		// There should always be exactly one result given our one parsed hunk.
-		fileDiff: assert(assert(parsed[0]).files[0]),
+		fileDiff,
 	};
 };
 
