@@ -716,7 +716,7 @@ fn discard_that_conflicts_warns_on_stderr_in_json_mode() -> anyhow::Result<()> {
     // Discarding the bottom commit rebases its dependent on top of the base,
     // which conflicts. JSON output stays parseable, so the warning goes to
     // stderr.
-    env.but(format!("--format json discard {bottom}"))
+    env.but(format!("--json discard {bottom}"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

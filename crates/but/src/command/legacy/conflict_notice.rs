@@ -14,7 +14,6 @@ use gix::prelude::ObjectIdExt as _;
 use itertools::Itertools as _;
 
 use crate::{
-    args::OutputFormat,
     theme::{self, Paint},
     utils::OutputChannel,
 };
@@ -112,7 +111,7 @@ fn try_report_newly_conflicted(
             t.command_suggestion.paint("but resolve"),
             t.command_suggestion.paint("but undo")
         )?;
-    } else if matches!(out.format(), OutputFormat::Shell | OutputFormat::Json) {
+    } else if out.format().is_json() {
         // Shell and JSON outputs are parsed, so the warning goes to stderr.
         // `OutputFormat::None` promises no output at all and stays silent.
         let ids = newly
