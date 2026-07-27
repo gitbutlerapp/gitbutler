@@ -29,7 +29,7 @@ but commit -b <api-branch-id> -m "Add user details endpoint" <api-file-id>
 but commit -b <ui-branch-id> -m "Update button hover styles" <ui-file-id>
 
 # Follow-up fix that belongs in a commit you just made? Amend it in.
-# Each mutation returns updated workspace state — take any new IDs you need from it.
+# Add --status-after only when the next step needs resulting workspace IDs or details.
 # but amend -t <api-commit-id> <api-fix-file-id> <api-fix-hunk-id>
 
 # 6. Create pull requests (auto-pushes the branches)
@@ -451,11 +451,13 @@ but commit -b my-branch -m "Add parser" qs:5 qs:2 \
 The commits stack in the order you write them, so `Add parser` ends up below (older
 than) `Add tests`. Chain these commit commands when each references uncommitted IDs
 (plus the stable branch ID). If an ID stops resolving, re-read the diff and continue.
+Mutation output is concise by default. Add `--status-after` only when the next
+step needs workspace IDs or details that the mutation result does not provide.
 History edits — `amend`, `squash`, `move`, `uncommit`, `reword` — may also run in
 sequence off one status read when every commit ref involved is a change-ID ref;
 those stay stable across the edits. Run them one at a time when a ref is sha-based
-or `#N`-suffixed, or when the next command needs IDs the previous one prints, and
-take follow-up refs from the returned workspace state.
+or `#N`-suffixed, or when the next command needs freshly issued IDs, and add
+`--status-after` to get them.
 
 
 ### Auto-completion

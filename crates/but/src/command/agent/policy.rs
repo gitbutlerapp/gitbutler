@@ -150,7 +150,7 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.",
             "For that fast path, after the commit succeeds, stop and summarize; do not run separate branch, staging, status, or diff commands unless the commit output is missing information you need.",
             "Use the installed GitButler skill for command recipes and syntax before guessing flags, using `--help`, or translating Git habits directly.",
-            "After a successful GitButler write command, use the workspace state it returns. Rerun status or diff only when that output lacks information you need or files changed since.",
+            "Mutation commands report their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise do not rerun status or diff to verify success.",
             "Use a dedicated GitButler branch for each agent session, unless the user asks for a different branch structure. Commit only changes that belong to that session.",
             "Do not push or open pull requests unless the user asks.",
             "Keep commit messages and pull request descriptions succinct: explain what changed, why it changed, and any important decision.",

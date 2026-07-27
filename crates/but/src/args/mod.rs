@@ -38,14 +38,11 @@ pub struct Args {
     pub current_dir: PathBuf,
     #[clap(flatten)]
     pub format: OutputFormatArg,
-    /// Whether mutation commands should append workspace status.
-    #[clap(skip)]
+    /// Append workspace status when supported by a mutation command.
+    ///
+    /// Use when the next step needs IDs or details from the resulting workspace.
+    #[clap(long, global = true)]
     pub status_after: bool,
-    // Keep accepting the removed flag so agents with older skills do not start
-    // erroring after the `but` CLI is updated. It is intentionally ignored;
-    // agent detection controls the current status-after behavior.
-    #[clap(long = "status-after", global = true, hide = true)]
-    pub legacy_status_after: bool,
     /// Subcommand to run (`but <COMMAND>`).
     ///
     /// On UNIX, if `<COMMAND>` is not built in and `but-<COMMAND>` exists on the PATH, that program

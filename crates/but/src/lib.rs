@@ -105,10 +105,7 @@ fn parse_args(args: Vec<OsString>, agent_detected: bool) -> Args {
         command = command.mut_arg("format", |arg| arg.default_value("agent"));
     }
     let matches = command.get_matches_from(args);
-    let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
-
-    args.status_after = agent_detected;
-    args
+    Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit())
 }
 
 static APP_SETTINGS: std::sync::OnceLock<AppSettings> = std::sync::OnceLock::new();
@@ -437,7 +434,6 @@ async fn match_subcommand(
         writeln!(human, "{}", notice.text()).ok();
         writeln!(human).ok();
     }
-
     let mut metrics_ctx = cmd.to_metrics_context(&app_settings, &args.current_dir);
     if agent_skill_notice.is_some_and(|notice| notice.is_hint())
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
@@ -1120,6 +1116,7 @@ async fn match_subcommand(
             diff,
             no_diff,
         } => {
+            let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -1128,7 +1125,8 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::reword::reword_target(
+            out.begin_status_after(status_after);
+            let result = command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
                 target,
@@ -1138,7 +1136,9 @@ async fn match_subcommand(
                 // sorry
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
-            .emit_metrics(metrics_ctx)
+            .emit_metrics(metrics_ctx);
+            run_status_after_if_ok(status_after, &result, &mut ctx, out);
+            result
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
@@ -1650,6 +1650,11 @@ fn run_status_after_if_requested(
     out: &mut OutputChannel,
 ) {
     if !status_after {
+        if out.is_json()
+            && let Some(notice) = command::skill::agent_skill_update_notice()
+        {
+            eprintln!("{notice}");
+        }
         return;
     }
     let mutation_json = out.take_json_buffer();
@@ -1666,14 +1671,14 @@ fn run_status_after_if_ok<T, E>(
 ) {
 }
 
-/// Run workspace status output after an agent mutation command completes.
+/// Run workspace status output after a mutation command when explicitly requested.
 ///
 /// In human mode, prints a blank line then full status.
 /// In JSON mode, combines the mutation's buffered JSON with status JSON into
 /// `{"result": <mutation_output>, "status": <workspace_status>}`.
 /// For JSON commands, reconciles stale skill installations and includes an
 /// update announcement or failure notice under `agent_skill_notice`.
-/// This function only runs when the CLI caller was detected as an agent.
+/// The global `--status-after` flag controls whether this function runs.
 ///
 /// Status errors are handled gracefully: in JSON mode the mutation result is
 /// always emitted (with a `"status_error"` field on failure); in human mode
@@ -1794,6 +1799,31 @@ mod tests {
         });
 
         assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    #[cfg(feature = "legacy")]
+    fn detected_agent_omits_status_after_mutation_by_default() {
+        let args = parse_args(os_args(&["but", "commit", "--no-message"]), true);
+
+        assert!(
+            !args.status_after,
+            "detected agents must not request mutation status implicitly"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "legacy")]
+    fn detected_agent_can_request_status_after_mutation() {
+        let args = parse_args(
+            os_args(&["but", "commit", "--status-after", "--no-message"]),
+            true,
+        );
+
+        assert!(
+            args.status_after,
+            "detected agents must retain an explicit mutation status request"
+        );
     }
 
     #[test]
