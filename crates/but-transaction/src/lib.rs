@@ -7,13 +7,13 @@ use anyhow::Context as _;
 use bstr::BStr;
 use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata, ref_metadata, sync::RepoExclusive,
+    DiffSpec, DryRun, RefMetadata, commit::CommitIdentifiers, ref_metadata, sync::RepoExclusive,
     tree::create_tree::RejectionReason,
 };
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, Step, SuccessfulRebase,
+    Editor, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::commit::{
@@ -238,7 +238,7 @@ where
         subjects: impl IntoIterator<Item = ObjectId>,
         target: ObjectId,
         how_to_combine_messages: MessageCombinationStrategy,
-    ) -> anyhow::Result<ObjectId> {
+    ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
             let SquashCommitsOutcome {
                 rebase,
@@ -252,16 +252,20 @@ where
                 commit_mappings.map(target),
                 how_to_combine_messages,
             )?;
-            let new_commit = rebase.lookup_pick(commit_selector)?;
+            let new_commit = rebase.lookup_commit(commit_selector)?;
             Ok((new_commit, rebase))
         })
     }
 
-    pub fn reword_commit(&mut self, commit: ObjectId, message: &BStr) -> anyhow::Result<ObjectId> {
+    pub fn reword_commit(
+        &mut self,
+        commit: ObjectId,
+        message: &BStr,
+    ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
             let (rebase, edited_commit_selector) =
                 but_workspace::commit::reword(editor, commit_mappings.map(commit), message)?;
-            let new_commit = rebase.lookup_pick(edited_commit_selector)?;
+            let new_commit = rebase.lookup_commit(edited_commit_selector)?;
             Ok((new_commit, rebase))
         })
     }
@@ -285,7 +289,7 @@ where
         &mut self,
         source: gix::ObjectId,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<ObjectId> {
+    ) -> anyhow::Result<CommitIdentifiers> {
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings, _| {
             let but_workspace::commit::UncommitChangesOutcome {
@@ -298,7 +302,7 @@ where
                 context_lines,
             )?;
 
-            let new_commit = rebase.lookup_pick(commit_selector)?;
+            let new_commit = rebase.lookup_commit(commit_selector)?;
             Ok((new_commit, rebase))
         })
     }
@@ -602,7 +606,7 @@ where
             )?;
 
             let new_commit = commit_selector
-                .map(|commit_selector| rebase.lookup_pick(commit_selector))
+                .map(|commit_selector| rebase.lookup_commit(commit_selector))
                 .transpose()?;
 
             Ok((
@@ -619,7 +623,7 @@ where
         &mut self,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<gix::ObjectId> {
+    ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
@@ -628,7 +632,7 @@ where
 
             let (rebase, blank_commit_selector) =
                 but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
-            let new_commit = rebase.lookup_pick(blank_commit_selector)?;
+            let new_commit = rebase.lookup_commit(blank_commit_selector)?;
 
             Ok((new_commit, rebase))
         })
@@ -676,7 +680,7 @@ where
             )?;
 
             let new_commit = commit_selector
-                .map(|commit_selector| rebase.lookup_pick(commit_selector))
+                .map(|commit_selector| rebase.lookup_commit(commit_selector))
                 .transpose()?;
 
             Ok((
@@ -694,7 +698,7 @@ where
         source: ObjectId,
         target: ObjectId,
         changes: Vec<but_core::DiffSpec>,
-    ) -> anyhow::Result<ObjectId> {
+    ) -> anyhow::Result<CommitIdentifiers> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings, _| {
             let source = commit_mappings.map(source);
@@ -713,7 +717,7 @@ where
             )?;
 
             let new_commit = rebase
-                .lookup_pick(destination_selector)
+                .lookup_commit(destination_selector)
                 .context("failed to find rebased commit")?;
 
             Ok((new_commit, rebase))
@@ -1201,7 +1205,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 /// in-memory.
 pub struct IntermediateCommitCreateResult {
     /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
-    pub new_commit: Option<gix::ObjectId>,
+    pub new_commit: Option<CommitIdentifiers>,
     /// Any specs that failed to be committed.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
 }

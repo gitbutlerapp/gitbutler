@@ -864,3 +864,12 @@ pub fn write_conflicted_tree(
         .context("failed to write conflicted tree")
         .map(|tree_id| tree_id.detach())
 }
+
+/// A commit with change id.
+#[derive(Debug, Clone)]
+pub struct CommitIdentifiers {
+    /// The commit sha.
+    pub id: gix::ObjectId,
+    /// The change id.
+    pub change_id: ChangeId,
+}

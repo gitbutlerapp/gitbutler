@@ -75,11 +75,11 @@ fn squashing_three_commits() {
                 MessageCombinationStrategy::KeepBoth,
             )?;
             let new_one = tx.squash_commits(
-                Vec::from([new_two]),
+                Vec::from([new_two.id]),
                 one,
                 MessageCombinationStrategy::KeepBoth,
             )?;
-            tx.reword_commit(new_one, "squashed".into())?;
+            tx.reword_commit(new_one.id, "squashed".into())?;
 
             Ok(())
         },
@@ -338,12 +338,12 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
         panic!("transaction should commit");
     };
 
-    assert_eq!(Some(new_commit), ref_target(&env, refname.as_ref()));
+    assert_eq!(Some(new_commit.id), ref_target(&env, refname.as_ref()));
 
     let repo = env.open_repo();
     let mut branch_commit = ref_target(&env, branch.as_ref()).unwrap();
     let mut commits_above_new_branch = 0;
-    while branch_commit != new_commit {
+    while branch_commit != new_commit.id {
         commits_above_new_branch += 1;
         let commit = repo.find_commit(branch_commit).unwrap();
         let commit = commit.decode().unwrap();
@@ -353,7 +353,7 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
         3, commits_above_new_branch,
         "new lower branch commit should be below oldest commit in anchored segment"
     );
-    let lower_branch_tip = repo.find_commit(new_commit).unwrap();
+    let lower_branch_tip = repo.find_commit(new_commit.id).unwrap();
     let lower_branch_tip = lower_branch_tip.decode().unwrap();
     assert_eq!(
         Some(base),
@@ -402,7 +402,7 @@ fn move_commits_then_commit_relative_to_moved_commit() {
     };
 
     assert_eq!(
-        Some(new_commit),
+        Some(new_commit.id),
         ref_target(
             &env,
             FullName::try_from("refs/heads/branch").unwrap().as_ref()
@@ -506,7 +506,7 @@ fn create_reference_then_commit_relative_to_it() {
         panic!("transaction should commit");
     };
     assert_eq!(
-        Some(new_commit),
+        Some(new_commit.id),
         ref_target(&env, refname.as_ref()),
         "created reference should point to the commit inserted relative to it"
     );
@@ -701,7 +701,7 @@ fn discard_changes_from_commit() {
 
     let repo = env.open_repo();
     let new_two_tree_id = repo
-        .find_commit(new_two)
+        .find_commit(new_two.id)
         .unwrap()
         .tree_id()
         .unwrap()

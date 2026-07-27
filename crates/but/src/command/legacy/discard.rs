@@ -443,7 +443,7 @@ pub fn run(
                     DiscardOutcome::CommittedFiles {
                         source,
                         paths,
-                        new_commit,
+                        new_commit: new_commit.id,
                     }
                 }
                 ExecutableDiscardOperation::Uncommitted { paths, changes } => {

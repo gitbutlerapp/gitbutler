@@ -275,7 +275,7 @@ pub fn run(
             let new_commit =
                 new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-            let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
+            let reworded_commit = reword_op.execute(new_commit.id, &mut tx)?;
 
             Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
