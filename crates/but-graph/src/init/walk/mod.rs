@@ -757,6 +757,7 @@ pub fn find(
             id,
             parent_ids,
             commit_time: None,
+            generation: gen_then_time.generation,
         },
         commit,
         gen_then_time,

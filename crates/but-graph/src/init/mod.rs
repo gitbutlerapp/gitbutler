@@ -1137,11 +1137,7 @@ impl Graph {
             .context("BUG: entrypoint is set after first traversal")?
             .0;
         let s = &mut self[sidx];
-        if let Some((rn, first_commit)) = s
-            .commits
-            .first_mut()
-            .and_then(|first_commit| s.ref_info.take().map(|rn| (rn, first_commit)))
-        {
+        if let Some((rn, first_commit)) = s.ref_info.take().zip(s.commits.first_mut()) {
             first_commit.refs.push(rn);
         }
         Ok(())

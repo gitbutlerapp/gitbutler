@@ -247,8 +247,14 @@ mod file {
             EntryKind::Blob | EntryKind::BlobExecutable => {
                 let mut tempfile = tempfile_in_root_with_permissions_at(wt_root, state.kind)?;
                 let obj_in_git = state.id.attach(repo).object()?;
-                let mut stream =
-                    pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
+                let mut stream = pipeline.convert_to_worktree(
+                    &obj_in_git.data,
+                    rela_path,
+                    gix::filter::plumbing::pipeline::convert::to_worktree::Options {
+                        can_delay: Delay::Forbid,
+                        ..Default::default()
+                    },
+                )?;
                 std::io::copy(&mut stream, &mut tempfile)?;
                 gix::tempfile::create_dir::all(
                     file_path.parent().context("encountered strange filepath")?,
@@ -663,8 +669,14 @@ mod hunk {
 
         let base_with_patches = apply_hunks(old.as_bstr(), new.as_bstr(), &hunks_to_keep)?;
 
-        let to_worktree =
-            pipeline.convert_to_worktree(&base_with_patches, rela_path, Delay::Forbid)?;
+        let to_worktree = pipeline.convert_to_worktree(
+            &base_with_patches,
+            rela_path,
+            gix::filter::plumbing::pipeline::convert::to_worktree::Options {
+                can_delay: Delay::Forbid,
+                ..Default::default()
+            },
+        )?;
         match to_worktree {
             ToWorktreeOutcome::Unchanged(buf) => {
                 std::fs::write(&worktree_path, buf)?;
