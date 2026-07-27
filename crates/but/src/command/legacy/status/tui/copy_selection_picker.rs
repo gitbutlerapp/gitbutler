@@ -252,7 +252,8 @@ fn uncommitted_hunk_or_file_to_diff(
     uncommitted: &UncommittedHunkOrFile,
 ) -> anyhow::Result<String> {
     let repo = ctx.repo.get()?;
-    let worktree_changes = but_api::diff::changes_in_worktree(ctx, true)?;
+    let worktree_changes =
+        but_api::diff::changes_in_worktree(ctx, but_api::commit::json::ChangesSource::Head, true)?;
     let assignments: Vec<_> = worktree_changes
         .assignments
         .into_iter()

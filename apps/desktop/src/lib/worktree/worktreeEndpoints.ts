@@ -31,7 +31,11 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			{ projectId: string }
 		>({
 			extraOptions: { command: "changes_in_worktree" },
-			query: (args) => ({ ...args, computeDepsAndAssignments: true }),
+			query: (args) => ({
+				...args,
+				changesSource: { type: "head" },
+				computeDepsAndAssignments: true,
+			}),
 			providesTags: [providesList(ReduxTag.WorktreeChanges)],
 			async onCacheEntryAdded(arg, lifecycleApi) {
 				if (!hasBackendExtra(lifecycleApi.extra)) {

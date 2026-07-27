@@ -53,12 +53,16 @@ impl FileBrowser {
         self.tree.0.clear();
 
         let paths = match selection {
-            CliId::Uncommitted { .. } => but_api::diff::changes_in_worktree(ctx, false)?
-                .worktree_changes
-                .changes
-                .into_iter()
-                .map(|change| change.path_bytes.to_vec().into_path_buf_lossy())
-                .collect::<Vec<_>>(),
+            CliId::Uncommitted { .. } => but_api::diff::changes_in_worktree(
+                ctx,
+                but_api::commit::json::ChangesSource::Head,
+                false,
+            )?
+            .worktree_changes
+            .changes
+            .into_iter()
+            .map(|change| change.path_bytes.to_vec().into_path_buf_lossy())
+            .collect::<Vec<_>>(),
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
