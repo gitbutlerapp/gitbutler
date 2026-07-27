@@ -3,38 +3,20 @@
 use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+    Editor, Step, SuccessfulRebase,
+    mutate::{InsertSide, RelativeTo},
 };
-
-use crate::graph_manipulation::determine_parent_selector;
-
-/// Move a commit.
-///
-/// `editor` is assumed to be aligned with the graph being mutated.
-///
-/// `subject_commit` - The commit to be moved.
-///
-/// `anchor` - A git graph node selector to move the subject commit relative to.
-///
-/// `side` - The side relative to the anchor at which to insert the subject commit.
-///
-/// The subject commit will be detached from the source segment, and inserted relative
-/// to a given anchor (branch or commit).
-pub fn move_commit<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
-    subject_commit: impl ToCommitSelector,
-    anchor: impl ToSelector,
-    side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
-    editor.rebase()
-}
 
 /// Move multiple commits.
 ///
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
+///
+/// Each subject is plucked from its old slot - replaced in place by [`Step::None`] -
+/// and inserted relative to `relative_to`. Leaving a placeholder behind means the source
+/// topology is never rewritten, so every reference anchored in it keeps its position and
+/// resolves through the placeholder to the commit below, which is exactly what a branch
+/// a commit was moved out of should do.
 pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
@@ -46,72 +28,33 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         bail!("No commits were provided to move")
     }
 
-    let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
-    let mut ordered_ids = ordered_selectors
-        .iter()
-        .map(|selector| editor.lookup_pick(*selector))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+    let mut ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
+    // Every insert lands adjacent to the anchor, so consecutive inserts stack away from
+    // it. Parentage order already reads base-first, which is what inserting below wants;
+    // inserting above walks the other way.
+    if matches!(side, InsertSide::Above) {
+        ordered_selectors.reverse();
+    }
 
-    let ordered_ids = if matches!(side, InsertSide::Above) {
-        ordered_ids.reverse();
-        ordered_ids
-    } else {
-        ordered_ids
-    };
-
-    let mut subjects = ordered_ids.into_iter();
-    let first_subject = subjects
-        .next()
-        .expect("non-empty commit list always has a first subject");
-
-    let mut editor = move_commit_no_rebase(editor, first_subject, relative_to.clone(), side)?;
-
-    for subject_id in subjects {
-        editor = move_commit_no_rebase(editor, subject_id, relative_to.clone(), side)?;
+    let mut editor = editor;
+    let mut plucked = Vec::with_capacity(ordered_selectors.len());
+    for selector in ordered_selectors {
+        // The first-parent edge is the slot the commit sat in and stays with the
+        // placeholder; a merge commit's remaining parents are part of the commit itself
+        // and travel with it.
+        let mut parents = editor.direct_parents(selector)?;
+        parents.sort_by_key(|(_, order)| *order);
+        let merge_parents = parents.split_off(1.min(parents.len()));
+        let step = editor.replace(selector, Step::None)?;
+        plucked.push((step, selector, merge_parents));
+    }
+    for (step, placeholder, merge_parents) in plucked {
+        let inserted = editor.insert(relative_to.clone(), step, side)?;
+        for (parent, order) in merge_parents {
+            editor.remove_edges(placeholder, parent)?;
+            editor.add_edge(inserted, parent, order)?;
+        }
     }
 
     editor.rebase()
-}
-
-/// Move a commit without rebasing.
-///
-/// `editor` is assumed to be aligned with the graph being mutated.
-///
-/// `subject_commit` - The commit to be moved.
-///
-/// `anchor` - A git graph node selector to move the subject commit relative to.
-///
-/// `side` - The side relative to the anchor at which to insert the subject commit.
-///
-/// The subject commit will be detached from the source segment, and inserted relative
-/// to a given anchor (branch or commit).
-///
-/// This function mutates the editor graph but does not execute a rebase.
-pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-    subject_commit: impl ToCommitSelector,
-    anchor: impl ToSelector,
-    side: InsertSide,
-) -> anyhow::Result<Editor<'ws, 'meta, M>> {
-    let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
-
-    let commit_delimiter = SegmentDelimiter {
-        child: subject_commit_selector,
-        parent: subject_commit_selector,
-    };
-
-    // Step 1: Determine the parents to disconnect.
-    let parent_to_disconnect = determine_parent_selector(&editor, subject_commit_selector)?;
-
-    // Step 2: Disconnect
-    editor.disconnect_segment_from(
-        commit_delimiter.clone(),
-        SelectorSet::All,
-        parent_to_disconnect,
-        false,
-    )?;
-
-    // Step 3: Insert
-    editor.insert_segment(anchor, commit_delimiter, side)?;
-    Ok(editor)
 }
