@@ -1,4 +1,8 @@
 import uiStyles from "#ui/components/ui.module.css";
+import { ComarkClient } from "@comark/react";
+import highlight from "@comark/react/plugins/highlight";
+import emoji from "comark/plugins/emoji";
+import { nameToEmoji } from "gemoji";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	useMergeReview,
@@ -83,6 +87,7 @@ import {
 	type RefObject,
 	type SubmitEventHandler,
 	Suspense,
+	useDeferredValue,
 	useId,
 	useLayoutEffect,
 	useMemo,
@@ -1477,6 +1482,9 @@ const PullRequestForm: FC<{
 		body: persistedDocument?.body ?? body ?? "",
 		isDraft: persistedDocument?.isDraft ?? false,
 	});
+	const deferredTitle = useDeferredValue(localDocument.title);
+	const deferredBody = useDeferredValue(localDocument.body);
+	const markdown = `# ${deferredTitle}\n\n${deferredBody}`;
 	const { mutate: persistDraftPR } = usePersistDraftPR();
 
 	const isNew = reviewId === null;
@@ -1562,6 +1570,12 @@ const PullRequestForm: FC<{
 					onChange={(evt) => setLocalDocument({ ...localDocument, body: evt.currentTarget.value })}
 					placeholder="Description"
 					value={localDocument.body}
+				/>
+
+				<ComarkClient
+					markdown={markdown}
+					plugins={[highlight(), emoji({ extend: nameToEmoji })]}
+					className={styles.mdPreview}
 				/>
 			</Field.Root>
 
