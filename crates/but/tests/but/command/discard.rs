@@ -701,3 +701,36 @@ lw:e hunks.txt│
         "the undiscarded last hunk should remain"
     );
 }
+
+#[test]
+fn discard_that_conflicts_warns_on_stderr_in_json_mode() -> anyhow::Result<()> {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-commits");
+    env.setup_metadata(&["A"]);
+
+    let status = util::status_json(&env)?;
+    let bottom = util::branch_commit_cli_ids(&status, "A")
+        .pop()
+        .expect("branch A has commits");
+
+    // Discarding the bottom commit rebases its dependent on top of the base,
+    // which conflicts. JSON output stays parseable, so the warning goes to
+    // stderr.
+    env.but(format!("--format json discard {bottom}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commits": [
+    "[..]"
+  ]
+}
+
+"#]])
+        .stderr_eq(snapbox::str![[r#"
+warning: this operation left 1 commit(s) conflicted: [..]. Resolve with `but resolve`, or back out with `but undo`.
+
+"#]]);
+
+    Ok(())
+}

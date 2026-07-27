@@ -1006,6 +1006,7 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome = command::legacy::commit::commit(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1013,6 +1014,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
@@ -1031,6 +1033,7 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome = command::legacy::squash::squash(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1038,6 +1041,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
@@ -1056,10 +1060,12 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome =
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output_human(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
@@ -1180,8 +1186,16 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let result = command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
                 .emit_metrics(metrics_ctx);
+            if result.is_ok() {
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                );
+            }
             run_status_after_if_ok(status_after, &result, &mut ctx, out);
             result.map_err(CliError::from)
         }
@@ -1200,6 +1214,7 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome = command::legacy::discard::discard(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1207,6 +1222,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
@@ -1420,6 +1436,7 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome = command::legacy::uncommit::uncommit(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1427,6 +1444,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
@@ -1445,20 +1463,30 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let outcome =
                 command::legacy::amend::amend(&mut ctx, IntermediateChannel::new(out), amend_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Land { branch, yes, no_ff } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            let result = command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
                 .context("Failed to land branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+                .emit_metrics(metrics_ctx);
+            if result.is_ok() {
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                );
+            }
+            result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pick {
@@ -1473,10 +1501,19 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::pick::handle(&mut ctx, out, &source, target_branch.as_deref())
-                .context("Failed to pick commit.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            let result =
+                command::legacy::pick::handle(&mut ctx, out, &source, target_branch.as_deref())
+                    .context("Failed to pick commit.")
+                    .emit_metrics(metrics_ctx);
+            if result.is_ok() {
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                );
+            }
+            result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unapply { identifier } => {
