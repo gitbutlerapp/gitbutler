@@ -158,16 +158,6 @@ Hint: run `but help` for all commands
 }
 
 "#]]);
-
-    env.but("undo").assert().success();
-
-    env.but("squash 1#0 --target 1#1 --message 'squashed' --format shell")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
-725130139e9f0178e29afbe9eff6a988afbca3fa
-
-"#]]);
 }
 
 #[test]

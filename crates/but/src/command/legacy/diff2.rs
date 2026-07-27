@@ -106,10 +106,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
 }
 
 impl CliOutput for DiffOutcome<'_> {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        self.on_human(out, crate::theme::get())
-    }
-
     fn on_json(self) -> impl Serialize {
         // TODO(david)
 

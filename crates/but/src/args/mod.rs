@@ -73,9 +73,6 @@ pub enum OutputFormat {
     Human,
     /// The output is for an AI coding agent, rendered as human-readable text.
     Agent,
-    /// The output should be suitable for shells, and assigning the major result to variables so that it can be reused
-    /// in subsequent CLI invocations.
-    Shell,
     /// Output detailed information as JSON for tool consumption.
     Json,
     /// Do not output anything, like redirecting to `/dev/null`.
@@ -90,12 +87,12 @@ impl OutputFormat {
 
     /// Whether this format renders plain text.
     pub fn is_text(self) -> bool {
-        self.is_human_text() || matches!(self, Self::Shell)
+        self.is_human_text()
     }
 
     /// Whether this format may truncate long text when output is not paged.
     pub fn allows_truncation(self) -> bool {
-        matches!(self, Self::Human | Self::Shell)
+        matches!(self, Self::Human)
     }
 
     /// Whether this format may use human terminal UI affordances like pagers, progress, prompts, or ambient messages.

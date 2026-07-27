@@ -165,8 +165,6 @@ fn write_new_branch_output(
                 t.local_branch.paint(branch_name),
             )?;
         }
-    } else if let Some(out) = out.for_shell() {
-        writeln!(out, "{branch_name}")?;
     } else if let Some(out) = out.for_json() {
         let value = json::BranchNewOutput {
             branch: branch_name.to_owned(),

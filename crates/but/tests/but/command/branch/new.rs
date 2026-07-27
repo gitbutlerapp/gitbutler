@@ -192,12 +192,12 @@ fn single_branch_outputs_created_branch_for_all_formats() -> anyhow::Result<()> 
 
 "#]]);
 
-    env.but("--format shell branch new shell-feature")
+    env.but("branch new shell-feature")
         .assert()
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-shell-feature
+✓ Created branch shell-feature
 
 "#]]);
 

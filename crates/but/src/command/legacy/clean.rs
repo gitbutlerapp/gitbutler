@@ -55,8 +55,6 @@ pub fn handle(
             })?;
         } else if let Some(out) = out.for_human() {
             writeln!(out, "No empty branches found.")?;
-        } else if let Some(_out) = out.for_shell() {
-            // No output for shell when nothing to clean.
         }
         return Ok(());
     }
@@ -85,10 +83,6 @@ pub fn handle(
                 "Found {} empty branch(es)",
                 t.important.paint(count.to_string())
             )?;
-        } else if let Some(out) = out.for_shell() {
-            for (_, name) in &empty_branches {
-                writeln!(out, "{name}")?;
-            }
         }
         return Ok(());
     }
@@ -154,10 +148,6 @@ pub fn handle(
                 f.name,
                 f.error
             )?;
-        }
-    } else if let Some(out) = out.for_shell() {
-        for branch in &deleted {
-            writeln!(out, "{}", branch.name)?;
         }
     }
 

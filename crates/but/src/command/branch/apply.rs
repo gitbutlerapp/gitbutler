@@ -24,8 +24,6 @@ pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> an
             anyhow::bail!("{message}");
         }
         write_human_apply_outcome(out, reference.name.as_ref(), &outcome)?;
-    } else if let Some(out) = out.for_shell() {
-        write_shell_apply_outcome(out, reference.name.as_ref(), &outcome)?;
     }
 
     if let Some(out) = out.for_json() {
@@ -60,28 +58,6 @@ fn apply_error_message(
     } else {
         None
     }
-}
-
-fn write_shell_apply_outcome(
-    out: &mut dyn crate::utils::WriteWithUtils,
-    requested_branch: &gix::refs::FullNameRef,
-    outcome: &but_workspace::branch::apply::Outcome,
-) -> std::fmt::Result {
-    writeln!(out, "status={}", outcome.status.as_str())?;
-    writeln!(out, "requested_branch={requested_branch}")?;
-    writeln!(out, "workspace_changed={}", outcome.workspace_changed())?;
-    writeln!(
-        out,
-        "workspace_ref_created={}",
-        outcome.workspace_ref_created
-    )?;
-    for name in &outcome.applied_branches {
-        writeln!(out, "applied_branch={name}")?;
-    }
-    for stack in &outcome.conflicting_stacks {
-        writeln!(out, "conflicting_stack={}", stack.ref_name)?;
-    }
-    Ok(())
 }
 
 fn write_human_apply_outcome(

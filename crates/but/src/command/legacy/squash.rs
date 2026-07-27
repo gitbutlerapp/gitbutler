@@ -120,18 +120,6 @@ impl CliOutputHuman for SquashOutcome {
 }
 
 impl CliOutput for SquashOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        match self {
-            SquashOutcome::Commits { new_commit, .. }
-            | SquashOutcome::Branch { new_commit, .. }
-            | SquashOutcome::Hunks { new_commit, .. } => {
-                writeln!(out, "{new_commit}")?;
-                Ok(())
-            }
-            SquashOutcome::Uncommit { .. } | SquashOutcome::UncommitHunk { .. } => Ok(()),
-        }
-    }
-
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
         struct Output {

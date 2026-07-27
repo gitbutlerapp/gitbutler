@@ -175,38 +175,6 @@ impl CliOutputHuman for DiscardOutcome {
 }
 
 impl CliOutput for DiscardOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        match self {
-            DiscardOutcome::Branches(branches) => {
-                for branch in branches {
-                    writeln!(out, "{}", branch.shorten())?;
-                }
-            }
-            DiscardOutcome::Commits {
-                commits,
-                replaced_commits: _,
-            } => {
-                for commit in commits {
-                    writeln!(out, "{}", commit.to_hex_with_len(7))?;
-                }
-            }
-            DiscardOutcome::CommittedFiles {
-                source: _,
-                paths: _,
-                new_commit,
-            } => {
-                writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
-            }
-            DiscardOutcome::Uncommitted { paths } => {
-                for path in paths {
-                    writeln!(out, "{}", path.as_bstr())?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
         #[serde(untagged, rename_all_fields = "camelCase")]

@@ -70,12 +70,6 @@ pub fn handle(
         }
     }
 
-    if let Some(out) = out.for_shell() {
-        for commit_oid in &commit_oids {
-            writeln!(out, "{commit_oid}")?;
-        }
-    }
-
     if let Some(out) = out.for_json() {
         let picked = |commit_oid: &gix::ObjectId| {
             serde_json::json!({

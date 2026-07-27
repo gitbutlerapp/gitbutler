@@ -136,31 +136,6 @@ Failed to unapply branch. Branch 'feature-branch' not found in any applied stack
 }
 
 #[test]
-fn unapply_shell_format() {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    let branch_name = "feature-branch";
-    create_local_branch_with_commit(&env, branch_name);
-
-    // Apply the branch
-    env.but("apply").arg(branch_name).assert().success();
-
-    // Unapply with shell format using the new `but unapply` command
-    // Shell format outputs one branch name per line
-    env.but("--format shell unapply")
-        .arg(branch_name)
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(str![])
-        .stdout_eq(str![[r#"
-feature-branch
-
-"#]]);
-}
-
-#[test]
 fn unapply_nonexistent_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 

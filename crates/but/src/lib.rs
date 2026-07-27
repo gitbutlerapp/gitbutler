@@ -1791,17 +1791,6 @@ mod tests {
     }
 
     #[test]
-    fn detected_agent_preserves_command_line_output_format() {
-        let format = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("shell"), || {
-            parse_args(os_args(&["but", "--format", "json", "status"]), true)
-                .format
-                .format
-        });
-
-        assert!(matches!(format, OutputFormat::Json));
-    }
-
-    #[test]
     #[cfg(feature = "legacy")]
     fn detected_agent_omits_status_after_mutation_by_default() {
         let args = parse_args(os_args(&["but", "commit", "--no-message"]), true);

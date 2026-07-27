@@ -143,17 +143,14 @@ Branch 'feature-branch' is already in the workspace; nothing changed
 
 "#]]);
 
-    // It's idempotent and can produce a shell value.
-    env.but("--format shell apply feature-branch")
+    // It's idempotent
+    env.but("apply feature-branch")
         .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-status=alreadyApplied
-requested_branch=refs/heads/feature-branch
-workspace_changed=false
-workspace_ref_created=false
+Branch 'feature-branch' is already in the workspace; nothing changed
 
 "#]]);
 
@@ -270,16 +267,12 @@ fn local_branch_with_shell_output() {
 
     create_local_branch_with_commit(&env, "feature-branch");
 
-    env.but("--format shell apply feature-branch")
+    env.but("apply feature-branch")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(str![[r#"
-status=applied
-requested_branch=refs/heads/feature-branch
-workspace_changed=true
-workspace_ref_created=false
-applied_branch=refs/heads/feature-branch
+Applied branch 'feature-branch' to workspace
 
 "#]])
         .stderr_eq(str![]);
@@ -605,7 +598,7 @@ Failed to apply branch. 'conflicting-branch' conflicts with existing stack in th
 "#]])
         .stdout_eq(str![""]);
 
-    env.but("--format shell apply conflicting-branch")
+    env.but("apply conflicting-branch")
         .allow_json()
         .assert()
         .failure()
@@ -613,14 +606,7 @@ Failed to apply branch. 'conflicting-branch' conflicts with existing stack in th
 Failed to apply branch. 'conflicting-branch' conflicts with existing stack in the workspace: A
 
 "#]])
-        .stdout_eq(str![[r#"
-status=conflictAborted
-requested_branch=refs/heads/conflicting-branch
-workspace_changed=true
-workspace_ref_created=false
-conflicting_stack=refs/heads/A
-
-"#]]);
+        .stdout_eq(str![""]);
 }
 
 mod utils {

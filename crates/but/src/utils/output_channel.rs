@@ -180,8 +180,6 @@ pub trait CliOutputHuman {
 }
 
 pub trait CliOutput: CliOutputHuman {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()>;
-
     fn on_json(self) -> impl serde::Serialize;
 
     fn on_agent(self, out: &mut dyn WriteWithUtils, theme: &'static Theme) -> anyhow::Result<()>
@@ -698,11 +696,6 @@ impl OutputChannel {
             .then_some(self as &mut dyn WriteWithUtils)
     }
 
-    /// Provide a write implementation for Shell output, if the format setting permits.
-    pub fn for_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
-        matches!(self.format, OutputFormat::Shell).then_some(self as &mut dyn WriteWithUtils)
-    }
-
     /// Provide a write implementation for text output (human or shell), if the format setting permits.
     pub fn for_human_or_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
         self.format
@@ -805,7 +798,6 @@ impl OutputChannel {
         match self.format {
             OutputFormat::Human => output.on_human(self, crate::theme::get()),
             OutputFormat::Agent => output.on_agent(self, crate::theme::get()),
-            OutputFormat::Shell => output.on_shell(self),
             OutputFormat::Json => {
                 let value = output.on_json();
                 Ok(self.write_value(value)?)

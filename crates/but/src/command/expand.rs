@@ -88,13 +88,6 @@ impl CliOutputHuman for ExpandOutcome {
 }
 
 impl CliOutput for ExpandOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        for resource in self.resources {
-            writeln!(out, "{resource}")?;
-        }
-        Ok(())
-    }
-
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]

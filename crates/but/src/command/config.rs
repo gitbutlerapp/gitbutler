@@ -337,8 +337,6 @@ pub(crate) async fn metrics_config(
                     "  {}",
                     t.command_suggestion.paint("but config metrics disable")
                 )?;
-            } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
             }
@@ -363,8 +361,6 @@ pub(crate) async fn metrics_config(
                         t.error.paint("disabled")
                     }
                 )?;
-            } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
             }
@@ -451,10 +447,6 @@ pub(crate) fn feature_config(
                 }
             )?;
         }
-    } else if let Some(out) = out.for_shell() {
-        for (flag, enabled) in flags {
-            writeln!(out, "{}={enabled}", flag.as_json_key())?;
-        }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "unapply_v3_pgm": settings.feature_flags.unapply_v3_pgm,
@@ -491,9 +483,7 @@ fn write_feature_flag_value(
     flag: FeatureFlag,
     enabled: bool,
 ) -> Result<()> {
-    if let Some(out) = out.for_shell() {
-        writeln!(out, "{enabled}")?;
-    } else if let Some(out) = out.for_json() {
+    if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({ flag.as_json_key(): enabled }))?;
     }
     Ok(())
@@ -736,8 +726,6 @@ pub(crate) fn github_stacks_config(
                 )
             )?;
         }
-    } else if let Some(out) = out.for_shell() {
-        writeln!(out, "{}", if enabled { "enabled" } else { "disabled" })?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "mode": if enabled { "native" } else { "disabled" },
@@ -801,30 +789,6 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                 t.command_suggestion
                     .paint("but config forge forget [username]")
             )?;
-        }
-    } else if let Some(out) = out.for_shell() {
-        if no_accounts {
-            writeln!(out, "No forge accounts configured")?;
-            return Ok(());
-        }
-
-        if !known_gh_accounts.is_empty() {
-            writeln!(out, "GitHub accounts:")?;
-            for account in &known_gh_accounts {
-                writeln!(out, "  {}", account.username())?;
-            }
-        }
-        if !known_gl_accounts.is_empty() {
-            writeln!(out, "GitLab accounts:")?;
-            for account in known_gl_accounts {
-                writeln!(out, "  {}", account.username())?;
-            }
-        }
-        if !known_bb_accounts.is_empty() {
-            writeln!(out, "Bitbucket accounts:")?;
-            for account in known_bb_accounts {
-                writeln!(out, "  {}", account.email())?;
-            }
         }
     } else if let Some(out) = out.for_json() {
         let accounts =
@@ -1534,8 +1498,6 @@ fn show_ai_config(
             t.config_value
                 .paint(info.lmstudio_model.as_deref().unwrap_or("(not set)"))
         )?;
-    } else if let Some(out) = out.for_shell() {
-        writeln!(out, "{}", info.provider.as_deref().unwrap_or(""))?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!(info))?;
     }
@@ -1723,8 +1685,6 @@ fn write_ai_config_success(
             t.config_value.paint(provider.display_name()),
             t.hint.paint(scope.as_str())
         )?;
-    } else if let Some(out) = out.for_shell() {
-        writeln!(out, "{}", provider.as_git_config_value())?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "provider": provider.as_git_config_value(),
@@ -2139,8 +2099,6 @@ fn push_remote_config(
                     write!(out, " {}", t.hint.paint("(inherited from target)"))?;
                 }
                 writeln!(out)?;
-            } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{push_remote}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({
                     "push_remote": push_remote,
@@ -2158,8 +2116,6 @@ fn push_remote_config(
                     t.sym().success,
                     t.config_value.paint(&remote)
                 )?;
-            } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{remote}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "push_remote": remote }))?;
             }
@@ -2205,8 +2161,6 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
                     "  {}",
                     t.command_suggestion.paint("but config ui set tui false")
                 )?;
-            } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{tui_enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "tui": tui_enabled }))?;
             }

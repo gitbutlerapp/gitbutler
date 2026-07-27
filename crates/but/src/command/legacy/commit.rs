@@ -75,15 +75,6 @@ impl CliOutputHuman for CommitOutcome {
 }
 
 impl CliOutput for CommitOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        let Self {
-            new_commit,
-            branch_name: _,
-        } = self;
-        writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
-        Ok(())
-    }
-
     fn on_json(self) -> impl serde::Serialize {
         #[derive(Serialize)]
         struct Output {
