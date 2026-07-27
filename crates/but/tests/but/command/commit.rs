@@ -1316,11 +1316,23 @@ fn committing_something_that_isnt_a_cli_id() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
+    // The retired grammar's positional branch: teach `-b` targeting.
     env.but("commit --no-message A")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Could not find uncommitted change: 'A'
+
+Hint: 'A' is a branch. To commit onto it, run `but commit -b A -m "message" [<change>...]`
+
+"#]]);
+
+    // Anything that names no branch keeps the generic hint.
+    env.but("commit --no-message notexist")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find uncommitted change: 'notexist'
 
 Hint: Run `but status` for applicable targets.
 
