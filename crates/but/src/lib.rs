@@ -55,6 +55,7 @@ pub use utils::binary_path::is_executed_as_but;
 mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
+mod retired_syntax;
 pub mod theme;
 mod tui;
 
@@ -75,7 +76,36 @@ fn early_help_format(_args: &[OsString], agent_detected: bool) -> OutputFormat {
 
 fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (Args, OutputFormat) {
     let command = Args::command();
-    let matches = command.get_matches_from(args);
+    let matches = match command.try_get_matches_from(&args) {
+        Ok(matches) => matches,
+        Err(err) => {
+            // Fall back to translating retired syntax (the pre-revamp
+            // `but commit <branch> -c --changes <id>,<id>` form) before giving
+            // up. Help and version requests also arrive as `Err`; translation
+            // rejects them, so they exit through `err.exit()` below.
+            use retired_syntax::Translation;
+            let retry = match retired_syntax::translate_commit(&args) {
+                Translation::Translated(translated) => {
+                    Args::command().try_get_matches_from(translated).ok()
+                }
+                Translation::Refused => None,
+                Translation::NotRetired => err.exit(),
+            };
+            match retry {
+                Some(matches) => {
+                    retired_syntax::mark_used();
+                    matches
+                }
+                // Retired syntax we cannot safely translate (e.g.
+                // `--no-hooks`): teach the new form, then report the
+                // original error.
+                None => {
+                    print_err_infallible(retired_syntax::hint(agent_detected));
+                    err.exit()
+                }
+            }
+        }
+    };
     let args = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
 
     let output_format = if args.format.json {
@@ -264,6 +294,10 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
     };
 
+    if retired_syntax::was_used() {
+        print_err_infallible(retired_syntax::hint(agent_detected));
+    }
+
     match result {
         Err(CliError::Internal(err)) => Err(err),
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
@@ -422,6 +456,11 @@ async fn match_subcommand(
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
     {
         metrics_ctx.push_extra_prop("agentSkillHintShown", true);
+    }
+    if retired_syntax::was_used()
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("retiredCommitSyntax", true);
     }
 
     match cmd {

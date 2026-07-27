@@ -2130,3 +2130,141 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 
 "#]]);
 }
+
+#[test]
+fn retired_syntax_is_translated_and_hinted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "one content");
+    env.file("two", "two content");
+    env.file("three", "three content");
+
+    // The pre-revamp syntax: positional branch, `-c` to create it, and
+    // `--changes` with a comma-separated list.
+    env.but("commit my-branch -c -m 'add one and two' --changes one,two")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit f6b81a9 on new branch 'my-branch'
+
+"#]])
+        .stderr_eq(snapbox::str![[r#"
+
+note: this invocation used retired `but commit` syntax. The modern form is:
+
+    but commit -b <branch> -m "message" <change>...
+
+See `but commit --help` for details.
+
+"#]]);
+
+    // Only the selected changes were committed; `three` stays uncommitted.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   or A three
+┊
+┊╭┄ my [my-branch]
+┊●   1 add one and two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn retired_syntax_with_unsafe_changes_value_refuses_and_hints() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "one content");
+
+    // An empty `--changes` value must not silently become "commit
+    // everything"; translation is refused, and the hint precedes the original
+    // parse error.
+    env.but("commit my-branch -c -m 'add nothing' --changes ''")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+
+note: this invocation used retired `but commit` syntax. The modern form is:
+
+    but commit -b <branch> -m "message" <change>...
+
+See `but commit --help` for details.
+error: unexpected argument '-c' found
+
+  tip: to pass '-c' as a value, use '-- -c'
+
+Usage: but commit [OPTIONS] [CHANGES]...
+
+For more information, try '--help'.
+
+"#]]);
+
+    // A missing `--changes` value fails even the retired grammar, exactly as
+    // the retired binary did; the original error surfaces with no hint.
+    env.but("commit my-branch -c -m 'add nothing' --changes --json")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: unexpected argument '-c' found
+
+  tip: to pass '-c' as a value, use '-- -c'
+
+Usage: but commit [OPTIONS] [CHANGES]...
+
+For more information, try '--help'.
+
+"#]]);
+
+    // Nothing was committed by either refused invocation.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   kl A one
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn retired_syntax_without_modern_equivalent_hints_and_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "one content");
+
+    // `--no-hooks` has no modern equivalent, so the command still fails with
+    // the original error — but the hint teaches the new syntax first.
+    env.but("commit my-branch -c -m 'add one' --no-hooks --changes one")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+
+note: this invocation used retired `but commit` syntax. The modern form is:
+
+    but commit -b <branch> -m "message" <change>...
+
+See `but commit --help` for details.
+error: unexpected argument '-c' found
+
+  tip: to pass '-c' as a value, use '-- -c'
+
+Usage: but commit [OPTIONS] [CHANGES]...
+
+For more information, try '--help'.
+
+"#]]);
+}
