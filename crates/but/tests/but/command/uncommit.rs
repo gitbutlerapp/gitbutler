@@ -113,7 +113,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Uncommitted from 191c6ed
+Uncommitted from 1
 
 "#]]);
 

@@ -1,16 +1,13 @@
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice as _};
-use but_api::json::HexHash;
+use but_api::json::{ChangeIdString, HexHash};
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, commit::squash_commits::MessageCombinationStrategy};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::{
-    ObjectId,
-    refs::{FullName, FullNameRef},
-};
+use gix::refs::{FullName, FullNameRef};
 use itertools::{Either, Itertools};
 use nonempty::NonEmpty;
 use serde::Serialize;
@@ -23,7 +20,7 @@ use crate::{
     },
     bad_input,
     command::legacy::reword2::RewordCommitOperation,
-    id::{CommittedFileId, UNCOMMITTED, UncommittedHunkOrFile},
+    id::{CommitId, CommitIdRef, CommittedFileId, UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -33,23 +30,23 @@ use crate::{
 
 pub enum SquashOutcome {
     Commits {
-        sources: NonEmpty<gix::ObjectId>,
-        target: gix::ObjectId,
-        new_commit: gix::ObjectId,
+        sources: NonEmpty<CommitId>,
+        target: CommitId,
+        new_commit: CommitId,
     },
     Branch {
-        new_commit: gix::ObjectId,
+        new_commit: CommitId,
         branch_names: NonEmpty<FullName>,
     },
     Hunks {
-        target: gix::ObjectId,
-        new_commit: gix::ObjectId,
+        target: CommitId,
+        new_commit: CommitId,
     },
     Uncommit {
-        sources: Vec<gix::ObjectId>,
+        sources: Vec<CommitId>,
     },
     UncommitHunk {
-        source: gix::ObjectId,
+        source: CommitId,
     },
 }
 
@@ -65,20 +62,11 @@ impl CliOutputHuman for SquashOutcome {
             SquashOutcome::Commits {
                 sources,
                 target,
-                new_commit,
+                new_commit: _,
             } => {
-                let sources = sources
-                    .into_iter()
-                    .map(|id| theme::Commit(id, None))
-                    .join(", ");
+                let sources = sources.into_iter().map(theme::Commit).join(", ");
 
-                writeln!(
-                    out,
-                    "Squashed {} into {} to create {}",
-                    sources,
-                    theme::Commit(target, None),
-                    theme::Commit(new_commit, None)
-                )?;
+                writeln!(out, "Squashed {} into {}", sources, theme::Commit(target),)?;
             }
             SquashOutcome::Branch {
                 new_commit,
@@ -87,37 +75,32 @@ impl CliOutputHuman for SquashOutcome {
                 if branch_names.len() == 1 {
                     writeln!(
                         out,
-                        "Squashed branch {} to create commit {}",
+                        "Squashed branch {} into {}",
                         theme::Branch(&branch_names[0]),
-                        theme::Commit(new_commit, None)
+                        theme::Commit(new_commit)
                     )?;
                 } else {
                     let branch_names = branch_names.into_iter().map(theme::Branch).join(", ");
                     writeln!(
                         out,
-                        "Squashed branches {} to create commit {}",
+                        "Squashed branches {} into {}",
                         branch_names,
-                        theme::Commit(new_commit, None)
+                        theme::Commit(new_commit)
                     )?;
                 }
             }
-            SquashOutcome::Hunks { target, new_commit } => {
-                writeln!(
-                    out,
-                    "Amended {} to create {}",
-                    theme::Commit(target, None),
-                    theme::Commit(new_commit, None)
-                )?;
+            SquashOutcome::Hunks {
+                target,
+                new_commit: _,
+            } => {
+                writeln!(out, "Amended {}", theme::Commit(target),)?;
             }
             SquashOutcome::Uncommit { sources } => {
-                let commits = sources
-                    .into_iter()
-                    .map(|id| theme::Commit(id, None))
-                    .join(", ");
+                let commits = sources.into_iter().map(theme::Commit).join(", ");
                 writeln!(out, "Uncommitted {commits}")?;
             }
             SquashOutcome::UncommitHunk { source } => {
-                writeln!(out, "Uncommitted from {}", theme::Commit(source, None))?;
+                writeln!(out, "Uncommitted from {}", theme::Commit(source))?;
             }
         };
 
@@ -128,15 +111,19 @@ impl CliOutputHuman for SquashOutcome {
 impl CliOutput for SquashOutcome {
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct Output {
-            new_commit: HexHash,
+            new_commit_id: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_commit_change_id: Option<ChangeIdString>,
         }
 
         match self {
             SquashOutcome::Commits { new_commit, .. }
             | SquashOutcome::Branch { new_commit, .. }
             | SquashOutcome::Hunks { new_commit, .. } => Some(Output {
-                new_commit: HexHash(new_commit),
+                new_commit_id: new_commit.commit_id.into(),
+                new_commit_change_id: new_commit.change_id.map(Into::into),
             }),
             SquashOutcome::Uncommit { .. } | SquashOutcome::UncommitHunk { .. } => None,
         }
@@ -202,7 +189,7 @@ fn resolve_args(
             )
             .with_hint(|| hint.clone())?;
 
-        let target = match resolve_target(resolved_target.as_ref(), reword, head_info) {
+        let target = match resolve_target(resolved_target.as_ref(), reword, head_info, repo) {
             Ok(target) => target,
             Err(err) => {
                 return Err(match err {
@@ -339,7 +326,7 @@ pub fn resolve<'a>(
                     ResolvedSquash::Commits { target, sources }
                 }
                 ClassifiedSquashables::Branches(branch_sources) => {
-                    resolve_squash_branch(target, branch_sources, ws)?
+                    resolve_squash_branch(target, branch_sources, repo, ws)?
                 }
                 ClassifiedSquashables::UncommittedHunks(source_hunks) => {
                     let (target, reword) = match target {
@@ -368,7 +355,7 @@ pub fn resolve<'a>(
                     ResolvedSquash::Uncommitted { target, reword }
                 }
                 ClassifiedSquashables::CommittedFiles(committed_files) => {
-                    let first = committed_files.first();
+                    let first = committed_files.head.clone();
 
                     let mut source_paths = Vec::from([first.path.clone()]);
                     let source = first.commit_id;
@@ -376,7 +363,6 @@ pub fn resolve<'a>(
                         let CommittedFileId {
                             commit_id,
                             path,
-                            id: _,
                             change_id: _,
                         } = committed_file;
 
@@ -394,14 +380,17 @@ pub fn resolve<'a>(
 
                     ResolvedSquash::CommittedFiles {
                         target: MoveCommittedChangesTarget::from_squash_target(target)?,
-                        source,
+                        source: CommitId {
+                            commit_id: first.commit_id,
+                            change_id: first.change_id.clone(),
+                        },
                         source_paths,
                     }
                 }
             }
         }
         ResolvedSquashArgsRef::SingleBranchSourceAndTarget { branch, reword } => {
-            let (source_branch_name, mut sources) = resolve_commits_on_branch(&branch, ws)?;
+            let (source_branch_name, mut sources) = resolve_commits_on_branch(&branch, repo, ws)?;
             let Some(target) = sources.pop() else {
                 return Err(bad_input("Cannot squash empty branch into itself").into());
             };
@@ -488,36 +477,36 @@ fn ensure_not_touching_merged_upstream(
         SquashOperation::Commits(SquashCommitsOperation {
             sources, target, ..
         }) => {
-            merged.ensure_commit_not_merged(*target)?;
+            merged.ensure_commit_not_merged(target.commit_id)?;
             for source in sources {
-                merged.ensure_commit_not_merged(*source)?;
+                merged.ensure_commit_not_merged(source.commit_id)?;
             }
         }
         SquashOperation::Branch(SquashBranchOperation {
             sources, target, ..
         }) => {
-            merged.ensure_commit_not_merged(*target)?;
+            merged.ensure_commit_not_merged(target.commit_id)?;
             for source in sources {
-                merged.ensure_commit_not_merged(*source)?;
+                merged.ensure_commit_not_merged(source.commit_id)?;
             }
         }
         SquashOperation::UncommittedHunks(AmendUncommittedHunks { target, .. })
         | SquashOperation::Uncommitted { target, .. } => {
-            merged.ensure_commit_not_merged(*target)?;
+            merged.ensure_commit_not_merged(target.commit_id)?;
         }
         SquashOperation::MoveCommittedFiles { target, source, .. } => {
-            merged.ensure_commit_not_merged(*target)?;
-            merged.ensure_commit_not_merged(*source)?;
+            merged.ensure_commit_not_merged(target.commit_id)?;
+            merged.ensure_commit_not_merged(source.commit_id)?;
         }
         SquashOperation::Uncommit(UncommitOperation { sources }) => {
             for source in sources {
-                merged.ensure_commit_not_merged(*source)?;
+                merged.ensure_commit_not_merged(source.commit_id)?;
             }
         }
         SquashOperation::UncommitCommittedFiles(UncommitCommittedFilesOperation {
             source, ..
         }) => {
-            merged.ensure_commit_not_merged(*source)?;
+            merged.ensure_commit_not_merged(source.commit_id)?;
         }
     }
     Ok(())
@@ -540,12 +529,12 @@ fn fix_up_unnecessary_reword_via_editor(
     op: &mut SquashOperation,
     repo: &gix::Repository,
 ) -> anyhow::Result<()> {
-    fn obvious_final_message<I>(
+    fn obvious_final_message<'a, I>(
         commits: I,
         repo: &gix::Repository,
     ) -> anyhow::Result<Option<String>>
     where
-        I: IntoIterator<Item = gix::ObjectId>,
+        I: IntoIterator<Item = CommitIdRef<'a>>,
     {
         let mut out = None;
         let mut seen = Vec::new();
@@ -556,7 +545,7 @@ fn fix_up_unnecessary_reword_via_editor(
                 seen.push(commit);
             }
 
-            let commit = repo.find_commit(commit)?;
+            let commit = repo.find_commit(commit.commit_id)?;
             let msg = commit.message_raw()?;
             if msg.is_empty() {
                 continue;
@@ -586,29 +575,37 @@ fn fix_up_unnecessary_reword_via_editor(
 
     match op {
         SquashOperation::Commits(op) => {
-            let commits = op.sources.iter().copied().chain([op.target]);
+            let commits = op
+                .sources
+                .iter()
+                .map(|c| c.as_ref())
+                .chain([op.target.as_ref()]);
             if let Some(msg) = obvious_final_message(commits, repo)? {
                 op.reword = HowToRewordTarget::Reword(RewordCommitOperation::Message(msg));
             }
         }
         SquashOperation::Branch(op) => {
-            let commits = op.sources.iter().copied().chain([op.target]);
+            let commits = op
+                .sources
+                .iter()
+                .map(|c| c.as_ref())
+                .chain([op.target.as_ref()]);
             if let Some(msg) = obvious_final_message(commits, repo)? {
                 op.reword = HowToRewordTarget::Reword(RewordCommitOperation::Message(msg));
             }
         }
         SquashOperation::UncommittedHunks(op) => {
-            if let Some(msg) = obvious_final_message([op.target], repo)? {
+            if let Some(msg) = obvious_final_message([op.target.as_ref()], repo)? {
                 op.reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
             }
         }
         SquashOperation::Uncommitted { target, reword, .. } => {
-            if let Some(msg) = obvious_final_message([*target], repo)? {
+            if let Some(msg) = obvious_final_message([target.as_ref()], repo)? {
                 *reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
             }
         }
         SquashOperation::MoveCommittedFiles { target, reword, .. } => {
-            if let Some(msg) = obvious_final_message([*target], repo)? {
+            if let Some(msg) = obvious_final_message([target.as_ref()], repo)? {
                 *reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
             }
         }
@@ -622,15 +619,15 @@ fn fix_up_unnecessary_reword_via_editor(
 pub enum ResolvedSquash<'a> {
     Commits {
         target: SquashTarget,
-        sources: NonEmpty<ObjectId>,
+        sources: NonEmpty<CommitId>,
     },
     Branches {
         // Branches can only be squashed into commits and not uncommitted. This is because we dont
         // currently have a transaction based API to uncommit. We need this because we also need to
         // remove the reference which should happen in a transaction.
-        target: ObjectId,
+        target: CommitId,
         reword: HowToRewordTarget,
-        source_commits: Vec<ObjectId>,
+        source_commits: Vec<CommitId>,
         /// The branches that we're squashing.
         ///
         /// This is just used to generate the output.
@@ -640,19 +637,19 @@ pub enum ResolvedSquash<'a> {
     },
     UncommittedHunk(AmendUncommittedHunks<'a>),
     Uncommitted {
-        target: ObjectId,
+        target: CommitId,
         reword: HowToRewordTargetNoSource,
     },
     CommittedFiles {
         target: MoveCommittedChangesTarget,
-        source: ObjectId,
+        source: CommitId,
         source_paths: Vec<BString>,
     },
 }
 
 #[derive(Clone, Debug)]
 pub struct AmendUncommittedHunks<'a> {
-    pub target: ObjectId,
+    pub target: CommitId,
     pub source_hunks: MaybeBorrowedNonEmpty<'a, UncommittedHunkOrFile>,
     pub reword: HowToRewordTargetNoSource,
 }
@@ -697,7 +694,7 @@ impl<'a, T> MaybeBorrowedNonEmpty<'a, T> {
 #[derive(Debug, Clone)]
 pub enum SquashTarget {
     Commit {
-        commit: ObjectId,
+        commit: CommitId,
         reword: HowToRewordTarget,
     },
     Uncommitted,
@@ -706,7 +703,7 @@ pub enum SquashTarget {
 #[derive(Debug, Clone)]
 pub enum MoveCommittedChangesTarget {
     Commit {
-        commit: ObjectId,
+        commit: CommitId,
         reword: HowToRewordTargetNoSource,
     },
     Uncommitted,
@@ -728,10 +725,11 @@ pub fn resolve_target(
     target: ResolvedCliIdArgRef<'_>,
     reword: HowToRewordTarget,
     head_info: &RefInfo,
+    repo: &gix::Repository,
 ) -> Result<SquashTarget, ResolveTargetError> {
     match target {
-        ResolvedCliIdArgRef::Commit(object_id, _change_id) => Ok(SquashTarget::Commit {
-            commit: object_id,
+        ResolvedCliIdArgRef::Commit(commit) => Ok(SquashTarget::Commit {
+            commit: commit.to_owned(),
             reword,
         }),
         ResolvedCliIdArgRef::Branch(branch_name) => {
@@ -751,7 +749,11 @@ pub fn resolve_target(
                             .map(|commit| commit.id)
                             .or(ref_info.commit_id);
                         return if let Some(commit) = commit {
-                            Ok(SquashTarget::Commit { commit, reword })
+                            Ok(SquashTarget::Commit {
+                                commit: CommitId::try_from_commit_id(commit, repo)
+                                    .map_err(ResolveTargetError::Other)?,
+                                reword,
+                            })
                         } else {
                             Err(ResolveTargetError::CannotBeEmptyBranch)
                         };
@@ -804,6 +806,7 @@ pub enum ResolveTargetError {
 pub fn resolve_squash_branch(
     target: SquashTarget,
     branch_sources: NonEmpty<BranchArg>,
+    repo: &gix::Repository,
     ws: &Workspace,
 ) -> CliResult<ResolvedSquash<'static>> {
     let (target, reword) = match target {
@@ -821,7 +824,7 @@ pub fn resolve_squash_branch(
     let mut commits_on_branch_sources = Vec::new();
     for branch_name in branch_sources {
         let (source_branch_name, mut commits_on_branch) =
-            resolve_commits_on_branch(&branch_name, ws)?;
+            resolve_commits_on_branch(&branch_name, repo, ws)?;
 
         let mut target_commit_exists_on_branch = false;
         commits_on_branch.retain(|commit| {
@@ -892,9 +895,9 @@ impl HowToRewordTarget {
 
     fn execute(
         self,
-        commit: ObjectId,
+        commit: CommitId,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage | Self::UseSourceMessage => Ok(commit),
             Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
@@ -943,9 +946,9 @@ impl HowToRewordTargetNoSource {
 
     fn execute(
         self,
-        commit: ObjectId,
+        commit: CommitId,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage => Ok(commit),
             Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
@@ -954,7 +957,7 @@ impl HowToRewordTargetNoSource {
 }
 
 enum Squashable<'a> {
-    Commit(gix::ObjectId),
+    Commit(CommitId),
     Branch(BranchArg),
     UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
     Uncommitted(&'static str),
@@ -964,7 +967,7 @@ enum Squashable<'a> {
 impl<'a> Squashable<'a> {
     fn try_from_resolved_id(id: ResolvedCliIdArgRef<'a>) -> CliResult<Self> {
         let kind = match id {
-            ResolvedCliIdArgRef::Commit(commit, _change_id) => return Ok(Self::Commit(commit)),
+            ResolvedCliIdArgRef::Commit(commit) => return Ok(Self::Commit(commit.to_owned())),
             ResolvedCliIdArgRef::Branch(branch_name) => {
                 return Ok(Self::Branch(BranchArg(branch_name.to_owned())));
             }
@@ -986,7 +989,7 @@ impl<'a> Squashable<'a> {
 }
 
 enum ClassifiedSquashables<'a> {
-    Commits(NonEmpty<gix::ObjectId>),
+    Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
     UncommittedHunks(NonEmpty<&'a UncommittedHunkOrFile>),
     Uncommitted,
@@ -995,7 +998,7 @@ enum ClassifiedSquashables<'a> {
 
 impl<'a> ClassifiedSquashables<'a> {
     fn try_from_sources(
-        commit_sources: Vec<ObjectId>,
+        commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
         hunk_sources: Vec<&'a UncommittedHunkOrFile>,
         uncommitted_sources: Vec<&'static str>,
@@ -1138,7 +1141,7 @@ pub fn run(
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
             for path in source_paths {
-                builder.push_changes_from_committed_file(source, path.as_ref())?;
+                builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }
             let changes = builder.into_diff_specs();
             ExecutableSquashOperation::TransactionCompatible(
@@ -1162,7 +1165,7 @@ pub fn run(
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
             for path in source_paths {
-                builder.push_changes_from_committed_file(source, path.as_ref())?;
+                builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }
             let changes = builder.into_diff_specs();
 
@@ -1203,7 +1206,7 @@ pub fn run(
                 else {
                     return err;
                 };
-                let target = rejection::Target::Commit(*target);
+                let target = rejection::Target::Commit(target.clone());
                 rejection::explain_after_rollback(ctx, perm, "amend", target, err)
             })?;
 
@@ -1241,7 +1244,7 @@ pub fn run(
                     uncommitted_ids: _,
                 } = but_api::commit::uncommit::commit_uncommit_only_with_perm(
                     ctx,
-                    sources.iter().copied().collect(),
+                    sources.iter().map(|c| c.commit_id).collect(),
                     None,
                     DryRun::Yes,
                     perm,
@@ -1258,22 +1261,26 @@ pub fn run(
                 workspace: _,
             } = but_api::commit::uncommit::commit_uncommit_with_perm(
                 ctx,
-                sources.into_iter().collect(),
+                sources.iter().map(|c| c.commit_id).collect(),
                 None,
                 DryRun::No,
                 perm,
             )?;
 
-            Ok(SquashOutcome::Uncommit {
-                sources: uncommitted_ids,
-            })
+            let repo = ctx.repo.get()?;
+            let sources = uncommitted_ids
+                .into_iter()
+                .map(|id| CommitId::try_from_commit_id(id, &repo))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            Ok(SquashOutcome::Uncommit { sources })
         }
         ExecutableSquashOperation::UncommitHunks { source, changes } => {
             {
                 let but_api::commit::types::MoveChangesResult { workspace } =
                     but_api::commit::uncommit::commit_uncommit_changes_only_with_perm(
                         ctx,
-                        source,
+                        source.commit_id,
                         changes.clone(),
                         None,
                         DryRun::Yes,
@@ -1289,7 +1296,7 @@ pub fn run(
             let but_api::commit::types::MoveChangesResult { workspace: _ } =
                 but_api::commit::uncommit::commit_uncommit_changes_with_perm(
                     ctx,
-                    source,
+                    source.commit_id,
                     changes,
                     None,
                     DryRun::No,
@@ -1307,12 +1314,12 @@ pub enum SquashOperation<'a> {
     Branch(SquashBranchOperation),
     UncommittedHunks(AmendUncommittedHunks<'a>),
     Uncommitted {
-        target: ObjectId,
+        target: CommitId,
         reword: HowToRewordTargetNoSource,
     },
     MoveCommittedFiles {
-        target: ObjectId,
-        source: ObjectId,
+        target: CommitId,
+        source: CommitId,
         source_paths: Vec<BString>,
         reword: HowToRewordTargetNoSource,
     },
@@ -1368,7 +1375,7 @@ enum ExecutableSquashOperation {
     // special handling
     Uncommit(UncommitOperation),
     UncommitHunks {
-        source: ObjectId,
+        source: CommitId,
         changes: Vec<DiffSpec>,
     },
 }
@@ -1383,40 +1390,38 @@ enum TransactionCompatibleOperation {
 
 #[derive(Clone)]
 pub struct SquashCommitsOperation {
-    pub sources: NonEmpty<gix::ObjectId>,
-    pub target: gix::ObjectId,
+    pub sources: NonEmpty<CommitId>,
+    pub target: CommitId,
     pub reword: HowToRewordTarget,
 }
 
 impl SquashCommitsOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
             reword,
         } = self;
-        let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
-        reword.execute(new_commit.id, tx)
+        let new_commit = tx.squash_commits(
+            sources.iter().map(|c| c.commit_id),
+            target.commit_id,
+            reword.how_to_combine_messages(),
+        )?;
+        reword.execute(new_commit.into(), tx)
     }
 }
 
 #[derive(Clone)]
 pub struct SquashBranchOperation {
-    pub sources: Vec<gix::ObjectId>,
-    pub target: gix::ObjectId,
+    pub sources: Vec<CommitId>,
+    pub target: CommitId,
     pub reword: HowToRewordTarget,
     pub source_branches: NonEmpty<FullName>,
     pub branches_to_remove: Vec<FullName>,
 }
 
 impl SquashBranchOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
@@ -1429,23 +1434,24 @@ impl SquashBranchOperation {
             tx.remove_reference(branch_name.as_ref())?;
         }
 
-        let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
-        reword.execute(new_commit.id, tx)
+        let new_commit = tx.squash_commits(
+            sources.iter().map(|c| c.commit_id),
+            target.commit_id,
+            reword.how_to_combine_messages(),
+        )?;
+        reword.execute(new_commit.into(), tx)
     }
 }
 
 #[derive(Clone)]
 struct AmendUncommittedDiffSpecsOperation {
-    target: ObjectId,
+    target: CommitId,
     changes: Vec<DiffSpec>,
     reword: HowToRewordTargetNoSource,
 }
 
 impl AmendUncommittedDiffSpecsOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
         let Self {
             target,
             changes,
@@ -1455,7 +1461,7 @@ impl AmendUncommittedDiffSpecsOperation {
         let IntermediateCommitCreateResult {
             new_commit,
             rejected_specs,
-        } = tx.amend_commit(target, changes)?;
+        } = tx.amend_commit(target.commit_id, changes)?;
 
         if !rejected_specs.is_empty() {
             return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -1464,23 +1470,20 @@ impl AmendUncommittedDiffSpecsOperation {
         let new_commit =
             new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-        reword.execute(new_commit.id, tx)
+        reword.execute(new_commit.into(), tx)
     }
 }
 
 #[derive(Clone)]
 struct MoveCommittedFilesOperation {
-    target: ObjectId,
-    source: ObjectId,
+    target: CommitId,
+    source: CommitId,
     changes: Vec<but_core::DiffSpec>,
     reword: HowToRewordTargetNoSource,
 }
 
 impl MoveCommittedFilesOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
         let Self {
             target,
             source,
@@ -1488,37 +1491,45 @@ impl MoveCommittedFilesOperation {
             reword,
         } = self;
 
-        let new_commit = tx.move_committed_changes_between(source, target, changes)?;
-        reword.execute(new_commit.id, tx)
+        let new_commit =
+            tx.move_committed_changes_between(source.commit_id, target.commit_id, changes)?;
+        reword.execute(new_commit.into(), tx)
     }
 }
 
 #[derive(Clone)]
 pub struct UncommitOperation {
-    pub sources: NonEmpty<gix::ObjectId>,
+    pub sources: NonEmpty<CommitId>,
 }
 
 #[derive(Clone)]
 pub struct UncommitCommittedFilesOperation {
-    pub source: ObjectId,
+    pub source: CommitId,
     pub source_paths: Vec<BString>,
 }
 
 fn resolve_commits_on_branch(
     branch: &BranchArg,
+    repo: &gix::Repository,
     ws: &Workspace,
-) -> CliResult<(FullName, Vec<ObjectId>)> {
+) -> CliResult<(FullName, Vec<CommitId>)> {
     let branch_name = branch.resolve_local_branch_name()?;
-    let commits_in_segment = resolve_commits_on_branch_by_ref(branch_name.as_ref(), ws)?;
+    let commits_in_segment = resolve_commits_on_branch_by_ref(branch_name.as_ref(), repo, ws)?;
     Ok((branch_name, commits_in_segment))
 }
 
 pub fn resolve_commits_on_branch_by_ref(
     branch: &FullNameRef,
+    repo: &gix::Repository,
     ws: &Workspace,
-) -> anyhow::Result<Vec<ObjectId>> {
+) -> anyhow::Result<Vec<CommitId>> {
     let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch)?;
-    let commits_in_segment = segment.commits.iter().map(|commit| commit.id).collect();
+    let commits_in_segment = segment
+        .commits
+        .iter()
+        .map(|commit| commit.id)
+        .map(|id| CommitId::try_from_commit_id(id, repo))
+        .collect::<anyhow::Result<Vec<_>>>()?;
     Ok(commits_in_segment)
 }
 

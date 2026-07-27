@@ -108,6 +108,7 @@ struct ConflictingFile {
 #[derive(Debug, serde::Serialize)]
 struct CommitRef {
     #[serde(skip)]
+    #[allow(dead_code)]
     object_id: gix::ObjectId,
     #[serde(skip)]
     change_id: but_core::ChangeId,
@@ -384,6 +385,7 @@ fn get_uncommitted_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::R
 #[derive(Debug, serde::Serialize)]
 struct CommitInfo {
     #[serde(skip)]
+    #[allow(dead_code)]
     object_id: gix::ObjectId,
     #[serde(skip)]
     change_id: but_core::ChangeId,
@@ -544,7 +546,7 @@ fn output_human(
             writeln!(
                 buf,
                 "{} {}",
-                theme::Commit(commit.object_id, Some(commit.change_id.clone())),
+                theme::Commit(commit.change_id.clone()),
                 commit.message
             )?;
             writeln!(
@@ -707,7 +709,7 @@ fn output_human(
                         writeln!(
                             buf,
                             "      {} {}",
-                            theme::Commit(commit.object_id, Some(commit.change_id.clone())),
+                            theme::Commit(commit.change_id.clone()),
                             commit.message
                         )?;
                         writeln!(
@@ -727,7 +729,7 @@ fn output_human(
                         writeln!(
                             buf,
                             "      {} {}",
-                            theme::Commit(commit.object_id, Some(commit.change_id.clone())),
+                            theme::Commit(commit.change_id.clone()),
                             commit.message
                         )?;
                         writeln!(

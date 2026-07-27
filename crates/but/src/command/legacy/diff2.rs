@@ -1,6 +1,6 @@
 use bstr::BString;
 use but_ctx::Context;
-use gix::{ObjectId, refs::FullName};
+use gix::refs::FullName;
 use serde::Serialize;
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
         diff2::Platform,
     },
     bad_input,
-    id::{CommittedFileId, ShortId, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -56,10 +56,10 @@ impl CliOutputHuman for DiffOutcome<'_> {
             DiffOperation::Uncommitted => {
                 diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, &mut writer)?;
             }
-            DiffOperation::Commit { commit, change_id } => {
+            DiffOperation::Commit { commit } => {
                 diff_rendering::render_commit(
-                    commit,
-                    change_id,
+                    commit.commit_id,
+                    commit.change_id,
                     ctx,
                     theme,
                     &mut id_gen,
@@ -88,15 +88,10 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     &mut writer,
                 )?;
             }
-            DiffOperation::CommittedFile {
-                commit_id,
-                path,
-                id,
-            } => {
+            DiffOperation::CommittedFile { commit, path } => {
                 diff_rendering::render_committed_file(
-                    commit_id,
+                    commit.commit_id,
                     path,
-                    id,
                     ctx,
                     theme,
                     &mut id_gen,
@@ -208,9 +203,7 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
 
     match resolved_target {
         ResolvedCliIdArg::Uncommitted => Ok(DiffOperation::Uncommitted),
-        ResolvedCliIdArg::Commit(commit, change_id) => {
-            Ok(DiffOperation::Commit { commit, change_id })
-        }
+        ResolvedCliIdArg::Commit(commit) => Ok(DiffOperation::Commit { commit }),
         ResolvedCliIdArg::Branch(branch) => {
             let branch = branch.resolve_local_branch_name()?;
             Ok(DiffOperation::Branch { branch })
@@ -221,12 +214,13 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
         ResolvedCliIdArg::CommittedFile(CommittedFileId {
             commit_id,
             path,
-            id,
-            change_id: _,
+            change_id,
         }) => Ok(DiffOperation::CommittedFile {
-            commit_id,
+            commit: CommitId {
+                commit_id,
+                change_id,
+            },
             path,
-            id,
         }),
         ResolvedCliIdArg::Stack => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
@@ -245,19 +239,8 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 #[derive(Debug)]
 enum DiffOperation {
     Uncommitted,
-    Commit {
-        commit: ObjectId,
-        change_id: Option<but_core::ChangeId>,
-    },
-    Branch {
-        branch: FullName,
-    },
-    UncommittedHunkOrFile {
-        hunk: Box<UncommittedHunkOrFile>,
-    },
-    CommittedFile {
-        commit_id: ObjectId,
-        path: BString,
-        id: ShortId,
-    },
+    Commit { commit: CommitId },
+    Branch { branch: FullName },
+    UncommittedHunkOrFile { hunk: Box<UncommittedHunkOrFile> },
+    CommittedFile { commit: CommitId, path: BString },
 }

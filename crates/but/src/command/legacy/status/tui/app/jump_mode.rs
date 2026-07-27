@@ -13,7 +13,7 @@ use crate::{
             render::ModeRender,
         },
     },
-    id::{CommitId, CommittedFileId},
+    id::CommitId,
 };
 
 #[derive(Debug, Clone)]
@@ -101,11 +101,13 @@ pub fn prefix_match(
 fn jump_id_has_prefix(id: &CliId, query: &str) -> bool {
     match id {
         CliId::UncommittedHunkOrFile(hunk) => hunk.id.starts_with(query),
-        CliId::Commit(CommitId {
-            commit_id,
+        CliId::Commit {
+            commit: CommitId {
+                commit_id,
+                change_id,
+            },
             id,
-            change_id,
-        }) => {
+        } => {
             if let Some(change_id) = change_id {
                 change_id
                     .as_bytes()
@@ -118,7 +120,7 @@ fn jump_id_has_prefix(id: &CliId, query: &str) -> bool {
             }
         }
         CliId::PathPrefix { id, .. }
-        | CliId::CommittedFile(CommittedFileId { id, .. })
+        | CliId::CommittedFile { id, .. }
         | CliId::Uncommitted { id }
         | CliId::Stack { id, .. } => id.starts_with(query),
         CliId::Branch(branch) => branch.id.starts_with(query),

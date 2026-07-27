@@ -129,7 +129,11 @@ fn resolve_source_commits(
     let cli_ids = id_map.parse_using_context(source, ctx)?;
 
     for cli_id in &cli_ids {
-        if let CliId::Commit(CommitId { commit_id, .. }) = cli_id {
+        if let CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        } = cli_id
+        {
             return Ok(vec![*commit_id]);
         }
     }

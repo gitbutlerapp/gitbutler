@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice as _};
-use but_api::json::HexHash;
+use but_api::json::{ChangeIdString, HexHash};
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_transaction::Commit;
@@ -21,19 +21,20 @@ use crate::{
         discard::Platform,
     },
     bad_input,
-    id::{CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
+        CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
+        diff_specs::DiffSpecBuilder,
     },
 };
 
 #[derive(Debug)]
 pub enum DiscardOperation {
     Branches(NonEmpty<FullName>),
-    Commits(NonEmpty<ObjectId>),
+    Commits(NonEmpty<CommitId>),
     CommittedFiles {
-        source: ObjectId,
+        source: CommitId,
         paths: NonEmpty<BString>,
     },
     Uncommitted(UncommittedSelection),
@@ -41,7 +42,7 @@ pub enum DiscardOperation {
 
 #[derive(Debug)]
 enum ClassifiedDiscardables {
-    Commits(NonEmpty<ObjectId>),
+    Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
     UncommittedHunks(NonEmpty<UncommittedHunkOrFile>),
     Uncommitted,
@@ -50,7 +51,7 @@ enum ClassifiedDiscardables {
 
 impl ClassifiedDiscardables {
     fn try_from_sources(
-        commit_sources: Vec<ObjectId>,
+        commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
         hunk_sources: Vec<UncommittedHunkOrFile>,
         uncommitted_sources: Vec<()>,
@@ -108,14 +109,14 @@ pub enum UncommittedSelection {
 pub enum DiscardOutcome {
     Branches(NonEmpty<FullName>),
     Commits {
-        commits: NonEmpty<ObjectId>,
+        commits: NonEmpty<CommitId>,
         /// Rewritten surviving commits, used by callers to retain their selection.
         replaced_commits: BTreeMap<ObjectId, ObjectId>,
     },
     CommittedFiles {
-        source: ObjectId,
+        source: CommitId,
         paths: NonEmpty<BString>,
-        new_commit: ObjectId,
+        new_commit: CommitId,
     },
     Uncommitted {
         paths: NonEmpty<BString>,
@@ -143,16 +144,9 @@ impl CliOutputHuman for DiscardOutcome {
                 replaced_commits: _,
             } => {
                 if commits.len() == 1 {
-                    writeln!(
-                        out,
-                        "Discarded commit {}",
-                        theme::Commit(commits.head, None)
-                    )?;
+                    writeln!(out, "Discarded commit {}", theme::Commit(commits.head))?;
                 } else {
-                    let commits = commits
-                        .iter()
-                        .map(|commit| theme::Commit(*commit, None))
-                        .join(", ");
+                    let commits = commits.iter().map(theme::Commit).join(", ");
                     writeln!(out, "Discarded commits {commits}")?;
                 }
             }
@@ -165,8 +159,8 @@ impl CliOutputHuman for DiscardOutcome {
                 writeln!(
                     out,
                     "Discarded {paths} from {} to create {}",
-                    theme::Commit(source, None),
-                    theme::Commit(new_commit, None)
+                    theme::Commit(source),
+                    theme::Commit(new_commit)
                 )?;
             }
             DiscardOutcome::Uncommitted { paths } => {
@@ -188,12 +182,16 @@ impl CliOutput for DiscardOutcome {
                 branches: Vec<String>,
             },
             Commits {
-                commits: Vec<HexHash>,
+                commits: Vec<CommitIdJson>,
             },
             CommittedFiles {
-                source: HexHash,
+                source_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                source_change_id: Option<ChangeIdString>,
                 paths: Vec<String>,
-                new_commit: HexHash,
+                new_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                new_change_id: Option<ChangeIdString>,
             },
             UncommittedChanges {
                 paths: Vec<String>,
@@ -211,19 +209,21 @@ impl CliOutput for DiscardOutcome {
                 commits,
                 replaced_commits: _,
             } => Output::Commits {
-                commits: commits.into_iter().map(HexHash).collect(),
+                commits: commits.into_iter().map(Into::into).collect(),
             },
             DiscardOutcome::CommittedFiles {
                 source,
                 paths,
                 new_commit,
             } => Output::CommittedFiles {
-                source: HexHash(source),
+                source_commit_id: source.commit_id.into(),
+                source_change_id: source.change_id.map(Into::into),
+                new_commit_id: new_commit.commit_id.into(),
+                new_change_id: new_commit.change_id.map(Into::into),
                 paths: paths
                     .into_iter()
                     .map(|path| path.to_str_lossy().into_owned())
                     .collect(),
-                new_commit: HexHash(new_commit),
             },
             DiscardOutcome::Uncommitted { paths } => Output::UncommittedChanges {
                 paths: paths
@@ -264,8 +264,10 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
         let value = change.to_string();
         match change.resolve_in_workspace(repo, id_map, Purpose::Source, None)? {
             ResolvedCliIdArg::Branch(branch) => branch_sources.push(branch),
-            ResolvedCliIdArg::Commit(commit, _change_id) => commit_sources.push(commit),
-            ResolvedCliIdArg::CommittedFile(file) => committed_file_sources.push(file),
+            ResolvedCliIdArg::Commit(commit) => commit_sources.push(commit),
+            ResolvedCliIdArg::CommittedFile(committed_file) => {
+                committed_file_sources.push(committed_file)
+            }
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => hunk_sources.push(*change),
             ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
             ResolvedCliIdArg::PathPrefix => {
@@ -308,16 +310,24 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
         }
         ClassifiedDiscardables::Commits(commits) => Ok(DiscardOperation::Commits(commits)),
         ClassifiedDiscardables::CommittedFiles(committed_files) => {
-            let source = committed_files.head.commit_id;
-            let mut paths = Vec::new();
+            let NonEmpty { head, tail } = committed_files;
+            let CommittedFileId {
+                commit_id,
+                path,
+                change_id,
+            } = head;
+            let source = CommitId {
+                commit_id,
+                change_id,
+            };
+            let mut paths = vec![path];
             for CommittedFileId {
                 commit_id,
                 path,
-                id: _,
                 change_id: _,
-            } in committed_files
+            } in tail
             {
-                if commit_id != source {
+                if commit_id != source.commit_id {
                     return Err(
                         bad_input("All committed files must come from the same commit")
                             .arg_name("<CHANGES>")
@@ -350,7 +360,7 @@ pub fn run(
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
             let commits = {
-                let (_repo, workspace, _db) =
+                let (repo, workspace, _db) =
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
                 let mut commits = Vec::new();
                 for branch in &branches {
@@ -362,7 +372,10 @@ pub fn run(
                                 branch.shorten()
                             )
                         })?;
-                    commits.extend(segment.commits.iter().map(|commit| commit.id));
+                    for commit in &segment.commits {
+                        let commit = CommitId::try_from_commit_id(commit.id, &repo)?;
+                        commits.push(commit);
+                    }
                 }
                 commits
             };
@@ -376,7 +389,7 @@ pub fn run(
                     ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
                 let mut builder = DiffSpecBuilder::new(&mut db, &repo, &workspace, context_lines);
                 for path in &paths {
-                    builder.push_changes_from_committed_file(source, path.as_bstr())?;
+                    builder.push_changes_from_committed_file(source.commit_id, path.as_bstr())?;
                 }
                 builder.into_diff_specs()
             };
@@ -423,12 +436,12 @@ pub fn run(
                         tx.remove_reference(branch.as_ref())?;
                     }
                     if !commits.is_empty() {
-                        tx.discard_commits(commits)?;
+                        tx.discard_commits(commits.iter().map(|c| c.commit_id))?;
                     }
                     DiscardOutcome::Branches(branches)
                 }
                 ExecutableDiscardOperation::Commits(commits) => {
-                    tx.discard_commits(commits.iter().copied())?;
+                    tx.discard_commits(commits.iter().map(|c| c.commit_id))?;
                     DiscardOutcome::Commits {
                         commits,
                         replaced_commits: BTreeMap::new(),
@@ -439,11 +452,11 @@ pub fn run(
                     paths,
                     changes,
                 } => {
-                    let new_commit = tx.discard_changes_from_commit(source, changes)?;
+                    let new_commit = tx.discard_changes_from_commit(source.commit_id, changes)?;
                     DiscardOutcome::CommittedFiles {
                         source,
                         paths,
-                        new_commit: new_commit.id,
+                        new_commit: new_commit.into(),
                     }
                 }
                 ExecutableDiscardOperation::Uncommitted { paths, changes } => {
@@ -481,11 +494,11 @@ pub fn run(
 enum ExecutableDiscardOperation {
     Branches {
         branches: NonEmpty<FullName>,
-        commits: Vec<ObjectId>,
+        commits: Vec<CommitId>,
     },
-    Commits(NonEmpty<ObjectId>),
+    Commits(NonEmpty<CommitId>),
     CommittedFiles {
-        source: ObjectId,
+        source: CommitId,
         paths: NonEmpty<BString>,
         changes: Vec<DiffSpec>,
     },

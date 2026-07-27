@@ -60,10 +60,11 @@ pub(crate) fn reword_target(
         BranchOrCommit::Commit(commit) => {
             // Rewording a landed commit is lost work: the rewritten commit is
             // dropped again on the next `but pull`.
-            MergedUpstream::from_ctx(ctx, allow_merged)?.ensure_commit_not_merged(commit)?;
+            MergedUpstream::from_ctx(ctx, allow_merged)?
+                .ensure_commit_not_merged(commit.commit_id)?;
             edit_commit_message_by_id_and_reword_commit(
                 ctx,
-                commit,
+                commit.commit_id,
                 out,
                 message,
                 format,
@@ -226,7 +227,7 @@ fn edit_commit_message_by_id_and_reword_commit(
         )?;
 
         if let Some(out) = out.for_human() {
-            let new_commit = crate::theme::Commit(new_commit_oid.new_commit, Some(change_id));
+            let new_commit = crate::theme::Commit(change_id);
             writeln!(out, "Updated commit message for {new_commit}")?;
         } else if let Some(out) = out.for_json() {
             out.write_value(serde_json::json!({

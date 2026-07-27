@@ -374,9 +374,15 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
                 || tree_changes.first().path == BStr::new(element);
             if is_match {
                 matches.push(Box::new(Leaf {
-                    cli_id: CliId::CommittedFile(CommittedFileId {
-                        commit_id: self.commit_id(),
-                        path: tree_changes.first().path.clone(),
+                    cli_id: CliId::CommittedFile {
+                        committed_file: CommittedFileId {
+                            commit_id: self.commit_id(),
+                            path: tree_changes.first().path.clone(),
+                            change_id: self
+                                .change_id
+                                .as_ref()
+                                .map(|change_id| change_id.change_id.clone()),
+                        },
                         id: format!(
                             "{}:{}",
                             self.change_id
@@ -385,11 +391,7 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
                                 .unwrap_or(&self.short_id),
                             short_id
                         ),
-                        change_id: self
-                            .change_id
-                            .as_ref()
-                            .map(|change_id| change_id.change_id.clone()),
-                    }),
+                    },
                 }));
             }
         }
@@ -401,11 +403,13 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
         _short_id: &str,
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Commit(CommitId {
-            commit_id: self.commit_id(),
+        Ok(Some(CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
+            },
             id: self.short_id.clone(),
-            change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
-        })))
+        }))
     }
 }
 
@@ -438,11 +442,13 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
         _short_id: &str,
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Commit(CommitId {
-            commit_id: self.commit_id(),
+        Ok(Some(CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: None,
+            },
             id: self.short_id.clone(),
-            change_id: None,
-        })))
+        }))
     }
 }
 
@@ -1413,8 +1419,17 @@ impl IdMap {
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
     match (lhs, rhs) {
         (CliId::UncommittedHunkOrFile(lhs), CliId::UncommittedHunkOrFile(rhs)) => lhs == rhs,
-        (CliId::Commit(l), CliId::Commit(r)) => l == r,
-        (CliId::CommittedFile(l), CliId::CommittedFile(r)) => l == r,
+        (CliId::Commit { commit: l, id: _ }, CliId::Commit { commit: r, id: _ }) => l == r,
+        (
+            CliId::CommittedFile {
+                committed_file: l,
+                id: _,
+            },
+            CliId::CommittedFile {
+                committed_file: r,
+                id: _,
+            },
+        ) => l == r,
         (CliId::Branch(l), CliId::Branch(r)) => l == r,
         (
             CliId::Stack {
@@ -1497,11 +1512,23 @@ pub enum CliId {
         hunk_assignments: NonEmpty<(ShortId, WorktreeHunk)>,
     },
     /// A file that exists in a commit.
-    CommittedFile(CommittedFileId),
+    CommittedFile {
+        /// The committed file identifier.
+        committed_file: CommittedFileId,
+        /// The short CLI ID for this file (typically 2 characters)
+        id: ShortId,
+    },
     /// A branch.
     Branch(BranchId),
     /// A commit in the workspace identified by its SHA.
-    Commit(CommitId),
+    Commit {
+        /// The commit identifier.
+        commit: CommitId,
+        /// The short CLI ID, a prefix of the object ID. This prefix is unique
+        /// among all commits in all stacks (but not necessarily among all
+        /// commits in the repo).
+        id: ShortId,
+    },
     /// The uncommitted area, as a designated area that files can be put in.
     Uncommitted {
         /// The CLI ID for the uncommitted area.
@@ -1520,9 +1547,18 @@ impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::UncommittedHunkOrFile(l), Self::UncommittedHunkOrFile(r)) => l == r,
-            (Self::CommittedFile(l), Self::CommittedFile(r)) => l == r,
+            (
+                Self::CommittedFile {
+                    committed_file: l,
+                    id: _,
+                },
+                Self::CommittedFile {
+                    committed_file: r,
+                    id: _,
+                },
+            ) => l == r,
             (Self::Branch(l), Self::Branch(r)) => l == r,
-            (Self::Commit(l), Self::Commit(r)) => l == r,
+            (Self::Commit { commit: l, id: _ }, Self::Commit { commit: r, id: _ }) => l == r,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
             _ => false,
@@ -1552,9 +1588,9 @@ impl CliId {
         match self {
             CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { id, .. })
             | CliId::PathPrefix { id, .. }
-            | CliId::CommittedFile(CommittedFileId { id, .. })
+            | CliId::CommittedFile { id, .. }
             | CliId::Branch(BranchId { id, .. })
-            | CliId::Commit(CommitId { id, .. })
+            | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Uncommitted { id, .. } => id.clone(),
         }
@@ -1709,8 +1745,6 @@ pub struct CommittedFileId {
     pub commit_id: gix::ObjectId,
     /// The file path relative to the repository root
     pub path: BString,
-    /// The short CLI ID for this file (typically 2 characters)
-    pub id: ShortId,
     /// The stable change ID from the commit headers, if present.
     pub change_id: Option<but_core::ChangeId>,
 }
@@ -1720,7 +1754,6 @@ impl CommittedFileId {
         CommittedFileIdRef {
             commit_id: self.commit_id,
             path: self.path.as_ref(),
-            id: &self.id,
             change_id: self.change_id.as_ref(),
         }
     }
@@ -1736,7 +1769,6 @@ impl PartialEq for CommittedFileId {
 pub struct CommittedFileIdRef<'a> {
     pub commit_id: gix::ObjectId,
     pub path: &'a BStr,
-    pub id: &'a str,
     pub change_id: Option<&'a ChangeId>,
 }
 
@@ -1745,7 +1777,6 @@ impl CommittedFileIdRef<'_> {
         CommittedFileId {
             commit_id: self.commit_id,
             path: self.path.to_owned(),
-            id: self.id.to_owned(),
             change_id: self.change_id.cloned(),
         }
     }
@@ -1756,7 +1787,6 @@ impl PartialEq for CommittedFileIdRef<'_> {
         let Self {
             commit_id,
             path,
-            id: _,
             change_id: _,
         } = self;
         *commit_id == other.commit_id && path == &other.path
@@ -1821,19 +1851,35 @@ impl PartialEq for BranchIdRef<'_> {
 pub struct CommitId {
     /// The object ID of the commit.
     pub commit_id: gix::ObjectId,
-    /// The short CLI ID, a prefix of the object ID. This prefix is unique
-    /// among all commits in all stacks (but not necessarily among all
-    /// commits in the repo).
-    pub id: ShortId,
     /// The stable change ID from the commit headers, if present.
+    ///
+    /// We dont show change ids for remote commits since they'll very likely conflict with local
+    /// commits which is confusing.
     pub change_id: Option<but_core::ChangeId>,
 }
 
 impl CommitId {
+    pub fn try_from_commit_id(
+        commit_id: gix::ObjectId,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Self> {
+        let commit = repo.find_commit(commit_id)?;
+        let commit = commit.decode()?;
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .unwrap_or_default()
+                .ensure_change_id(commit_id)
+                .change_id
+                .expect("change ID is ensured");
+        Ok(Self {
+            commit_id,
+            change_id: Some(change_id),
+        })
+    }
+
     pub fn as_ref(&self) -> CommitIdRef<'_> {
         CommitIdRef {
             commit_id: self.commit_id,
-            id: &self.id,
             change_id: self.change_id.as_ref(),
         }
     }
@@ -1845,14 +1891,31 @@ impl PartialEq for CommitId {
     }
 }
 
+impl PartialOrd for CommitId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CommitId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_ref().cmp(&other.as_ref())
+    }
+}
+
+impl From<but_core::commit::CommitIdentifiers> for CommitId {
+    fn from(value: but_core::commit::CommitIdentifiers) -> Self {
+        Self {
+            commit_id: value.id,
+            change_id: Some(value.change_id),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq)]
 pub struct CommitIdRef<'a> {
     /// The object ID of the commit.
     pub commit_id: gix::ObjectId,
-    /// The short CLI ID, a prefix of the object ID. This prefix is unique
-    /// among all commits in all stacks (but not necessarily among all
-    /// commits in the repo).
-    pub id: &'a str,
     /// The stable change ID from the commit headers, if present.
     pub change_id: Option<&'a but_core::ChangeId>,
 }
@@ -1861,7 +1924,6 @@ impl CommitIdRef<'_> {
     pub fn to_owned(self) -> CommitId {
         CommitId {
             commit_id: self.commit_id,
-            id: self.id.to_owned(),
             change_id: self.change_id.cloned(),
         }
     }
@@ -1871,9 +1933,33 @@ impl PartialEq for CommitIdRef<'_> {
     fn eq(&self, other: &Self) -> bool {
         let Self {
             commit_id,
-            id: _,
             change_id: _,
         } = self;
         *commit_id == other.commit_id
+    }
+}
+
+impl PartialOrd for CommitIdRef<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CommitIdRef<'_> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let Self {
+            commit_id,
+            change_id: _,
+        } = self;
+        (*commit_id).cmp(&other.commit_id)
+    }
+}
+
+impl<'a> From<&'a but_core::commit::CommitIdentifiers> for CommitIdRef<'a> {
+    fn from(value: &'a but_core::commit::CommitIdentifiers) -> Self {
+        Self {
+            commit_id: value.id,
+            change_id: Some(&value.change_id),
+        }
     }
 }

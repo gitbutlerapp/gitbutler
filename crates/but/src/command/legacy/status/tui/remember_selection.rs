@@ -72,16 +72,24 @@ fn line_id(id: &CliId) -> Option<String> {
     Some(match id {
         CliId::UncommittedHunkOrFile(hunk) => format!("hunk:{}", hunk.hunk_assignments.head.path),
         CliId::Branch(branch) => format!("branch:{}", branch.name),
-        CliId::CommittedFile(CommittedFileId {
-            commit_id,
-            change_id,
-            ..
-        })
-        | CliId::Commit(CommitId {
-            commit_id,
-            change_id,
-            ..
-        }) => {
+        CliId::CommittedFile {
+            committed_file:
+                CommittedFileId {
+                    commit_id,
+                    change_id,
+                    ..
+                },
+            id: _,
+        }
+        | CliId::Commit {
+            commit:
+                CommitId {
+                    commit_id,
+                    change_id,
+                    ..
+                },
+            id: _,
+        } => {
             if let Some(change_id) = change_id {
                 format!("commit:{change_id}")
             } else {

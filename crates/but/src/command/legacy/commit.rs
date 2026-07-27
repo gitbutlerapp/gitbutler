@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use but_api::json::HexHash;
+use but_api::json::{ChangeIdString, HexHash};
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
     ref_metadata::StackId,
@@ -23,9 +23,9 @@ use crate::{
     bad_input,
     command::legacy::{
         reword2::RewordCommitOperation,
-        status::{TuiOutcome, TuiRunOptions, tui_with_options},
+        status::{Selectable, TuiOutcome, TuiRunOptions, tui_with_options},
     },
-    id::UncommittedHunkOrFile,
+    id::{CommitId, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -35,7 +35,7 @@ use crate::{
 
 #[must_use]
 pub struct CommitOutcome {
-    pub new_commit: gix::ObjectId,
+    pub new_commit: CommitId,
     pub branch_name: Option<BranchNameTarget>,
 }
 
@@ -63,16 +63,16 @@ impl CliOutputHuman for CommitOutcome {
             Some(BranchNameTarget::New(branch_name)) => writeln!(
                 out,
                 "Created commit {} on new branch {}",
-                theme::Commit(new_commit, None),
+                theme::Commit(new_commit),
                 theme::Branch(branch_name),
             )?,
             Some(BranchNameTarget::Existing(branch_name)) => writeln!(
                 out,
                 "Created commit {} on branch {}",
-                theme::Commit(new_commit, None),
+                theme::Commit(new_commit),
                 theme::Branch(branch_name),
             )?,
-            None => writeln!(out, "Created commit {}", theme::Commit(new_commit, None))?,
+            None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
         }
 
         Ok(())
@@ -82,8 +82,11 @@ impl CliOutputHuman for CommitOutcome {
 impl CliOutput for CommitOutcome {
     fn on_json(self) -> impl serde::Serialize {
         #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct Output {
-            commit: HexHash,
+            commit_id: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            change_id: Option<ChangeIdString>,
             #[serde(skip_serializing_if = "Option::is_none")]
             branch: Option<String>,
         }
@@ -99,7 +102,8 @@ impl CliOutput for CommitOutcome {
         };
 
         Output {
-            commit: new_commit.into(),
+            commit_id: new_commit.commit_id.into(),
+            change_id: new_commit.change_id.map(Into::into),
             branch: branch_name,
         }
     }
@@ -193,19 +197,19 @@ fn resolve(
         };
         let (guard, outcome) =
             tui_with_options(ctx, guard, &mut inout, TuiRunOptions::PickChanges)?;
-        let cli_ids = match outcome {
-            TuiOutcome::CliIds(cli_ids) => cli_ids,
+        let ids = match outcome {
+            TuiOutcome::Selection(ids) => ids,
             TuiOutcome::None => {
                 return Err(bad_input("No changes to commit")
                     .hint("Pick changes by pressing space. Confirm with enter.")
                     .into());
             }
         };
-        let changes = cli_ids
+        let changes = ids
             .into_iter()
             .map(|change| {
                 match change {
-                    CliId::UncommittedHunkOrFile(id) => Ok(id),
+                    Selectable::UncommittedHunkOrFile(id) => Ok(id),
                     _ => {
                         Err(anyhow::anyhow!("BUG: tui should only return uncommitted changes in PickChanges mode but got {change:?}"))
                     }
@@ -309,7 +313,7 @@ pub fn run(
             let new_commit =
                 new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-            let reworded_commit = reword_op.execute(new_commit.id, &mut tx)?;
+            let reworded_commit = reword_op.execute(new_commit.into(), &mut tx)?;
 
             Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
@@ -488,9 +492,9 @@ fn route_commit_above_or_below(
         .into_branch_or_commit()
         .hint("Run `but status` to show applicable targets")?
     {
-        BranchOrCommit::Commit(commit_id) => {
-            merged.ensure_commit_not_merged(commit_id)?;
-            CommitRelativeToTarget::Commit { commit_id, side }
+        BranchOrCommit::Commit(commit) => {
+            merged.ensure_commit_not_merged(commit.commit_id)?;
+            CommitRelativeToTarget::Commit { commit, side }
         }
         BranchOrCommit::Branch(arg) => {
             let name = arg.resolve_local_branch_name()?;
@@ -523,8 +527,8 @@ impl CommitOperation {
                     .map(|name| name.shorten().to_string()),
             ),
             CommitOperation::CommitAt(op) => match &op.target {
-                CommitRelativeToTarget::Commit { commit_id, .. } => {
-                    rejection::Target::Commit(*commit_id)
+                CommitRelativeToTarget::Commit { commit, .. } => {
+                    rejection::Target::Commit(commit.clone())
                 }
                 CommitRelativeToTarget::BranchTip { name } => {
                     rejection::Target::Branch(name.shorten().to_string())
@@ -591,8 +595,8 @@ impl CommitAtOperation {
         changes: Vec<DiffSpec>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = match self.target {
-            CommitRelativeToTarget::Commit { commit_id, side } => {
-                (RelativeTo::Commit(commit_id), side.into(), None)
+            CommitRelativeToTarget::Commit { commit, side } => {
+                (RelativeTo::Commit(commit.commit_id), side.into(), None)
             }
             CommitRelativeToTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
@@ -628,10 +632,7 @@ impl CommitAtOperation {
 #[derive(Clone)]
 pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.
-    Commit {
-        commit_id: gix::ObjectId,
-        side: Side,
-    },
+    Commit { commit: CommitId, side: Side },
     /// Place the commit at the tip of the branch denoted by this reference, moving the reference to
     /// the new commit. This is effectively the same as committing to a branch.
     BranchTip { name: FullName },

@@ -41,23 +41,29 @@ impl<'a> DiffSpecBuilder<'a> {
                 self.push_changes_from_uncommitted(uncommitted)
             }
             CliId::PathPrefix {
-                id,
-                hunk_assignments,
-            } => self.push_changes_from_path_prefix(id, hunk_assignments),
-            CliId::CommittedFile(CommittedFileId {
-                commit_id,
-                path,
                 id: _,
-                change_id: _,
-            }) => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
+                hunk_assignments,
+            } => self.push_changes_from_path_prefix(hunk_assignments),
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        commit_id,
+                        path,
+                        change_id: _,
+                    },
+                id: _,
+            } => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
             CliId::Branch(branch) => {
                 anyhow::bail!("Cannot compute diff specs for branch `{}`", branch.name)
             }
-            CliId::Commit(CommitId {
-                commit_id,
-                id,
-                change_id: _,
-            }) => self.push_changes_from_commit(*commit_id, id),
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id,
+                        change_id: _,
+                    },
+                id: _,
+            } => self.push_changes_from_commit(*commit_id),
             CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
             CliId::Stack { .. } => {
                 anyhow::bail!("Cannot compute diff specs for stacks")
@@ -75,7 +81,6 @@ impl<'a> DiffSpecBuilder<'a> {
 
     pub fn push_changes_from_path_prefix(
         &mut self,
-        _id: &str,
         hunk_assignments: &nonempty::NonEmpty<(ShortId, WorktreeHunk)>,
     ) -> anyhow::Result<()> {
         self.push_hunk_assignments(
@@ -104,11 +109,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
-    pub fn push_changes_from_commit(
-        &mut self,
-        commit_id: gix::ObjectId,
-        _id: &str,
-    ) -> anyhow::Result<()> {
+    pub fn push_changes_from_commit(&mut self, commit_id: gix::ObjectId) -> anyhow::Result<()> {
         let specs = self.diff_specs_for_commit(commit_id, "First parent")?;
         self.diff_specs.extend(specs);
         Ok(())

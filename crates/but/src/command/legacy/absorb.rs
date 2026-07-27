@@ -1,4 +1,7 @@
-use crate::theme::{self, Paint};
+use crate::{
+    id::{CommitId, CommitIdRef},
+    theme::{self, Paint},
+};
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
@@ -309,12 +312,12 @@ fn display_absorption_plan(
             writeln!(
                 out,
                 "Absorbed to commit: {} {}",
-                theme::Commit(
-                    absorption.commit_id,
-                    id_map
+                theme::Commit(CommitIdRef {
+                    commit_id: absorption.commit_id,
+                    change_id: id_map
                         .change_id_ref(absorption.commit_id)
-                        .map(|change_id| change_id.change_id.clone()),
-                ),
+                        .map(|change_id| &change_id.change_id),
+                }),
                 absorption.commit_summary
             )?;
             writeln!(out, "  ({})", t.hint.paint(absorption.reason.description()))?;
@@ -365,7 +368,10 @@ fn drop_landed_absorptions(
                 out,
                 "{}: not absorbing into {} {}: commit is merged upstream",
                 t.attention.paint("Skipped"),
-                theme::Commit(absorption.commit_id, None),
+                theme::Commit(CommitId {
+                    commit_id: absorption.commit_id,
+                    change_id: None
+                }),
                 absorption.commit_summary,
             )?;
         }

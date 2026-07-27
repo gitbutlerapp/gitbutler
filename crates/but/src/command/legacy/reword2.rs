@@ -5,7 +5,10 @@ use but_error::Code;
 use but_transaction::Transaction;
 use gix::prelude::ObjectIdExt as _;
 
-use crate::command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor};
+use crate::{
+    command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor},
+    id::CommitId,
+};
 
 #[derive(Debug, Clone)]
 pub enum RewordCommitOperation {
@@ -38,16 +41,16 @@ impl RewordCommitOperation {
 
     pub fn execute(
         self,
-        new_commit: gix::ObjectId,
+        new_commit: CommitId,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    ) -> anyhow::Result<CommitId> {
         let message = match self {
             RewordCommitOperation::NoMessage => String::new(),
             RewordCommitOperation::Message(message) => message,
             RewordCommitOperation::UseEditor => {
                 let repo = tx.repo();
                 let commit_details = CommitDetails::from_commit_id(
-                    new_commit.attach(repo),
+                    new_commit.commit_id.attach(repo),
                     ComputeLineStats::No.into(),
                 )?;
 
@@ -77,8 +80,9 @@ impl RewordCommitOperation {
             }
         };
 
-        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+        let reworded_commit =
+            tx.reword_commit(new_commit.commit_id, BString::from(message).as_ref())?;
 
-        Ok(reworded_commit.id)
+        Ok(reworded_commit.into())
     }
 }

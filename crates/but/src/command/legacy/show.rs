@@ -71,7 +71,10 @@ pub(crate) fn show_commit(
         );
     } else {
         match &cli_ids[0] {
-            CliId::Commit(CommitId { commit_id, .. }) => *commit_id,
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } => *commit_id,
             CliId::Branch(branch) => {
                 // This is a branch identified by CLI ID, show the branch
                 return show_branch(ctx, out, &branch.name, verbose, &id_map);
@@ -432,6 +435,7 @@ fn show_branch(
 #[derive(Debug, serde::Serialize)]
 struct BranchCommitInfo {
     #[serde(skip)]
+    #[expect(dead_code)]
     object_id: gix::ObjectId,
     #[serde(skip)]
     change_id: but_core::ChangeId,
@@ -454,7 +458,7 @@ impl BranchCommitInfo {
     /// The commit ref for display: the stable change-ID ref when the commit
     /// has one, its short sha otherwise.
     fn display_ref(&self) -> String {
-        theme::Commit(self.object_id, Some(self.change_id.clone())).to_string()
+        theme::Commit(self.change_id.clone()).to_string()
     }
 }
 

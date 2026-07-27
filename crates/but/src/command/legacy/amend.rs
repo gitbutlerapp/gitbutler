@@ -82,6 +82,7 @@ fn resolve(
         target.as_ref(),
         HowToRewordTarget::UseTargetMessage,
         head_info,
+        repo,
     ) {
         Ok(target) => target,
         Err(err) => {

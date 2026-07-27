@@ -52,7 +52,7 @@ fn amend_rejects_dependency_changes() -> anyhow::Result<()> {
         .stderr_eq(str![[r#"
 Error: Cannot amend: 1 change could not be applied:
   first
-    line 1 depends on foo (5a6fc56)
+    line 1 depends on foo (1)
 
 Hint: to apply these changes, stack bar on top of foo and try again — commits already on the branch move with it:
   but move bar --above foo
@@ -100,7 +100,7 @@ fn assert_multiple_amend(args: impl FnOnce(&str) -> String) -> anyhow::Result<()
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Amended [..] to create [..]
+Amended tpm
 
 "#]])
         .stderr_eq(str![""]);
@@ -163,7 +163,7 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Amended 756ee31 to create f18cbfd
+Amended nyq
 
 "#]]);
 }

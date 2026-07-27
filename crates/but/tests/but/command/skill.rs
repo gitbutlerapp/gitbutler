@@ -384,7 +384,9 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> an
     );
     let stdout: serde_json::Value = serde_json::from_slice(&output.stdout)?;
     assert!(
-        stdout.get("commit").is_some() && stdout.get("status").is_none(),
+        stdout.get("commitId").is_some()
+            && stdout.get("changeId").is_some()
+            && stdout.get("status").is_none(),
         "the default JSON mutation result should remain native and omit status: {stdout}"
     );
 

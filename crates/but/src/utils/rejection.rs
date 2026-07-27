@@ -22,7 +22,10 @@ use but_hunk_dependency::ui::{
     HunkDependencies, HunkLockTarget, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 
-use crate::theme::{self, Paint};
+use crate::{
+    id::CommitId,
+    theme::{self, Paint},
+};
 
 /// Aborts a transaction because some of the selected changes could not be
 /// applied.
@@ -50,7 +53,7 @@ impl std::error::Error for RejectedChanges {}
 /// What the aborted operation was targeting; determines the recovery hint.
 pub enum Target {
     /// A commit already in the workspace (amend, `commit --above/--below`).
-    Commit(gix::ObjectId),
+    Commit(CommitId),
     /// The tip of this existing branch (short name).
     Branch(String),
     /// A branch that would have been created; the rollback removed it again.
@@ -88,12 +91,15 @@ pub fn explain_after_rollback(
     let (repo, ws) = (&repo, &ws);
 
     let target_branch = match &target {
-        Target::Commit(id) => branch_of_commit(ws, *id, None),
+        Target::Commit(commit) => branch_of_commit(ws, commit.commit_id, None),
         Target::Branch(name) => Some(name.clone()),
         Target::NewBranch(_) => None,
     };
 
-    let changes = explain_rejections(repo, ws, &rejected.0, target_branch.as_deref());
+    let changes = match explain_rejections(repo, ws, &rejected.0, target_branch.as_deref()) {
+        Ok(changes) => changes,
+        Err(other) => return other,
+    };
 
     let mut message = format!("Cannot {verb}: {rejected}:\n");
     // Writing to a String cannot fail.
@@ -130,7 +136,7 @@ struct HunkDependency {
 
 /// A commit a hunk depends on, resolved to a human-friendly branch name.
 struct DependencyCommit {
-    commit_id: gix::ObjectId,
+    commit: CommitId,
     /// The short name of the branch owning [`Self::commit_id`], if it could be
     /// resolved from the workspace.
     branch: Option<String>,
@@ -149,7 +155,7 @@ fn explain_rejections(
     ws: &Workspace,
     rejected_specs: &[(RejectionReason, DiffSpec)],
     target_branch: Option<&str>,
-) -> Vec<RejectedChange> {
+) -> anyhow::Result<Vec<RejectedChange>> {
     let needs_dependencies = rejected_specs
         .iter()
         .any(|(reason, _)| is_dependency_reason(*reason));
@@ -182,7 +188,7 @@ fn explain_rejections(
         .map(|(reason, spec)| {
             let dependencies = match &dependencies {
                 Some(deps) if is_dependency_reason(*reason) => {
-                    dependencies_for_spec(ws, deps, spec)
+                    dependencies_for_spec(ws, repo, deps, spec)?
                 }
                 _ => Vec::new(),
             };
@@ -196,14 +202,14 @@ fn explain_rejections(
             } else {
                 Vec::new()
             };
-            RejectedChange {
+            Ok(RejectedChange {
                 path: spec.path.clone(),
                 reason: *reason,
                 dependencies,
                 suspected_branches,
-            }
+            })
         })
-        .collect()
+        .collect::<anyhow::Result<Vec<_>>>()
 }
 
 /// The per-change lines and, when every dependency points at a single other
@@ -237,7 +243,7 @@ fn write_report<W: std::fmt::Write + ?Sized>(
         for dependency in &change.dependencies {
             let range = hunk_range_label(&dependency.hunk);
             for commit in &dependency.commits {
-                let id = theme::Commit(commit.commit_id, None);
+                let id = theme::Commit(&commit.commit);
                 match &commit.branch {
                     Some(branch) => writeln!(
                         out,
@@ -366,9 +372,10 @@ fn sole_dependency_branch(changes: &[RejectedChange]) -> Option<&str> {
 /// context lines, so their boundaries rarely match the spec's hunks exactly.
 fn dependencies_for_spec(
     ws: &Workspace,
+    repo: &gix::Repository,
     dependencies: &HunkDependencies,
     spec: &DiffSpec,
-) -> Vec<HunkDependency> {
+) -> anyhow::Result<Vec<HunkDependency>> {
     let spec_path = spec.path.as_bstr();
     let mut result = Vec::new();
     for (dep_path, dep_hunk, locks) in &dependencies.diffs {
@@ -391,14 +398,16 @@ fn dependencies_for_spec(
         }
         let commits = locks
             .iter()
-            .map(|lock| DependencyCommit {
-                commit_id: lock.commit_id,
-                branch: branch_of_commit(ws, lock.commit_id, stack_of(lock.target)),
+            .map(|lock| {
+                Ok(DependencyCommit {
+                    commit: CommitId::try_from_commit_id(lock.commit_id, repo)?,
+                    branch: branch_of_commit(ws, lock.commit_id, stack_of(lock.target)),
+                })
             })
-            .collect();
+            .collect::<anyhow::Result<Vec<_>>>()?;
         result.push(HunkDependency { hunk, commits });
     }
-    result
+    Ok(result)
 }
 
 /// The stack a lock points at, if it is identifiable.

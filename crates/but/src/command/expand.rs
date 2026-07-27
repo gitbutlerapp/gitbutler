@@ -123,11 +123,15 @@ pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutco
 
 fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
     match cli_id {
-        CliId::Commit(CommitId {
-            commit_id,
-            change_id,
-            ..
-        }) => vec![Resource::Commit {
+        CliId::Commit {
+            commit:
+                CommitId {
+                    commit_id,
+                    change_id,
+                    ..
+                },
+            id: _,
+        } => vec![Resource::Commit {
             change_id: change_id.map(|id| id.to_string()),
             commit_id: commit_id.to_string(),
         }],
@@ -151,9 +155,12 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
                     .unwrap_or_else(|| "<no hunk header>".to_string()),
             })
             .collect(),
-        CliId::CommittedFile(CommittedFileId {
-            commit_id, path, ..
-        }) => vec![Resource::CommittedFile {
+        CliId::CommittedFile {
+            committed_file: CommittedFileId {
+                commit_id, path, ..
+            },
+            id: _,
+        } => vec![Resource::CommittedFile {
             commit_id: commit_id.to_string(),
             path: path.to_string(),
         }],
