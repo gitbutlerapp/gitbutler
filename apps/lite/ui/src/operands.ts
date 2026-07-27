@@ -85,8 +85,7 @@ export const commitFileParent = ({ commitId, changeId }: CommitOperand): FilePar
 
 const uncommittedChangesIdentityKey = "uncommitted_changes";
 
-export const branchIdentityKey = (operand: BranchOperand) =>
-	`branch:${operand.branchRef.join(",")}`;
+const branchIdentityKey = (operand: BranchOperand) => `branch:${operand.branchRef.join(",")}`;
 
 export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
 	`commit:${operand.commitId}`;
@@ -105,8 +104,22 @@ const fileParentIdentityKey = (fp: FileParent): string => {
 	}
 };
 
-export const fileIdentityKey = (operand: FileOperand) =>
+export const weakFileParentIdentityKey = (fp: FileParent): string => {
+	switch (fp._tag) {
+		case "UncommittedChanges":
+			return uncommittedChangesIdentityKey;
+		case "Branch":
+			return branchIdentityKey(fp);
+		case "Commit":
+			return weakCommitIdentityKey(fp);
+	}
+};
+
+const fileIdentityKey = (operand: FileOperand) =>
 	`file:${operand.path} <- ${fileParentIdentityKey(operand.parent)}`;
+
+export const weakFileIdentityKey = (operand: FileOperand) =>
+	`file:${operand.path} <- ${weakFileParentIdentityKey(operand.parent)}`;
 
 const hunkIdentityKey = (operand: HunkOperand) =>
 	`hunk:${JSON.stringify(operand.hunkHeader)}:${JSON.stringify(operand.lineGroups)}:${operand.isResultOfBinaryToTextConversion} <- ${fileIdentityKey(operand.parent)}`;

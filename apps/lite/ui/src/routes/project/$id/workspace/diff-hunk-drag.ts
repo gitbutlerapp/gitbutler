@@ -24,7 +24,7 @@ const HUNK_LINE_SELECTOR =
 	'[data-column-number][data-line-type="change-addition"], [data-column-number][data-line-type="change-deletion"]';
 const HUNK_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
 
-type OnPostRender = NonNullable<CodeViewOptions<undefined>["onPostRender"]>;
+type OnPostRender<T> = NonNullable<CodeViewOptions<T>["onPostRender"]>;
 
 type Registration = {
 	itemId: string;
@@ -70,13 +70,13 @@ const cleanHunkDragHandles = (host: HTMLElement): void => {
 	}
 };
 
-export const useDiffHunkDrag = ({
+export const useDiffHunkDrag = <T>({
 	projectId,
 	getHunkOperand,
 }: {
 	projectId: string;
 	getHunkOperand: (target: DiffLineTarget) => HunkOperand | null;
-}): OnPostRender => {
+}): OnPostRender<T> => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
 
@@ -97,7 +97,7 @@ export const useDiffHunkDrag = ({
 	configRef.current = config;
 	const registrationsRef = useRef<Map<HTMLElement, Registration>>(new Map());
 
-	const onPostRenderRef = useRef<OnPostRender>(null);
+	const onPostRenderRef = useRef<OnPostRender<T>>(null);
 	onPostRenderRef.current ??= (host, _instance, phase, context): void => {
 		const registrations = registrationsRef.current;
 		const existing = registrations.get(host);

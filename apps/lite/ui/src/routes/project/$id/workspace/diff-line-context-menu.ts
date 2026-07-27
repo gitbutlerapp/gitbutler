@@ -6,9 +6,9 @@ export type DiffLineContextMenuTarget = {
 	event: MouseEvent;
 } & DiffLineTarget;
 
-const contextMenuTarget = (
+const contextMenuTarget = <T>(
 	event: MouseEvent,
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>,
+	viewerRef: RefObject<CodeViewHandle<T> | null>,
 ): DiffLineContextMenuTarget | null => {
 	// Pierre renders every diff item into its own open shadow root. Context-menu events are
 	// composed, so inspecting their path lets us delegate from the stable CodeView container
@@ -30,11 +30,11 @@ const contextMenuTarget = (
 	return target ? { event, ...target } : null;
 };
 
-export const useDiffLineContextMenu = ({
+export const useDiffLineContextMenu = <T>({
 	viewerRef,
 	onContextMenu,
 }: {
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	viewerRef: RefObject<CodeViewHandle<T> | null>;
 	onContextMenu: (target: DiffLineContextMenuTarget) => void;
 }): void => {
 	const handleContextMenu = useEffectEvent((event: MouseEvent) => {
