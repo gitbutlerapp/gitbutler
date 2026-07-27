@@ -66,7 +66,19 @@ impl CliIdArg {
         purpose: Purpose,
         priority: Option<Priority>,
     ) -> CliResult<Option<ResolvedCliIdArg>> {
-        let Some(id) = try_resolve_cli_id(self, repo, id_map, purpose, priority)? else {
+        let id = if matches!(purpose, Purpose::Uncommitted) {
+            debug_assert!(
+                priority.is_none(),
+                "uncommitted-only resolution does not accept cross-kind priority"
+            );
+            match self.try_resolve_uncommitted_id(repo, id_map)? {
+                Some(id) => Some(id),
+                None => try_resolve_cli_id(self, repo, id_map, purpose, priority)?,
+            }
+        } else {
+            try_resolve_cli_id(self, repo, id_map, purpose, priority)?
+        };
+        let Some(id) = id else {
             return Ok(None);
         };
         Ok(Some(match id {
@@ -175,17 +187,10 @@ impl CliIdArg {
         repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<Option<Vec<UncommittedHunkOrFile>>> {
-        let Some(id) = try_resolve_cli_id(
-            self,
-            repo,
-            id_map,
-            Purpose::Uncommitted,
-            Some(Priority::Uncommitted),
-        )?
-        else {
+        let Some(target) = self.try_resolve_uncommitted_id(repo, id_map)? else {
             return Ok(None);
         };
-        match id {
+        match target {
             CliId::UncommittedHunkOrFile(uncommitted) => Ok(Some(vec![uncommitted])),
             CliId::PathPrefix {
                 id: _,
@@ -207,6 +212,40 @@ impl CliIdArg {
             )),
             _ => Ok(None),
         }
+    }
+
+    fn try_resolve_uncommitted_id(
+        &self,
+        repo: &gix::Repository,
+        id_map: &IdMap,
+    ) -> CliResult<Option<CliId>> {
+        let mut target_ids = id_map
+            .parse_uncommitted_using_repo(&self.0, repo)?
+            .into_iter()
+            .peekable();
+        let Some(target) = target_ids.next() else {
+            return Ok(None);
+        };
+        let target = if target_ids.peek().is_none() {
+            target
+        } else {
+            let mut uncommitted = std::iter::once(target)
+                .chain(target_ids)
+                .filter(|id| matches!(id, CliId::UncommittedHunkOrFile(_)))
+                .collect::<Vec<_>>();
+            match uncommitted.len() {
+                0 => return Ok(None),
+                1 => uncommitted.pop().expect("exactly one item"),
+                _ => {
+                    return Err(bad_input(format!(
+                        "Ambiguous uncommitted change '{self}', matches multiple items"
+                    ))
+                    .hint("Use a longer ID to disambiguate")
+                    .into());
+                }
+            }
+        };
+        Ok(Some(target))
     }
 
     /// TODO
@@ -346,7 +385,8 @@ pub enum Purpose {
     Target,
     #[expect(missing_docs)]
     Source,
-    #[expect(missing_docs)]
+    /// Prefer uncommitted file and hunk IDs, then preserve any other matching kind so callers can
+    /// report a targeted wrong-kind error. Cross-kind priority is not supported for this purpose.
     Uncommitted,
 }
 

@@ -259,3 +259,26 @@ fn reword_commit_with_json_flag() {
 "#]]
     );
 }
+
+#[test]
+fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let output = env
+        .but("reword tpm -m 'Updated commit message' --format json --status-after")
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout)?;
+
+    assert!(
+        json["result"]["new_commit_id"].is_string(),
+        "status output must retain the reword result"
+    );
+    assert!(
+        json["status"]["stacks"].is_array(),
+        "status-after must include the workspace with fresh commit IDs"
+    );
+
+    Ok(())
+}

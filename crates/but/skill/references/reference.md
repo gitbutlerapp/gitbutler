@@ -182,9 +182,9 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 - **Hunk IDs** (`<file-id>:<hunk-id>`) from `but diff`: commits individual hunks
 - IDs are space-separated (`<id> <id>`). Commas are not separators — `a1,b2` is parsed as a single ID and fails to resolve.
 
-**Placing commits:** Use `--above <target>` or `--below <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — use refs from the returned status output for subsequent history edits.
+**Placing commits:** Use `--above <target>` or `--below <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — add `--status-after` when subsequent history edits need fresh refs.
 
-**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time when a ref is sha-based or `#N`-suffixed, or when the next command needs IDs the previous one prints, and take follow-up refs from the returned workspace state. Bare `but diff` needs no ID from the preceding command, so `but uncommit <id> && but diff` is safe. If commits from that branch must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit the replacements, then move the preserved block together with `but move <preserved-id> [<preserved-id>...] -b <branch>` so its internal order stays intact.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. Mutation output is concise by default. Add `--status-after` only when the next step needs workspace IDs or details that the mutation result does not provide. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time with `--status-after` when a ref is sha-based or `#N`-suffixed, or when the next command needs freshly issued IDs. Bare `but diff` needs no ID from the preceding command, so `but uncommit <id> && but diff` is safe. If commits from that branch must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit the replacements, then move the preserved block together with `but move <preserved-id> [<preserved-id>...] -b <branch>` so its internal order stays intact.
 
 Example: `but commit -b my-branch -m "Fix bug" ab cd` commits files/hunks `ab` and `cd`.
 
@@ -232,7 +232,7 @@ None of the message flags may be used when the target is `zz`.
 
 For multiple independent squash groups, prefer newer/top groups first; change-ID refs from
 one status read stay valid across squashes (the target keeps its ref), so the
-groups may run in sequence — take fresh refs from the returned status only
+groups may run in sequence — use `--status-after` to get fresh refs only
 when a ref is sha-based or `#N`-suffixed.
 
 ### `but amend -t <commit-or-branch> <SOURCES>...`
@@ -277,8 +277,8 @@ but uncommit <commit-id>                 # Uncommit an entire commit
 but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
 ```
 
-The returned status lists the resulting uncommitted file IDs. When you also need hunk IDs to
-recommit selectively, use `but uncommit <id> && but diff` in one shell call.
+When you need file and hunk IDs to recommit selectively, use
+`but uncommit <id> && but diff` in one shell call.
 
 ### `but reword <id>`
 
@@ -330,7 +330,13 @@ Finalize conflict resolution.
 
 ```bash
 but resolve finish
+but resolve finish --status-after  # When clearing the last conflict and its workspace is needed
 ```
+
+The concise result reports leftover markers, surviving uncommitted changes, every remaining
+conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the
+finish you expect to clear the last conflict only when the task needs the complete resulting
+workspace. When it says no conflicted commits remain, stop; do not run a verification status.
 
 ### `but resolve cancel`
 
@@ -345,7 +351,7 @@ but resolve cancel --force
 
 1. `but resolve <commit-id>` — enter resolution mode using the commit ID from the `but pull` summary (or `but status`); the conflict regions are printed with line numbers
 2. Edit the conflicted files — remove every marker (`<<<<<<<`, `|||||||`, `=======`, `>>>>>>>`; conflicts are diff3-style, so the `|||||||` common-ancestor section is present too) and keep the correct content (`but resolve status` re-lists what remains when several files are conflicted)
-3. `but resolve finish` — finalize and return to normal mode; the output reports leftover markers, surviving uncommitted changes, every remaining conflicted commit with the exact next `but resolve <id>` command, and the resulting workspace state. When it says no conflicted commits remain, do not run a follow-up status
+3. Finalize with `but resolve finish`; add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status
 4. If multiple commits are conflicted, repeat steps 1-3 for each one, oldest commit first — finishing a lower commit rebases the ones above it
 
 **Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly.

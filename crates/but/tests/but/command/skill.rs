@@ -117,7 +117,7 @@ fn agent_skill_notice_gating() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    // Only human-text output can carry the notice; JSON output skips the check.
+    // JSON stdout remains machine-readable. Skill upkeep is silent when nothing needs attention.
     let json_run = env
         .but("--format json alias list")
         .env("AI_AGENT", "codex")
@@ -352,6 +352,53 @@ fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
         expected,
         "the detected agent should refresh other agents' global GitButler skill installations"
     );
+}
+
+#[test]
+#[cfg(feature = "legacy")]
+fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("skill install")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success();
+    env.but("skill install")
+        .env("AI_AGENT", "claude-code")
+        .assert()
+        .success();
+
+    let claude_skill_path = env.home_dir().join(".claude/skills/gitbutler/SKILL.md");
+    let expected = std::fs::read_to_string(&claude_skill_path)?;
+    std::fs::write(&claude_skill_path, "---\nname: but\nversion: old\n---\n")?;
+    env.file("file.txt", "Some text");
+
+    let output = env
+        .but("commit --no-message --format json")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .output()?;
+    assert!(
+        output.status.success(),
+        "the JSON mutation used to verify skill repair must succeed"
+    );
+    let stdout: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert!(
+        stdout.get("commit").is_some() && stdout.get("status").is_none(),
+        "the default JSON mutation result should remain native and omit status: {stdout}"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("was out of date and was updated"),
+        "JSON commands should report skill upkeep on stderr without wrapping stdout, got: {stderr}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&claude_skill_path)?,
+        expected,
+        "a JSON agent command should still refresh other agents' global skill installations"
+    );
+    Ok(())
 }
 
 #[test]

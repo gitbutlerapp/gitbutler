@@ -431,26 +431,30 @@ fn diff_help_explains_single_target() {
 }
 
 #[test]
-fn status_after_is_hidden_noop_compatibility_flag() {
-    use clap::Parser;
+fn status_after_is_global_and_shown_in_help() {
+    use clap::{CommandFactory, Parser};
 
-    let args = Args::try_parse_from(["but", "branch", "--format", "json", "--status-after"])
-        .expect("parse legacy status-after flag");
-
-    assert!(matches!(dbg!(args.format.format), OutputFormat::Json));
-    assert!(args.legacy_status_after);
-    assert!(!args.status_after);
-}
-
-#[test]
-fn status_after_is_not_shown_in_help() {
-    use clap::CommandFactory;
+    let before = Args::try_parse_from(["but", "--status-after", "branch"])
+        .expect("parse status-after before command");
+    let after = Args::try_parse_from(["but", "branch", "--status-after"])
+        .expect("parse status-after after command");
+    assert!(
+        before.status_after,
+        "a global status-after flag must parse before a built-in command"
+    );
+    assert!(
+        after.status_after,
+        "a global status-after flag must parse after a built-in command"
+    );
 
     let help = Args::command().render_long_help().to_string();
-
     assert!(
-        !help.contains("--status-after"),
-        "compatibility-only flag should stay hidden from help"
+        help.contains("--status-after"),
+        "status opt-in should be discoverable in help"
+    );
+    assert!(
+        help.contains("next step needs IDs or details"),
+        "help should explain when status is useful"
     );
 }
 

@@ -35,6 +35,10 @@ fn generated_default_policy_includes_baseline_and_default_preferences() {
     assert!(policy.contains("For commit just/only/specific changes on a new branch"));
     assert!(policy.contains("For that fast path, after the commit succeeds, stop and summarize"));
     assert!(policy.contains("Use the installed GitButler skill for command recipes and syntax"));
+    assert!(
+        policy.contains("Mutation commands report their result without appending workspace status")
+    );
+    assert!(policy.contains("Add `--status-after` only when the next step needs"));
     assert!(policy.contains("amend an unpublished local commit"));
     assert!(policy.contains("Use GitButler to move the relevant changes"));
     assert!(policy.contains("If one file contains unrelated changes"));

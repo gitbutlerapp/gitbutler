@@ -59,6 +59,63 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn agent_mutation_omits_status_unless_requested() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "Some text");
+
+    let result = env
+        .but("commit --no-message")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+
+    assert!(stdout.contains("Created commit"));
+    assert!(
+        !stdout.contains("╭┄ zz"),
+        "agent mutations must omit workspace status by default"
+    );
+    assert!(
+        !stdout.contains("commits are listed newest first"),
+        "agent mutations must omit status hints by default"
+    );
+
+    env.file("other.txt", "Other text");
+    let result = env
+        .but("commit --no-message --status-after")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+
+    assert!(stdout.contains("Created commit"));
+    assert!(
+        stdout.contains("╭┄ zz"),
+        "explicit status opt-in must append workspace status"
+    );
+}
+
+#[test]
+fn human_mutation_can_request_status_after() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "Some text");
+
+    let result = env
+        .but("commit --no-message --status-after")
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+
+    assert!(stdout.contains("Created commit"));
+    assert!(
+        stdout.contains("╭┄ zz"),
+        "human callers should be able to opt into workspace status"
+    );
+}
+
+#[test]
 fn no_args_single_head_no_message_shell_output() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -75,7 +132,26 @@ fn no_args_single_head_no_message_shell_output() {
 }
 
 #[test]
-fn no_args_single_head_no_message_json_output() {
+fn agent_commit_json_uses_native_result_without_status_by_default() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message --format json")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commit": "7bbfdca68284535242b93595db5f6a5bc885a124"
+}
+
+"#]]);
+}
+
+#[test]
+fn non_agent_commit_json_uses_native_result() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
