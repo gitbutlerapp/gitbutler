@@ -162,6 +162,12 @@
 	}
 }
 
+.annotate {
+	z-index: 1;
+	position: relative;
+	translate: calc(50% + 1px) 0;
+}
+
 .avatar {
 	width: 16px;
 	height: 16px;

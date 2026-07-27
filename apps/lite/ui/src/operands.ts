@@ -104,7 +104,7 @@ const fileParentIdentityKey = (fp: FileParent): string => {
 	}
 };
 
-const weakFileParentIdentityKey = (fp: FileParent): string => {
+export const weakFileParentIdentityKey = (fp: FileParent): string => {
 	switch (fp._tag) {
 		case "UncommittedChanges":
 			return uncommittedChangesIdentityKey;
