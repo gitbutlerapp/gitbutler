@@ -50,7 +50,15 @@ import type {
 } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEventHandler, Suspense, useId, useRef, useState } from "react";
+import {
+	type FC,
+	type SubmitEventHandler,
+	Suspense,
+	useDeferredValue,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import styles from "./PullRequestTab.module.css";
 
 /**
@@ -68,7 +76,7 @@ import styles from "./PullRequestTab.module.css";
  */
 
 /**
- * Title/description form for creating a PR or editing an existing one.
+ * Title/description preview with an optional form for creating or editing a PR.
  *
  * Unsubmitted input persists to idb per project+branch (survives restarts,
  * follows renames) and is cleared on Reset/Cancel. When the remote PR
@@ -83,13 +91,25 @@ export const PullRequestForm: FC<{
 	title: string | null;
 	body: string | null;
 	canSubmit: boolean;
+	editing?: boolean;
 	onAfterSubmit?: () => void;
 	/** Replaces Reset with a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
-}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, onAfterSubmit, onCancel }) => {
+}> = ({
+	projectId,
+	sourceBranch,
+	reviewId,
+	title,
+	body,
+	canSubmit,
+	editing = true,
+	onAfterSubmit,
+	onCancel,
+}) => {
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
+	const autofocusSelectionScope = useAutofocusSelectionScope();
 
 	const remoteOrEmptyDocument = {
 		title: title ?? "",
@@ -103,6 +123,8 @@ export const PullRequestForm: FC<{
 		body: persistedDocument?.body ?? body ?? "",
 		isDraft: persistedDocument?.isDraft ?? false,
 	});
+	const deferredTitle = useDeferredValue(localDocument.title);
+	const deferredBody = useDeferredValue(localDocument.body);
 	const { mutate: persistDraftPR } = usePersistDraftPR();
 	const { mutate: deleteDraftPR } = useDeleteDraftPR();
 
@@ -181,85 +203,104 @@ export const PullRequestForm: FC<{
 
 	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		enabled: !isAnyPending && hasChanges,
+		enabled: editing && !isAnyPending && hasChanges,
 		target: formRef,
 	});
 
 	return (
-		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
-		<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Title</Field.Label>
-				<Field.Control
-					render={<FieldControlStyles />}
-					className="text-15 text-semibold"
-					data-selection-scope={"pr" satisfies SelectionScope}
-					ref={useAutofocusSelectionScope()}
-					name="title"
-					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
-					placeholder="Title"
-					required
-					value={localDocument.title}
-				/>
-			</Field.Root>
+		<div className={styles.prView}>
+			<h3 className={classes("text-15", "text-semibold")}>
+				{editing ? deferredTitle : remoteOrEmptyDocument.title}
+			</h3>
+			<Clamped maxHeight="80vh" skipWhenViewportFits>
+				<Markdown>{editing ? deferredBody : remoteOrEmptyDocument.body}</Markdown>
+			</Clamped>
 
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Description</Field.Label>
-				<Field.Control
-					render={<FieldTextareaStyles />}
-					className="text-14 text-body text-monospace"
-					name="body"
-					onChange={(evt) => setLocalDocument({ ...localDocument, body: evt.currentTarget.value })}
-					placeholder="Description"
-					value={localDocument.body}
-				/>
-			</Field.Root>
-
-			{isNew && (
-				<Field.Root render={<FieldRootStyles />}>
-					<Field.Label render={<FieldLabelStyles />}>Draft</Field.Label>
-					<Checkbox
-						checked={localDocument.isDraft}
-						name="isDraft"
-						onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
-					/>
-				</Field.Root>
+			{!editing && remoteOrEmptyDocument.body.trim() === "" && (
+				<p className={classes("text-13", styles.prViewEmptyBody)}>No description provided.</p>
 			)}
 
-			<div className={styles.prFormActions}>
-				{onCancel !== undefined ? (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending}
-						onClick={() => {
-							handleReset();
-							onCancel();
-						}}
-						type="button"
-					>
-						Cancel
-					</button>
-				) : (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending || !hasChanges}
-						onClick={handleReset}
-						type="button"
-					>
-						Reset
-					</button>
-				)}
+			{editing && (
+				// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
+				<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
+					<Field.Root render={<FieldRootStyles />}>
+						<Field.Label render={<FieldLabelStyles />}>Title</Field.Label>
+						<Field.Control
+							render={<FieldControlStyles />}
+							className="text-15 text-semibold"
+							data-selection-scope={"pr" satisfies SelectionScope}
+							ref={autofocusSelectionScope}
+							name="title"
+							onChange={(evt) =>
+								setLocalDocument({ ...localDocument, title: evt.currentTarget.value })
+							}
+							placeholder="Title"
+							required
+							value={localDocument.title}
+						/>
+					</Field.Root>
 
-				<button
-					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canSubmit || isAnyPending || !hasChanges}
-					type="submit"
-				>
-					{isAnyPending && <Icon name="spinner" />}
-					{isNew ? "Submit" : "Update"}
-				</button>
-			</div>
-		</form>
+					<Field.Root render={<FieldRootStyles />}>
+						<Field.Label render={<FieldLabelStyles />}>Description</Field.Label>
+						<Field.Control
+							render={<FieldTextareaStyles />}
+							className="text-14 text-body text-monospace"
+							name="body"
+							onChange={(evt) =>
+								setLocalDocument({ ...localDocument, body: evt.currentTarget.value })
+							}
+							placeholder="Description"
+							value={localDocument.body}
+						/>
+					</Field.Root>
+
+					{isNew && (
+						<Field.Root render={<FieldRootStyles />}>
+							<Field.Label render={<FieldLabelStyles />}>Draft</Field.Label>
+							<Checkbox
+								checked={localDocument.isDraft}
+								name="isDraft"
+								onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
+							/>
+						</Field.Root>
+					)}
+
+					<div className={styles.prFormActions}>
+						{onCancel !== undefined ? (
+							<button
+								className={getButtonClassName({})}
+								disabled={isAnyPending}
+								onClick={() => {
+									handleReset();
+									onCancel();
+								}}
+								type="button"
+							>
+								Cancel
+							</button>
+						) : (
+							<button
+								className={getButtonClassName({})}
+								disabled={isAnyPending || !hasChanges}
+								onClick={handleReset}
+								type="button"
+							>
+								Reset
+							</button>
+						)}
+
+						<button
+							className={getButtonClassName({ variant: "pop" })}
+							disabled={!canSubmit || isAnyPending || !hasChanges}
+							type="submit"
+						>
+							{isAnyPending && <Icon name="spinner" />}
+							{isNew ? "Submit" : "Update"}
+						</button>
+					</div>
+				</form>
+			)}
+		</div>
 	);
 };
 
@@ -298,13 +339,14 @@ export const PullRequestDescription: FC<{
 		else removeReviewReaction({ projectId, reviewId, reactionId: myReactionId });
 	};
 
-	if (editing) {
-		return (
-			// Own boundary: the form suspends on its first idb draft read, and
-			// without this the whole PR tab flashes to the tab-level fallback.
+	return (
+		<div className={styles.prView}>
+			{/* Own boundary: the form suspends on its first idb draft read, and
+			without this the whole PR tab flashes to the tab-level fallback. */}
 			<Suspense fallback={null}>
 				<PullRequestForm
 					body={body}
+					editing={editing}
 					projectId={projectId}
 					reviewId={reviewId}
 					sourceBranch={sourceBranch}
@@ -314,21 +356,6 @@ export const PullRequestDescription: FC<{
 					onCancel={onDoneEditing}
 				/>
 			</Suspense>
-		);
-	}
-
-	return (
-		<div className={styles.prView}>
-			<h3 className={classes("text-15", "text-semibold")}>{title}</h3>
-
-			{body !== null && body.trim() !== "" ? (
-				// Taller ceiling than comments: only truly huge descriptions fold.
-				<Clamped maxHeight="80vh" skipWhenViewportFits>
-					<Markdown>{body}</Markdown>
-				</Clamped>
-			) : (
-				<p className={classes("text-13", styles.prViewEmptyBody)}>No description provided.</p>
-			)}
 
 			{reviewReactions !== undefined && (
 				<Reactions
