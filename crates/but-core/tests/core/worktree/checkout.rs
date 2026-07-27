@@ -189,21 +189,14 @@ Outcome {
 "#]]
     );
     snapbox::assert_data_eq!(
-        visualize_index(&*repo.index()?),
+        visualize_disk_tree_skip_dot_git(&repo.workdir().unwrap())?.to_string(),
         snapbox::str![[r#"
-100644:3aac70f file
-120000:c4c364c link
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        git_status(&repo)?,
-        snapbox::str![[r#"
- D file
- D link
-?? executable-renamed
-?? file-renamed
-?? link-renamed
+.
+├── .git:40755
+├── executable-renamed:100755
+├── fifo-should-be-ignored:10644
+├── file-renamed:100644
+└── link-renamed:120755
 
 "#]]
     );
