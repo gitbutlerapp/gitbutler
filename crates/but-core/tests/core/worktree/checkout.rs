@@ -709,12 +709,12 @@ fn worktree_snapshot_of_legacy_crlf_blob_merges_cleanly_with_independent_target_
         .into_blob();
     assert_eq!(
         legacy_blob.data.as_bstr(),
-        "1\r\n2\r\n3\r\n",
-        "the tracked blob must start from digit-only CRLF content so the later spelled-out edits are clearly distinguishable"
+        "1\r\n2\r\nunchanged\r\n3\r\n",
+        "the tracked blob must keep legacy CRLF content so the later edits exercise renormalization"
     );
 
     // This write is with line-endings that are unchanged from the ones on disk, and from what's in Git (CRLF).
-    std::fs::write(&file_path, b"1\r\ntwo from worktree\r\n3\r\n")?;
+    std::fs::write(&file_path, b"1\r\ntwo from worktree\r\nunchanged\r\n3\r\n")?;
     assert_eq!(
         git_status(&repo)?,
         " M ImportOrdersJob.cs\n",
@@ -725,7 +725,7 @@ fn worktree_snapshot_of_legacy_crlf_blob_merges_cleanly_with_independent_target_
         &repo,
         |tree| {
             // This commit also has the right line endings (CRLF)
-            let blob_id = repo.write_blob(b"1\r\n2\r\nthree from target\r\n")?;
+            let blob_id = repo.write_blob(b"1\r\n2\r\nunchanged\r\nthree from target\r\n")?;
             tree.upsert("ImportOrdersJob.cs", EntryKind::Blob, blob_id)?;
             Ok(())
         },
@@ -740,7 +740,7 @@ fn worktree_snapshot_of_legacy_crlf_blob_merges_cleanly_with_independent_target_
         out.to_debug(),
         snapbox::str![[r#"
 Outcome {
-    head_update: "Update refs/heads/main to Some(Object(Sha1(a530b145a2513ba5b2a4418bbb74920d3967f8fb)))",
+    head_update: "Update refs/heads/main to Some(Object(Sha1(85b1faf797d37682f3caccdb9fb941d9acdfe325)))",
 }
 
 "#]]
@@ -748,7 +748,7 @@ Outcome {
 
     assert_eq!(
         std::fs::read(&file_path)?.as_bstr(),
-        "1\r\ntwo from worktree\r\nthree from target\r\n",
+        "1\r\ntwo from worktree\r\nunchanged\r\nthree from target\r\n",
         "checkout keeps the worktree edit and applies the independent target change"
     );
     assert_eq!(
@@ -1039,6 +1039,138 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
         "checkout must abort on partial-commit conflict: {err}"
     );
 
+    Ok(())
+}
+
+#[test]
+fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let file_path = repo.workdir_path("separated").unwrap();
+    let file2_path = repo.workdir_path("file2").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nadded-a\nunchanged\nadded-b\nline2\nline3\n"
+    );
+
+    // Amending `added-a` into a commit outside this checkout's history leaves its
+    // `HEAD` where it is, so the checkout has no tree change of its own to ride on.
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"line1\nadded-a\nunchanged\nline2\nline3\n")?;
+            tree.upsert("separated", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed change",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nunchanged\nadded-b\nline2\nline3\n",
+        "the consumed line is gone - it lives in the commit now - and the one that \
+         wasn't consumed stays behind"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file2_path)?,
+        "line1\nnew-line\nline3\n",
+        "dirt in files the override doesn't mention is untouched"
+    );
+    Ok(())
+}
+
+#[test]
+fn cancelling_a_consumed_addition_removes_it_and_leaves_other_dirt_alone() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let added_path = repo.workdir_path("added.txt").unwrap();
+    std::fs::write(&added_path, "added\n")?;
+
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"added\n")?;
+            tree.upsert("added.txt", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed addition",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert!(
+        !added_path.exists(),
+        "the file lives in a commit now, so it must not linger here as an untracked duplicate"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file").unwrap())?,
+        "line1\nadded-a\nadded-b\nline2\nline3\n",
+        "removing the consumed addition must not let the checkout loose on unrelated dirt"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("file2").unwrap())?,
+        "line1\nnew-line\nline3\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let file_path = repo.workdir_path("separated").unwrap();
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"line1\nadded-a\nunchanged\nline2\nline3\n")?;
+            tree.upsert("separated", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed change",
+    )?
+    .tree_id()?
+    .detach();
+
+    // Someone writes to the file between computing the override and checking out.
+    std::fs::write(
+        &file_path,
+        "line1\nadded-a\nunchanged\nadded-b\nline2\nline3\nappended\n",
+    )?;
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nunchanged\nadded-b\nline2\nline3\nappended\n",
+        "the snapshot is taken live, so the concurrent edit survives the cancellation"
+    );
     Ok(())
 }
 
