@@ -614,11 +614,26 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
                     if has_conflicts {
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
-                        writeln!(
-                            out,
-                            "  1. Run {} on a conflicted commit listed above — oldest first (they are listed bottom-up). Worktree files show no conflict markers until this checks the commit out",
-                            t.command_suggestion.paint("`but resolve <commit>`")
-                        )?;
+                        if let Some(next_commit) = conflicted_rebases
+                            .iter()
+                            .find_map(|branch| conflicted_commits.get(branch)?.first())
+                        {
+                            writeln!(
+                                out,
+                                "  1. Start with: {}. Worktree files show no conflict markers until this checks the commit out",
+                                t.command_suggestion.paint(format!(
+                                    "`but resolve {}`",
+                                    next_commit.commit_short_id
+                                ))
+                            )?;
+                        } else {
+                            writeln!(
+                                out,
+                                "  1. Run {} to inspect the conflicted commits, then {}. Worktree files show no conflict markers until resolve checks the commit out",
+                                t.command_suggestion.paint("`but status`"),
+                                t.command_suggestion.paint("`but resolve <commit>`")
+                            )?;
+                        }
                         writeln!(out, "  2. Edit files to resolve the conflicts")?;
                         writeln!(
                             out,
