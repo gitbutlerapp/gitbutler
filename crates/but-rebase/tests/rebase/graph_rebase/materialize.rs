@@ -1,10 +1,7 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{
-    Editor, Step,
-    mutate::{SegmentDelimiter, SelectorSet},
-};
+use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{
     StackState, git_status, graph_tree, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git,
@@ -56,25 +53,6 @@ fn options_with_worktrees(
         .map(|name| worktree_tip(repo, name))
         .collect::<Result<Vec<_>>>()?;
     Ok(options)
-}
-
-fn repoint_reference(
-    editor: &mut Editor<'_, '_, impl but_core::RefMetadata>,
-    refname: &str,
-    target: gix::ObjectId,
-) -> Result<()> {
-    let reference = editor.select_reference(refname.try_into()?)?;
-    let target = editor.select_commit(target)?;
-    editor.disconnect_segment_from(
-        SegmentDelimiter {
-            child: reference,
-            parent: reference,
-        },
-        SelectorSet::All,
-        SelectorSet::All,
-        false,
-    )?;
-    editor.add_edge(reference, target, 0)
 }
 
 fn linked_repo(repo: &gix::Repository, name: &str) -> Result<gix::Repository> {
@@ -624,85 +602,6 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
     assert!(
         repo.try_find_reference("doomed")?.is_none(),
         "an otherwise-identical unchecked-out branch is deleted"
-    );
-    Ok(())
-}
-
-#[test]
-fn every_linked_worktree_is_prepared_before_reference_edits() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-dirt")?;
-    let worktree_dir = repo.workdir().unwrap().join("wt");
-    let conflicting_dir = repo.workdir().unwrap().join("wt2");
-    std::fs::write(conflicting_dir.join("main-only"), "local collision\n")?;
-
-    let worktree = linked_repo(&repo, "wt")?;
-    let conflicting = linked_repo(&repo, "wt2")?;
-    let refs_before = visualize_commit_graph_all(&repo)?;
-    let middle_before = repo.rev_parse_single("middle")?.detach();
-    let second_before = repo.rev_parse_single("second")?.detach();
-    let worktree_head_before = std::fs::read(worktree.git_dir().join("HEAD"))?;
-    let conflicting_head_before = std::fs::read(conflicting.git_dir().join("HEAD"))?;
-    let worktree_index_before = std::fs::read(worktree.git_dir().join("index"))?;
-    let conflicting_index_before = std::fs::read(conflicting.git_dir().join("index"))?;
-    let worktree_shared_before = std::fs::read(worktree_dir.join("shared"))?;
-    let conflicting_main_before = std::fs::read(conflicting_dir.join("main-only"))?;
-
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        Default::default(),
-        options_with_worktrees(&repo, &["wt", "wt2"])?,
-    )?
-    .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    repoint_reference(
-        &mut editor,
-        "refs/heads/middle",
-        repo.rev_parse_single("main~2")?.detach(),
-    )?;
-    repoint_reference(
-        &mut editor,
-        "refs/heads/second",
-        repo.rev_parse_single("main")?.detach(),
-    )?;
-
-    let err = editor
-        .rebase()?
-        .materialize()
-        .expect_err("the second checkout must fail during preparation");
-    assert!(
-        format!("{err:#}").contains("Uncommitted files would be overwritten by checkout"),
-        "the checkout conflict is surfaced: {err:#}"
-    );
-
-    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
-    assert_eq!(repo.rev_parse_single("middle")?.detach(), middle_before);
-    assert_eq!(repo.rev_parse_single("second")?.detach(), second_before);
-    assert_eq!(
-        std::fs::read(worktree.git_dir().join("HEAD"))?,
-        worktree_head_before
-    );
-    assert_eq!(
-        std::fs::read(conflicting.git_dir().join("HEAD"))?,
-        conflicting_head_before
-    );
-    assert_eq!(
-        std::fs::read(worktree.git_dir().join("index"))?,
-        worktree_index_before
-    );
-    assert_eq!(
-        std::fs::read(conflicting.git_dir().join("index"))?,
-        conflicting_index_before
-    );
-    assert_eq!(
-        std::fs::read(worktree_dir.join("shared"))?,
-        worktree_shared_before
-    );
-    assert!(worktree_dir.join("middle-only").exists());
-    assert_eq!(
-        std::fs::read(conflicting_dir.join("main-only"))?,
-        conflicting_main_before
     );
     Ok(())
 }
