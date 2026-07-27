@@ -1,5 +1,6 @@
 import { useApply } from "#ui/api/mutations.ts";
 import { branchListQueryOptions } from "#ui/api/queries.ts";
+import { branchDetailsParams } from "#ui/branch.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { formatRelativeTime } from "#ui/time.ts";
 import type { ListedBranch, ListedStack } from "@gitbutler/but-sdk";
@@ -34,13 +35,13 @@ const listedBranchToApplyBranchPickerOptions = (
 	}
 
 	return branch.remoteRefs.flatMap(({ full }) => {
-		const type = /^refs\/remotes\/([^/]+)\//.exec(full)?.[1];
+		const { remote } = branchDetailsParams(full);
 
-		return type !== undefined
+		return remote !== null
 			? {
 					branchRef: full,
 					label: branch.displayName,
-					type,
+					type: remote,
 					updatedAt: branch.updatedAtMs,
 				}
 			: [];
