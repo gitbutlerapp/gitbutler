@@ -37,6 +37,7 @@ import {
 	type HunkOperand,
 	type Operand,
 	weakFileIdentityKey,
+	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -68,6 +69,8 @@ import {
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	parsePatchFiles,
+	type GetHoveredLineResult,
+	type DiffLineAnnotation,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -125,6 +128,16 @@ import {
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import type { DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
+import { Annotation } from "#ui/components/Annotation.tsx";
+import {
+	createLocalAnnotation,
+	localAnnotationsQueryOptions,
+	type LocalAnnotation as PersistedLocalAnnotation,
+	type LocalAnnotationsByPath,
+	usePersistLocalAnnotations,
+} from "#ui/annotation.ts";
+
+type Annotation = { _tag: "local"; id: string };
 
 type BranchTab = "diff" | "pr";
 
@@ -188,7 +201,8 @@ const mkCodeViewItem = (
 	id: string,
 	change: TreeChange,
 	hunks: Array<DiffHunk>,
-): CodeViewDiffItem => {
+	annotations: Array<PersistedLocalAnnotation>,
+): CodeViewDiffItem<Annotation> => {
 	const combinedFilePatch = synthesizeFilePatch(change, hunks);
 	const version = hash(combinedFilePatch);
 	const parsed = parsePatchFiles(combinedFilePatch, String(version));
@@ -201,11 +215,20 @@ const mkCodeViewItem = (
 	if (!fileDiff) throw new Error("Failed to parse any files in patch");
 	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
 
+	const itemAnnotations: Array<DiffLineAnnotation<Annotation>> = annotations.map(
+		({ id, lineNumber, side }) => ({
+			lineNumber,
+			side,
+			metadata: { _tag: "local", id },
+		}),
+	);
+
 	return {
 		type: "diff",
 		id,
-		version,
+		version: combineHashes(version, itemAnnotations.length),
 		fileDiff,
+		annotations: itemAnnotations,
 	};
 };
 
@@ -213,11 +236,12 @@ type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
+	annotationsByPath: LocalAnnotationsByPath;
 };
 
 type DiffViewFile = {
 	operand: FileOperand;
-	item: CodeViewDiffItem;
+	item: CodeViewDiffItem<Annotation>;
 	change: TreeChange;
 	patch: UnifiedPatch | null;
 	hunks: Array<DiffViewHunk>;
@@ -230,7 +254,7 @@ type DiffViewHunk = {
 
 type DiffView = {
 	navigationIndex: NavigationIndex<HunkOperand>;
-	items: Array<CodeViewDiffItem>;
+	items: Array<CodeViewDiffItem<Annotation>>;
 	fileByItemId: Map<string, DiffViewFile>;
 	fileByPath: Map<string, DiffViewFile>;
 	fileByHunkKey: Map<string, DiffViewFile>;
@@ -238,13 +262,18 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
+const getDiffView = ({
+	fileParent,
+	changes,
+	treeChangeDiffs,
+	annotationsByPath,
+}: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
 	};
 
-	const items: Array<CodeViewDiffItem> = [];
+	const items: Array<CodeViewDiffItem<Annotation>> = [];
 
 	const fileByItemId = new Map<string, DiffViewFile>();
 	const fileByPath = new Map<string, DiffViewFile>();
@@ -253,6 +282,7 @@ const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): Di
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
+		const annotations = annotationsByPath.get(change.path) ?? [];
 
 		const file: FileOperand = {
 			parent: fileParent,
@@ -262,6 +292,7 @@ const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): Di
 			weakFileIdentityKey(file),
 			change,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
+			annotations,
 		);
 
 		items.push(item);
@@ -324,10 +355,11 @@ const DiffContents: FC<{
 	fileParent: FileParent;
 	projectId: string;
 	diffView: DiffView;
+	annotationsByPath: LocalAnnotationsByPath;
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
 	selectionScopeRef,
@@ -335,6 +367,7 @@ const DiffContents: FC<{
 	fileParent,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
@@ -343,6 +376,22 @@ const DiffContents: FC<{
 }) => {
 	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
 	const dispatch = useAppDispatch();
+	const { mutate: persistLocalAnnotations } = usePersistLocalAnnotations();
+
+	const persistFileAnnotations = (
+		path: string,
+		fileAnnotations: Array<PersistedLocalAnnotation>,
+	) => {
+		const updated = new Map(annotationsByPath);
+		if (fileAnnotations.length === 0) updated.delete(path);
+		else updated.set(path, fileAnnotations);
+
+		persistLocalAnnotations({
+			projectId,
+			fileParentKey: weakFileParentIdentityKey(fileParent),
+			annotations: updated,
+		});
+	};
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...guiSettingsQueryOptions,
@@ -446,7 +495,7 @@ const DiffContents: FC<{
 		},
 	]);
 
-	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>): void => {
+	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<Annotation>): void => {
 		if (didScrollToViaFileRef.current) {
 			didScrollToViaFileRef.current = false;
 			return;
@@ -546,7 +595,7 @@ const DiffContents: FC<{
 		onContextMenu: handleLineContextMenu,
 	});
 
-	const handleHunkPostRender = useDiffHunkDrag({
+	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
 		getHunkOperand: getHunkOperandAtLine,
 	});
@@ -594,6 +643,72 @@ const DiffContents: FC<{
 					/>
 				);
 			}}
+			renderGutterUtility={(getHoveredLine, item) => {
+				const handleClick = () => {
+					const badlyTypedLine = getHoveredLine();
+					if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
+					const line = badlyTypedLine as GetHoveredLineResult<"diff">;
+
+					const file = fileByItemId.get(item.id);
+					if (!file) return;
+
+					persistFileAnnotations(file.operand.path, [
+						...(annotationsByPath.get(file.operand.path) ?? []),
+						createLocalAnnotation(line.lineNumber, line.side),
+					]);
+				};
+
+				return (
+					<button
+						type="button"
+						onClick={handleClick}
+						aria-label="Annotate"
+						className={classes(
+							getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+							styles.annotate,
+						)}
+					>
+						<Icon name="plus" />
+					</button>
+				);
+			}}
+			renderAnnotation={(anno, item) => {
+				if (!("side" in anno)) throw new Error("Only diff items may be rendered");
+
+				const file = fileByItemId.get(item.id);
+				if (!file) return null;
+
+				const annotations = annotationsByPath.get(file.operand.path) ?? [];
+				const idx = annotations.findIndex(({ id }) => id === anno.metadata.id);
+				const annotation = annotations[idx];
+				if (!annotation) return null;
+
+				return (
+					<Annotation
+						author="You"
+						defaultBody={annotation.body}
+						// Pierre gracefully blurs focused annotations before virtualizing their item,
+						// permitting uncontrolled input state to be persisted.
+						onBlur={(body) =>
+							persistFileAnnotations(
+								file.operand.path,
+								annotations.with(idx, { ...annotation, body }),
+							)
+						}
+						actions={
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "ghost" })}
+								onClick={() =>
+									persistFileAnnotations(file.operand.path, annotations.toSpliced(idx, 1))
+								}
+							>
+								Delete
+							</button>
+						}
+					/>
+				);
+			}}
 			onScroll={selectFileAtViewportTop}
 			className={styles.diffContents}
 			items={
@@ -610,6 +725,17 @@ const DiffContents: FC<{
 				themeType: theme ?? defaultSettings.theme,
 				stickyHeaders: true,
 				enableLineSelection: true,
+				// Manually wire these up instead of using renderGutterUtility to separate annotations from
+				// selections.
+				onLineEnter: ({ numberElement }) => {
+					const slot = document.createElement("slot");
+					slot.name = "gutter-utility-slot";
+					slot.setAttribute("data-gutter-utility-slot", "");
+					numberElement.appendChild(slot);
+				},
+				onLineLeave: ({ numberElement }) => {
+					numberElement.querySelector(':scope > slot[name="gutter-utility-slot"]')?.remove();
+				},
 				layout: {
 					paddingTop: 0,
 					// Match --panel-padding-block.
@@ -1019,7 +1145,7 @@ const Diff: FC<{
 	projectId: string;
 }> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
-	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+	const viewerRef = useRef<CodeViewHandle<Annotation>>(null);
 
 	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
 	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
@@ -1063,11 +1189,18 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => results.map((result) => result.data),
 	});
+	const { data: annotationsByPath } = useSuspenseQuery(
+		localAnnotationsQueryOptions({
+			projectId,
+			fileParentKey: weakFileParentIdentityKey(fileParent),
+		}),
+	);
 
 	const diffView = getDiffView({
 		fileParent,
 		changes,
 		treeChangeDiffs,
+		annotationsByPath,
 	});
 
 	const selectFileAndNavigateDiff = (selection: string) => {
@@ -1227,6 +1360,7 @@ const Diff: FC<{
 							fileParent={fileParent}
 							projectId={projectId}
 							diffView={diffView}
+							annotationsByPath={annotationsByPath}
 							diffBackgrounds={diffSettings?.diffBackground}
 							diffOverflow={diffSettings?.diffOverflow}
 							diffStyle={canUseSplitDiff ? diffSettings?.diffStyle : "unified"}
