@@ -15,7 +15,7 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliId, CliResult, CliResultExt, IdMap,
+    CliError, CliId, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         commit::Platform,
@@ -172,7 +172,13 @@ fn resolve(
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
             .into_iter()
-            .map(|change| change.resolve_uncommitted(&*ctx.repo.get()?, id_map))
+            .map(|change| {
+                let repo = ctx.repo.get()?;
+                match change.try_resolve_uncommitted(&repo, id_map)? {
+                    Some(resolved) => Ok(resolved),
+                    None => Err(unresolved_change_error(&change, &repo, id_map)),
+                }
+            })
             .collect::<CliResult<Vec<Vec<UncommittedHunkOrFile>>>>()?;
         let changes = changes.into_iter().flatten().collect();
         let Some(changes) = NonEmpty::from_vec(changes) else {
@@ -226,6 +232,28 @@ fn resolve(
     let reword_op = RewordCommitOperation::resolve(no_message, message);
 
     Ok((guard, commit_op, commit_selection, reword_op))
+}
+
+/// The retired syntax put the target branch in positional position
+/// (`but commit <branch> -m "message"`), which the modern grammar reads as a
+/// change. When a change fails to resolve but names an applied branch,
+/// suggest `-b` targeting instead of the generic missing-target hint.
+fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliError {
+    let names_branch = change
+        .parse(repo, id_map)
+        .ok()
+        .into_iter()
+        .flatten()
+        .any(|id| matches!(id, CliId::Branch(..)));
+    let err = bad_input(format!("Could not find uncommitted change: '{change}'"));
+    if names_branch {
+        err.hint(format!(
+            "'{change}' is a branch. To commit onto it, run `but commit -b {change} -m \"message\" [<change>...]`"
+        ))
+        .into()
+    } else {
+        err.hint(CliIdArg::TARGET_MISSING_HINT).into()
+    }
 }
 
 pub fn run(
