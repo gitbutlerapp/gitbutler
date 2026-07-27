@@ -90,6 +90,7 @@ const executeOperation = async ({
 					projectId,
 					commitId: operation.commitId,
 					changes,
+					changesSource: { type: "head" },
 					dryRun,
 				});
 			},
@@ -137,6 +138,7 @@ const executeOperation = async ({
 					relativeTo: operation.relativeTo,
 					side: operation.side,
 					changes,
+					changesSource: { type: "head" },
 					message: operation.message,
 					dryRun,
 				});

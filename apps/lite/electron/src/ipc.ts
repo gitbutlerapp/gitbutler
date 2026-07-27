@@ -10,6 +10,7 @@ import type {
 	BranchRenameResult,
 	BottomUpdate,
 	CacheConfig,
+	ChangesSource,
 	CiCheck,
 	Editor,
 	ForgeInfo,
@@ -127,6 +128,7 @@ export interface CommitAmendParams {
 	projectId: string;
 	commitId: string;
 	changes: Array<DiffSpec>;
+	changesSource: ChangesSource;
 	dryRun: boolean;
 }
 
@@ -135,6 +137,7 @@ export interface CommitCreateParams {
 	relativeTo: RelativeTo;
 	side: InsertSide;
 	changes: Array<DiffSpec>;
+	changesSource: ChangesSource;
 	message: string;
 	dryRun: boolean;
 }

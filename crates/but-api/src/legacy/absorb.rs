@@ -23,6 +23,7 @@ use tracing::instrument;
 
 use crate::{
     commit::amend::commit_amend_only_impl, commit::insert_blank::commit_insert_blank_only_impl,
+    commit::json::ChangesSource,
 };
 use but_core::DryRun;
 
@@ -80,8 +81,15 @@ pub fn absorb_with_perm(
                 .collect::<Vec<_>>(),
         )?;
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome =
-            commit_amend_only_impl(ctx, commit_id, diff_specs, DryRun::No, context_lines, perm)?;
+        let outcome = commit_amend_only_impl(
+            ctx,
+            commit_id,
+            diff_specs,
+            &ChangesSource::Head,
+            DryRun::No,
+            context_lines,
+            perm,
+        )?;
         if !outcome.rejected_specs.is_empty() {
             tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
         }
