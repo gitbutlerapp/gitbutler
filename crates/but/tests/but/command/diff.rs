@@ -32,7 +32,7 @@ fn json_no_target_empty_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    env.but("diff --format json")
+    env.but("diff --json")
         .allow_json()
         .assert()
         .success()
@@ -53,7 +53,7 @@ fn json_no_target_all_worktree_changes() {
     env.file("alpha.txt", "alpha\n");
     env.file("beta.txt", "beta\n");
 
-    env.but("diff --format json")
+    env.but("diff --json")
         .allow_json()
         .assert()
         .success()
@@ -109,7 +109,7 @@ fn json_target_uncommitted_hunk_or_file() {
     env.file("target.txt", "target\n");
     env.file("other.txt", "other\n");
 
-    env.but("diff --format json")
+    env.but("diff --json")
         .allow_json()
         .assert()
         .success()
@@ -158,7 +158,7 @@ fn json_target_uncommitted_hunk_or_file() {
 
     let target_id = "pk:b";
 
-    env.but(format!("diff --format json {target_id}"))
+    env.but(format!("diff --json {target_id}"))
         .allow_json()
         .assert()
         .success()
@@ -205,7 +205,7 @@ fn json_target_uncommitted_whole_file_with_multiple_hunks() {
         "changed 01\nline 02\nline 03\nline 04\nline 05\nline 06\nline 07\nline 08\nline 09\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nchanged 20\n",
     );
 
-    env.but("diff --format json multi-hunk.txt")
+    env.but("diff --json multi-hunk.txt")
         .allow_json()
         .assert()
         .success()
@@ -262,7 +262,7 @@ fn json_target_path_prefix() {
     env.file("prefix/a", "we want this\n");
     env.file("prefix/b", "we also want this\n");
 
-    env.but("diff --format json prefix/")
+    env.but("diff --json prefix/")
         .allow_json()
         .assert()
         .success()
@@ -349,7 +349,7 @@ Hint: run `but help` for all commands
 
     let committed_file_id = "3f:wm";
 
-    env.but(format!("diff --format json {committed_file_id}"))
+    env.but(format!("diff --json {committed_file_id}"))
         .allow_json()
         .assert()
         .success()
@@ -384,7 +384,7 @@ fn json_target_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    env.but("diff --format json A")
+    env.but("diff --json A")
         .allow_json()
         .assert()
         .success()
@@ -444,7 +444,7 @@ Hint: run `but help` for all commands
 
     let change_id = "tpm";
 
-    env.but(format!("diff --format json {change_id}"))
+    env.but(format!("diff --json {change_id}"))
         .allow_json()
         .assert()
         .success()
@@ -482,7 +482,7 @@ fn json_target_uncommitted_area() {
     env.file("unassigned.txt", "unassigned\n");
     env.file("assigned.txt", "assigned\n");
 
-    env.but("diff --format json zz")
+    env.but("diff --json zz")
         .allow_json()
         .assert()
         .success()
@@ -583,7 +583,7 @@ Hint: run `but help` for all commands
 
     let change_id = "1#0";
 
-    env.but(format!("diff --format json {change_id}"))
+    env.but(format!("diff --json {change_id}"))
         .allow_json()
         .assert()
         .success()

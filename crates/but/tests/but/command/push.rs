@@ -45,12 +45,12 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
     configure_other_tracking_remote(&env);
 
     let output = env
-        .but("push --dry-run --format json branchB")
+        .but("push --dry-run --json branchB")
         .allow_json()
         .output()?;
     assert!(
         output.status.success(),
-        "push --dry-run --format json branchB failed: {}",
+        "push --dry-run --json branchB failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
@@ -89,10 +89,13 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
 fn push_dry_run_agent_reports_human_summary() -> anyhow::Result<()> {
     let env = repo_with_unpushed_branch()?;
 
-    let output = env.but("push --dry-run --format agent branchB").output()?;
+    let output = env
+        .but("push --dry-run branchB")
+        .env("PI_CODING_AGENT", "true")
+        .output()?;
     assert!(
         output.status.success(),
-        "push --dry-run --format agent branchB failed: {}",
+        "push --dry-run branchB failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 

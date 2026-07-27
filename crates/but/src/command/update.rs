@@ -31,10 +31,6 @@ fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Res
             print_human_output(writer, &status)?;
         } else if let Some(out) = out.for_json() {
             out.write_value(&status)?;
-        } else if let Some(writer) = out.for_shell()
-            && !status.up_to_date
-        {
-            writeln!(writer, "{}", status.latest_version)?;
         }
     } else if let Some(writer) = out.for_human() {
         writeln!(

@@ -90,7 +90,7 @@ fn unapply_with_json_output() {
     env.but("apply").arg(branch_name).assert().success();
 
     // Unapply with JSON output using the new `but unapply` command
-    env.but("--format json unapply")
+    env.but("--json unapply")
         .arg(branch_name)
         .allow_json()
         .assert()
@@ -136,31 +136,6 @@ Failed to unapply branch. Branch 'feature-branch' not found in any applied stack
 }
 
 #[test]
-fn unapply_shell_format() {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    let branch_name = "feature-branch";
-    create_local_branch_with_commit(&env, branch_name);
-
-    // Apply the branch
-    env.but("apply").arg(branch_name).assert().success();
-
-    // Unapply with shell format using the new `but unapply` command
-    // Shell format outputs one branch name per line
-    env.but("--format shell unapply")
-        .arg(branch_name)
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(str![])
-        .stdout_eq(str![[r#"
-feature-branch
-
-"#]]);
-}
-
-#[test]
 fn unapply_nonexistent_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
@@ -180,7 +155,7 @@ fn unapply_nonexistent_branch_with_json() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
     // Try to unapply a branch that doesn't exist with JSON output - should fail
-    env.but("--format json unapply nonexistent-branch")
+    env.but("--json unapply nonexistent-branch")
         .allow_json()
         .assert()
         .failure();
@@ -322,8 +297,8 @@ fn unapply_using_cli_branch_id() -> anyhow::Result<()> {
     // Apply the branch
     env.but("apply").arg(branch_name).assert().success();
 
-    // Get the CLI ID from status --format json
-    let status_output = env.but("status --format json").allow_json().output()?;
+    // Get the CLI ID from status --json
+    let status_output = env.but("status --json").allow_json().output()?;
     let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
 
     // Find the branch's CLI ID - JSON uses camelCase and "branches" not "heads"
@@ -355,7 +330,7 @@ Unapplied stack with branches 'feature-branch' from workspace
 "#]]);
 
     // Verify the branch is no longer in workspace
-    let status_output = env.but("status --format json").allow_json().output()?;
+    let status_output = env.but("status --json").allow_json().output()?;
     let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let stacks = status["stacks"]
         .as_array()
@@ -388,8 +363,8 @@ fn unapply_using_cli_stack_id() -> anyhow::Result<()> {
     // Apply the branch
     env.but("apply").arg(branch_name).assert().success();
 
-    // Get the stack CLI ID from status --format json
-    let status_output = env.but("status --format json").allow_json().output()?;
+    // Get the stack CLI ID from status --json
+    let status_output = env.but("status --json").allow_json().output()?;
     let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
 
     // Find the stack's CLI ID for the feature-branch - JSON uses camelCase and "branches" not "heads"
@@ -436,7 +411,7 @@ fn unapply_json_output_validation() -> anyhow::Result<()> {
 
     // Unapply with JSON output and validate structure
     let output = env
-        .but("--format json unapply")
+        .but("--json unapply")
         .arg(branch_name)
         .allow_json()
         .output()?;

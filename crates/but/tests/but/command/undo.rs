@@ -191,12 +191,15 @@ fn can_restore_snapshot_after_commit() {
         .output()
         .unwrap();
 
-    // `but oplog snapshot --format human` prints a `  Snapshot ID: <hex>` line we restore from.
+    // `but oplog snapshot` prints a `  Snapshot ID: <hex>` line we restore from.
     let snapshot = env
-        .but("oplog snapshot -m baseline --format human")
-        .output()
-        .unwrap();
-    let snapshot_output = String::from_utf8_lossy(&snapshot.stdout);
+        .but("oplog snapshot -m baseline")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let snapshot_output = String::from_utf8_lossy(&snapshot);
     let snapshot_id = snapshot_output
         .split("Snapshot ID:")
         .nth(1)

@@ -319,8 +319,8 @@ fn print_grouped_with_truncation(
             "Run as if but was started in PATH instead of the current working directory [default: .]",
         ),
         (
-            "      --format <FORMAT>",
-            "   Explicitly control how output should be formatted [possible values: human, agent, shell, json, none]",
+            "      --json",
+            "              Output detailed information as JSON for tool consumption",
         ),
         ("  -h, --help", "              Print help"),
     ];
@@ -424,10 +424,11 @@ To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MC
 
 Options:
   -C, --current-dir <PATH>  Run as if but was started in PATH instead of the cu…
-      --format <FORMAT>     Explicitly control how output should be formatted […
+      --json                Output detailed information as JSON for tool consum…
   -h, --help                Print help
 
 Environment variables:
+  BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
   BUT_THEME  Sets the theme for but. Options: dark, light. [default: dark]
 
@@ -449,8 +450,10 @@ Environment variables:
             "agent help should keep the full command description"
         );
         assert!(
-            output.contains("possible values: human, agent, shell, json, none"),
-            "manual format help should include agent"
+            output.contains(
+                "BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options: human, json."
+            ),
+            "agent help should document the output-format environment variable"
         );
     }
 
@@ -497,10 +500,11 @@ To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MC
 
 Options:
   -C, --current-dir <PATH>  Run as if but was started in PATH instead of the cu…
-      --format <FORMAT>     Explicitly control how output should be formatted […
+      --json                Output detailed information as JSON for tool consum…
   -h, --help                Print help
 
 Environment variables:
+  BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
   BUT_THEME  Sets the theme for but. Options: dark, light. [default: dark]
 

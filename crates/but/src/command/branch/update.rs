@@ -187,12 +187,6 @@ fn output_apply_result(
                 t.local_branch.paint(branch_ref.shorten().to_string())
             )?;
         }
-    } else if let Some(out) = out.for_shell() {
-        if dry_run {
-            writeln!(out, "preview {branch_ref}")?;
-        } else {
-            writeln!(out, "integrated {branch_ref}")?;
-        }
     } else if let Some(out) = out.for_json() {
         out.write_value(json::IntegrateBranchResult::try_from(result)?)?;
     }

@@ -177,7 +177,7 @@ fn set_change_id(env: &Sandbox, change_id: &str) {
 fn supports_json_output() {
     let env = expand_env();
 
-    env.but("--format json _expand zz")
+    env.but("--json _expand zz")
         .allow_json()
         .assert()
         .success()

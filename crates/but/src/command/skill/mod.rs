@@ -733,11 +733,6 @@ fn check_skills(
         }
     } else if let Some(json_out) = out.for_json() {
         json_out.write_value(&result)?;
-    } else if let Some(writer) = out.for_shell() {
-        // Shell output: one path per line (handles paths with spaces)
-        for skill in result.skills.iter().filter(|s| !s.up_to_date) {
-            writeln!(writer, "{}", skill.path.display())?;
-        }
     }
 
     Ok(())

@@ -408,7 +408,7 @@ fn land_without_yes_refuses_non_interactively() -> anyhow::Result<()> {
 
 fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
     let stdout = env
-        .but("status --format json")
+        .but("status --json")
         .allow_json()
         .assert()
         .success()

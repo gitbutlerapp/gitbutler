@@ -60,7 +60,7 @@ pub fn reload_legacy(
         ctx,
         guard.write_permission(),
         out,
-        OutputFormat::Human,
+        OutputFormat::Human { agent: false },
         mode,
         flags,
         StatusRenderMode::Tui(options),

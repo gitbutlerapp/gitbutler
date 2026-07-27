@@ -228,7 +228,7 @@ fn switch_env() -> anyhow::Result<crate::utils::Sandbox> {
 
 #[cfg(feature = "legacy")]
 fn status_json(env: &crate::utils::Sandbox) -> anyhow::Result<serde_json::Value> {
-    let output = env.but("--format json status").allow_json().output()?;
+    let output = env.but("--json status").allow_json().output()?;
     serde_json::from_slice(&output.stdout)
         .map_err(|err| anyhow::anyhow!("status output should be valid JSON: {err}"))
 }

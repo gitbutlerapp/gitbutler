@@ -7,7 +7,7 @@ pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String 
     }
 
     let output = env
-        .but("commit --empty -b A --format json")
+        .but("commit --empty -b A --json")
         .args(["-m", message])
         .assert()
         .success();

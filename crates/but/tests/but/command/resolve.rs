@@ -145,7 +145,7 @@ fn resolve_finish_json_deduplicates_shared_conflicts() -> anyhow::Result<()> {
     env.file("top.txt", "resolved top\n");
     env.invoke_git("add top.txt");
 
-    let output = super::util::but_std_cmd(&env, "--format json resolve finish").output()?;
+    let output = super::util::but_std_cmd(&env, "--json resolve finish").output()?;
     assert!(output.status.success(), "resolve finish should succeed");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
     assert_eq!(
@@ -182,7 +182,7 @@ fn agent_resolve_finish_json_includes_result_and_status() -> anyhow::Result<()> 
     env.file("file.txt", "resolved content\n");
     env.invoke_git("add file.txt");
 
-    let mut command = super::util::but_std_cmd(&env, "--format json resolve finish --status-after");
+    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
     command.env("AI_AGENT", "codex");
     let output = command.output()?;
     assert!(output.status.success(), "resolve finish should succeed");

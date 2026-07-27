@@ -240,7 +240,7 @@ fn reword_commit_with_json_flag() {
     env.setup_metadata(&["A"]);
 
     // Use reword with -m flag to change commit message (using commit ID)
-    env.but("reword tpm -m 'Updated commit message' --format json")
+    env.but("reword tpm -m 'Updated commit message' --json")
         .assert()
         .success()
         .stdout_eq(str![[r#"{
@@ -266,7 +266,7 @@ fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
     env.setup_metadata(&["A"]);
 
     let output = env
-        .but("reword tpm -m 'Updated commit message' --format json --status-after")
+        .but("reword tpm -m 'Updated commit message' --json --status-after")
         .assert()
         .success();
     let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout)?;

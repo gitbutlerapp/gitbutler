@@ -87,7 +87,7 @@ pub fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui {
     let mode = but_api::legacy::modes::operating_mode(&ctx)
         .expect("failed to get operating mode")
         .operating_mode;
-    let mut out = OutputChannel::new(OutputFormat::Human);
+    let mut out = OutputChannel::new(OutputFormat::Human { agent: false });
 
     let flags = StatusFlags::all_false();
 

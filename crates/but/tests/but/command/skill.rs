@@ -36,7 +36,7 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
     // Check with --global to avoid needing a repo context
     // The JSON output should always be valid even if no skills are found
     let output = env
-        .but("skill check --global --format json")
+        .but("skill check --global --json")
         .allow_json()
         .assert()
         .success()
@@ -62,7 +62,7 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
 fn skill_install_json_outside_repo_requires_path_instead_of_repo_context() {
     let env = Sandbox::empty();
 
-    env.but("skill install --format json")
+    env.but("skill install --json")
         .allow_json()
         .assert()
         .failure()
@@ -119,11 +119,11 @@ fn agent_skill_notice_gating() {
 
     // JSON stdout remains machine-readable. Skill upkeep is silent when nothing needs attention.
     let json_run = env
-        .but("--format json alias list")
+        .but("--json alias list")
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()
-        .expect("status --format json runs");
+        .expect("status --json runs");
     assert!(json_run.status.success());
     assert!(
         !String::from_utf8_lossy(&json_run.stdout).contains("AGENT ACTION REQUIRED"),
@@ -374,7 +374,7 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> an
     env.file("file.txt", "Some text");
 
     let output = env
-        .but("commit --no-message --format json")
+        .but("commit --no-message --json")
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
@@ -477,7 +477,7 @@ fn skill_install_path_outside_repo_requires_global() {
     env.but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -500,7 +500,7 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
         .but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .arg("--path")
         .arg(&install_dir)
         .allow_json()
@@ -534,7 +534,7 @@ fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() -> anyhow
         .but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "agent", "--global"])
+        .args(["--global"])
         .arg("--path")
         .arg(&install_dir)
         .env("AI_AGENT", "codex")
@@ -570,7 +570,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
     env.but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -578,7 +578,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
         .success();
 
     let output = env
-        .but("skill check --local --format json")
+        .but("skill check --local --json")
         .allow_json()
         .assert()
         .success()
@@ -625,7 +625,7 @@ fn skill_check_marks_an_incomplete_bundle_outdated() -> anyhow::Result<()> {
     )?;
 
     let output = env
-        .but("skill check --local --format json")
+        .but("skill check --local --json")
         .allow_json()
         .assert()
         .success()
@@ -649,7 +649,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
     env.but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -657,7 +657,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
         .success();
 
     let output = env
-        .but("skill install --format json --detect")
+        .but("skill install --json --detect")
         .allow_json()
         .assert()
         .success()
@@ -690,7 +690,7 @@ fn skill_install_detect_updates_every_installation_in_scope() -> anyhow::Result<
         env.but("")
             .arg("skill")
             .arg("install")
-            .args(["--format", "json"])
+            .args(["--json"])
             .arg("--path")
             .arg(relative_agent_skill_path(agent_dir))
             .allow_json()
@@ -699,7 +699,7 @@ fn skill_install_detect_updates_every_installation_in_scope() -> anyhow::Result<
     }
 
     let output = env
-        .but("skill install --format json --detect")
+        .but("skill install --json --detect")
         .allow_json()
         .assert()
         .success()
@@ -734,7 +734,7 @@ fn skill_check_ignores_format_outside_its_scope() -> anyhow::Result<()> {
     env.but("")
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .arg("--path")
         .arg(&copilot_path)
         .allow_json()
@@ -742,7 +742,7 @@ fn skill_check_ignores_format_outside_its_scope() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("skill check --local --format json")
+        .but("skill check --local --json")
         .allow_json()
         .assert()
         .success()
@@ -783,7 +783,7 @@ fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
         .arg(&invalid_dir)
         .arg("skill")
         .arg("install")
-        .args(["--format", "json"])
+        .args(["--json"])
         .allow_json()
         .assert()
         .failure();

@@ -53,7 +53,12 @@ pub enum SquashOutcome {
 }
 
 impl CliOutputHuman for SquashOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &Theme,
+    ) -> anyhow::Result<()> {
         // GB-1771 missing change ID here
         match self {
             SquashOutcome::Commits {
@@ -120,18 +125,6 @@ impl CliOutputHuman for SquashOutcome {
 }
 
 impl CliOutput for SquashOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        match self {
-            SquashOutcome::Commits { new_commit, .. }
-            | SquashOutcome::Branch { new_commit, .. }
-            | SquashOutcome::Hunks { new_commit, .. } => {
-                writeln!(out, "{new_commit}")?;
-                Ok(())
-            }
-            SquashOutcome::Uncommit { .. } | SquashOutcome::UncommitHunk { .. } => Ok(()),
-        }
-    }
-
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
         struct Output {

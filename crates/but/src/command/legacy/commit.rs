@@ -39,7 +39,7 @@ pub struct CommitOutcome {
     pub branch_name: Option<BranchNameTarget>,
 }
 
-/// `--format json` should only include newly created things. So if the branch already existed it
+/// `--json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
 pub enum BranchNameTarget {
     Existing(FullName),
@@ -47,7 +47,12 @@ pub enum BranchNameTarget {
 }
 
 impl CliOutputHuman for CommitOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &Theme,
+    ) -> anyhow::Result<()> {
         let Self {
             new_commit,
             branch_name,
@@ -75,15 +80,6 @@ impl CliOutputHuman for CommitOutcome {
 }
 
 impl CliOutput for CommitOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        let Self {
-            new_commit,
-            branch_name: _,
-        } = self;
-        writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
-        Ok(())
-    }
-
     fn on_json(self) -> impl serde::Serialize {
         #[derive(Serialize)]
         struct Output {

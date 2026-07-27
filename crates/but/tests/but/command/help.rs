@@ -38,14 +38,20 @@ fn help_help_should_be_help() -> anyhow::Result<()> {
 #[test]
 fn top_level_help_honors_agent_format_after_help_flag() -> anyhow::Result<()> {
     let env = Sandbox::empty();
-    let help = env.but("help --format agent").output()?.stdout;
+    let help = env
+        .but("help")
+        .env("PI_CODING_AGENT", "true")
+        .output()?
+        .stdout;
 
-    env.but("--help --format agent")
+    env.but("--help")
+        .env("PI_CODING_AGENT", "true")
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());
 
-    env.but("--help --format=agent")
+    env.but("--help")
+        .env("PI_CODING_AGENT", "true")
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());

@@ -30,7 +30,12 @@ pub struct DiffOutcome<'a> {
 }
 
 impl CliOutputHuman for DiffOutcome<'_> {
-    fn on_human(self, out: &mut dyn WriteWithUtils, theme: &'static Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        theme: &'static Theme,
+    ) -> anyhow::Result<()> {
         let Self { ctx, target } = self;
 
         let syntax_set = load_syntax_set();
@@ -106,10 +111,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
 }
 
 impl CliOutput for DiffOutcome<'_> {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        self.on_human(out, crate::theme::get())
-    }
-
     fn on_json(self) -> impl Serialize {
         // TODO(david)
 

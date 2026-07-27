@@ -123,13 +123,6 @@ fn unapply_stack(
         )?;
     }
 
-    if let Some(out) = out.for_shell() {
-        // Shell output: one branch per line
-        for branch in branches {
-            writeln!(out, "{branch}")?;
-        }
-    }
-
     if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "unapplied": true,

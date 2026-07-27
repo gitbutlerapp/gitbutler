@@ -316,7 +316,7 @@ pub(crate) fn tui_with_options(
         ctx,
         guard.write_permission(),
         out,
-        OutputFormat::Human,
+        OutputFormat::Human { agent: false },
         &mode,
         flags,
         render_mode,
@@ -568,8 +568,7 @@ fn build_status_context<'a>(
         branch_merge_statuses,
         flags,
         has_branches,
-        is_agent_invocation: matches!(format, OutputFormat::Agent)
-            || crate::utils::detect_agent::detect().is_some(),
+        is_agent_invocation: format.is_agent() || crate::utils::detect_agent::detect().is_some(),
         render_mode,
         is_paged,
         should_truncate_for_terminal,
@@ -2146,7 +2145,7 @@ mod tests {
     #[test]
     fn truncation_policy_enables_truncation_for_oneshot_unpaged() {
         assert!(truncation_policy(
-            OutputFormat::Human,
+            OutputFormat::Human { agent: false },
             StatusRenderMode::Oneshot,
             false
         ));
@@ -2155,7 +2154,7 @@ mod tests {
     #[test]
     fn truncation_policy_disables_truncation_for_oneshot_paged() {
         assert!(!truncation_policy(
-            OutputFormat::Human,
+            OutputFormat::Human { agent: false },
             StatusRenderMode::Oneshot,
             true
         ));
@@ -2164,7 +2163,7 @@ mod tests {
     #[test]
     fn truncation_policy_disables_truncation_for_agent_output() {
         assert!(!truncation_policy(
-            OutputFormat::Agent,
+            OutputFormat::Human { agent: true },
             StatusRenderMode::Oneshot,
             false
         ));
@@ -2173,7 +2172,7 @@ mod tests {
     #[test]
     fn truncation_policy_disables_truncation_for_tui() {
         assert!(!truncation_policy(
-            OutputFormat::Human,
+            OutputFormat::Human { agent: false },
             StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()
@@ -2181,7 +2180,7 @@ mod tests {
             false,
         ));
         assert!(!truncation_policy(
-            OutputFormat::Human,
+            OutputFormat::Human { agent: false },
             StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()

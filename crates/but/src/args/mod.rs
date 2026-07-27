@@ -12,6 +12,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use crate::args::atoms::CliIdArg;
+use crate::utils::envs;
 
 pub mod atoms;
 
@@ -53,54 +54,56 @@ pub struct Args {
 
 #[derive(Debug, clap::Args)]
 pub struct OutputFormatArg {
-    /// Explicitly control how output should be formatted.
-    ///
-    /// If unset, detected agents use agent output and other invocations use human output.
-    #[clap(
-        long,
-        env = crate::utils::envs::BUT_OUTPUT_FORMAT,
-        default_value = "human",
-        global = true
-    )]
-    pub format: OutputFormat,
+    /// Output detailed information as JSON for tool consumption.
+    #[clap(long, global = true)]
+    pub json: bool,
 }
 
 /// How we should format anything written to [`std::io::stdout()`].
-#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
+#[derive(Debug, Copy, Clone)]
 pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
-    #[default]
-    Human,
-    /// The output is for an AI coding agent, rendered as human-readable text.
-    Agent,
-    /// The output should be suitable for shells, and assigning the major result to variables so that it can be reused
-    /// in subsequent CLI invocations.
-    Shell,
+    Human { agent: bool },
     /// Output detailed information as JSON for tool consumption.
     Json,
-    /// Do not output anything, like redirecting to `/dev/null`.
-    None,
 }
 
 impl OutputFormat {
+    /// Reads the output format from `BUT_OUTPUT_FORMAT`.
+    pub fn try_from_env(agent_detected: bool) -> Option<Self> {
+        std::env::var(envs::BUT_OUTPUT_FORMAT)
+            .ok()
+            .and_then(|env| match &*env {
+                "json" => Some(OutputFormat::Json),
+                "human" => Some(OutputFormat::Human {
+                    agent: agent_detected,
+                }),
+                _ => None,
+            })
+    }
+
     /// Whether this format renders human-readable text.
     pub fn is_human_text(self) -> bool {
-        matches!(self, Self::Human | Self::Agent)
+        matches!(self, Self::Human { .. })
+    }
+
+    pub fn is_agent(self) -> bool {
+        matches!(self, Self::Human { agent: true })
     }
 
     /// Whether this format renders plain text.
     pub fn is_text(self) -> bool {
-        self.is_human_text() || matches!(self, Self::Shell)
+        self.is_human_text()
     }
 
     /// Whether this format may truncate long text when output is not paged.
     pub fn allows_truncation(self) -> bool {
-        matches!(self, Self::Human | Self::Shell)
+        matches!(self, Self::Human { agent: false })
     }
 
     /// Whether this format may use human terminal UI affordances like pagers, progress, prompts, or ambient messages.
     pub fn allows_human_ui(self) -> bool {
-        matches!(self, Self::Human)
+        matches!(self, Self::Human { agent: false })
     }
 
     /// Whether this format writes JSON values.

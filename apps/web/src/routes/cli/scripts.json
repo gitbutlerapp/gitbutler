@@ -230,11 +230,11 @@
 		"script": [
 			{
 				"type": "input",
-				"lines": ["# Everything takes --format json"]
+				"lines": ["# Everything takes --json"]
 			},
 			{
 				"type": "input",
-				"lines": ["$ but --format json branch new feature/ai-integration | jq ."]
+				"lines": ["$ but --json branch new feature/ai-integration | jq ."]
 			},
 			{
 				"type": "output",
@@ -247,7 +247,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but show --format json 90fe | jq ."]
+				"lines": ["$ but show --json 90fe | jq ."]
 			},
 			{
 				"type": "output",
@@ -265,7 +265,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but --format json status | jq '.stacks[].branches[].commits[]'"]
+				"lines": ["$ but --json status | jq '.stacks[].branches[].commits[]'"]
 			},
 			{
 				"type": "output",

@@ -18,11 +18,16 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
         env.invoke_git("config --local --get gitbutler.githubStackingMode"),
         "native"
     );
-    env.but("--format shell config forge github-stacks")
+    env.but("--json config forge github-stacks")
         .assert()
         .success()
-        .stdout_eq("enabled\n");
-    env.but("--format json config forge github-stacks disable")
+        .stdout_eq(snapbox::str![[r#"
+{
+  "mode": "native"
+}
+
+"#]]);
+    env.but("--json config forge github-stacks disable")
         .allow_json()
         .assert()
         .success()
@@ -120,11 +125,14 @@ Caused by:
 fn config_push_remote_shows_effective_remote() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
 
-    env.but("--format shell config push-remote")
+    env.but("config push-remote")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-origin
+
+Push Remote:
+
+  origin
 
 "#]]);
 }
@@ -133,12 +141,15 @@ origin
 fn feature_config_shell_output_uses_valid_identifiers() {
     let env = Sandbox::empty();
 
-    env.but("--format shell config feature")
+    env.but("config feature")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-unapply_v3_pgm=false
-single_branch=true
+
+Feature Flags:
+
+  unapply-v3-pgm: disabled
+  single-branch: enabled
 
 "#]]);
 }
@@ -147,7 +158,7 @@ single_branch=true
 fn feature_config_json_output_uses_stable_key() {
     let env = Sandbox::empty();
 
-    env.but("--format json config feature single-branch")
+    env.but("--json config feature single-branch")
         .allow_json()
         .assert()
         .success()
@@ -249,7 +260,7 @@ fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("--format json config ai show")
+        .but("--json config ai show")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .allow_json()
         .output()?;
@@ -274,7 +285,7 @@ fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("-C repo --format json config ai --local show")
+        .but("-C repo --json config ai --local show")
         .allow_json()
         .output()?;
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
