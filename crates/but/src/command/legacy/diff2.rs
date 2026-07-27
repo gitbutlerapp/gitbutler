@@ -30,7 +30,12 @@ pub struct DiffOutcome<'a> {
 }
 
 impl CliOutputHuman for DiffOutcome<'_> {
-    fn on_human(self, out: &mut dyn WriteWithUtils, theme: &'static Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        theme: &'static Theme,
+    ) -> anyhow::Result<()> {
         let Self { ctx, target } = self;
 
         let syntax_set = load_syntax_set();

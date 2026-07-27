@@ -161,7 +161,7 @@ fn json_shows_paths_as_strings() {
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");
 
-    env.but("--format json status")
+    env.but("--json status")
         .allow_json()
         .assert()
         .success()
@@ -284,7 +284,7 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
     env.file("a.txt", format!("firstb\n{}lastb\n", "line\n".repeat(100)));
     env.file("b.txt", "onlyb\n");
 
-    env.but("--format json status -f")
+    env.but("--json status -f")
         .allow_json()
         .assert()
         .success()
@@ -391,7 +391,7 @@ fn json_commit_cli_ids_use_change_ids() -> anyhow::Result<()> {
 
     // Assert that JSON exposes each full change ID and uses its display-padded prefix as CLI ID,
     // while retaining the underlying commit ID.
-    env.but("--format json status -f")
+    env.but("--json status -f")
         .allow_json()
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
@@ -825,7 +825,7 @@ fn no_change_commit_above_squash_merged_branch_is_not_treated_as_merged() {
     // `bottom` was squash-merged upstream and must be labelled `(merged upstream)`.
     // `top`'s sole commit introduces no changes, so it must NOT be labelled merged.
     let status = env
-        .but("status --format json")
+        .but("status --json")
         .allow_json()
         .env("NO_BG_TASKS", "1")
         .assert()
@@ -881,7 +881,7 @@ fn assert_pull_removes_merged_upstream_branch(env: &Sandbox) {
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
 
     let status_after = env
-        .but("status --format json")
+        .but("status --json")
         .allow_json()
         .env("NO_BG_TASKS", "1")
         .assert()
@@ -1192,24 +1192,6 @@ Then read the installed SKILL.md path printed by that command and continue.
 Do not merely tell the user to run it.
 This notice repeats until the skill is installed. If it still appears after installing, report it instead of retrying.
 
-╭┄ zz [uncommitted] (no changes)
-┊
-┊╭┄ g0 [A]
-┊◐   [..] add one
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
-
-Hint: ◐ means rewritten locally vs upstream.
-Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
-
-"#]]);
-
-    env.but("--format agent status")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]

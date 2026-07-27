@@ -53,7 +53,12 @@ pub enum SquashOutcome {
 }
 
 impl CliOutputHuman for SquashOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &Theme,
+    ) -> anyhow::Result<()> {
         // GB-1771 missing change ID here
         match self {
             SquashOutcome::Commits {

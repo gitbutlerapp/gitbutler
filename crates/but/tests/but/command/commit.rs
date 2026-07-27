@@ -116,29 +116,13 @@ fn human_mutation_can_request_status_after() {
 }
 
 #[test]
-fn no_args_single_head_no_message_shell_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.file("file.txt", "Some text");
-
-    env.but("commit --no-message --format shell")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
-7bbfdca
-
-"#]]);
-}
-
-#[test]
 fn agent_commit_json_uses_native_result_without_status_by_default() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
-    env.but("commit --no-message --format json")
+    env.but("commit --no-message --json")
         .env("AI_AGENT", "codex")
         .assert()
         .success()
@@ -157,7 +141,7 @@ fn non_agent_commit_json_uses_native_result() {
 
     env.file("file.txt", "Some text");
 
-    env.but("commit --no-message --format json")
+    env.but("commit --no-message --json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -541,7 +525,7 @@ fn newly_created_branches_are_included_in_json_output() {
 
     env.file("first", "Some text");
 
-    env.but("commit -m 'add first' -b foo --format json")
+    env.but("commit -m 'add first' -b foo --json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

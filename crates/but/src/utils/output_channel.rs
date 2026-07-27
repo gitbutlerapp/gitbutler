@@ -176,18 +176,16 @@ impl<'out> IntermediateChannel<'out> {
 }
 
 pub trait CliOutputHuman {
-    fn on_human(self, out: &mut dyn WriteWithUtils, theme: &'static Theme) -> anyhow::Result<()>;
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        agent: bool,
+        theme: &'static Theme,
+    ) -> anyhow::Result<()>;
 }
 
 pub trait CliOutput: CliOutputHuman {
     fn on_json(self) -> impl serde::Serialize;
-
-    fn on_agent(self, out: &mut dyn WriteWithUtils, theme: &'static Theme) -> anyhow::Result<()>
-    where
-        Self: Sized,
-    {
-        self.on_human(out, theme)
-    }
 }
 
 impl std::fmt::Write for OutputChannel {
@@ -796,8 +794,7 @@ impl OutputChannel {
 
     pub fn print_cli_output(&mut self, output: impl CliOutput) -> anyhow::Result<()> {
         match self.format {
-            OutputFormat::Human => output.on_human(self, crate::theme::get()),
-            OutputFormat::Agent => output.on_agent(self, crate::theme::get()),
+            OutputFormat::Human { agent } => output.on_human(self, agent, crate::theme::get()),
             OutputFormat::Json => {
                 let value = output.on_json();
                 Ok(self.write_value(value)?)
@@ -806,8 +803,9 @@ impl OutputChannel {
     }
 
     pub fn print_cli_output_human(&mut self, output: impl CliOutputHuman) -> anyhow::Result<()> {
+        let is_agent = self.format.is_agent();
         if let Some(for_human) = self.for_human() {
-            output.on_human(for_human, crate::theme::get())
+            output.on_human(for_human, is_agent, crate::theme::get())
         } else {
             anyhow::bail!(
                 "BUG: attempted to write human output when requested format is {:?}",
@@ -882,7 +880,7 @@ mod tests {
 
     #[test]
     fn agent_output_is_human_text_not_json() {
-        let mut out = OutputChannel::new(OutputFormat::Agent);
+        let mut out = OutputChannel::new(OutputFormat::Human { agent: true });
 
         assert!(
             out.for_human().is_some(),
@@ -897,7 +895,7 @@ mod tests {
 
     #[test]
     fn agent_output_does_not_truncate_unpaged_text() {
-        let out = OutputChannel::new(OutputFormat::Agent);
+        let out = OutputChannel::new(OutputFormat::Human { agent: true });
         let text = "0123456789abcdef";
 
         assert_eq!(out.truncate_if_unpaged(text, 4), text);
@@ -905,7 +903,7 @@ mod tests {
 
     #[test]
     fn agent_output_does_not_allow_progress() {
-        let out = OutputChannel::new(OutputFormat::Agent);
+        let out = OutputChannel::new(OutputFormat::Human { agent: true });
 
         assert!(!out.format.allows_human_ui());
         assert!(out.progress_channel().inner.is_none());
@@ -913,7 +911,7 @@ mod tests {
 
     #[test]
     fn agent_output_never_uses_pager() {
-        let mut out = OutputChannel::new(OutputFormat::Agent);
+        let mut out = OutputChannel::new(OutputFormat::Human { agent: true });
         out.request_pager();
 
         assert!(!out.is_paged(), "agent output should not use a pager");

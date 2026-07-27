@@ -148,7 +148,7 @@ fn with_json_output() {
     env.setup_metadata(&["A"]);
 
     // Test JSON output without anchor
-    env.but("--format json branch new my-feature")
+    env.but("--json branch new my-feature")
         .allow_json()
         .assert()
         .success()
@@ -161,7 +161,7 @@ fn with_json_output() {
 "#]]);
 
     // Test JSON output with anchor
-    env.but("branch new --format json --anchor tpm my-anchored-feature")
+    env.but("branch new --json --anchor tpm my-anchored-feature")
         .allow_json()
         .assert()
         .success()
@@ -201,7 +201,7 @@ fn single_branch_outputs_created_branch_for_all_formats() -> anyhow::Result<()> 
 
 "#]]);
 
-    env.but("--format json branch new json-feature")
+    env.but("--json branch new json-feature")
         .allow_json()
         .assert()
         .success()

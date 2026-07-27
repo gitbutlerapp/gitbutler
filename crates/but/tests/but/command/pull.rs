@@ -264,7 +264,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 "#]]);
 
     let output = env
-        .but("--format json pull --check")
+        .but("--json pull --check")
         .allow_json()
         .assert()
         .success()
@@ -476,7 +476,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 "#]]);
 
     let output = env
-        .but("--format json pull")
+        .but("--json pull")
         .allow_json()
         .assert()
         .success()
@@ -792,7 +792,7 @@ fn branch_has_conflicted_commit(env: &Sandbox, branch_name: &str) -> anyhow::Res
 
 fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
     let output = env
-        .but("status --format json")
+        .but("status --json")
         .allow_json()
         .assert()
         .success()

@@ -123,7 +123,12 @@ pub enum DiscardOutcome {
 }
 
 impl CliOutputHuman for DiscardOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &'static Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
         match self {
             DiscardOutcome::Branches(branches) => {
                 if branches.len() == 1 {

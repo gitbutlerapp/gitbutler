@@ -339,7 +339,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
 
-    env.but("--format json discard first-uncommitted.txt second-uncommitted.txt")
+    env.but("--json discard first-uncommitted.txt second-uncommitted.txt")
         .allow_json()
         .assert()
         .success()
@@ -476,13 +476,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but(format!(
-        "--format json discard {source}:discarded-from-commit.txt"
-    ))
-    .allow_json()
-    .assert()
-    .success()
-    .stdout_eq(snapbox::str![[r#"
+    env.but(format!("--json discard {source}:discarded-from-commit.txt"))
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
 {
   "source": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
   "paths": [

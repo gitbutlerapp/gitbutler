@@ -458,15 +458,6 @@ fn status_after_is_global_and_shown_in_help() {
     );
 }
 
-#[test]
-fn output_format_parses_agent() {
-    use clap::Parser;
-
-    let args = Args::try_parse_from(["but", "--format", "agent"]).expect("parse agent format");
-
-    assert!(matches!(args.format.format, OutputFormat::Agent));
-}
-
 mod config_target {
     use clap::Parser;
 
@@ -590,13 +581,13 @@ mod config_feature {
 
 #[test]
 fn output_format_agent_is_text_without_human_ui() {
-    let format = OutputFormat::Agent;
+    let format = OutputFormat::Human { agent: true };
 
-    assert!(format.is_human_text());
-    assert!(format.is_text());
-    assert!(!format.allows_human_ui());
-    assert!(!format.allows_truncation());
-    assert!(!format.is_json());
+    assert!(format.is_human_text(), "is human text");
+    assert!(format.is_text(), "is text");
+    assert!(!format.allows_human_ui(), "doesn't allow human ui");
+    assert!(!format.allows_truncation(), "doesn't allow truncation");
+    assert!(!format.is_json(), "is not json");
 }
 
 mod agentlog {

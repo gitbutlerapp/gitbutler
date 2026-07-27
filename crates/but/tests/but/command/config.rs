@@ -18,7 +18,7 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
         env.invoke_git("config --local --get gitbutler.githubStackingMode"),
         "native"
     );
-    env.but("--format json config forge github-stacks")
+    env.but("--json config forge github-stacks")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -27,7 +27,7 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
 }
 
 "#]]);
-    env.but("--format json config forge github-stacks disable")
+    env.but("--json config forge github-stacks disable")
         .allow_json()
         .assert()
         .success()
@@ -158,7 +158,7 @@ Feature Flags:
 fn feature_config_json_output_uses_stable_key() {
     let env = Sandbox::empty();
 
-    env.but("--format json config feature single-branch")
+    env.but("--json config feature single-branch")
         .allow_json()
         .assert()
         .success()
@@ -260,7 +260,7 @@ fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("--format json config ai show")
+        .but("--json config ai show")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .allow_json()
         .output()?;
@@ -285,7 +285,7 @@ fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("-C repo --format json config ai --local show")
+        .but("-C repo --json config ai --local show")
         .allow_json()
         .output()?;
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;

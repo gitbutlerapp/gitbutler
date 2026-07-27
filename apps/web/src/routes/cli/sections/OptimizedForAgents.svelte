@@ -34,7 +34,7 @@
 		},
 		{
 			type: "input",
-			lines: ["$ but status --format=json | jq ."],
+			lines: ["$ but status --json | jq ."],
 		},
 		{
 			type: "output",

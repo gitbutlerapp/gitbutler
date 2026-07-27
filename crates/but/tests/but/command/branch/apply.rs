@@ -188,7 +188,7 @@ fn local_branch_with_json_output() {
     create_local_branch_with_commit(&env, "feature-branch");
 
     // Apply with JSON output
-    env.but("--format json apply feature-branch")
+    env.but("--json apply feature-branch")
         .allow_json()
         .assert()
         .success()
@@ -492,7 +492,7 @@ fn nonexistent_branch_with_json() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
     // Try to apply a branch that doesn't exist with JSON output
-    env.but("--format json apply nonexistent-branch")
+    env.but("--json apply nonexistent-branch")
         .allow_json()
         .assert()
         .failure()

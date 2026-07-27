@@ -150,7 +150,7 @@ pub trait CommandExt {
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
     fn with_color_for_svg(self) -> Self;
-    /// Change the environment to allow passing `--format json`.
+    /// Change the environment to allow passing `--json`.
     fn allow_json(self) -> Self;
 }
 

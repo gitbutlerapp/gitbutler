@@ -6,14 +6,10 @@ fn json_flag_can_be_placed_before_or_after_subcommand() {
     //       so everything fails anyway.
     let env = Sandbox::empty();
 
-    // Test that --format json flag works in both positions with help command (doesn't need a valid repo)
-    env.but("--format json completions --help")
-        .assert()
-        .success();
+    // Test that --json flag works in both positions with help command (doesn't need a valid repo)
+    env.but("--json completions --help").assert().success();
 
-    env.but("completions --help --format json")
-        .assert()
-        .success();
+    env.but("completions --help --json").assert().success();
 
     #[cfg(feature = "legacy")]
     {
@@ -22,7 +18,7 @@ fn json_flag_can_be_placed_before_or_after_subcommand() {
         use crate::utils::CommandExt;
         // Test with actual commands that need a repo (they'll fail but should accept the flag)
         // Before subcommand
-        env.but("--format json status")
+        env.but("--json status")
             .allow_json()
             .assert()
             .failure()
@@ -33,7 +29,7 @@ Please run 'but setup' to initialize the project.
 "#]]);
 
         // After subcommand
-        env.but("status --format json")
+        env.but("status --json")
             .allow_json()
             .assert()
             .failure()

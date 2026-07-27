@@ -77,7 +77,12 @@ pub struct ExpandOutcome {
 }
 
 impl CliOutputHuman for ExpandOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &'static Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
         writeln!(out, "Matches: {}", self.resources.len())?;
         writeln!(out)?;
         for resource in self.resources {

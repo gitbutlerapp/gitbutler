@@ -60,52 +60,35 @@ mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
-/// The format for help output printed before clap parses arguments, taken from a
-/// `--format` argument, the `BUT_OUTPUT_FORMAT` environment variable, or agent detection.
-///
-/// Help is always human-readable text; the format only decides whether terminal affordances
-/// like truncation apply, so formats other than human or agent fall back to human output.
-fn early_help_format(args: &[OsString], agent_detected: bool) -> OutputFormat {
-    let parse = |value: &str| {
-        <OutputFormat as clap::ValueEnum>::from_str(value, false)
-            .ok()
-            .map(|format| {
-                if format.is_human_text() {
-                    format
-                } else {
-                    OutputFormat::Human
-                }
-            })
-    };
-    args.iter()
-        .enumerate()
-        .find_map(|(index, arg)| {
-            let arg = arg.to_str()?;
-            match arg.strip_prefix("--format=") {
-                Some(value) => parse(value),
-                None if arg == "--format" => parse(args.get(index + 1)?.to_str()?),
-                None => None,
-            }
-        })
-        .or_else(|| {
-            std::env::var(envs::BUT_OUTPUT_FORMAT)
-                .ok()
-                .and_then(|value| parse(&value))
-        })
-        .unwrap_or(if agent_detected {
-            OutputFormat::Agent
-        } else {
-            OutputFormat::Human
-        })
+/// The format for help output printed before clap parses arguments.
+fn early_help_format(_args: &[OsString], agent_detected: bool) -> OutputFormat {
+    if let Some(output_format_from_env) = OutputFormat::try_from_env(agent_detected)
+        && output_format_from_env.is_human_text()
+    {
+        return output_format_from_env;
+    }
+
+    OutputFormat::Human {
+        agent: agent_detected,
+    }
 }
 
-fn parse_args(args: Vec<OsString>, agent_detected: bool) -> Args {
-    let mut command = Args::command();
-    if agent_detected {
-        command = command.mut_arg("format", |arg| arg.default_value("agent"));
-    }
+fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (Args, OutputFormat) {
+    let command = Args::command();
     let matches = command.get_matches_from(args);
-    Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit())
+    let args = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+
+    let output_format = if args.format.json {
+        OutputFormat::Json
+    } else if let Some(output_format_from_env) = OutputFormat::try_from_env(agent_detected) {
+        output_format_from_env
+    } else {
+        OutputFormat::Human {
+            agent: agent_detected,
+        }
+    };
+
+    (args, output_format)
 }
 
 static APP_SETTINGS: std::sync::OnceLock<AppSettings> = std::sync::OnceLock::new();
@@ -199,7 +182,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    let mut args = parse_args(args, agent_detected);
+    let (mut args, output_format) = parse_args_and_output_format(args, agent_detected);
     let _tracing_appender_worker_guard = if args.trace > 0 {
         trace::init(args.trace, args.log_file.as_deref())?
     } else {
@@ -212,7 +195,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
 
-    let mut out = OutputChannel::new(args.format.format);
+    let mut out = OutputChannel::new(output_format);
     #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
@@ -1773,17 +1756,17 @@ mod tests {
 
     #[test]
     fn detected_agent_defaults_to_agent_output() {
-        let format = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
-            parse_args(os_args(&["but", "status"]), true).format.format
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "status"]), true)
         });
 
-        assert!(matches!(format, OutputFormat::Agent));
+        assert!(matches!(format, OutputFormat::Human { agent: true }));
     }
 
     #[test]
     fn detected_agent_preserves_environment_output_format() {
-        let format = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
-            parse_args(os_args(&["but", "status"]), true).format.format
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
+            parse_args_and_output_format(os_args(&["but", "status"]), true)
         });
 
         assert!(matches!(format, OutputFormat::Json));
@@ -1792,7 +1775,8 @@ mod tests {
     #[test]
     #[cfg(feature = "legacy")]
     fn detected_agent_omits_status_after_mutation_by_default() {
-        let args = parse_args(os_args(&["but", "commit", "--no-message"]), true);
+        let (args, _) =
+            parse_args_and_output_format(os_args(&["but", "commit", "--no-message"]), true);
 
         assert!(
             !args.status_after,
@@ -1803,7 +1787,7 @@ mod tests {
     #[test]
     #[cfg(feature = "legacy")]
     fn detected_agent_can_request_status_after_mutation() {
-        let args = parse_args(
+        let (args, _) = parse_args_and_output_format(
             os_args(&["but", "commit", "--status-after", "--no-message"]),
             true,
         );
@@ -1820,6 +1804,6 @@ mod tests {
             early_help_format(&os_args(&["but", "--help"]), true)
         });
 
-        assert!(matches!(format, OutputFormat::Agent));
+        assert!(matches!(format, OutputFormat::Human { agent: true }));
     }
 }

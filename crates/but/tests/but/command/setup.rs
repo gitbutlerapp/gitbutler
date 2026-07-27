@@ -330,7 +330,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 fn json_output_new_setup() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .success()
@@ -357,7 +357,7 @@ fn json_output_already_setup() {
     env.but("setup").assert().success();
 
     // Run again with JSON output
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .success()
@@ -380,7 +380,7 @@ fn json_output_already_setup() {
 fn json_output_gb_local() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
 
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .success()
@@ -403,7 +403,7 @@ fn json_output_gb_local() {
 fn json_output_non_standard_branch() {
     let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master");
 
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .success()
@@ -426,7 +426,7 @@ fn json_output_non_standard_branch() {
 fn json_output_remote_no_head_fallback() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-no-head");
 
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .success()
@@ -449,7 +449,7 @@ fn json_output_remote_no_head_fallback() {
 fn json_output_not_a_git_repo() {
     let env = Sandbox::empty();
 
-    env.but("--format json setup")
+    env.but("--json setup")
         .allow_json()
         .assert()
         .failure()
@@ -544,7 +544,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 fn init_flag_json_output() {
     let env = Sandbox::empty();
 
-    env.but("--format json setup --init")
+    env.but("--json setup --init")
         .allow_json()
         .assert()
         .success()

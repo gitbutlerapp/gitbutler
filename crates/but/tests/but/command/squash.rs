@@ -149,7 +149,7 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("squash 1#0 --target 1#1 --message 'squashed' --format json")
+    env.but("squash 1#0 --target 1#1 --message 'squashed' --json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -1436,7 +1436,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
     env.but("undo").assert().success();
 
-    env.but("squash 1#0 -t zz --format json")
+    env.but("squash 1#0 -t zz --json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#""#]]);
@@ -1593,7 +1593,7 @@ fn committed_file_to_uncommitted_area() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
-    env.but("--format json status -f")
+    env.but("--json status -f")
         .allow_json()
         .assert()
         .success()
@@ -1658,7 +1658,7 @@ fn committed_file_to_uncommitted_area() -> anyhow::Result<()> {
     env.but("squash 1#0:p -t zz").assert().success();
 
     // Verify that `status` reflects the move.
-    env.but("--format json status -f")
+    env.but("--json status -f")
         .allow_json()
         .assert()
         .success()
@@ -1759,7 +1759,7 @@ fn uncommitted_hunk_to_commit() -> anyhow::Result<()> {
 
     // Verify that only one hunk was assigned ("a.txt" still appears in the
     // uncommitted area because there is one hunk still unassigned).
-    env.but("--format json status -f")
+    env.but("--json status -f")
         .allow_json()
         .assert()
         .success()

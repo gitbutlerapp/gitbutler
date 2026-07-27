@@ -9,7 +9,7 @@ fn pretty_status(env: &Sandbox) -> anyhow::Result<String> {
 }
 
 fn raw_json_status(env: &Sandbox) -> anyhow::Result<String> {
-    let output = env.but("--format json status").allow_json().output()?;
+    let output = env.but("--json status").allow_json().output()?;
     Ok(format!(
         "status={}\nstdout:\n{}\nstderr:\n{}",
         output.status,
