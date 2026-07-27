@@ -8,6 +8,7 @@ use snapbox::{assert_data_eq, prelude::*};
 
 use crate::{
     CliId, IdMap,
+    args::atoms::CliIdArg,
     id::{BranchId, CommitId, id_usage::UintId},
 };
 
@@ -2570,6 +2571,31 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
         "hunk selector resolves in the scoped namespace: {hunk:?}"
     );
 
+    let tmp = tempfile::TempDir::new()?;
+    let repo = gix::init(tmp.path())?;
+    let resolved = CliIdArg(format!("{file_id}:q"))
+        .try_resolve_uncommitted(&repo, &id_map)
+        .expect("selector resolution succeeds")
+        .expect("the issued hunk selector still resolves");
+    assert_eq!(resolved.len(), 1, "exactly one hunk resolves");
+    assert_eq!(resolved[0].hunk_assignments.first().path_bytes, "README.md");
+
+    let resolved = CliIdArg(format!("{file_id}:q"))
+        .resolve_in_workspace(
+            &repo,
+            &id_map,
+            crate::args::atoms::Purpose::Uncommitted,
+            None,
+        )
+        .expect("a command requiring an uncommitted selector resolves the issued hunk");
+    assert!(
+        matches!(
+            resolved,
+            crate::args::atoms::ResolvedCliIdArg::UncommittedHunkOrFile(_)
+        ),
+        "the shared uncommitted-purpose resolver keeps the issued hunk"
+    );
+
     Ok(())
 }
 
@@ -2636,6 +2662,22 @@ fn uncommitted_scope_does_not_prefix_match_a_branch_short_id() -> anyhow::Result
     assert!(
         matches!(scoped.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
         "file prefixes beyond the branch ID keep resolving: {scoped:?}"
+    );
+
+    let tmp = tempfile::TempDir::new()?;
+    let repo = gix::init(tmp.path())?;
+    let resolved = CliIdArg("kp".to_owned())
+        .resolve_in_workspace(
+            &repo,
+            &id_map,
+            crate::args::atoms::Purpose::Uncommitted,
+            None,
+        )
+        .expect("the full lookup should preserve a non-uncommitted match");
+    assert!(
+        matches!(resolved, crate::args::atoms::ResolvedCliIdArg::Branch(_)),
+        "when the uncommitted-only lookup deliberately yields nothing, the full lookup \
+         preserves the branch kind for the caller's targeted error: {resolved:?}"
     );
     Ok(())
 }
