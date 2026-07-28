@@ -710,9 +710,15 @@ importers:
       '@gitbutler/design-core':
         specifier: 3.9.1
         version: 3.9.1
+      '@hono/node-server':
+        specifier: 2.0.10
+        version: 2.0.10(hono@4.12.32)
       '@modelcontextprotocol/ext-apps':
         specifier: 1.7.4
-        version: 1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+        version: 1.7.4(@modelcontextprotocol/sdk@1.30.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.0
+        version: 1.30.0(zod@4.3.6)
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -1863,6 +1869,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@eslint-community/eslint-utils@4.10.1':
+    resolution: {integrity: sha512-cuadcxVFE8sDK6iWJbs8Sn0av2Nrh2QSGQhVlBW9AaAHqHwjWsZHT8LJ4hFGPh7ASBV2deFdM7H/DPjulmh8rg==}
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    peerDependencies:
+      eslint: ^6.0.0 || ^7.0.0 || >=8.0.0
+
   '@eslint-community/eslint-utils@4.9.1':
     resolution: {integrity: sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
@@ -2035,9 +2047,9 @@ packages:
   '@hapi/topo@6.0.2':
     resolution: {integrity: sha512-KR3rD5inZbGMrHmgPxsJ9dbi6zEK+C3ZwUwTa+eMwWLz7oijWUTWD2pMSNNYJAU6Qq+65NkxXjqHr/7LM2Xkqg==}
 
-  '@hono/node-server@1.19.14':
-    resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
-    engines: {node: '>=18.14.1'}
+  '@hono/node-server@2.0.10':
+    resolution: {integrity: sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==}
+    engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
 
@@ -2548,8 +2560,8 @@ packages:
       react-dom:
         optional: true
 
-  '@modelcontextprotocol/sdk@1.29.0':
-    resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
+  '@modelcontextprotocol/sdk@1.30.0':
+    resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -6806,6 +6818,10 @@ packages:
     resolution: {integrity: sha512-w8ZNZr2mKIc7qeNaQ9AVPT1+iFaI+Avd4xudVOvdDJ8VytREi1Ft5Ih7hd9jjehod8vAM5GMsfQ/TpPf4EyoEA==}
     engines: {node: '>=14.14'}
 
+  fs-extra@11.4.0:
+    resolution: {integrity: sha512-EQsFzMUJkCKGr1ePqlYADkIUmHW1s3ZXr5Yqy6wbGrfUCphpl2maM/kyOIRA2HpP3AaFQTZXD4ldjek+nccddA==}
+    engines: {node: '>=14.14'}
+
   fs-extra@7.0.1:
     resolution: {integrity: sha512-YJDaCJZEnBmcbw13fvdAM9AwNOJwOzrE4pqMqBq5nFiEqXUqHwlK4B+3pUw6JNvfSPtX05xFHtYy/1ni01eGCw==}
     engines: {node: '>=6 <7 || >=8'}
@@ -6999,8 +7015,8 @@ packages:
     resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
     engines: {node: '>=12.0.0'}
 
-  hono@4.12.31:
-    resolution: {integrity: sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg==}
+  hono@4.12.32:
+    resolution: {integrity: sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@4.1.0:
@@ -7071,8 +7087,8 @@ packages:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
 
-  iconv-lite@0.7.2:
-    resolution: {integrity: sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==}
+  iconv-lite@0.7.3:
+    resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
 
   idb-keyval@6.3.0:
@@ -7150,8 +7166,8 @@ packages:
     resolution: {integrity: sha512-zDml/jzr2PKU9I8J/xyZBQn8rPCAY//UOYNmR01XwNwyfhEWObo2SWfSl1+0tm1u6PhxLwDnfsT/6jB7OUxqFA==}
     engines: {node: '>= 0.10'}
 
-  ip-address@10.2.0:
-    resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
+  ip-address@10.3.1:
+    resolution: {integrity: sha512-1e9d3kb97NHJTIJDZW9rKqW2h6+dFa50Dy0fpPSMQp2ADje5gvKsXmdiK6dwY5t76TaTt5+P5N1Y/LoToIxP6g==}
     engines: {node: '>= 12'}
 
   ipaddr.js@1.9.1:
@@ -7686,8 +7702,8 @@ packages:
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
-  media-typer@1.1.0:
-    resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
+  media-typer@1.1.1:
+    resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
 
   meow@12.1.1:
@@ -9080,6 +9096,10 @@ packages:
     resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
     engines: {node: '>=11.0.0'}
 
+  sax@1.6.1:
+    resolution: {integrity: sha512-42tBVwLWnaQvW5zc4HbZrTuWccECCZfBi92FDuwtqxasH+JbPB3/FOKb1m222K42R4WxuxzzMsTswfzgtSu64Q==}
+    engines: {node: '>=11.0.0'}
+
   saxes@6.0.0:
     resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
     engines: {node: '>=v12.22.7'}
@@ -9471,8 +9491,8 @@ packages:
     resolution: {integrity: sha512-4LeEWl96twnS2Q7Bz4MGqgazLqO+hJN63GZxXoIqh1T3VweYD997gbU1ItNsQafqqXTXd5WFyFdReLtwvRBNiw==}
     engines: {node: '>=18'}
 
-  tar@7.5.20:
-    resolution: {integrity: sha512-9FcyK4PA6+WbzlTM9WhQm6vB5W7cP7dUiPsv1g7YDwEQnQ1CGpK3MGlKk/ITVWMk05kHZuBhmVhiv8LZoy/PFQ==}
+  tar@7.5.22:
+    resolution: {integrity: sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA==}
     engines: {node: '>=18'}
 
   temp-file@3.4.0:
@@ -10780,7 +10800,7 @@ snapshots:
     dependencies:
       cross-dirname: 0.1.0
       debug: 4.4.3(supports-color@8.1.1)
-      fs-extra: 11.3.6
+      fs-extra: 11.4.0
       minimist: 1.2.8
       postject: 1.0.0-alpha.6
     transitivePeerDependencies:
@@ -10990,6 +11010,11 @@ snapshots:
   '@esbuild/win32-x64@0.27.3':
     optional: true
 
+  '@eslint-community/eslint-utils@4.10.1(eslint@9.39.5(jiti@2.7.0))':
+    dependencies:
+      eslint: 9.39.5(jiti@2.7.0)
+      eslint-visitor-keys: 3.4.3
+
   '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@2.7.0))':
     dependencies:
       eslint: 9.39.4(jiti@2.7.0)
@@ -11020,7 +11045,7 @@ snapshots:
 
   '@eslint/eslintrc@3.3.5':
     dependencies:
-      ajv: 6.14.0
+      ajv: 6.15.0
       debug: 4.4.3(supports-color@8.1.1)
       espree: 10.4.0
       globals: 14.0.0
@@ -11188,9 +11213,9 @@ snapshots:
     dependencies:
       '@hapi/hoek': 11.0.7
 
-  '@hono/node-server@1.19.14(hono@4.12.31)':
+  '@hono/node-server@2.0.10(hono@4.12.32)':
     dependencies:
-      hono: 4.12.31
+      hono: 4.12.32
 
   '@humanfs/core@0.19.1': {}
 
@@ -11311,14 +11336,14 @@ snapshots:
   '@inquirer/external-editor@1.0.3(@types/node@22.19.15)':
     dependencies:
       chardet: 2.1.1
-      iconv-lite: 0.7.2
+      iconv-lite: 0.7.3
     optionalDependencies:
       '@types/node': 22.19.15
 
   '@inquirer/external-editor@2.0.3(@types/node@22.19.15)':
     dependencies:
       chardet: 2.1.1
-      iconv-lite: 0.7.2
+      iconv-lite: 0.7.3
     optionalDependencies:
       '@types/node': 22.19.15
 
@@ -11771,18 +11796,18 @@ snapshots:
       '@types/react': 19.2.14
       react: 19.2.4
 
-  '@modelcontextprotocol/ext-apps@1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
+  '@modelcontextprotocol/ext-apps@1.7.4(@modelcontextprotocol/sdk@1.30.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.3.6)
+      '@modelcontextprotocol/sdk': 1.30.0(zod@4.3.6)
       '@standard-schema/spec': 1.1.0
       zod: 4.3.6
     optionalDependencies:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.3.6)':
+  '@modelcontextprotocol/sdk@1.30.0(zod@4.3.6)':
     dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.31)
+      '@hono/node-server': 2.0.10(hono@4.12.32)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -11792,7 +11817,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.6.0(express@5.2.1)
-      hono: 4.12.31
+      hono: 4.12.32
       jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -14696,7 +14721,7 @@ snapshots:
       proper-lockfile: 4.1.2
       resedit: 1.7.2
       semver: 7.7.4
-      tar: 7.5.20
+      tar: 7.5.22
       temp-file: 3.4.0
       tiny-async-pool: 1.3.0
       which: 5.0.0
@@ -14950,7 +14975,7 @@ snapshots:
       content-type: 2.0.0
       debug: 4.4.3(supports-color@8.1.1)
       http-errors: 2.0.1
-      iconv-lite: 0.7.2
+      iconv-lite: 0.7.3
       on-finished: 2.4.1
       qs: 6.14.1
       raw-body: 3.0.2
@@ -15010,7 +15035,7 @@ snapshots:
   builder-util-runtime@9.5.1:
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      sax: 1.6.0
+      sax: 1.6.1
     transitivePeerDependencies:
       - supports-color
 
@@ -16158,7 +16183,7 @@ snapshots:
 
   eslint@9.39.5(jiti@2.7.0):
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.5(jiti@2.7.0))
+      '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0))
       '@eslint-community/regexpp': 4.12.2
       '@eslint/config-array': 0.21.2
       '@eslint/config-helpers': 0.4.2
@@ -16300,7 +16325,7 @@ snapshots:
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       express: 5.2.1
-      ip-address: 10.2.0
+      ip-address: 10.3.1
     transitivePeerDependencies:
       - supports-color
 
@@ -16504,6 +16529,13 @@ snapshots:
       graceful-fs: 4.2.11
       jsonfile: 6.2.1
       universalify: 2.0.1
+
+  fs-extra@11.4.0:
+    dependencies:
+      graceful-fs: 4.2.11
+      jsonfile: 6.2.1
+      universalify: 2.0.1
+    optional: true
 
   fs-extra@7.0.1:
     dependencies:
@@ -16749,7 +16781,7 @@ snapshots:
 
   highlight.js@11.11.1: {}
 
-  hono@4.12.31: {}
+  hono@4.12.32: {}
 
   hosted-git-info@4.1.0:
     dependencies:
@@ -16834,7 +16866,7 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  iconv-lite@0.7.2:
+  iconv-lite@0.7.3:
     dependencies:
       safer-buffer: 2.1.2
 
@@ -16905,7 +16937,7 @@ snapshots:
 
   install@0.13.0: {}
 
-  ip-address@10.2.0: {}
+  ip-address@10.3.1: {}
 
   ipaddr.js@1.9.1: {}
 
@@ -17523,7 +17555,7 @@ snapshots:
 
   mdn-data@2.27.1: {}
 
-  media-typer@1.1.0: {}
+  media-typer@1.1.1: {}
 
   meow@12.1.1: {}
 
@@ -18613,7 +18645,7 @@ snapshots:
     dependencies:
       bytes: 3.1.2
       http-errors: 2.0.1
-      iconv-lite: 0.7.2
+      iconv-lite: 0.7.3
       unpipe: 1.0.0
 
   react-docgen-typescript@2.4.0(typescript@5.9.3):
@@ -19040,6 +19072,8 @@ snapshots:
 
   sax@1.6.0: {}
 
+  sax@1.6.1: {}
+
   saxes@6.0.0:
     dependencies:
       xmlchars: 2.2.0
@@ -19197,7 +19231,7 @@ snapshots:
 
   socks@2.8.7:
     dependencies:
-      ip-address: 10.2.0
+      ip-address: 10.3.1
       smart-buffer: 4.2.0
 
   sorcery@1.0.0:
@@ -19526,7 +19560,7 @@ snapshots:
       minizlib: 3.1.0
       yallist: 5.0.0
 
-  tar@7.5.20:
+  tar@7.5.22:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
       chownr: 3.0.0
@@ -19716,7 +19750,7 @@ snapshots:
   type-is@2.1.0:
     dependencies:
       content-type: 2.0.0
-      media-typer: 1.1.0
+      media-typer: 1.1.1
       mime-types: 3.0.2
 
   typescript-eslint@8.57.2(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3):

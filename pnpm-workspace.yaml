@@ -33,6 +33,11 @@ catalogs:
     svelte: 5.54.0
     svelte-check: 4.4.5
 
+overrides:
+  "@hono/node-server": 2.0.10
+  "@modelcontextprotocol/sdk>@hono/node-server": 2.0.10
+  qs: 6.15.2
+
 # Don't allow package versions less than two days old to be installed.
 # https://pnpm.io/settings#minimumreleaseage
 # Packages can be exclude from this setting with the `minimumReleaseAgeExclude` property.
@@ -40,3 +45,4 @@ minimumReleaseAge: 2880
 
 minimumReleaseAgeExclude:
   - "@gitbutler/design-core"
+  - "@modelcontextprotocol/sdk"
