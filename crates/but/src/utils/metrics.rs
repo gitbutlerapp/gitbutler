@@ -681,6 +681,25 @@ impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
     }
 }
 
+/// Emit an event for a command line that never ran because the parser
+/// rejected it and a retired-syntax teaching hint was shown.
+///
+/// The event carries a `retiredSyntaxHint` prop, so remaining pre-revamp
+/// usage can be tracked to decide when the hints in `retired_syntax` can be
+/// removed. Root options like `-C` are not parsed on the failure paths that
+/// call this, so the event reports the process working directory.
+pub(crate) fn emit_retired_syntax_hint(command: CommandName) {
+    let Ok(settings) = crate::app_settings() else {
+        return;
+    };
+    if !settings.telemetry.app_metrics_enabled {
+        return;
+    }
+    let mut props = Props::new();
+    props.insert("retiredSyntaxHint", true);
+    emit_metrics(command, &props, Path::new("."));
+}
+
 fn emit_metrics(command: CommandName, props: &Props, current_dir: &Path) {
     let Some(v) = command.to_possible_value() else {
         tracing::warn!("BUG: didn't get string value for {command:?}");

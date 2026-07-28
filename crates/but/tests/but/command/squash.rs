@@ -686,6 +686,8 @@ fn cannot_squash_multiple_commits_without_target() {
         .stderr_eq(snapbox::str![[r#"
 Error: When --target isn't used the source must be exactly one branch
 
+Hint: To squash into the last source, use `but squash 1#0 -t 1#2`
+
 "#]]);
 }
 
@@ -702,6 +704,8 @@ fn cannot_squash_multiple_branches_without_target() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: When --target isn't used the source must be exactly one branch
+
+Hint: To squash into the last source, use `but squash a-branch-1 -t second-branch`
 
 "#]]);
 }

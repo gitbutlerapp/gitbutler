@@ -259,3 +259,28 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 
 "#]]);
 }
+
+#[test]
+fn retired_discard_flag_points_at_the_discard_command() {
+    let env = Sandbox::empty();
+
+    env.but("uncommit --discard ab")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+
+note: the retired `but uncommit --discard` is now its own command:
+
+    but discard ab
+
+See `but discard --help` for details.
+error: unexpected argument '--discard' found
+
+  tip: to pass '--discard' as a value, use '-- --discard'
+
+Usage: but uncommit [OPTIONS] <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
