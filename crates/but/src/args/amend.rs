@@ -21,7 +21,8 @@ pub struct Platform {
     pub target: CliIdArg,
 
     /// One or more uncommitted files or hunks to amend.
-    #[clap(required = true)]
+    ///
+    /// If omitted, all changes in the uncommitted area (`zz`) are amended.
     pub sources: Vec<CliIdArg>,
 
     #[clap(flatten)]
