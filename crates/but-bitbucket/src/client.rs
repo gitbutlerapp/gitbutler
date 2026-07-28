@@ -185,6 +185,29 @@ impl BitbucketClient {
         &self,
         params: &CreatePullRequestParams<'_>,
     ) -> Result<BitbucketPullRequest> {
+        let reviewers = self
+            .default_reviewers_for_new_pr(params.workspace, params.repo_slug)
+            .await;
+        match self.send_pr_create(params, &reviewers).await {
+            // Bitbucket rejects the whole request over one unacceptable
+            // reviewer; retrying without them beats failing outright.
+            Err(err)
+                if !reviewers.is_empty()
+                    && err
+                        .downcast_ref::<HttpStatusError>()
+                        .is_some_and(|e| e.status == reqwest::StatusCode::BAD_REQUEST) =>
+            {
+                self.send_pr_create(params, &[]).await
+            }
+            result => result,
+        }
+    }
+
+    async fn send_pr_create(
+        &self,
+        params: &CreatePullRequestParams<'_>,
+        reviewer_account_ids: &[String],
+    ) -> Result<BitbucketPullRequest> {
         let url = format!(
             "{}/repositories/{}/{}/pullrequests",
             self.base_url,
@@ -212,16 +235,67 @@ impl BitbucketClient {
                     name: params.target_branch,
                 },
             },
+            reviewers: reviewer_account_ids
+                .iter()
+                .map(|account_id| ReviewerBody { account_id })
+                .collect(),
         };
 
         let response = self.client.post(&url).json(&body).send().await?;
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            bail!("Failed to create pull request: {status} - {error_text}");
+            return Err(
+                anyhow::Error::new(HttpStatusError { status }).context(format!(
+                    "Failed to create pull request: {status} - {error_text}"
+                )),
+            );
         }
         let pr: BitbucketApiPullRequest = response.json().await?;
         Ok(pr.into())
+    }
+
+    /// Bitbucket does not apply default reviewers to API-created pull requests,
+    /// so fetch the effective set (repository- plus project-level) minus the
+    /// author, whom Bitbucket rejects as a reviewer.
+    /// Best-effort: a failed lookup yields no reviewers.
+    async fn default_reviewers_for_new_pr(&self, workspace: &str, repo_slug: &str) -> Vec<String> {
+        #[derive(Deserialize)]
+        struct DefaultReviewer {
+            #[serde(default)]
+            user: Option<BitbucketApiUser>,
+        }
+
+        let url = format!(
+            "{}/repositories/{}/{}/effective-default-reviewers?pagelen=50",
+            self.base_url,
+            urlencoding::encode(workspace),
+            urlencoding::encode(repo_slug),
+        );
+        let Ok(reviewers) = self.get_paginated::<DefaultReviewer>(url).await else {
+            return Vec::new();
+        };
+        let mut account_ids: Vec<String> = Vec::new();
+        for id in reviewers
+            .into_iter()
+            .filter_map(|r| r.user.and_then(|u| u.account_id))
+        {
+            if !account_ids.contains(&id) {
+                account_ids.push(id);
+            }
+        }
+        if account_ids.is_empty() {
+            return account_ids;
+        }
+        if let Some(author) = self
+            .get_authenticated()
+            .await
+            .ok()
+            .and_then(|user| user.account_id)
+        {
+            account_ids.retain(|id| *id != author);
+        }
+        account_ids
     }
 
     /// Fetch the fields needed to safely PUT a pull request. Bitbucket's
@@ -1003,6 +1077,7 @@ struct CreatePullRequestBody<'a> {
     close_source_branch: bool,
     source: SourceBody<'a>,
     destination: DestinationBody<'a>,
+    reviewers: Vec<ReviewerBody<'a>>,
 }
 
 struct PrEditContext {
