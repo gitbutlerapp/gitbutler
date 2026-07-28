@@ -100,7 +100,7 @@ export const UncommittedChangesRow: FC<{
 
 	return (
 		<SectionHeaderRow
-			label="Uncommitted changes"
+			label="Uncommitted"
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

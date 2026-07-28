@@ -47,7 +47,14 @@
 }
 
 .uncommittedChangesTree {
+	--scroll-gradient-height: 14px;
+	--scroll-gradient-overlap: 4px;
+
 	padding-inline: var(--panel-padding-inline);
+	/* The sticky gradient below takes up flow space at the end of the content.
+	   Account for it when scrolling rows into view (e.g. arrow-key navigation),
+	   so the last row can reach the true bottom and the gradient fades out. */
+	scroll-padding-block-end: calc(var(--scroll-gradient-height) - var(--scroll-gradient-overlap));
 
 	/* Stretch the scroll separator over the inline padding to full width. */
 	&::before {
@@ -61,8 +68,8 @@
 		z-index: 1;
 		position: sticky;
 		bottom: 0;
-		height: 20px;
-		margin-block-start: -8px;
+		height: var(--scroll-gradient-height);
+		margin-block-start: calc(-1 * var(--scroll-gradient-overlap));
 		background: linear-gradient(to top, var(--bg-1) 20%, transparent);
 		content: "";
 		opacity: 0;
