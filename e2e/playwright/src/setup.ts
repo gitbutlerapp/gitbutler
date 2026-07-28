@@ -217,18 +217,17 @@ function createButServerProcess(rootDir: string, serverEnv: Record<string, strin
 	return child;
 }
 
-async function waitForServer(port: string, host = "localhost", maxAttempts = 500) {
+async function waitForServer(port: string, host = "localhost", timeoutMs = 30_000) {
 	const parsed = parseInt(port, 10);
+	const deadline = Date.now() + timeoutMs;
 
-	for (let i = 0; i < maxAttempts; i++) {
+	while (Date.now() < deadline) {
 		if (await checkPort(parsed, host)) {
 			log(`✅ Server is ready on ${host}:${port}`, colors.green);
 			return true;
 		}
 
-		if (i < maxAttempts - 1) {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
 
 	return false;

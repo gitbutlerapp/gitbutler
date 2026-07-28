@@ -45,40 +45,27 @@ export default defineConfig({
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
 		trace: "retain-on-failure",
-		video: { mode: "retain-on-failure", size: { width: 1920, height: 1080 } },
+		video: { mode: "retain-on-failure", size: { width: 1280, height: 720 } },
 	},
 
 	/* Configure projects for major browsers */
-	projects: projects(),
+	projects: [
+		{
+			name: "webkit",
+			use: {
+				...devices["Desktop Safari"],
+				viewport: { width: 1920, height: 1080 },
+				deviceScaleFactor: 1,
+				headless: process.env.CI ? true : process.env.PLAYWRIGHT_UI !== "1",
+			},
+		},
+	],
 
 	/* Run your local dev server before starting the tests */
 	webServer: webServers(),
 
 	snapshotPathTemplate: "{testDir}/__snapshots__/{testFilePath}/{arg}{ext}",
 });
-
-function projects() {
-	const projects = [];
-	if (process.env.CI) {
-		projects.push({
-			name: "webkit",
-			use: { ...devices["Desktop Safari"], viewport: { width: 1920, height: 1080 } },
-		});
-		return projects;
-	}
-
-	projects.push({
-		name: "webkit",
-		use: {
-			...devices["Desktop Safari"],
-			viewport: { width: 1920, height: 1080 },
-			deviceScaleFactor: 1,
-			headless: process.env.PLAYWRIGHT_UI === "1" ? false : true,
-		},
-	});
-
-	return projects;
-}
 
 /**
  * Command to start the frontend server.

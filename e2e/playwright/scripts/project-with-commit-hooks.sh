@@ -69,10 +69,12 @@ HOOK_EOF
 # This hook checks if a marker file exists to trigger failure
 
 if [ -f "FAIL_POST_COMMIT" ]; then
+  touch POST_COMMIT_FAILED
   echo "Error: Post-commit hook failed due to FAIL_POST_COMMIT marker"
   exit 1
 fi
 
+touch POST_COMMIT_SUCCEEDED
 exit 0
 HOOK_EOF
 

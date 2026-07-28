@@ -2,8 +2,7 @@ import { getButlerPort, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, commitRow, fillByTestId, getByTestId, waitForTestId } from "../src/util.ts";
 import { expect, type Page } from "@playwright/test";
-
-test.describe.configure({ mode: "serial" });
+import { existsSync } from "node:fs";
 
 /**
  * Bring up the hook-equipped project, enable hooks for the project, and reload
@@ -115,9 +114,9 @@ test("post-commit hook success", async ({ page, gitbutler }) => {
 	const row = commitRow(page).first();
 	await expect(row).toBeVisible();
 	await expect(row).toContainText("Testing post-commit hook");
-
-	// Post-commit hook runs in the background.
-	await page.waitForTimeout(1500);
+	await expect
+		.poll(() => existsSync(gitbutler.pathInWorkdir("local-with-hooks/POST_COMMIT_SUCCEEDED")))
+		.toBe(true);
 });
 
 test("post-commit hook failure does not block commit", async ({ page, gitbutler }) => {
@@ -132,6 +131,7 @@ test("post-commit hook failure does not block commit", async ({ page, gitbutler 
 	const row = commitRow(page).first();
 	await expect(row).toBeVisible();
 	await expect(row).toContainText("Trigger post-commit failure");
-
-	await page.waitForTimeout(1500);
+	await expect
+		.poll(() => existsSync(gitbutler.pathInWorkdir("local-with-hooks/POST_COMMIT_FAILED")))
+		.toBe(true);
 });

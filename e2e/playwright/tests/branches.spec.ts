@@ -113,8 +113,6 @@ test("should be able to apply a remote branch", async ({ page, gitbutler }) => {
 });
 
 test.describe("GitHub review apply", () => {
-	test.describe.configure({ mode: "serial" });
-
 	test("should apply a GitHub fork PR by creating the fork remote in the backend", async ({
 		page,
 		gitbutler,

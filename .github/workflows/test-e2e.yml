@@ -118,11 +118,15 @@ jobs:
           overwrite: true
           path: ./e2e-output/
 
-  playwright:
-    name: e2e-playwright
+  playwright_shards:
+    name: e2e-playwright (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: ${{ needs.changes.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     permissions:
       contents: read
       packages: read
@@ -150,7 +154,7 @@ jobs:
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: e2e-playwright-rust-binaries
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.shard == 1 }}
       - name: Preset Git Configuration and but location
         run: |
           echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
@@ -165,7 +169,7 @@ jobs:
         with:
           path: |
             ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+          key: ${{ runner.os }}-playwright-e2e-webkit-${{ steps.get_playwright_version.outputs.playwright-version }}
       - name: Build Rust binaries, SvelteKit, and install Playwright
         env:
           PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
@@ -176,7 +180,7 @@ jobs:
           pnpm_pid=$!
           pw_pid=""
           if [ "$PLAYWRIGHT_CACHE_HIT" != "true" ]; then
-            (apt-get update && cd e2e && pnpm exec playwright install chromium webkit) &
+            pnpm --dir e2e exec playwright install webkit &
             pw_pid=$!
           fi
           status=0
@@ -185,12 +189,29 @@ jobs:
           [ -n "$pw_pid" ] && { wait "$pw_pid" || status=1; }
           exit "$status"
       - name: Run Playwright tests
-        run: pnpm exec turbo run test:e2e:playwright
+        run: pnpm exec turbo run test:e2e:playwright -- --shard="${{ matrix.shard }}/${{ strategy.job-total }}"
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_PLAYWRIGHT }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}-of-${{ strategy.job-total }}
+          overwrite: true
           path: ./e2e/playwright/test-results-flat/
           retention-days: 30
+
+  playwright:
+    name: e2e-playwright
+    needs: [changes, playwright_shards]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Verify Playwright shards
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SHOULD_RUN: ${{ needs.changes.outputs.should_run }}
+          SHARDS_RESULT: ${{ needs.playwright_shards.result }}
+        run: |
+          test "$CHANGES_RESULT" = "success" &&
+            { test "$SHOULD_RUN" != "true" || test "$SHARDS_RESULT" = "success"; }
