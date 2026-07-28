@@ -11,6 +11,7 @@ use std::str::{self, FromStr as _};
 use std::sync::Arc;
 
 use bstr::{BStr, BString, ByteSlice};
+use but_api::commit::json::ChangesSource;
 use but_core::HunkHeader;
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
@@ -644,6 +645,7 @@ impl WorktreeHunk {
             line_nums_added,
             line_nums_removed,
             diff,
+            ..
         } = self;
         HunkAssignment {
             id,
