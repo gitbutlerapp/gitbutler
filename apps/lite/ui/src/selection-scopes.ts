@@ -24,10 +24,11 @@ export const getFocusedSelectionScope = (activeElement: Element | null): Selecti
 	return isSelectionScope(selectionScope) ? selectionScope : null;
 };
 
-export const focusSelectionScope = (selectionScope: SelectionScope) => {
-	document
-		.querySelector<HTMLElement>(`[data-selection-scope="${selectionScope}"]`)
-		?.focus({ focusVisible: false });
+export const focusSelectionScope = (selectionScope: SelectionScope): boolean => {
+	const el = document.querySelector<HTMLElement>(`[data-selection-scope="${selectionScope}"]`);
+
+	if (el) el.focus({ focusVisible: false });
+	return !!el;
 };
 
 export const focusHorizontalSelectionScope = ({

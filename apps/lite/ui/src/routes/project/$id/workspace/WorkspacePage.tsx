@@ -28,7 +28,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useDeferredValue } from "react";
+import { type FC, type RefObject, Activity, useDeferredValue, useRef } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
@@ -61,7 +61,10 @@ import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 // stored in local storage.
 type PanelId = "outline-panel" | "details-panel";
 
-const useWorkspaceHotkeys = (projectId: string) => {
+const useWorkspaceHotkeys = (
+	projectId: string,
+	detailsPanelRef: RefObject<HTMLDivElement | null>,
+) => {
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
@@ -127,6 +130,27 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				conflictBehavior: "allow",
 				enabled: canShowFiles,
 				meta: workspaceHotkeys.toggleFiles.meta,
+			},
+		},
+		{
+			hotkey: workspaceHotkeys.focusDetails.hotkey,
+			callback: () => {
+				const focusedDiff = focusSelectionScope("diff");
+				if (!focusedDiff) detailsPanelRef.current?.focus({ focusVisible: false });
+			},
+		},
+		{
+			hotkey: workspaceHotkeys.focusUncommittedFiles.hotkey,
+			callback: () => focusSelectionScope("uncommitted-files"),
+			options: {
+				enabled: outlineVisible,
+			},
+		},
+		{
+			hotkey: workspaceHotkeys.focusOutline.hotkey,
+			callback: () => focusSelectionScope("outline"),
+			options: {
+				enabled: outlineVisible,
 			},
 		},
 		{
@@ -294,8 +318,9 @@ const WorkspacePage: FC = () => {
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);
+	const detailsPanelRef = useRef<HTMLDivElement>(null);
 
-	useWorkspaceHotkeys(projectId);
+	useWorkspaceHotkeys(projectId, detailsPanelRef);
 
 	const selectBranch = (branch: BranchOperand) => {
 		dispatch(
@@ -482,7 +507,12 @@ const WorkspacePage: FC = () => {
 					<Separator className={styles.resizeHandle} />
 				</Activity>
 
-				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
+				<Panel
+					id={"details-panel" satisfies PanelId}
+					className={styles.panel}
+					elementRef={detailsPanelRef}
+					tabIndex={-1}
+				>
 					<Details selection={deferredDetailsSelection} />
 				</Panel>
 			</Group>
