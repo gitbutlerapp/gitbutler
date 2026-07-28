@@ -20,6 +20,7 @@ export type QueryKey =
 	| "branchList"
 	| "changesInWorktree"
 	| "ciChecks"
+	| "comments"
 	| "commitDetailsWithLineStats"
 	| "forgeInfo"
 	| "headInfo"
@@ -57,6 +58,12 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["changesInWorktree" satisfies QueryKey, projectId],
 		queryFn: () => window.lite.changesInWorktree(projectId),
+	});
+
+export const commentsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["comments" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.commentsList(projectId),
 	});
 
 export const commitDetailsWithLineStatsQueryOptions = ({

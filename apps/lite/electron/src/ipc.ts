@@ -21,6 +21,7 @@ import type {
 	CommitAbsorption,
 	HunkAssignmentRequest,
 	CommitDetails,
+	DiffComment,
 	DiffSpec,
 	FullNameBytes,
 	InitialBranchIntegration,
@@ -62,6 +63,7 @@ import type {
 	Snapshot,
 	AskpassPromptEvent,
 	MaybeLossyFullNameRef,
+	NewComment,
 } from "@gitbutler/but-sdk";
 import type { GUISettings } from "./settings.js";
 
@@ -95,6 +97,22 @@ export interface AskpassSubmitPromptResponseParams {
 export interface AssignHunkParams {
 	projectId: string;
 	assignments: Array<HunkAssignmentRequest>;
+}
+
+export interface CommentCreateParams {
+	projectId: string;
+	comment: NewComment;
+}
+
+export interface CommentUpdateParams {
+	projectId: string;
+	id: string;
+	payload: string;
+}
+
+export interface CommentArchiveParams {
+	projectId: string;
+	id: string;
 }
 
 export interface BranchCreateParams {
@@ -431,6 +449,10 @@ export interface LiteElectronApi {
 	branchList: (projectId: string) => Promise<Array<ListedStack>>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
 	clipboardWriteText: (text: string) => Promise<void>;
+	commentArchive: (params: CommentArchiveParams) => Promise<boolean>;
+	commentCreate: (params: CommentCreateParams) => Promise<DiffComment>;
+	commentUpdate: (params: CommentUpdateParams) => Promise<void>;
+	commentsList: (projectId: string) => Promise<Array<DiffComment>>;
 	commitAmend: (params: CommitAmendParams) => Promise<CommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<CommitCreateResult>;
 	commitDiscard: (params: CommitDiscardParams) => Promise<CommitDiscardResult>;
@@ -521,6 +543,10 @@ export const liteIpcChannels = {
 	branchList: "workspace:branch-list",
 	changesInWorktree: "workspace:changes-in-worktree",
 	clipboardWriteText: "lite:clipboard-write-text",
+	commentArchive: "workspace:comment-archive",
+	commentCreate: "workspace:comment-create",
+	commentUpdate: "workspace:comment-update",
+	commentsList: "workspace:comments-list",
 	commitAmend: "workspace:commit-amend",
 	commitCreate: "workspace:commit-create",
 	commitDiscard: "workspace:commit-discard",
