@@ -802,6 +802,7 @@ impl OutputChannel {
         }
     }
 
+    #[expect(dead_code)]
     pub fn print_cli_output_human(&mut self, output: impl CliOutputHuman) -> anyhow::Result<()> {
         let is_agent = self.format.is_agent();
         if let Some(for_human) = self.for_human() {
