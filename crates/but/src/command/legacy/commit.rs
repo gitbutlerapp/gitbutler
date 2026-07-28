@@ -8,7 +8,7 @@ use but_core::{
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
-use but_workspace::{RefInfo, branch::create_reference::Anchor};
+use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -625,6 +625,7 @@ impl CommitToNewBranchOperation {
             InsertSide::Below,
             changes,
             String::new(),
+            ChangeSource::Head,
         )?;
 
         Ok((
@@ -646,8 +647,13 @@ impl CommitAtOperation {
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = self.create_target(tx)?;
 
-        let commit_create_result =
-            tx.create_commit(relative_to.clone(), side, changes, String::new())?;
+        let commit_create_result = tx.create_commit(
+            relative_to.clone(),
+            side,
+            changes,
+            String::new(),
+            ChangeSource::Head,
+        )?;
 
         Ok((commit_create_result, branch_name_target))
     }

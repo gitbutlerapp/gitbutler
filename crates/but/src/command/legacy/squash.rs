@@ -7,7 +7,10 @@ use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
-use but_workspace::{RefInfo, commit::squash_commits::MessageCombinationStrategy};
+use but_workspace::{
+    RefInfo,
+    commit::{ChangeSource, squash_commits::MessageCombinationStrategy},
+};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
@@ -1490,7 +1493,7 @@ impl AmendUncommittedDiffSpecsOperation {
         let IntermediateCommitCreateResult {
             new_commit,
             rejected_specs,
-        } = tx.amend_commit(target.commit_id, changes)?;
+        } = tx.amend_commit(target.commit_id, changes, ChangeSource::Head)?;
 
         if !rejected_specs.is_empty() {
             return Err(rejection::RejectedChanges(rejected_specs).into());
