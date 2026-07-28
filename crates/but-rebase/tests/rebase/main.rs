@@ -673,6 +673,7 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     }
 
     let conflict_tip = out.commit_mapping[1].2.attach(&repo);
+    let rewritten_c_tip = out.commit_mapping[2].2;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
@@ -696,6 +697,9 @@ fn reversible_conflicts() -> anyhow::Result<()> {
         "The reordered C commit conflicts"
     );
 
+    // Replay the materialized branch in the correct order. Keeping both the
+    // conflicted C and rewritten merge proves that rebasing recovers the conflict;
+    // using the original commits here would merely repeat the clean-order test.
     let out = builder
         .steps([
             RebaseStep::Pick {
@@ -705,15 +709,15 @@ fn reversible_conflicts() -> anyhow::Result<()> {
                 new_message: Some("C~2 is first".into()),
             },
             RebaseStep::Pick {
-                commit_id: repo.rev_parse_single("C~1")?.into(),
+                commit_id: rewritten_c_tip,
                 new_message: Some("C~1 is second".into()),
             },
             RebaseStep::Pick {
-                commit_id: repo.rev_parse_single("C")?.into(),
-                new_message: Some("The original C will fit right on top".into()),
+                commit_id: conflict_tip.detach(),
+                new_message: Some("The conflicted C is recovered".into()),
             },
             RebaseStep::Pick {
-                commit_id: repo.rev_parse_single("main")?.into(),
+                commit_id: out.top_commit,
                 new_message: Some("Re-merge branches 'A', 'B' and 'C'".into()),
             },
         ])?
@@ -721,7 +725,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     assert_eq!(
         conflicted(&repo, &out),
         [false, false, false, false],
-        "Nothing is conflicted anymore, but only because we pulled back the correct 'C'"
+        "putting the conflicted C back after C~1 recovers the original order"
+    );
+    assert!(
+        !but_core::Commit::from_id(out.commit_mapping[2].2.attach(&repo))?.is_conflicted(),
+        "the materialized conflicted C becomes an ordinary commit again"
     );
     // It's the original version, like one would expect from the original order
     snapbox::assert_data_eq!(visualize_tree(&repo, &out), snapbox::str![[r#"
