@@ -42,13 +42,17 @@
 	min-height: 0;
 }
 
-.uncommittedChangesTree {
+.uncommittedChangesTreeArea {
 	flex-grow: 1;
+}
 
-	/* The scrollbar gutter takes up part of the inline end padding so the
-	   thumb visually overlays the panel margin. */
-	padding-inline: var(--panel-padding-inline)
-		calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size));
+.uncommittedChangesTree {
+	padding-inline: var(--panel-padding-inline);
+
+	/* Stretch the scroll separator over the inline padding to full width. */
+	&::before {
+		margin-inline: calc(-1 * var(--panel-padding-inline));
+	}
 
 	/* Gradient ramp that fades out the scrolling items, shown only while there
 	   is more content to scroll to below. */
@@ -78,19 +82,34 @@
 }
 
 .stacksPanel {
+	display: flex;
+	flex-direction: column;
 	background-color: var(--bg-2);
+}
+
+.stacksHeader {
+	flex-shrink: 0;
+}
+
+.stacksScroller {
+	flex-grow: 1;
+}
+
+.stacksViewport {
+	padding-inline: var(--panel-padding-inline);
+
+	/* Stretch the scroll separator over the inline padding to full width. */
+	&::before {
+		margin-inline: calc(-1 * var(--panel-padding-inline));
+	}
 }
 
 .stacks {
 	display: flex;
 	row-gap: 8px;
 	flex-direction: column;
-
-	/* The scrollbar gutter takes up part of the inline end padding so the
-	   thumb visually overlays the panel margin. */
-	padding-inline: var(--panel-padding-inline)
-		calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size));
-	padding-block: var(--panel-padding-block);
+	padding-top: 1px; /* hack to avoid drop shadow crop */
+	padding-bottom: var(--panel-padding-block);
 }
 
 .segments {

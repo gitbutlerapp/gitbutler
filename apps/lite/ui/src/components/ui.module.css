@@ -53,6 +53,72 @@
 	}
 }
 
+/* Scrollbar/thumb styles for Base UI's ScrollArea (see Scroller.tsx). Unlike
+   .overlayScrollbar, the scrollbar is a true overlay: it doesn't reserve
+   gutter space, so sticky separators and content can span the full viewport
+   width. */
+.scrollAreaRoot {
+	display: flex;
+	position: relative;
+	min-height: 0;
+}
+
+.scrollAreaViewport {
+	flex: 1 1 auto;
+	min-width: 0;
+	overscroll-behavior: contain;
+}
+
+.scrollAreaScrollbar {
+	display: flex;
+	z-index: 1;
+	position: absolute;
+	inset-block: 0;
+	right: 0;
+	width: 10px;
+	padding-block: 3px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease;
+
+	&[data-hovering],
+	&[data-scrolling] {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+.scrollAreaThumb {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+
+	/* The visible pill is painted on a pseudo-element so its border radius
+	   applies to the actual painted box, keeping the end caps circular as the
+	   thumb widens on hover. */
+	&::before {
+		display: block;
+		width: 4px;
+		height: 100%;
+		border-radius: 10px;
+		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
+		content: "";
+		transition:
+			width 120ms ease,
+			background-color 120ms ease;
+	}
+
+	/* Widen while scrolling or hovering; darken only on hover. */
+	.scrollAreaScrollbar:hover &::before,
+	.scrollAreaScrollbar[data-scrolling] &::before {
+		width: 6px;
+	}
+
+	.scrollAreaScrollbar:hover &::before {
+		background-color: color-mix(in srgb, var(--text-1) 40%, transparent);
+	}
+}
+
 .scrollerWithSeparator {
 	container-type: scroll-state;
 	overflow: auto;

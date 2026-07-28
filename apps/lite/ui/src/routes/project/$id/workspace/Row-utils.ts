@@ -1,4 +1,4 @@
-import { type ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
+import { type ButtonSize, type ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { Match } from "effect";
@@ -9,15 +9,17 @@ export const treeItemId = (operand: Operand): string =>
 
 export const getRowButtonClassName = ({
 	variant = "ghost",
+	size = "small",
 	iconOnly = false,
 }: {
 	variant?: Extract<ButtonVariant, "ghost" | "outline">;
+	size?: ButtonSize;
 	iconOnly?: boolean;
 }) =>
 	classes(
 		getButtonClassName({
 			variant,
-			size: "small",
+			size,
 			iconOnly,
 			// On selection/focus change we change the button variant. This
 			// transition would clash with other selection/focus style changes

@@ -4,7 +4,6 @@
 	--single-line-row-label-padding-block: calc(
 		(var(--single-line-row-height) - var(--single-line-row-label-line-height)) / 2
 	);
-	--button-height: 20px;
 
 	display: flex;
 	column-gap: 8px;
@@ -14,6 +13,14 @@
 	&[inert] {
 		opacity: 0.5;
 	}
+}
+
+.sectionHeader {
+	flex-shrink: 0;
+	/* The label gets an extra inset to line up with row content inside the
+	   section, while action buttons on the right align with the panel edge. */
+	padding-inline: calc(var(--panel-padding-inline) + 4px) var(--panel-padding-inline);
+	padding-block: calc(var(--panel-padding-block) - 4px);
 }
 
 .containerInteractive {
@@ -65,7 +72,9 @@
 	&.toolbarForceVisible {
 		display: flex;
 		column-gap: 8px;
-		padding-block: calc((var(--single-line-row-height) - var(--button-height)) / 2);
+		align-items: center;
+		/* Center buttons of any height within the first row line. */
+		height: var(--single-line-row-height);
 	}
 
 	button:has([data-icon]) {

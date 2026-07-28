@@ -18,7 +18,7 @@ import type { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-
 import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { Badge } from "#ui/components/Badge.tsx";
-import { Row, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 import styles from "./UncommittedChangesRow.module.css";
@@ -99,43 +99,42 @@ export const UncommittedChangesRow: FC<{
 	];
 
 	return (
-		<Row
-			className={styles.container}
+		<SectionHeaderRow
+			label="Uncommitted changes"
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			interactive={false}
-		>
-			<RowLabelContainer>
-				<RowLabel heading>Uncommitted changes</RowLabel>
-
-				<Badge variant="fillGray">{changes.length}</Badge>
-
-				{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<span className={classes("text-12", styles.lineStats)}>
-						{lineStats.linesAdded > 0 && (
-							<span className={styles.linesAdded}>+{lineStats.linesAdded}</span>
-						)}
-						{lineStats.linesRemoved > 0 && (
-							<span className={styles.linesRemoved}>-{lineStats.linesRemoved}</span>
-						)}
-					</span>
-				)}
-			</RowLabelContainer>
-
-			{isDefaultMode && (
-				<Toolbar.Root aria-label="Uncommitted changes actions" render={<RowToolbar forceVisible />}>
-					<Toolbar.Button
-						aria-label="Uncommitted changes menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getRowButtonClassName({ iconOnly: true })}
+			actions={
+				isDefaultMode && (
+					<Toolbar.Root
+						aria-label="Uncommitted changes actions"
+						render={<RowToolbar forceVisible />}
 					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+						<Toolbar.Button
+							aria-label="Uncommitted changes menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				)
+			}
+		>
+			<Badge variant="fillGray">{changes.length}</Badge>
+
+			{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+				<span className={classes("text-12", styles.lineStats)}>
+					{lineStats.linesAdded > 0 && (
+						<span className={styles.linesAdded}>+{lineStats.linesAdded}</span>
+					)}
+					{lineStats.linesRemoved > 0 && (
+						<span className={styles.linesRemoved}>-{lineStats.linesRemoved}</span>
+					)}
+				</span>
 			)}
-		</Row>
+		</SectionHeaderRow>
 	);
 };

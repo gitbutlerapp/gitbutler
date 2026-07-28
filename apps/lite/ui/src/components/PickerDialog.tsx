@@ -2,8 +2,9 @@
  * @file Based on https://base-ui.com/react/components/autocomplete#command-palette
  */
 
-import { Autocomplete, Dialog, ScrollArea } from "@base-ui/react";
+import { Autocomplete, Dialog } from "@base-ui/react";
 import { type ReactNode, useRef } from "react";
+import { Scroller } from "#ui/components/Scroller.tsx";
 import styles from "./PickerDialog.module.css";
 
 /** @public */
@@ -65,57 +66,52 @@ export const PickerDialog = <Item,>({
 							/>
 							<Dialog.Close className={styles.visuallyHiddenClose}>{closeLabel}</Dialog.Close>
 
-							<ScrollArea.Root className={styles.listArea}>
-								<ScrollArea.Viewport className={styles.listViewport}>
-									<ScrollArea.Content className={styles.listContent}>
-										<Autocomplete.Status>
-											{statusLabel !== undefined ? (
-												<div className={styles.empty}>{statusLabel}</div>
-											) : null}
-										</Autocomplete.Status>
-										<Autocomplete.Empty>
-											{statusLabel === undefined ? (
-												<div className={styles.empty}>{emptyLabel}</div>
-											) : null}
-										</Autocomplete.Empty>
+							<Scroller className={styles.listArea} viewportClassName={styles.listViewport}>
+								<div className={styles.listContent}>
+									<Autocomplete.Status>
+										{statusLabel !== undefined ? (
+											<div className={styles.empty}>{statusLabel}</div>
+										) : null}
+									</Autocomplete.Status>
+									<Autocomplete.Empty>
+										{statusLabel === undefined ? (
+											<div className={styles.empty}>{emptyLabel}</div>
+										) : null}
+									</Autocomplete.Empty>
 
-										<Autocomplete.List className={styles.list}>
-											{(group: PickerDialogGroup<Item>) => (
-												<Autocomplete.Group
-													key={group.value}
-													items={group.items}
-													className={styles.group}
-												>
-													<Autocomplete.GroupLabel className={styles.groupLabel}>
-														{group.value}
-													</Autocomplete.GroupLabel>
-													<Autocomplete.Collection>
-														{(item: Item) => {
-															const itemType = getItemType(item, group);
-															return (
-																<Autocomplete.Item
-																	key={getItemKey(item)}
-																	className={styles.item}
-																	value={item}
-																	onClick={() => onSelectItem(item)}
-																>
-																	<span className={styles.itemLabel}>{getItemLabel(item)}</span>
-																	{itemType !== undefined && (
-																		<span className={styles.itemType}>{itemType}</span>
-																	)}
-																</Autocomplete.Item>
-															);
-														}}
-													</Autocomplete.Collection>
-												</Autocomplete.Group>
-											)}
-										</Autocomplete.List>
-									</ScrollArea.Content>
-								</ScrollArea.Viewport>
-								<ScrollArea.Scrollbar className={styles.scrollbar}>
-									<ScrollArea.Thumb className={styles.scrollbarThumb} />
-								</ScrollArea.Scrollbar>
-							</ScrollArea.Root>
+									<Autocomplete.List className={styles.list}>
+										{(group: PickerDialogGroup<Item>) => (
+											<Autocomplete.Group
+												key={group.value}
+												items={group.items}
+												className={styles.group}
+											>
+												<Autocomplete.GroupLabel className={styles.groupLabel}>
+													{group.value}
+												</Autocomplete.GroupLabel>
+												<Autocomplete.Collection>
+													{(item: Item) => {
+														const itemType = getItemType(item, group);
+														return (
+															<Autocomplete.Item
+																key={getItemKey(item)}
+																className={styles.item}
+																value={item}
+																onClick={() => onSelectItem(item)}
+															>
+																<span className={styles.itemLabel}>{getItemLabel(item)}</span>
+																{itemType !== undefined && (
+																	<span className={styles.itemType}>{itemType}</span>
+																)}
+															</Autocomplete.Item>
+														);
+													}}
+												</Autocomplete.Collection>
+											</Autocomplete.Group>
+										)}
+									</Autocomplete.List>
+								</div>
+							</Scroller>
 
 							<div className={styles.footer}>
 								<div className={styles.footerLeft}>

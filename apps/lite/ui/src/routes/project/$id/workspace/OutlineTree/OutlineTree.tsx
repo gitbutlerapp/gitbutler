@@ -26,6 +26,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
+import { Scroller } from "#ui/components/Scroller.tsx";
 import type {
 	BranchReference,
 	Segment,
@@ -34,14 +35,21 @@ import type {
 	WorktreeChanges,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
-import uiStyles from "#ui/components/ui.module.css";
 
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type ComponentProps, createContext, type FC, Fragment, use, useRef } from "react";
+import {
+	type ComponentProps,
+	createContext,
+	type FC,
+	Fragment,
+	type ReactNode,
+	use,
+	useRef,
+} from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
-import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
+import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -252,12 +260,10 @@ const UncommittedChanges: FC<{
 		<div className={styles.uncommittedChanges}>
 			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
-			<div
-				className={classes(
-					styles.uncommittedChangesTree,
-					uiStyles.scrollerWithSeparator,
-					uiStyles.overlayScrollbar,
-				)}
+			<Scroller
+				withSeparator
+				className={styles.uncommittedChangesTreeArea}
+				viewportClassName={styles.uncommittedChangesTree}
 			>
 				<FilesTree
 					data-selection-scope={"uncommitted-files" satisfies SelectionScope}
@@ -285,7 +291,7 @@ const UncommittedChanges: FC<{
 					}}
 					selection={fileSelection}
 				/>
-			</div>
+			</Scroller>
 
 			<CommitForm
 				projectId={projectId}
@@ -644,12 +650,14 @@ export const OutlineTree: FC<
 		navigationIndex: NavigationIndex<Operand>;
 		uncommittedFilesNavigationIndex: NavigationIndex<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
+		stacksHeaderActions?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	absorptionTargetCommitIds,
+	stacksHeaderActions,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -800,17 +808,25 @@ export const OutlineTree: FC<
 
 					<Separator className={styles.resizeHandle} />
 
-					<Panel
-						id={"stacks-panel" satisfies PanelId}
-						className={classes(styles.stacksPanel, uiStyles.overlayScrollbar)}
-						minSize={120}
-					>
-						<Stacks
-							projectId={projectId}
-							checkCommit={checkCommit}
-							onAmendCommit={amendCommit}
-							canAmendCommit={canAmendCommit}
+					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
+						<SectionHeaderRow
+							label="Stacks and branches"
+							className={styles.stacksHeader}
+							actions={stacksHeaderActions}
 						/>
+
+						<Scroller
+							withSeparator
+							className={styles.stacksScroller}
+							viewportClassName={styles.stacksViewport}
+						>
+							<Stacks
+								projectId={projectId}
+								checkCommit={checkCommit}
+								onAmendCommit={amendCommit}
+								canAmendCommit={canAmendCommit}
+							/>
+						</Scroller>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>
