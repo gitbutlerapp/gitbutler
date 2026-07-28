@@ -358,26 +358,7 @@ D  to-be-deleted-in-index
         "turn changed file into a directory",
     )?;
 
-    let out = safe_checkout_from_head(new_commit.id, &repo, Default::default());
-    // This currently fails because gitoxide cannot merge a deletion of a file
-    // on one side and a replacement of said file with a directory on the other
-    // side. At the time of writing, Byron is working on a fix.
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Err(
-    Context {
-        code: PreconditionFailed,
-        message: Some(
-            "Uncommitted files would be overwritten by checkout: /"to-be-deleted/"",
-        ),
-    },
-)
-
-"#]]
-    );
-
-    /*
+    let out = safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -388,7 +369,7 @@ Outcome {
 "#]]
     );
 
-    // Nothing changed as the checkout was aborted.
+    // The checkout succeeded while preserving unrelated index and worktree changes.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -416,7 +397,6 @@ D  to-be-deleted-in-index
 
 "#]]
     );
-    */
 
     Ok(())
 }
