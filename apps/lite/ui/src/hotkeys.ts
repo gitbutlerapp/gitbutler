@@ -144,10 +144,6 @@ export const workspaceHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const outlineHotkeys = {
-	amendCommit: {
-		hotkey: "Shift+A",
-		meta: { group: "Commit", name: "Amend commit" },
-	},
 	checkCommit: {
 		hotkey: "Space",
 		meta: { group: "Commit", name: "Check commit" },

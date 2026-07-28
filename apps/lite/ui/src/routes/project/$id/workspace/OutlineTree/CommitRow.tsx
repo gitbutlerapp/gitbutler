@@ -1,7 +1,6 @@
 import rowStyles from "../Row.module.css";
 import {
 	useBranchCreate,
-	useCommitAmend,
 	useCommitDiscard,
 	useCommitInsertBlank,
 	useCommitReword,
@@ -16,7 +15,12 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { assert } from "#ui/assert.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { outlineHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesHotkeys,
+	outlineHotkeys,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -48,8 +52,18 @@ export const CommitRow: FC<
 		projectId: string;
 		dryRunCommit: Commit | null;
 		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+		amendCommit: () => void;
+		canAmendCommit: boolean;
 	} & ComponentProps<"div">
-> = ({ commit, projectId, dryRunCommit, checkCommit, ...restProps }) => {
+> = ({
+	commit,
+	projectId,
+	dryRunCommit,
+	checkCommit,
+	amendCommit,
+	canAmendCommit,
+	...restProps
+}) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 	const commitOperandV: CommitOperand = {
@@ -93,7 +107,6 @@ export const CommitRow: FC<
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
 	const { isPending: isCommitUncommitPending, mutate: commitUncommit } = useCommitUncommit();
 	const { mutateAsync: commitReword } = useCommitReword();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({ projectId });
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const insertBlankCommit = (side: "above" | "below") => {
@@ -225,10 +238,6 @@ export const CommitRow: FC<
 		});
 	};
 
-	const amendCommit = () => {
-		commitAmend({ commitId: commit.id });
-	};
-
 	const openCommitInBrowser = async (): Promise<void> => {
 		if (!mforgeUrl) return;
 
@@ -242,13 +251,14 @@ export const CommitRow: FC<
 		nativeMenuItem({
 			label: "Reword Commit",
 			enabled: !isCommitMessagePending,
+			// Advertising a hotkey defined elsewhere.
 			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
 			onSelect: startEditing,
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
-			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
-			enabled: isDefaultMode && !isCommitAmendPending,
+			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
+			enabled: isDefaultMode && canAmendCommit,
 			onSelect: amendCommit,
 		}),
 		nativeMenuItem({

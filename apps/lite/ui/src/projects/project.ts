@@ -9,6 +9,7 @@ import {
 	operandIdentityKey,
 	type BranchOperand,
 	type CommitOperand,
+	type FileOperand,
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
@@ -412,11 +413,46 @@ const selectCheckedOperandKeys = createSelector(
 	(checkedOperands): Set<string> => new Set(Object.keys(checkedOperands)),
 );
 
-const selectCheckedCommitIds = createSelector(
+type GroupedCheckedOperands = {
+	commits: Array<CommitOperand>;
+	files: Array<FileOperand>;
+};
+
+const selectGroupedCheckedOperands = createSelector(
 	selectCheckedOperands,
-	(checkedOperands): Set<string> =>
+	(checkedOperands): GroupedCheckedOperands =>
+		checkedOperands.reduce<GroupedCheckedOperands>(
+			(acc, operand) => {
+				switch (operand._tag) {
+					case "Commit":
+						acc.commits.push(operand);
+						break;
+					case "File":
+						acc.files.push(operand);
+						break;
+					default:
+						operand satisfies never;
+				}
+
+				return acc;
+			},
+			{ commits: [], files: [] },
+		),
+);
+
+const selectCheckedCommitIds = createSelector(
+	selectGroupedCheckedOperands,
+	(checkedGroupedOperands): Set<string> =>
+		new Set(checkedGroupedOperands.commits.map((operand) => operand.commitId)),
+);
+
+const selectCheckedUncommittedFilePaths = createSelector(
+	selectGroupedCheckedOperands,
+	(checkedGroupedOperands): Set<string> =>
 		new Set(
-			checkedOperands.flatMap((operand) => (operand._tag === "Commit" ? [operand.commitId] : [])),
+			checkedGroupedOperands.files.flatMap((operand) =>
+				operand.parent._tag === "UncommittedChanges" ? [operand.path] : [],
+			),
 		),
 );
 
@@ -484,6 +520,7 @@ export const projectSelectors = {
 	selectCheckedOperands,
 	selectCheckedOperandKeys,
 	selectCheckedCommitIds,
+	selectCheckedUncommittedFilePaths,
 	selectCheckedOperandCount,
 	selectHasCheckedOperands,
 	...getBranchesSelectors((state: ProjectState) => state.branches),
