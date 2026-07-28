@@ -184,7 +184,7 @@ If that `but move` fails, do NOT try `uncommit`, `squash`, or `undo` as a workar
 | `git rebase --onto` | `but move <branch> --above <new-base>` |
 | `git checkout -- <file>` / `git restore` | `but discard <id>` |
 | `git cherry-pick` | `but pick` |
-| `gh pr create` | `but pr new <branch-id>` |
+| `gh pr create` | `but pr new <branch-id> -m "Title..."` |
 
 ## Notes
 

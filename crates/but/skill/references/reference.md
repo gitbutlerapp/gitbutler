@@ -397,9 +397,8 @@ Do not use raw `git pull` or `git rebase`.
 Create and manage pull requests.
 
 ```bash
-but pr new <branch-id>        # Push branch and create PR (recommended)
+but pr new <branch-id> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
 but pr new <branch-id> -F pr_message.txt    # Use file: first line is title, rest is description
-but pr new <branch-id> -m "Title..."        # Inline message: first line is title, rest is description
 but pr new <branch-id> -t     # Use default content (commit message), skip prompts
 but pr new <branch-id> --draft  # Create as draft
 but pr new <branch-id> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
