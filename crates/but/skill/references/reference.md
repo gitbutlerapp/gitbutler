@@ -12,7 +12,7 @@ Agent-focused reference for useful `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`, `gui`, `mcp`
+- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
 
 ## Inspection (Understanding State)
@@ -413,8 +413,6 @@ but pr set-ready <selector>   # Mark review as ready
 Use `--no-hooks` to bypass pre-push hooks when needed.
 Review creation remains successful if the follow-up stack synchronization fails, and reports that
 partial success as a warning.
-
-If the GitButler MCP server exposes `gitbutler_review_card`, call it after a successful `but pr new` with every number from the command's `published` reviews. Omit `repository` when the MCP client supplied the current repository as a filesystem root; otherwise pass the repository path. The card displays each PR/MR, offers a ready-for-review action for drafts, and refreshes review and CI state while its monitoring conditions remain active.
 
 Selectors for `auto-merge`, `set-draft`, and `set-ready` can be branch names, branch IDs, stack IDs, or numeric review IDs, comma-separated.
 
