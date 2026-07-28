@@ -229,7 +229,7 @@ const UncommittedChanges: FC<{
 	projectId: string;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 	onAmendCommit: (commitId: string) => void;
-	amendCommitPending: boolean;
+	canAmendCommit: boolean;
 	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
 	navigationIndex,
@@ -237,7 +237,7 @@ const UncommittedChanges: FC<{
 	projectId,
 	targetComboboxItems,
 	onAmendCommit,
-	amendCommitPending,
+	canAmendCommit,
 	worktreeChanges,
 }) => {
 	const dispatch = useAppDispatch();
@@ -295,7 +295,7 @@ const UncommittedChanges: FC<{
 				commitMessageInputId={commitMessageInputId}
 				className={styles.commitForm}
 				onAmendCommit={onAmendCommit}
-				amendCommitPending={amendCommitPending}
+				canAmendCommit={canAmendCommit}
 				worktreeChanges={worktreeChanges}
 			/>
 		</div>
@@ -674,6 +674,8 @@ export const OutlineTree: FC<
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
+	const canAmendCommit =
+		!isCommitAmendPending && !!worktreeChanges && worktreeChanges.changes.length > 0;
 	const amendCommit = (commitId: string) => {
 		if (!worktreeChanges) return;
 
@@ -779,7 +781,7 @@ export const OutlineTree: FC<
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}
 											onAmendCommit={amendCommit}
-											amendCommitPending={isCommitAmendPending}
+											canAmendCommit={canAmendCommit}
 											worktreeChanges={worktreeChanges}
 										/>
 									}
@@ -799,7 +801,7 @@ export const OutlineTree: FC<
 							projectId={projectId}
 							checkCommit={checkCommit}
 							onAmendCommit={amendCommit}
-							canAmendCommit={!isCommitAmendPending}
+							canAmendCommit={canAmendCommit}
 						/>
 					</Panel>
 				</Group>

@@ -1,5 +1,5 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { useCommitCreate } from "#ui/api/mutations.ts";
+import { commitAmendMutationKey, useCommitCreate } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -18,7 +18,7 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type FC, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
@@ -60,7 +60,7 @@ export const CommitForm: FC<{
 	startCommitButtonId: string;
 	commitMessageInputId: string;
 	onAmendCommit: (commitId: string) => void;
-	amendCommitPending: boolean;
+	canAmendCommit: boolean;
 	worktreeChanges: WorktreeChanges | undefined;
 	className?: string;
 }> = ({
@@ -70,7 +70,7 @@ export const CommitForm: FC<{
 	startCommitButtonId,
 	commitMessageInputId,
 	onAmendCommit,
-	amendCommitPending,
+	canAmendCommit,
 	worktreeChanges,
 	className,
 }) => {
@@ -91,19 +91,19 @@ export const CommitForm: FC<{
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const isCommitOrAmendPending = isCommitCreatePending || amendCommitPending;
+	const isAmendCommitPending = useIsMutating({ mutationKey: commitAmendMutationKey }) > 0;
+	const isCommitOrAmendPending = isCommitCreatePending || isAmendCommitPending;
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
-	const canAmend =
-		canCommitOrAmendBase &&
-		worktreeChanges &&
-		worktreeChanges.changes.length > 0 &&
-		headInfoIndex &&
-		resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo }) !== null;
+	const amendTargetCommitId =
+		commitTarget && headInfoIndex
+			? resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo })
+			: null;
+	const canAmend = canCommitOrAmendBase && canAmendCommit && amendTargetCommitId !== null;
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
 		if (option)
@@ -143,15 +143,9 @@ export const CommitForm: FC<{
 	};
 
 	const amendCommit = () => {
-		if (!commitTarget || !headInfoIndex) return;
+		if (amendTargetCommitId === null) throw new Error("No commit to amend.");
 
-		const commitId = resolveRelativeTo({
-			headInfoIndex,
-			relativeTo: commitTarget.relativeTo,
-		});
-		if (commitId === null) throw new Error("No commit to amend.");
-
-		onAmendCommit(commitId);
+		onAmendCommit(amendTargetCommitId);
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();

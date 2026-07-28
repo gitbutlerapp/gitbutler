@@ -317,11 +317,13 @@ export const useOpenInProgram = () => {
 	});
 };
 
+export const commitAmendMutationKey = ["commitAmend"];
 export const useCommitAmend = () => {
 	const toastManager = Toast.useToastManager();
 	const dispatch = useAppDispatch();
 
 	return useMutation({
+		mutationKey: commitAmendMutationKey,
 		mutationFn: window.lite.commitAmend,
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(
