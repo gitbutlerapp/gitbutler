@@ -1,5 +1,5 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { useCommitAmend, useCommitCreate } from "#ui/api/mutations.ts";
+import { useCommitCreate } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -59,6 +59,8 @@ export const CommitForm: FC<{
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 	startCommitButtonId: string;
 	commitMessageInputId: string;
+	onAmendCommit: (commitId: string) => void;
+	amendCommitPending: boolean;
 	className?: string;
 }> = ({
 	projectId,
@@ -66,13 +68,12 @@ export const CommitForm: FC<{
 	targetComboboxItems,
 	startCommitButtonId,
 	commitMessageInputId,
+	onAmendCommit,
+	amendCommitPending,
 	className,
 }) => {
 	const dispatch = useAppDispatch();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({
-		projectId,
-	});
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -90,7 +91,7 @@ export const CommitForm: FC<{
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const isCommitOrAmendPending = isCommitCreatePending || isCommitAmendPending;
+	const isCommitOrAmendPending = isCommitCreatePending || amendCommitPending;
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
@@ -150,7 +151,7 @@ export const CommitForm: FC<{
 		});
 		if (commitId === null) throw new Error("No commit to amend.");
 
-		commitAmend({ commitId });
+		onAmendCommit(commitId);
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();

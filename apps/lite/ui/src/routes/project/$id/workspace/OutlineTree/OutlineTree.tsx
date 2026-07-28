@@ -1,4 +1,5 @@
 import rowStyles from "../Row.module.css";
+import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -225,7 +226,16 @@ const UncommittedChanges: FC<{
 	commitTarget: CommitTargetComboboxItem | null;
 	projectId: string;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
-}> = ({ navigationIndex, commitTarget, projectId, targetComboboxItems }) => {
+	onAmendCommit: (commitId: string) => void;
+	amendCommitPending: boolean;
+}> = ({
+	navigationIndex,
+	commitTarget,
+	projectId,
+	targetComboboxItems,
+	onAmendCommit,
+	amendCommitPending,
+}) => {
 	const dispatch = useAppDispatch();
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
@@ -281,6 +291,8 @@ const UncommittedChanges: FC<{
 				startCommitButtonId={startCommitButtonId}
 				commitMessageInputId={commitMessageInputId}
 				className={styles.commitForm}
+				onAmendCommit={onAmendCommit}
+				amendCommitPending={amendCommitPending}
 			/>
 		</div>
 	);
@@ -309,6 +321,8 @@ const BranchSegment: FC<{
 	downstackPushStatus: DownstackPushStatus;
 	isTopSegment: boolean;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+	onAmendCommit: (commitId: string) => void;
+	canAmendCommit: boolean;
 }> = ({
 	projectId,
 	segment,
@@ -318,6 +332,8 @@ const BranchSegment: FC<{
 	downstackPushStatus,
 	isTopSegment,
 	checkCommit,
+	onAmendCommit,
+	canAmendCommit,
 }) => {
 	const operand = branchOperand({ branchRef: refName.fullNameBytes });
 
@@ -343,7 +359,13 @@ const BranchSegment: FC<{
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group">
-				<SegmentContent projectId={projectId} segment={segment} checkCommit={checkCommit} />
+				<SegmentContent
+					projectId={projectId}
+					segment={segment}
+					checkCommit={checkCommit}
+					onAmendCommit={onAmendCommit}
+					canAmendCommit={canAmendCommit}
+				/>
 			</div>
 		</TreeItem>
 	);
@@ -380,7 +402,9 @@ const SegmentContent: FC<{
 	projectId: string;
 	segment: Segment;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
-}> = ({ projectId, segment, checkCommit }) => {
+	onAmendCommit: (commitId: string) => void;
+	canAmendCommit: boolean;
+}> = ({ projectId, segment, checkCommit, onAmendCommit, canAmendCommit }) => {
 	if (segment.commits.length === 0) return <EmptySegmentContent segment={segment} />;
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
@@ -410,6 +434,8 @@ const SegmentContent: FC<{
 									<CommitRow
 										commit={commit}
 										checkCommit={checkCommit}
+										amendCommit={() => onAmendCommit(commit.id)}
+										canAmendCommit={canAmendCommit}
 										projectId={projectId}
 										dryRunCommit={dryRunCommit}
 									/>
@@ -427,7 +453,9 @@ const StackC: FC<{
 	projectId: string;
 	stack: Stack;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
-}> = ({ projectId, stack, checkCommit }) => {
+	onAmendCommit: (commitId: string) => void;
+	canAmendCommit: boolean;
+}> = ({ projectId, stack, checkCommit, onAmendCommit, canAmendCommit }) => {
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -465,12 +493,16 @@ const StackC: FC<{
 										downstackPushStatus={downstackPushStatus}
 										isTopSegment={index === 0}
 										checkCommit={checkCommit}
+										onAmendCommit={onAmendCommit}
+										canAmendCommit={canAmendCommit}
 									/>
 								) : (
 									<SegmentContent
 										projectId={projectId}
 										segment={segment}
 										checkCommit={checkCommit}
+										onAmendCommit={onAmendCommit}
+										canAmendCommit={canAmendCommit}
 									/>
 								)}
 							</div>
@@ -523,7 +555,9 @@ const focusCommitMessageInput = () => {
 const Stacks: FC<{
 	projectId: string;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
-}> = ({ projectId, checkCommit }) => {
+	onAmendCommit: (commitId: string) => void;
+	canAmendCommit: boolean;
+}> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const dispatch = useAppDispatch();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -586,7 +620,14 @@ const Stacks: FC<{
 				ref={hotkeysRef}
 			>
 				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (
-					<StackC key={stack.id} projectId={projectId} stack={stack} checkCommit={checkCommit} />
+					<StackC
+						key={stack.id}
+						projectId={projectId}
+						stack={stack}
+						checkCommit={checkCommit}
+						onAmendCommit={onAmendCommit}
+						canAmendCommit={canAmendCommit}
+					/>
 				))}
 			</div>
 		</DryRunWorkspaceContext>
@@ -627,6 +668,12 @@ export const OutlineTree: FC<
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
+	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({
+		projectId,
+	});
+	const amendCommit = (commitId: string) => {
+		commitAmend({ commitId });
+	};
 
 	const commitCheckRangeAnchor = useRef<string>(null);
 	const commitCheckRangeEnd = useRef<string>(null);
@@ -720,6 +767,8 @@ export const OutlineTree: FC<
 											commitTarget={commitTarget}
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}
+											onAmendCommit={amendCommit}
+											amendCommitPending={isCommitAmendPending}
 										/>
 									}
 								/>
@@ -734,7 +783,12 @@ export const OutlineTree: FC<
 						className={classes(styles.stacksPanel, uiStyles.overlayScrollbar)}
 						minSize={120}
 					>
-						<Stacks projectId={projectId} checkCommit={checkCommit} />
+						<Stacks
+							projectId={projectId}
+							checkCommit={checkCommit}
+							onAmendCommit={amendCommit}
+							canAmendCommit={!isCommitAmendPending}
+						/>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>
