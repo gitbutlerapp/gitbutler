@@ -1872,24 +1872,8 @@ export const Details: FC<
 			</div>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{(() => {
-					const renderDiff = ({
-						changes,
-						filesItems,
-					}: {
-						changes: Array<TreeChange>;
-						filesItems: Array<FileRowItem>;
-					}) => (
-						<Diff
-							changes={changes}
-							filesVisible={filesVisible}
-							filesItems={filesItems}
-							onFileSelection={selectFile}
-							selection={selection}
-							projectId={projectId}
-						/>
-					);
-					return Match.value(selection).pipe(
+				{(() =>
+					Match.value(selection).pipe(
 						Match.tags({
 							Commit: (commit) => (
 								<SuspenseQuery
@@ -1898,12 +1882,16 @@ export const Details: FC<
 										commitId: commit.commitId,
 									})}
 								>
-									{({ data: commitDetails }) =>
-										renderDiff({
-											changes: commitDetails.changes,
-											filesItems: getCommitFileRowItems({ commitDetails }),
-										})
-									}
+									{({ data: commitDetails }) => (
+										<Diff
+											changes={commitDetails.changes}
+											filesVisible={filesVisible}
+											filesItems={getCommitFileRowItems({ commitDetails })}
+											onFileSelection={selectFile}
+											selection={selection}
+											projectId={projectId}
+										/>
+									)}
 								</SuspenseQuery>
 							),
 							File: (file) => {
@@ -1921,10 +1909,16 @@ export const Details: FC<
 
 											if (changes.length === 0) return null;
 
-											return renderDiff({
-												changes,
-												filesItems,
-											});
+											return (
+												<Diff
+													changes={changes}
+													filesVisible={filesVisible}
+													filesItems={filesItems}
+													onFileSelection={selectFile}
+													selection={selection}
+													projectId={projectId}
+												/>
+											);
 										}}
 									</SuspenseQuery>
 								);
@@ -2005,19 +1999,22 @@ export const Details: FC<
 									<SuspenseQuery
 										{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
 									>
-										{({ data: branchDiff }) =>
-											renderDiff({
-												changes: branchDiff.changes,
-												filesItems: getBranchFileRowItems({ branchDiff }),
-											})
-										}
+										{({ data: branchDiff }) => (
+											<Diff
+												changes={branchDiff.changes}
+												filesVisible={filesVisible}
+												filesItems={getBranchFileRowItems({ branchDiff })}
+												onFileSelection={selectFile}
+												selection={selection}
+												projectId={projectId}
+											/>
+										)}
 									</SuspenseQuery>
 								);
 							},
 						}),
 						Match.orElse(() => null),
-					);
-				})()}
+					))()}
 			</Suspense>
 		</div>
 	);
