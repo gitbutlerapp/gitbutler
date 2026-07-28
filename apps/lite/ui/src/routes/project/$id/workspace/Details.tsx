@@ -1323,7 +1323,8 @@ const PullRequestForm: FC<{
 	reviewId: number | null;
 	title: string | null;
 	body: string | null;
-}> = ({ projectId, sourceBranch, reviewId, title, body }) => {
+	canSubmit: boolean;
+}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit }) => {
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -1369,7 +1370,7 @@ const PullRequestForm: FC<{
 
 	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {
 		evt.preventDefault();
-		if (isAnyPending || localDocument.title.trim() === "") return;
+		if (!canSubmit || isAnyPending || localDocument.title.trim() === "") return;
 
 		if (reviewId === null) {
 			publishReview({
@@ -1451,7 +1452,7 @@ const PullRequestForm: FC<{
 
 				<button
 					className={getButtonClassName({ variant: "pop" })}
-					disabled={isAnyPending || !hasChanges}
+					disabled={!canSubmit || isAnyPending || !hasChanges}
 					type="submit"
 				>
 					{isAnyPending && <Icon name="spinner" />}
@@ -1869,12 +1870,18 @@ const BranchDetails: FC<{
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
 					<div className={styles.prTab}>
-						{!forgeInfo?.capabilities.prService ? (
-							<p className="text-13">No valid forge.</p>
-						) : targetBranch === undefined ? (
-							<p className="text-13">No remote target branch.</p>
-						) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
-							<p className="text-13">Branch must be pushed to create PR.</p>
+						{!forgeInfo?.capabilities.prService ||
+						targetBranch === undefined ||
+						branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
+							<PullRequestForm
+								key={branchName}
+								body={null}
+								projectId={projectId}
+								reviewId={null}
+								sourceBranch={branchName}
+								title={null}
+								canSubmit={false}
+							/>
 						) : (
 							<SuspenseQuery
 								{...listReviewsQueryOptions({
@@ -1893,6 +1900,7 @@ const BranchDetails: FC<{
 											reviewId={null}
 											sourceBranch={branchName}
 											title={null}
+											canSubmit
 										/>
 									) : (
 										<>
@@ -1903,6 +1911,7 @@ const BranchDetails: FC<{
 												reviewId={review.number}
 												sourceBranch={branchName}
 												title={review.title}
+												canSubmit
 											/>
 
 											{forgeInfo.capabilities.checks && (
