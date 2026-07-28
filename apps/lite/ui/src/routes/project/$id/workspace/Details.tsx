@@ -191,15 +191,6 @@ const getCommitFileRowItems = ({
 	];
 };
 
-const getBranchFileRowItems = ({ branchDiff }: { branchDiff: TreeChanges }): Array<FileRowItem> =>
-	branchDiff.changes.map((change) =>
-		changeFileRowItem({
-			change,
-			path: change.path,
-			dependencyCommitIds: [],
-		}),
-	);
-
 const mkCodeViewItem = (
 	id: string,
 	change: TreeChange,
@@ -1972,7 +1963,13 @@ const BranchDetails: FC<{
 							<Diff
 								changes={branchDiff.changes}
 								filesVisible={filesVisible}
-								filesItems={getBranchFileRowItems({ branchDiff })}
+								filesItems={branchDiff.changes.map((change) =>
+									changeFileRowItem({
+										change,
+										path: change.path,
+										dependencyCommitIds: [],
+									}),
+								)}
 								onFileSelection={selectFile}
 								selection={selection}
 								projectId={projectId}
