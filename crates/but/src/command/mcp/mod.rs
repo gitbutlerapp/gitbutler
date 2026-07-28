@@ -1439,99 +1439,109 @@ mod tests {
 
     #[test]
     fn commit_details_include_files_and_line_stats() -> anyhow::Result<()> {
-        let env = but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
-            "one-stack",
-        );
-        let ctx = env.context();
-        let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
-        let commit_id = workspace
-            .workspace
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.rows)
-            .find_map(|row| match &row.data {
-                DetailedGraphRowData::Commit(commit) => Some(commit.id.to_string()),
-                DetailedGraphRowData::Reference(_) => None,
-            })
-            .context("fixture has a commit")?;
+        but_testsupport::isolated_app_data_dir(|| {
+            let env =
+                but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
+                    "one-stack",
+                );
+            let ctx = env.context();
+            let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
+            let commit_id = workspace
+                .workspace
+                .stacks
+                .iter()
+                .flat_map(|stack| &stack.rows)
+                .find_map(|row| match &row.data {
+                    DetailedGraphRowData::Commit(commit) => Some(commit.id.to_string()),
+                    DetailedGraphRowData::Reference(_) => None,
+                })
+                .context("fixture has a commit")?;
 
-        let view = commit_details(CommitDetailsRequest {
-            repository: env.projects_root().to_owned(),
-            commit_id,
-        })?;
+            let view = commit_details(CommitDetailsRequest {
+                repository: env.projects_root().to_owned(),
+                commit_id,
+            })?;
 
-        assert_eq!(view.kind, "commit");
-        assert!(
-            view.details.line_stats.is_some(),
-            "commit details compute line statistics for the details panel"
-        );
-        Ok(())
+            assert_eq!(view.kind, "commit");
+            assert!(
+                view.details.line_stats.is_some(),
+                "commit details compute line statistics for the details panel"
+            );
+            Ok(())
+        })
     }
 
     #[test]
     fn branch_details_include_commits_and_upstream_state() -> anyhow::Result<()> {
-        let env = but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
-            "one-stack",
-        );
-        let ctx = env.context();
-        let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
-        let branch = workspace
-            .workspace
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.rows)
-            .find_map(|row| match &row.data {
-                DetailedGraphRowData::Commit(_) => None,
-                DetailedGraphRowData::Reference(reference) => {
-                    Some(reference.ref_name.full_name.clone())
-                }
-            })
-            .context("fixture has a branch")?;
+        but_testsupport::isolated_app_data_dir(|| {
+            let env =
+                but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
+                    "one-stack",
+                );
+            let ctx = env.context();
+            let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
+            let branch = workspace
+                .workspace
+                .stacks
+                .iter()
+                .flat_map(|stack| &stack.rows)
+                .find_map(|row| match &row.data {
+                    DetailedGraphRowData::Commit(_) => None,
+                    DetailedGraphRowData::Reference(reference) => {
+                        Some(reference.ref_name.full_name.clone())
+                    }
+                })
+                .context("fixture has a branch")?;
 
-        let view = branch_details(BranchDetailsRequest {
-            repository: env.projects_root().to_owned(),
-            branch,
-        })?;
+            let view = branch_details(BranchDetailsRequest {
+                repository: env.projects_root().to_owned(),
+                branch,
+            })?;
 
-        assert_eq!(view.kind, "branch");
-        assert!(
-            view.details.commits > 0,
-            "branch details include commits for the selected branch"
-        );
-        Ok(())
+            assert_eq!(view.kind, "branch");
+            assert!(
+                view.details.commits > 0,
+                "branch details include commits for the selected branch"
+            );
+            Ok(())
+        })
     }
 
     #[test]
     fn workspace_view_uses_the_first_applicable_file_root() -> anyhow::Result<()> {
-        let env = but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
-            "one-stack",
-        );
-        let repository_uri = Url::from_directory_path(env.projects_root())
-            .map_err(|()| anyhow::anyhow!("fixture path cannot be represented as a file URI"))?;
-        let roots = vec![
-            Root {
-                uri: "https://example.com/not-a-filesystem-root".into(),
-                name: Some("Not a file root".into()),
-            },
-            Root {
-                uri: repository_uri.into(),
-                name: Some("Fixture repository".into()),
-            },
-        ];
+        but_testsupport::isolated_app_data_dir(|| {
+            let env =
+                but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
+                    "one-stack",
+                );
+            let repository_uri = Url::from_directory_path(env.projects_root()).map_err(|()| {
+                anyhow::anyhow!("fixture path cannot be represented as a file URI")
+            })?;
+            let roots = vec![
+                Root {
+                    uri: "https://example.com/not-a-filesystem-root".into(),
+                    name: Some("Not a file root".into()),
+                },
+                Root {
+                    uri: repository_uri.into(),
+                    name: Some("Fixture repository".into()),
+                },
+            ];
 
-        let resolved = repository_from_roots(&roots)?;
-        let view = workspace_view_from_context(&resolved.ctx, &resolved.repository.path)?;
+            let resolved = repository_from_roots(&roots)?;
+            let view = workspace_view_from_context(&resolved.ctx, &resolved.repository.path)?;
 
-        assert_eq!(
-            view.repository.path,
-            env.projects_root().canonicalize()?,
-            "workspace comes from the first root that identifies a Git repository"
-        );
-        assert!(
-            view.summary.stacks > 0,
-            "selected repository root yields its workspace"
-        );
-        Ok(())
+            assert_eq!(
+                view.repository.path,
+                env.projects_root().canonicalize()?,
+                "workspace comes from the first root that identifies a Git repository"
+            );
+            assert!(
+                view.summary.stacks > 0,
+                "selected repository root yields its workspace"
+            );
+            Ok(())
+        })
     }
 
     fn forge_review_fixture() -> but_forge::ForgeReview {
