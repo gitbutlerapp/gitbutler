@@ -7,10 +7,14 @@ import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-inde
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
 export type SelectionScope = "uncommitted-files" | "outline" | "files" | "diff";
-const allSelectionScopes: Array<SelectionScope> = ["uncommitted-files", "outline", "files", "diff"];
+const allSelectionScopes: Set<string> = new Set([
+	"uncommitted-files",
+	"outline",
+	"files",
+	"diff",
+] satisfies Array<SelectionScope>);
 
-const isSelectionScope = (id: string): id is SelectionScope =>
-	allSelectionScopes.includes(id as SelectionScope);
+const isSelectionScope = (id: string): id is SelectionScope => allSelectionScopes.has(id);
 
 export const getFocusedSelectionScope = (activeElement: Element | null): SelectionScope | null => {
 	const selectionScope = activeElement?.matches("[data-selection-scope]")
