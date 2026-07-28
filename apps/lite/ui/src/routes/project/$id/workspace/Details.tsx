@@ -10,7 +10,6 @@ import {
 	useUpdateReview,
 } from "#ui/api/mutations.ts";
 import {
-	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
@@ -63,7 +62,6 @@ import type {
 	CommitDetails,
 	DiffHunk,
 	TreeChange,
-	TreeChanges,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
 import {
@@ -1076,52 +1074,6 @@ const DiffStyleToggleGroup: FC<
 	);
 };
 
-const CommitDetailsContent: FC<{
-	bodyCollapsed: boolean;
-	bodyId: string;
-	projectId: string;
-	commitId: string;
-}> = ({ bodyCollapsed, bodyId, projectId, commitId }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-
-	const fmtDate = new Intl.DateTimeFormat(undefined, {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-		hour12: false,
-	}).format(commitDetails.commit.authoredAt);
-
-	const body = commitBody(commitDetails.commit.message);
-
-	return (
-		<>
-			{body !== undefined && !bodyCollapsed && (
-				<p id={bodyId} className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-					{body}
-				</p>
-			)}
-			<div className={classes("text-13", styles.commitDetailsMeta)}>
-				<img
-					src={commitDetails.commit.author.gravatarUrl}
-					className={styles.avatar}
-					alt="Commit author avatar"
-				/>
-				<span>
-					<span title={commitDetails.commit.author.email}>{commitDetails.commit.author.name}</span>{" "}
-					at {fmtDate}
-				</span>
-				<span>
-					{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)})
-				</span>
-			</div>
-		</>
-	);
-};
-
 const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
@@ -1677,6 +1629,25 @@ const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p)
 	);
 };
 
+const CommitDetailsSkeleton: FC = () => {
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.headerWrap}>
+				<div className={styles.titleRow}>
+					{detailsFullWindow && <TopLeftControls />}
+
+					<div className={styles.title}>
+						<Icon name="commit" />
+						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+};
+
 const CommitDetails: FC<{
 	selection: Extract<Operand, { _tag: "Commit" }>;
 }> = ({ selection }) => {
@@ -1693,6 +1664,21 @@ const CommitDetails: FC<{
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const commitBodyId = useId();
 
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: selection.commitId }),
+	);
+
+	const fmtDate = new Intl.DateTimeFormat(undefined, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	}).format(commitDetails.commit.authoredAt);
+
+	const body = commitBody(commitDetails.commit.message);
+
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
@@ -1703,88 +1689,85 @@ const CommitDetails: FC<{
 				<div className={styles.titleRow}>
 					{detailsFullWindow && <TopLeftControls />}
 
-					<SuspenseQuery
-						{...commitDetailsWithLineStatsQueryOptions({
-							projectId,
-							commitId: selection.commitId,
-						})}
-					>
-						{({ data: commitDetails }) => (
-							<div className={styles.title}>
-								<Icon name="commit" />
-								<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-									<span className={styles.titleContent}>
-										{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-									</span>
-									{commitDetails.commit.hasConflicts && (
-										<Badge variant="danger" className={styles.commitConflictBadge}>
-											Conflicted
-										</Badge>
-									)}
+					<div className={styles.title}>
+						<Icon name="commit" />
+						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
+							<span className={styles.titleContent}>
+								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+							</span>
+							{commitDetails.commit.hasConflicts && (
+								<Badge variant="danger" className={styles.commitConflictBadge}>
+									Conflicted
+								</Badge>
+							)}
 
-									{commitBody(commitDetails.commit.message) !== undefined && (
-										<Tooltip.Root>
-											<Tooltip.Trigger
-												aria-controls={commitBodyId}
-												aria-expanded={!commitBodyCollapsed}
-												aria-label={
-													commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"
-												}
-												aria-pressed={!commitBodyCollapsed}
-												className={classes(
-													getButtonClassName({
-														variant: commitBodyCollapsed ? "outline" : "gray",
-														iconOnly: true,
-														size: "small",
-													}),
-													styles.commitBodyToggle,
-												)}
-												onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
-											>
-												<Icon name="kebab" />
-											</Tooltip.Trigger>
-											<Tooltip.Portal>
-												<Tooltip.Positioner sideOffset={4}>
-													<Tooltip.Popup render={<TooltipPopup />}>
-														{commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-													</Tooltip.Popup>
-												</Tooltip.Positioner>
-											</Tooltip.Portal>
-										</Tooltip.Root>
-									)}
-								</h3>
-							</div>
-						)}
-					</SuspenseQuery>
+							{commitBody(commitDetails.commit.message) !== undefined && (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-controls={commitBodyId}
+										aria-expanded={!commitBodyCollapsed}
+										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+										aria-pressed={!commitBodyCollapsed}
+										className={classes(
+											getButtonClassName({
+												variant: commitBodyCollapsed ? "outline" : "gray",
+												iconOnly: true,
+												size: "small",
+											}),
+											styles.commitBodyToggle,
+										)}
+										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
+									>
+										<Icon name="kebab" />
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>
+												{commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+							)}
+						</h3>
+					</div>
 				</div>
 
-				<CommitDetailsContent
-					bodyCollapsed={commitBodyCollapsed}
-					bodyId={commitBodyId}
-					projectId={projectId}
-					commitId={selection.commitId}
-				/>
+				{body !== undefined && !commitBodyCollapsed && (
+					<p
+						id={commitBodyId}
+						className={classes("text-monospace", "text-body", styles.commitMessageBody)}
+					>
+						{body}
+					</p>
+				)}
+				<div className={classes("text-13", styles.commitDetailsMeta)}>
+					<img
+						src={commitDetails.commit.author.gravatarUrl}
+						className={styles.avatar}
+						alt="Commit author avatar"
+					/>
+					<span>
+						<span title={commitDetails.commit.author.email}>
+							{commitDetails.commit.author.name}
+						</span>{" "}
+						at {fmtDate}
+					</span>
+					<span>
+						{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)}
+						)
+					</span>
+				</div>
 			</div>
 
-			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				<SuspenseQuery
-					{...commitDetailsWithLineStatsQueryOptions({
-						projectId,
-						commitId: selection.commitId,
-					})}
-				>
-					{({ data: commitDetails }) => (
-						<Diff
-							changes={commitDetails.changes}
-							filesVisible={filesVisible}
-							filesItems={getCommitFileRowItems({ commitDetails })}
-							onFileSelection={selectFile}
-							selection={selection}
-							projectId={projectId}
-						/>
-					)}
-				</SuspenseQuery>
-			</Suspense>
+			<Diff
+				changes={commitDetails.changes}
+				filesVisible={filesVisible}
+				filesItems={getCommitFileRowItems({ commitDetails })}
+				onFileSelection={selectFile}
+				selection={selection}
+				projectId={projectId}
+			/>
 		</div>
 	);
 };
@@ -1806,7 +1789,6 @@ const BranchDetails: FC<{
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
-	const { branchRef } = selection;
 
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
@@ -1814,8 +1796,7 @@ const BranchDetails: FC<{
 
 	// Use push status of segment, not branch details; something about remote
 	// tracking refs.
-	const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
-	const sourceBranch = branchCtx?.segment.refName?.displayName;
+	const branchCtx = headInfoIndex?.branchContextByRefBytes(selection.branchRef);
 	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
 	const targetBranch =
 		!parentSegment || parentSegment.pushStatus === "integrated"
@@ -1824,25 +1805,18 @@ const BranchDetails: FC<{
 				? undefined
 				: parentSegment.refName?.displayName;
 
+	const branchName = branchDetailsParams(decodeBytes(selection.branchRef)).branchName;
+
 	return (
 		<div className={styles.container}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
 					{detailsFullWindow && <TopLeftControls />}
 
-					<SuspenseQuery
-						{...branchDetailsQueryOptions({
-							projectId,
-							...branchDetailsParams(decodeBytes(selection.branchRef)),
-						})}
-					>
-						{({ data: branchDetails }) => (
-							<div className={styles.title}>
-								<Icon name="branch" />
-								<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
-							</div>
-						)}
-					</SuspenseQuery>
+					<div className={styles.title}>
+						<Icon name="branch" />
+						<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
+					</div>
 				</div>
 
 				<div className={styles.tabsRow}>
@@ -1873,10 +1847,7 @@ const BranchDetails: FC<{
 								})}
 							>
 								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(
-										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-										decodeBytes(selection.branchRef).replace(/^refs\/heads\//, ""),
-									);
+									const review = data.reviewsBySourceBranch.get(branchName);
 									if (!review) return null;
 
 									return (
@@ -1902,8 +1873,6 @@ const BranchDetails: FC<{
 							<p className="text-13">No valid forge.</p>
 						) : targetBranch === undefined ? (
 							<p className="text-13">No remote target branch.</p>
-						) : sourceBranch === undefined ? (
-							<p className="text-13">No source branch.</p>
 						) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
 							<p className="text-13">Branch must be pushed to create PR.</p>
 						) : (
@@ -1914,15 +1883,15 @@ const BranchDetails: FC<{
 								})}
 							>
 								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(sourceBranch);
+									const review = data.reviewsBySourceBranch.get(branchName);
 
 									return !review ? (
 										<PullRequestForm
-											key={sourceBranch}
+											key={branchName}
 											body={null}
 											projectId={projectId}
 											reviewId={null}
-											sourceBranch={sourceBranch}
+											sourceBranch={branchName}
 											title={null}
 										/>
 									) : (
@@ -1932,7 +1901,7 @@ const BranchDetails: FC<{
 												body={review.body}
 												projectId={projectId}
 												reviewId={review.number}
-												sourceBranch={sourceBranch}
+												sourceBranch={branchName}
 												title={review.title}
 											/>
 
@@ -1940,7 +1909,7 @@ const BranchDetails: FC<{
 												<SuspenseQuery
 													{...listCIChecksQueryOptions({
 														projectId,
-														reference: sourceBranch,
+														reference: branchName,
 														polling: "priority",
 													})}
 												>
@@ -1982,6 +1951,29 @@ const BranchDetails: FC<{
 	);
 };
 
+const FileDetailsSkeleton: FC<{
+	path: string;
+}> = ({ path }) => {
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.headerWrap}>
+				<div className={styles.titleRow}>
+					{detailsFullWindow && <TopLeftControls />}
+
+					<div className={styles.title}>
+						<Icon name="file" />
+						<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
+					</div>
+				</div>
+			</div>
+
+			<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>
+		</div>
+	);
+};
+
 const FileDetails: FC<{
 	selection: Extract<Operand, { _tag: "File" }> & {
 		parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
@@ -1997,6 +1989,11 @@ const FileDetails: FC<{
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const filesItems = getChangesFileRowItems(worktreeChanges).filter(
+		(item) => item.path === selection.path,
+	);
+	const changes = filesItems.flatMap((item) => (item._tag === "Change" ? [item.change] : []));
 
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
@@ -2015,31 +2012,16 @@ const FileDetails: FC<{
 				</div>
 			</div>
 
-			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-					{({ data: worktreeChanges }) => {
-						const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-							(item) => item.path === selection.path,
-						);
-						const changes = filesItems.flatMap((item) =>
-							item._tag === "Change" ? [item.change] : [],
-						);
-
-						if (changes.length === 0) return null;
-
-						return (
-							<Diff
-								changes={changes}
-								filesVisible={filesVisible}
-								filesItems={filesItems}
-								onFileSelection={selectFile}
-								selection={selection}
-								projectId={projectId}
-							/>
-						);
-					}}
-				</SuspenseQuery>
-			</Suspense>
+			{changes.length > 0 && (
+				<Diff
+					changes={changes}
+					filesVisible={filesVisible}
+					filesItems={filesItems}
+					onFileSelection={selectFile}
+					selection={selection}
+					projectId={projectId}
+				/>
+			)}
 		</div>
 	);
 };
@@ -2051,11 +2033,17 @@ export const Details: FC<{
 
 	return Match.value(selection).pipe(
 		Match.tags({
-			Commit: (commit) => <CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} />,
+			Commit: (commit) => (
+				<Suspense fallback={<CommitDetailsSkeleton />}>
+					<CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} />
+				</Suspense>
+			),
 			Branch: (branch) => <BranchDetails key={branchIdentityKey(branch)} selection={branch} />,
 		}),
 		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
-			<FileDetails key={weakFileIdentityKey(file)} selection={file} />
+			<Suspense fallback={<FileDetailsSkeleton path={file.path} />}>
+				<FileDetails key={weakFileIdentityKey(file)} selection={file} />
+			</Suspense>
 		)),
 		Match.orElseAbsurd,
 	);
