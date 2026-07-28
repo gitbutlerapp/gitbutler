@@ -15,7 +15,7 @@ pub struct Platform {
     pub cmd: Subcommands,
 }
 
-/// The `but comment` subcommands.
+/// The `but _comment` subcommands.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// List all comments, with their anchors refreshed against the current diffs.
@@ -23,7 +23,17 @@ pub enum Subcommands {
     /// Every listed comment points at a line that exists in the current diff of its file and
     /// includes an excerpt of the surrounding diff for context. Comments whose anchor no longer
     /// exists are archived automatically and not listed.
-    List,
+    List {
+        /// Block until a comment exists instead of returning an empty listing.
+        ///
+        /// Returns immediately when comments already exist; prints a notice when the
+        /// timeout elapses without any. Run again to keep waiting.
+        #[clap(long)]
+        wait: bool,
+        /// How many seconds `--wait` blocks before giving up for this invocation.
+        #[clap(long, value_name = "SECONDS", default_value_t = 60, requires = "wait")]
+        timeout: u64,
+    },
     /// Archive a comment, hiding it from all future listings.
     Archive {
         /// The id of the comment to archive. A unique prefix is enough.
