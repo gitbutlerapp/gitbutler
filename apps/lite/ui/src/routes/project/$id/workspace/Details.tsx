@@ -38,6 +38,7 @@ import {
 	type Operand,
 	weakFileIdentityKey,
 	weakFileParentIdentityKey,
+	type CommitOperand,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -1216,9 +1217,9 @@ const Diff: FC<{
 	filesVisible: boolean;
 	filesItems: Array<FileRowItem>;
 	onFileSelection: (selection: string) => void;
-	outlineSelection: Operand;
+	selection: Operand;
 	projectId: string;
-}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
+}> = ({ changes, filesVisible, filesItems, onFileSelection, selection, projectId }) => {
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<Annotation>>(null);
@@ -1250,7 +1251,7 @@ const Diff: FC<{
 	// the outline selection, even with the helpers inlined, hence manual memoisation.
 	const fileParent = useMemo(
 		() =>
-			Match.value(outlineSelection).pipe(
+			Match.value(selection).pipe(
 				Match.tags({
 					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
 					File: ({ parent }) => parent,
@@ -1258,7 +1259,7 @@ const Diff: FC<{
 				}),
 				Match.orElseAbsurd,
 			),
-		[outlineSelection],
+		[selection],
 	);
 
 	const treeChangeDiffs = useSuspenseQueries({
@@ -1768,9 +1769,9 @@ const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p)
 
 export const Details: FC<
 	{
-		outlineSelection: Operand | null;
+		selection: Operand | null;
 	} & ComponentProps<"div">
-> = ({ outlineSelection, ...restProps }) => {
+> = ({ selection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1792,7 +1793,7 @@ export const Details: FC<
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
 
-	if (!outlineSelection) return;
+	if (!selection) return;
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
@@ -1805,11 +1806,11 @@ export const Details: FC<
 						bodyId={commitBodyId}
 						onBodyCollapsedChange={setCommitBodyCollapsed}
 						projectId={projectId}
-						selection={outlineSelection}
+						selection={selection}
 					/>
 				</div>
 
-				{outlineSelection._tag === "Branch" && (
+				{selection._tag === "Branch" && (
 					<div className={styles.tabsRow}>
 						<ToggleGroup
 							render={<ToggleGroupStyles />}
@@ -1840,7 +1841,7 @@ export const Details: FC<
 									{({ data }) => {
 										const review = data.reviewsBySourceBranch.get(
 											// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-											decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
+											decodeBytes(selection.branchRef).replace(/^refs\/heads\//, ""),
 										);
 										if (!review) return null;
 
@@ -1860,12 +1861,12 @@ export const Details: FC<
 					</div>
 				)}
 
-				{outlineSelection._tag === "Commit" && (
+				{selection._tag === "Commit" && (
 					<CommitDetailsContent
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
 						projectId={projectId}
-						commitId={outlineSelection.commitId}
+						commitId={selection.commitId}
 					/>
 				)}
 			</div>
@@ -1878,18 +1879,18 @@ export const Details: FC<
 					}: {
 						changes: Array<TreeChange>;
 						filesItems: Array<FileRowItem>;
-						outlineSelection?: Operand;
+						selection?: Operand;
 					}) => (
 						<Diff
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
 							onFileSelection={selectFile}
-							outlineSelection={outlineSelection}
+							selection={selection}
 							projectId={projectId}
 						/>
 					);
-					return Match.value(outlineSelection).pipe(
+					return Match.value(selection).pipe(
 						Match.tags({
 							Commit: (commit) => (
 								<SuspenseQuery

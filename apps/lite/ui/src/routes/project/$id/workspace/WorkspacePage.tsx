@@ -492,7 +492,7 @@ const WorkspacePage: FC = () => {
 									: operandIdentityKey(deferredDetailsSelection)
 								: null
 						}
-						outlineSelection={deferredDetailsSelection}
+						selection={deferredDetailsSelection}
 					/>
 				</Panel>
 			</Group>
