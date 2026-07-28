@@ -20,9 +20,8 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Toast } from "@base-ui/react";
-import type { CommitAbsorption, InsertSide, RelativeTo, Snapshot } from "@gitbutler/but-sdk";
+import type { CommitAbsorption, Snapshot } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Match } from "effect";
 import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
@@ -381,36 +380,14 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 	});
 };
 
-export const useCommitCreate = ({ projectId }: { projectId: string }) => {
+export const useCommitCreate = () => {
 	const toastManager = Toast.useToastManager();
-	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
 
 	return useMutation({
-		mutationFn: async ({ message, relativeTo }: { message: string; relativeTo: RelativeTo }) => {
-			const worktreeChanges = await queryClient.fetchQuery(
-				changesInWorktreeQueryOptions(projectId),
-			);
-			const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
-
-			return await window.lite.commitCreate({
-				projectId,
-				relativeTo,
-				changes,
-				changesSource: { type: "head" },
-				side: Match.value(relativeTo).pipe(
-					Match.withReturnType<InsertSide>(),
-					Match.when({ type: "commit" }, () => "above"),
-					Match.when({ type: "reference" }, () => "below"),
-					Match.when({ type: "referenceBytes" }, () => "below"),
-					Match.exhaustive,
-				),
-				message,
-				dryRun: false,
-			});
-		},
+		mutationFn: window.lite.commitCreate,
 		onSuccess: async (response, input, _ctx, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
 				const headInfoIndex = getHeadInfoIndex(response.workspace.headInfo);
@@ -419,7 +396,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 				if (newCommitCtx) {
 					dispatch(
 						projectSlice.actions.selectOutline({
-							projectId,
+							projectId: input.projectId,
 							selection: commitOperand({
 								commitId: response.newCommit,
 								changeId: newCommitCtx.commit.changeId,

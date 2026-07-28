@@ -11,13 +11,15 @@ import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#u
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
-import type { RelativeTo } from "@gitbutler/but-sdk";
+import type { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
+import { Match } from "effect";
 import { type FC, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
@@ -67,9 +69,7 @@ export const CommitForm: FC<{
 	className,
 }) => {
 	const dispatch = useAppDispatch();
-	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate({
-		projectId,
-	});
+	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({
 		projectId,
 	});
@@ -111,12 +111,23 @@ export const CommitForm: FC<{
 	};
 
 	const createCommit = () => {
-		if (!commitTarget) return;
+		if (!commitTarget || !worktreeChanges) return;
 
 		commitCreate(
 			{
+				projectId,
 				message: commitTextareaRef.current?.value ?? draftMessage ?? "",
 				relativeTo: commitTarget.relativeTo,
+				changes: worktreeChanges.changes.map((change) => createDiffSpec(change, [])),
+				changesSource: { type: "head" },
+				side: Match.value(commitTarget.relativeTo).pipe(
+					Match.withReturnType<InsertSide>(),
+					Match.when({ type: "commit" }, () => "above"),
+					Match.when({ type: "reference" }, () => "below"),
+					Match.when({ type: "referenceBytes" }, () => "below"),
+					Match.exhaustive,
+				),
+				dryRun: false,
 			},
 			{
 				onSuccess: (response) => {
