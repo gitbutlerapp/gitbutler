@@ -54,15 +54,20 @@ fn resolve(
         allow_merged: _,
     } = args;
 
-    let mut resolved_sources = Vec::new();
-    for source in sources {
-        resolved_sources.extend(
-            source
-                .resolve_uncommitted(repo, id_map)?
-                .into_iter()
-                .map(|source| ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(source))),
-        );
-    }
+    let resolved_sources = if sources.is_empty() {
+        Vec::from([ResolvedCliIdArg::Uncommitted])
+    } else {
+        let mut resolved_sources = Vec::new();
+        for source in sources {
+            resolved_sources.extend(
+                source
+                    .resolve_uncommitted(repo, id_map)?
+                    .into_iter()
+                    .map(|source| ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(source))),
+            );
+        }
+        resolved_sources
+    };
     let sources = resolved_sources
         .iter()
         .map(ResolvedCliIdArg::as_ref)

@@ -173,10 +173,14 @@ fn resolve_args(
     let reword = resolve_reword(message, no_message, use_target_message, use_source_message);
 
     if let Some(target) = target {
-        let resolved_sources = sources
-            .iter()
-            .map(|source| source.resolve_in_workspace(repo, id_map, Purpose::Source, None))
-            .collect::<CliResult<Vec<_>>>()?;
+        let resolved_sources = if sources.is_empty() {
+            Vec::from([ResolvedCliIdArg::Uncommitted])
+        } else {
+            sources
+                .iter()
+                .map(|source| source.resolve_in_workspace(repo, id_map, Purpose::Source, None))
+                .collect::<CliResult<Vec<_>>>()?
+        };
 
         let target_kind_hint = "--target must be an applied commit, branch, or zz";
         let hint = format!("{}. {}", target_kind_hint, CliIdArg::TARGET_MISSING_HINT);
@@ -1055,9 +1059,7 @@ impl<'a> ClassifiedSquashables<'a> {
         } else if let Some(committed_file_sources) = NonEmpty::from_vec(committed_file_sources) {
             Ok(Self::CommittedFiles(committed_file_sources))
         } else {
-            unreachable!(
-                "`sources` is required in `Platform` so we'll never get here with no sources"
-            )
+            unreachable!("squash resolution always supplies at least one source")
         }
     }
 }

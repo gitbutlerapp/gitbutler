@@ -51,14 +51,15 @@ fn parses_sources_followed_by_short_target() {
 }
 
 #[test]
-fn requires_sources() {
-    let error = Args::try_parse_from(["but", "amend", "--target", "d4"])
-        .expect_err("amend requires at least one source");
+fn allows_omitted_sources() {
+    let Platform {
+        target,
+        sources,
+        allow_merged: _,
+    } = parse_amend(&["amend", "--target", "d4"]);
 
-    assert_eq!(
-        error.kind(),
-        clap::error::ErrorKind::MissingRequiredArgument
-    );
+    assert_eq!(target.0, "d4");
+    assert!(sources.is_empty(), "omitted sources should parse as empty");
 }
 
 #[test]

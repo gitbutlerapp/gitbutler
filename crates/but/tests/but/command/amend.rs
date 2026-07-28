@@ -85,6 +85,56 @@ fn amend_accepts_branch_target() {
     assert_multiple_amend(|_target_cli_id| "amend one.txt two.txt --target A".to_string()).unwrap();
 }
 
+#[test]
+fn amend_without_source_implies_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file", "content");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted]
+┊   qs A file
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("amend -t tpm")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Amended tpm
+
+"#]])
+        .stderr_eq(str![""]);
+
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+┊│     tpm:q A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
 fn assert_multiple_amend(args: impl FnOnce(&str) -> String) -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
