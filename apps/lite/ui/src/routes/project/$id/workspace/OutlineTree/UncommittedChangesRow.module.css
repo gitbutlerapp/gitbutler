@@ -1,9 +1,3 @@
-.container {
-	flex-shrink: 0;
-	padding-inline: calc(var(--panel-padding-inline) + 4px);
-	padding-block: calc(var(--panel-padding-block) - 4px);
-}
-
 .lineStats {
 	display: inline-flex;
 	align-items: center;

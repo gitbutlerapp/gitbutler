@@ -32,6 +32,8 @@ import type { BranchesOutline } from "#ui/routes/project/$id/workspace/useBranch
 import type { OutlineTab } from "#ui/projects/project.ts";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { RowToolbar } from "#ui/routes/project/$id/workspace/Row.tsx";
+import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 
 const ActivitySpinner: FC = () => {
 	const fetchingCount = useIsFetching();
@@ -300,28 +302,6 @@ export const Outline: FC<
 
 						<Tooltip.Root>
 							<Tooltip.Trigger
-								aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
-								className={getButtonClassName({ iconOnly: true })}
-								onClick={createIndependentBranch}
-								// We pass `disabled` here because we want to disable the button, not
-								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
-							>
-								{isBranchCreatePending ? <Icon name="spinner" /> : <Icon name="plus" />}
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />}
-									>
-										{workspaceHotkeys.createIndependentBranch.meta.name}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-
-						<Tooltip.Root>
-							<Tooltip.Trigger
 								aria-label={workspaceHotkeys.applyBranch.meta.name}
 								className={getButtonClassName({ iconOnly: true })}
 								onClick={openApplyBranchPicker}
@@ -398,6 +378,33 @@ export const Outline: FC<
 					uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
 					projectId={projectId}
+					stacksHeaderActions={
+						<RowToolbar forceVisible>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
+									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+									onClick={createIndependentBranch}
+									// We pass `disabled` here because we want to disable the button, not
+									// the tooltip. Other props should be passed above.
+									render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+								>
+									{isBranchCreatePending ? <Icon name="spinner" /> : <Icon name="plus" />}
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup
+											render={
+												<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
+											}
+										>
+											{workspaceHotkeys.createIndependentBranch.meta.name}
+										</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
+						</RowToolbar>
+					}
 				/>
 			)}
 		</div>

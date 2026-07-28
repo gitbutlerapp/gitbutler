@@ -78,19 +78,30 @@
 }
 
 .stacksPanel {
+	display: flex;
+	flex-direction: column;
 	background-color: var(--bg-2);
+}
+
+.stacksHeader {
+	flex-shrink: 0;
+}
+
+.stacksScroller {
+	flex-grow: 1;
+	min-height: 0;
+
+	/* The scrollbar gutter takes up part of the inline end padding so the
+	   thumb visually overlays the panel margin. */
+	padding-inline: var(--panel-padding-inline)
+		calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size));
 }
 
 .stacks {
 	display: flex;
 	row-gap: 8px;
 	flex-direction: column;
-
-	/* The scrollbar gutter takes up part of the inline end padding so the
-	   thumb visually overlays the panel margin. */
-	padding-inline: var(--panel-padding-inline)
-		calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size));
-	padding-block: var(--panel-padding-block);
+	padding-bottom: var(--panel-padding-block);
 }
 
 .segments {

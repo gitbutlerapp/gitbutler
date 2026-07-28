@@ -1,7 +1,14 @@
 import { classes } from "#ui/components/classes.ts";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { type ComponentProps, type FC, type MouseEvent, useLayoutEffect, useRef } from "react";
+import {
+	type ComponentProps,
+	type FC,
+	type MouseEvent,
+	type ReactNode,
+	useLayoutEffect,
+	useRef,
+} from "react";
 import styles from "./Row.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
 
@@ -102,6 +109,29 @@ export const RowLabel: FC<
 			),
 		}),
 	});
+
+/**
+ * A non-interactive row that acts as a section header (e.g. "Stacks", "Uncommitted changes").
+ *
+ * `children` are rendered inside the label container next to the heading (e.g. badges),
+ * while `actions` are rendered outside of it (e.g. a toolbar).
+ */
+export const SectionHeaderRow: FC<
+	{ label: ReactNode; actions?: ReactNode } & Omit<
+		ComponentProps<typeof Row>,
+		"interactive" | "onSelect" | "isSelected"
+	>
+> = ({ label, actions, children, ...props }) => (
+	<Row {...props} className={classes(props.className, styles.sectionHeader)} interactive={false}>
+		<RowLabelContainer>
+			<RowLabel heading>{label}</RowLabel>
+
+			{children}
+		</RowLabelContainer>
+
+		{actions}
+	</Row>
+);
 
 /** @public */
 export const RowBubbleGroup: FC<ComponentProps<"span">> = (props) => (

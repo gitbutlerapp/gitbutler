@@ -38,10 +38,18 @@ import uiStyles from "#ui/components/ui.module.css";
 
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type ComponentProps, createContext, type FC, Fragment, use, useRef } from "react";
+import {
+	type ComponentProps,
+	createContext,
+	type FC,
+	Fragment,
+	type ReactNode,
+	use,
+	useRef,
+} from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
-import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
+import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -644,12 +652,14 @@ export const OutlineTree: FC<
 		navigationIndex: NavigationIndex<Operand>;
 		uncommittedFilesNavigationIndex: NavigationIndex<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
+		stacksHeaderActions?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	absorptionTargetCommitIds,
+	stacksHeaderActions,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -800,17 +810,27 @@ export const OutlineTree: FC<
 
 					<Separator className={styles.resizeHandle} />
 
-					<Panel
-						id={"stacks-panel" satisfies PanelId}
-						className={classes(styles.stacksPanel, uiStyles.overlayScrollbar)}
-						minSize={120}
-					>
-						<Stacks
-							projectId={projectId}
-							checkCommit={checkCommit}
-							onAmendCommit={amendCommit}
-							canAmendCommit={canAmendCommit}
+					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
+						<SectionHeaderRow
+							label="Stacks and branches"
+							className={styles.stacksHeader}
+							actions={stacksHeaderActions}
 						/>
+
+						<div
+							className={classes(
+								styles.stacksScroller,
+								uiStyles.scrollerWithSeparator,
+								uiStyles.overlayScrollbar,
+							)}
+						>
+							<Stacks
+								projectId={projectId}
+								checkCommit={checkCommit}
+								onAmendCommit={amendCommit}
+								canAmendCommit={canAmendCommit}
+							/>
+						</div>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>
