@@ -5,6 +5,8 @@
 # - `file`: two adjacent added lines; committing one conflicts with the other.
 # - `file2`: a deleted line replaced by an inserted line; committing just
 #   the deletion conflicts with the insertion.
+# - `separated`: two additions separated by an unchanged line, so consuming
+#   one can preserve the other.
 set -eu -o pipefail
 
 git init
@@ -16,6 +18,12 @@ EOF
 cat <<'EOF' >file2
 line1
 old-line
+line3
+EOF
+cat <<'EOF' >separated
+line1
+unchanged
+line2
 line3
 EOF
 git add . && git commit -m "init"
@@ -33,5 +41,14 @@ EOF
 cat <<'EOF' >file2
 line1
 new-line
+line3
+EOF
+
+cat <<'EOF' >separated
+line1
+added-a
+unchanged
+added-b
+line2
 line3
 EOF

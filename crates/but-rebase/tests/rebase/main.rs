@@ -374,11 +374,11 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
                 new_message: Some("C~2".into()),
             },
             RebaseStep::Pick {
+                // This will conflict.
                 commit_id: repo.rev_parse_single("C")?.into(),
                 new_message: Some("C".into()),
             },
             RebaseStep::Pick {
-                // This will conflict,
                 commit_id: repo.rev_parse_single("C~1")?.into(),
                 new_message: Some("C~1".into()),
             },
@@ -392,7 +392,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(976ad5208a756763180113d0a021610aba3c0dad),
+    top_commit: Sha1(f37e580d3175c9b30a77e666d2658d2cbb7997b0),
     references: [],
     commit_mapping: [
         (
@@ -407,21 +407,21 @@ RebaseOutput {
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-            Sha1(eebaa8b32984736d7a835f805724c66a3988f01b),
+            Sha1(07cd1572284045c95f430a6b4cf57bfb9bf06812),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
-            Sha1(d3cf6a9c107edc10d76ff7842de61a1b8c2fe8a8),
+            Sha1(582fc4172c4bd0af5ac2092c2e86bdca1ed19c8e),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(134887021e06909021776c023a608f8ef179e859),
-            Sha1(976ad5208a756763180113d0a021610aba3c0dad),
+            Sha1(f37e580d3175c9b30a77e666d2658d2cbb7997b0),
         ),
     ],
 }
@@ -431,10 +431,10 @@ RebaseOutput {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-*-.   976ad52 Re-merge branches 'A', 'B' and 'C'
+*-.   f37e580 Re-merge branches 'A', 'B' and 'C'
 |\ \  
-| | * d3cf6a9 [conflict] C~1
-| | * eebaa8b C
+| | * 582fc41 C~1
+| | * 07cd157 [conflict] C
 | | * a037d4a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
@@ -460,24 +460,24 @@ RebaseOutput {
 
 "#]].raw());
 
-    let conflict_commit_id = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
+    let conflict_commit_id = out.commit_mapping[1].2.attach(&repo);
     snapbox::assert_data_eq!(but_testsupport::visualize_tree(conflict_commit_id).to_string(), snapbox::str![[r#"
-c581f79
-├── .auto-resolution:5b3a532 
-│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-│   └── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
-├── .conflict-base-0:fa799da 
+f92b9c1
+├── .auto-resolution:fa799da 
 │   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
 │   └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
-├── .conflict-files:100644:5a96881 "ancestorEntries = [\"new-file\"]\nourEntries = [\"new-file\"]\ntheirEntries = [\"new-file\"]\n"
-├── .conflict-side-0:5b3a532 
-│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-│   └── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
-├── .conflict-side-1:71364f9 
+├── .conflict-base-0:71364f9 
 │   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
 │   └── new-file:100644:0ff3bbb "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n"
+├── .conflict-files:100644:5a96881 "ancestorEntries = [\"new-file\"]\nourEntries = [\"new-file\"]\ntheirEntries = [\"new-file\"]\n"
+├── .conflict-side-0:fa799da 
+│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
+│   └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+├── .conflict-side-1:fa92d27 
+│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
+│   └── new-file:100644:e8823e1 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
 ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-└── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
+└── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
 
 "#]].raw());
 
@@ -485,14 +485,14 @@ c581f79
     snapbox::assert_data_eq!(
         conflict_commit_id.object()?.data.as_bstr().to_string(),
         snapbox::str![[r#"
-tree c581f7908b6eee5cf2cd3a481c8d167f0a47d3c3
-parent eebaa8b32984736d7a835f805724c66a3988f01b
+tree f92b9c1f55ce8576eb80c7fb32eb295ef8f7b288
+parent a037d4a2c1313b991c91f8bd0086643f8f39f0ea
 author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 gitbutler-headers-version 2
 change-id 1
 
-[conflict] C~1
+[conflict] C
 
 GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are auto-resolved
    using the "ours" side. The commit tree contains additional directories:
@@ -519,7 +519,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
 parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
 parent a7487625f079bedf4d20e48f052312c010117b38
-parent d3cf6a9c107edc10d76ff7842de61a1b8c2fe8a8
+parent 582fc4172c4bd0af5ac2092c2e86bdca1ed19c8e
 author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 gitbutler-headers-version 2
@@ -574,24 +574,16 @@ C: new file with 10 lines
 
     // The base doesn't have new file, and we pick that up from the base of `base` of
     // the previous conflict. `our` side then is the original our.
-    snapbox::assert_data_eq!(visualize_tree(&repo, &out ), snapbox::str![[r#"
-ee9bc70
-├── .auto-resolution:5b3a532 
-│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-│   └── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
-├── .conflict-base-0:e8cfc77 
-│   └── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-├── .conflict-files:100644:c7fd016 "ancestorEntries = []\nourEntries = [\"new-file\"]\ntheirEntries = [\"new-file\"]\n"
-├── .conflict-side-0:5b3a532 
-│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-│   └── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
-├── .conflict-side-1:fa799da 
-│   ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-│   └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+    snapbox::assert_data_eq!(
+        visualize_tree(&repo, &out),
+        snapbox::str![[r#"
+fa799da
 ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-└── new-file:100644:213ec44 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
+└── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
 
-"#]].raw());
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -625,7 +617,7 @@ fn reversible_conflicts() -> anyhow::Result<()> {
         .rebase()?;
     assert_eq!(
         conflicted(&repo, &out),
-        [false, false, true, false],
+        [false, true, false, false],
         "putting things into the wrong order has a conflict"
     );
 
@@ -659,36 +651,36 @@ fn reversible_conflicts() -> anyhow::Result<()> {
         );
     }
 
-    // Rebasing on top of
+    // Rebasing on top of the conflicted pick.
     {
-        let conflict_tip = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
+        let conflict_tip = out.commit_mapping[1].2.attach(&repo);
         assert!(but_core::Commit::from_id(conflict_tip)?.is_conflicted());
         let mut builder = Rebase::new(&repo, conflict_tip.detach(), None)?;
         let out = builder
             .steps([RebaseStep::Pick {
-                commit_id: repo.rev_parse_single("C")?.into(),
+                commit_id: repo.rev_parse_single("C~1")?.into(),
                 new_message: Some("C~1".into()),
             }])?
             .rebase()?;
         assert_eq!(conflicted(&repo, &out), [false]);
-        // The conflicting commit is 1-10, 21-30, and now it is putting 21-30 on top again.
-        // Important is that it uses the real tree of the base.
+        // The missing middle change applies to the real tree of the conflicted base.
         snapbox::assert_data_eq!(visualize_tree(&repo, &out), snapbox::str![[r#"
-18f1011
+71364f9
 ├── file:100644:5ecf5f4 "50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n"
-└── new-file:100644:ede4e3c "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
+└── new-file:100644:0ff3bbb "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n"
 
 "#]].raw());
     }
 
-    let conflict_tip = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
+    let conflict_tip = out.commit_mapping[1].2.attach(&repo);
+    let rewritten_c_tip = out.commit_mapping[2].2;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-*-.   976ad52 Re-merge branches 'A', 'B' and 'C'
+*-.   f37e580 Re-merge branches 'A', 'B' and 'C'
 |\ \  
-| | * d3cf6a9 [conflict] C~1
-| | * eebaa8b C
+| | * 582fc41 C~1
+| | * 07cd157 [conflict] C
 | | * a037d4a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
@@ -702,24 +694,27 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     );
     assert!(
         but_core::Commit::from_id(conflict_tip)?.is_conflicted(),
-        "The conflict is at the tip"
+        "The reordered C commit conflicts"
     );
 
+    // Replay the materialized branch in the correct order. Keeping both the
+    // conflicted C and rewritten merge proves that rebasing recovers the conflict;
+    // using the original commits here would merely repeat the clean-order test.
     let out = builder
         .steps([
             RebaseStep::Pick {
                 commit_id: repo
-                    .rev_parse_single(format!("{conflict_tip}~2").as_str())?
+                    .rev_parse_single(format!("{conflict_tip}~1").as_str())?
                     .into(),
                 new_message: Some("C~2 is first".into()),
             },
             RebaseStep::Pick {
-                commit_id: conflict_tip.detach(),
-                new_message: Some("This commit is now unconflicted".into()),
+                commit_id: rewritten_c_tip,
+                new_message: Some("C~1 is second".into()),
             },
             RebaseStep::Pick {
-                commit_id: repo.rev_parse_single("C")?.into(),
-                new_message: Some("The original C will fit right on top".into()),
+                commit_id: conflict_tip.detach(),
+                new_message: Some("The conflicted C is recovered".into()),
             },
             RebaseStep::Pick {
                 commit_id: out.top_commit,
@@ -730,7 +725,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     assert_eq!(
         conflicted(&repo, &out),
         [false, false, false, false],
-        "Nothing is conflicted anymore, but only because we pulled back the correct 'C'"
+        "putting the conflicted C back after C~1 recovers the original order"
+    );
+    assert!(
+        !but_core::Commit::from_id(out.commit_mapping[2].2.attach(&repo))?.is_conflicted(),
+        "the materialized conflicted C becomes an ordinary commit again"
     );
     // It's the original version, like one would expect from the original order
     snapbox::assert_data_eq!(visualize_tree(&repo, &out), snapbox::str![[r#"

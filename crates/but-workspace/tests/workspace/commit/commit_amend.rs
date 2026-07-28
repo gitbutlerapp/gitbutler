@@ -78,11 +78,10 @@ fn amend_commit_smoke_test() -> Result<()> {
 /// Scenario:
 ///   - "save 1" creates test.txt with 3 lines
 ///   - "partial 1" adds line 1.1 (partial commit)
-///   - Uncommitted: adds line 1.2
+///   - Uncommitted: adds line 1.2 after an unchanged separator
 ///   - Amend line 1.2 into "save 1"
 ///
-/// After amend, "partial 1" will conflict (rebased onto new "save 1"),
-/// but there should be no remaining uncommitted changes.
+/// After amend, there should be no remaining uncommitted changes.
 #[test]
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =

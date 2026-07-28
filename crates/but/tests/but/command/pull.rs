@@ -390,18 +390,18 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() -> anyho
     );
     env.setup_metadata_at_target(&["A"], "main");
 
-    env.file("shared.txt", "local\nextra local work\n");
+    env.file("shared.txt", "local\nunchanged\nextra local work\n");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted]
 ┊   ot M shared.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   vun local change
+┊●   vxp local change
 ├╯
 ┊
-┊● 7f73771 (upstream: origin/main) 1 new commit
-├╯ 7f73771 (common base) 2000-01-02 upstream change
+┊● 247c151 (upstream: origin/main) 1 new commit
+├╯ 247c151 (common base) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
@@ -434,10 +434,10 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊   ot M shared.txt
 ┊
 ┊╭┄ g0 [A]
-┊◐   vun local change (no changes) {conflicted}
+┊◐   vxp local change (no changes) {conflicted}
 ├╯
 ┊
-┴ 7f73771 (common base) 2000-01-02 upstream change
+┴ 247c151 (common base) 2000-01-02 upstream change
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -457,11 +457,11 @@ fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() -> anyh
 ╭┄ zz [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   vun local change
+┊●   vxp local change
 ├╯
 ┊
-┊● 7f73771 (upstream: origin/main) 1 new commit
-├╯ 7f73771 (common base) 2000-01-02 upstream change
+┊● 247c151 (upstream: origin/main) 1 new commit
+├╯ 247c151 (common base) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -498,10 +498,10 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 ╭┄ zz [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊◐   vun local change (no changes) {conflicted}
+┊◐   vxp local change (no changes) {conflicted}
 ├╯
 ┊
-┴ 7f73771 (common base) 2000-01-02 upstream change
+┴ 247c151 (common base) 2000-01-02 upstream change
 
 Hint: run `but help` for all commands
 
@@ -658,7 +658,7 @@ fn pull_does_not_write_conflict_markers_into_uncommitted_files() -> anyhow::Resu
     );
     env.setup_metadata_at_target(&["A"], "main");
 
-    env.file("shared.txt", "local\nextra local work\n");
+    env.file("shared.txt", "local\nunchanged\nextra local work\n");
 
     env.but("pull").assert().success();
 

@@ -70,13 +70,9 @@ git clone remote conflicting-stacks
   # rebuild it properly.
 )
 
-# Two stacks each modifying adjacent (non-overlapping) sections of the same file,
-# with zero lines of buffer between the changed regions.
-# Stack A owns lines 1-5 and lines 11-15; Stack B owns lines 6-10.
-# A's top hunk immediately precedes B's hunk (adjacency from above), and
-# B's hunk immediately precedes A's bottom hunk (adjacency from below).
-# This exercises the gix fix for the git2 bug where adjacent hunks in an
-# octopus workspace merge were incorrectly flagged as conflicting.
+# Two stacks each modifying nearby, non-overlapping sections of the same file.
+# Stack A owns lines 1-5 and lines 11-15; Stack B owns lines 7-9. Lines 6 and
+# 10 provide unchanged merge context between the three hunks.
 git clone remote adjacent-stacks
 (cd adjacent-stacks
   git config user.name "Author"
@@ -89,8 +85,8 @@ git clone remote adjacent-stacks
   commit_with_tick "stack_a: change top and bottom sections"
 
   git checkout -b stack_b main
-  # Change only lines 6-10 (middle); lines 1-5 and 11-15 untouched from base.
-  printf '1\n2\n3\n4\n5\nb6\nb7\nb8\nb9\nb10\n11\n12\n13\n14\n15\n' > file
+  # Change only lines 7-9 (middle); lines 6 and 10 remain as merge context.
+  printf '1\n2\n3\n4\n5\n6\nb7\nb8\nb9\n10\n11\n12\n13\n14\n15\n' > file
   commit_with_tick "stack_b: change middle section"
 
   # Point workspace at main; update_workspace_commit in the test rebuilds it properly.

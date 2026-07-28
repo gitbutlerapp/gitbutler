@@ -80,18 +80,14 @@ fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
     Ok(())
 }
 
-/// When two applied stacks modify adjacent but non-overlapping sections of the same
-/// file, `merge_workspace` must produce a clean merge.
+/// When two applied stacks modify nearby, non-overlapping sections of the same
+/// file with unchanged context between them, `merge_workspace` must produce a
+/// clean merge.
 ///
-/// Stack A owns lines 1–5 and 11–15; Stack B owns lines 6–10.
-/// A's top hunk immediately precedes B's hunk (adjacency from above) and B's hunk
-/// immediately precedes A's bottom hunk (adjacency from below).
-///
-/// Before the fix, `merge_workspace` used git2's Myers diff which incorrectly flagged
-/// these adjacent hunks as conflicting (`MergeConflict (-24)`), breaking every workspace
-/// mutation (squash, reorder, etc.) that recomputed the workspace tree.
+/// Stack A owns lines 1–5 and 11–15; Stack B owns lines 7–9. Lines 6 and 10
+/// separate the hunks.
 #[test]
-fn merge_workspace_succeeds_with_adjacent_hunks_from_both_sides() -> Result<()> {
+fn merge_workspace_succeeds_with_separated_hunks_from_both_sides() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
 
     // Build the workspace commit so both stacks are properly registered.
