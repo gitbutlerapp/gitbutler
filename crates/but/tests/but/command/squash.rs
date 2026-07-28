@@ -646,24 +646,6 @@ For more information, try '--help'.
 }
 
 #[test]
-fn cannot_squash_only_target() {
-    let env = one_branch_three_commits();
-
-    env.but("squash --target 1#0")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-error: the following required arguments were not provided:
-  <SOURCES>...
-
-Usage: but squash --target <TARGET> <SOURCES>...
-
-For more information, try '--help'.
-
-"#]]);
-}
-
-#[test]
 fn cannot_mix_sources() {
     let env = one_branch_three_commits();
 
@@ -2539,6 +2521,57 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 Error: Commit 756ee31 is merged upstream
 
 Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn squash_without_source_implies_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file", "content");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   qs A file
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("squash -t tpm")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![[r#"
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+┊│     tpm:q A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }

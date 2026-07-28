@@ -66,6 +66,8 @@ pub struct Platform {
 
     /// The sources to squash.
     ///
+    /// If `--target` is provided and `<SOURCES>` is omitted, the uncommitted area (`zz`) is used.
+    ///
     /// If `<SOURCES>` is one or more commits they will be squashed into the target.
     ///
     /// If `<SOURCES>` is one or more branches all the commits on the branches will be squashed
@@ -86,7 +88,7 @@ pub struct Platform {
     ///
     /// It is not possible to mix sources of different types, i.e., all sources must either be
     /// commits, branches, uncommitted files, `zz`, or committed files.
-    #[clap(required = true)]
+    #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 
     #[clap(flatten)]
