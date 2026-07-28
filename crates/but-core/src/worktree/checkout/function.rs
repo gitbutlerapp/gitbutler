@@ -1,17 +1,12 @@
-use std::collections::BTreeSet;
-
-use anyhow::{Context as _, bail};
-use bstr::ByteSlice;
-use but_oxidize::ObjectIdExt;
-use gix::{
-    diff::rewrites::tracker::ChangeKind, index::entry::Stage, objs::TreeRefIter,
-    prelude::ObjectIdExt as _, refs::Target,
-};
+use anyhow::bail;
+use but_error::bail_precondition;
+use but_oxidize::{ObjectIdExt, OidExt as _};
+use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
 
-use crate::update_head_reference;
+use crate::{RepositoryExt, update_head_reference};
 
-use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
+use super::{Options, Outcome};
 
 /// Perform all file operations necessary to turn the *worktree* of `repo` into
 /// `new_head_id^{tree}`.
@@ -38,8 +33,6 @@ pub fn safe_checkout_from_head(
         allow_conflicted_commit_checkout,
     }: Options,
 ) -> anyhow::Result<Outcome> {
-    let current_head_id = repo.head_tree_id_or_empty()?.detach();
-    let source_tree = current_head_id.attach(repo).object()?.peel_to_tree()?;
     let new_object = new_head_id.attach(repo).object()?;
     if !allow_conflicted_commit_checkout
         && new_object.kind.is_commit()
@@ -47,124 +40,71 @@ pub fn safe_checkout_from_head(
     {
         bail!("Refusing to check out conflicted commit {new_head_id}");
     }
-    let mut destination_tree = new_object.clone().peel_to_tree()?;
 
-    let mut delegate = super::utils::Delegate::default();
-    gix::diff::tree(
-        TreeRefIter::from_bytes(&source_tree.data, repo.object_hash()),
-        TreeRefIter::from_bytes(&destination_tree.data, repo.object_hash()),
-        &mut gix::diff::tree::State::default(),
-        repo,
-        &mut delegate,
-    )?;
-
-    let mut opts = git2::build::CheckoutBuilder::new();
-    let changed_files = delegate.changed_files;
-    let _ = merge_worktree_changes_into_destination_or_keep_snapshot(
-        &changed_files,
-        repo,
-        source_tree.id,
-        destination_tree.id,
-        &mut opts,
-        merge_base_override,
-    )?
-    .map(|(snapshot_id, new_destination_id)| {
-        if let Some(id) = new_destination_id {
-            destination_tree.id = id;
-        }
-        snapshot_id
-    });
-
-    let num_deleted_files = changed_files
-        .iter()
-        .filter(|(kind, _)| matches!(kind, ChangeKind::Deletion))
-        .count();
-    // Finally, perform the actual checkout
-    // TODO(gix): use unconditional `gix` checkout implementation as pre-cursor to the real deal (not needed here).
-    //            All it has to do is to be able to apply the target changes to any working tree, while using filters,
-    //            and while doing it symlink-safe.
-    if !changed_files.is_empty() {
-        let git2_repo = git2::Repository::open(repo.git_dir())?;
-        let destination_tree = git2_repo
-            .find_tree(destination_tree.id.to_git2())?
-            .into_object();
-        let mut dirs_we_tried_to_delete = BTreeSet::new();
-        for (kind, path_to_alter) in &changed_files {
-            if matches!(kind, ChangeKind::Deletion) {
-                // By now we can assume that the destination tree contains all files that should be
-                // in the worktree, along with the worktree changes we will touch.
-                // Thus, it's safe to delete the files that should be deleted, before possibly recreating them.
-                let path_to_delete = repo
-                    .workdir_path(path_to_alter)
-                    .context("non-bare repository")?;
-                if let Err(err) = std::fs::remove_file(&path_to_delete) {
-                    if err.kind() == std::io::ErrorKind::NotFound
-                        || err.kind() == std::io::ErrorKind::PermissionDenied
-                        || err.kind() == std::io::ErrorKind::NotADirectory
-                        || err.kind() == std::io::ErrorKind::IsADirectory
-                    {
-                        // If this file is a directory (i.e. IsADirectory is
-                        // the error kind), it would be reasonable to delete the
-                        // entire directory, because we are checking out a tree
-                        // that contains the directory anyway. But this triggers
-                        // a bug in libgit2 in which a `git_diff_delta` with
-                        // status `GIT_DELTA_TYPECHANGE` (correct, since its
-                        // type changes from blob to tree) and null OID (I don't
-                        // know the internals of libgit2 well enough to judge
-                        // this, but this seems reasonable, since at that point
-                        // of time, the tree OID cannot be known) is
-                        // created; then, if the workdir contains no entries
-                        // corresponding to that path, libgit2 erroneously
-                        // attempts to read from that null OID. So, don't
-                        // do anything if the file to be deleted is actually
-                        // a directory.
-                        continue;
-                    };
-                    return Err(err.into());
-                } else {
-                    let workdir = repo.workdir().context("non-bare repository")?;
-                    for dir_to_delete in path_to_delete.ancestors().skip(1) {
-                        let Ok(relative_to_workdir) = dir_to_delete.strip_prefix(workdir) else {
-                            break;
-                        };
-                        if relative_to_workdir.as_os_str().is_empty() {
-                            break;
-                        }
-                        if !dirs_we_tried_to_delete.insert(dir_to_delete.to_owned()) {
-                            break;
-                        }
-                        if let Err(err) = std::fs::remove_dir(dir_to_delete) {
-                            if err.kind() == std::io::ErrorKind::DirectoryNotEmpty {
-                                break;
-                            } else {
-                                return Err(err.into());
-                            }
-                        }
-                    }
-                }
-            } else {
-                opts.path(path_to_alter.as_bytes());
-            }
-        }
-
-        git2_repo.checkout_tree(
-            &destination_tree,
-            Some(opts.force().disable_pathspec_match(true)),
-        )?;
-
-        if num_deleted_files > 0
-            && let Ok(mut index) = repo.index().map(|index| index.into_owned_or_cloned())
+    let git2_repo = git2::Repository::open(repo.git_dir())?;
+    let head_tree_id = repo.head_tree_id_or_empty()?;
+    let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
+    let old_tree = if let Some(id) = merge_base_override {
+        let mut opts = git2::DiffOptions::new();
+        opts.context_lines(1);
+        // Also write the index.
+        let tree = git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?;
+        let diff = git2_repo.diff_tree_to_tree(Some(&head_tree), Some(&tree), Some(&mut opts))?;
+        if git2_repo
+            .apply(&diff, git2::ApplyLocation::Index, None)
+            .is_err()
         {
-            for (kind, path_to_alter) in &changed_files {
-                if matches!(kind, ChangeKind::Deletion)
-                    && let Some(entry) = index
-                        .entry_mut_by_path_and_stage(path_to_alter.as_bstr(), Stage::Unconflicted)
-                {
-                    entry.flags |= gix::index::entry::Flags::REMOVE;
-                }
-            }
-            index.write(Default::default())?;
+            // Just overwrite the index.
+            git2_repo.index()?.read_tree(&tree)?;
         }
+        tree
+    } else {
+        head_tree
+    };
+
+    let new_tree = git2_repo
+        .find_object(new_head_id.to_git2(), None)?
+        .peel_to_tree()?;
+    if old_tree.id() != new_tree.id() {
+        // Reopen to ensure that there is no "object memory" (i.e. all object
+        // writes actually happen on disk).
+        let mut repo = gix::open(repo.git_dir())?;
+        #[allow(deprecated)]
+        let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
+        let wd_tree = git2_repo
+            .find_object(wd_tree_id.to_git2(), None)?
+            .peel_to_tree()?;
+        repo.config_snapshot_mut()
+            .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
+        let mut outcome = repo.merge_trees(
+            old_tree.id().to_gix(),
+            wd_tree_id,
+            new_tree.id().to_gix(),
+            Default::default(),
+            repo.tree_merge_options()?.with_rewrites(None),
+        )?;
+        let unresolved = TreatAsUnresolved::git();
+        if outcome.has_unresolved_conflicts(unresolved) {
+            let mut paths = outcome
+                .conflicts
+                .iter()
+                .filter(|c| c.is_unresolved(unresolved))
+                .map(|c| format!("{:?}", c.ours.location()))
+                .collect::<Vec<_>>();
+            paths.sort();
+            paths.dedup();
+            bail_precondition!(
+                "Uncommitted files would be overwritten by checkout: {}",
+                paths.join(", ")
+            );
+        }
+        let checkout_target_id = outcome.tree.write()?.detach();
+
+        let mut checkout_opts = git2::build::CheckoutBuilder::new();
+        checkout_opts.baseline(&wd_tree);
+        let checkout_target =
+            git2_repo.find_object(checkout_target_id.to_git2(), Some(git2::ObjectType::Tree))?;
+        git2_repo.checkout_tree(&checkout_target, Some(&mut checkout_opts))?;
     }
 
     let mut head_update = None;

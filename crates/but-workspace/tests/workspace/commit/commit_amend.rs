@@ -468,7 +468,6 @@ mod from_worktree {
             git_status_at_dir(&wt_dir)?,
             str![[r#"
  M a-file
-?? new-file
 
 "#]]
         );

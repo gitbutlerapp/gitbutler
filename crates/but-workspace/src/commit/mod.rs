@@ -21,22 +21,7 @@ fn compute_merge_base_override(
     context_lines: u32,
 ) -> anyhow::Result<gix::ObjectId> {
     let head_tree = repo.head_tree_id_or_empty()?;
-    let workdir = repo.workdir().context("non-bare repository")?;
-    let mut specs: Vec<_> = consumed
-        .into_iter()
-        .filter(|spec| {
-            if spec.hunk_headers.is_empty() {
-                return workdir
-                    .join(gix::path::from_bstr(spec.path.as_bstr()))
-                    .exists();
-            }
-            true
-        })
-        .map(|mut spec| {
-            spec.previous_path = None;
-            Ok(spec)
-        })
-        .collect();
+    let mut specs: Vec<_> = consumed.into_iter().map(Ok).collect();
     if specs.is_empty() {
         return Ok(head_tree.detach());
     }
