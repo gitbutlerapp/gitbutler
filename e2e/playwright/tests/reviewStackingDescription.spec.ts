@@ -569,6 +569,170 @@ test("GitHub native stacks are rebuilt when a review is created in the middle", 
 	});
 });
 
+test("an unchanged GitHub native stack pushes without base updates and appends new tops", async ({
+	page,
+	gitbutler,
+	fakeGithub,
+}) => {
+	const server = await fakeGithub({
+		headRepoPath: gitbutler.pathInWorkdir("remote-project"),
+		isFork: false,
+		listed: false,
+		nativeStacks: true,
+	});
+	await gitbutler.runScript("project-with-stacks.sh", [server.repositoryUrl]);
+	await storeFakeGitHubEnterprisePat(page, server);
+	mirrorFakeCredentialForCli(gitbutler);
+	await applyUpstream(gitbutler, "branch1", "branch2", "branch3");
+	await mockForge(page, {
+		get_review_merge_status: mergeStatus(),
+		get_repo_info: repoInfo(),
+		list_ci_checks: [],
+	});
+	await openWorkspace(page);
+	await setGitHubStackingMode(page, gitbutler, "native");
+
+	const branchHeaders = page.getByTestId("branch-header");
+	await dragAndDropByLocator(
+		page,
+		branchHeaders.filter({ hasText: "branch2" }),
+		branchHeaders.filter({ hasText: "branch1" }),
+		{ force: true, position: { x: 120, y: -10 } },
+	);
+	await expect(stack(page)).toHaveCount(2);
+	await gitbutler.runScript("push-branch.sh", ["branch2"]);
+
+	await publishReview(page, "branch1", "Description for branch1");
+	server.setListed(true);
+	await publishReview(page, "branch2", "Description for branch2");
+	await expect(page.getByText("PR #43 created successfully")).toBeVisible();
+	await expect
+		.poll(() => server.getNativeStacks())
+		.toEqual([{ number: 1, pull_requests: [{ number: 42 }, { number: 43 }] }]);
+	await expectReviews(server, 2, (reviews) => {
+		expectBottomFooter(reviews[0], "Description for branch1", "part 1 of 2");
+		expectBottomFooter(reviews[1], "Description for branch2", "part 2 of 2");
+	});
+
+	// GitHub refuses base updates for native stack members, so an ordinary push of the
+	// unchanged stack must not send any.
+	writeFileSync(gitbutler.pathInWorkdir("local-clone/b_file"), "ordinary native push\n", {
+		flag: "a",
+	});
+	await gitbutler.runScript("commit-branch.sh", ["branch2", "branch2: ordinary native push"]);
+	const beforeOrdinaryPush = reviewHistoryLengths(server, [42, 43]);
+	const ordinaryPushPath = gitbutler.pathInWorkdir("ordinary-native-push.json");
+	await gitbutler.runScript("push-branch-json.sh", ["branch2", ordinaryPushPath]);
+	expect(readPushOutcome(ordinaryPushPath).reviewSync).toEqual({ status: "succeeded" });
+	expectNoBaseUpdates(server, beforeOrdinaryPush, [42, 43]);
+	await expect
+		.poll(() => server.getNativeStacks())
+		.toEqual([{ number: 1, pull_requests: [{ number: 42 }, { number: 43 }] }]);
+	await expect
+		.poll(() => server.getNativeStackMutationHistory())
+		.toEqual([{ operation: "create", pullRequests: [42, 43] }]);
+
+	// Appending a new top review must extend the existing native stack without touching the
+	// locked bases of the members below it.
+	await dragAndDropByLocator(
+		page,
+		branchHeaders.filter({ hasText: "branch3" }),
+		branchHeaders.filter({ hasText: "branch2" }),
+		{ force: true, position: { x: 120, y: -10 } },
+	);
+	await expect(stack(page)).toHaveCount(1);
+	const beforeAppend = reviewHistoryLengths(server, [42, 43]);
+	await publishReview(page, "branch3", "Description for branch3");
+	await expect(page.getByText("PR #44 created successfully")).toBeVisible();
+	await expect
+		.poll(() => server.getNativeStacks())
+		.toEqual([{ number: 1, pull_requests: [{ number: 42 }, { number: 43 }, { number: 44 }] }]);
+	expect(server.getNativeStackMutationHistory()).toEqual([
+		{ operation: "create", pullRequests: [42, 43] },
+		{ operation: "add", stackNumber: 1, pullRequests: [44] },
+	]);
+	expectNoBaseUpdates(server, beforeAppend, [42, 43]);
+	await expectReviews(server, 3, (reviews) => {
+		expect(reviews.map((review) => review.base.ref)).toEqual(["master", "branch1", "branch2"]);
+	});
+});
+
+test("a failed reordered push restores GitHub native stack membership", async ({
+	page,
+	gitbutler,
+	fakeGithub,
+}) => {
+	const server = await fakeGithub({
+		headRepoPath: gitbutler.pathInWorkdir("remote-project"),
+		isFork: false,
+		listed: false,
+		nativeStacks: true,
+	});
+	await gitbutler.runScript("project-with-stacks.sh", [server.repositoryUrl]);
+	await storeFakeGitHubEnterprisePat(page, server);
+	mirrorFakeCredentialForCli(gitbutler);
+	await applyUpstream(gitbutler, "branch1", "branch2", "branch3");
+	await mockForge(page, {
+		get_review_merge_status: mergeStatus(),
+		get_repo_info: repoInfo(),
+		list_ci_checks: [],
+	});
+	await openWorkspace(page);
+	await setGitHubStackingMode(page, gitbutler, "native");
+	const branchHeaders = page.getByTestId("branch-header");
+	for (const [branch, parent, remainingStacks] of [
+		["branch2", "branch1", 2],
+		["branch3", "branch2", 1],
+	] as const) {
+		await dragAndDropByLocator(
+			page,
+			branchHeaders.filter({ hasText: branch }),
+			branchHeaders.filter({ hasText: parent }),
+			{ force: true, position: { x: 120, y: -10 } },
+		);
+		await expect(stack(page)).toHaveCount(remainingStacks);
+	}
+	await gitbutler.runScript("push-branch.sh", ["branch3"]);
+
+	await publishReview(page, "branch1", "Description for branch1");
+	server.setListed(true);
+	await publishReview(page, "branch2", "Description for branch2");
+	await publishReview(page, "branch3", "Description for branch3");
+	await expect(page.getByText("PR #44 created successfully")).toBeVisible();
+	await expect
+		.poll(() => server.getNativeStacks())
+		.toEqual([{ number: 1, pull_requests: [{ number: 42 }, { number: 43 }, { number: 44 }] }]);
+
+	await dragAndDropByLocator(
+		page,
+		branchHeaders.filter({ hasText: "branch2" }),
+		branchHeaders.filter({ hasText: "branch3" }),
+		{ force: true, position: { x: 120, y: -10 } },
+	);
+	await expectBranchHeaderOrder(page, ["branch2", "branch3", "branch1"]);
+
+	const beforeFailedPush = reviewHistoryLengths(server, [42, 43, 44]);
+	server.setGitPushesFailing(true);
+	await expect(gitbutler.runScript("push-branch.sh", ["branch3"])).rejects.toThrow(
+		"Command failed with exit code",
+	);
+	// The failed push must restore both the flattened PR bases and the native stack
+	// membership that was dissolved to allow the base changes.
+	await expectReviewHistoryDeltas(server, beforeFailedPush, { 42: 0, 43: 2, 44: 2 });
+	await expectReviews(server, 3, (reviews) => {
+		expect(reviews.map((review) => review.base.ref)).toEqual(["master", "branch1", "branch2"]);
+	});
+	await expect
+		.poll(() => server.getNativeStacks())
+		.toEqual([{ number: 2, pull_requests: [{ number: 42 }, { number: 43 }, { number: 44 }] }]);
+	expect(server.getNativeStackMutationHistory()).toEqual([
+		{ operation: "create", pullRequests: [42, 43] },
+		{ operation: "add", stackNumber: 1, pullRequests: [44] },
+		{ operation: "unstack", stackNumber: 1 },
+		{ operation: "create", pullRequests: [42, 43, 44] },
+	]);
+});
+
 test("reordering reviewed refs updates every target after a partial push", async ({
 	page,
 	gitbutler,
@@ -1111,6 +1275,22 @@ function reviewHistoryLengths(server: FakeGitHubServer, reviews: number[]) {
 	return Object.fromEntries(
 		reviews.map((number) => [number, server.getReviewUpdateHistory(number).length]),
 	);
+}
+
+function expectNoBaseUpdates(
+	server: FakeGitHubServer,
+	before: Record<number, number>,
+	reviews: number[],
+) {
+	for (const number of reviews) {
+		const updates = server.getReviewUpdateHistory(number).slice(before[number] ?? 0);
+		for (const update of updates) {
+			expect(
+				update.base,
+				`review #${number} must not receive base updates while natively stacked`,
+			).toBeUndefined();
+		}
+	}
 }
 
 async function expectReviewHistoryDeltas(

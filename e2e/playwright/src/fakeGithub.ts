@@ -113,6 +113,11 @@ export async function startFakeGitHubServer({
 	const githubStacks = new Map<number, FakeGitHubStack>();
 	const nativeStackMutationHistory: NativeStackMutation[] = [];
 	let nextStackNumber = 1;
+	function isStacked(reviewNumber: number) {
+		return [...githubStacks.values()].some((stack) =>
+			stack.pull_requests.some((review) => review.number === reviewNumber),
+		);
+	}
 
 	const sockets = new Set<Socket>();
 	const server = http.createServer((request, response) => {
@@ -155,6 +160,11 @@ export async function startFakeGitHubServer({
 				}
 				const current = reviews.get(number);
 				if (!current) return { status: "notFound" as const };
+				// GitHub rejects base updates for native stack members, even when the
+				// requested base equals the current one.
+				if (input.base !== undefined && isStacked(number)) {
+					return { status: "stackLocked" as const };
+				}
 				const updated = {
 					...current,
 					title: input.title ?? current.title,
@@ -175,6 +185,16 @@ export async function startFakeGitHubServer({
 				);
 			},
 			createStack(pullRequests) {
+				if (pullRequests.some(isStacked)) return "alreadyStacked";
+				// Real GitHub requires at least two members whose bases chain onto the
+				// previous member's head branch.
+				if (pullRequests.length < 2) return "invalid";
+				for (const [index, number] of pullRequests.entries()) {
+					const review = reviews.get(number);
+					if (!review) return "invalid";
+					const below = index > 0 ? reviews.get(pullRequests[index - 1]) : undefined;
+					if (below && review.base.ref !== below.head.ref) return "invalid";
+				}
 				const stack = nativeStackPayload(nextStackNumber++, pullRequests);
 				githubStacks.set(stack.number, stack);
 				nativeStackMutationHistory.push({
@@ -185,7 +205,8 @@ export async function startFakeGitHubServer({
 			},
 			addToStack(stackNumber, pullRequests) {
 				const current = githubStacks.get(stackNumber);
-				if (!current) return undefined;
+				if (!current) return "notFound";
+				if (pullRequests.some(isStacked)) return "alreadyStacked";
 				current.pull_requests.push(...pullRequests.map((number) => ({ number })));
 				nativeStackMutationHistory.push({
 					operation: "add",
@@ -274,10 +295,14 @@ async function handleRequest(
 		) =>
 			| { status: "updated"; review: FakeGitHubReview }
 			| { status: "notFound" }
-			| { status: "failed" };
+			| { status: "failed" }
+			| { status: "stackLocked" };
 		listStacks: (reviewNumber?: number) => FakeGitHubStack[] | undefined;
-		createStack: (pullRequests: number[]) => FakeGitHubStack;
-		addToStack: (stackNumber: number, pullRequests: number[]) => FakeGitHubStack | undefined;
+		createStack: (pullRequests: number[]) => FakeGitHubStack | "alreadyStacked" | "invalid";
+		addToStack: (
+			stackNumber: number,
+			pullRequests: number[],
+		) => FakeGitHubStack | "notFound" | "alreadyStacked";
 		unstack: (stackNumber: number) => boolean;
 	},
 ) {
@@ -322,6 +347,13 @@ async function handleRequest(
 		if (result.status === "failed") {
 			return json(response, { message: "Configured review update failure" }, 500);
 		}
+		if (result.status === "stackLocked") {
+			return json(
+				response,
+				{ message: "Cannot change the base branch because the pull request is part of a stack." },
+				422,
+			);
+		}
 		return result.status === "updated"
 			? json(response, result.review)
 			: json(response, { message: "Not Found" }, 404);
@@ -337,18 +369,40 @@ async function handleRequest(
 
 	if (request.method === "POST" && url.pathname === stacksPath) {
 		const input = JSON.parse(await readBody(request)) as { pull_requests: number[] };
-		return json(response, state.createStack(input.pull_requests), 201);
+		const stack = state.createStack(input.pull_requests);
+		if (stack === "alreadyStacked") {
+			return json(response, { message: "Pull request is already part of a stack." }, 422);
+		}
+		if (stack === "invalid") {
+			return json(
+				response,
+				{
+					message:
+						"Pull requests must form a stack, where each PR's base ref is the previous PR's head ref",
+				},
+				422,
+			);
+		}
+		return json(response, stack, 201);
 	}
 
 	if (request.method === "POST" && stackMutation?.operation === "add") {
 		const input = JSON.parse(await readBody(request)) as { pull_requests: number[] };
 		const stack = state.addToStack(stackMutation.stackNumber, input.pull_requests);
-		return stack ? json(response, stack) : json(response, { message: "Not Found" }, 404);
+		if (stack === "notFound") return json(response, { message: "Not Found" }, 404);
+		if (stack === "alreadyStacked") {
+			return json(response, { message: "Pull request is already part of a stack." }, 422);
+		}
+		return json(response, stack);
 	}
 	if (request.method === "POST" && stackMutation?.operation === "unstack") {
-		return state.unstack(stackMutation.stackNumber)
-			? json(response, {}, 200)
-			: json(response, { message: "Not Found" }, 404);
+		if (!state.unstack(stackMutation.stackNumber)) {
+			return json(response, { message: "Not Found" }, 404);
+		}
+		// Real GitHub answers a successful unstack with 204 and no body.
+		response.writeHead(204, { Connection: "close" });
+		response.end();
+		return;
 	}
 
 	const repositoryPath = `/${options.owner}/${options.repo}.git`;

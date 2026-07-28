@@ -465,7 +465,10 @@ impl GitHubClient {
         let response = self.client.patch(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            bail!("Failed to update pull request: {}", response.status());
+            bail!(
+                "Failed to update pull request: {}",
+                response_error(response).await
+            );
         }
 
         let pr: GitHubPullRequest = response.json().await?;
@@ -1308,6 +1311,16 @@ struct CheckRunsQuery<'a> {
     per_page: usize,
     page: usize,
 }
+
+/// Render a failed response as `<status>: <body>` so GitHub's error message reaches the user.
+pub(crate) async fn response_error(response: reqwest::Response) -> String {
+    let status = response.status();
+    match response.text().await {
+        Ok(body) if !body.is_empty() => format!("{status}: {body}"),
+        _ => status.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
