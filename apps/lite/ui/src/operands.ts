@@ -85,7 +85,8 @@ export const commitFileParent = ({ commitId, changeId }: CommitOperand): FilePar
 
 const uncommittedChangesIdentityKey = "uncommitted_changes";
 
-const branchIdentityKey = (operand: BranchOperand) => `branch:${operand.branchRef.join(",")}`;
+export const branchIdentityKey = (operand: BranchOperand) =>
+	`branch:${operand.branchRef.join(",")}`;
 
 export const commitIdentityKey = (operand: Pick<CommitOperand, "commitId">) =>
 	`commit:${operand.commitId}`;
