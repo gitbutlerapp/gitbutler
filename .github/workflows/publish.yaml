@@ -197,6 +197,8 @@ jobs:
         with:
           name: sveltekit-build
           path: ./apps/desktop/build/
+      - name: Build MCP apps
+        run: pnpm --filter @gitbutler/but-mcp-app build
       - name: Build binary
         shell: bash
         run: |

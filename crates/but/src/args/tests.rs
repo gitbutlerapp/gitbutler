@@ -365,6 +365,30 @@ fn help_rejects_unknown_topic() {
     );
 }
 
+#[test]
+fn mcp_command_is_hidden_but_still_parses() {
+    use clap::{CommandFactory, Parser};
+
+    let args = Args::try_parse_from(["but", "mcp", "serve"]).expect("parse hidden mcp command");
+    assert!(
+        matches!(
+            args.cmd,
+            Some(Subcommands::Mcp(mcp::Platform {
+                cmd: mcp::Subcommands::Serve
+            }))
+        ),
+        "hidden MCP command should remain callable"
+    );
+
+    let help = Args::command().render_long_help().to_string();
+    assert!(
+        !help
+            .lines()
+            .any(|line| line.trim_start().starts_with("mcp ")),
+        "MCP command should stay hidden from top-level help"
+    );
+}
+
 #[cfg(feature = "legacy")]
 #[test]
 fn status_short_is_hidden_noop_compatibility_flag() {

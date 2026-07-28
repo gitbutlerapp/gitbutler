@@ -1105,6 +1105,7 @@ pub enum Subcommands {
     ///
     /// The server exposes workspace and review tools with MCP App views to
     /// clients such as Codex, Claude Code, and ChatGPT.
+    #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Mcp(mcp::Platform),
 
@@ -1197,9 +1198,9 @@ pub mod commit;
 pub mod config;
 #[cfg(feature = "legacy")]
 pub mod diff2;
-pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod discard;
+pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod r#move;
 pub mod skill;
