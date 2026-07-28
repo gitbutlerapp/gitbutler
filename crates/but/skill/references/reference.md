@@ -277,6 +277,9 @@ but uncommit <commit-id>                 # Uncommit an entire commit
 but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
 ```
 
+Multiple whole commits may be passed together. Multiple committed-file sources must all come from
+the same commit; uncommit files from different commits in separate commands.
+
 When you need file and hunk IDs to recommit selectively, use
 `but uncommit <id> && but diff` in one shell call.
 

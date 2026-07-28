@@ -1,10 +1,7 @@
-//! Integration tests for `but uncommit` with multiple committed-file sources.
+//! Integration tests for `but uncommit` with multiple sources.
 //!
-//! These exercise the multi-source uncommit path, where several committed files
-//! (potentially from different commits and branches, in any order) are handed to
-//! the backend in a single batched operation. Each test asserts the `but status`
-//! tree and the file contents of the affected commits, both before and after the
-//! uncommit.
+//! Whole-commit sources may span commits, but committed-file sources in one
+//! invocation must belong to the same commit.
 
 use snapbox::str;
 
@@ -155,6 +152,40 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     assert_eq!(commit_file_content(&env, "A:c2.txt"), None);
     assert_eq!(worktree_file_content(&env, "c1.txt"), "c1 content\n");
     assert_eq!(worktree_file_content(&env, "c2.txt"), "c2 content\n");
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_rejects_files_from_different_commits() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("c1.txt", "c1 content\n");
+    env.but("commit -b A -m 'add c1'").assert().success();
+    env.file("c2.txt", "c2 content\n");
+    env.but("commit -b A -m 'add c2'").assert().success();
+
+    let before = status_json(&env)?;
+    let c2_id =
+        committed_file_id_in_commit(&before, "A", 0, "c2.txt").expect("c2.txt committed-file id");
+    let c1_id =
+        committed_file_id_in_commit(&before, "A", 1, "c1.txt").expect("c1.txt committed-file id");
+
+    env.but(format!("uncommit {c1_id} {c2_id}"))
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: All committed files must come from the same commit. Found files from [..] and [..]
+
+"#]]);
+
+    let after = status_json(&env)?;
+    assert!(committed_file_id_in_commit(&after, "A", 0, "c2.txt").is_some());
+    assert!(committed_file_id_in_commit(&after, "A", 1, "c1.txt").is_some());
+    assert!(!uncommitted_contains_file(&after, "c1.txt"));
+    assert!(!uncommitted_contains_file(&after, "c2.txt"));
 
     Ok(())
 }
