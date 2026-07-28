@@ -222,11 +222,12 @@ mod from_worktree {
     use but_graph::Graph;
     use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
-    use but_testsupport::git_status_at_dir;
+    use but_testsupport::{git_status_at_dir, visualize_commit_graph_all};
     use but_workspace::{
         commit::{ChangeSource, commit_amend, commit_create},
         worktrees::open_worktree_repo,
     };
+    use snapbox::str;
 
     use crate::utils::writable_scenario_slow;
 
@@ -404,8 +405,36 @@ mod from_worktree {
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
+        snapbox::assert_data_eq!(
+            git_status_at_dir(repo.workdir().unwrap())?,
+            str![[r#"
+?? wt-detached/
+?? wt/
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
+
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
-        let f1_id = repo.rev_parse_single("feat")?.detach();
         let m1_id = repo.head_id()?.detach();
 
         // The untracked addition applies cleanly onto a commit outside the
@@ -425,37 +454,37 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize()?;
-        let new_id = materialized.lookup_pick(selector)?;
+        outcome.rebase.materialize()?;
 
-        assert_eq!(
-            repo.rev_parse_single("feat")?.detach(),
-            f1_id,
-            "the worktree's own branch is untouched"
-        );
-        assert_eq!(
-            repo.head_id()?.detach(),
-            new_id,
-            "the target branch moved to the amended commit"
-        );
-        assert_eq!(blob(&repo, &format!("{new_id}:new-file"))?, "new\n");
+        snapbox::assert_data_eq!(
+            git_status_at_dir(repo.workdir().unwrap())?,
+            str![[r#"
+?? wt-detached/
+?? wt/
 
-        // The worktree's tip didn't move, so there is no tree change for the
-        // cancellation to ride on - `merge_base_override` has to carry it alone.
-        assert_eq!(
-            open_worktree_repo(&repo, "wt".into())?.head_id()?.detach(),
-            f1_id
+"#]]
         );
-        let status = git_status_at_dir(&wt_dir)?;
-        assert!(
-            !status.contains("new-file"),
-            "the consumed change was cancelled from the worktree: {status}"
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
         );
-        assert!(
-            status.contains("a-file"),
-            "the dirty file that wasn't amended survives untouched: {status}"
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 652a563 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
         );
+
         Ok(())
     }
 

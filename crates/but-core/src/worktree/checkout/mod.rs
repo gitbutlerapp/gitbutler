@@ -1,18 +1,3 @@
-/// A checkout whose conflicts were resolved against the repository state at preparation time.
-///
-/// Ref updates may happen between preparation and [`Self::execute()`], but callers must keep the
-/// worktree and index unchanged.
-#[must_use = "a prepared checkout does not update the worktree until it is executed"]
-pub struct PreparedCheckout<'repo> {
-    repo: &'repo gix::Repository,
-    new_head_id: gix::ObjectId,
-    new_commit_parent_count: Option<usize>,
-    destination_tree_id: gix::ObjectId,
-    changed_files: Vec<(gix::diff::rewrites::tracker::ChangeKind, gix::bstr::BString)>,
-    checkout_options: git2::build::CheckoutBuilder<'static>,
-    skip_head_update: bool,
-}
-
 /// Options for use in [super::safe_checkout_from_head()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {

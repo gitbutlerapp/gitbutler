@@ -2,10 +2,7 @@
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
-    worktree::{
-        checkout::{Options, PreparedCheckout},
-        prepare_safe_checkout_from_head,
-    },
+    worktree::{checkout::Options, safe_checkout_from_head},
 };
 use gix::{
     bstr::{BString, ByteSlice as _},
@@ -32,7 +29,6 @@ struct HeadCheckout {
 }
 
 struct LinkedCheckoutRepo {
-    name: BString,
     repo: gix::Repository,
     target: gix::ObjectId,
     merge_base_override: Option<gix::ObjectId>,
@@ -113,34 +109,10 @@ fn open_linked_checkout_repos(
                 );
             }
             Ok(LinkedCheckoutRepo {
-                name: spec.name,
                 repo: worktree_repo,
                 target: spec.target,
                 merge_base_override: spec.merge_base_override,
             })
-        })
-        .collect()
-}
-
-fn prepare_linked_checkouts(
-    repos: &[LinkedCheckoutRepo],
-) -> Result<Vec<(&BString, PreparedCheckout<'_>)>> {
-    repos
-        .iter()
-        .map(|checkout| {
-            let prepared = prepare_safe_checkout_from_head(
-                checkout.target,
-                &checkout.repo,
-                Options {
-                    // `HEAD` movement is a ref edit in the shared transaction for attached
-                    // and detached worktrees alike, so the checkout only touches files.
-                    skip_head_update: true,
-                    merge_base_override: checkout.merge_base_override,
-                    allow_conflicted_commit_checkout: false,
-                },
-            )
-            .with_context(|| format!("Cannot update linked worktree {}", checkout.name))?;
-            Ok((&checkout.name, prepared))
         })
         .collect()
 }
@@ -221,22 +193,30 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         let specs = self.linked_checkout_specs()?;
         let detached_head_edits = detached_worktree_head_edits(&specs)?;
         let linked_repos = open_linked_checkout_repos(&repo, specs)?;
-        let prepared_linked = prepare_linked_checkouts(&linked_repos)?;
+        for linked_repo in linked_repos {
+            safe_checkout_from_head(
+                linked_repo.target,
+                &linked_repo.repo,
+                Options {
+                    skip_head_update: true,
+                    merge_base_override: linked_repo.merge_base_override,
+                    allow_conflicted_commit_checkout: false,
+                },
+            )?;
+        }
+
         let head = self.head_checkout()?;
-        let prepared_head = head
-            .as_ref()
-            .map(|head| {
-                prepare_safe_checkout_from_head(
-                    head.target,
-                    &repo,
-                    Options {
-                        skip_head_update: true,
-                        merge_base_override: head.merge_base_override,
-                        allow_conflicted_commit_checkout: true,
-                    },
-                )
-            })
-            .transpose()?;
+        if let Some(head) = &head {
+            safe_checkout_from_head(
+                head.target,
+                &repo,
+                Options {
+                    skip_head_update: true,
+                    merge_base_override: head.merge_base_override,
+                    allow_conflicted_commit_checkout: true,
+                },
+            )?;
+        }
 
         let mut ref_edits = self.ref_edits.clone();
         ref_edits.extend(detached_head_edits);
@@ -261,18 +241,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 name: "HEAD".try_into().expect("root refs are always valid"),
                 deref: false,
             });
-        }
-        // Checkouts execute before the ref transaction: the underlying `git2`
-        // checkout diffs against the still-current `HEAD`, so moving refs first
-        // would make it a no-op. Everything that can reject the edit was already
-        // resolved by the `prepare` calls above.
-        for (name, prepared) in prepared_linked {
-            prepared
-                .execute()
-                .with_context(|| format!("Failed to update linked worktree {name}"))?;
-        }
-        if let Some(prepared_head) = prepared_head {
-            prepared_head.execute()?;
         }
 
         repo.edit_references(ref_edits)?;
