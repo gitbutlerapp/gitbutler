@@ -29,7 +29,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, targeting::Side,
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, rejection, targeting::Side,
     },
 };
 
@@ -285,6 +285,7 @@ pub fn run(
 
         builder.into_diff_specs()
     };
+    let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
         ctx,
@@ -301,7 +302,9 @@ pub fn run(
                 branch_name,
             ) = commit_op.execute(&mut tx, changes)?;
 
-            anyhow::ensure!(rejected_specs.is_empty(), "Couldn't commit all changes");
+            if !rejected_specs.is_empty() {
+                return Err(rejection::RejectedChanges(rejected_specs).into());
+            }
 
             let new_commit =
                 new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
@@ -310,7 +313,8 @@ pub fn run(
 
             Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
-    )?;
+    )
+    .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
     Ok(CommitOutcome {
         new_commit,
@@ -509,6 +513,27 @@ pub enum CommitOperation {
 }
 
 impl CommitOperation {
+    /// What the operation targets, for explaining rejected changes after a
+    /// rollback.
+    fn rejection_target(&self) -> rejection::Target {
+        match self {
+            CommitOperation::CommitToNewBranch(op) => rejection::Target::NewBranch(
+                op.branch_name
+                    .as_ref()
+                    .map(|name| name.shorten().to_string()),
+            ),
+            CommitOperation::CommitAt(op) => match &op.target {
+                CommitRelativeToTarget::Commit { commit_id, .. } => {
+                    rejection::Target::Commit(*commit_id)
+                }
+                CommitRelativeToTarget::BranchTip { name } => {
+                    rejection::Target::Branch(name.shorten().to_string())
+                }
+                CommitRelativeToTarget::BranchBucket { .. } => rejection::Target::NewBranch(None),
+            },
+        }
+    }
+
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,

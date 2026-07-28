@@ -50,7 +50,12 @@ fn amend_rejects_dependency_changes() -> anyhow::Result<()> {
         .failure()
         .stdout_eq(str![""])
         .stderr_eq(str![[r#"
-Error: Couldn't squash all changes
+Error: Cannot amend: 1 change could not be applied:
+  first
+    line 1 depends on foo (5a6fc56)
+
+Hint: to apply these changes, stack bar on top of foo and try again — commits already on the branch move with it:
+  but move bar --above foo
 
 "#]]);
 

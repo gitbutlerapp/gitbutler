@@ -27,6 +27,8 @@ pub(crate) mod binary_path;
 pub(crate) mod diff_specs;
 #[cfg(feature = "legacy")]
 pub(crate) mod merged_upstream;
+#[cfg(feature = "legacy")]
+pub(crate) mod rejection;
 pub(crate) mod targeting;
 
 pub mod diff_rendering;

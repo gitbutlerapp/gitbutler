@@ -513,7 +513,12 @@ fn bails_on_rejected_specs() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Couldn't commit all changes
+Error: Cannot commit: 1 change could not be applied:
+  first
+    line 1 depends on foo (5a6fc56)
+
+Hint: to apply these changes, create bar stacked on top of foo and try again:
+  but branch new bar --anchor foo
 
 "#]]);
 }
@@ -929,7 +934,9 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Couldn't commit all changes
+Error: Cannot commit: 1 change could not be applied:
+  second
+    line 1 depends on A (9ac4652)
 
 "#]]);
 }
@@ -962,7 +969,9 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Couldn't commit all changes
+Error: Cannot commit: 1 change could not be applied:
+  second
+    line 1 depends on A (9ac4652)
 
 "#]]);
 }
