@@ -1879,7 +1879,6 @@ export const Details: FC<
 					}: {
 						changes: Array<TreeChange>;
 						filesItems: Array<FileRowItem>;
-						selection?: Operand;
 					}) => (
 						<Diff
 							changes={changes}
