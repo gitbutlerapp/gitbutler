@@ -44,10 +44,16 @@ export type ConflictState = "conflicted" | "resolved" | "unknown";
 
 export function getConflictState(
 	conflictEntryPresence: ConflictEntryPresence,
-	file: string,
+	file: string | null,
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
 		return "conflicted";
+	}
+
+	// Binary files have no text content to scan for conflict markers, so their
+	// state can't be determined this way. `FileInfo.content` is `null` for them.
+	if (file === null) {
+		return "unknown";
 	}
 
 	if (looksConflicted(file)) {

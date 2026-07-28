@@ -1651,6 +1651,24 @@ export type FileAbsorption = {
   assignment: HunkAssignment;
 };
 
+export type FileInfo = {
+  /**
+   * If `None`, this means the file was deleted or has no meaningful content.
+   * If `Some` and `size` is `Some`, then the `content` is base64 encoded, and
+   * `size` is its decoded size.
+   */
+  content: string | null;
+  /** The basename as derived from the relative filepath. */
+  fileName: string;
+  /** The size of the content in bytes, which is always set unless the file is deleted. */
+  size: number | null;
+  /**
+   * If `None`, it's considered a text file. Otherwise, it's a binary file with the given
+   * inferred mimetype.
+   */
+  mimeType: string | null;
+};
+
 export type ForgeCapabilities = {
   checks: boolean;
   repoInfo: boolean;

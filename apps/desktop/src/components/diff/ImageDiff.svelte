@@ -22,8 +22,8 @@
 	};
 
 	function buildImageDataUrl(
-		content: string | undefined,
-		mimeType: string | undefined,
+		content: string | null | undefined,
+		mimeType: string | null | undefined,
 		path: string,
 	): string | null {
 		if (!content) return null;
