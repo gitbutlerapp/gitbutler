@@ -86,3 +86,7 @@ debug-graph-??.svg
 
 # written to by cargo-flamegraph
 /cargo-flamegraph.trace/
+
+# Generated single-file MCP apps, embedded into packaged CLI builds.
+/crates/but/src/command/mcp/review.html
+/crates/but/src/command/mcp/workspace.html

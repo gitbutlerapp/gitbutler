@@ -174,6 +174,7 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Config => Group::OtherCommands,
                 SubcommandDiscriminant::Skill => Group::OtherCommands,
                 SubcommandDiscriminant::Agent => Group::OtherCommands,
+                SubcommandDiscriminant::Mcp => Group::OtherCommands,
                 SubcommandDiscriminant::Help => Group::OtherCommands,
                 SubcommandDiscriminant::Completions => Group::OtherCommands,
 
@@ -195,8 +196,6 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Worktree => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::RefreshRemoteData => continue,
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Mcp => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]

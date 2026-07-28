@@ -906,6 +906,7 @@ dependencies = [
  "tracing-forest",
  "tracing-subscriber",
  "unicode-width",
+ "url",
  "uuid",
 ]
 

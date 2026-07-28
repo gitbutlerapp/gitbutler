@@ -1101,22 +1101,13 @@ pub enum Subcommands {
         updates: bool,
     },
 
-    /// AI: Starts up the MCP server.
+    /// Run GitButler as a Model Context Protocol server.
     ///
-    /// This is the local MCP server that can be used by coding agents to invoke
-    /// automatic GitButler commits after code generation or edits.
-    ///
-    /// By default, there is only one tool exposed, which is to simply commit changes
-    /// and generate a commit message based on the provided prompt.
-    ///
-    /// If you invoke with `--internal`, it starts the internal MCP server with
-    /// more granular tools, allowing you to ask your agent to do more specific
-    /// tasks.
-    ///
-    #[cfg(feature = "legacy")]
+    /// The server exposes workspace and review tools with MCP App views to
+    /// clients such as Codex, Claude Code, and ChatGPT.
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Mcp,
+    Mcp(mcp::Platform),
 
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
     #[cfg(feature = "legacy")]
@@ -1209,6 +1200,7 @@ pub mod config;
 pub mod diff2;
 #[cfg(feature = "legacy")]
 pub mod discard;
+pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod r#move;
 pub mod skill;

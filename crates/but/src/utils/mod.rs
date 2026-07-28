@@ -16,8 +16,6 @@ mod debug_as_type;
 pub(crate) use debug_as_type::DebugAsType;
 
 pub mod metrics;
-#[cfg(feature = "legacy")]
-pub use metrics::types::BackgroundMetrics;
 pub use metrics::types::OneshotMetricsContext;
 
 pub mod detect_agent;
