@@ -1,6 +1,5 @@
 import {
 	useBranchCreate,
-	useCommitAmend,
 	useCommitDiscard,
 	useCommitInsertBlank,
 	useCommitMove,
@@ -124,9 +123,6 @@ export const useOutlineTreeHotkeys = ({
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
 	const { isPending: isCommitInsertBlankPending, mutate: commitInsertBlank } =
 		useCommitInsertBlank();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({
-		projectId,
-	});
 	const {
 		isPending: isWorkspaceBranchAndAncestorsPushPending,
 		mutate: workspaceBranchAndAncestorsPush,
@@ -137,12 +133,6 @@ export const useOutlineTreeHotkeys = ({
 
 	const openBranchPicker = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "BranchPicker" } }));
-	};
-
-	const amendCommit = () => {
-		if (selection?._tag !== "Commit") return;
-
-		commitAmend({ commitId: selection.commitId });
 	};
 
 	const insertEmptyCommit = () => {
@@ -439,16 +429,6 @@ export const useOutlineTreeHotkeys = ({
 			}),
 			Match.orElse(() => []),
 		),
-		{
-			hotkey: outlineHotkeys.amendCommit.hotkey,
-			callback: amendCommit,
-			options: {
-				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitAmendPending,
-				target: ref,
-				meta: outlineHotkeys.amendCommit.meta,
-			},
-		},
 		{
 			hotkey: outlineHotkeys.checkCommit.hotkey,
 			callback: toggleSelectedCommitChecked,

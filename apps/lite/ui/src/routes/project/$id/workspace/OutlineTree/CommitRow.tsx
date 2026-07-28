@@ -16,7 +16,12 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { assert } from "#ui/assert.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { outlineHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesHotkeys,
+	outlineHotkeys,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -242,12 +247,13 @@ export const CommitRow: FC<
 		nativeMenuItem({
 			label: "Reword Commit",
 			enabled: !isCommitMessagePending,
+			// Advertising a hotkey defined elsewhere.
 			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
 			onSelect: startEditing,
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
-			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
+			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
 			enabled: isDefaultMode && !isCommitAmendPending,
 			onSelect: amendCommit,
 		}),
