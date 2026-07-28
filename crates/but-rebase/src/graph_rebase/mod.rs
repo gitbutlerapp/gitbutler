@@ -10,6 +10,7 @@ pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
+use but_core::commit::CommitIdentifiers;
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
@@ -444,6 +445,22 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         let mut graph = self.workspace.graph.clone();
         graph.options.worktree_tips = self.worktree_tips_after_rebase()?;
         graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+    }
+
+    /// Resolve `selector` to the identifiers of its commit pick including the change id.
+    pub fn lookup_commit(&self, selector: Selector) -> Result<CommitIdentifiers> {
+        let id = self.lookup_pick(selector)?;
+        let commit = self.repo.find_commit(id)?;
+        let commit = commit.decode()?;
+
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .unwrap_or_default()
+                .ensure_change_id(id)
+                .change_id
+                .expect("change ID is ensured");
+
+        Ok(CommitIdentifiers { id, change_id })
     }
 }
 

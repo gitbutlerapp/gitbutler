@@ -79,6 +79,6 @@ impl RewordCommitOperation {
 
         let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
 
-        Ok(reworded_commit)
+        Ok(reworded_commit.id)
     }
 }

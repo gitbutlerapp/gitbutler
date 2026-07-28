@@ -302,10 +302,13 @@ impl MoveChangesRelativeToOperation {
         };
 
         let empty_commit_id = tx.insert_blank_commit(relative_to, side)?;
-        let new_commit_id =
-            tx.move_committed_changes_between(source_commit_id, empty_commit_id, changes.into())?;
+        let new_commit_id = tx.move_committed_changes_between(
+            source_commit_id,
+            empty_commit_id.id,
+            changes.into(),
+        )?;
 
-        Ok((new_commit_id, new_branch_name))
+        Ok((new_commit_id.id, new_branch_name))
     }
 }
 
@@ -344,9 +347,12 @@ impl MoveChangesToNewBranchOperation {
             RelativeTo::Reference(new_branch_name.clone()),
             Side::Below.into(),
         )?;
-        let new_commit_id =
-            tx.move_committed_changes_between(source_commit_id, empty_commit_id, changes.into())?;
-        Ok((new_commit_id, new_branch_name))
+        let new_commit_id = tx.move_committed_changes_between(
+            source_commit_id,
+            empty_commit_id.id,
+            changes.into(),
+        )?;
+        Ok((new_commit_id.id, new_branch_name))
     }
 }
 

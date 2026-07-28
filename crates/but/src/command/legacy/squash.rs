@@ -1387,7 +1387,7 @@ impl SquashCommitsOperation {
             reword,
         } = self;
         let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
-        reword.execute(new_commit, tx)
+        reword.execute(new_commit.id, tx)
     }
 }
 
@@ -1418,7 +1418,7 @@ impl SquashBranchOperation {
         }
 
         let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
-        reword.execute(new_commit, tx)
+        reword.execute(new_commit.id, tx)
     }
 }
 
@@ -1450,7 +1450,7 @@ impl AmendUncommittedDiffSpecsOperation {
         let new_commit =
             new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-        reword.execute(new_commit, tx)
+        reword.execute(new_commit.id, tx)
     }
 }
 
@@ -1475,7 +1475,7 @@ impl MoveCommittedFilesOperation {
         } = self;
 
         let new_commit = tx.move_committed_changes_between(source, target, changes)?;
-        reword.execute(new_commit, tx)
+        reword.execute(new_commit.id, tx)
     }
 }
 
