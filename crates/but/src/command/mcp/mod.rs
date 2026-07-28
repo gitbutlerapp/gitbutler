@@ -21,9 +21,22 @@ use url::Url;
 const WORKSPACE_RESOURCE_URI: &str = "ui://gitbutler/workspace/v6.html";
 const REVIEW_RESOURCE_URI: &str = "ui://gitbutler/review/v2.html";
 const MCP_APP_MIME_TYPE: &str = "text/html;profile=mcp-app";
-// Generated from packages/but-mcp-app and committed so Cargo builds stay self-contained.
+#[cfg(but_mcp_app_built)]
 const WORKSPACE_HTML: &str = include_str!("workspace.html");
+#[cfg(but_mcp_app_built)]
 const REVIEW_HTML: &str = include_str!("review.html");
+#[cfg(not(but_mcp_app_built))]
+const WORKSPACE_HTML: &str = MCP_APP_NOT_BUILT_HTML;
+#[cfg(not(but_mcp_app_built))]
+const REVIEW_HTML: &str = MCP_APP_NOT_BUILT_HTML;
+#[cfg(not(but_mcp_app_built))]
+const MCP_APP_NOT_BUILT_HTML: &str = r#"<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>GitButler MCP app unavailable</title>
+<p>This development build does not include the GitButler MCP app.</p>
+</html>
+"#;
 
 /// Serve GitButler's MCP tools over standard input/output.
 pub(crate) async fn serve() -> Result<()> {
@@ -1198,6 +1211,23 @@ mod tests {
     }
 
     #[test]
+    fn resources_use_the_mcp_app_contract() {
+        let workspace =
+            serde_json::to_value(workspace_resource_contents()).expect("resource serializes");
+        assert_eq!(workspace["mimeType"], MCP_APP_MIME_TYPE);
+        assert_eq!(workspace["_meta"]["ui"]["prefersBorder"], true);
+        assert_eq!(
+            workspace["_meta"]["ui"]["permissions"]["clipboardWrite"],
+            json!({})
+        );
+
+        let review = serde_json::to_value(review_resource_contents()).expect("resource serializes");
+        assert_eq!(review["mimeType"], MCP_APP_MIME_TYPE);
+        assert_eq!(review["_meta"]["ui"]["prefersBorder"], true);
+    }
+
+    #[test]
+    #[cfg(but_mcp_app_built)]
     fn workspace_resource_is_a_self_contained_mcp_app() {
         let serialized =
             serde_json::to_value(workspace_resource_contents()).expect("resource serializes");
@@ -1324,6 +1354,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(but_mcp_app_built)]
     fn review_resource_is_a_self_contained_react_mcp_app() {
         let serialized =
             serde_json::to_value(review_resource_contents()).expect("resource serializes");

@@ -1,4 +1,26 @@
 fn main() {
+    let manifest_dir = std::path::PathBuf::from(
+        std::env::var_os("CARGO_MANIFEST_DIR").expect("Cargo sets CARGO_MANIFEST_DIR"),
+    );
+    let mcp_app_dir = manifest_dir.join("src/command/mcp");
+    let mcp_app_files = [
+        mcp_app_dir.join("workspace.html"),
+        mcp_app_dir.join("review.html"),
+    ];
+    for path in &mcp_app_files {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    println!("cargo:rustc-check-cfg=cfg(but_mcp_app_built)");
+
+    if mcp_app_files.iter().all(|path| path.is_file()) {
+        println!("cargo:rustc-cfg=but_mcp_app_built");
+    } else if std::env::var_os("CARGO_FEATURE_PACKAGED_BUT_DISTRIBUTION").is_some() {
+        panic!(
+            "packaged CLI builds require the generated MCP apps; run \
+             `pnpm --filter @gitbutler/but-mcp-app build` before building `but`"
+        );
+    }
+
     let identifier = if let Ok(channel) = std::env::var("CHANNEL") {
         match channel.as_str() {
             "nightly" => "com.gitbutler.app.nightly",
