@@ -27,7 +27,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream,
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, rejection,
     },
 };
 
@@ -1193,7 +1193,19 @@ pub fn run(
 
                     Ok(but_transaction::Commit(new_commit))
                 },
-            )?;
+            )
+            .map_err(|err| {
+                // Only the amend path can reject changes; other errors pass
+                // through `explain_after_rollback` untouched.
+                let TransactionCompatibleOperation::UncommittedHunks(
+                    AmendUncommittedDiffSpecsOperation { target, .. },
+                ) = &op
+                else {
+                    return err;
+                };
+                let target = rejection::Target::Commit(*target);
+                rejection::explain_after_rollback(ctx, perm, "amend", target, err)
+            })?;
 
             match op.clone() {
                 TransactionCompatibleOperation::Commits(SquashCommitsOperation {
@@ -1445,7 +1457,9 @@ impl AmendUncommittedDiffSpecsOperation {
             rejected_specs,
         } = tx.amend_commit(target, changes)?;
 
-        anyhow::ensure!(rejected_specs.is_empty(), "Couldn't squash all changes");
+        if !rejected_specs.is_empty() {
+            return Err(rejection::RejectedChanges(rejected_specs).into());
+        }
 
         let new_commit =
             new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;

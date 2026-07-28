@@ -152,11 +152,11 @@ For stacked branches `but pr` is mandatory (it sets PR bases and stack metadata;
 
 ### Dependency conflict with another branch
 
-Changes that build on another branch's commits cannot land on an independent branch. `but commit` fails with "Couldn't commit all changes" and commits nothing — it is all-or-nothing, so no partial commit is left behind.
+Changes that build on another branch's commits cannot land on an independent branch. `but commit` and `but amend` fail atomically ("Cannot commit: N changes could not be applied"), naming the branch and commit each rejected change depends on — nothing is committed and no `-b` branch is created.
 
-Recovery: stack the branches with `but move <your-branch> --above <dependency-branch>` (full branch **names**), then commit again with the same IDs. `but status -fv` shows which branch holds the commits the change builds on. Note the failed commit does **not** create its `-b` branch, so when the target branch was new, commit the changes onto it *without* the dependent IDs first (or use the dependency branch directly) — there is no branch for `but move` to stack until one exists.
+When there is a single dependency branch, the error's Hint gives the exact recovery command: `but move <your-branch> --above <dependency-branch>` to stack an existing branch on its dependency, or `but branch new <name> --anchor <dependency-branch>` when the target branch didn't exist yet. Run it, then retry the original command. When the error names dependencies without a Hint (several dependency branches, or the dependency is on the target branch itself), run `but status -fv` to see where the dependent commits live before choosing a placement.
 
-If that `but move` fails, do NOT try `uncommit`, `squash`, or `undo` as a workaround — re-run `but status -fv` to confirm both branches exist and are applied, then retry with exact branch names.
+If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a workaround — re-run `but status -fv` to confirm both branches exist and are applied, then retry with exact branch names.
 
 ### Resolve conflicted commits (after pull, move, or reorder)
 
