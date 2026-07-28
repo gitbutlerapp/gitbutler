@@ -214,6 +214,7 @@ cat "$TMP_DIR/tauri.conf.json"
 # set the VERSION and CHANNEL as an environment variables so that they available in the but CLI
 export VERSION
 export CHANNEL
+export GITBUTLER_REQUIRE_MCP_APP=1
 
 # Build the app with release config
 if [ -n "$TARGET" ]; then

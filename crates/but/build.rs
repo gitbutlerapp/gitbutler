@@ -10,11 +10,12 @@ fn main() {
     for path in &mcp_app_files {
         println!("cargo:rerun-if-changed={}", path.display());
     }
+    println!("cargo:rerun-if-env-changed=GITBUTLER_REQUIRE_MCP_APP");
     println!("cargo:rustc-check-cfg=cfg(but_mcp_app_built)");
 
     if mcp_app_files.iter().all(|path| path.is_file()) {
         println!("cargo:rustc-cfg=but_mcp_app_built");
-    } else if std::env::var_os("CARGO_FEATURE_PACKAGED_BUT_DISTRIBUTION").is_some() {
+    } else if std::env::var_os("GITBUTLER_REQUIRE_MCP_APP").is_some() {
         panic!(
             "packaged CLI builds require the generated MCP apps; run \
              `pnpm --filter @gitbutler/but-mcp-app build` before building `but`"

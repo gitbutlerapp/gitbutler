@@ -14,6 +14,7 @@ pnpm -F @gitbutler/but-mcp-app build
 ```
 
 The generated `workspace.html` and `review.html` files under
-`../../crates/but/src/command/mcp` are ignored. Packaged CLI builds require
-these files and must run the command above before compiling `but`. Normal Rust
-builds use a small fallback resource so they do not require Node.js or pnpm.
+`../../crates/but/src/command/mcp` are ignored. Release workflows set
+`GITBUTLER_REQUIRE_MCP_APP=1` and must run the command above before compiling
+`but`. Normal Rust builds use a small fallback resource so they do not require
+Node.js or pnpm.

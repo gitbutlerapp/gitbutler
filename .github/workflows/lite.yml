@@ -53,6 +53,7 @@ jobs:
           CARGO_PROFILE_RELEASE_LTO: fat
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
+          GITBUTLER_REQUIRE_MCP_APP: "1"
         run: |
           pnpm --filter @gitbutler/but-mcp-app build
           cargo build --release -p but --features "packaged-but-distribution"
