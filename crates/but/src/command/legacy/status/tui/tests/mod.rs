@@ -7,12 +7,11 @@ use crossterm::event::*;
 use snapbox::{ToDebug, file, str};
 use temp_env::with_var;
 
-use crate::CliId;
 use crate::command::legacy::status::tui::tests::utils::{
     TestTuiOptions, test_tui, test_tui_with_options,
 };
 use crate::command::legacy::status::tui::{BackstackEntry, Message, ReloadCause};
-use crate::command::legacy::status::{TuiLaunchOptions, TuiOutcome, TuiRunOptions};
+use crate::command::legacy::status::{Selectable, TuiLaunchOptions, TuiOutcome, TuiRunOptions};
 
 mod branch_picker_tests;
 mod branch_tests;
@@ -915,14 +914,14 @@ fn pick_changes_mode() {
     let outcome = tui.input(KeyCode::Enter).take_outcome().unwrap();
 
     let cli_ids = match outcome {
-        TuiOutcome::CliIds(cli_ids) => cli_ids,
+        TuiOutcome::Selection(cli_ids) => cli_ids,
         _ => panic!("unexpected outcome {outcome:#?}"),
     };
 
     let actual = cli_ids
         .into_iter()
         .map(|id| {
-            if let CliId::UncommittedHunkOrFile(hunk) = id {
+            if let Selectable::UncommittedHunkOrFile(hunk) = id {
                 hunk
             } else {
                 panic!("expected hunk, got {id:#?}")
@@ -1006,14 +1005,14 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
     let outcome = tui.input(KeyCode::Enter).take_outcome().unwrap();
 
     let cli_ids = match outcome {
-        TuiOutcome::CliIds(cli_ids) => cli_ids,
+        TuiOutcome::Selection(cli_ids) => cli_ids,
         _ => panic!("unexpected outcome {outcome:#?}"),
     };
 
     let actual = cli_ids
         .into_iter()
         .map(|id| {
-            if let CliId::UncommittedHunkOrFile(hunk) = id {
+            if let Selectable::UncommittedHunkOrFile(hunk) = id {
                 hunk
             } else {
                 panic!("expected hunk, got {id:#?}")

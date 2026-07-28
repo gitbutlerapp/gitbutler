@@ -32,7 +32,7 @@ use std::{fmt::Display, path::Path, str::FromStr, sync::OnceLock};
 use bstr::ByteSlice as _;
 use but_core::ChangeId;
 use colored::{ColoredString, Colorize as _};
-use gix::refs::FullName;
+use gix::{ObjectId, refs::FullName};
 use ratatui::{
     palette::Hsl,
     style::{Color, Modifier, Style, Styled},
@@ -40,6 +40,8 @@ use ratatui::{
 };
 use serde::{Deserialize, Serialize};
 use syntect::highlighting::{self, ThemeSet};
+
+use crate::id::{CommitId, CommitIdRef};
 
 const CATPPUCCIN_THEME_DARK: &[u8] =
     include_bytes!("../assets/syntax-highlighting-themes/Catppuccin Mocha.tmTheme");
@@ -631,24 +633,65 @@ where
     }
 }
 
-pub struct Commit(pub gix::ObjectId, pub Option<ChangeId>);
+fn fmt_commit_id(commit_id: ObjectId, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let t = get();
+    write!(
+        f,
+        "{}",
+        t.commit_id.paint(commit_id.to_hex_with_len(7).to_string())
+    )
+}
 
-impl Display for Commit {
+// TODO(david): include disambiguation when printing change ids
+fn fmt_change_id(change_id: &ChangeId, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let t = get();
+    let s = change_id
+        .get(..MIN_DISPLAYED_CHANGE_ID_CHARS.min(change_id.len()))
+        .unwrap_or_default();
+    write!(f, "{}", t.change_id.paint(s.to_str_lossy()))
+}
+
+fn fmt_commit_id_or_change_id(
+    commit_id: ObjectId,
+    change_id: Option<&ChangeId>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    if let Some(change_id) = change_id {
+        fmt_change_id(change_id, f)
+    } else {
+        fmt_commit_id(commit_id, f)
+    }
+}
+
+pub struct Commit<T>(pub T);
+
+impl Display for Commit<ChangeId> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = get();
+        fmt_change_id(&self.0, f)
+    }
+}
 
-        if let Some(change_id) = &self.1 {
-            let s = change_id
-                .get(..MIN_DISPLAYED_CHANGE_ID_CHARS.min(change_id.len()))
-                .unwrap_or_default();
-            write!(f, "{}", t.change_id.paint(s.to_str_lossy()))
-        } else {
-            write!(
-                f,
-                "{}",
-                t.commit_id.paint(self.0.to_hex_with_len(7).to_string())
-            )
-        }
+impl Display for Commit<&ChangeId> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_change_id(self.0, f)
+    }
+}
+
+impl Display for Commit<CommitId> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref(), f)
+    }
+}
+
+impl Display for Commit<&CommitId> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref(), f)
+    }
+}
+
+impl Display for Commit<CommitIdRef<'_>> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_commit_id_or_change_id(self.0.commit_id, self.0.change_id, f)
     }
 }
 

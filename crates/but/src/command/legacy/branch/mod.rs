@@ -113,7 +113,7 @@ pub fn new(
             match anchor.into_branch_or_commit()? {
                 BranchOrCommit::Commit(commit) => {
                     Ok(but_api::legacy::stack::create_reference::Anchor::AtCommit {
-                        commit_id: HexHash(commit),
+                        commit_id: HexHash(commit.commit_id),
                         position: but_workspace::branch::create_reference::Position::Above,
                     })
                 }

@@ -24,7 +24,7 @@ use crate::{
             },
         },
     },
-    id::{CommitId, ShortId, UNCOMMITTED, UncommittedHunkOrFile},
+    id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile},
     tui::TerminalGuard,
     utils::targeting,
 };
@@ -333,8 +333,8 @@ impl App {
             CliId::Branch(branch) => commit::CommitRelativeToTarget::BranchTip {
                 name: Category::LocalBranch.to_full_name(&*branch.name)?,
             },
-            CliId::Commit(CommitId { commit_id, .. }) => commit::CommitRelativeToTarget::Commit {
-                commit_id: *commit_id,
+            CliId::Commit { commit, id: _ } => commit::CommitRelativeToTarget::Commit {
+                commit: commit.clone(),
                 side: targeting::Side::from(*insert_side),
             },
             CliId::UncommittedHunkOrFile(..)
@@ -508,7 +508,7 @@ where
         [
             Message::EnterNormalModeAfterConfirmingOperation,
             Message::Reload(
-                Some(SelectAfterReload::Commit(new_commit)),
+                Some(SelectAfterReload::Commit(new_commit.commit_id)),
                 ReloadCause::Mutation,
             ),
         ]

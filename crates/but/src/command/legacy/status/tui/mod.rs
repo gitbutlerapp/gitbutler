@@ -43,6 +43,7 @@ use crate::{
         },
         open::Openable,
     },
+    id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{InputOutputChannel, WriteWithUtils},
 };
@@ -898,4 +899,52 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
     }
 
     std::mem::swap(messages, other_messages);
+}
+
+#[derive(Debug, Clone)]
+pub enum Selectable {
+    UncommittedHunkOrFile(UncommittedHunkOrFile),
+    CommittedFile(CommittedFileId),
+    Branch(BranchId),
+    Commit(CommitId),
+    Uncommitted,
+}
+
+impl PartialEq<CliId> for Selectable {
+    fn eq(&self, other: &CliId) -> bool {
+        match self {
+            Selectable::UncommittedHunkOrFile(this) => {
+                if let CliId::UncommittedHunkOrFile(other) = other {
+                    return this == other;
+                }
+            }
+            Selectable::CommittedFile(this) => {
+                if let CliId::CommittedFile {
+                    committed_file: other,
+                    id: _,
+                } = other
+                {
+                    return this == other;
+                }
+            }
+            Selectable::Branch(this) => {
+                if let CliId::Branch(other) = other {
+                    return this == other;
+                }
+            }
+            Selectable::Commit(this) => {
+                if let CliId::Commit {
+                    commit: other,
+                    id: _,
+                } = other
+                {
+                    return this == other;
+                }
+            }
+            Selectable::Uncommitted => {
+                return matches!(other, CliId::Uncommitted { .. });
+            }
+        }
+        false
+    }
 }

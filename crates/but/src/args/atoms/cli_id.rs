@@ -5,7 +5,8 @@ use crate::{
     CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommitIdRef, CommittedFileId, UncommittedHunkOrFile},
+    theme,
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -83,16 +84,15 @@ impl CliIdArg {
         };
         Ok(Some(match id {
             CliId::Branch(branch) => ResolvedCliIdArg::Branch(BranchArg(branch.name)),
-            CliId::Commit(CommitId {
-                commit_id,
-                change_id,
-                ..
-            }) => ResolvedCliIdArg::Commit(commit_id, change_id),
+            CliId::Commit { commit, .. } => ResolvedCliIdArg::Commit(commit),
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
             CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
-            CliId::CommittedFile(file) => ResolvedCliIdArg::CommittedFile(file),
+            CliId::CommittedFile {
+                committed_file,
+                id: _,
+            } => ResolvedCliIdArg::CommittedFile(committed_file),
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
@@ -127,7 +127,10 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::Commit(CommitId { commit_id, .. }) => Ok(Some(commit_id)),
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                ..
+            } => Ok(Some(commit_id)),
             _ => Ok(None),
         }
     }
@@ -407,14 +410,14 @@ impl std::fmt::Display for Purpose {
 #[derive(Debug, Clone)]
 #[expect(missing_docs)]
 pub enum ResolvedCliIdArg {
-    Commit(gix::ObjectId, Option<but_core::ChangeId>),
+    Commit(CommitId),
     Branch(BranchArg),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
+    Uncommitted,
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
     PathPrefix,
-    Uncommitted,
     Stack,
 }
 
@@ -422,7 +425,7 @@ impl ResolvedCliIdArg {
     /// Convert this into either a branch or a commit.
     pub fn into_branch_or_commit(self) -> CliResult<BranchOrCommit> {
         let kind = match self {
-            ResolvedCliIdArg::Commit(commit, _change_id) => {
+            ResolvedCliIdArg::Commit(commit) => {
                 return Ok(BranchOrCommit::Commit(commit));
             }
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
@@ -447,14 +450,14 @@ impl ResolvedCliIdArg {
     /// Convert this into a [`ResolvedCliIdArgRef`].
     pub fn as_ref(&self) -> ResolvedCliIdArgRef<'_> {
         match self {
-            ResolvedCliIdArg::Commit(object_id, change_id) => {
-                ResolvedCliIdArgRef::Commit(*object_id, change_id.as_ref())
-            }
+            ResolvedCliIdArg::Commit(commit) => ResolvedCliIdArgRef::Commit(commit.as_ref()),
             ResolvedCliIdArg::Branch(branch_arg) => ResolvedCliIdArgRef::Branch(&branch_arg.0),
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
                 ResolvedCliIdArgRef::UncommittedHunkOrFile(hunk)
             }
-            ResolvedCliIdArg::CommittedFile(file) => ResolvedCliIdArgRef::CommittedFile(file),
+            ResolvedCliIdArg::CommittedFile(committed_file) => {
+                ResolvedCliIdArgRef::CommittedFile(committed_file)
+            }
             ResolvedCliIdArg::PathPrefix => ResolvedCliIdArgRef::PathPrefix,
             ResolvedCliIdArg::Uncommitted => ResolvedCliIdArgRef::Uncommitted,
             ResolvedCliIdArg::Stack => ResolvedCliIdArgRef::Stack,
@@ -465,7 +468,7 @@ impl ResolvedCliIdArg {
 impl std::fmt::Display for ResolvedCliIdArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ResolvedCliIdArg::Commit(commit, _change_id) => commit.to_hex_with_len(7).fmt(f),
+            ResolvedCliIdArg::Commit(commit) => theme::Commit(commit.as_ref()).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
@@ -480,7 +483,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
 #[derive(Debug, Clone, Copy)]
 #[expect(missing_docs)]
 pub enum ResolvedCliIdArgRef<'a> {
-    Commit(gix::ObjectId, Option<&'a but_core::ChangeId>),
+    Commit(CommitIdRef<'a>),
     Branch(&'a str),
     UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
     CommittedFile(&'a CommittedFileId),
@@ -496,14 +499,14 @@ pub enum ResolvedCliIdArgRef<'a> {
 #[derive(Debug, Clone)]
 #[expect(missing_docs)]
 pub enum BranchOrCommit {
-    Commit(gix::ObjectId),
+    Commit(CommitId),
     Branch(BranchArg),
 }
 
 impl std::fmt::Display for BranchOrCommit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BranchOrCommit::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
+            BranchOrCommit::Commit(inner) => theme::Commit(inner.as_ref()).fmt(f),
             BranchOrCommit::Branch(inner) => inner.fmt(f),
         }
     }

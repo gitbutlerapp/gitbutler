@@ -106,8 +106,10 @@ impl Cursor {
 
     pub fn select_commit(object_id: gix::ObjectId, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
-            if let Some(CliId::Commit(CommitId { commit_id, .. })) =
-                line.data.cli_id().map(|id| &**id)
+            if let Some(CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            }) = line.data.cli_id().map(|id| &**id)
                 && *commit_id == object_id
             {
                 true
@@ -123,7 +125,10 @@ impl Cursor {
         self,
         lines: &[StatusOutputLine],
     ) -> Option<SelectAfterReload> {
-        if let Some(CliId::Commit(CommitId { commit_id, .. })) = lines
+        if let Some(CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        }) = lines
             .get(self.0)
             .and_then(|line| line.data.cli_id())
             .map(|id| &**id)
@@ -213,8 +218,10 @@ impl Cursor {
             return None;
         }
 
-        if let Some(CliId::Commit(CommitId { commit_id, .. })) =
-            lines[self.0].data.cli_id().map(|id| &**id)
+        if let Some(CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        }) = lines[self.0].data.cli_id().map(|id| &**id)
             && !discarded_commits.contains(commit_id)
         {
             return Some(SelectAfterReload::Commit(*commit_id));
@@ -225,8 +232,10 @@ impl Cursor {
                 break;
             }
 
-            if let Some(CliId::Commit(CommitId { commit_id, .. })) =
-                line.data.cli_id().map(|id| &**id)
+            if let Some(CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            }) = line.data.cli_id().map(|id| &**id)
                 && !discarded_commits.contains(commit_id)
             {
                 return Some(SelectAfterReload::Commit(*commit_id));
@@ -238,8 +247,10 @@ impl Cursor {
                 break;
             }
 
-            if let Some(CliId::Commit(CommitId { commit_id, .. })) =
-                line.data.cli_id().map(|id| &**id)
+            if let Some(CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            }) = line.data.cli_id().map(|id| &**id)
                 && !discarded_commits.contains(commit_id)
             {
                 return Some(SelectAfterReload::Commit(*commit_id));
@@ -297,8 +308,10 @@ impl Cursor {
         lines: &[StatusOutputLine],
     ) -> Option<Self> {
         let idx = lines.iter().position(|line| {
-            if let Some(CliId::CommittedFile(CommittedFileId { commit_id, .. })) =
-                line.data.cli_id().map(|id| &**id)
+            if let Some(CliId::CommittedFile {
+                committed_file: CommittedFileId { commit_id, .. },
+                id: _,
+            }) = line.data.cli_id().map(|id| &**id)
                 && *commit_id == object_id
             {
                 true
@@ -387,9 +400,10 @@ impl Cursor {
 
         if matches!(selected_line.data, StatusOutputLineData::File { .. }) {
             let file_is_visible = match selected_line.data.cli_id().map(|id| &**id) {
-                Some(CliId::CommittedFile(CommittedFileId { commit_id, .. })) => {
-                    show_files.show_files_for(*commit_id)
-                }
+                Some(CliId::CommittedFile {
+                    committed_file: CommittedFileId { commit_id, .. },
+                    id: _,
+                }) => show_files.show_files_for(*commit_id),
                 Some(CliId::UncommittedHunkOrFile(..))
                 | Some(CliId::PathPrefix { .. })
                 | Some(CliId::Branch(..))
@@ -711,18 +725,24 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
             .map(|(_, assignment)| assignment)
             .eq(current.iter().map(|(_, assignment)| assignment)),
         (
-            CliId::CommittedFile(CommittedFileId {
-                commit_id: previous_commit_id,
-                path: previous_path,
-                change_id: previous_change_id,
-                ..
-            }),
-            CliId::CommittedFile(CommittedFileId {
-                commit_id: current_commit_id,
-                path: current_path,
-                change_id: current_change_id,
-                ..
-            }),
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        commit_id: previous_commit_id,
+                        path: previous_path,
+                        change_id: previous_change_id,
+                    },
+                id: _,
+            },
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        commit_id: current_commit_id,
+                        path: current_path,
+                        change_id: current_change_id,
+                    },
+                id: _,
+            },
         ) => {
             previous_path == current_path
                 && match (previous_change_id, current_change_id) {
@@ -734,16 +754,24 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
         }
         (CliId::Branch(previous), CliId::Branch(current)) => previous == current,
         (
-            CliId::Commit(CommitId {
-                commit_id: previous_commit_id,
-                change_id: previous_change_id,
-                ..
-            }),
-            CliId::Commit(CommitId {
-                commit_id: current_commit_id,
-                change_id: current_change_id,
-                ..
-            }),
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id: previous_commit_id,
+                        change_id: previous_change_id,
+                        ..
+                    },
+                id: _,
+            },
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id: current_commit_id,
+                        change_id: current_change_id,
+                        ..
+                    },
+                id: _,
+            },
         ) => match (previous_change_id, current_change_id) {
             (Some(previous), Some(current)) => previous == current,
             (Some(_), None) | (None, Some(_)) | (None, None) => {
@@ -765,10 +793,14 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
 
 fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
     match &**cli_id {
-        CliId::Commit(CommitId { commit_id, .. }) => SelectAfterReload::Commit(*commit_id),
-        CliId::CommittedFile(CommittedFileId { commit_id, .. }) => {
-            SelectAfterReload::FirstFileInCommit(*commit_id)
-        }
+        CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        } => SelectAfterReload::Commit(*commit_id),
+        CliId::CommittedFile {
+            committed_file: CommittedFileId { commit_id, .. },
+            id: _,
+        } => SelectAfterReload::FirstFileInCommit(*commit_id),
         CliId::Uncommitted { .. }
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
@@ -945,7 +977,11 @@ pub fn is_selectable_in_mode(
                     let Some(id) = line.data.cli_id() else {
                         return false;
                     };
-                    let CliId::CommittedFile(CommittedFileId { commit_id, .. }) = &**id else {
+                    let CliId::CommittedFile {
+                        committed_file: CommittedFileId { commit_id, .. },
+                        id: _,
+                    } = &**id
+                    else {
                         return false;
                     };
                     if *commit_id != files.head.commit_id {
@@ -986,7 +1022,10 @@ pub fn is_selectable_in_mode(
             FilesStatusFlag::None | FilesStatusFlag::All => true,
             FilesStatusFlag::Commit(object_id) => {
                 if let Some(cli_id) = line.data.cli_id()
-                    && let CliId::CommittedFile(CommittedFileId { commit_id, .. }) = &**cli_id
+                    && let CliId::CommittedFile {
+                        committed_file: CommittedFileId { commit_id, .. },
+                        id: _,
+                    } = &**cli_id
                 {
                     object_id == *commit_id
                 } else {

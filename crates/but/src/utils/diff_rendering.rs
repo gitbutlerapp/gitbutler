@@ -29,7 +29,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{ShortId, UncommittedHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{UncommittedHunk, UncommittedHunkOrFile, WorktreeHunk},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -625,11 +625,9 @@ pub fn render_uncommitted_hunk(
     Ok(())
 }
 
-#[expect(clippy::too_many_arguments)]
 pub fn render_committed_file(
     commit: ObjectId,
     path: BString,
-    id: ShortId,
     ctx: &Context,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
@@ -638,7 +636,6 @@ pub fn render_committed_file(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("committed_file");
     let mut id_gen = id_gen.scoped(commit);
-    let mut id_gen = id_gen.scoped(id);
 
     let commit_details =
         but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;

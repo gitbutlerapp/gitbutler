@@ -8,13 +8,14 @@
 
 use std::collections::HashSet;
 
-use but_core::ChangeId;
+use but_core::{ChangeId, commit::CommitIdentifiers};
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt as _;
 use itertools::Itertools as _;
 
 use crate::{
     args::OutputFormat,
+    id::CommitIdRef,
     theme::{self, Paint},
     utils::OutputChannel,
 };
@@ -44,7 +45,12 @@ pub(crate) fn snapshot(ctx: &Context) -> ConflictSnapshot {
     // cache entry itself cannot be removed.
     let invalidated = ctx.invalidate_workspace_cache();
     let change_ids = match (commits, invalidated) {
-        (Ok(commits), Ok(())) => Some(commits.into_iter().map(|commit| commit.change_id).collect()),
+        (Ok(commits), Ok(())) => Some(
+            commits
+                .into_iter()
+                .map(|commit| commit.inner.change_id)
+                .collect(),
+        ),
         (Err(err), _) | (_, Err(err)) => {
             tracing::warn!(
                 ?err,
@@ -78,7 +84,7 @@ fn try_report_newly_conflicted(
     };
     let newly: Vec<_> = conflicted_workspace_commits(ctx)?
         .into_iter()
-        .filter(|commit| !before.contains(&commit.change_id))
+        .filter(|commit| !before.contains(&commit.inner.change_id))
         .collect();
     if newly.is_empty() {
         return Ok(());
@@ -102,7 +108,7 @@ fn try_report_newly_conflicted(
                 out,
                 "  {} {} {}",
                 t.sym().dot.error(),
-                theme::Commit(commit.id, Some(commit.change_id.clone())),
+                theme::Commit(CommitIdRef::from(&commit.inner)),
                 commit.message
             )?;
         }
@@ -116,7 +122,7 @@ fn try_report_newly_conflicted(
         // JSON outputs are parsed, so the warning goes to stderr.
         let ids = newly
             .iter()
-            .map(|commit| commit.id.to_hex_with_len(7))
+            .map(|commit| commit.inner.id.to_hex_with_len(7))
             .join(", ");
         eprintln!(
             "warning: this operation left {} commit(s) conflicted: {ids}. Resolve with `but resolve`, or back out with `but undo`.",
@@ -127,8 +133,7 @@ fn try_report_newly_conflicted(
 }
 
 struct ConflictedCommit {
-    id: gix::ObjectId,
-    change_id: ChangeId,
+    inner: CommitIdentifiers,
     /// First line of the commit message, sanitized for terminal output.
     message: String,
 }
@@ -155,8 +160,10 @@ fn conflicted_workspace_commits(ctx: &Context) -> anyhow::Result<Vec<ConflictedC
         let commit = but_core::Commit::from_id(stack_commit.id.attach(&repo))?;
         if commit.is_conflicted() {
             conflicted.push(ConflictedCommit {
-                id: stack_commit.id,
-                change_id: commit.change_id(),
+                inner: CommitIdentifiers {
+                    id: stack_commit.id,
+                    change_id: commit.change_id(),
+                },
                 message: message_excerpt(&commit),
             });
         }

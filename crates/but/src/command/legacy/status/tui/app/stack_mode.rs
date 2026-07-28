@@ -227,8 +227,11 @@ fn stack_id_for_line(
 
 fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Option<StackId> {
     let commit_matches = |other: &CommitId| match cli_id {
-        CliId::CommittedFile(CommittedFileId { commit_id, .. }) => other.commit_id == *commit_id,
-        CliId::Commit(commit) => other == commit,
+        CliId::CommittedFile {
+            committed_file: CommittedFileId { commit_id, .. },
+            id: _,
+        } => other.commit_id == *commit_id,
+        CliId::Commit { commit, id: _ } => other == commit,
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
@@ -237,12 +240,12 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
     };
 
     match cli_id {
-        CliId::CommittedFile(..) | CliId::Commit(..) => {
+        CliId::CommittedFile { .. } | CliId::Commit { .. } => {
             status_lines.iter().find_map(|line| match &line.data {
                 StatusOutputLineData::Commit {
                     cli_id, stack_id, ..
                 } => match &**cli_id {
-                    CliId::Commit(commit) if commit_matches(commit) => *stack_id,
+                    CliId::Commit { commit, id: _ } if commit_matches(commit) => *stack_id,
                     CliId::UncommittedHunkOrFile(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }

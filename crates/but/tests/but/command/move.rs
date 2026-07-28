@@ -32,7 +32,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd above commit 9ac4652
+Moved zll above commit ywx
 
 "#]]);
 
@@ -80,7 +80,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 below commit fe12bcd
+Moved ywx below commit zll
 
 "#]]);
 
@@ -141,10 +141,10 @@ Hint: run `but help` for all commands
             .arg(target_cli_id)
             .assert()
             .success()
-            .stdout_eq(snapbox::str![["
-Moved c472887, 8188106 [..]
+            .stdout_eq(snapbox::str![[r#"
+Moved vvl, mzz [..] commit [..]
 
-"]]);
+"#]]);
 
         env.but("status")
             .assert()
@@ -223,7 +223,7 @@ Hint: run `but help` for all commands
             .assert()
             .success()
             .stdout_eq(snapbox::str![["
-Moved 2a98cfc, 0748e42, c67c49e [..]
+Moved tpw, zpl, pyq [..] commit [..]
 
 "]]);
 
@@ -285,7 +285,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd to new branch 'a-branch-1' above branch 'A'
+Moved zll to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -335,7 +335,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 to new branch 'a-branch-1' above branch 'A'
+Moved ywx to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -385,7 +385,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 to new branch 'a-branch-1' below branch 'A'
+Moved ywx to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -435,7 +435,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd to new branch 'a-branch-1' below branch 'A'
+Moved zll to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -485,7 +485,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652, fe12bcd to new branch 'a-branch-1' above branch 'A'
+Moved ywx, zll to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -535,7 +535,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652, fe12bcd to new branch 'a-branch-1' below branch 'A'
+Moved ywx, zll to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -587,7 +587,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9477ae7 to new branch 'a-branch-1' above branch 'B'
+Moved tpm to new branch 'a-branch-1' above branch 'B'
 
 "#]]);
 
@@ -641,7 +641,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9477ae7 to new branch 'a-branch-1' below branch 'B'
+Moved tpm to new branch 'a-branch-1' below branch 'B'
 
 "#]]);
 
@@ -762,7 +762,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9477ae7 to the tip of branch 'B'
+Moved tpm to the tip of branch 'B'
 
 "#]]);
 
@@ -815,7 +815,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9477ae7 to the tip of branch 'B'
+Moved tpm to the tip of branch 'B'
 
 "#]]);
 
@@ -865,7 +865,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 to new branch 'new-branch'
+Moved ywx to new branch 'new-branch'
 
 "#]]);
 
@@ -916,7 +916,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 to new branch 'a-branch-1'
+Moved ywx to new branch 'a-branch-1'
 
 "#]]);
 
@@ -969,7 +969,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from 9ac4652 to new commit 8e35f84 below commit fe12bcd
+Moved 1 change from ywx to new commit 1 below commit zll
 
 "#]]);
 
@@ -1022,7 +1022,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from fe12bcd to new commit c15e460 above commit 9ac4652
+Moved 1 change from zll to new commit 1 above commit ywx
 
 "#]]);
 
@@ -1075,7 +1075,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'a-branch-1' below branch 'A'
+Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -1130,7 +1130,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from fe12bcd to new commit c15e460 on new branch 'a-branch-1' above branch 'A'
+Moved 1 change from zll to new commit 1 on new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -1188,7 +1188,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from d3e2ba3 to new commit be174de to the tip of branch 'A'
+Moved 1 change from lrm to new commit 1 to the tip of branch 'A'
 
 "#]]);
 
@@ -1244,7 +1244,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'new-branch'
+Moved 1 change from ywx to new commit 1 on new branch 'new-branch'
 
 "#]]);
 
@@ -1300,7 +1300,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'a-branch-1'
+Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1'
 
 "#]]);
 
@@ -1369,7 +1369,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 2 changes from e3d3e3a to new commit 99ef17e above commit e3d3e3a
+Moved 2 changes from 1 to new commit 1 above commit 1
 
 "#]]);
 
@@ -1401,7 +1401,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 2 changes from e3d3e3a to new commit 99ef17e above commit e3d3e3a
+Moved 2 changes from 1 to new commit 1 above commit 1
 
 "#]]);
 
@@ -2070,7 +2070,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd to new branch 'a-branch-1'
+Moved zll to new branch 'a-branch-1'
 
 "#]]);
 }
@@ -2103,7 +2103,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 changes from fe12bcd to new commit d2fbd7a on new branch 'a-branch-1'
+Moved 1 change from zll to new commit 1 on new branch 'a-branch-1'
 
 "#]]);
 }

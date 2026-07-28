@@ -123,7 +123,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed f55169f into f63361f to create 7251301
+Squashed 1 into 1
 
 "#]]);
 
@@ -154,7 +154,8 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "new_commit": "725130139e9f0178e29afbe9eff6a988afbca3fa"
+  "newCommitId": "725130139e9f0178e29afbe9eff6a988afbca3fa",
+  "newCommitChangeId": "1"
 }
 
 "#]]);
@@ -168,7 +169,7 @@ fn squash_multiple_sources() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed f55169f, f63361f into ea345ba to create e355a10
+Squashed 1, 1 into 1
 
 "#]]);
 
@@ -202,7 +203,7 @@ fn squash_between_oldest_and_newest_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed ea345ba into f55169f to create 7e2f6f7
+Squashed 1 into 1
 
 "#]]);
 
@@ -233,7 +234,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed f55169f into ea345ba to create 734e151
+Squashed 1 into 1
 
 "#]]);
 
@@ -327,10 +328,10 @@ fn squash_whole_branch() {
     env.but("squash a-branch-1 -m 'squashed a branch'")
         .assert()
         .success()
-        .stdout_eq(snapbox::str![["
-Squashed branch 'a-branch-1' to create commit a694042
+        .stdout_eq(snapbox::str![[r#"
+Squashed branch 'a-branch-1' into 1
 
-"]]);
+"#]]);
 
     env.but("status -fv")
         .assert()
@@ -361,7 +362,7 @@ fn squash_whole_branch_into_commit_on_same_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed branch 'a-branch-1' to create commit 17b59a2
+Squashed branch 'a-branch-1' into 1
 
 "#]]);
 
@@ -438,7 +439,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed branches 'a-branch-1', 'add-file-branch' to create commit 44aa30a
+Squashed branches 'a-branch-1', 'add-file-branch' into 1
 
 "#]]);
 
@@ -521,7 +522,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' to create commit 0653794
+Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' into 1
 
 "#]]);
 
@@ -562,10 +563,10 @@ fn squash_reword_with_editor() {
         .env("GIT_EDITOR", editor_command)
         .assert()
         .success()
-        .stdout_eq(snapbox::str![["
-Squashed branch 'a-branch-1' to create commit 7b3d915
+        .stdout_eq(snapbox::str![[r#"
+Squashed branch 'a-branch-1' into 1
 
-"]]);
+"#]]);
 
     env.but("status -fv")
         .assert()
@@ -601,7 +602,7 @@ fn squash_combine_messages_with_editor() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed branch 'a-branch-1' to create commit abb21d9
+Squashed branch 'a-branch-1' into 1
 
 "#]]);
 
@@ -915,7 +916,7 @@ fn squash_with_duplicate_commit_sources() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed f55169f into f63361f to create 5ab5165
+Squashed 1 into 1
 
 "#]]);
 
@@ -948,7 +949,7 @@ fn squash_with_duplicate_branch_sources() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Squashed branch 'one' to create commit 00e6751
+Squashed branch 'one' into 1
 
 "#]]);
 
@@ -1001,7 +1002,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended 7adb8e6 to create d2f176a
+Amended 1
 
 "#]]);
 
@@ -1052,7 +1053,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended 7adb8e6 to create 0e76889
+Amended 1
 
 "#]]);
 
@@ -1117,7 +1118,7 @@ qs:d file│
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended bcf07e2 to create cb08f3a
+Amended 1
 
 "#]]);
 
@@ -1145,7 +1146,7 @@ fn amend_all_uncommitted_changes_when_zz_is_empty() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended f55169f to create f55169f
+Amended 1
 
 "#]]);
 
@@ -1179,7 +1180,7 @@ fn amend_committed_file() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended f63361f to create 5ab5165
+Amended 1
 
 "#]]);
 
@@ -1293,7 +1294,7 @@ fn squash_into_branch_tip() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Amended f55169f to create 13baa98
+Amended 1
 
 "#]]);
 
@@ -1410,7 +1411,7 @@ fn squash_into_zz_to_uncommit_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Uncommitted f55169f
+Uncommitted 1
 
 "#]]);
 
@@ -1471,7 +1472,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Uncommitted from f55169f
+Uncommitted from 1
 
 "#]]);
 

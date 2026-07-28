@@ -5,7 +5,13 @@ fn no_message_nothing_to_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    env.but("commit --no-message").assert().success();
+    env.but("commit --no-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'A'
+
+"#]]);
 
     env.but("status")
         .assert()
@@ -36,7 +42,7 @@ fn no_args_single_head_no_message_human_output() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 7bbfdca on branch 'A'
+Created commit 1 on branch 'A'
 
 "#]]);
 
@@ -128,7 +134,8 @@ fn agent_commit_json_uses_native_result_without_status_by_default() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commit": "7bbfdca68284535242b93595db5f6a5bc885a124"
+  "commitId": "7bbfdca68284535242b93595db5f6a5bc885a124",
+  "changeId": "1"
 }
 
 "#]]);
@@ -146,7 +153,8 @@ fn non_agent_commit_json_uses_native_result() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commit": "7bbfdca68284535242b93595db5f6a5bc885a124"
+  "commitId": "7bbfdca68284535242b93595db5f6a5bc885a124",
+  "changeId": "1"
 }
 
 "#]]);
@@ -515,7 +523,7 @@ fn bails_on_rejected_specs() {
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot commit: 1 change could not be applied:
   first
-    line 1 depends on foo (5a6fc56)
+    line 1 depends on foo (1)
 
 Hint: to apply these changes, create bar stacked on top of foo and try again:
   but branch new bar --anchor foo
@@ -535,7 +543,8 @@ fn newly_created_branches_are_included_in_json_output() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commit": "5a6fc56305c69edc974a5ed2d100c525db8fd288",
+  "commitId": "5a6fc56305c69edc974a5ed2d100c525db8fd288",
+  "changeId": "1",
   "branch": "foo"
 }
 
@@ -936,7 +945,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot commit: 1 change could not be applied:
   second
-    line 1 depends on A (9ac4652)
+    line 1 depends on A (ywx)
 
 "#]]);
 }
@@ -971,7 +980,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot commit: 1 change could not be applied:
   second
-    line 1 depends on A (9ac4652)
+    line 1 depends on A (ywx)
 
 "#]]);
 }
@@ -2036,7 +2045,7 @@ fn default_target_skips_merged_upstream_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit e4531e0 on branch 'B'
+Created commit 1 on branch 'B'
 
 "#]]);
 }
@@ -2054,7 +2063,7 @@ fn default_target_creates_new_branch_when_all_branches_merged_upstream() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit b9049c6 on new branch 'a-branch-1'
+Created commit 1 on new branch 'a-branch-1'
 
 "#]]);
 }
@@ -2105,7 +2114,7 @@ fn branch_flag_with_allow_merged_permits_merged_upstream_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit db11aaa on branch 'A'
+Created commit 1 on branch 'A'
 
 "#]]);
 }
@@ -2127,7 +2136,7 @@ fn partially_integrated_stack_guards_only_the_landed_commit() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit aff34b9 on branch 'A'
+Created commit 1 on branch 'A'
 
 "#]]);
 
@@ -2186,7 +2195,7 @@ fn retired_syntax_is_translated_and_hinted() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit f6b81a9 on new branch 'my-branch'
+Created commit 1 on new branch 'my-branch'
 
 "#]])
         .stderr_eq(snapbox::str![[r#"

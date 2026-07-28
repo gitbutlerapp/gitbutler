@@ -52,6 +52,8 @@ mod output;
 mod render_oneshot;
 mod tui;
 
+pub use tui::Selectable;
+
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 #[derive(Debug, Copy, Clone)]
@@ -144,7 +146,7 @@ pub enum TuiRunOptions {
 #[must_use]
 pub enum TuiOutcome {
     None,
-    CliIds(Vec<CliId>),
+    Selection(Vec<Selectable>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1598,7 +1600,7 @@ fn print_commit(
         &status_ctx.id_map,
         repo,
         &short_id,
-        |id| matches!(id, CliId::Commit(CommitId { commit_id, .. }) if *commit_id == commit.id),
+        |id| matches!(id, CliId::Commit { commit: CommitId { commit_id, .. }, id: _ } if *commit_id == commit.id),
         "commit",
     )?;
 
@@ -1689,12 +1691,14 @@ fn print_commit(
                     .unwrap_or(0);
 
                 for TreeChangeWithId { short_id, inner } in tree_changes {
-                    let file_cli_id = CliId::CommittedFile(CommittedFileId {
-                        commit_id: commit.id,
-                        path: inner.path.clone(),
+                    let file_cli_id = CliId::CommittedFile {
+                        committed_file: CommittedFileId {
+                            commit_id: commit.id,
+                            path: inner.path.clone(),
+                            change_id: change_id.map(|change_id| change_id.change_id.clone()),
+                        },
                         id: short_id.to_owned(),
-                        change_id: change_id.map(|change_id| change_id.change_id.clone()),
-                    });
+                    };
 
                     let display_id = displayed_file_id(padded_file_id_prefix.as_deref(), short_id);
                     let (status, path) = tree_change_display_cli(inner);

@@ -109,6 +109,30 @@ mod hex_hash {
     }
     pub use stringy::HexHashString;
 
+    mod change_id_hash {
+        use bstr::ByteSlice;
+        use but_core::ChangeId;
+
+        /// Newtype that serializes changes ids as strings.
+        pub struct ChangeIdString(pub ChangeId);
+
+        impl From<ChangeId> for ChangeIdString {
+            fn from(value: ChangeId) -> Self {
+                Self(value)
+            }
+        }
+
+        impl serde::Serialize for ChangeIdString {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                self.0.as_bstr().to_str_lossy().serialize(serializer)
+            }
+        }
+    }
+    pub use change_id_hash::ChangeIdString;
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -129,7 +153,7 @@ mod hex_hash {
         }
     }
 }
-pub use hex_hash::{HexHash, HexHashString};
+pub use hex_hash::{ChangeIdString, HexHash, HexHashString};
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HexHashString);

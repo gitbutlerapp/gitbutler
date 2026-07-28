@@ -41,28 +41,34 @@ fn commit_id(hex: &str) -> gix::ObjectId {
 }
 
 fn commit_cli_id(hex: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Commit(CommitId {
-        commit_id: commit_id(hex),
+    Arc::new(CliId::Commit {
+        commit: CommitId {
+            commit_id: commit_id(hex),
+            change_id: None,
+        },
         id: id.into(),
-        change_id: None,
-    }))
+    })
 }
 
 fn commit_cli_id_with_change_id(hex: &str, id: &str, change_id: u128) -> Arc<CliId> {
-    Arc::new(CliId::Commit(CommitId {
-        commit_id: commit_id(hex),
+    Arc::new(CliId::Commit {
+        commit: CommitId {
+            commit_id: commit_id(hex),
+            change_id: Some(ChangeId::from_number_for_testing(change_id)),
+        },
         id: id.into(),
-        change_id: Some(ChangeId::from_number_for_testing(change_id)),
-    }))
+    })
 }
 
 fn committed_file_cli_id(hex: &str, path: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::CommittedFile(CommittedFileId {
-        commit_id: commit_id(hex),
-        path: path.into(),
+    Arc::new(CliId::CommittedFile {
+        committed_file: CommittedFileId {
+            commit_id: commit_id(hex),
+            path: path.into(),
+            change_id: None,
+        },
         id: id.into(),
-        change_id: None,
-    }))
+    })
 }
 
 fn branch_cli_id(name: &str, id: &str, stack_id: Option<StackId>) -> Arc<CliId> {
@@ -188,12 +194,12 @@ fn commit_line_with_classification(
     })
 }
 
-fn move_commit_mode(hex: &str, id: &str) -> Mode {
+fn move_commit_mode(hex: &str) -> Mode {
     Mode::Move(MoveMode {
-        source: Arc::new(MoveSource::Commit {
+        source: Arc::new(MoveSource::Commit(CommitId {
             commit_id: commit_id(hex),
-            id: id.into(),
-        }),
+            change_id: None,
+        })),
         insert_side: InsertSide::Below,
     })
 }
@@ -1862,7 +1868,7 @@ fn move_down_from_move_source_selects_commit_below_source() {
         commit_line(source_hex, "c1"),
         commit_line("3333333333333333333333333333333333333333", "c2"),
     ];
-    let mode = move_commit_mode(source_hex, "c1");
+    let mode = move_commit_mode(source_hex);
 
     assert_eq!(
         Cursor(2).move_down(&lines, &mode, FilesStatusFlag::All),

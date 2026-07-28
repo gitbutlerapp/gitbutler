@@ -2,8 +2,11 @@ use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
 
 pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String {
     #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
     struct CommitJson {
-        commit: String,
+        commit_id: String,
+        #[expect(dead_code)]
+        change_id: String,
     }
 
     let output = env
@@ -14,7 +17,7 @@ pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String 
     let output = output.get_output();
     serde_json::from_slice::<CommitJson>(&output.stdout)
         .unwrap()
-        .commit
+        .commit_id
 }
 
 #[test]

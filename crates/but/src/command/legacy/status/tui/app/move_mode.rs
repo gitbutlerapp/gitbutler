@@ -24,7 +24,7 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, ShortId},
+    id::{BranchId, CommitId},
     utils::targeting,
 };
 
@@ -40,16 +40,13 @@ pub struct MoveMode {
 #[derive(Debug)]
 pub enum MoveSource {
     Marks(NonEmpty<CommitId>),
-    Commit {
-        commit_id: gix::ObjectId,
-        id: ShortId,
-    },
+    Commit(CommitId),
     Branch(BranchId),
 }
 
 enum MoveTarget<'a> {
     Branch { name: &'a str },
-    Commit { commit_id: gix::ObjectId },
+    Commit(CommitId),
     MergeBase,
 }
 
@@ -87,26 +84,14 @@ impl MoveSource {
     pub fn contains(&self, other: &CliId) -> bool {
         match self {
             MoveSource::Marks(commits) => {
-                if let CliId::Commit(rhs) = other {
+                if let CliId::Commit { commit: rhs, id: _ } = other {
                     commits.iter().any(|commit| commit == rhs)
                 } else {
                     false
                 }
             }
-            MoveSource::Commit {
-                commit_id: commit_id_lhs,
-                id: id_lhs,
-            } => {
-                if let CliId::Commit(CommitId {
-                    commit_id: commit_id_rhs,
-                    id: id_rhs,
-                    change_id: _,
-                }) = other
-                {
-                    commit_id_lhs == commit_id_rhs && id_lhs == id_rhs
-                } else {
-                    false
-                }
+            MoveSource::Commit(lhs) => {
+                matches!(other, CliId::Commit{ commit: rhs, .. } if lhs == rhs)
             }
             MoveSource::Branch(lhs) => {
                 matches!(other, CliId::Branch(rhs) if lhs == rhs)
@@ -121,16 +106,12 @@ impl TryFrom<CliId> for MoveSource {
     fn try_from(id: CliId) -> Result<Self, Self::Error> {
         match id {
             CliId::Branch(branch) => Ok(Self::Branch(branch)),
-            CliId::Commit(CommitId {
-                commit_id,
-                id,
-                change_id: _,
-            }) => Ok(Self::Commit { commit_id, id }),
+            CliId::Commit { commit, .. } => Ok(Self::Commit(commit)),
             CliId::UncommittedHunkOrFile(uncommitted_cli_id) => {
                 anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
             }
             CliId::PathPrefix { id, .. }
-            | CliId::CommittedFile(CommittedFileId { id, .. })
+            | CliId::CommittedFile { id, .. }
             | CliId::Uncommitted { id }
             | CliId::Stack { id, .. } => {
                 anyhow::bail!("cannot move: {id:?}")
@@ -267,10 +248,8 @@ impl App {
                 }
             }
             StatusOutputLineData::Commit { cli_id, .. } => {
-                if let CliId::Commit(CommitId { commit_id, .. }) = &**cli_id {
-                    MoveTarget::Commit {
-                        commit_id: *commit_id,
-                    }
+                if let CliId::Commit { commit, id: _ } = &**cli_id {
+                    MoveTarget::Commit(commit.clone())
                 } else {
                     return Ok(());
                 }
@@ -295,15 +274,15 @@ impl App {
         };
 
         let move_op = match &**source {
-            MoveSource::Commit { commit_id, .. } => {
+            MoveSource::Commit(commit) => {
                 MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
-                    sources: NonEmpty::new(*commit_id),
+                    sources: NonEmpty::new(commit.clone()),
                     target: move_target(target, *insert_side)?,
                 })
             }
             MoveSource::Marks(commits) => {
                 MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
-                    sources: commits.clone().map(|commit| commit.commit_id),
+                    sources: commits.clone(),
                     target: move_target(target, *insert_side)?,
                 })
             }
@@ -343,8 +322,8 @@ fn move_target(
         MoveTarget::Branch { name } => r#move::MoveTarget::BranchTip {
             name: Category::LocalBranch.to_full_name(name)?,
         },
-        MoveTarget::Commit { commit_id } => r#move::MoveTarget::Commit {
-            commit_id,
+        MoveTarget::Commit(commit) => r#move::MoveTarget::Commit {
+            commit,
             side: targeting::Side::from(insert_side),
         },
         MoveTarget::MergeBase => anyhow::bail!("commits cannot be moved to the merge base"),
@@ -361,10 +340,10 @@ fn move_with(
 
     Ok(match outcome {
         MoveOperationOutcome::Commits { moved_commits, .. } => {
-            Some(SelectAfterReload::Commit(moved_commits.head))
+            Some(SelectAfterReload::Commit(moved_commits.head.commit_id))
         }
-        MoveOperationOutcome::Changes { new_commit_id, .. } => {
-            Some(SelectAfterReload::Commit(new_commit_id))
+        MoveOperationOutcome::Changes { new_commit, .. } => {
+            Some(SelectAfterReload::Commit(new_commit.commit_id))
         }
         MoveOperationOutcome::StackBranch { source_branch, .. }
         | MoveOperationOutcome::UnstackBranch { source_branch } => Some(SelectAfterReload::Branch(

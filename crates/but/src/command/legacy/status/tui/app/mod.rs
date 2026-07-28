@@ -21,7 +21,9 @@ use crate::{
             FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
             TuiRunOptions,
             output::StatusOutputLineData,
-            tui::{copy_selection_picker::Clipboard, details::Details, remember_selection},
+            tui::{
+                Selectable, copy_selection_picker::Clipboard, details::Details, remember_selection,
+            },
         },
         open::{self, Openable},
     },
@@ -105,7 +107,7 @@ pub struct App {
     pub launch_options: TuiLaunchOptions,
     pub incoming_out_of_band_messages: Vec<Receiver<Message>>,
     pub fps: FpsCounter,
-    pub to_be_discarded: Vec<Arc<CliId>>,
+    pub to_be_discarded: Vec<Selectable>,
     pub status_width_percentage: u16,
     pub theme: &'static Theme,
     pub has_focus: bool,
@@ -574,7 +576,7 @@ impl App {
     }
 
     fn handle_confirm_and_quit(&mut self) {
-        self.outcome = Some(TuiOutcome::CliIds(
+        self.outcome = Some(TuiOutcome::Selection(
             match &*self.mode {
                 Mode::Normal(..)
                 | Mode::Squash(..)
@@ -598,7 +600,7 @@ impl App {
                 Mode::PickChanges(PickChangesMode { marks }) => marks.as_ref(),
             }
             .iter()
-            .map(|mark| mark.to_owned().into_cli_id())
+            .map(|mark| mark.to_owned().into_selectable())
             .collect(),
         ));
     }
@@ -717,7 +719,10 @@ impl App {
                 };
 
                 if let Some(cli_id) = selection.data.cli_id()
-                    && let CliId::CommittedFile(CommittedFileId { commit_id, .. }) = &**cli_id
+                    && let CliId::CommittedFile {
+                        committed_file: CommittedFileId { commit_id, .. },
+                        id: _,
+                    } = &**cli_id
                     && *commit_id == object_id
                 {
                     // cursor is already within the file list
@@ -809,7 +814,10 @@ impl App {
 
         if let Some(selection) = self.cursor.selected_line(&self.status_lines)
             && let Some(cli_id) = selection.data.cli_id()
-            && let CliId::Commit(CommitId { commit_id, .. }) = &**cli_id
+            && let CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } = &**cli_id
         {
             if !operations::commit_is_empty(ctx, *commit_id)? {
                 let select_after_reload = match self.flags.show_files {
@@ -1182,7 +1190,11 @@ impl App {
                 ));
             }
             StatusOutputLineData::Commit { cli_id, .. } => {
-                let CliId::Commit(CommitId { commit_id, .. }) = &**cli_id else {
+                let CliId::Commit {
+                    commit: CommitId { commit_id, .. },
+                    id: _,
+                } = &**cli_id
+                else {
                     return Ok(());
                 };
 
@@ -1268,12 +1280,19 @@ impl App {
 
         let what_to_copy = match &**cli_id {
             CliId::Branch(branch) => Cow::Borrowed(branch.name.as_str()),
-            CliId::Commit(CommitId {
-                commit_id,
-                change_id,
-                ..
-            }) => Cow::Owned(commit_identifier_to_copy(*commit_id, change_id.as_ref())),
-            CliId::CommittedFile(CommittedFileId { path, .. }) => path.to_str_lossy(),
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id,
+                        change_id,
+                        ..
+                    },
+                id: _,
+            } => Cow::Owned(commit_identifier_to_copy(*commit_id, change_id.as_ref())),
+            CliId::CommittedFile {
+                committed_file: CommittedFileId { path, .. },
+                id: _,
+            } => path.to_str_lossy(),
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
             }
@@ -1300,7 +1319,10 @@ impl App {
         };
 
         let picker = match &**selection {
-            CliId::Commit(CommitId { commit_id, .. }) => {
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } => {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
@@ -1311,12 +1333,15 @@ impl App {
             CliId::UncommittedHunkOrFile(hunk) => {
                 copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
             }
-            CliId::CommittedFile(CommittedFileId {
-                path,
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        path,
+                        commit_id: _,
+                        change_id: _,
+                    },
                 id,
-                commit_id: _,
-                change_id: _,
-            }) => copy_selection_picker::committed_file_picker(
+            } => copy_selection_picker::committed_file_picker(
                 path.to_owned(),
                 id.to_owned(),
                 self.theme,
@@ -1354,9 +1379,10 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 Openable::try_from_uncommitted(&*ctx.repo.get()?, uncommitted)?
             }
-            CliId::CommittedFile(CommittedFileId { path, .. }) => {
-                Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr())?
-            }
+            CliId::CommittedFile {
+                committed_file: CommittedFileId { path, .. },
+                id: _,
+            } => Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr())?,
             _ => {
                 return Ok(());
             }
@@ -1426,7 +1452,11 @@ impl App {
             return None;
         };
 
-        let CliId::Commit(CommitId { commit_id, .. }) = &**cli_id else {
+        let CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        } = &**cli_id
+        else {
             return None;
         };
 

@@ -256,11 +256,15 @@ impl Details {
         };
 
         match selection {
-            CliId::Commit(CommitId {
-                commit_id: commit,
-                change_id,
-                ..
-            }) => {
+            CliId::Commit {
+                commit:
+                    CommitId {
+                        commit_id: commit,
+                        change_id,
+                        ..
+                    },
+                id: _,
+            } => {
                 let commit = *commit;
                 let change_id = change_id.clone();
                 self.poll_render_thread(
@@ -324,15 +328,17 @@ impl Details {
                     },
                 )
             }
-            CliId::CommittedFile(CommittedFileId {
-                commit_id,
-                path,
-                id,
-                change_id: _,
-            }) => {
+            CliId::CommittedFile {
+                committed_file:
+                    CommittedFileId {
+                        commit_id,
+                        path,
+                        change_id: _,
+                    },
+                id: _,
+            } => {
                 let commit = *commit_id;
                 let path = path.clone();
-                let id = id.clone();
                 self.poll_render_thread(
                     ctx,
                     None,
@@ -341,7 +347,6 @@ impl Details {
                         diff_rendering::render_committed_file(
                             commit,
                             path,
-                            id,
                             ctx,
                             theme,
                             id_gen,

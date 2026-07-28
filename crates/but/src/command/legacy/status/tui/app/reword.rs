@@ -141,7 +141,10 @@ impl App {
                     textarea: Box::new(textarea),
                 }
             }
-            CliId::Commit(CommitId { commit_id, .. }) => {
+            CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } => {
                 let current_message = operations::current_commit_message(ctx, *commit_id)?;
 
                 if operations::commit_message_has_multiple_lines_legacy(&current_message) {

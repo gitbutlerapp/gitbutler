@@ -9,6 +9,7 @@ use crate::{
         StatusOutputLine,
         output::StatusOutputLineData,
         tui::{
+            Selectable,
             app::{
                 App, CommandReturnMode, normal_mode::NormalMode, pick_changes_mode::PickChangesMode,
             },
@@ -181,7 +182,11 @@ impl<'a> MarksRef<'a> {
                     .any(|hunk| hunk == uncommitted)
             }
             MarksRef::Commits { head, tail } => {
-                let CliId::Commit(other) = cli_id else {
+                let CliId::Commit {
+                    commit: other,
+                    id: _,
+                } = cli_id
+                else {
                     return false;
                 };
                 std::iter::once(head)
@@ -189,7 +194,11 @@ impl<'a> MarksRef<'a> {
                     .any(|commit| other == commit)
             }
             MarksRef::CommittedFiles { head, tail } => {
-                let CliId::CommittedFile(other) = cli_id else {
+                let CliId::CommittedFile {
+                    committed_file: other,
+                    id: _,
+                } = cli_id
+                else {
                     return false;
                 };
                 std::iter::once(head).chain(tail).any(|file| other == file)
@@ -535,14 +544,14 @@ pub enum Markable {
 }
 
 impl Markable {
-    pub fn into_cli_id(self) -> CliId {
+    pub fn into_selectable(self) -> Selectable {
         match self {
             Markable::Uncommitted(uncommitted_cli_id) => {
-                CliId::UncommittedHunkOrFile(uncommitted_cli_id)
+                Selectable::UncommittedHunkOrFile(uncommitted_cli_id)
             }
-            Markable::Commit(commit) => CliId::Commit(commit),
-            Markable::CommittedFile(file) => CliId::CommittedFile(file),
-            Markable::Branch(branch) => CliId::Branch(branch),
+            Markable::Commit(commit) => Selectable::Commit(commit),
+            Markable::CommittedFile(file) => Selectable::CommittedFile(file),
+            Markable::Branch(branch) => Selectable::Branch(branch),
         }
     }
 
@@ -575,12 +584,16 @@ impl<'a> MarkableRef<'a> {
                     }
                 }
                 MarkableRefDiscriminants::Commit => {
-                    if let CliId::Commit(commit) = cli_id {
+                    if let CliId::Commit { commit, id: _ } = cli_id {
                         return Some(Self::Commit(commit.as_ref()));
                     }
                 }
                 MarkableRefDiscriminants::CommittedFile => {
-                    if let CliId::CommittedFile(file) = cli_id {
+                    if let CliId::CommittedFile {
+                        committed_file: file,
+                        id: _,
+                    } = cli_id
+                    {
                         return Some(Self::CommittedFile(file.as_ref()));
                     }
                 }

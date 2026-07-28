@@ -413,7 +413,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded commits a921d28, 8775df1
+Discarded commits 1, 1
 
 "#]]);
 
@@ -482,11 +482,13 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "source": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
+  "sourceCommitId": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
+  "sourceChangeId": "1",
   "paths": [
     "discarded-from-commit.txt"
   ],
-  "newCommit": "372ab397ba61d3368a1a9e769f39af3997c4e1ad"
+  "newCommitId": "372ab397ba61d3368a1a9e769f39af3997c4e1ad",
+  "newChangeId": "1"
 }
 
 "#]]);
@@ -722,7 +724,10 @@ fn discard_that_conflicts_warns_on_stderr_in_json_mode() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "commits": [
-    "[..]"
+    {
+      "commitId": "5f55e3a5b4a9441ce84d6a0858f7c0a970576d50",
+      "changeId": "zpotlpzlquzwlkypyzutoxyswrxxquxm"
+    }
   ]
 }
 

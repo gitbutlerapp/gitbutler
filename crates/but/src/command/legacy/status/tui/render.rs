@@ -378,7 +378,10 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
             stack_id: Some(stack_id),
             ..
         } = &line.data
-            && let CliId::Commit(CommitId { commit_id, .. }) = &**cli_id
+            && let CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } = &**cli_id
         {
             commit_stack_ids.insert(*commit_id, *stack_id);
         }
@@ -406,7 +409,10 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
             | StatusOutputLineData::EmptyCommitMessage => current_stack_id,
             StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks => None,
             StatusOutputLineData::File { cli_id } => match &**cli_id {
-                CliId::CommittedFile(CommittedFileId { commit_id, .. }) => {
+                CliId::CommittedFile {
+                    committed_file: CommittedFileId { commit_id, .. },
+                    id: _,
+                } => {
                     let stack_id = commit_stack_ids
                         .get(commit_id)
                         .copied()
@@ -577,7 +583,7 @@ fn render_status_list_item(
     let line_is_to_be_discarded = data.cli_id().is_some_and(|selection| {
         app.to_be_discarded
             .iter()
-            .any(|to_be_discarded| to_be_discarded == selection)
+            .any(|to_be_discarded| to_be_discarded == &**selection)
     });
 
     // ┊●   << source >> 982b7d85c5 my commit
@@ -667,7 +673,10 @@ fn render_status_list_item(
                 line.extend(author);
 
                 if let Some(id) = data.cli_id()
-                    && let CliId::Commit(CommitId { commit_id, .. }) = &**id
+                    && let CliId::Commit {
+                        commit: CommitId { commit_id, .. },
+                        id: _,
+                    } = &**id
                     && let Mode::InlineReword(InlineRewordMode::Commit {
                         textarea,
                         commit_id: source,

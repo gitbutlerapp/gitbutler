@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use but_ctx::Context;
 use gix::{ObjectId, refs::Category};
 use nonempty::NonEmpty;
@@ -11,7 +9,7 @@ use crate::{
         status::{
             output::StatusOutputLineData,
             tui::{
-                Message, ReloadCause, SelectAfterReload,
+                Message, ReloadCause, SelectAfterReload, Selectable,
                 app::{App, Modal},
                 confirm::Confirm,
                 message_on_drop,
@@ -20,7 +18,8 @@ use crate::{
             },
         },
     },
-    id::{CommitId, CommittedFileId},
+    id::CommitId,
+    theme,
 };
 
 use super::mark::Marks;
@@ -45,7 +44,7 @@ impl App {
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {
                 CliId::Uncommitted { .. } => {
-                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
+                    self.to_be_discarded = Vec::from([Selectable::Uncommitted]);
                     // The uncommitted header remains selectable when staged assignments consume
                     // all changes. Preserve confirming discard as a no-op in that state.
                     let has_uncommitted_changes = self.status_lines.iter().any(|line| {
@@ -78,7 +77,8 @@ impl App {
                     )
                 }
                 CliId::UncommittedHunkOrFile(uncommitted) => {
-                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
+                    self.to_be_discarded =
+                        Vec::from([Selectable::UncommittedHunkOrFile(uncommitted.clone())]);
                     let operation = DiscardOperation::Uncommitted(UncommittedSelection::Changes(
                         Box::new(NonEmpty::new(uncommitted.clone())),
                     ));
@@ -112,27 +112,22 @@ impl App {
                         },
                     )
                 }
-                CliId::Commit(CommitId { commit_id, .. }) => {
-                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
-                    let commit_id = *commit_id;
+                CliId::Commit { commit, id: _ } => {
+                    self.to_be_discarded = Vec::from([Selectable::Commit(commit.clone())]);
+                    let commit = commit.clone();
                     let select_after_reload = self
                         .cursor
                         .select_after_discarded_commit(&self.status_lines);
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
                     Confirm::new(
-                        NonEmpty::new(
-                            format!("Discard commit {}?", commit_id.to_hex_with_len(7)).into(),
-                        ),
+                        NonEmpty::new(format!("Discard commit {}?", theme::Commit(&commit)).into()),
                         self.theme,
                         move |ctx, messages| {
                             let DiscardOutcome::Commits {
                                 commits: _,
                                 replaced_commits,
-                            } = run_discard(
-                                ctx,
-                                DiscardOperation::Commits(NonEmpty::new(commit_id)),
-                            )?
+                            } = run_discard(ctx, DiscardOperation::Commits(NonEmpty::new(commit)))?
                             else {
                                 anyhow::bail!("BUG: commit discard returned an unexpected outcome")
                             };
@@ -154,7 +149,8 @@ impl App {
                     let name = branch.name.to_owned();
                     let ref_name = Category::LocalBranch.to_full_name(&*name)?;
 
-                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
+                    self.to_be_discarded = Vec::from([Selectable::Branch(branch.clone())]);
+
                     let select_after_reload = self
                         .cursor
                         .select_after_discarded_branch(&self.status_lines);
@@ -180,16 +176,18 @@ impl App {
                         },
                     )
                 }
-                CliId::CommittedFile(CommittedFileId {
-                    commit_id,
-                    path,
+                CliId::CommittedFile {
+                    committed_file,
                     id: _,
-                    change_id: _,
-                }) => {
-                    let commit_id = *commit_id;
-                    let path = path.to_owned();
+                } => {
+                    let commit = CommitId {
+                        commit_id: committed_file.commit_id,
+                        change_id: committed_file.change_id.clone(),
+                    };
+                    let path = committed_file.path.to_owned();
 
-                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
+                    self.to_be_discarded =
+                        Vec::from([Selectable::CommittedFile(committed_file.clone())]);
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
@@ -204,7 +202,7 @@ impl App {
                             } = run_discard(
                                 ctx,
                                 DiscardOperation::CommittedFiles {
-                                    source: commit_id,
+                                    source: commit,
                                     paths: NonEmpty::new(path),
                                 },
                             )?
@@ -215,10 +213,10 @@ impl App {
                             };
 
                             let select_after_reload =
-                                if operations::commit_is_empty(ctx, new_commit)? {
-                                    SelectAfterReload::Commit(new_commit)
+                                if operations::commit_is_empty(ctx, new_commit.commit_id)? {
+                                    SelectAfterReload::Commit(new_commit.commit_id)
                                 } else {
-                                    SelectAfterReload::FirstFileInCommit(new_commit)
+                                    SelectAfterReload::FirstFileInCommit(new_commit.commit_id)
                                 };
                             messages.push(Message::Reload(
                                 Some(select_after_reload),
@@ -244,9 +242,7 @@ impl App {
 
         let operation = match &normal_mode.marks {
             Marks::Empty => return Ok(()),
-            Marks::Commits(commits) => {
-                DiscardOperation::Commits(commits.clone().map(|commit| commit.commit_id))
-            }
+            Marks::Commits(commits) => DiscardOperation::Commits(commits.clone()),
             Marks::Branches(branches) => {
                 let branches = branches
                     .iter()
@@ -261,9 +257,15 @@ impl App {
                 Box::new(hunks.clone()),
             )),
             Marks::CommittedFiles(files) => {
-                let source = files.head.commit_id;
+                let source = CommitId {
+                    commit_id: files.head.commit_id,
+                    change_id: files.head.change_id.clone(),
+                };
                 anyhow::ensure!(
-                    files.iter().all(|file| file.commit_id == source),
+                    files
+                        .tail
+                        .iter()
+                        .all(|file| file.commit_id == source.commit_id),
                     "BUG: marked committed files must come from one commit"
                 );
                 let paths = files.clone().map(|file| file.path);
@@ -274,7 +276,7 @@ impl App {
         self.to_be_discarded = normal_mode
             .marks
             .iter()
-            .map(|mark| Arc::new(mark.to_owned().into_cli_id()))
+            .map(|mark| mark.to_owned().into_selectable())
             .collect::<Vec<_>>();
 
         let select_after_reload = self
@@ -303,8 +305,8 @@ impl App {
                         paths: _,
                         new_commit,
                     } => map_selected_commits(select_after_reload, |commit_id| {
-                        if commit_id == source {
-                            new_commit
+                        if commit_id == source.commit_id {
+                            new_commit.commit_id
                         } else {
                             commit_id
                         }

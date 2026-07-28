@@ -17,7 +17,7 @@ use gitbutler_operating_modes::OperatingMode;
 use crate::{
     IdMap,
     args::resolve::Subcommands,
-    id::{CliId, CommitId},
+    id::{CliId, CommitId, CommitIdRef},
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
@@ -81,13 +81,16 @@ fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::Objec
 
     // Extract the commit OID from the matched CliId
     match &matches[0] {
-        CliId::Commit(CommitId { commit_id, .. }) => {
-            let commit_ref = theme::Commit(
-                *commit_id,
-                id_map
+        CliId::Commit {
+            commit: CommitId { commit_id, .. },
+            id: _,
+        } => {
+            let commit_ref = theme::Commit(CommitIdRef {
+                commit_id: *commit_id,
+                change_id: id_map
                     .change_id_ref(*commit_id)
-                    .map(|change_id| change_id.change_id.clone()),
-            )
+                    .map(|change_id| &change_id.change_id),
+            })
             .to_string();
             Ok((*commit_id, commit_ref))
         }
@@ -661,11 +664,7 @@ fn resolve_one_with_ai(
     let t = theme::get();
     let commit_ref = {
         let repo = ctx.repo.get()?;
-        theme::Commit(
-            commit_oid,
-            Some(crate::utils::get_change_id_for_commit(&repo, commit_oid)?),
-        )
-        .to_string()
+        theme::Commit(crate::utils::get_change_id_for_commit(&repo, commit_oid)?).to_string()
     };
     {
         let mut progress = out.progress_channel();
@@ -690,13 +689,10 @@ fn resolve_one_with_ai(
             t.success.paint("→"),
             {
                 let repo = ctx.repo.get()?;
-                theme::Commit(
+                theme::Commit(crate::utils::get_change_id_for_commit(
+                    &repo,
                     result.new_commit,
-                    Some(crate::utils::get_change_id_for_commit(
-                        &repo,
-                        result.new_commit,
-                    )?),
-                )
+                )?)
             },
         )?;
         if let Some(summary) = &result.summary {
