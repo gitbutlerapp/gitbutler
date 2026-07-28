@@ -24,6 +24,7 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' }}
         id: filter
         with:
+          predicate-quantifier: every
           filters: |
             e2e:
               - '**'
