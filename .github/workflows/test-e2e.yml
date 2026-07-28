@@ -189,9 +189,10 @@ jobs:
           [ -n "$pw_pid" ] && { wait "$pw_pid" || status=1; }
           exit "$status"
       - name: Run Playwright tests
-        run: pnpm exec turbo run test:e2e:playwright -- --shard="${{ matrix.shard }}/${{ strategy.job-total }}"
+        run: pnpm exec turbo run test:e2e:playwright -- --shard="$PLAYWRIGHT_SHARD"
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_PLAYWRIGHT }}
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
