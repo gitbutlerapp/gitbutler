@@ -39,6 +39,9 @@ pub mod workspace;
 #[cfg(feature = "legacy")]
 pub mod land;
 
+/// Ephemeral comments anchored to lines in diffs, shared between the GUI and the CLI.
+pub mod comments;
+
 /// Functions that operate commits
 pub mod commit;
 

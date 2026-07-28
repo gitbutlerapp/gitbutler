@@ -1,0 +1,34 @@
+[package]
+name = "but-comments"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
+
+[dependencies]
+but-core.workspace = true
+but-graph.workspace = true
+
+gix.workspace = true
+
+anyhow.workspace = true
+bstr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
