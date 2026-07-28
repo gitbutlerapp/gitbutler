@@ -28,6 +28,7 @@ import { branchDetailsParams } from "#ui/branch.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
+	branchIdentityKey,
 	commitFileParent,
 	type FileOperand,
 	fileOperand,
@@ -36,6 +37,7 @@ import {
 	type FileParent,
 	type HunkOperand,
 	type Operand,
+	weakCommitIdentityKey,
 	weakFileIdentityKey,
 	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
@@ -2052,11 +2054,11 @@ export const Details: FC<{
 
 	return Match.value(selection).pipe(
 		Match.tags({
-			Commit: (commit) => <CommitDetails selection={commit} />,
-			Branch: (branch) => <BranchDetails selection={branch} />,
+			Commit: (commit) => <CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} />,
+			Branch: (branch) => <BranchDetails key={branchIdentityKey(branch)} selection={branch} />,
 		}),
 		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
-			<FileDetails selection={file} />
+			<FileDetails key={weakFileIdentityKey(file)} selection={file} />
 		)),
 		Match.orElseAbsurd,
 	);

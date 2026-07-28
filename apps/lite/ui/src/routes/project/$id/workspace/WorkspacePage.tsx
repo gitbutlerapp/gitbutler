@@ -40,7 +40,6 @@ import {
 	type BranchOperand,
 	type Operand,
 	uncommittedChangesFileParent,
-	weakCommitIdentityKey,
 } from "#ui/operands.ts";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
@@ -484,16 +483,7 @@ const WorkspacePage: FC = () => {
 				</Activity>
 
 				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
-					<Details
-						key={
-							deferredDetailsSelection
-								? deferredDetailsSelection._tag === "Commit"
-									? weakCommitIdentityKey(deferredDetailsSelection)
-									: operandIdentityKey(deferredDetailsSelection)
-								: null
-						}
-						selection={deferredDetailsSelection}
-					/>
+					<Details selection={deferredDetailsSelection} />
 				</Panel>
 			</Group>
 
