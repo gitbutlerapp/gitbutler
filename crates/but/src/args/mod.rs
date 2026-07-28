@@ -376,6 +376,13 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Discard(discard::Platform),
 
+    // Hidden and underscore-prefixed to stay out of human-facing help and shell completions:
+    // comments are an experiment, read and archived by agents that are pointed at the command
+    // explicitly.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_comment")]
+    _Comment(comment::Platform),
+
     /// Resolve conflicts in a commit.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -1193,6 +1200,7 @@ pub mod agent;
 pub mod alias;
 #[cfg(feature = "legacy")]
 pub mod amend;
+pub mod comment;
 #[cfg(feature = "legacy")]
 pub mod commit;
 pub mod config;
