@@ -38,7 +38,6 @@ import {
 	type Operand,
 	weakFileIdentityKey,
 	weakFileParentIdentityKey,
-	type CommitOperand,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -950,88 +949,6 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const Title: FC<{
-	bodyCollapsed: boolean;
-	bodyId: string;
-	onBodyCollapsedChange: (collapsed: boolean) => void;
-	projectId: string;
-	selection: Operand;
-}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
-	Match.value(selection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => (
-				<SuspenseQuery
-					{...branchDetailsQueryOptions({
-						projectId,
-						...branchDetailsParams(decodeBytes(branchRef)),
-					})}
-				>
-					{({ data: branchDetails }) => (
-						<div className={styles.title}>
-							<Icon name="branch" />
-							<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
-						</div>
-					)}
-				</SuspenseQuery>
-			),
-			File: ({ path }) => (
-				<div className={styles.title}>
-					<Icon name="file" />
-					<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
-				</div>
-			),
-			Commit: ({ commitId }) => (
-				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => (
-						<div className={styles.title}>
-							<Icon name="commit" />
-							<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-								<span className={styles.titleContent}>
-									{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-								</span>
-								{commitDetails.commit.hasConflicts && (
-									<Badge variant="danger" className={styles.commitConflictBadge}>
-										Conflicted
-									</Badge>
-								)}
-
-								{commitBody(commitDetails.commit.message) !== undefined && (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-controls={bodyId}
-											aria-expanded={!bodyCollapsed}
-											aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											aria-pressed={!bodyCollapsed}
-											className={classes(
-												getButtonClassName({
-													variant: bodyCollapsed ? "outline" : "gray",
-													iconOnly: true,
-													size: "small",
-												}),
-												styles.commitBodyToggle,
-											)}
-											onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
-										>
-											<Icon name="kebab" />
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup render={<TooltipPopup />}>
-													{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
-								)}
-							</h3>
-						</div>
-					)}
-				</SuspenseQuery>
-			),
-		}),
-		Match.orElseAbsurd,
-	);
-
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
@@ -1767,11 +1684,121 @@ const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p)
 	);
 };
 
-export const Details: FC<
-	{
-		selection: Operand | null;
-	} & ComponentProps<"div">
-> = ({ selection, ...restProps }) => {
+const CommitDetails: FC<{
+	selection: Extract<Operand, { _tag: "Commit" }>;
+}> = ({ selection }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const filesVisibleState = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesVisible(state, projectId),
+	);
+	const canShowFiles = useAppSelector((state) =>
+		projectSlice.selectors.selectCanShowFiles(state, projectId),
+	);
+	const filesVisible = canShowFiles && filesVisibleState;
+	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
+	const commitBodyId = useId();
+
+	const selectFile = (selection: string) => {
+		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+	};
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.headerWrap}>
+				<div className={styles.titleRow}>
+					{detailsFullWindow && <TopLeftControls />}
+
+					<SuspenseQuery
+						{...commitDetailsWithLineStatsQueryOptions({
+							projectId,
+							commitId: selection.commitId,
+						})}
+					>
+						{({ data: commitDetails }) => (
+							<div className={styles.title}>
+								<Icon name="commit" />
+								<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
+									<span className={styles.titleContent}>
+										{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+									</span>
+									{commitDetails.commit.hasConflicts && (
+										<Badge variant="danger" className={styles.commitConflictBadge}>
+											Conflicted
+										</Badge>
+									)}
+
+									{commitBody(commitDetails.commit.message) !== undefined && (
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												aria-controls={commitBodyId}
+												aria-expanded={!commitBodyCollapsed}
+												aria-label={
+													commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"
+												}
+												aria-pressed={!commitBodyCollapsed}
+												className={classes(
+													getButtonClassName({
+														variant: commitBodyCollapsed ? "outline" : "gray",
+														iconOnly: true,
+														size: "small",
+													}),
+													styles.commitBodyToggle,
+												)}
+												onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
+											>
+												<Icon name="kebab" />
+											</Tooltip.Trigger>
+											<Tooltip.Portal>
+												<Tooltip.Positioner sideOffset={4}>
+													<Tooltip.Popup render={<TooltipPopup />}>
+														{commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+													</Tooltip.Popup>
+												</Tooltip.Positioner>
+											</Tooltip.Portal>
+										</Tooltip.Root>
+									)}
+								</h3>
+							</div>
+						)}
+					</SuspenseQuery>
+				</div>
+
+				<CommitDetailsContent
+					bodyCollapsed={commitBodyCollapsed}
+					bodyId={commitBodyId}
+					projectId={projectId}
+					commitId={selection.commitId}
+				/>
+			</div>
+
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
+				<SuspenseQuery
+					{...commitDetailsWithLineStatsQueryOptions({
+						projectId,
+						commitId: selection.commitId,
+					})}
+				>
+					{({ data: commitDetails }) => (
+						<Diff
+							changes={commitDetails.changes}
+							filesVisible={filesVisible}
+							filesItems={getCommitFileRowItems({ commitDetails })}
+							onFileSelection={selectFile}
+							selection={selection}
+							projectId={projectId}
+						/>
+					)}
+				</SuspenseQuery>
+			</Suspense>
+		</div>
+	);
+};
+
+const BranchDetails: FC<{
+	selection: Extract<Operand, { _tag: "Branch" }>;
+}> = ({ selection }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1785,237 +1812,252 @@ export const Details: FC<
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
-	const commitBodyId = useId();
+	const { branchRef } = selection;
 
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
 
-	if (!selection) return;
+	// Use push status of segment, not branch details; something about remote
+	// tracking refs.
+	const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
+	const sourceBranch = branchCtx?.segment.refName?.displayName;
+	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
+	const targetBranch =
+		!parentSegment || parentSegment.pushStatus === "integrated"
+			? headInfo?.target?.remoteTrackingRef.displayName
+			: parentSegment.pushStatus === "completelyUnpushed"
+				? undefined
+				: parentSegment.refName?.displayName;
 
 	return (
-		<div {...restProps} className={classes(restProps.className, styles.container)}>
+		<div className={styles.container}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
 					{detailsFullWindow && <TopLeftControls />}
 
-					<Title
-						bodyCollapsed={commitBodyCollapsed}
-						bodyId={commitBodyId}
-						onBodyCollapsedChange={setCommitBodyCollapsed}
-						projectId={projectId}
-						selection={selection}
-					/>
+					<SuspenseQuery
+						{...branchDetailsQueryOptions({
+							projectId,
+							...branchDetailsParams(decodeBytes(selection.branchRef)),
+						})}
+					>
+						{({ data: branchDetails }) => (
+							<div className={styles.title}>
+								<Icon name="branch" />
+								<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
+							</div>
+						)}
+					</SuspenseQuery>
 				</div>
 
-				{selection._tag === "Branch" && (
-					<div className={styles.tabsRow}>
-						<ToggleGroup
-							render={<ToggleGroupStyles />}
-							value={[branchTab]}
-							onValueChange={(value: Array<BranchTab>) => {
-								const head = value[0];
-								if (head === undefined) return;
-								setBranchTab(head);
-							}}
-							aria-label="Branch tab"
-						>
-							<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
-								Diff
-							</Toggle>
-							<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
-								Pull Request
-							</Toggle>
-						</ToggleGroup>
+				<div className={styles.tabsRow}>
+					<ToggleGroup
+						render={<ToggleGroupStyles />}
+						value={[branchTab]}
+						onValueChange={(value: Array<BranchTab>) => {
+							const head = value[0];
+							if (head === undefined) return;
+							setBranchTab(head);
+						}}
+						aria-label="Branch tab"
+					>
+						<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+							Diff
+						</Toggle>
+						<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
+							Pull Request
+						</Toggle>
+					</ToggleGroup>
 
-						{!!forgeInfo?.capabilities.prService && (
-							<Suspense>
-								<SuspenseQuery
-									{...listReviewsQueryOptions({
-										projectId,
-										cacheConfig: "noCache",
-									})}
-								>
-									{({ data }) => {
-										const review = data.reviewsBySourceBranch.get(
-											// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-											decodeBytes(selection.branchRef).replace(/^refs\/heads\//, ""),
-										);
-										if (!review) return null;
+					{!!forgeInfo?.capabilities.prService && (
+						<Suspense>
+							<SuspenseQuery
+								{...listReviewsQueryOptions({
+									projectId,
+									cacheConfig: "noCache",
+								})}
+							>
+								{({ data }) => {
+									const review = data.reviewsBySourceBranch.get(
+										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+										decodeBytes(selection.branchRef).replace(/^refs\/heads\//, ""),
+									);
+									if (!review) return null;
 
-										return (
-											<div className={styles.tabsRowRight}>
-												<PullRequestPrimaryAction
-													projectId={projectId}
-													reviewId={review.number}
-													isDraft={review.draft}
-												/>
-											</div>
-										);
-									}}
-								</SuspenseQuery>
-							</Suspense>
-						)}
-					</div>
-				)}
-
-				{selection._tag === "Commit" && (
-					<CommitDetailsContent
-						bodyCollapsed={commitBodyCollapsed}
-						bodyId={commitBodyId}
-						projectId={projectId}
-						commitId={selection.commitId}
-					/>
-				)}
+									return (
+										<div className={styles.tabsRowRight}>
+											<PullRequestPrimaryAction
+												projectId={projectId}
+												reviewId={review.number}
+												isDraft={review.draft}
+											/>
+										</div>
+									);
+								}}
+							</SuspenseQuery>
+						</Suspense>
+					)}
+				</div>
 			</div>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{(() =>
-					Match.value(selection).pipe(
-						Match.tags({
-							Commit: (commit) => (
-								<SuspenseQuery
-									{...commitDetailsWithLineStatsQueryOptions({
-										projectId,
-										commitId: commit.commitId,
-									})}
-								>
-									{({ data: commitDetails }) => (
-										<Diff
-											changes={commitDetails.changes}
-											filesVisible={filesVisible}
-											filesItems={getCommitFileRowItems({ commitDetails })}
-											onFileSelection={selectFile}
-											selection={selection}
+				{branchTab === "pr" ? (
+					<div className={styles.prTab}>
+						{!forgeInfo?.capabilities.prService ? (
+							<p className="text-13">No valid forge.</p>
+						) : targetBranch === undefined ? (
+							<p className="text-13">No remote target branch.</p>
+						) : sourceBranch === undefined ? (
+							<p className="text-13">No source branch.</p>
+						) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
+							<p className="text-13">Branch must be pushed to create PR.</p>
+						) : (
+							<SuspenseQuery
+								{...listReviewsQueryOptions({
+									projectId,
+									cacheConfig: "noCache",
+								})}
+							>
+								{({ data }) => {
+									const review = data.reviewsBySourceBranch.get(sourceBranch);
+
+									return !review ? (
+										<PullRequestForm
+											key={sourceBranch}
+											body={null}
 											projectId={projectId}
+											reviewId={null}
+											sourceBranch={sourceBranch}
+											title={null}
 										/>
-									)}
-								</SuspenseQuery>
-							),
-							File: (file) => {
-								if (file.parent._tag !== "UncommittedChanges") return null;
-
-								return (
-									<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-										{({ data: worktreeChanges }) => {
-											const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-												(item) => item.path === file.path,
-											);
-											const changes = filesItems.flatMap((item) =>
-												item._tag === "Change" ? [item.change] : [],
-											);
-
-											if (changes.length === 0) return null;
-
-											return (
-												<Diff
-													changes={changes}
-													filesVisible={filesVisible}
-													filesItems={filesItems}
-													onFileSelection={selectFile}
-													selection={selection}
-													projectId={projectId}
-												/>
-											);
-										}}
-									</SuspenseQuery>
-								);
-							},
-							Branch: ({ branchRef }) => {
-								// Use push status of segment, not branch details; something about remote
-								// tracking refs.
-								const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
-								const sourceBranch = branchCtx?.segment.refName?.displayName;
-								const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
-								const targetBranch =
-									!parentSegment || parentSegment.pushStatus === "integrated"
-										? headInfo?.target?.remoteTrackingRef.displayName
-										: parentSegment.pushStatus === "completelyUnpushed"
-											? undefined
-											: parentSegment.refName?.displayName;
-
-								return branchTab === "pr" ? (
-									<div className={styles.prTab}>
-										{!forgeInfo?.capabilities.prService ? (
-											<p className="text-13">No valid forge.</p>
-										) : targetBranch === undefined ? (
-											<p className="text-13">No remote target branch.</p>
-										) : sourceBranch === undefined ? (
-											<p className="text-13">No source branch.</p>
-										) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
-											<p className="text-13">Branch must be pushed to create PR.</p>
-										) : (
-											<SuspenseQuery
-												{...listReviewsQueryOptions({
-													projectId,
-													cacheConfig: "noCache",
-												})}
-											>
-												{({ data }) => {
-													const review = data.reviewsBySourceBranch.get(sourceBranch);
-
-													return !review ? (
-														<PullRequestForm
-															key={sourceBranch}
-															body={null}
-															projectId={projectId}
-															reviewId={null}
-															sourceBranch={sourceBranch}
-															title={null}
-														/>
-													) : (
-														<>
-															<PullRequestForm
-																key={review.number}
-																body={review.body}
-																projectId={projectId}
-																reviewId={review.number}
-																sourceBranch={sourceBranch}
-																title={review.title}
-															/>
-
-															{forgeInfo.capabilities.checks && (
-																<SuspenseQuery
-																	{...listCIChecksQueryOptions({
-																		projectId,
-																		reference: sourceBranch,
-																		polling: "priority",
-																	})}
-																>
-																	{({ data: { data: checks, aggregate } }) =>
-																		aggregate && <Checks checks={checks} aggregate={aggregate} />
-																	}
-																</SuspenseQuery>
-															)}
-														</>
-													);
-												}}
-											</SuspenseQuery>
-										)}
-									</div>
-								) : (
-									<SuspenseQuery
-										{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
-									>
-										{({ data: branchDiff }) => (
-											<Diff
-												changes={branchDiff.changes}
-												filesVisible={filesVisible}
-												filesItems={getBranchFileRowItems({ branchDiff })}
-												onFileSelection={selectFile}
-												selection={selection}
+									) : (
+										<>
+											<PullRequestForm
+												key={review.number}
+												body={review.body}
 												projectId={projectId}
+												reviewId={review.number}
+												sourceBranch={sourceBranch}
+												title={review.title}
 											/>
-										)}
-									</SuspenseQuery>
-								);
-							},
-						}),
-						Match.orElseAbsurd,
-					))()}
+
+											{forgeInfo.capabilities.checks && (
+												<SuspenseQuery
+													{...listCIChecksQueryOptions({
+														projectId,
+														reference: sourceBranch,
+														polling: "priority",
+													})}
+												>
+													{({ data: { data: checks, aggregate } }) =>
+														aggregate && <Checks checks={checks} aggregate={aggregate} />
+													}
+												</SuspenseQuery>
+											)}
+										</>
+									);
+								}}
+							</SuspenseQuery>
+						)}
+					</div>
+				) : (
+					<SuspenseQuery
+						{...branchDiffQueryOptions({ projectId, branch: decodeBytes(selection.branchRef) })}
+					>
+						{({ data: branchDiff }) => (
+							<Diff
+								changes={branchDiff.changes}
+								filesVisible={filesVisible}
+								filesItems={getBranchFileRowItems({ branchDiff })}
+								onFileSelection={selectFile}
+								selection={selection}
+								projectId={projectId}
+							/>
+						)}
+					</SuspenseQuery>
+				)}
 			</Suspense>
 		</div>
+	);
+};
+
+const FileDetails: FC<{
+	selection: Extract<Operand, { _tag: "File" }> & {
+		parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
+	};
+}> = ({ selection }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const filesVisibleState = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesVisible(state, projectId),
+	);
+	const canShowFiles = useAppSelector((state) =>
+		projectSlice.selectors.selectCanShowFiles(state, projectId),
+	);
+	const filesVisible = canShowFiles && filesVisibleState;
+
+	const selectFile = (selection: string) => {
+		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+	};
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.headerWrap}>
+				<div className={styles.titleRow}>
+					{detailsFullWindow && <TopLeftControls />}
+
+					<div className={styles.title}>
+						<Icon name="file" />
+						<h3 className={classes("text-15", "text-semibold")}>{selection.path}</h3>
+					</div>
+				</div>
+			</div>
+
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
+				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+					{({ data: worktreeChanges }) => {
+						const filesItems = getChangesFileRowItems(worktreeChanges).filter(
+							(item) => item.path === selection.path,
+						);
+						const changes = filesItems.flatMap((item) =>
+							item._tag === "Change" ? [item.change] : [],
+						);
+
+						if (changes.length === 0) return null;
+
+						return (
+							<Diff
+								changes={changes}
+								filesVisible={filesVisible}
+								filesItems={filesItems}
+								onFileSelection={selectFile}
+								selection={selection}
+								projectId={projectId}
+							/>
+						);
+					}}
+				</SuspenseQuery>
+			</Suspense>
+		</div>
+	);
+};
+
+export const Details: FC<{
+	selection: Operand | null;
+}> = ({ selection }) => {
+	if (!selection) return;
+
+	return Match.value(selection).pipe(
+		Match.tags({
+			Commit: (commit) => <CommitDetails selection={commit} />,
+			Branch: (branch) => <BranchDetails selection={branch} />,
+		}),
+		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
+			<FileDetails selection={file} />
+		)),
+		Match.orElseAbsurd,
 	);
 };
