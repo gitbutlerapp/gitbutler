@@ -14,7 +14,7 @@ import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
@@ -75,6 +75,7 @@ export const CommitForm: FC<{
 	className,
 }) => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -114,12 +115,20 @@ export const CommitForm: FC<{
 	const createCommit = () => {
 		if (!commitTarget || !worktreeChanges) return;
 
+		const checkedUncommittedFilePaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
+			store.getState(),
+			projectId,
+		);
 		commitCreate(
 			{
 				projectId,
 				message: commitTextareaRef.current?.value ?? draftMessage ?? "",
 				relativeTo: commitTarget.relativeTo,
-				changes: worktreeChanges.changes.map((change) => createDiffSpec(change, [])),
+				changes: worktreeChanges.changes.flatMap((change) =>
+					checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path)
+						? [createDiffSpec(change, [])]
+						: [],
+				),
 				changesSource: { type: "head" },
 				side: Match.value(commitTarget.relativeTo).pipe(
 					Match.withReturnType<InsertSide>(),

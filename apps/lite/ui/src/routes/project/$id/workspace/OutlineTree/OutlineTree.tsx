@@ -679,10 +679,18 @@ export const OutlineTree: FC<
 	const amendCommit = (commitId: string) => {
 		if (!worktreeChanges) return;
 
+		const checkedUncommittedFilePaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
+			store.getState(),
+			projectId,
+		);
 		commitAmend({
 			projectId,
 			commitId,
-			changes: worktreeChanges.changes.map((change) => createDiffSpec(change, [])),
+			changes: worktreeChanges.changes.flatMap((change) =>
+				checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path)
+					? [createDiffSpec(change, [])]
+					: [],
+			),
 			changesSource: { type: "head" },
 			dryRun: false,
 		});
