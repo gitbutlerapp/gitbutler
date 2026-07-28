@@ -1,6 +1,6 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { useCommitCreate } from "#ui/api/mutations.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -16,7 +16,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
-import type { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
+import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -61,6 +61,7 @@ export const CommitForm: FC<{
 	commitMessageInputId: string;
 	onAmendCommit: (commitId: string) => void;
 	amendCommitPending: boolean;
+	worktreeChanges: WorktreeChanges | undefined;
 	className?: string;
 }> = ({
 	projectId,
@@ -70,12 +71,11 @@ export const CommitForm: FC<{
 	commitMessageInputId,
 	onAmendCommit,
 	amendCommitPending,
+	worktreeChanges,
 	className,
 }) => {
 	const dispatch = useAppDispatch();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
-
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);

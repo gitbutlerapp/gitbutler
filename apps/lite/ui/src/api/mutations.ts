@@ -1,7 +1,6 @@
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
-	changesInWorktreeQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
@@ -10,7 +9,6 @@ import {
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
@@ -21,7 +19,7 @@ import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Toast } from "@base-ui/react";
 import type { CommitAbsorption, Snapshot } from "@gitbutler/but-sdk";
-import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation } from "@tanstack/react-query";
 import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
@@ -319,31 +317,17 @@ export const useOpenInProgram = () => {
 	});
 };
 
-export const useCommitAmend = ({ projectId }: { projectId: string }) => {
+export const useCommitAmend = () => {
 	const toastManager = Toast.useToastManager();
-	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
 
 	return useMutation({
-		mutationFn: async ({ commitId }: { commitId: string }) => {
-			const worktreeChanges = await queryClient.fetchQuery(
-				changesInWorktreeQueryOptions(projectId),
-			);
-			const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
-
-			return await window.lite.commitAmend({
-				projectId,
-				commitId,
-				changes,
-				changesSource: { type: "head" },
-				dryRun: false,
-			});
-		},
+		mutationFn: window.lite.commitAmend,
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(
 				mutation.client,
 				dispatch,
-				projectId,
+				input.projectId,
 				// Workaround for https://linear.app/gitbutler/issue/GB-1570/amending-commit-has-wrong-replaced-commits
 				{
 					...response,

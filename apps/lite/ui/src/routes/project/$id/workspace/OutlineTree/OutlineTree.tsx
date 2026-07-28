@@ -31,6 +31,7 @@ import type {
 	Segment,
 	Stack,
 	PushStatus,
+	WorktreeChanges,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
 import uiStyles from "#ui/components/ui.module.css";
@@ -43,6 +44,7 @@ import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
 import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -228,6 +230,7 @@ const UncommittedChanges: FC<{
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 	onAmendCommit: (commitId: string) => void;
 	amendCommitPending: boolean;
+	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
 	navigationIndex,
 	commitTarget,
@@ -235,10 +238,10 @@ const UncommittedChanges: FC<{
 	targetComboboxItems,
 	onAmendCommit,
 	amendCommitPending,
+	worktreeChanges,
 }) => {
 	const dispatch = useAppDispatch();
 
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
 
 	const fileSelection = useAppSelector((state) =>
@@ -293,6 +296,7 @@ const UncommittedChanges: FC<{
 				className={styles.commitForm}
 				onAmendCommit={onAmendCommit}
 				amendCommitPending={amendCommitPending}
+				worktreeChanges={worktreeChanges}
 			/>
 		</div>
 	);
@@ -649,6 +653,7 @@ export const OutlineTree: FC<
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
 	const outlineSelection = useAppSelector((state) =>
@@ -668,11 +673,17 @@ export const OutlineTree: FC<
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend({
-		projectId,
-	});
+	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
 	const amendCommit = (commitId: string) => {
-		commitAmend({ commitId });
+		if (!worktreeChanges) return;
+
+		commitAmend({
+			projectId,
+			commitId,
+			changes: worktreeChanges.changes.map((change) => createDiffSpec(change, [])),
+			changesSource: { type: "head" },
+			dryRun: false,
+		});
 	};
 
 	const commitCheckRangeAnchor = useRef<string>(null);
@@ -769,6 +780,7 @@ export const OutlineTree: FC<
 											targetComboboxItems={commitTargetComboboxItems}
 											onAmendCommit={amendCommit}
 											amendCommitPending={isCommitAmendPending}
+											worktreeChanges={worktreeChanges}
 										/>
 									}
 								/>
