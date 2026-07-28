@@ -200,3 +200,43 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 
 "#]]);
 }
+
+#[test]
+fn retired_syntax_gets_a_teaching_hint() {
+    let env = Sandbox::empty();
+
+    // The pre-revamp `but amend <commit> --changes <id>,<id>` form: the hint
+    // suggests the concrete modern equivalent before the parse error.
+    env.but("amend j4 --changes ab,cd")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+
+note: this invocation used retired `but amend` syntax. The modern equivalent is:
+
+    but amend -t j4 ab cd
+
+See `but amend --help` for details.
+error: unexpected argument '--changes' found
+
+  tip: to pass '--changes' as a value, use '-- --changes'
+
+Usage: but amend --target <COMMIT_OR_BRANCH> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn retired_flag_with_help_passes_through_without_hint() {
+    let env = Sandbox::empty();
+
+    // Help requests arrive as clap parse errors too; when clap decides to
+    // show help despite the retired `--changes` marker being present, no
+    // retired-syntax note may precede it.
+    env.but("amend --help --changes ab")
+        .assert()
+        .success()
+        .stderr_eq(str![""]);
+}

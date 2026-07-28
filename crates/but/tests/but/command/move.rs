@@ -2682,3 +2682,31 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 
 "#]]);
 }
+
+#[test]
+fn retired_syntax_gets_a_teaching_hint() {
+    let env = Sandbox::empty();
+
+    // The pre-revamp `but move <source> <target>` form placed the source
+    // below the target; the hint suggests the flagged modern equivalent.
+    env.but("move ab cd")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+
+note: this invocation used retired `but move` syntax. The modern equivalent is:
+
+    but move ab --below cd     if cd is a commit
+    but move ab --branch cd    if cd is a branch
+    but move ab --above cd     to stack a branch onto branch cd
+
+See `but move --help` for details.
+error: the following required arguments were not provided:
+  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack>
+
+Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}

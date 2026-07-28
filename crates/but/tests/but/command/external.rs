@@ -153,3 +153,24 @@ For more information, try '--help'.
 
 "#]]);
 }
+
+#[test]
+fn removed_rub_command_teaches_its_replacements() {
+    let env = Sandbox::empty();
+
+    env.but("rub ab cd").assert().failure().stderr_eq(str![[r#"
+
+note: `but rub` was retired. Squashing sources into a target is now:
+
+    but squash <source>... -t <target>
+
+Moving sources is `but move <source>...` with a placement flag (`--below`/`--above` a commit, `--branch <branch>`).
+See `but squash --help` and `but move --help` for details.
+error: unrecognized subcommand 'rub'
+
+Usage: but [OPTIONS] [COMMAND]
+
+For more information, try '--help'.
+
+"#]]);
+}

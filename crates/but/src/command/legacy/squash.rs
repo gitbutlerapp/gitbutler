@@ -227,9 +227,28 @@ fn resolve_args(
                 let branch = source.resolve_branch_in_workspace(repo, id_map)?;
                 Ok(ResolvedSquashArgs::SingleBranchSourceAndTarget { branch, reword })
             }
-            _ => Err(
-                bad_input("When --target isn't used the source must be exactly one branch").into(),
-            ),
+            _ => {
+                let mut err =
+                    bad_input("When --target isn't used the source must be exactly one branch");
+                // The retired `but squash <id>...` form squashed everything
+                // into the last ID; suggest the flagged equivalent when the
+                // sources can be re-emitted verbatim without being re-parsed
+                // as flags.
+                if let Some((last, rest)) = sources.split_last()
+                    && !rest.is_empty()
+                    && sources
+                        .iter()
+                        .all(|source| crate::retired_syntax::plain(&source.0))
+                {
+                    let rest: Vec<&str> = rest.iter().map(|source| source.0.as_str()).collect();
+                    err = err.hint(format!(
+                        "To squash into the last source, use `but squash {} -t {}`",
+                        rest.join(" "),
+                        last.0
+                    ));
+                }
+                Err(err.into())
+            }
         }
     }
 }
