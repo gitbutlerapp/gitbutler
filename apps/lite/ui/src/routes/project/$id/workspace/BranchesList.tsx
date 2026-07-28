@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import { Scroller } from "#ui/components/Scroller.tsx";
 import { useApply } from "#ui/api/mutations.ts";
 import { branchDetailsQueryOptions } from "#ui/api/queries.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
@@ -385,7 +385,7 @@ export const BranchesList: FC<
 				/>
 			</div>
 
-			<div className={classes(styles.list, uiStyles.overlayScrollbar)}>
+			<Scroller className={styles.listArea} viewportClassName={styles.list}>
 				<h4 id={headingId} className={classes("text-13", styles.heading)}>
 					Recent branches
 				</h4>
@@ -423,7 +423,7 @@ export const BranchesList: FC<
 						</div>
 					))}
 				</div>
-			</div>
+			</Scroller>
 		</div>
 	);
 };

@@ -81,19 +81,13 @@
 }
 
 .listArea {
-	display: flex;
-	position: relative;
 	flex: 0 1 auto;
-	min-height: 0;
 	max-height: min(60dvh, 24rem);
 	overflow: hidden;
 }
 
 .listViewport {
 	box-sizing: border-box;
-	flex: 1 1 auto;
-	min-height: 0;
-	overscroll-behavior: contain;
 	scroll-padding-block: 0.25rem;
 
 	&:focus-visible {
@@ -182,35 +176,6 @@
 	color: var(--color-gray-600);
 	font-size: 0.925rem;
 	line-height: 1rem;
-}
-
-.scrollbar {
-	display: flex;
-	justify-content: center;
-	width: 1.5rem;
-	margin-right: -0.25rem;
-	padding-top: 0.5rem;
-	padding-bottom: 0.5rem;
-}
-
-.scrollbarThumb {
-	display: flex;
-	justify-content: center;
-	width: 100%;
-
-	&::before {
-		display: block;
-		width: 0.25rem;
-		height: 100%;
-		border-radius: 0.25rem;
-		background-color: var(--scale-gray-60);
-		content: "";
-		opacity: 0.8;
-	}
-
-	&:hover::before {
-		opacity: 1;
-	}
 }
 
 .footer {

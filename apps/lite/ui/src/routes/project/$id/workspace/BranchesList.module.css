@@ -17,18 +17,16 @@
 	flex-grow: 1;
 }
 
+.listArea {
+	flex-grow: 1;
+}
+
 .list {
 	display: flex;
 	row-gap: 8px;
-	flex-grow: 1;
 	flex-direction: column;
-
-	/* The scrollbar gutter takes up part of the inline end padding so the
-	   thumb visually overlays the panel margin. */
-	padding-inline: var(--panel-padding-inline)
-		calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size));
+	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
-	overflow-y: auto;
 }
 
 /* The tree holds only stack groups, so the heading and empty-state message

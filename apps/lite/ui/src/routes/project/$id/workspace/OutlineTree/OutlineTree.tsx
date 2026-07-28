@@ -26,6 +26,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
+import { Scroller } from "#ui/components/Scroller.tsx";
 import type {
 	BranchReference,
 	Segment,
@@ -34,7 +35,6 @@ import type {
 	WorktreeChanges,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
-import uiStyles from "#ui/components/ui.module.css";
 
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -260,12 +260,10 @@ const UncommittedChanges: FC<{
 		<div className={styles.uncommittedChanges}>
 			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
-			<div
-				className={classes(
-					styles.uncommittedChangesTree,
-					uiStyles.scrollerWithSeparator,
-					uiStyles.overlayScrollbar,
-				)}
+			<Scroller
+				withSeparator
+				className={styles.uncommittedChangesTreeArea}
+				viewportClassName={styles.uncommittedChangesTree}
 			>
 				<FilesTree
 					data-selection-scope={"uncommitted-files" satisfies SelectionScope}
@@ -293,7 +291,7 @@ const UncommittedChanges: FC<{
 					}}
 					selection={fileSelection}
 				/>
-			</div>
+			</Scroller>
 
 			<CommitForm
 				projectId={projectId}
@@ -817,12 +815,10 @@ export const OutlineTree: FC<
 							actions={stacksHeaderActions}
 						/>
 
-						<div
-							className={classes(
-								styles.stacksScroller,
-								uiStyles.scrollerWithSeparator,
-								uiStyles.overlayScrollbar,
-							)}
+						<Scroller
+							withSeparator
+							className={styles.stacksScroller}
+							viewportClassName={styles.stacksViewport}
 						>
 							<Stacks
 								projectId={projectId}
@@ -830,7 +826,7 @@ export const OutlineTree: FC<
 								onAmendCommit={amendCommit}
 								canAmendCommit={canAmendCommit}
 							/>
-						</div>
+						</Scroller>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>

@@ -1,4 +1,4 @@
-import uiStyles from "#ui/components/ui.module.css";
+import { Scroller } from "#ui/components/Scroller.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	useMergeReview,
@@ -1273,16 +1273,17 @@ const Diff: FC<{
 							minSize={180}
 							groupResizeBehavior="preserve-pixel-size"
 						>
-							<FilesTree
-								data-selection-scope={"files" satisfies SelectionScope}
-								className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-								onFileSelection={selectFileAndNavigateDiff}
-								projectId={projectId}
-								items={filesItems}
-								selection={filesSelection}
-								navigationIndex={filesNavigationIndex}
-								fileParent={fileParent}
-							/>
+							<Scroller withSeparator viewportClassName={styles.diffFiles}>
+								<FilesTree
+									data-selection-scope={"files" satisfies SelectionScope}
+									onFileSelection={selectFileAndNavigateDiff}
+									projectId={projectId}
+									items={filesItems}
+									selection={filesSelection}
+									navigationIndex={filesNavigationIndex}
+									fileParent={fileParent}
+								/>
+							</Scroller>
 						</Panel>
 						<Separator className={styles.resizeHandle} />
 					</>
