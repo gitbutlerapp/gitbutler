@@ -4,7 +4,6 @@ use std::{fmt, ops::Deref, sync::Arc};
 
 use bstr::{BStr, BString};
 use rand::Rng;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// How long a reverse hex change id should be if stored in actual reverse hex
 /// ASCII characters, ranging from `z` to `k`. In accordance with the standard
@@ -139,24 +138,6 @@ impl fmt::Debug for ChangeId {
 impl fmt::Display for ChangeId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_bstr().fmt(f)
-    }
-}
-
-impl<'de> Deserialize<'de> for ChangeId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        BString::deserialize(deserializer).map(ChangeId::from_bstring)
-    }
-}
-
-impl Serialize for ChangeId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.as_bstr().serialize(serializer)
     }
 }
 
