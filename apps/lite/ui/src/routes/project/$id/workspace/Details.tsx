@@ -1409,6 +1409,7 @@ const PullRequestForm: FC<{
 				<Field.Control
 					render={<FieldControlStyles />}
 					className="text-15 text-semibold"
+					data-selection-scope={"pr" satisfies SelectionScope}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="Title"

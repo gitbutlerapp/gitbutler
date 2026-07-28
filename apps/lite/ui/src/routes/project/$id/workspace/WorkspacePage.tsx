@@ -28,7 +28,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, type RefObject, Activity, useDeferredValue, useRef } from "react";
+import { type FC, Activity, useDeferredValue } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
@@ -61,10 +61,7 @@ import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 // stored in local storage.
 type PanelId = "outline-panel" | "details-panel";
 
-const useWorkspaceHotkeys = (
-	projectId: string,
-	detailsPanelRef: RefObject<HTMLDivElement | null>,
-) => {
+const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
@@ -134,10 +131,7 @@ const useWorkspaceHotkeys = (
 		},
 		{
 			hotkey: workspaceHotkeys.focusDetails.hotkey,
-			callback: () => {
-				const focusedDiff = focusSelectionScope("diff");
-				if (!focusedDiff) detailsPanelRef.current?.focus({ focusVisible: false });
-			},
+			callback: () => focusSelectionScope("details"),
 		},
 		{
 			hotkey: workspaceHotkeys.focusUncommittedFiles.hotkey,
@@ -318,9 +312,8 @@ const WorkspacePage: FC = () => {
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);
-	const detailsPanelRef = useRef<HTMLDivElement>(null);
 
-	useWorkspaceHotkeys(projectId, detailsPanelRef);
+	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
 		dispatch(
@@ -510,8 +503,7 @@ const WorkspacePage: FC = () => {
 				<Panel
 					id={"details-panel" satisfies PanelId}
 					className={styles.panel}
-					elementRef={detailsPanelRef}
-					tabIndex={-1}
+					data-selection-scope={"details" satisfies SelectionScope}
 				>
 					<Details selection={deferredDetailsSelection} />
 				</Panel>
