@@ -71,6 +71,7 @@ but-meta.workspace = true
 but-llm.workspace = true
 but-agentlog.workspace = true
 but-transaction.workspace = true
+but-comments.workspace = true
 but-db.workspace = true
 but-error.workspace = true
 

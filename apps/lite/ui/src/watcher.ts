@@ -30,6 +30,7 @@ export const handleWatcher = (
 			void client.invalidateQueries({
 				queryKey: ["changesInWorktree" satisfies QueryKey, projectId],
 			});
+			void client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({
 				queryKey: ["commitDetailsWithLineStats" satisfies QueryKey, projectId],
 			});
@@ -47,6 +48,7 @@ export const handleWatcher = (
 				() => workspaceChanges,
 			);
 			void client.invalidateQueries({ queryKey: ["absorptionPlan" satisfies QueryKey, projectId] });
+			void client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["dryRun" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({
 				queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId],

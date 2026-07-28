@@ -171,6 +171,29 @@ export declare function changesInWorktree(projectId: string, computeDepsAndAssig
 export declare function changesInWorktreeWithPerm(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
+ * Archive the comment with the given `id`, hiding it from all future listings.
+ * Returns `false` if the comment does not exist or was already archived.
+ */
+export declare function commentArchive(projectId: string, id: string): Promise<boolean>
+
+/**
+ * Create a new comment anchored to a line in a diff.
+ *
+ * See [`but_comments::create_comment`] for the anchoring semantics.
+ */
+export declare function commentCreate(projectId: string, comment: NewComment): Promise<DiffComment>
+
+/**
+ * List all unarchived comments, re-anchored against the current diffs.
+ *
+ * See [`but_comments::list_comments`] for the re-anchoring and auto-archiving semantics.
+ */
+export declare function commentsList(projectId: string): Promise<Array<DiffComment>>
+
+/** Replace the payload of the unarchived comment with the given `id`. */
+export declare function commentUpdate(projectId: string, id: string, payload: string): Promise<void>
+
+/**
  * Amend the commit at `commit_id` with the `changes` of `changes_source` and
  * record an oplog snapshot on success.
  *
@@ -1537,6 +1560,37 @@ export type DetailedGraphWorkspace = {
   stacks: Array<DetailedGraphStack>;
 };
 
+/** A comment anchored to a line in a diff, as returned to every consumer. */
+export type DiffComment = {
+  /** The unique identifier of the comment. */
+  id: string;
+  /** The worktree-relative path of the file the comment is anchored to. */
+  path: string;
+  /**
+   * `None` when the comment is anchored to the uncommitted worktree diff, or the change-id of
+   * the commit whose first-parent diff the comment is anchored to.
+   */
+  commitChangeId: string | null;
+  /** The side of the diff the anchored line lives on. */
+  side: DiffSide;
+  /** The 1-based line number of the anchored line, in `side`'s coordinates. */
+  lineNumber: number;
+  /** The content of the anchored line (without the leading `+`/`-`/space diff marker). */
+  lineContent: string;
+  /** The comment text itself. */
+  payload: string;
+  /** When the comment was created, in milliseconds since the Unix epoch (UTC). */
+  createdAtMs: number;
+  /** When the comment payload was last updated, in milliseconds since the Unix epoch (UTC). */
+  updatedAtMs: number;
+  /**
+   * A unified-diff-formatted excerpt of the current diff around the anchored line, so consumers
+   * can understand what the comment is about without recomputing the diff.
+   * Only present on comments returned from [`list_comments`].
+   */
+  context: string | null;
+};
+
 /** A hunk as used in a [UnifiedPatch], which also contains all added and removed lines. */
 export type DiffHunk = {
   /** The 1-based line number at which the previous version of the file started. */
@@ -1567,6 +1621,12 @@ export type DiffHunk = {
    */
   diff: string;
 };
+
+/**
+ * The side of a diff a comment line lives on: `old` line numbers count in the pre-image,
+ * `new` line numbers in the post-image. Context lines exist on both sides.
+ */
+export type DiffSide = "old" | "new";
 
 /** A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it. */
 export type DiffSpec = {
@@ -2421,6 +2481,23 @@ export type MoveBranchResult = {
 export type MoveChangesResult = {
   /** Workspace state after moving changes. */
   workspace: WorkspaceState;
+};
+
+/** Everything needed to create a new comment. See [`DiffComment`] for the field semantics. */
+export type NewComment = {
+  /** The worktree-relative path of the file to anchor the comment to. */
+  path: string;
+  /**
+   * `None` to anchor to the uncommitted worktree diff, or the change-id of a workspace commit
+   * to anchor to that commit's first-parent diff.
+   */
+  commitChangeId: string | null;
+  /** The side of the diff the anchored line lives on. */
+  side: DiffSide;
+  /** The 1-based line number of the line to anchor to, in `side`'s coordinates. */
+  lineNumber: number;
+  /** The comment text. */
+  payload: string;
 };
 
 /** A column in a detailed graph node row. */

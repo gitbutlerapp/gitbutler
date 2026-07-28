@@ -829,6 +829,7 @@ dependencies = [
  "but-api",
  "but-askpass",
  "but-bitbucket",
+ "but-comments",
  "but-core",
  "but-ctx",
  "but-db",
@@ -978,6 +979,7 @@ dependencies = [
  "but-askpass",
  "but-bitbucket",
  "but-branches",
+ "but-comments",
  "but-core",
  "but-ctx",
  "but-db",
@@ -993,6 +995,7 @@ dependencies = [
  "but-llm",
  "but-oplog",
  "but-path",
+ "but-project-handle",
  "but-rebase",
  "but-schemars",
  "but-secret",
@@ -1118,6 +1121,24 @@ dependencies = [
  "anyhow",
  "but",
  "clap",
+]
+
+[[package]]
+name = "but-comments"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-core",
+ "but-graph",
+ "but-schemars",
+ "gix",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

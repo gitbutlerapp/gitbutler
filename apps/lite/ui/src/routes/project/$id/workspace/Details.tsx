@@ -12,6 +12,7 @@ import {
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
+	commentsQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	forgeInfoOptions,
 	guiSettingsQueryOptions,
@@ -38,7 +39,6 @@ import {
 	type Operand,
 	weakCommitIdentityKey,
 	weakFileIdentityKey,
-	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -128,14 +128,14 @@ import {
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import type { DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
-import { Annotation } from "#ui/components/Annotation.tsx";
+import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import {
-	createLocalAnnotation,
-	feedbackPrompt,
-	localAnnotationsQueryOptions,
+	annotationSideToDiffSide,
+	annotationsByPathForScope,
+	commentScopeChangeId,
 	type LocalAnnotation as PersistedLocalAnnotation,
 	type LocalAnnotationsByPath,
-	usePersistLocalAnnotations,
+	useCommentCreate,
 } from "#ui/annotation.ts";
 
 type Annotation = { _tag: "local"; id: string };
@@ -145,6 +145,8 @@ type BranchTab = "diff" | "pr";
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
 type PanelId = "files-panel" | "diff-panel";
+
+const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 
 const diffDefaults = {
 	diffBackground: true,
@@ -218,7 +220,12 @@ const mkCodeViewItem = (
 	return {
 		type: "diff",
 		id,
-		version: combineHashes(version, itemAnnotations.length),
+		// Annotations move when their backend anchor drifts, so the version must cover their
+		// positions and identities, not just their count.
+		version: combineHashes(
+			version,
+			hash(itemAnnotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join()),
+		),
 		fileDiff,
 		annotations: itemAnnotations,
 	};
@@ -346,6 +353,8 @@ const DiffContents: FC<{
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
+	/** See [commentScopeChangeId]; `undefined` disables annotating. */
+	scopeChangeId: string | null | undefined;
 	projectId: string;
 	diffView: DiffView;
 	annotationsByPath: LocalAnnotationsByPath;
@@ -359,6 +368,7 @@ const DiffContents: FC<{
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
+	scopeChangeId,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	annotationsByPath,
@@ -371,22 +381,7 @@ const DiffContents: FC<{
 	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
-	const { mutate: persistLocalAnnotations } = usePersistLocalAnnotations();
-
-	const persistFileAnnotations = (
-		path: string,
-		fileAnnotations: Array<PersistedLocalAnnotation>,
-	) => {
-		const updated = new Map(annotationsByPath);
-		if (fileAnnotations.length === 0) updated.delete(path);
-		else updated.set(path, fileAnnotations);
-
-		persistLocalAnnotations({
-			projectId,
-			fileParentKey: weakFileParentIdentityKey(fileParent),
-			annotations: updated,
-		});
-	};
+	const { mutate: createComment } = useCommentCreate();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...guiSettingsQueryOptions,
@@ -638,37 +633,52 @@ const DiffContents: FC<{
 					/>
 				);
 			}}
-			renderGutterUtility={(getHoveredLine, item) => {
-				const handleClick = () => {
-					const badlyTypedLine = getHoveredLine();
-					if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
-					const line = badlyTypedLine as GetHoveredLineResult<"diff">;
+			renderGutterUtility={
+				scopeChangeId === undefined
+					? undefined
+					: (getHoveredLine, item) => {
+							const handleClick = () => {
+								const badlyTypedLine = getHoveredLine();
+								if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
+								const line = badlyTypedLine as GetHoveredLineResult<"diff">;
 
-					const file = fileByItemId.get(item.id);
-					if (!file) return;
+								const file = fileByItemId.get(item.id);
+								if (!file) return;
 
-					const annotation = createLocalAnnotation(line.lineNumber, line.side);
-					newFocusableAnnotationIdRef.current = annotation.id;
-					persistFileAnnotations(file.operand.path, [
-						...(annotationsByPath.get(file.operand.path) ?? []),
-						annotation,
-					]);
-				};
+								createComment(
+									{
+										projectId,
+										comment: {
+											path: file.operand.path,
+											commitChangeId: scopeChangeId,
+											side: annotationSideToDiffSide(line.side),
+											lineNumber: line.lineNumber,
+											payload: "",
+										},
+									},
+									{
+										onSuccess: (comment) => {
+											newFocusableAnnotationIdRef.current = comment.id;
+										},
+									},
+								);
+							};
 
-				return (
-					<button
-						type="button"
-						onClick={handleClick}
-						aria-label="Annotate"
-						className={classes(
-							getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-							styles.annotate,
-						)}
-					>
-						<Icon name="plus" />
-					</button>
-				);
-			}}
+							return (
+								<button
+									type="button"
+									onClick={handleClick}
+									aria-label="Annotate"
+									className={classes(
+										getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+										styles.annotate,
+									)}
+								>
+									<Icon name="plus" />
+								</button>
+							);
+						}
+			}
 			renderAnnotation={(anno, item) => {
 				if (!("side" in anno)) throw new Error("Only diff items may be rendered");
 
@@ -676,102 +686,19 @@ const DiffContents: FC<{
 				if (!file) return null;
 
 				const annotations = annotationsByPath.get(file.operand.path) ?? [];
-				const idx = annotations.findIndex(({ id }) => id === anno.metadata.id);
-				const annotation = annotations[idx];
+				const annotation = annotations.find(({ id }) => id === anno.metadata.id);
 				if (!annotation) return null;
 
 				return (
-					<Annotation
-						author="You"
-						defaultBody={annotation.body}
+					<AnnotationCard
+						projectId={projectId}
 						formId={localAnnotationFormId}
-						name={annotation.id}
-						textareaRef={(textarea) => {
-							if (textarea && newFocusableAnnotationIdRef.current === annotation.id) {
-								newFocusableAnnotationIdRef.current = null;
-								textarea.focus();
-							}
-						}}
-						// Pierre gracefully blurs focused annotations before virtualizing their item,
-						// permitting uncontrolled input state to be persisted.
-						onBlur={(body) =>
-							persistFileAnnotations(
-								file.operand.path,
-								annotations.with(idx, { ...annotation, body }),
-							)
-						}
-						actions={
-							<>
-								<button
-									type="button"
-									className={getButtonClassName({ variant: "ghost" })}
-									onClick={() => {
-										persistFileAnnotations(file.operand.path, annotations.toSpliced(idx, 1));
-										selectionScopeRef.current?.focus({ focusVisible: false });
-									}}
-								>
-									Delete
-								</button>
-
-								<button
-									type="button"
-									form={localAnnotationFormId}
-									className={getButtonClassName({ variant: "ghost" })}
-									onClick={(evt) => {
-										const form = evt.currentTarget.form;
-										if (!form) throw new Error("Missing owning form");
-
-										const body = new FormData(form).get(annotation.id);
-										if (typeof body !== "string") throw new Error("Missing or invalid body");
-
-										void window.lite.clipboardWriteText(
-											feedbackPrompt([
-												{
-													annotation: { ...annotation, body },
-													fileParent,
-													path: file.operand.path,
-												},
-											]),
-										);
-									}}
-								>
-									Copy as prompt
-								</button>
-
-								<button
-									type="button"
-									form={localAnnotationFormId}
-									className={getButtonClassName({ variant: "ghost" })}
-									onClick={(evt) => {
-										const form = evt.currentTarget.form;
-										if (!form) throw new Error("Missing owning form");
-
-										const formData = new FormData(form);
-										const feedback = annotationsByPath
-											.entries()
-											.flatMap(([path, annotations]) =>
-												annotations.map((annotation) => {
-													// Use any live mounted bodies, falling back to persisted.
-													const formBody = formData.get(annotation.id);
-													return {
-														annotation: {
-															...annotation,
-															body: typeof formBody === "string" ? formBody : annotation.body,
-														},
-														fileParent,
-														path,
-													};
-												}),
-											)
-											.toArray();
-
-										void window.lite.clipboardWriteText(feedbackPrompt(feedback));
-									}}
-								>
-									Copy all as prompt
-								</button>
-							</>
-						}
+						annotation={annotation}
+						path={file.operand.path}
+						fileParent={fileParent}
+						annotationsByPath={annotationsByPath}
+						focusAnnotationIdRef={newFocusableAnnotationIdRef}
+						selectionScopeRef={selectionScopeRef}
 					/>
 				);
 			}}
@@ -1128,12 +1055,17 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => results.map((result) => result.data),
 	});
-	const { data: annotationsByPath } = useSuspenseQuery(
-		localAnnotationsQueryOptions({
-			projectId,
-			fileParentKey: weakFileParentIdentityKey(fileParent),
-		}),
-	);
+	// A primitive so the select closure below is memoised on it (see lite-render-perf).
+	const scopeChangeId = commentScopeChangeId(fileParent);
+	// Not a suspense query: comments are a garnish on the diff, so a failing listing must
+	// degrade to "no annotations" rather than take down the whole details pane.
+	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
+		...commentsQueryOptions(projectId),
+		select: (comments) =>
+			scopeChangeId === undefined
+				? EMPTY_ANNOTATIONS_BY_PATH
+				: annotationsByPathForScope(comments, scopeChangeId),
+	});
 
 	const diffView = getDiffView({
 		fileParent,
@@ -1301,6 +1233,7 @@ const Diff: FC<{
 							localAnnotationFormId={localAnnotationFormId}
 							onViewerFileSelection={onFileSelection}
 							fileParent={fileParent}
+							scopeChangeId={scopeChangeId}
 							projectId={projectId}
 							diffView={diffView}
 							annotationsByPath={annotationsByPath}

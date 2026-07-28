@@ -11,6 +11,9 @@ import {
 	type BranchCreateParams,
 	type BranchDetailsParams,
 	type BranchDiffParams,
+	type CommentArchiveParams,
+	type CommentCreateParams,
+	type CommentUpdateParams,
 	type CommitAmendParams,
 	type CommitCreateParams,
 	type CommitDiscardChangesParams,
@@ -73,6 +76,10 @@ import {
 	branchRemove,
 	branchRename,
 	changesInWorktree,
+	commentArchive,
+	commentCreate,
+	commentUpdate,
+	commentsList,
 	commitAmend,
 	commitCreate,
 	commitDiscard,
@@ -415,6 +422,21 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.clipboardWriteText, (_e, text: string) => {
 		clipboard.writeText(text, "clipboard");
 	});
+	senderValidatingHandle(
+		liteIpcChannels.commentArchive,
+		(_e, { projectId, id }: CommentArchiveParams) => commentArchive(projectId, id),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commentCreate,
+		(_e, { projectId, comment }: CommentCreateParams) => commentCreate(projectId, comment),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commentUpdate,
+		(_e, { projectId, id, payload }: CommentUpdateParams) => commentUpdate(projectId, id, payload),
+	);
+	senderValidatingHandle(liteIpcChannels.commentsList, (_e, projectId: string) =>
+		commentsList(projectId),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.commitAmend,
 		(_e, { projectId, commitId, changes, changesSource, dryRun }: CommitAmendParams) =>

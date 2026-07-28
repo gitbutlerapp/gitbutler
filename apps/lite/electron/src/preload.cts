@@ -7,6 +7,7 @@ import type {
 	BranchCreateResult,
 	BranchDetails,
 	CommitDetails,
+	DiffComment,
 	DiffSpec,
 	Editor,
 	ForgeReview,
@@ -96,6 +97,14 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
 	clipboardWriteText: (text) =>
 		ipcRenderer.invoke("lite:clipboard-write-text", text) as Promise<void>,
+	commentArchive: (params) =>
+		ipcRenderer.invoke("workspace:comment-archive", params) as Promise<boolean>,
+	commentCreate: (params) =>
+		ipcRenderer.invoke("workspace:comment-create", params) as Promise<DiffComment>,
+	commentUpdate: (params) =>
+		ipcRenderer.invoke("workspace:comment-update", params) as Promise<void>,
+	commentsList: (projectId) =>
+		ipcRenderer.invoke("workspace:comments-list", projectId) as Promise<Array<DiffComment>>,
 	commitAmend: (params) =>
 		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
 	commitCreate: (params) =>

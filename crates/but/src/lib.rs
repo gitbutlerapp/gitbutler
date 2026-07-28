@@ -1297,6 +1297,16 @@ async fn match_subcommand(
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
+        Subcommands::_Comment(comment_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
+            let outcome =
+                command::comment::comment(&mut ctx, IntermediateChannel::new(out), comment_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            Ok(())
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Setup { init } => {
             let repo = match but_api::legacy::projects::add_project_best_effort(

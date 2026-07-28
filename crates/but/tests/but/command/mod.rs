@@ -14,6 +14,8 @@ mod branch;
 #[cfg(feature = "legacy")]
 mod clean;
 #[cfg(feature = "legacy")]
+mod comment;
+#[cfg(feature = "legacy")]
 mod commit;
 mod config;
 #[cfg(feature = "legacy")]

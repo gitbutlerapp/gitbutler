@@ -42,6 +42,7 @@ export-schema = [
     "but-error/export-schema",
     "but-workspace/export-schema",
     "but-hunk-assignment/export-schema",
+    "but-comments/export-schema",
     "gitbutler-project/export-schema",
     "but-rebase/export-schema",
     "gitbutler-operating-modes/export-schema",
@@ -95,6 +96,8 @@ but-rebase.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
+but-comments.workspace = true
+but-project-handle.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true
@@ -138,6 +141,7 @@ serde.workspace = true
 futures.workspace = true
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
+chrono.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 uuid.workspace = true

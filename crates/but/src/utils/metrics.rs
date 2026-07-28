@@ -85,6 +85,10 @@ impl Subcommands {
         if !settings.telemetry.app_metrics_enabled {
             return None;
         }
+        // The comments experiment emits no metrics while the idea is being validated.
+        if matches!(self, Subcommands::_Comment(_)) {
+            return None;
+        }
         let cmd = self.to_metrics_command();
         let extra_props = self.to_metrics_extra_props();
         Some(OneshotMetricsContext::new(
@@ -100,6 +104,8 @@ impl Subcommands {
 
         use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
+            // Unreachable: the comments experiment opts out of metrics in `to_metrics_context`.
+            Subcommands::_Comment(_) => Unknown,
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
             #[cfg(feature = "legacy")]
