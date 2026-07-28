@@ -85,7 +85,7 @@ overrides:
   lodash: 4.17.23
   lodash-es: 4.17.23
   minimatch@^10.0.0: 10.2.2
-  qs: 6.14.1
+  qs: 6.15.2
   undici@6.22.0: 6.23.0
   '@lexical/clipboard': 0.27.2
   '@lexical/code': 0.27.2
@@ -8677,8 +8677,8 @@ packages:
   pure-rand@8.4.2:
     resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
-  qs@6.14.1:
-    resolution: {integrity: sha512-4EK3+xJl8Ts67nLYNwqw/dsFVnCf+qR7RgXSK9jEEm9unao3njwMDdmsdvoKBKHzxd7tCYz5e5M+SnMjdtXGQQ==}
+  qs@6.15.2:
+    resolution: {integrity: sha512-Rzq0KEyX/w/tEybncDgdkZrJgVUsUMk3xjh3t5bv3S1HTAtg+uOYt72+ZfwiQwKdysThkTBdL/rTi6HDmX9Ddw==}
     engines: {node: '>=0.6'}
 
   query-selector-shadow-dom@1.0.1:
@@ -14977,7 +14977,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.3
       on-finished: 2.4.1
-      qs: 6.14.1
+      qs: 6.15.2
       raw-body: 3.0.2
       type-is: 2.1.0
     transitivePeerDependencies:
@@ -16351,7 +16351,7 @@ snapshots:
       once: 1.4.0
       parseurl: 1.3.3
       proxy-addr: 2.0.7
-      qs: 6.14.1
+      qs: 6.15.2
       range-parser: 1.3.0
       router: 2.2.0
       send: 1.2.1
@@ -18623,7 +18623,7 @@ snapshots:
 
   pure-rand@8.4.2: {}
 
-  qs@6.14.1:
+  qs@6.15.2:
     dependencies:
       side-channel: 1.1.1
 
