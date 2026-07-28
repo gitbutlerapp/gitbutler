@@ -130,6 +130,20 @@ fn pick_json_output() -> anyhow::Result<()> {
 // === Error cases ===
 
 #[test]
+fn pick_without_applied_stacks_points_to_public_apply_command() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("pick unapplied-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to pick commit. No applied stacks in workspace. Apply a branch first with 'but apply <branch-name>'.
+
+"#]]);
+}
+
+#[test]
 fn pick_invalid_source_fails() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
     env.setup_metadata(&["applied-branch"]);

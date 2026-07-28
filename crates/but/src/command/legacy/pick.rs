@@ -33,7 +33,9 @@ pub fn handle(
     let stacks = crate::legacy::workspace::applied_stacks(ctx).context("Failed to list stacks")?;
 
     if stacks.is_empty() {
-        bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
+        bail!(
+            "No applied stacks in workspace. Apply a branch first with 'but apply <branch-name>'."
+        );
     }
 
     // Resolve the target before the source so an interactive run prompts for the branch first.
