@@ -2013,7 +2013,7 @@ export const Details: FC<
 								);
 							},
 						}),
-						Match.orElse(() => null),
+						Match.orElseAbsurd,
 					))()}
 			</Suspense>
 		</div>
