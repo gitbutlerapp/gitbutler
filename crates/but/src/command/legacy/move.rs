@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use bstr::ByteSlice;
+use but_api::json::{ChangeIdString, HexHash};
 use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
@@ -10,6 +11,7 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use itertools::Itertools;
 use nonempty::NonEmpty;
+use serde::Serialize;
 
 use crate::{
     CliResult, IdMap,
@@ -21,8 +23,8 @@ use crate::{
     id::{CommitId, CommittedFileId},
     theme::{self, Theme},
     utils::{
-        CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
-        merged_upstream::MergedUpstream, targeting::Side,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, targeting::Side,
     },
 };
 
@@ -121,6 +123,94 @@ impl CliOutputHuman for MoveOutcome {
         writeln!(out)?;
 
         Ok(())
+    }
+}
+
+impl CliOutput for MoveOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct MovedCommit {
+            source_commit_id: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            source_change_id: Option<ChangeIdString>,
+            new_commit_id: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_change_id: Option<ChangeIdString>,
+        }
+
+        #[derive(Serialize)]
+        #[serde(untagged, rename_all_fields = "camelCase")]
+        enum Output {
+            Commits {
+                commits: Vec<MovedCommit>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                branch: Option<String>,
+            },
+            Changes {
+                source_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                source_change_id: Option<ChangeIdString>,
+                num_changes: usize,
+                new_commit_id: HexHash,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                new_change_id: Option<ChangeIdString>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                branch: Option<String>,
+            },
+            StackBranch {
+                source_branch: String,
+                target_branch: String,
+            },
+            UnstackBranch {
+                source_branch: String,
+            },
+        }
+
+        match self {
+            Self::Commits {
+                sources,
+                moved_commits,
+                target: _,
+                new_branch_name,
+            } => Output::Commits {
+                commits: sources
+                    .into_iter()
+                    .zip(moved_commits)
+                    .map(|(source, moved)| MovedCommit {
+                        source_commit_id: source.commit_id.into(),
+                        source_change_id: source.change_id.map(Into::into),
+                        new_commit_id: moved.commit_id.into(),
+                        new_change_id: moved.change_id.map(Into::into),
+                    })
+                    .collect(),
+                branch: new_branch_name.map(|branch| branch.shorten().to_string()),
+            },
+            Self::Changes {
+                source_commit,
+                num_changes,
+                target: _,
+                new_branch_name,
+                new_commit,
+            } => Output::Changes {
+                source_commit_id: source_commit.commit_id.into(),
+                source_change_id: source_commit.change_id.map(Into::into),
+                num_changes,
+                new_commit_id: new_commit.commit_id.into(),
+                new_change_id: new_commit.change_id.map(Into::into),
+                branch: new_branch_name.map(|branch| branch.shorten().to_string()),
+            },
+            Self::StackBranch {
+                source_branch,
+                target_branch,
+            } => Output::StackBranch {
+                source_branch: source_branch.shorten().to_string(),
+                target_branch: target_branch.shorten().to_string(),
+            },
+            Self::UnstackBranch { source_branch } => Output::UnstackBranch {
+                source_branch: source_branch.shorten().to_string(),
+            },
+        }
     }
 }
 

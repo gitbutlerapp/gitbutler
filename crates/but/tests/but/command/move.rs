@@ -3,8 +3,91 @@ use crate::{
         branch_commit_cli_ids, commit_two_files_as_two_hunks_each,
         status_json_with_files as status_json,
     },
-    utils::Sandbox,
+    utils::{CommandExt as _, Sandbox},
 };
+
+#[test]
+fn move_commits_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("--json move zll --above ywx")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commits": [
+    {
+      "sourceCommitId": "fe12bcd55e12fe5d43e54f44550d4c201f0ec770",
+      "sourceChangeId": "zllwszkrzvwxozppxxkxpsnxopskvrsp",
+      "newCommitId": "c6224e6e0af1ac247027c8f61ed6ef4037c2c230",
+      "newChangeId": "zllwszkrzvwxozppxxkxpsnxopskvrsp"
+    }
+  ]
+}
+
+"#]]);
+}
+
+#[test]
+fn move_committed_changes_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("--json move ywx:wu --branch new-branch")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "sourceCommitId": "9ac4652535fde457cb4cb3b36f0d9a64135de4c8",
+  "sourceChangeId": "ywxsopnrxtuqozktnmnmwxmwlpxsokpn",
+  "numChanges": 1,
+  "newCommitId": "8e35f84e6f99cf09d1fa04c8df71d98b954865c5",
+  "newChangeId": "1",
+  "branch": "new-branch"
+}
+
+"#]]);
+}
+
+#[test]
+fn stack_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("--json move B --above A")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "sourceBranch": "B",
+  "targetBranch": "A"
+}
+
+"#]]);
+}
+
+#[test]
+fn unstack_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("--json move C --unstack")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "sourceBranch": "C"
+}
+
+"#]]);
+}
 
 #[test]
 fn move_commit_above_other_commit() {

@@ -1123,7 +1123,7 @@ async fn match_subcommand(
             let outcome =
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
-            out.print_cli_output_human(outcome)?;
+            out.print_cli_output(outcome)?;
             command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
             run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
