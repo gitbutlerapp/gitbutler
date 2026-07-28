@@ -32,9 +32,9 @@ but commit -b <ui-branch-id> -m "Update button hover styles" <ui-file-id>
 # Add --status-after only when the next step needs resulting workspace IDs or details.
 # but amend -t <api-commit-id> <api-fix-file-id> <api-fix-hunk-id>
 
-# 6. Create pull requests (auto-pushes the branches)
-but pr new <api-branch-id>
-but pr new <ui-branch-id>
+# 6. Create pull requests (auto-pushes the branches; -m sets the PR title so no editor opens)
+but pr new <api-branch-id> -m "Add user details endpoint"
+but pr new <ui-branch-id> -m "Update button hover styles"
 ```
 
 **Why parallel branches?** The API endpoint and UI styling are independent - neither depends on the other. They can be reviewed and merged separately.
@@ -255,7 +255,7 @@ but amend -t <commit-id> a1    # Amend fix into the commit it belongs to
 but squash bu -m "Add user dashboard"    # Combine all commits (optional)
 
 # 9. Create pull request (auto-pushes the branch)
-but pr new bu
+but pr new bu -m "Add user dashboard"
 
 # Output:
 # Created PR #123: https://github.com/org/repo/pull/123
@@ -288,7 +288,7 @@ but unapply bw
 but commit -b bu -m "Complete feature-a" <file-ids>
 
 # 4. Create PR for feature-a (auto-pushes)
-but pr new bu
+but pr new bu -m "Complete feature-a"
 
 # 5. Reapply other branches
 but apply feature-b
@@ -361,7 +361,7 @@ but amend -t <commit-id> a1  # Amend fix into the commit it belongs to
 but branch new hotfix-login  # Parallel branch for urgent work
 # (make fix)
 but commit -b bv -m "Fix login redirect loop" <file-ids>
-but pr new bv      # Push and create PR immediately
+but pr new bv -m "Fix login redirect loop"    # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
@@ -369,7 +369,7 @@ but commit -b bu -m "Add tests for token handling" <file-ids>
 
 # End of day: Clean up and create PR
 but squash bu -m "Fix auth bug"    # Combine into clean history
-but pr new bu      # Push and create PR
+but pr new bu -m "Fix auth bug"    # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)

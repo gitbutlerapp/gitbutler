@@ -16,6 +16,8 @@ use crate::{
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
 
+const RETRY_REVIEW_ACTION: &str = "If you still need this action after the review state changes, retry the same command; it fetches the latest review data.";
+
 /// Automatically merge the review once all prerequisites are met.
 pub async fn enable_auto_merge(
     ctx: &mut Context,
@@ -84,30 +86,45 @@ pub async fn enable_auto_merge(
     }
 
     if let Some(out) = out.for_human() {
-        let actual_reviews_modified = review_count - skipped_reviews;
-        if actual_reviews_modified > 0 {
-            let review_word = if actual_reviews_modified == 1 {
-                "review"
-            } else {
-                "reviews"
-            };
-            writeln!(out, "Auto-merge {action} for {review_count} {review_word}")?;
-        }
-
-        if skipped_reviews > 0 {
-            let review_word = if skipped_reviews == 1 {
-                "review"
-            } else {
-                "reviews"
-            };
-            writeln!(
-                out,
-                "Skipped {review_count} {review_word} because of reasons.\nOnce those reasons have been addressed, run `but fetch` to refetch the data and try again."
-            )?;
+        for line in auto_merge_summary_lines(action, review_count, skipped_reviews) {
+            writeln!(out, "{line}")?;
         }
     }
 
     Ok(())
+}
+
+fn auto_merge_summary_lines(
+    action: &str,
+    review_count: usize,
+    skipped_reviews: usize,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    let actual_reviews_modified = review_count - skipped_reviews;
+
+    if actual_reviews_modified > 0 {
+        let review_word = if actual_reviews_modified == 1 {
+            "review"
+        } else {
+            "reviews"
+        };
+        lines.push(format!(
+            "Auto-merge {action} for {actual_reviews_modified} {review_word}"
+        ));
+    }
+
+    if skipped_reviews > 0 {
+        let review_word = if skipped_reviews == 1 {
+            "review"
+        } else {
+            "reviews"
+        };
+        lines.push(format!(
+            "Skipped {skipped_reviews} {review_word} because of reasons.\n{RETRY_REVIEW_ACTION}"
+        ));
+    }
+
+    lines
 }
 
 /// Set the draftiness of or or multiple reviews.
@@ -222,7 +239,7 @@ pub async fn set_draftiness(
             };
             writeln!(
                 out,
-                "Skipped {skipped_reviews} {review_word} because review state is incompatible with this action.\nOnce those reasons have been addressed, run `but fetch` to refetch the data and try again."
+                "Skipped {skipped_reviews} {review_word} because review state is incompatible with this action.\n{RETRY_REVIEW_ACTION}"
             )?;
         }
     }
@@ -1284,6 +1301,34 @@ fn extract_valid_ids(selector: &str) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn skipped_review_recovery_retries_the_fresh_action_without_fetch_alias() {
+        assert!(RETRY_REVIEW_ACTION.contains("retry the same command"));
+        assert!(RETRY_REVIEW_ACTION.contains("fetches the latest review data"));
+        assert!(!RETRY_REVIEW_ACTION.contains("but fetch"));
+    }
+
+    #[test]
+    fn auto_merge_summary_reports_mixed_result_counts() {
+        assert_eq!(
+            auto_merge_summary_lines("enabled", 2, 1),
+            vec![
+                "Auto-merge enabled for 1 review".to_string(),
+                format!("Skipped 1 review because of reasons.\n{RETRY_REVIEW_ACTION}"),
+            ]
+        );
+    }
+
+    #[test]
+    fn auto_merge_summary_reports_all_skipped() {
+        assert_eq!(
+            auto_merge_summary_lines("disabled", 2, 2),
+            [format!(
+                "Skipped 2 reviews because of reasons.\n{RETRY_REVIEW_ACTION}"
+            )]
+        );
+    }
 
     fn review_message() -> ForgeReviewMessage {
         ForgeReviewMessage {

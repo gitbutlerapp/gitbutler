@@ -151,7 +151,8 @@ which `amend` does not accept.
 The other editing commands are narrower entry points on the same model:
 
 - `but amend -t <commit> <changes>` — amend uncommitted files/hunks into a known commit
-- `but uncommit <commits-or-committed-files>` — move committed work back to uncommitted
+- `but uncommit <commits-or-committed-files>` — move committed work back to uncommitted; committed
+  files in one call must come from one commit
 - `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed files, or a
   branch; this is the command with position control
 - `but discard <changes>` — drop work instead of relocating it

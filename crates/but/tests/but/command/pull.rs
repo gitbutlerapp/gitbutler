@@ -550,7 +550,7 @@ Summary
       rou [conflict] bottom change
 
 To resolve conflicts:
-  1. Run `but resolve <commit>` on a conflicted commit listed above — oldest first (they are listed bottom-up). Worktree files show no conflict markers until this checks the commit out
+  1. Start with: `but resolve rou`. Worktree files show no conflict markers until this checks the commit out
   2. Edit files to resolve the conflicts
   3. Run `but resolve finish` to finalize the resolution
 
@@ -620,7 +620,7 @@ Summary
       trk [conflict] bottom change
 
 To resolve conflicts:
-  1. Run `but resolve <commit>` on a conflicted commit listed above — oldest first (they are listed bottom-up). Worktree files show no conflict markers until this checks the commit out
+  1. Start with: `but resolve trk`. Worktree files show no conflict markers until this checks the commit out
   2. Edit files to resolve the conflicts
   3. Run `but resolve finish` to finalize the resolution
 

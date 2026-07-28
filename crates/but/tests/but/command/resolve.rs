@@ -200,6 +200,109 @@ fn agent_resolve_finish_json_includes_result_and_status() -> anyhow::Result<()> 
 }
 
 #[test]
+fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-conflicts-in-both-branches-of-stack",
+    );
+    env.setup_metadata_at_target(&["A"], "main");
+    env.but("pull").assert().success();
+
+    let status = super::util::status_json(&env)?;
+    let branch = super::util::find_branch(&status, "A")?;
+    let commits = branch["commits"]
+        .as_array()
+        .context("branch commits should be an array")?;
+    let conflicted_top_commit = commits
+        .iter()
+        .find(|commit| {
+            commit["conflicted"].as_bool() == Some(true)
+                && commit["message"].as_str() == Some("top change")
+        })
+        .context("should find the conflicted top commit")?;
+    let top_commit_id_before = conflicted_top_commit["commitId"]
+        .as_str()
+        .context("top commit should have a full commit ID")?
+        .to_owned();
+    let conflicted_bottom_commit = status["stacks"]
+        .as_array()
+        .context("status stacks should be an array")?
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+        .flat_map(|branch| branch["commits"].as_array().into_iter().flatten())
+        .find(|commit| {
+            commit["conflicted"].as_bool() == Some(true)
+                && commit["message"].as_str() == Some("bottom change")
+        })
+        .and_then(|commit| commit["cliId"].as_str())
+        .context("should find the conflicted bottom commit")?
+        .to_owned();
+
+    env.but(format!("resolve {conflicted_bottom_commit}"))
+        .assert()
+        .success();
+    env.file("bottom.txt", "resolved bottom\n");
+    env.invoke_git("add bottom.txt");
+
+    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
+    command.env("AI_AGENT", "codex");
+    let output = command.output()?;
+    assert!(output.status.success(), "resolve finish should succeed");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    let queue = json["result"]["resolution_queue"]
+        .as_array()
+        .context("resolution_queue should be an array")?;
+    assert_eq!(
+        queue.len(),
+        1,
+        "only the rebased top conflict should remain"
+    );
+    let queued_top = &queue[0];
+    assert!(
+        queued_top["commit_message"]
+            .as_str()
+            .is_some_and(|message| message.ends_with("top change")),
+        "the queue should identify the remaining top conflict"
+    );
+    assert_ne!(
+        queued_top["commit_id"].as_str(),
+        Some(top_commit_id_before.as_str()),
+        "finishing the bottom conflict should rebase the top commit"
+    );
+    assert_eq!(
+        json["result"]["total_remaining_conflicted_commits"], 1,
+        "the result should count the remaining top conflict once"
+    );
+
+    let status_branch = super::util::find_branch(&json["status"], "A")?;
+    let status_top = status_branch["commits"]
+        .as_array()
+        .context("status branch commits should be an array")?
+        .iter()
+        .find(|commit| {
+            commit["message"]
+                .as_str()
+                .is_some_and(|message| message.ends_with("top change"))
+        })
+        .context("status should contain the rebased top commit")?;
+    assert_eq!(
+        status_top["conflicted"].as_bool(),
+        Some(true),
+        "the rebased top commit should remain conflicted"
+    );
+    assert_eq!(
+        status_top["commitId"], queued_top["commit_id"],
+        "status and the result queue should expose the same fresh commit ID"
+    );
+    assert_eq!(
+        status_top["cliId"], queued_top["commit_short_id"],
+        "status and the result queue should expose the same actionable selector"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn resolve_cancel_works_in_edit_mode() -> anyhow::Result<()> {
     let env = enter_edit_mode_with_conflicted_commit()?;
 

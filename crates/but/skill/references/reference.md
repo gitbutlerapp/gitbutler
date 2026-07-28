@@ -277,6 +277,9 @@ but uncommit <commit-id>                 # Uncommit an entire commit
 but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
 ```
 
+Multiple whole commits may be passed together. Multiple committed-file sources must all come from
+the same commit; uncommit files from different commits in separate commands.
+
 When you need file and hunk IDs to recommit selectively, use
 `but uncommit <id> && but diff` in one shell call.
 
@@ -394,9 +397,8 @@ Do not use raw `git pull` or `git rebase`.
 Create and manage pull requests.
 
 ```bash
-but pr new <branch-id>        # Push branch and create PR (recommended)
+but pr new <branch-id> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
 but pr new <branch-id> -F pr_message.txt    # Use file: first line is title, rest is description
-but pr new <branch-id> -m "Title..."        # Inline message: first line is title, rest is description
 but pr new <branch-id> -t     # Use default content (commit message), skip prompts
 but pr new <branch-id> --draft  # Create as draft
 but pr new <branch-id> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
