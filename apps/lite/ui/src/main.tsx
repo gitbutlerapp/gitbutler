@@ -1,4 +1,4 @@
-import * as ReactQuery from "@tanstack/react-query";
+import { QueryClient, focusManager } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { App } from "#ui/App.tsx";
 import { routeTree } from "#ui/routeTree.ts";
@@ -9,7 +9,7 @@ import { errorMessageForToast } from "#ui/errors.ts";
 
 const toastManager = Toast.createToastManager();
 
-const queryClient = new ReactQuery.QueryClient({
+const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
 			// We don't expect network errors over the Node API.
@@ -21,7 +21,7 @@ const queryClient = new ReactQuery.QueryClient({
 
 // By default React Query uses `visibilitychange`, but this doesn't seem to work
 // well in Electron.
-ReactQuery.focusManager.setEventListener((setFocused) => {
+focusManager.setEventListener((setFocused) => {
 	const onFocus = () => setFocused(true);
 	const onBlur = () => setFocused(false);
 
