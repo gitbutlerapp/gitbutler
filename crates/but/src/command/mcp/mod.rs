@@ -107,17 +107,12 @@ impl Mcp {
         &self,
         Parameters(request): Parameters<CommitDetailsRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let result = commit_details(request);
+        let result = commit_details(request).and_then(|view| {
+            let message = format!("Loaded details for commit {}.", view.details.commit.id);
+            structured_tool_result(message, view)
+        });
         Ok(match result {
-            Ok(view) => CallToolResult {
-                content: vec![Content::text(format!(
-                    "Loaded details for commit {}.",
-                    view.details.commit.id
-                ))],
-                structured_content: serde_json::to_value(view).ok(),
-                is_error: Some(false),
-                meta: None,
-            },
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not load the commit details: {err:#}"
             ))]),
@@ -141,17 +136,12 @@ impl Mcp {
         &self,
         Parameters(request): Parameters<BranchDetailsRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let result = branch_details(request);
+        let result = branch_details(request).and_then(|view| {
+            let message = format!("Loaded details for branch {}.", view.details.name);
+            structured_tool_result(message, view)
+        });
         Ok(match result {
-            Ok(view) => CallToolResult {
-                content: vec![Content::text(format!(
-                    "Loaded details for branch {}.",
-                    view.details.name
-                ))],
-                structured_content: serde_json::to_value(view).ok(),
-                is_error: Some(false),
-                meta: None,
-            },
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not load the branch details: {err:#}"
             ))]),
@@ -176,9 +166,11 @@ impl Mcp {
         Parameters(request): Parameters<ReviewCardRequest>,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let result = review_view_for_request(request, context).await;
+        let result = review_view_for_request(request, context)
+            .await
+            .and_then(|view| review_view_result(view, "Loaded"));
         Ok(match result {
-            Ok(view) => review_view_result(view, "Loaded"),
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not load the GitButler review: {err:#}"
             ))]),
@@ -202,9 +194,10 @@ impl Mcp {
         &self,
         Parameters(request): Parameters<RefreshReviewsRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let result = refresh_reviews(request);
+        let result =
+            refresh_reviews(request).and_then(|view| review_view_result(view, "Refreshed"));
         Ok(match result {
-            Ok(view) => review_view_result(view, "Refreshed"),
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not refresh the GitButler reviews: {err:#}"
             ))]),
@@ -228,9 +221,11 @@ impl Mcp {
         &self,
         Parameters(request): Parameters<MarkReviewReadyRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let result = mark_review_ready(request).await;
+        let result = mark_review_ready(request)
+            .await
+            .and_then(|view| review_view_result(view, "Marked as ready"));
         Ok(match result {
-            Ok(view) => review_view_result(view, "Marked as ready"),
+            Ok(result) => result,
             Err(err) => CallToolResult::error(vec![Content::text(format!(
                 "Could not mark the review as ready: {err:#}"
             ))]),
@@ -1033,7 +1028,7 @@ impl ReviewCi {
     }
 }
 
-fn review_view_result(view: ReviewView, action: &str) -> CallToolResult {
+fn review_view_result(view: ReviewView, action: &str) -> Result<CallToolResult> {
     let reviews = view
         .reviews
         .iter()
@@ -1045,17 +1040,26 @@ fn review_view_result(view: ReviewView, action: &str) -> CallToolResult {
         })
         .collect::<Vec<_>>()
         .join(", ");
-    CallToolResult {
-        content: vec![Content::text(format!(
+    structured_tool_result(
+        format!(
             "{action} {} review{} for {}: {reviews}.",
             view.forge.unit.name.to_lowercase(),
             if view.reviews.len() == 1 { "" } else { "s" },
             view.repository.name,
-        ))],
-        structured_content: serde_json::to_value(view).ok(),
+        ),
+        view,
+    )
+}
+
+fn structured_tool_result(message: String, value: impl Serialize) -> Result<CallToolResult> {
+    Ok(CallToolResult {
+        content: vec![Content::text(message)],
+        structured_content: Some(
+            serde_json::to_value(value).context("Could not serialize structured tool result")?,
+        ),
         is_error: Some(false),
         meta: None,
-    }
+    })
 }
 
 fn workspace_tool_meta() -> Meta {

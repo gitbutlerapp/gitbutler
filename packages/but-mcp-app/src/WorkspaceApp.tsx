@@ -916,7 +916,7 @@ export function WorkspaceApp() {
 		const resultText = toolResult.content?.find((content) => content.type === "text")?.text;
 		return (
 			<div className="message-state error-state">
-				{resultText || "Codex did not provide workspace data for this result."}
+				{resultText || "The host did not provide workspace data for this result."}
 			</div>
 		);
 	}

@@ -555,29 +555,6 @@ but skill check --update
 but skill install --detect
 ```
 
-### `but gui [path]`
-
-Open the GitButler desktop app for a project directory.
-
-```bash
-but gui                     # Open the current directory in the app
-but gui ../other-repo       # Open a specific project directory
-but gui --new-window        # Open the current project in a new app window
-but gui -n ../other-repo    # Short flag for opening another project in a new window
-```
-
-### `but mcp serve`
-
-Run GitButler's Model Context Protocol server over standard input/output.
-
-```bash
-but mcp serve
-```
-
-Pass the active repository path to workspace tools when it is known. Omit it
-only when the MCP client is known to expose the desired repository as a
-filesystem root.
-
 ## Selected Options
 
 Useful to agents:
