@@ -135,7 +135,7 @@ export const useOutlineTreeHotkeys = ({
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "BranchPicker" } }));
 	};
 
-	const insertEmptyCommit = () => {
+	const insertEmptyCommit = (sideIntent: InsertSide) => {
 		if (!selection) return;
 
 		type Placement = { relativeTo: RelativeTo; side: InsertSide };
@@ -143,7 +143,7 @@ export const useOutlineTreeHotkeys = ({
 			Match.tags({
 				Commit: (selection): Placement => ({
 					relativeTo: { type: "commit", subject: selection.commitId },
-					side: "above",
+					side: sideIntent,
 				}),
 				Branch: (selection): Placement => ({
 					relativeTo: {
@@ -537,8 +537,8 @@ export const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
-			hotkey: outlineHotkeys.insertEmptyCommit.hotkey,
-			callback: insertEmptyCommit,
+			hotkey: outlineHotkeys.insertEmptyCommitAbove.hotkey,
+			callback: () => insertEmptyCommit("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
@@ -546,7 +546,20 @@ export const useOutlineTreeHotkeys = ({
 					(isSelectedBranch || isSelectedCommit) &&
 					!isCommitInsertBlankPending,
 				target: ref,
-				meta: outlineHotkeys.insertEmptyCommit.meta,
+				meta: outlineHotkeys.insertEmptyCommitAbove.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.insertEmptyCommitBelow.hotkey,
+			callback: () => insertEmptyCommit("below"),
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled &&
+					(isSelectedBranch || isSelectedCommit) &&
+					!isCommitInsertBlankPending,
+				target: ref,
+				meta: outlineHotkeys.insertEmptyCommitBelow.meta,
 			},
 		},
 		...Match.value(selection).pipe(

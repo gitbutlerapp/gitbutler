@@ -12,16 +12,17 @@ export const insertBlankCommitMenuItem = (
 				label: "Above",
 				accelerator:
 					acceleratorSide === "above"
-						? toElectronAccelerator(outlineHotkeys.insertEmptyCommit.hotkey)
+						? toElectronAccelerator(outlineHotkeys.insertEmptyCommitAbove.hotkey)
 						: undefined,
 				onSelect: () => insertBlankCommit("above"),
 			}),
 			nativeMenuItem({
 				label: "Below",
-				accelerator:
+				accelerator: toElectronAccelerator(
 					acceleratorSide === "below"
-						? toElectronAccelerator(outlineHotkeys.insertEmptyCommit.hotkey)
-						: undefined,
+						? outlineHotkeys.insertEmptyCommitAbove.hotkey
+						: outlineHotkeys.insertEmptyCommitBelow.hotkey,
+				),
 				onSelect: () => insertBlankCommit("below"),
 			}),
 		],

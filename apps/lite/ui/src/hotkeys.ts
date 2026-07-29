@@ -152,11 +152,18 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
-	insertEmptyCommit: {
+	insertEmptyCommitAbove: {
 		hotkey: "N",
 		meta: {
 			group: "Commit",
-			name: "Insert empty commit",
+			name: "Insert empty commit above",
+		},
+	},
+	insertEmptyCommitBelow: {
+		hotkey: "Shift+N",
+		meta: {
+			group: "Commit",
+			name: "Insert empty commit below",
 		},
 	},
 	createDependentBranchAbove: {
