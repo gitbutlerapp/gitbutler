@@ -126,17 +126,18 @@
 	padding-block-end: var(--panel-padding-block);
 }
 
+.diffTab {
+	/* Stretch/shrink the panel group to fit this element. */
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+}
+
 .filesPanelContent {
 	display: flex;
 	grid-row: 1 / -1;
 	flex-direction: column;
 	overflow: hidden;
-}
-
-.filesHeader {
-	/* The tab already provides the panel inline padding; cancel the header's own. */
-	--panel-padding-inline: 0px;
-	padding-block-start: 0;
 }
 
 .filesScrollerArea {

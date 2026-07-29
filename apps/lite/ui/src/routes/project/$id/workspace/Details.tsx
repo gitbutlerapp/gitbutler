@@ -885,6 +885,7 @@ const FilesToggle: FC = () => {
 						type="button"
 						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
 						aria-label={workspaceHotkeys.toggleFiles.meta.name}
+						aria-pressed={filesVisible}
 						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 					>
 						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-show" />}
