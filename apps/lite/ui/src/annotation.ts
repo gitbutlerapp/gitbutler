@@ -3,7 +3,7 @@ import type {
 	CommentCreateParams,
 	CommentUpdateParams,
 } from "#electron/ipc.ts";
-import type { QueryKey } from "#ui/api/queries.ts";
+import { commentsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { FileParent } from "#ui/operands.ts";
@@ -64,10 +64,34 @@ export const useCommentCreate = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (params: CommentCreateParams) => window.lite.commentCreate(params),
+		mutationFn: (params: CommentCreateParams & { comment: { id: string } }) =>
+			window.lite.commentCreate(params),
+		onMutate: async (input, ctx) => {
+			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
+
+			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
+
+			const now = Date.now();
+			const appended: DiffComment = {
+				...input.comment,
+				lineContent: "",
+				createdAtMs: now,
+				updatedAtMs: now,
+				context: null,
+			};
+
+			ctx.client.setQueryData(
+				commentsQueryOptions(input.projectId).queryKey,
+				(comments) => comments?.concat(appended) ?? [appended],
+			);
+
+			return prev;
+		},
 		onSettled: (_comment, _err, input, _result, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, input.projectId] }),
-		onError: (error) => {
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
+
 			// oxlint-disable-next-line no-console
 			console.error(error);
 
@@ -87,7 +111,7 @@ export const useCommentUpdate = () => {
 	return useMutation({
 		mutationFn: (params: CommentUpdateParams) => window.lite.commentUpdate(params),
 		onSettled: (_comment, _err, input, _result, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, input.projectId] }),
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -107,9 +131,22 @@ export const useCommentArchive = () => {
 
 	return useMutation({
 		mutationFn: (params: CommentArchiveParams) => window.lite.commentArchive(params),
+		onMutate: async (input, ctx) => {
+			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
+
+			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
+
+			ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, (comments) =>
+				comments?.filter((comment) => comment.id !== input.id),
+			);
+
+			return prev;
+		},
 		onSettled: (_comment, _err, input, _result, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, input.projectId] }),
-		onError: (error) => {
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
+
 			// oxlint-disable-next-line no-console
 			console.error(error);
 

@@ -658,23 +658,20 @@ const DiffContents: FC<{
 					const file = fileByItemId.get(item.id);
 					if (!file) return;
 
-					createComment(
-						{
-							projectId,
-							comment: {
-								path: file.operand.path,
-								commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
-								side: annotationSideToDiffSide(line.side),
-								lineNumber: line.lineNumber,
-								payload: "",
-							},
+					const id = crypto.randomUUID();
+					newFocusableAnnotationIdRef.current = id;
+
+					createComment({
+						projectId,
+						comment: {
+							id,
+							path: file.operand.path,
+							commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+							side: annotationSideToDiffSide(line.side),
+							lineNumber: line.lineNumber,
+							payload: "",
 						},
-						{
-							onSuccess: (comment) => {
-								newFocusableAnnotationIdRef.current = comment.id;
-							},
-						},
-					);
+					});
 				};
 
 				return (
