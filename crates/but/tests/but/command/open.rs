@@ -41,7 +41,7 @@ fn open_with_ambiguous_program() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not automatically choose program
+Error: Could not automatically choose program. Found nvim, cursor, sublime, vscode, zed, echo, touch
 
 Hint: Specify a program with `--program-id`
 
@@ -682,33 +682,46 @@ fn user_defined_programs_list_can_set_extension_list_for_builtins() {
 
     std::fs::write(
         programs_json,
-        r#"[
-   {
-     "name": "Sentinel to make sure we don't just pick the first definition",
-     "executable": {
-       "type": "pathExecutable",
-       "nameOrPath": "echo",
-       "requiresTerminal": true
-     },
-     "openArgs": [
-       "WRONG PROGRAM"
-     ]
-   },
-   {
-     "id": "echo",
-     "extensions": ["txt"]
-   },
-   {
-     "id": "touch",
-     "extensions": ["*"]
-   }
-]
-   "#,
+        serde_json::to_string_pretty(&serde_json::json!(
+            [
+                {
+                  "name": "Sentinel to make sure we don't just pick the first definition",
+                  "executable": {
+                    "type": "pathExecutable",
+                    "nameOrPath": "echo",
+                    "requiresTerminal": true
+                  },
+                  "openArgs": [
+                    "WRONG PROGRAM"
+                  ]
+                },
+                {
+                  "id": "echo",
+                  "extensions": ["txt"]
+                },
+                {
+                  "id": "touch",
+                  "extensions": ["*"]
+                }
+            ]
+        ))
+        .unwrap(),
     )
     .unwrap();
 
-    // should find echo
+    // should find echo by extension and touch by wildcard
     env.but("_open file.txt")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not automatically choose program. Found echo, touch
+
+Hint: Specify a program with `--program-id`
+
+"#]]);
+
+    // should find echo by extension and touch by wildcard
+    env.but("_open file.txt --program-id echo")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -785,8 +798,19 @@ filepath='/[..]/Dockerfile'
 
 "#]]);
 
-    // should select echo as it's handler for the first file
+    // should find echo by extension and touch by wildcard
     env.but("_open file.txt file.md Dockerfile")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not automatically choose program. Found echo, touch
+
+Hint: Specify a program with `--program-id`
+
+"#]]);
+
+    // should select echo as it's handler for the first file
+    env.but("_open file.txt file.md Dockerfile --program-id echo")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

@@ -513,6 +513,8 @@ async fn match_subcommand(
             sources,
             program_id,
         } => {
+            use crate::utils::IntermediateChannel;
+
             let ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -521,7 +523,8 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::open::open(&ctx, sources, program_id).emit_metrics(metrics_ctx)
+            let out = IntermediateChannel::new(out);
+            command::open::open(&ctx, out, sources, program_id).emit_metrics(metrics_ctx)
         }
         Subcommands::Completions { shell } => command::completions::generate_completions(shell)
             .emit_metrics(metrics_ctx)

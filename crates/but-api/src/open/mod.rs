@@ -738,7 +738,16 @@ pub fn list_program_specs_for_file(path: &Path) -> Vec<ProgramSpec> {
     }
 
     if !exact_extension_matches.is_empty() {
-        exact_extension_matches
+        let mut exact_matches_and_wildcards = exact_extension_matches;
+
+        // still include wildcard matches even if there are exact matches
+        exact_matches_and_wildcards.append(&mut wildcard_extension_matches);
+
+        // maintain the sort from programs.json
+        exact_matches_and_wildcards
+            .sort_unstable_by_key(|program| all_specs.iter().position(|p| p.id == program.id));
+
+        exact_matches_and_wildcards
     } else if !wildcard_extension_matches.is_empty() {
         wildcard_extension_matches
     } else {
