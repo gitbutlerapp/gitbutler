@@ -53,11 +53,14 @@ type DetailsSelectionScope = Extract<SelectionScope, "uncommitted-files" | "outl
 
 type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" }>;
 
+export type BranchTab = "diff" | "pr";
+
 type WorkspaceState = {
 	checkedOperands: Record<string, CheckableOperand>;
 	detailsSelectionScope: DetailsSelectionScope | null;
 	highlightedCommitIds: Array<string>;
 	mode: OutlineMode;
+	selectedBranchTabs: Record<string, BranchTab>;
 	selection: SelectionState;
 };
 
@@ -73,10 +76,13 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	detailsSelectionScope: null,
 	highlightedCommitIds: [],
 	mode: defaultOutlineMode,
+	selectedBranchTabs: {},
 	selection: createInitialSelectionState(),
 });
 
 export type OutlineTab = "workspace" | "branches";
+
+const defaultBranchTab: BranchTab = "diff";
 
 export type ProjectState = {
 	filesVisible: boolean;
@@ -382,6 +388,14 @@ export const projectReducers = {
 	toggleFiles: (state: ProjectState) => {
 		state.filesVisible = !state.filesVisible;
 	},
+	setSelectedBranchTab: (
+		state: ProjectState,
+		{ branchName, tab }: { branchName: string; tab: BranchTab },
+	) => {
+		if (state.workspace.selectedBranchTabs[branchName] === tab) return;
+
+		state.workspace.selectedBranchTabs[branchName] = tab;
+	},
 	setOutlineTab: (state: ProjectState, { tab }: { tab: OutlineTab }) => {
 		if (state.outlineTab === tab) return;
 
@@ -469,6 +483,8 @@ const selectHasCheckedOperands = createSelector(
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
 	selectOutlineTab: (state: ProjectState) => state.outlineTab,
+	selectBranchTab: (state: ProjectState, branchName: string): BranchTab =>
+		state.workspace.selectedBranchTabs[branchName] ?? defaultBranchTab,
 	selectCanShowFiles: (state: ProjectState) =>
 		state.workspace.detailsSelectionScope !== "uncommitted-files",
 	selectDetailsSelectionScope: (state: ProjectState) => state.workspace.detailsSelectionScope,

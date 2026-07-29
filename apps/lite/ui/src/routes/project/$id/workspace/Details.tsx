@@ -40,6 +40,7 @@ import {
 	weakCommitIdentityKey,
 	weakFileIdentityKey,
 } from "#ui/operands.ts";
+import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -144,8 +145,6 @@ import {
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 
 type Annotation = { _tag: "local"; id: string };
-
-type BranchTab = "diff" | "pr";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -1735,7 +1734,15 @@ const BranchDetails: FC<{
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
+	const branchRef = decodeBytes(selection.branchRef);
+	const branchName = branchDetailsParams(branchRef).branchName;
+	const branchTab = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
+	);
+
+	const setBranchTab = (tab: BranchTab) => {
+		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
+	};
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -1798,8 +1805,6 @@ const BranchDetails: FC<{
 			: parentSegment.pushStatus === "completelyUnpushed"
 				? undefined
 				: parentSegment.refName?.displayName;
-
-	const branchName = branchDetailsParams(decodeBytes(selection.branchRef)).branchName;
 
 	return (
 		<div className={styles.container} ref={ref}>
@@ -1927,9 +1932,7 @@ const BranchDetails: FC<{
 						)}
 					</div>
 				) : (
-					<SuspenseQuery
-						{...branchDiffQueryOptions({ projectId, branch: decodeBytes(selection.branchRef) })}
-					>
+					<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: branchRef })}>
 						{({ data: branchDiff }) => (
 							<Diff
 								changes={branchDiff.changes}
