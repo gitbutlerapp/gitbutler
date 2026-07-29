@@ -98,6 +98,13 @@ export const focusVerticalSelectionScope = (offset: -1 | 1) => {
 	if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
 };
 
+export const autofocusSelectionScope = (el: HTMLElement) => {
+	// Don't steal focus if this component is mounted later on.
+	if (document.activeElement !== document.body) return;
+
+	el.focus({ focusVisible: false });
+};
+
 export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
 	projectId,

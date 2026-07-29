@@ -69,7 +69,7 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import type { SelectionScope } from "#ui/selection-scopes.ts";
+import { autofocusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -284,10 +284,7 @@ const UncommittedChanges: FC<{
 					}
 					projectId={projectId}
 					ref={(el) => {
-						// Don't steal focus if this component is mounted later on.
-						if (document.activeElement !== document.body) return;
-
-						el?.focus({ focusVisible: false });
+						if (el) autofocusSelectionScope(el);
 					}}
 					selection={fileSelection}
 				/>
