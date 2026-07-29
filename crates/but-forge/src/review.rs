@@ -1681,10 +1681,15 @@ pub enum GitHubStackingMode {
     Native,
 }
 
-/// Remove conflicting native GitHub stack membership before changing review target branches.
+/// Remove native GitHub stack membership before changing review target branches.
 ///
 /// The caller temporarily flattens reordered reviews onto trunk before pushing their refs. GitHub
-/// requires conflicting native stack membership to be removed before those target updates.
+/// refuses to change the base branch of any stacked pull request — even when membership and
+/// ordering stay the same — so every native stack containing these reviews is dissolved first.
+///
+/// Returns the ordered memberships of the dissolved stacks so a failed push can restore them via
+/// [`restore_native_stacks`]. After a successful push, regular synchronization re-registers the
+/// desired membership.
 pub async fn prepare_review_target_updates(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1692,7 +1697,7 @@ pub async fn prepare_review_target_updates(
     reviews: &[ForgeReviewUpdate],
     storage: &but_forge_storage::Controller,
     github_stacking_mode: GitHubStackingMode,
-) -> Result<()> {
+) -> Result<Vec<Vec<i64>>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
@@ -1700,12 +1705,12 @@ pub async fn prepare_review_target_updates(
         || github_stacking_mode != GitHubStackingMode::Native
         || reviews.is_empty()
     {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     let (_, head_repo) = github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
     if head_repo.is_some() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
@@ -1713,13 +1718,56 @@ pub async fn prepare_review_target_updates(
         .iter()
         .map(|review| review.number)
         .collect::<Vec<_>>();
-    let prepared =
-        but_github::stacks::prepare(preferred_account, owner, repo, &pr_numbers, storage).await?;
-    if let but_github::stacks::Availability::Supported(plan) = prepared {
-        but_github::stacks::unstack_conflicting(preferred_account, owner, repo, &plan, storage)
-            .await?;
+    let dissolved =
+        but_github::stacks::dissolve(preferred_account, owner, repo, &pr_numbers, storage).await?;
+    let but_github::stacks::Availability::Supported(stacks) = dissolved else {
+        return Ok(Vec::new());
+    };
+    // GitHub keeps closed pull requests as stack members but refuses to register a stack
+    // containing one, so they are dropped from the rollback snapshot. A stack needs two open
+    // members to be restorable at all.
+    Ok(stacks
+        .into_iter()
+        .filter_map(|stack| {
+            let open: Vec<i64> = stack
+                .pull_requests
+                .into_iter()
+                .filter(|review| !review.is_closed())
+                .map(|review| review.number)
+                .collect();
+            (open.len() >= 2).then_some(open)
+        })
+        .collect())
+}
+
+/// Re-register native stacks dissolved by [`prepare_review_target_updates`] after a failed push.
+///
+/// Call this only after the affected review target branches have been restored, so the recreated
+/// stacks match the bases GitHub sees.
+pub async fn restore_native_stacks(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    stacks: &[Vec<i64>],
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo { owner, repo, .. } = forge_repo_info;
+    let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+    let mut errors = Vec::new();
+    for pull_requests in stacks {
+        if let Err(err) =
+            but_github::stacks::create(preferred_account, owner, repo, pull_requests, storage).await
+        {
+            errors.push(format!("{err:#}"));
+        }
     }
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "Could not restore native GitHub stack membership after the push failed:\n{}",
+            errors.join("\n")
+        )
+    }
 }
 
 async fn github_review_bodies(
@@ -1760,10 +1808,11 @@ async fn sync_github_reviews_with_descriptions(
     owner: &str,
     repo: &str,
     reviews: &[ForgeReviewUpdate],
-    pr_numbers: &[i64],
     storage: &but_forge_storage::Controller,
     description_mode: ReviewStackingDescription,
+    update_bases: bool,
 ) -> Result<Vec<String>> {
+    let pr_numbers: Vec<i64> = reviews.iter().map(|review| review.number).collect();
     let (bodies, mut errors) =
         github_review_bodies(preferred_account, owner, repo, reviews, storage).await?;
     for (review, current_body) in reviews.iter().zip(bodies) {
@@ -1771,7 +1820,7 @@ async fn sync_github_reviews_with_descriptions(
             update_body_with_mode(
                 body.as_deref(),
                 review.number,
-                pr_numbers,
+                &pr_numbers,
                 "#",
                 description_mode,
             )
@@ -1782,7 +1831,11 @@ async fn sync_github_reviews_with_descriptions(
             pr_number: review.number,
             title: None,
             body: updated_body.as_deref(),
-            base: review.target_branch.as_deref(),
+            base: if update_bases {
+                review.target_branch.as_deref()
+            } else {
+                None
+            },
             state: None,
         };
         if let Err(err) = but_github::pr::update(preferred_account, params, storage).await {
@@ -1797,27 +1850,68 @@ async fn sync_github_native_reviews(
     owner: &str,
     repo: &str,
     reviews: &[ForgeReviewUpdate],
-    pr_numbers: &[i64],
     storage: &but_forge_storage::Controller,
     description_mode: ReviewStackingDescription,
 ) -> Result<but_github::stacks::Availability<Vec<String>>> {
+    let pr_numbers: Vec<i64> = reviews.iter().map(|review| review.number).collect();
     let prepared =
-        but_github::stacks::prepare(preferred_account, owner, repo, pr_numbers, storage).await?;
-    let but_github::stacks::Availability::Supported(plan) = prepared else {
+        but_github::stacks::prepare(preferred_account, owner, repo, &pr_numbers, storage).await?;
+    let but_github::stacks::Availability::Supported(mut prepared) = prepared else {
         return Ok(but_github::stacks::Availability::Unsupported);
     };
+
+    // A surviving stack pins every member's base except the bottom one, whose base is the
+    // stack's target branch. That base can still be stale — e.g. the workspace target changed
+    // while pre-push flattening was skipped for lack of cached current targets. Skipping it as
+    // locked would report success and mask the drift, so verify it and rebuild on mismatch.
+    if !prepared.locked.is_empty()
+        && let Some(bottom) = reviews.first()
+        && let Some(desired_target) = bottom.target_branch.as_deref()
+    {
+        let current = but_github::pr::get(
+            preferred_account,
+            owner,
+            repo,
+            bottom.number.try_into()?,
+            storage,
+        )
+        .await?;
+        if current.target_branch != desired_target {
+            but_github::stacks::dissolve(preferred_account, owner, repo, &pr_numbers, storage)
+                .await?;
+            prepared = but_github::stacks::PreparedPlan {
+                plan: but_github::stacks::ReconcilePlan::Create {
+                    desired: pr_numbers.clone(),
+                },
+                locked: Vec::new(),
+            };
+        }
+    }
+
     let (bodies, mut errors) =
         github_review_bodies(preferred_account, owner, repo, reviews, storage).await?;
 
     // Rebuilds have to dissolve the old native membership before GitHub will accept reordered
     // target branches. Legacy footers remain in place until the new native shape is durable.
-    but_github::stacks::unstack_conflicting(preferred_account, owner, repo, &plan, storage).await?;
+    but_github::stacks::unstack_conflicting(
+        preferred_account,
+        owner,
+        repo,
+        &prepared.plan,
+        storage,
+    )
+    .await?;
 
     let mut target_errors = Vec::new();
     for review in reviews {
         let Some(target_branch) = review.target_branch.as_deref() else {
             continue;
         };
+        // GitHub rejects base updates for current stack members, even when the base is
+        // unchanged. Surviving members keep the bases the stack already enforces.
+        if prepared.locked.contains(&review.number) {
+            continue;
+        }
         let params = but_github::UpdatePullRequestParams {
             owner,
             repo,
@@ -1832,13 +1926,15 @@ async fn sync_github_native_reviews(
         }
     }
     if !target_errors.is_empty() {
+        // Dissolved membership stays dissolved here; the next successful synchronization sees
+        // no registered stacks and recreates the desired one.
         anyhow::bail!(
             "Could not update all PR targets before native stack registration:\n{}",
             target_errors.join("\n")
         );
     }
 
-    but_github::stacks::finish(preferred_account, owner, repo, &plan, storage).await?;
+    but_github::stacks::finish(preferred_account, owner, repo, &prepared.plan, storage).await?;
 
     // GitHub now renders the native stack. Independently honor the configured GitButler
     // description mode and preserve user text.
@@ -1849,7 +1945,7 @@ async fn sync_github_native_reviews(
         let updated_body = update_body_with_mode(
             current_body.as_deref(),
             review.number,
-            pr_numbers,
+            &pr_numbers,
             "#",
             description_mode,
         );
@@ -1928,7 +2024,6 @@ pub async fn sync_reviews(
                     owner,
                     repo,
                     reviews,
-                    &pr_numbers,
                     storage,
                     description_mode,
                 )
@@ -1947,24 +2042,29 @@ pub async fn sync_reviews(
                                 owner,
                                 repo,
                                 reviews,
-                                &pr_numbers,
                                 storage,
                                 description_mode,
+                                true,
                             )
                             .await?,
                         );
                     }
                     Err(err) => {
                         errors.push(format!("GitHub native stack: {err}"));
+                        // Some reviews may still be native stack members, and GitHub rejects
+                        // base updates for members, so sync only descriptions. Because this
+                        // function returns an error, the caller does not cache the desired
+                        // targets, and the next synchronization still sees the drift and
+                        // reconciles bases and membership.
                         errors.extend(
                             sync_github_reviews_with_descriptions(
                                 preferred_account,
                                 owner,
                                 repo,
                                 reviews,
-                                &pr_numbers,
                                 storage,
                                 description_mode,
+                                false,
                             )
                             .await?,
                         );
@@ -1991,9 +2091,9 @@ pub async fn sync_reviews(
                         owner,
                         repo,
                         reviews,
-                        &pr_numbers,
                         storage,
                         description_mode,
+                        true,
                     )
                     .await?,
                 );

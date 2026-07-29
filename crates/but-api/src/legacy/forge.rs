@@ -1107,10 +1107,13 @@ fn cache_review_target_updates(
 }
 
 /// Prepare native forge state before temporarily flattening review targets for a reordered push.
+///
+/// Returns the ordered memberships of any native GitHub stacks that had to be dissolved, so a
+/// failed push can restore them.
 pub(crate) async fn prepare_review_target_updates(
     ctx: ThreadSafeContext,
     reviews: Vec<but_forge::ForgeReviewTargetUpdate>,
-) -> Result<()> {
+) -> Result<Vec<Vec<i64>>> {
     let (
         storage,
         forge_repo_info,
@@ -1151,6 +1154,8 @@ pub(crate) async fn prepare_review_target_updates(
 /// The original remote targets changed while preparing a reviewed stack for push.
 pub(crate) struct ReviewTargetFlattening {
     original_targets: Vec<but_forge::ForgeReviewTargetUpdate>,
+    /// Ordered memberships of native GitHub stacks dissolved before flattening.
+    dissolved_stacks: Vec<Vec<i64>>,
 }
 
 /// Temporarily point a reordered reviewed stack at trunk before its refs are pushed.
@@ -1170,10 +1175,11 @@ pub(crate) async fn flatten_review_targets_before_push(
         .iter()
         .map(|(desired, _)| desired.clone())
         .collect::<Vec<_>>();
-    prepare_review_target_updates(ctx.clone(), desired).await?;
+    let dissolved_stacks = prepare_review_target_updates(ctx.clone(), desired).await?;
 
     let mut flattening = ReviewTargetFlattening {
         original_targets: Vec::new(),
+        dissolved_stacks,
     };
     for (review, current_target) in reviews {
         if !reviews_to_flatten.contains(&review.number) {
@@ -1241,14 +1247,41 @@ pub(crate) async fn restore_review_targets(
             ));
         }
     }
-    if errors.is_empty() {
-        Ok(())
-    } else {
+    if !errors.is_empty() {
+        if !flattening.dissolved_stacks.is_empty() {
+            errors.push(
+                "Native GitHub stack membership was not restored; the next successful push will \
+                 recreate it."
+                    .to_string(),
+            );
+        }
         anyhow::bail!(
             "Could not restore all review targets after the push failed:\n{}",
             errors.join("\n")
         )
     }
+    if flattening.dissolved_stacks.is_empty() {
+        return Ok(());
+    }
+
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let project_meta = ctx.project_meta()?;
+        let repo = ctx.repo.get()?;
+        let (forge_repo_info, _) = base_and_push_repo_info(&project_meta, &repo)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::restore_native_stacks(
+        &preferred_forge_user,
+        &forge_repo_info,
+        &flattening.dissolved_stacks,
+        &storage,
+    )
+    .await
 }
 
 fn review_target_flattening_plan(
