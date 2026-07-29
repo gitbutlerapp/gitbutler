@@ -1,6 +1,5 @@
 import rowStyles from "./Row.module.css";
 import {
-	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
@@ -29,8 +28,15 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow } from "./FileRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
-import { useOpenInProgram } from "#ui/api/mutations.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import {
+	useCommitDiscardChanges,
+	useCommitUncommitChanges,
+	useDiscardWorktreeChanges,
+	useOpenInProgram,
+} from "#ui/api/mutations.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 const useFilesTreeHotkeys = ({
 	checkFile,
@@ -40,6 +46,7 @@ const useFilesTreeHotkeys = ({
 	ref,
 	fileParent,
 	selection,
+	selectedChange,
 }: {
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 	navigationIndex: NavigationIndex<string>;
@@ -48,37 +55,45 @@ const useFilesTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 	fileParent: FileParent;
 	selection: string | null;
+	selectedChange: TreeChange | null;
 }) => {
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
+	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
+		useCommitDiscardChanges();
+	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
+		useCommitUncommitChanges();
+	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
+		useDiscardWorktreeChanges();
 
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
+	const selectedUncommittedChange =
+		fileParent._tag === "UncommittedChanges" ? selectedChange : null;
 
 	const absorbSelectedFile = () => {
-		if (selectedChangesFile === null) return;
-
-		const change = worktreeChanges?.changes.find((change) => change.path === selectedChangesFile);
-		if (!change) return;
+		if (selectedUncommittedChange === null) return;
 
 		dispatch(
 			projectSlice.actions.enterAbsorbMode({
 				projectId,
-				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
+				source: fileOperand({
+					parent: uncommittedChangesFileParent,
+					path: selectedUncommittedChange.path,
+				}),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
-						changes: [change],
+						changes: [selectedUncommittedChange],
 						assignedStackId: null,
 					},
 				},
@@ -96,6 +111,39 @@ const useFilesTreeHotkeys = ({
 		event.stopPropagation();
 		checkFile({ path: selection, shiftKey: event.shiftKey });
 	};
+
+	const discardSelectedFile = () => {
+		if (selectedChange === null) return;
+
+		const changes = [createDiffSpec(selectedChange, [])];
+		if (fileParent._tag === "Commit") {
+			commitDiscardChanges({
+				projectId,
+				commitId: fileParent.commitId,
+				changes,
+				dryRun: false,
+			});
+		} else if (fileParent._tag === "UncommittedChanges") {
+			discardWorktreeChanges({ projectId, changes });
+		}
+	};
+
+	const uncommitSelectedFile = () => {
+		if (selectedChange === null || fileParent._tag !== "Commit") return;
+
+		commitUncommitChanges({
+			projectId,
+			commitId: fileParent.commitId,
+			assignTo: null,
+			changes: [createDiffSpec(selectedChange, [])],
+			dryRun: false,
+		});
+	};
+
+	const canDiscardSelectedFile =
+		selectedChange !== null &&
+		((fileParent._tag === "Commit" && !isCommitDiscardChangesPending) ||
+			(fileParent._tag === "UncommittedChanges" && !isDiscardWorktreeChangesPending));
 
 	useHotkeys([
 		{
@@ -118,6 +166,16 @@ const useFilesTreeHotkeys = ({
 				stopPropagation: false,
 				target: ref,
 				meta: changesFileHotkeys.checkFile.meta,
+			},
+		},
+		{
+			hotkey: changesFileHotkeys.discard.hotkey,
+			callback: discardSelectedFile,
+			options: {
+				conflictBehavior: "allow",
+				enabled: isDefaultMode && canDiscardSelectedFile,
+				target: ref,
+				meta: changesFileHotkeys.discard.meta,
 			},
 		},
 		{
@@ -148,6 +206,20 @@ const useFilesTreeHotkeys = ({
 				enabled: preferredEditor && selectedChangesFile !== null,
 				target: ref,
 				meta: changesFileHotkeys.openInEditor.meta,
+			},
+		},
+		{
+			hotkey: changesFileHotkeys.uncommit.hotkey,
+			callback: uncommitSelectedFile,
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					isDefaultMode &&
+					selectedChange !== null &&
+					fileParent._tag === "Commit" &&
+					!isCommitUncommitChangesPending,
+				target: ref,
+				meta: changesFileHotkeys.uncommit.meta,
 			},
 		},
 	]);
@@ -206,6 +278,9 @@ export const FilesTree: FC<
 
 	const fileCheckRangeAnchor = useRef<string>(null);
 	const fileCheckRangeEnd = useRef<string>(null);
+	const selectedItem =
+		selection === null ? undefined : items.find((item) => item.path === selection);
+	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
 
 	const rangeResolver = navigationIndexRange<string, string>({
 		navigationIndex,
@@ -262,6 +337,7 @@ export const FilesTree: FC<
 		ref,
 		fileParent,
 		selection,
+		selectedChange,
 	});
 
 	return (
