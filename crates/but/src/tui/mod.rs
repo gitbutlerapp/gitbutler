@@ -149,7 +149,7 @@ fn leave_terminal_mode<W: io::Write>(
             writer,
             DisableMouseCapture,
             DisableFocusChange,
-            LeaveAlternateScreen
+            LeaveAlternateScreen,
         )?;
     } else if config.uses_alt_screen {
         crossterm::execute!(writer, DisableFocusChange, LeaveAlternateScreen)?;
@@ -231,6 +231,7 @@ impl TerminalGuard for CrosstermTerminalGuard {
     fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>> {
         disable_raw_mode()?;
         leave_terminal_mode(self.terminal.backend_mut(), &self.config)?;
+        self.terminal.show_cursor()?;
 
         Ok(SuspendGuard(self))
     }
@@ -248,6 +249,7 @@ impl Drop for SuspendGuard<'_> {
     fn drop(&mut self) {
         _ = enable_raw_mode();
         _ = enter_terminal_mode(self.0.terminal.backend_mut(), &self.0.config);
+        _ = self.0.terminal.hide_cursor();
         if self.0.config.uses_alt_screen {
             _ = self.0.terminal.clear();
         }
