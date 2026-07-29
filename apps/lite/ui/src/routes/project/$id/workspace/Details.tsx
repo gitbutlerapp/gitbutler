@@ -133,7 +133,6 @@ import {
 	annotationSideToDiffSide,
 	annotationsByPathForScope,
 	commentScopeChangeId,
-	type LocalAnnotation as PersistedLocalAnnotation,
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
@@ -195,7 +194,6 @@ const mkCodeViewItem = (
 	id: string,
 	change: TreeChange,
 	hunks: Array<DiffHunk>,
-	annotations: Array<PersistedLocalAnnotation>,
 ): CodeViewDiffItem<Annotation> => {
 	const combinedFilePatch = synthesizeFilePatch(change, hunks);
 	const version = hash(combinedFilePatch);
@@ -209,25 +207,12 @@ const mkCodeViewItem = (
 	if (!fileDiff) throw new Error("Failed to parse any files in patch");
 	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
 
-	const itemAnnotations: Array<DiffLineAnnotation<Annotation>> = annotations.map(
-		({ id, lineNumber, side }) => ({
-			lineNumber,
-			side,
-			metadata: { _tag: "local", id },
-		}),
-	);
-
 	return {
 		type: "diff",
 		id,
-		// Annotations move when their backend anchor drifts, so the version must cover their
-		// positions and identities, not just their count.
-		version: combineHashes(
-			version,
-			hash(itemAnnotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join()),
-		),
+		version,
 		fileDiff,
-		annotations: itemAnnotations,
+		annotations: [],
 	};
 };
 
@@ -235,7 +220,6 @@ type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
-	annotationsByPath: LocalAnnotationsByPath;
 };
 
 type DiffViewFile = {
@@ -261,12 +245,7 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
-	annotationsByPath,
-}: DiffViewDeps): DiffView => {
+const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -281,7 +260,6 @@ const getDiffView = ({
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
-		const annotations = annotationsByPath.get(change.path) ?? [];
 
 		const file: FileOperand = {
 			parent: fileParent,
@@ -291,7 +269,6 @@ const getDiffView = ({
 			weakFileIdentityKey(file),
 			change,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
-			annotations,
 		);
 
 		items.push(item);
@@ -348,6 +325,34 @@ const getDiffView = ({
 	};
 };
 
+const withAnnotations = (
+	{ items, fileByItemId }: DiffView,
+	annotationsByPath: LocalAnnotationsByPath,
+): Array<CodeViewDiffItem<Annotation>> =>
+	items.map((item) => {
+		const annotations = annotationsByPath.get(assert(fileByItemId.get(item.id)).operand.path);
+		if (annotations === undefined || annotations.length === 0) return item;
+
+		const itemAnnotations: Array<DiffLineAnnotation<Annotation>> = annotations.map(
+			({ id, lineNumber, side }) => ({
+				lineNumber,
+				side,
+				metadata: { _tag: "local", id },
+			}),
+		);
+
+		return {
+			...item,
+			// Annotations move when their backend anchor drifts, so the version must cover their
+			// positions and identities, not just their count.
+			version: combineHashes(
+				assert(item.version),
+				hash(itemAnnotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join()),
+			),
+			annotations: itemAnnotations,
+		};
+	});
+
 const DiffContents: FC<{
 	localAnnotationFormId: string;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
@@ -357,6 +362,7 @@ const DiffContents: FC<{
 	scopeChangeId: string | null | undefined;
 	projectId: string;
 	diffView: DiffView;
+	items: Array<CodeViewDiffItem<Annotation>>;
 	annotationsByPath: LocalAnnotationsByPath;
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
@@ -370,7 +376,8 @@ const DiffContents: FC<{
 	fileParent,
 	scopeChangeId,
 	projectId,
-	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffView: { navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	items,
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -1051,9 +1058,14 @@ const Diff: FC<{
 		[selection],
 	);
 
-	const treeChangeDiffs = useSuspenseQueries({
+	const diffView = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => results.map((result) => result.data),
+		combine: (results) =>
+			getDiffView({
+				fileParent,
+				changes,
+				treeChangeDiffs: results.map((result) => result.data),
+			}),
 	});
 	// A primitive so the select closure below is memoised on it (see lite-render-perf).
 	const scopeChangeId = commentScopeChangeId(fileParent);
@@ -1067,12 +1079,7 @@ const Diff: FC<{
 				: annotationsByPathForScope(comments, scopeChangeId),
 	});
 
-	const diffView = getDiffView({
-		fileParent,
-		changes,
-		treeChangeDiffs,
-		annotationsByPath,
-	});
+	const diffItems = withAnnotations(diffView, annotationsByPath);
 
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
@@ -1236,6 +1243,7 @@ const Diff: FC<{
 							scopeChangeId={scopeChangeId}
 							projectId={projectId}
 							diffView={diffView}
+							items={diffItems}
 							annotationsByPath={annotationsByPath}
 							diffBackgrounds={diffSettings?.diffBackground}
 							diffOverflow={diffSettings?.diffOverflow}

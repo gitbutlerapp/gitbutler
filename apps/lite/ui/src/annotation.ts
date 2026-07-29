@@ -3,7 +3,7 @@ import type {
 	CommentCreateParams,
 	CommentUpdateParams,
 } from "#electron/ipc.ts";
-import type { QueryKey } from "#ui/api/queries.ts";
+import { commentsQueryOptions, type QueryKey } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { FileParent } from "#ui/operands.ts";
@@ -90,7 +90,11 @@ export const useCommentCreate = () => {
 	const onError = useCommentErrorToast("Failed to create comment");
 	return useMutation({
 		mutationFn: (params: CommentCreateParams) => window.lite.commentCreate(params),
-		onSuccess: (_comment, input, _result, ctx) => invalidateComments(ctx.client, input.projectId),
+		onSuccess: (comment, input, _result, ctx) =>
+			ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, (comments) => [
+				...(comments ?? []),
+				comment,
+			]),
 		onError,
 	});
 };
