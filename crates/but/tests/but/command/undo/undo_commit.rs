@@ -83,24 +83,6 @@ fn can_undo_but_commit_dash_dash_create_existing_branch() {
 }
 
 #[test]
-#[ignore = "undoing assignments dont work. https://linear.app/gitbutler/issue/GB-1468/undoing-but-commit-only-to-commit-only-assigned-changes-doesnt-work"]
-fn can_undo_but_commit_dash_dash_only() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata_at_target(&["A"], "origin/main");
-
-    env.file("assigned.txt", "assigned content");
-    env.but("stage assigned.txt A").assert().success();
-
-    env.file("uncommitted.txt", "uncommitted content");
-
-    run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("commit -m 'Add file' assigned.txt")
-            .assert()
-            .success();
-    });
-}
-
-#[test]
 fn can_undo_but_commit_dash_dash_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata_at_target(&["A"], "origin/main");

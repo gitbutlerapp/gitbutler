@@ -1610,7 +1610,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-#[ignore = "We can't move branches below other branches right now :("]
+#[ignore = "We can't move branches below other branches right now :( https://linear.app/gitbutler/issue/GB-1735/support-all-permutations-of-moving-branches-and-commits"]
 fn move_branch_below_within_same_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
@@ -1775,7 +1775,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-#[ignore = "We can't move branches below other branches right now :("]
+#[ignore = "We can't move branches below other branches right now :( https://linear.app/gitbutler/issue/GB-1735/support-all-permutations-of-moving-branches-and-commits"]
 fn move_branch_below_to_other_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
