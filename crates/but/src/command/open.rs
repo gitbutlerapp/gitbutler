@@ -15,6 +15,7 @@ use crate::{
     args::atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
     bad_input,
     id::UncommittedHunkOrFile,
+    utils::IntermediateChannel,
 };
 
 #[derive(Debug)]
@@ -89,6 +90,7 @@ impl Openable {
 
 pub(crate) fn open(
     ctx: &Context,
+    mut out: IntermediateChannel<'_>,
     sources: Vec<CliIdArg>,
     program_id: Option<String>,
 ) -> CliResult<()> {
@@ -126,18 +128,40 @@ pub(crate) fn open(
             let program_specs = list_program_specs_for_openable(&to_open);
             match TryInto::<[ProgramSpec; 1]>::try_into(program_specs) {
                 Ok([program_spec]) => program_spec,
-                Err(programs) => {
-                    if programs.is_empty() {
+                Err(mut programs) => {
+                    if !programs.is_empty() {
+                        if let Some(mut input) = out.prepare_for_terminal_input() {
+                            let options = NonEmpty::from_vec(
+                                programs
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(idx, program)| (&program.id, idx))
+                                    .collect::<Vec<_>>(),
+                            )
+                            .expect("programs was just checked to be non-empty");
+
+                            let Some(selection) = input.prompt_select(
+                                "Could not automatically choose program. Choose one to open with",
+                                &options,
+                            )?.copied()
+                            else {
+                                return Err(bad_input("No program picked").into());
+                            };
+
+                            programs.swap_remove(selection)
+                        } else {
+                            let program_ids =
+                                programs.into_iter().map(|program| program.id).join(", ");
+                            return Err(bad_input(format!(
+                                "Could not automatically choose program. Found {program_ids}"
+                            ))
+                            .hint("Specify a program with `--program-id`")
+                            .into());
+                        }
+                    } else {
                         return Err(bad_input("Could not automatically choose program")
                             .hint("Specify a program with `--program-id`")
                             .into());
-                    } else {
-                        let program_ids = programs.into_iter().map(|program| program.id).join(", ");
-                        return Err(bad_input(format!(
-                            "Could not automatically choose program. Found {program_ids}"
-                        ))
-                        .hint("Specify a program with `--program-id`")
-                        .into());
                     }
                 }
             }
