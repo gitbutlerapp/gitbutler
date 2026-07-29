@@ -123,7 +123,7 @@ import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { AggregateCIChecks } from "#ui/ci.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
-import { draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
+import { draftPRQueryOptions, useDeleteDraftPR, usePersistDraftPR } from "#ui/pr.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { assert } from "#ui/assert.ts";
 import {
@@ -1295,6 +1295,7 @@ const PullRequestForm: FC<{
 		isDraft: persistedDocument?.isDraft ?? false,
 	});
 	const { mutate: persistDraftPR } = usePersistDraftPR();
+	const { mutate: deleteDraftPR } = useDeleteDraftPR();
 
 	const isNew = reviewId === null;
 	const isAnyPending = isPublishReviewPending || isUpdateReviewPending;
@@ -1322,21 +1323,21 @@ const PullRequestForm: FC<{
 	}
 
 	const handleBlur = () => {
-		persistDraftPR({
-			projectId,
-			branchName: sourceBranch,
-			draft: localDocument,
-		});
+		if (hasChanges) {
+			persistDraftPR({
+				projectId,
+				branchName: sourceBranch,
+				draft: localDocument,
+			});
+		} else if (persistedDocument) {
+			deleteDraftPR({ projectId, branchName: sourceBranch });
+		}
 	};
 
 	const handleReset = () => {
 		const resetDocument = { ...remoteOrEmptyDocument, isDraft: false };
 		setLocalDocument(resetDocument);
-		persistDraftPR({
-			projectId,
-			branchName: sourceBranch,
-			draft: resetDocument,
-		});
+		deleteDraftPR({ projectId, branchName: sourceBranch });
 	};
 
 	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {

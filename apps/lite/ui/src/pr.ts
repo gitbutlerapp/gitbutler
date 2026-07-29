@@ -73,3 +73,14 @@ export const usePersistDraftPR = () =>
 				input.draft,
 			),
 	});
+
+export const useDeleteDraftPR = () =>
+	useMutation({
+		mutationFn: ({ projectId, branchName }: { projectId: string; branchName: string }) =>
+			idb.del(draftPRKey({ projectId, branchName })),
+		onSuccess: (_data, input, _res, ctx) =>
+			ctx.client.setQueryData(
+				draftPRQueryOptions({ projectId: input.projectId, branchName: input.branchName }).queryKey,
+				null,
+			),
+	});
