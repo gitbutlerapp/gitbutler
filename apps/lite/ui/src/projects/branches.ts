@@ -25,7 +25,7 @@ export type BranchesState = {
 
 const initialState = (): BranchesState => ({
 	selection: null,
-	filters: { showEmpty: false, onlyLocal: false, onlyStacks: false },
+	filters: { showEmpty: false, onlyLocal: true, onlyStacks: false },
 	search: "",
 	unfolded: {},
 });
