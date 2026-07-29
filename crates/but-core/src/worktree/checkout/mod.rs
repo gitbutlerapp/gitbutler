@@ -18,6 +18,11 @@ pub struct Options {
     /// conflict workflow instead. Rebase materialization may opt in when it
     /// intentionally created the conflicted commit it is about to materialize.
     pub allow_conflicted_commit_checkout: bool,
+    /// Normally, the 3-way merge between the merge base override, the working
+    /// directory, and the new HEAD must not result in a conflict. If this field
+    /// is true, such a conflict is allowed; all stages in all conflicts will be
+    /// written to the index.
+    pub allow_uncommitted_changes_to_conflict_with_new_head: bool,
 }
 
 /// The successful outcome of [super::safe_checkout_from_head()] operation.
@@ -25,6 +30,9 @@ pub struct Options {
 pub struct Outcome {
     /// If `new_head_id` was a commit, these are the ref-edits returned after performing the transaction.
     pub head_update: Option<Vec<gix::refs::transaction::RefEdit>>,
+    /// True if a conflict occurred during checkout. This is always false if
+    /// [Options::allow_uncommitted_changes_to_conflict_with_new_head] is false.
+    pub conflict_occurred: bool,
 }
 
 pub(crate) mod function;

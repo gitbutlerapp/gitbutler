@@ -2,7 +2,7 @@ use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
 use but_core::{DryRun, RefMetadata};
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_rebase::graph_rebase::{SuccessfulRebase, materialize::MaterializeOptions};
 
 /// Build a `{ pushed short name -> PR number }` lookup from the forge review
 /// cache, for resolving branch PR associations at projection time.
@@ -102,6 +102,7 @@ impl WorkspaceState {
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, usize>,
+        checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
         #[cfg(not(feature = "graph-workspace"))]
         {
@@ -125,6 +126,7 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 head_info,
+                checkout_conflict_occurred,
             })
         }
         #[cfg(feature = "graph-workspace")]
@@ -139,6 +141,7 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 graph_workspace: graph_workspace.into(),
+                checkout_conflict_occurred,
             })
         }
     }
@@ -154,8 +157,16 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
-        Self::from_workspace(workspace, meta, repo, replaced_commits, &HashMap::new())
+        Self::from_workspace(
+            workspace,
+            meta,
+            repo,
+            replaced_commits,
+            &HashMap::new(),
+            checkout_conflict_occurred,
+        )
     }
 
     /// Build a [`WorkspaceState`] from an already-prepared overlayed graph.
@@ -171,7 +182,7 @@ impl WorkspaceState {
         db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_workspace(workspace, meta, repo, replaced_commits, &prs_by_head)
+        Self::from_workspace(workspace, meta, repo, replaced_commits, &prs_by_head, false)
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -189,7 +200,7 @@ impl WorkspaceState {
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
         let (repo, meta) = rebase.repo_and_meta_mut();
-        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head)
+        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head, false)
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -206,36 +217,6 @@ impl WorkspaceState {
         Self::from_rebase_preview(rebase, replaced_commits, &prs_by_head)
     }
 
-    /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.
-    ///
-    /// Use this as the default entry point when an operation ends with a [`SuccessfulRebase`] and
-    /// the API should return the resulting workspace state. When `dry_run` is `true`, this
-    /// delegates to [`WorkspaceState::from_rebase_preview`] so the caller sees the projected state
-    /// without changing the repository. Otherwise it materializes the rebase, then reports the
-    /// workspace state together with the final commit-replacement mappings returned by the
-    /// materialized history.
-    fn from_successful_rebase<M: RefMetadata>(
-        rebase: SuccessfulRebase<'_, '_, M>,
-        repo: &gix::Repository,
-        dry_run: DryRun,
-        prs_by_head: &HashMap<String, usize>,
-    ) -> anyhow::Result<WorkspaceState> {
-        if dry_run.into() {
-            let mut rebase = rebase;
-            let replaced_commits = rebase.history.commit_mappings();
-            return Self::from_rebase_preview(&mut rebase, replaced_commits, prs_by_head);
-        }
-
-        let materialized = rebase.materialize(Default::default())?;
-        Self::from_workspace(
-            materialized.workspace,
-            materialized.meta,
-            repo,
-            materialized.history.commit_mappings(),
-            prs_by_head,
-        )
-    }
-
     /// Build a [`WorkspaceState`] from a successful rebase without PR associations.
     ///
     /// Prefer `WorkspaceState::from_successful_rebase_with_db` for API
@@ -247,7 +228,9 @@ impl WorkspaceState {
         repo: &gix::Repository,
         dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
-        Self::from_successful_rebase(rebase, repo, dry_run, &HashMap::new())
+        WorkspaceStateFromSuccessfulRebaseOptions::new(rebase, repo, dry_run)
+            .without_pr_associations()
+            .generate()
     }
 
     /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.
@@ -261,7 +244,102 @@ impl WorkspaceState {
         dry_run: DryRun,
         db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_successful_rebase(rebase, repo, dry_run, &prs_by_head)
+        WorkspaceStateFromSuccessfulRebaseOptions::new(rebase, repo, dry_run)
+            .with_db(db)?
+            .generate()
+    }
+}
+
+/// Options to build a [WorkspaceState] from a successful rebase.
+pub struct WorkspaceStateFromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M: RefMetadata> {
+    rebase: SuccessfulRebase<'ws, 'meta, M>,
+    repo: &'repo gix::Repository,
+    dry_run: DryRun,
+    allow_uncommitted_changes_to_conflict_with_new_head: bool,
+    prs_by_head: Option<HashMap<String, usize>>,
+}
+
+impl<'ws, 'meta, 'repo, M: RefMetadata>
+    WorkspaceStateFromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M>
+{
+    /// Creates a new set of options.
+    pub fn new(
+        rebase: SuccessfulRebase<'ws, 'meta, M>,
+        repo: &'repo gix::Repository,
+        dry_run: DryRun,
+    ) -> Self {
+        Self {
+            rebase,
+            repo,
+            dry_run,
+            allow_uncommitted_changes_to_conflict_with_new_head: false,
+            prs_by_head: None,
+        }
+    }
+
+    /// Generate with the PRs from the given db.
+    pub fn with_db(self, db: &but_db::DbHandle) -> anyhow::Result<Self> {
+        let prs_by_head = Some(forge_prs_by_head(db)?);
+        Ok(Self {
+            prs_by_head,
+            ..self
+        })
+    }
+
+    /// Generate without any PRs.
+    pub fn without_pr_associations(self) -> Self {
+        Self {
+            prs_by_head: Some(HashMap::new()),
+            ..self
+        }
+    }
+
+    /// When checking out, allow uncommitted changes to conflict.
+    pub fn allow_uncommitted_changes_to_conflict_with_new_head(
+        self,
+        allow_uncommitted_changes_to_conflict_with_new_head: bool,
+    ) -> Self {
+        Self {
+            allow_uncommitted_changes_to_conflict_with_new_head,
+            ..self
+        }
+    }
+
+    /// Generates the [WorkspaceState]. [Self::with_db] or
+    /// [Self::without_pr_associations] must have been previously called.
+    pub fn generate(self) -> anyhow::Result<WorkspaceState> {
+        let Self {
+            rebase,
+            repo,
+            dry_run,
+            allow_uncommitted_changes_to_conflict_with_new_head,
+            prs_by_head,
+        } = self;
+        let Some(prs_by_head) = prs_by_head else {
+            anyhow::bail!("BUG: must call with_db() or without_pr_associations()");
+        };
+
+        if dry_run.into() {
+            let mut rebase = rebase;
+            let replaced_commits = rebase.history.commit_mappings();
+            return WorkspaceState::from_rebase_preview(
+                &mut rebase,
+                replaced_commits,
+                &prs_by_head,
+            );
+        }
+
+        let materialized = rebase.materialize(MaterializeOptions {
+            allow_uncommitted_changes_to_conflict_with_new_head,
+            ..Default::default()
+        })?;
+        WorkspaceState::from_workspace(
+            materialized.workspace,
+            materialized.meta,
+            repo,
+            materialized.history.commit_mappings(),
+            &prs_by_head,
+            materialized.checkout_conflict_occurred,
+        )
     }
 }

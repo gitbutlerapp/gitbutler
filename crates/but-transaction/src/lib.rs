@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context as _;
 use bstr::BStr;
-use but_api::WorkspaceState;
+use but_api::{WorkspaceState, workspace_state::WorkspaceStateFromSuccessfulRebaseOptions};
 use but_core::{
     DiffSpec, DryRun, RefMetadata, commit::CommitIdentifiers, ref_metadata, sync::RepoExclusive,
     tree::create_tree::RejectionReason,
@@ -14,6 +14,7 @@ use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
     Editor, Step, SuccessfulRebase,
+    materialize::MaterializeOptions,
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::commit::{
@@ -85,7 +86,30 @@ where
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    with_transaction_with_perm(ctx, meta, perm, snapshot_details, dry_run, f)
+    with_transaction_with_perm(
+        ctx,
+        meta,
+        perm,
+        snapshot_details,
+        WithTransactionOptions {
+            dry_run,
+            ..Default::default()
+        },
+        f,
+    )
+}
+
+pub struct WithTransactionOptions {
+    pub dry_run: DryRun,
+    pub allow_uncommitted_changes_to_conflict_with_new_head: bool,
+}
+impl Default for WithTransactionOptions {
+    fn default() -> Self {
+        Self {
+            dry_run: DryRun::No,
+            allow_uncommitted_changes_to_conflict_with_new_head: false,
+        }
+    }
 }
 
 /// Like [`with_transaction`] but allows the caller to provide the lock.
@@ -94,7 +118,10 @@ pub fn with_transaction_with_perm<M, F, T>(
     meta: &mut M,
     perm: &mut RepoExclusive,
     snapshot_details: SnapshotDetails,
-    dry_run: DryRun,
+    WithTransactionOptions {
+        dry_run,
+        allow_uncommitted_changes_to_conflict_with_new_head,
+    }: WithTransactionOptions,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
@@ -166,6 +193,7 @@ where
             pending_created_independent_refs,
             dry_run,
             materialize_without_checkout.unwrap_or(false),
+            allow_uncommitted_changes_to_conflict_with_new_head,
         );
 
         let outcome = match outcome {
@@ -1124,6 +1152,7 @@ pub trait TransactionOutcome: sealed::Sealed {
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
         materialize_without_checkout: bool,
+        allow_uncommitted_changes_to_conflict_with_new_head: bool,
     ) -> anyhow::Result<Self::Outcome>;
 }
 
@@ -1145,6 +1174,7 @@ impl TransactionOutcome for () {
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
         materialize_without_checkout: bool,
+        allow_uncommitted_changes_to_conflict_with_new_head: bool,
     ) -> anyhow::Result<Self::Outcome> {
         let ws = workspace_state_from_rebase(
             rebase,
@@ -1154,6 +1184,7 @@ impl TransactionOutcome for () {
             pending_created_independent_refs,
             dry_run,
             materialize_without_checkout,
+            allow_uncommitted_changes_to_conflict_with_new_head,
         )?;
         if dry_run == DryRun::No {
             db_tx.commit()?;
@@ -1184,6 +1215,7 @@ impl<T> TransactionOutcome for Rollback<T> {
         _pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         _dry_run: DryRun,
         _materialize_without_checkout: bool,
+        _allow_uncommitted_changes_to_conflict_with_new_head: bool,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
     }
@@ -1211,6 +1243,7 @@ impl<T> TransactionOutcome for Commit<T> {
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
         materialize_without_checkout: bool,
+        allow_uncommitted_changes_to_conflict_with_new_head: bool,
     ) -> anyhow::Result<Self::Outcome> {
         let workspace = workspace_state_from_rebase(
             rebase,
@@ -1220,6 +1253,7 @@ impl<T> TransactionOutcome for Commit<T> {
             pending_created_independent_refs,
             dry_run,
             materialize_without_checkout,
+            allow_uncommitted_changes_to_conflict_with_new_head,
         )?;
         if dry_run == DryRun::No {
             db_tx.commit()?;
@@ -1253,6 +1287,7 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
         materialize_without_checkout: bool,
+        allow_uncommitted_changes_to_conflict_with_new_head: bool,
     ) -> anyhow::Result<Self::Outcome> {
         match self {
             DynamicOutcome::Commit(value) => {
@@ -1264,6 +1299,7 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
                     pending_created_independent_refs,
                     dry_run,
                     materialize_without_checkout,
+                    allow_uncommitted_changes_to_conflict_with_new_head,
                 )?;
                 if dry_run == DryRun::No {
                     db_tx.commit()?;
@@ -1275,6 +1311,7 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn workspace_state_from_rebase<M: RefMetadata>(
     rebase: SuccessfulRebase<'_, '_, M>,
     repo: &gix::Repository,
@@ -1283,18 +1320,21 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     dry_run: DryRun,
     materialize_without_checkout: bool,
+    allow_uncommitted_changes_to_conflict_with_new_head: bool,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
-        return WorkspaceState::from_successful_rebase_without_pr_associations(
-            rebase, repo, dry_run,
-        );
+        return WorkspaceStateFromSuccessfulRebaseOptions::new(rebase, repo, dry_run)
+            .without_pr_associations()
+            .allow_uncommitted_changes_to_conflict_with_new_head(
+                allow_uncommitted_changes_to_conflict_with_new_head,
+            )
+            .generate();
     }
 
-    let materialized = if materialize_without_checkout {
-        rebase.materialize_without_checkout()?
-    } else {
-        rebase.materialize(Default::default())?
-    };
+    let materialized = rebase.materialize(MaterializeOptions {
+        without_checkout: materialize_without_checkout,
+        allow_uncommitted_changes_to_conflict_with_new_head,
+    })?;
     for branch in pending_created_independent_refs {
         if materialized
             .workspace
@@ -1338,6 +1378,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),
+        materialized.checkout_conflict_occurred,
     )
 }
 
