@@ -764,15 +764,10 @@ const DiffContents: FC<{
             background-color: var(--bg-1);
           }
 
-          [data-code] {
-            border-radius: 0 0 var(--radius-card) var(--radius-card);
-          }
-
           [data-diff] {
             border-width: 0 1px 1px 1px;
             border-style: solid;
-            border-color: var(--border-3);
-            border-radius: 0 0 var(--radius-card) var(--radius-card);
+            border: none;
           }
 
           [data-column-number] {
