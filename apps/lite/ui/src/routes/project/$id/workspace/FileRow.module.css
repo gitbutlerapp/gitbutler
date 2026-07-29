@@ -23,7 +23,7 @@
 	}
 
 	&[data-status-type="Rename"] {
-		color: var(--change-status-renaming);
+		color: var(--change-status-rename);
 	}
 }
 
