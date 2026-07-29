@@ -2,7 +2,7 @@ use but_testsupport::Sandbox;
 use crossterm::event::KeyCode;
 use snapbox::file;
 
-use crate::command::legacy::status::tui::tests::utils::{Shift, test_tui};
+use crate::{command::legacy::status::tui::tests::utils::test_status_tui, tui::test_utils::Shift};
 
 #[test]
 fn squash_uncommitted_into_commit() {
@@ -11,7 +11,7 @@ fn squash_uncommitted_into_commit() {
 
     env.file("file", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'))
         .assert_rendered_term_svg_eq(file!["snapshots/squash_uncommitted_into_commit_001.svg"]);
@@ -31,7 +31,7 @@ fn squash_branch_into_commit_on_same_branch() {
 
     env.file("file", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -62,7 +62,7 @@ fn squash_branch_into_commit_on_different_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -87,7 +87,7 @@ fn squash_branch_into_self() {
 
     env.file("file", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -110,7 +110,7 @@ fn squash_branch_into_other_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('j');
@@ -135,7 +135,7 @@ fn squash_with_target_message() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -154,7 +154,7 @@ fn squash_commit_into_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -175,7 +175,7 @@ fn squash_uncommitted_hunk_to_commit() {
 
     env.file("file", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -196,7 +196,7 @@ fn squash_uncommitted_hunk_to_branch() {
 
     env.file("file", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -214,7 +214,7 @@ fn squash_commit_to_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -233,7 +233,7 @@ fn squash_committed_file_to_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -254,7 +254,7 @@ fn squash_committed_file_to_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -274,7 +274,7 @@ fn squash_uncommit_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -293,7 +293,7 @@ fn squash_uncommit_committed_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -317,7 +317,7 @@ fn squash_marked_uncommitted_files_to_commit() {
     env.file("one", "contents");
     env.file("two", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');
@@ -344,7 +344,7 @@ fn squash_marked_commits_to_commit() {
     env.file("one", "contents");
     env.file("two", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     for _ in 0..2 {
@@ -375,7 +375,7 @@ fn squash_marked_committed_files_to_commit_via_global_file_list() {
     env.file("one", "contents");
     env.file("two", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('c');
@@ -407,7 +407,7 @@ fn squash_marked_committed_files_to_commit_via_local_file_list() {
     env.file("two", "contents");
     env.file("three", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -438,7 +438,7 @@ fn squash_uncommitted_to_branch() {
     env.file("one", "contents");
     env.file("two", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('r')
         .assert_rendered_term_svg_eq(file!["snapshots/squash_uncommitted_to_branch_001.svg"]);
@@ -457,7 +457,7 @@ fn reverse_squash() {
     env.file("one", "contents");
     env.file("two", "contents");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(Shift('f'));
     tui.input('j');

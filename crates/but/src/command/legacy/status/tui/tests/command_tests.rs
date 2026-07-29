@@ -4,14 +4,14 @@ use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::BackstackEntry;
 
-use super::utils::test_tui;
+use super::utils::test_status_tui;
 
 #[test]
 fn command_mode_runs_successful_command_and_returns_to_normal_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(':')
         .assert_rendered_term_svg_eq(file!["snapshots/command_mode_success_001.svg"]);
@@ -31,7 +31,7 @@ fn leaving_command_mode_from_normal_preserves_marks() {
     env.file("one", "content of one");
     env.file("two", "content of two");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input(' ')
@@ -54,7 +54,7 @@ fn command_parse_error_preserves_status_marks() {
     env.file("one", "content of one");
     env.file("two", "content of two");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input(' ');
@@ -73,7 +73,7 @@ fn command_parse_error_preserves_details_marks() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -92,7 +92,7 @@ fn command_mode_keeps_input_when_command_exits_non_zero() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(':');
 
@@ -112,7 +112,7 @@ fn dims_unselectable_lines_while_in_command_mode() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(' ');
 

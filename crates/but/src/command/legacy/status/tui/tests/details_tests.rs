@@ -3,17 +3,20 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::{
-    TuiRunOptions,
-    tui::{
-        DetailsLayoutMessage, Message,
-        backstack::BackstackEntry,
-        tests::utils::{Shift, TestTuiOptions, test_tui, test_tui_with_options},
+use crate::{
+    command::legacy::status::{
+        TuiRunOptions,
+        tui::{
+            DetailsLayoutMessage, Message,
+            backstack::BackstackEntry,
+            tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
+        },
     },
+    tui::test_utils::Shift,
 };
 
 mod binds {
-    use crate::command::legacy::status::tui::tests::utils::Shift;
+    use crate::tui::test_utils::Shift;
 
     pub const SCROLL_DOWN: char = 'j';
     pub const SCROLL_UP: char = 'k';
@@ -27,7 +30,7 @@ fn toggle_details_view_for_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file!["snapshots/toggle_details_view_for_commit_001.svg"]);
@@ -44,7 +47,7 @@ fn details_view_updates_with_selection_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d').assert_rendered_term_svg_eq(file![
         "snapshots/details_view_updates_with_selection_changes_001.svg"
@@ -67,7 +70,7 @@ fn manual_reload_does_not_highlight_details_when_status_is_focused() {
     env.setup_metadata(&["A"]);
     env.file("uncommitted.txt", "changed\n");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
 
@@ -88,7 +91,7 @@ fn details_view_supports_scroll_controls() {
     env.file("first file.txt", file_contents.clone());
     env.file("second file.txt", file_contents);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -145,7 +148,7 @@ fn details_scroll_down_updates_selection_when_selected_hunk_leaves_view() {
     env.file("bravo.txt", numbered_lines("bravo", 8));
     env.file("charlie.txt", numbered_lines("charlie", 8));
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -172,7 +175,7 @@ fn details_scroll_up_updates_selection_to_previous_visible_hunk() {
     env.file("bravo.txt", numbered_lines("bravo", 8));
     env.file("charlie.txt", numbered_lines("charlie", 8));
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -203,7 +206,7 @@ fn commit_message_wraps_in_details_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 80,
@@ -253,7 +256,7 @@ fn details_view_renders_multiple_hunks_and_files() {
     env.file("alpha.txt", first_file);
     env.file("beta.txt", second_file);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -274,7 +277,7 @@ fn details_diff_svg_shows_plus_and_minus_backgrounds() {
 
     env.file("A", "A-changed\n");
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -298,7 +301,7 @@ fn details_view_renders_tab_indented_file() {
         "\t<CardGroup.Item>\n\t\t{#snippet title()}\n\t\t\tWorktree manipulation\n\t\t{/snippet}\n\t</CardGroup.Item>\n",
     );
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -321,7 +324,7 @@ fn toggling_details_off_and_on_resets_scroll_position() {
         .collect::<String>();
     env.file("large.txt", file_contents);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -365,7 +368,7 @@ fn details_view_syntax_highlighting_survives_scrolling() {
         .collect::<String>();
     env.file("syntax.rs", rust_code);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -394,7 +397,7 @@ fn details_view_can_grow_and_shrink() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -413,7 +416,7 @@ fn details_view_resize_clamps_to_max_and_min_width() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -442,7 +445,7 @@ fn details_cursor_stays_visible_after_resizing() {
     env.file("alpha.txt", long_lines);
     env.file("beta.txt", "beta\n");
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 80,
@@ -469,7 +472,7 @@ fn toggle_full_screen_details_view() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // can open details with shift+d
     tui.input((KeyModifiers::SHIFT, 'D'))
@@ -544,7 +547,7 @@ fn switch_full_screen_details_to_split() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.input(binds::SCROLL_DOWN);
@@ -592,7 +595,7 @@ fn back_from_details_switched_to_split_unfocuses_details() {
     env.setup_metadata(&["A"]);
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D')).assert_backstack_eq([
         BackstackEntry::LeaveNormalMode,
@@ -618,7 +621,7 @@ fn details_view_with_no_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
 
@@ -633,7 +636,7 @@ fn unfocusing_split_details_with_escape() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l').assert_rendered_term_svg_eq(file![
         "snapshots/unfocusing_split_details_with_escape_focused.svg"
@@ -651,7 +654,7 @@ fn close_split_details_with_escape() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d')
         .assert_rendered_term_svg_eq(file!["snapshots/close_split_details_with_escape_open.svg"]);
@@ -668,7 +671,7 @@ fn escape_after_toggling_split_details_closed_does_not_reopen_details() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('d');
@@ -685,7 +688,7 @@ fn escape_after_toggling_full_screen_details_closed_does_not_reopen_details() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.input((KeyModifiers::SHIFT, 'D'));
@@ -702,7 +705,7 @@ fn open_and_focus_details_split_can_be_closed_with_esc() {
 
     env.file("file.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l').assert_rendered_term_svg_eq(file![
         "snapshots/open_and_focus_details_split_can_be_closed_with_esc_focused.svg"
@@ -722,7 +725,7 @@ fn viewing_empty_file() {
 
     env.file("empty file", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d')
         .assert_rendered_term_svg_eq(file!["snapshots/viewing_empty_file_001.svg"]);
@@ -737,7 +740,7 @@ fn discard_hunk_from_detail_view_via_uncommitted() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -792,7 +795,7 @@ fn discard_hunk_from_detail_view_via_file() {
         .join("\n"),
     );
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(binds::SCROLL_DOWN);
@@ -840,7 +843,7 @@ fn highlighting_multiline_things_work() {
 
     env.file("one.py", include_str!("fixtures/python_with_shebang.py"));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d').assert_rendered_term_svg_eq(file![
         "snapshots/highlighting_multiline_things_work_001.svg"
@@ -856,7 +859,7 @@ fn marking_and_discarding_multiple_uncommitted_hunks() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -889,7 +892,7 @@ fn detail_marks_use_the_backstack() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -925,7 +928,7 @@ fn detail_marks_stay_when_leaving_detail_mode() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -955,7 +958,7 @@ fn detail_marks_stay_when_closing_detail_view() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -986,7 +989,7 @@ fn detail_marks_stay_when_closing_full_screen_detail_view() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.render_with_messages(None, Vec::new());
@@ -1026,7 +1029,7 @@ fn marks_stay_when_going_straight_from_split_to_fullscreen() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -1066,7 +1069,7 @@ fn normal_and_detail_marks_coexist_in_split_details() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN)
         .assert_rendered_contains("┊   kl   A one");
@@ -1111,7 +1114,7 @@ fn normal_and_detail_marks_coexist_in_full_screen_details() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
@@ -1150,7 +1153,7 @@ fn keeps_normal_mode_marks_when_detail_section_cannot_be_marked() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input(' ').assert_backstack_eq([BackstackEntry::Mark]);
@@ -1183,7 +1186,7 @@ fn leaving_command_mode_from_details_puts_you_back_in_details() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('l');
@@ -1217,7 +1220,7 @@ fn dims_unselectable_lines_while_in_details_mode() {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(' ');
     tui.input('d');
@@ -1231,7 +1234,7 @@ fn shows_synthetic_change_id() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(binds::SCROLL_DOWN);
@@ -1246,7 +1249,7 @@ fn marking_file_marks_all_hunks() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1289,7 +1292,7 @@ fn marking_all_hunks_marks_file() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1327,7 +1330,7 @@ fn marking_all_hunks_marks_file_with_multiple_files_changed() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1371,7 +1374,7 @@ fn marking_zz_marks_all_hunks_in_detail_view() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1401,7 +1404,7 @@ fn marking_file_in_pick_changes_marks_hunks_in_details() {
 
     env.file("file", "content");
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             run_options: TuiRunOptions::PickChanges,
@@ -1423,7 +1426,7 @@ fn marking_and_discarding_all_hunks() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1460,7 +1463,7 @@ fn squashing_marks_from_split_details_view() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(' ');
@@ -1490,7 +1493,7 @@ fn squashing_marks_from_full_screen_details_view() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(' ');
@@ -1519,7 +1522,7 @@ fn squashing_selection_from_split_details_view() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input('d');
@@ -1549,7 +1552,7 @@ fn squashing_selection_from_full_screen_details_view() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(binds::SCROLL_DOWN);
     tui.input(Shift('d'));
@@ -1578,7 +1581,7 @@ fn committing_selection_from_split_details() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j').assert_rendered_term_svg_eq(file![
@@ -1603,7 +1606,7 @@ fn committing_selection_from_full_screen_details() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.input('j').assert_rendered_term_svg_eq(file![
@@ -1628,7 +1631,7 @@ fn committing_hunks_from_split_details() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j');
@@ -1655,7 +1658,7 @@ fn committing_hunks_from_full_screen_details() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.input('j');
@@ -1682,7 +1685,7 @@ fn commit_source_without_marks_is_selectable() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j');
@@ -1699,7 +1702,7 @@ fn commit_source_with_marks_is_selectable() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j');
@@ -1716,7 +1719,7 @@ fn commit_source_with_partial_marks_is_selectable() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -1745,7 +1748,7 @@ fn squash_source_without_marks_is_selectable() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j');
@@ -1762,7 +1765,7 @@ fn squash_source_with_marks_is_selectable() {
     env.file("one", "line");
     env.file("two", "line");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('l');
     tui.input('j');
@@ -1779,7 +1782,7 @@ fn squash_source_with_partial_marks_is_selectable() {
 
     env.file("file", "line\n".repeat(10));
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');

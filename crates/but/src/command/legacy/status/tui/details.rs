@@ -1654,7 +1654,7 @@ enum ScrollIntent {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(super) enum ScrollDirection {
+pub enum ScrollDirection {
     Up,
     Down,
 }

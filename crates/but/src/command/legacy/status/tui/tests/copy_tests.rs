@@ -1,7 +1,7 @@
 use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::test_status_tui;
 
 const COPY_MORE: (KeyModifiers, char) = (KeyModifiers::SHIFT, 'Y');
 
@@ -10,7 +10,7 @@ fn copying_change_id_doesnt_include_disambiguation() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('b');
     tui.input('n');
@@ -26,7 +26,7 @@ fn copies_branch_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input(KeyCode::Down);
 
     tui.input('y').assert_copied_text_eq("A");
@@ -37,7 +37,7 @@ fn copies_committed_file_path() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('f');
     tui.input(KeyCode::Down);
@@ -51,7 +51,7 @@ fn copies_uncommitted_file_path() {
     env.setup_metadata(&[]);
     env.file("copy.txt", "copied content\n");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input(KeyCode::Down);
 
     tui.input('y').assert_copied_text_eq("copy.txt");
@@ -63,7 +63,7 @@ fn copies_every_commit_value() {
     env.setup_metadata(&[]);
     env.file("copy.txt", "copied content\n");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('b');
     tui.input('n');
     tui.input(KeyCode::Enter);
@@ -121,7 +121,7 @@ fn copies_every_branch_value() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input(KeyCode::Down);
 
     tui.input(COPY_MORE);
@@ -138,7 +138,7 @@ fn copies_every_committed_file_value() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('f');
     tui.input(KeyCode::Down);
@@ -157,7 +157,7 @@ fn copies_hunk_from_detail_view() {
     env.setup_metadata(&[]);
     env.file("copy.txt", "copied content\n");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('d');
     tui.input('l');
     tui.input((KeyModifiers::SHIFT, 'G'));
@@ -172,7 +172,7 @@ fn copies_every_uncommitted_file_value() {
     env.setup_metadata(&[]);
     env.file("copy.txt", "copied content\n");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input(KeyCode::Down);
 
     tui.input(COPY_MORE);

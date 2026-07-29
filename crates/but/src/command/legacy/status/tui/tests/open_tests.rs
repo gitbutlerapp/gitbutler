@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::{Shift, test_tui};
+use crate::{command::legacy::status::tui::tests::utils::test_status_tui, tui::test_utils::Shift};
 
 #[test]
 fn open_uncommitted_file_in_program() {
@@ -13,7 +13,7 @@ fn open_uncommitted_file_in_program() {
 
     env.file("open-me.txt", "I have new content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('g');
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   ps A open-me.txt"]);
@@ -46,7 +46,7 @@ fn open_uncommitted_file_in_program_chooses_program_by_extension_automatically_i
 
     env.file("open-me.txt", "I have new content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('g');
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   ps A open-me.txt"]);
@@ -87,7 +87,7 @@ fn open_uncommitted_file_in_program_shows_only_programs_that_match_extension() {
 
     env.file("open-me.txt", "I have new content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('g');
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   ps A open-me.txt"]);
@@ -126,7 +126,7 @@ fn open_uncommitted_file_with_multiple_hunks_in_program_from_details_view() {
     let original_content = "this\nis\nsome\ncontent\nto\ndiff\nwith\nadded\nlines\n";
     env.file("open-me.txt", original_content);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input('c');
     tui.input(KeyCode::Down);
     tui.input('i');
@@ -175,7 +175,7 @@ fn open_committed_file_in_program() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
     tui.input('f')
@@ -203,7 +203,7 @@ fn cannot_open_uncommitted_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
 
@@ -219,7 +219,7 @@ fn cannot_open_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
@@ -235,7 +235,7 @@ fn cannot_open_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
 
@@ -251,7 +251,7 @@ fn cannot_open_common_base() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
     tui.input((KeyModifiers::SHIFT, 'G'))
         .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
 
