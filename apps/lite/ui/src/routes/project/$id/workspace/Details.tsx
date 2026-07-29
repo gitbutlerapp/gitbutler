@@ -137,7 +137,6 @@ import {
 	annotationSideToDiffSide,
 	annotationsByPathForScope,
 	commentScopeChangeId,
-	type LocalAnnotation as PersistedLocalAnnotation,
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
@@ -199,7 +198,6 @@ const mkCodeViewItem = (
 	id: string,
 	change: TreeChange,
 	hunks: Array<DiffHunk>,
-	annotations: Array<PersistedLocalAnnotation>,
 ): CodeViewDiffItem<Annotation> => {
 	const combinedFilePatch = synthesizeFilePatch(change, hunks);
 	const version = hash(combinedFilePatch);
@@ -213,25 +211,11 @@ const mkCodeViewItem = (
 	if (!fileDiff) throw new Error("Failed to parse any files in patch");
 	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
 
-	const itemAnnotations: Array<DiffLineAnnotation<Annotation>> = annotations.map(
-		({ id, lineNumber, side }) => ({
-			lineNumber,
-			side,
-			metadata: { _tag: "local", id },
-		}),
-	);
-
 	return {
 		type: "diff",
 		id,
-		// Annotations move when their backend anchor drifts, so the version must cover their
-		// positions and identities, not just their count.
-		version: combineHashes(
-			version,
-			hash(itemAnnotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join()),
-		),
+		version,
 		fileDiff,
-		annotations: itemAnnotations,
 	};
 };
 
@@ -239,7 +223,6 @@ type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
-	annotationsByPath: LocalAnnotationsByPath;
 };
 
 type DiffViewFile = {
@@ -265,12 +248,7 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
-	annotationsByPath,
-}: DiffViewDeps): DiffView => {
+const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -285,7 +263,6 @@ const getDiffView = ({
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
-		const annotations = annotationsByPath.get(change.path) ?? [];
 
 		const file: FileOperand = {
 			parent: fileParent,
@@ -295,7 +272,6 @@ const getDiffView = ({
 			weakFileIdentityKey(file),
 			change,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
-			annotations,
 		);
 
 		items.push(item);
@@ -351,6 +327,43 @@ const getDiffView = ({
 		navigationIndex,
 	};
 };
+
+const withAnnotations = (
+	diffView: DiffView,
+	annotationsByPath: LocalAnnotationsByPath,
+): DiffView => ({
+	...diffView,
+	items: diffView.items.map((item) => {
+		const file = diffView.fileByItemId.get(item.id);
+		if (!file) throw new Error("Diff view file not found by ID");
+
+		const persistedAnnotations = annotationsByPath.get(file.operand.path);
+		if (!persistedAnnotations || persistedAnnotations.length === 0) return item;
+
+		const annotations: Array<DiffLineAnnotation<Annotation>> = persistedAnnotations.map(
+			({ id, lineNumber, side }) => ({
+				lineNumber,
+				side,
+				metadata: { _tag: "local", id },
+			}),
+		);
+
+		// Annotations move when their backend anchor drifts, so the version must cover their
+		// positions and identities, not just their count.
+		const annoHash = hash(
+			annotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join(),
+		);
+
+		const version = item.version;
+		if (version === undefined) throw new Error("Diff view item missing base version");
+
+		return {
+			...item,
+			version: combineHashes(version, annoHash),
+			annotations,
+		};
+	}),
+});
 
 const DiffContents: FC<{
 	localAnnotationFormId: string;
@@ -1071,12 +1084,12 @@ const Diff: FC<{
 				: annotationsByPathForScope(comments, scopeChangeId),
 	});
 
-	const diffView = getDiffView({
+	const diffViewSansAnno = getDiffView({
 		fileParent,
 		changes,
 		treeChangeDiffs,
-		annotationsByPath,
 	});
+	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
