@@ -6,11 +6,23 @@ import { useAppDispatch } from "#ui/store.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
-export type SelectionScope = "uncommitted-files" | "outline" | "files" | "diff";
-const allSelectionScopes: Array<SelectionScope> = ["uncommitted-files", "outline", "files", "diff"];
+export type SelectionScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
+const allSelectionScopes: Set<string> = new Set([
+	"details",
+	"uncommitted-files",
+	"outline",
+	"files",
+	"diff",
+	"pr",
+] satisfies Array<SelectionScope>);
 
-const isSelectionScope = (id: string): id is SelectionScope =>
-	allSelectionScopes.includes(id as SelectionScope);
+// Supports arbitarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
+// left to right.
+const selectionScopeChildren: Partial<Record<SelectionScope, Set<SelectionScope>>> = {
+	details: new Set(["diff", "pr", "files"]),
+};
+
+const isSelectionScope = (id: string): id is SelectionScope => allSelectionScopes.has(id);
 
 export const getFocusedSelectionScope = (activeElement: Element | null): SelectionScope | null => {
 	const selectionScope = activeElement?.matches("[data-selection-scope]")
@@ -20,10 +32,23 @@ export const getFocusedSelectionScope = (activeElement: Element | null): Selecti
 	return isSelectionScope(selectionScope) ? selectionScope : null;
 };
 
-export const focusSelectionScope = (selectionScope: SelectionScope) => {
-	document
-		.querySelector<HTMLElement>(`[data-selection-scope="${selectionScope}"]`)
-		?.focus({ focusVisible: false });
+const findFocusTarget = (parent: ParentNode, scope: SelectionScope): HTMLElement | null => {
+	const root = parent.querySelector<HTMLElement>(`[data-selection-scope="${scope}"]`);
+	if (!root) return null;
+
+	const children = selectionScopeChildren[scope];
+	if (children) {
+		for (const childScope of children) {
+			const target = findFocusTarget(root, childScope);
+			if (target) return target;
+		}
+	}
+
+	return root;
+};
+
+export const focusSelectionScope = (scope: SelectionScope) => {
+	findFocusTarget(document, scope)?.focus({ focusVisible: false });
 };
 
 export const focusHorizontalSelectionScope = ({

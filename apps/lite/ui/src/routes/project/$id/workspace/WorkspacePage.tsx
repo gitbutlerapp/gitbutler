@@ -130,6 +130,24 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
+			hotkey: workspaceHotkeys.focusDetails.hotkey,
+			callback: () => focusSelectionScope("details"),
+		},
+		{
+			hotkey: workspaceHotkeys.focusUncommittedFiles.hotkey,
+			callback: () => focusSelectionScope("uncommitted-files"),
+			options: {
+				enabled: outlineVisible,
+			},
+		},
+		{
+			hotkey: workspaceHotkeys.focusOutline.hotkey,
+			callback: () => focusSelectionScope("outline"),
+			options: {
+				enabled: outlineVisible,
+			},
+		},
+		{
 			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeLeft.hotkey,
 			callback: () => {
 				focusHorizontalSelectionScope({
@@ -482,7 +500,11 @@ const WorkspacePage: FC = () => {
 					<Separator className={styles.resizeHandle} />
 				</Activity>
 
-				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
+				<Panel
+					id={"details-panel" satisfies PanelId}
+					className={styles.panel}
+					data-selection-scope={"details" satisfies SelectionScope}
+				>
 					<Details selection={deferredDetailsSelection} />
 				</Panel>
 			</Group>
