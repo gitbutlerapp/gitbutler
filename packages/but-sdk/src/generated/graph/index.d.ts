@@ -2400,6 +2400,8 @@ export type MoveChangesResult = {
 
 /** Everything needed to create a new comment. See [`DiffComment`] for the field semantics. */
 export type NewComment = {
+  /** An optional client-supplied ID. An ID will be generated if this is absent. */
+  id: string | null;
   /** The worktree-relative path of the file to anchor the comment to. */
   path: string;
   /**

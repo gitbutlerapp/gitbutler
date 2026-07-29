@@ -339,6 +339,7 @@ pub fn run(
             let comment = comments::comment_create_with_perm(
                 ctx,
                 NewComment {
+                    id: None,
                     path,
                     commit_change_id,
                     side,
