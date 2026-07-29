@@ -141,6 +141,7 @@ import {
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
+import { FileIcon } from "#ui/components/FileIcon.tsx";
 
 type Annotation = { _tag: "local"; id: string };
 
@@ -846,6 +847,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Tooltip.Portal>
 				</Tooltip.Root>
 				<h4 className={classes("text-13", styles.filePath)}>
+					<FileIcon fileName={fileName} className={styles.icon} />
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
