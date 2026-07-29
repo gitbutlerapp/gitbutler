@@ -137,8 +137,6 @@ import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.
 import {
 	annotationSideToDiffSide,
 	annotationsByPathForScope,
-	commentScopeChangeId,
-	type LocalAnnotation as PersistedLocalAnnotation,
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
@@ -199,7 +197,6 @@ const mkCodeViewItem = (
 	id: string,
 	change: TreeChange,
 	hunks: Array<DiffHunk>,
-	annotations: Array<PersistedLocalAnnotation>,
 ): CodeViewDiffItem<Annotation> => {
 	const combinedFilePatch = synthesizeFilePatch(change, hunks);
 	const version = hash(combinedFilePatch);
@@ -213,25 +210,11 @@ const mkCodeViewItem = (
 	if (!fileDiff) throw new Error("Failed to parse any files in patch");
 	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
 
-	const itemAnnotations: Array<DiffLineAnnotation<Annotation>> = annotations.map(
-		({ id, lineNumber, side }) => ({
-			lineNumber,
-			side,
-			metadata: { _tag: "local", id },
-		}),
-	);
-
 	return {
 		type: "diff",
 		id,
-		// Annotations move when their backend anchor drifts, so the version must cover their
-		// positions and identities, not just their count.
-		version: combineHashes(
-			version,
-			hash(itemAnnotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join()),
-		),
+		version,
 		fileDiff,
-		annotations: itemAnnotations,
 	};
 };
 
@@ -239,7 +222,6 @@ type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
-	annotationsByPath: LocalAnnotationsByPath;
 };
 
 type DiffViewFile = {
@@ -265,12 +247,7 @@ type DiffView = {
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
-	annotationsByPath,
-}: DiffViewDeps): DiffView => {
+const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -285,7 +262,6 @@ const getDiffView = ({
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
-		const annotations = annotationsByPath.get(change.path) ?? [];
 
 		const file: FileOperand = {
 			parent: fileParent,
@@ -295,7 +271,6 @@ const getDiffView = ({
 			weakFileIdentityKey(file),
 			change,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
-			annotations,
 		);
 
 		items.push(item);
@@ -352,13 +327,48 @@ const getDiffView = ({
 	};
 };
 
+const withAnnotations = (
+	diffView: DiffView,
+	annotationsByPath: LocalAnnotationsByPath,
+): DiffView => ({
+	...diffView,
+	items: diffView.items.map((item) => {
+		const file = diffView.fileByItemId.get(item.id);
+		if (!file) throw new Error("Diff view file not found by ID");
+
+		const persistedAnnotations = annotationsByPath.get(file.operand.path);
+		if (!persistedAnnotations || persistedAnnotations.length === 0) return item;
+
+		const annotations: Array<DiffLineAnnotation<Annotation>> = persistedAnnotations.map(
+			({ id, lineNumber, side }) => ({
+				lineNumber,
+				side,
+				metadata: { _tag: "local", id },
+			}),
+		);
+
+		// Annotations move when their backend anchor drifts, so the version must cover their
+		// positions and identities, not just their count.
+		const annoHash = hash(
+			annotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join(),
+		);
+
+		const version = item.version;
+		if (version === undefined) throw new Error("Diff view item missing base version");
+
+		return {
+			...item,
+			version: combineHashes(version, annoHash),
+			annotations,
+		};
+	}),
+});
+
 const DiffContents: FC<{
 	localAnnotationFormId: string;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
-	/** See [commentScopeChangeId]; `undefined` disables annotating. */
-	scopeChangeId: string | null | undefined;
 	projectId: string;
 	diffView: DiffView;
 	annotationsByPath: LocalAnnotationsByPath;
@@ -372,7 +382,6 @@ const DiffContents: FC<{
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
-	scopeChangeId,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	annotationsByPath,
@@ -649,52 +658,48 @@ const DiffContents: FC<{
 					/>
 				);
 			}}
-			renderGutterUtility={
-				scopeChangeId === undefined
-					? undefined
-					: (getHoveredLine, item) => {
-							const handleClick = () => {
-								const badlyTypedLine = getHoveredLine();
-								if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
-								const line = badlyTypedLine as GetHoveredLineResult<"diff">;
+			renderGutterUtility={(getHoveredLine, item) => {
+				// We don't currently support annotations on branches.
+				if (fileParent._tag === "Branch") return;
 
-								const file = fileByItemId.get(item.id);
-								if (!file) return;
+				const handleClick = () => {
+					const badlyTypedLine = getHoveredLine();
+					if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
+					const line = badlyTypedLine as GetHoveredLineResult<"diff">;
 
-								createComment(
-									{
-										projectId,
-										comment: {
-											path: file.operand.path,
-											commitChangeId: scopeChangeId,
-											side: annotationSideToDiffSide(line.side),
-											lineNumber: line.lineNumber,
-											payload: "",
-										},
-									},
-									{
-										onSuccess: (comment) => {
-											newFocusableAnnotationIdRef.current = comment.id;
-										},
-									},
-								);
-							};
+					const file = fileByItemId.get(item.id);
+					if (!file) return;
 
-							return (
-								<button
-									type="button"
-									onClick={handleClick}
-									aria-label="Annotate"
-									className={classes(
-										getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-										styles.annotate,
-									)}
-								>
-									<Icon name="plus" />
-								</button>
-							);
-						}
-			}
+					const id = crypto.randomUUID();
+					newFocusableAnnotationIdRef.current = id;
+
+					createComment({
+						projectId,
+						comment: {
+							id,
+							path: file.operand.path,
+							commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+							side: annotationSideToDiffSide(line.side),
+							lineNumber: line.lineNumber,
+							payload: "",
+						},
+					});
+				};
+
+				return (
+					<button
+						type="button"
+						onClick={handleClick}
+						aria-label="Annotate"
+						className={classes(
+							getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+							styles.annotate,
+						)}
+					>
+						<Icon name="plus" />
+					</button>
+				);
+			}}
 			renderAnnotation={(anno, item) => {
 				if (!("side" in anno)) throw new Error("Only diff items may be rendered");
 
@@ -1072,24 +1077,28 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => results.map((result) => result.data),
 	});
-	// A primitive so the select closure below is memoised on it (see lite-render-perf).
-	const scopeChangeId = commentScopeChangeId(fileParent);
-	// Not a suspense query: comments are a garnish on the diff, so a failing listing must
-	// degrade to "no annotations" rather than take down the whole details pane.
+
 	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
 		...commentsQueryOptions(projectId),
-		select: (comments) =>
-			scopeChangeId === undefined
-				? EMPTY_ANNOTATIONS_BY_PATH
-				: annotationsByPathForScope(comments, scopeChangeId),
+		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
-	const diffView = getDiffView({
-		fileParent,
-		changes,
-		treeChangeDiffs,
-		annotationsByPath,
-	});
+	const diffViewSansAnno = useMemo(
+		() =>
+			getDiffView({
+				fileParent,
+				changes,
+				treeChangeDiffs,
+			}),
+		[
+			fileParent,
+			changes,
+			// oxlint-disable-next-line @tanstack/query/no-unstable-deps -- False positive?: https://github.com/TanStack/query/issues/9718
+			treeChangeDiffs,
+		],
+	);
+
+	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
@@ -1252,7 +1261,6 @@ const Diff: FC<{
 							localAnnotationFormId={localAnnotationFormId}
 							onViewerFileSelection={onFileSelection}
 							fileParent={fileParent}
-							scopeChangeId={scopeChangeId}
 							projectId={projectId}
 							diffView={diffView}
 							annotationsByPath={annotationsByPath}
