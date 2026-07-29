@@ -40,6 +40,7 @@ import {
 	weakCommitIdentityKey,
 	weakFileIdentityKey,
 } from "#ui/operands.ts";
+import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -122,7 +123,7 @@ import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { AggregateCIChecks } from "#ui/ci.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
-import { draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
+import { draftPRQueryOptions, useDeleteDraftPR, usePersistDraftPR } from "#ui/pr.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { assert } from "#ui/assert.ts";
 import {
@@ -141,10 +142,9 @@ import {
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
+import { FileIcon } from "#ui/components/FileIcon.tsx";
 
 type Annotation = { _tag: "local"; id: string };
-
-type BranchTab = "diff" | "pr";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -418,6 +418,18 @@ const DiffContents: FC<{
 	const selectedRange = diffSelection
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
+
+	useLayoutEffect(() => {
+		if (!diffSelectionFile) return;
+
+		viewerRef.current?.scrollTo({
+			type: "item",
+			id: diffSelectionFile.item.id,
+			align: "start",
+			behavior: "instant",
+		});
+		// oxlint-disable-next-line react-hooks/exhaustive-deps react-hooks-js/exhaustive-deps -- Sync scroll only on mount, otherwise use events.
+	}, []);
 
 	const selectDiff = (selection: HunkOperand) => {
 		dispatch(projectSlice.actions.selectDiff({ projectId, selection }));
@@ -846,6 +858,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Tooltip.Portal>
 				</Tooltip.Root>
 				<h4 className={classes("text-13", styles.filePath)}>
+					<FileIcon fileName={fileName} className={styles.icon} />
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
@@ -1282,6 +1295,7 @@ const PullRequestForm: FC<{
 		isDraft: persistedDocument?.isDraft ?? false,
 	});
 	const { mutate: persistDraftPR } = usePersistDraftPR();
+	const { mutate: deleteDraftPR } = useDeleteDraftPR();
 
 	const isNew = reviewId === null;
 	const isAnyPending = isPublishReviewPending || isUpdateReviewPending;
@@ -1290,22 +1304,40 @@ const PullRequestForm: FC<{
 		localDocument.body !== remoteOrEmptyDocument.body ||
 		(isNew && localDocument.isDraft);
 
+	// Reset to latest remote data if we haven't locally diverged yet.
+	const [prevRemote, setPrevRemote] = useState(remoteOrEmptyDocument);
+	const remoteHasUpdated =
+		prevRemote.title !== remoteOrEmptyDocument.title ||
+		prevRemote.body !== remoteOrEmptyDocument.body;
+	if (remoteHasUpdated) {
+		setPrevRemote(remoteOrEmptyDocument);
+
+		const localHasDiverged =
+			localDocument.title !== prevRemote.title || localDocument.body !== prevRemote.body;
+		if (!localHasDiverged) {
+			setLocalDocument((prev) => ({
+				...prev,
+				...remoteOrEmptyDocument,
+			}));
+		}
+	}
+
 	const handleBlur = () => {
-		persistDraftPR({
-			projectId,
-			branchName: sourceBranch,
-			draft: localDocument,
-		});
+		if (hasChanges) {
+			persistDraftPR({
+				projectId,
+				branchName: sourceBranch,
+				draft: localDocument,
+			});
+		} else if (persistedDocument) {
+			deleteDraftPR({ projectId, branchName: sourceBranch });
+		}
 	};
 
 	const handleReset = () => {
 		const resetDocument = { ...remoteOrEmptyDocument, isDraft: false };
 		setLocalDocument(resetDocument);
-		persistDraftPR({
-			projectId,
-			branchName: sourceBranch,
-			draft: resetDocument,
-		});
+		deleteDraftPR({ projectId, branchName: sourceBranch });
 	};
 
 	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {
@@ -1733,7 +1765,15 @@ const BranchDetails: FC<{
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
+	const branchRef = decodeBytes(selection.branchRef);
+	const branchName = branchDetailsParams(branchRef).branchName;
+	const branchTab = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
+	);
+
+	const setBranchTab = (tab: BranchTab) => {
+		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
+	};
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -1796,8 +1836,6 @@ const BranchDetails: FC<{
 			: parentSegment.pushStatus === "completelyUnpushed"
 				? undefined
 				: parentSegment.refName?.displayName;
-
-	const branchName = branchDetailsParams(decodeBytes(selection.branchRef)).branchName;
 
 	return (
 		<div className={styles.container} ref={ref}>
@@ -1925,9 +1963,7 @@ const BranchDetails: FC<{
 						)}
 					</div>
 				) : (
-					<SuspenseQuery
-						{...branchDiffQueryOptions({ projectId, branch: decodeBytes(selection.branchRef) })}
-					>
+					<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: branchRef })}>
 						{({ data: branchDiff }) => (
 							<Diff
 								changes={branchDiff.changes}

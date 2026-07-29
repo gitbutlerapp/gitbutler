@@ -247,7 +247,10 @@
 }
 
 .filePath {
+	display: flex;
+	align-items: center;
 	overflow: hidden;
+	gap: 6px;
 	text-overflow: ellipsis;
 }
 
@@ -260,7 +263,6 @@
 }
 
 .pathInit {
-	margin-inline-start: 6px;
 	color: var(--text-2);
 }
 

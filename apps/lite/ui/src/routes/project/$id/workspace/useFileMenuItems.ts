@@ -148,11 +148,13 @@ export const useFileMenuItems = ({
 								nativeMenuItem({
 									label: "Uncommit",
 									enabled: !isCommitUncommitChangesPending,
+									accelerator: toElectronAccelerator(changesFileHotkeys.uncommit.hotkey),
 									onSelect: uncommit,
 								}),
 								nativeMenuItem({
 									label: "Discard Changes",
 									enabled: !isCommitDiscardChangesPending,
+									accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
 									onSelect: discard,
 								}),
 							],
@@ -191,6 +193,7 @@ export const useFileMenuItems = ({
 								nativeMenuItem({
 									label: "Discard Changes",
 									enabled: !isDiscardWorktreeChangesPending,
+									accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
 									onSelect: discard,
 								}),
 							],
