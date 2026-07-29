@@ -98,6 +98,10 @@ import {
 	type SelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
+import {
+	ChangesHeaderRow,
+	getLineStats,
+} from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import {
@@ -1055,9 +1059,12 @@ const Diff: FC<{
 		[selection],
 	);
 
-	const treeChangeDiffs = useSuspenseQueries({
+	const { treeChangeDiffs, lineStats } = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => results.map((result) => result.data),
+		combine: (results) => {
+			const treeChangeDiffs = results.map((result) => result.data);
+			return { treeChangeDiffs, lineStats: getLineStats(treeChangeDiffs) };
+		},
 	});
 	// A primitive so the select closure below is memoised on it (see lite-render-perf).
 	const scopeChangeId = commentScopeChangeId(fileParent);
@@ -1209,17 +1216,29 @@ const Diff: FC<{
 							minSize={180}
 							groupResizeBehavior="preserve-pixel-size"
 						>
-							<Scroller withSeparator viewportClassName={styles.diffFiles}>
-								<FilesTree
-									data-selection-scope={"files" satisfies SelectionScope}
-									onFileSelection={selectFileAndNavigateDiff}
+							<div className={styles.filesPanelContent}>
+								<ChangesHeaderRow
 									projectId={projectId}
-									items={filesItems}
-									selection={filesSelection}
-									navigationIndex={filesNavigationIndex}
 									fileParent={fileParent}
+									changes={changes}
+									lineStats={lineStats}
 								/>
-							</Scroller>
+								<Scroller
+									withSeparator
+									className={styles.filesScrollerArea}
+									viewportClassName={styles.diffFiles}
+								>
+									<FilesTree
+										data-selection-scope={"files" satisfies SelectionScope}
+										onFileSelection={selectFileAndNavigateDiff}
+										projectId={projectId}
+										items={filesItems}
+										selection={filesSelection}
+										navigationIndex={filesNavigationIndex}
+										fileParent={fileParent}
+									/>
+								</Scroller>
+							</div>
 						</Panel>
 						<Separator className={styles.resizeHandle} />
 					</>

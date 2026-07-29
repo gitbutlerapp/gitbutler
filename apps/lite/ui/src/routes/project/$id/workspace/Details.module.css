@@ -99,7 +99,7 @@
 }
 
 .panels {
-	column-gap: 6px;
+	/* column-gap: 6px; */
 }
 
 .panel {
@@ -111,6 +111,7 @@
 
 .resizeHandle {
 	width: 1px;
+	background-color: var(--border-3);
 
 	&[data-separator="hover"],
 	&[data-separator="active"] {
@@ -126,12 +127,34 @@
 .diffTab {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-	row-gap: 12px;
-	padding-inline: var(--panel-padding-inline);
+}
+
+.filesPanelContent {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border-top: 1px solid var(--border-3);
+}
+
+.filesHeader {
+	/* The tab already provides the panel inline padding; cancel the header's own. */
+	--panel-padding-inline: 0px;
+	padding-block-start: 0;
+}
+
+.filesScrollerArea {
+	--scroll-gradient-height: 14px;
+	--scroll-gradient-overlap: 4px;
 }
 
 .diffFiles {
+	padding-inline: var(--panel-padding-inline);
 	padding-block-end: var(--panel-padding-block);
+
+	/* Stretch the scroll separator over the inline padding to full width. */
+	&::before {
+		margin-inline: calc(-1 * var(--panel-padding-inline));
+	}
 }
 
 .diffContentsContainer {
