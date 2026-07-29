@@ -1046,7 +1046,7 @@ pub async fn update_review_footers(
         let github_stacking_mode = match settings.gitbutler_github_stacking_mode {
             Some(but_core::GitHubStackingMode::Native) => but_forge::GitHubStackingMode::Native,
             Some(but_core::GitHubStackingMode::Disabled) => but_forge::GitHubStackingMode::Disabled,
-            None => but_forge::GitHubStackingMode::Unconfigured,
+            Some(but_core::GitHubStackingMode::Auto) | None => but_forge::GitHubStackingMode::Auto,
         };
 
         (
@@ -1129,7 +1129,7 @@ pub(crate) async fn prepare_review_target_updates(
         let github_stacking_mode = match repo.git_settings()?.gitbutler_github_stacking_mode {
             Some(but_core::GitHubStackingMode::Native) => but_forge::GitHubStackingMode::Native,
             Some(but_core::GitHubStackingMode::Disabled) => but_forge::GitHubStackingMode::Disabled,
-            None => but_forge::GitHubStackingMode::Unconfigured,
+            Some(but_core::GitHubStackingMode::Auto) | None => but_forge::GitHubStackingMode::Auto,
         };
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),

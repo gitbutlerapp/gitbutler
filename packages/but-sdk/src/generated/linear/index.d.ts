@@ -1903,7 +1903,7 @@ export type GitHubOAuthAppSettings = {
 };
 
 /** Controls whether GitButler registers reviewed stacks with GitHub's native stacks API. */
-export type GitHubStackingMode = "disabled" | "native";
+export type GitHubStackingMode = "auto" | "disabled" | "native";
 
 export type GithubAccountIdentifier = {
   type: "oAuthUsername";

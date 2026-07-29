@@ -6,6 +6,15 @@ use snapbox::str;
 fn github_stacks_configuration_is_repository_local() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
+    env.but("--json config forge github-stacks")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "mode": "auto"
+}
+
+"#]]);
     env.but("config forge github-stacks enable")
         .assert()
         .success()
@@ -40,6 +49,19 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.githubStackingMode"),
         "disabled"
+    );
+    env.but("config forge github-stacks auto")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Native GitHub stacks are automatic for this repository
+They are used when the repository is enrolled in GitHub's stacked pull requests preview.
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.githubStackingMode"),
+        "auto",
+        "selecting auto should persist it in repository-local git config"
     );
 }
 
