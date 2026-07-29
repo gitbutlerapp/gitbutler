@@ -19,7 +19,7 @@ import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { ProjectForFrontend, RefInfo, WorktreeChanges } from "@gitbutler/but-sdk";
-import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
+import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
 	useQueries,
@@ -81,6 +81,9 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		projectSlice.selectors.selectDetailsSelectionScope(state, projectId),
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
+	const outlineTab = useAppSelector((state) =>
+		projectSlice.selectors.selectOutlineTab(state, projectId),
+	);
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -130,23 +133,38 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusDetails.hotkey,
+			hotkey: "0",
 			callback: () => focusSelectionScope("details"),
 		},
-		{
-			hotkey: workspaceHotkeys.focusUncommittedFiles.hotkey,
-			callback: () => focusSelectionScope("uncommitted-files"),
-			options: {
-				enabled: outlineVisible,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.focusOutline.hotkey,
-			callback: () => focusSelectionScope("outline"),
-			options: {
-				enabled: outlineVisible,
-			},
-		},
+		...Match.value(outlineTab).pipe(
+			Match.withReturnType<Array<UseHotkeyDefinition>>(),
+			Match.when("workspace", () => [
+				{
+					hotkey: "1",
+					callback: () => focusSelectionScope("uncommitted-files"),
+					options: {
+						enabled: outlineVisible,
+					},
+				},
+				{
+					hotkey: "2",
+					callback: () => focusSelectionScope("outline"),
+					options: {
+						enabled: outlineVisible,
+					},
+				},
+			]),
+			Match.when("branches", () => [
+				{
+					hotkey: "1",
+					callback: () => focusSelectionScope("outline"),
+					options: {
+						enabled: outlineVisible,
+					},
+				},
+			]),
+			Match.exhaustive,
+		),
 		{
 			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeLeft.hotkey,
 			callback: () => {

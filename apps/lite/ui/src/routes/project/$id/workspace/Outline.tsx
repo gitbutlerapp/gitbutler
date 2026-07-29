@@ -24,7 +24,7 @@ import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating, useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
-import { type ComponentProps, type FC, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
@@ -89,23 +89,20 @@ const FetchFromRemotesButton: FC<{
 	);
 };
 
-export const Outline: FC<
-	{
-		absorptionTargetCommitIds: ReadonlySet<string>;
-		branchesOutline: BranchesOutline;
-		navigationIndex: NavigationIndex<Operand>;
-		uncommittedFilesNavigationIndex: NavigationIndex<string>;
-		project: ProjectForFrontend;
-		projectId: string;
-	} & ComponentProps<"div">
-> = ({
+export const Outline: FC<{
+	absorptionTargetCommitIds: ReadonlySet<string>;
+	branchesOutline: BranchesOutline;
+	navigationIndex: NavigationIndex<Operand>;
+	uncommittedFilesNavigationIndex: NavigationIndex<string>;
+	project: ProjectForFrontend;
+	projectId: string;
+}> = ({
 	absorptionTargetCommitIds,
 	branchesOutline,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	project,
 	projectId,
-	...restProps
 }) => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
@@ -204,6 +201,8 @@ export const Outline: FC<
 
 	const canOpenSettings = isDefaultMode;
 
+	const ref = useRef<HTMLDivElement>(null);
+
 	useHotkeys([
 		{
 			hotkey: workspaceHotkeys.applyBranch.hotkey,
@@ -241,10 +240,52 @@ export const Outline: FC<
 				meta: workspaceHotkeys.updateWorkspace.meta,
 			},
 		},
+		{
+			hotkey: "[",
+			callback: () => {
+				switch (outlineTab) {
+					case "workspace": {
+						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "branches" }));
+						break;
+					}
+					case "branches": {
+						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
+						break;
+					}
+					default:
+						outlineTab satisfies never;
+				}
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+			},
+		},
+		{
+			hotkey: "]",
+			callback: () => {
+				switch (outlineTab) {
+					case "workspace": {
+						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "branches" }));
+						break;
+					}
+					case "branches": {
+						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
+						break;
+					}
+					default:
+						outlineTab satisfies never;
+				}
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+			},
+		},
 	]);
 
 	return (
-		<div {...restProps} className={classes(restProps.className, styles.container)}>
+		<div className={styles.container} ref={ref}>
 			<div className={styles.top}>
 				<header className={styles.workspaceControls}>
 					<TopLeftControls />

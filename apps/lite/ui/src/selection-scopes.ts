@@ -16,7 +16,7 @@ const allSelectionScopes: Set<string> = new Set([
 	"pr",
 ] satisfies Array<SelectionScope>);
 
-// Supports arbitarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
+// Supports arbitrarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
 // left to right.
 const selectionScopeChildren: Partial<Record<SelectionScope, Set<SelectionScope>>> = {
 	details: new Set(["diff", "pr", "files"]),
@@ -96,6 +96,13 @@ export const focusVerticalSelectionScope = (offset: -1 | 1) => {
 	const nextIndex = currentIndex + offset;
 	const nextSelectionScope = nextIndex < 0 ? undefined : orderedSelectionScopes.at(nextIndex);
 	if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
+};
+
+export const autofocusSelectionScope = (el: HTMLElement) => {
+	// Don't steal focus if this component is mounted later on.
+	if (document.activeElement !== document.body) return;
+
+	el.focus({ focusVisible: false });
 };
 
 export const useNavigationIndexHotkeys = <T>({
