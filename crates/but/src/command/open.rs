@@ -7,6 +7,7 @@ use but_api::open::{
 };
 use but_ctx::Context;
 use gix::utils::AsBStr;
+use itertools::Itertools as _;
 use nonempty::NonEmpty;
 
 use crate::{
@@ -125,10 +126,19 @@ pub(crate) fn open(
             let program_specs = list_program_specs_for_openable(&to_open);
             match TryInto::<[ProgramSpec; 1]>::try_into(program_specs) {
                 Ok([program_spec]) => program_spec,
-                _ => {
-                    return Err(bad_input("Could not automatically choose program")
+                Err(programs) => {
+                    if programs.is_empty() {
+                        return Err(bad_input("Could not automatically choose program")
+                            .hint("Specify a program with `--program-id`")
+                            .into());
+                    } else {
+                        let program_ids = programs.into_iter().map(|program| program.id).join(", ");
+                        return Err(bad_input(format!(
+                            "Could not automatically choose program. Found {program_ids}"
+                        ))
                         .hint("Specify a program with `--program-id`")
                         .into());
+                    }
                 }
             }
         }
