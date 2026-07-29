@@ -176,6 +176,9 @@ pub struct WorkspaceState {
     /// rendered graph projection.
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// True if a checkout occurred, and a conflict occurred during that
+    /// checkout.
+    pub checkout_conflict_occurred: bool,
 }
 
 #[cfg(feature = "export-schema")]
@@ -195,6 +198,7 @@ impl TryFrom<crate::WorkspaceState> for WorkspaceState {
             head_info: value.head_info.try_into()?,
             #[cfg(feature = "graph-workspace")]
             graph_workspace: value.graph_workspace,
+            checkout_conflict_occurred: value.checkout_conflict_occurred,
         })
     }
 }

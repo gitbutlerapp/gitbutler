@@ -361,6 +361,137 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn discard_resulting_in_workdir_ud_conflict() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("commit.txt", "text\n");
+    env.but("commit -b A -m 'discardable commit'")
+        .assert()
+        .success();
+    let commit_id = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("commit.txt", "would conflict if commit above was deleted\n");
+
+    env.but(format!("discard {commit_id}"))
+        .assert()
+        .success()
+        .stderr_eq("")
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit 1
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊    commit.txt {conflicted}
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_status(),
+        snapbox::str![[r#"
+UD commit.txt
+
+"#]]
+    );
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("commit.txt")).unwrap(),
+        snapbox::str![[r#"
+would conflict if commit above was deleted
+
+"#]]
+    );
+}
+
+#[test]
+fn discard_resulting_in_workdir_uu_conflict() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("commit.txt", "first\n");
+    env.but("commit -b A -m 'commit'").assert().success();
+
+    env.file("commit.txt", "second\n");
+    env.but("commit -b A -m 'discardable commit'")
+        .assert()
+        .success();
+    let commit_id = env.invoke_git("rev-parse refs/heads/A");
+
+    env.file("commit.txt", "would conflict if commit above was deleted\n");
+
+    env.but(format!("discard {commit_id}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit 1
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊    commit.txt {conflicted}
+┊
+┊╭┄ g0 [A]
+┊●   1 commit
+┊│     1:t A commit.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_status(),
+        snapbox::str![[r#"
+UU commit.txt
+
+"#]]
+    );
+
+    // The output depends on whether merge.conflictstyle=diff3 is configured in
+    // gitconfig, so add a wildcard to support both types of output.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("commit.txt")).unwrap(),
+        snapbox::str![[r#"
+<<<<<<< ours
+would conflict if commit above was deleted
+...
+=======
+first
+>>>>>>> theirs
+
+"#]]
+    );
+}
+
+#[test]
 fn discard_multiple_commits_outputs_human() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
