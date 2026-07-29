@@ -101,6 +101,7 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.details_bottom().register();
                 builder.toggle_full_screen_details().register();
                 builder.open_in_program().register();
+                builder.open_in_program_picker().register();
 
                 builder
                     .key_bind("hide details", press().code(KeyCode::Char('d')), || {
@@ -802,9 +803,20 @@ impl KeyBindsBuilder<'_> {
 
     fn open_in_program(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("open", press().code(KeyCode::Char('o')), || {
-            Message::PickProgramThenOpen
+            Message::OpenInDefaultProgram
         })
-        .long_description("Open selection in program")
+        .long_description("Open selection in default program")
+        .hide_from_hotbar()
+    }
+
+    fn open_in_program_picker(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "open with picker",
+            press().shift().code(KeyCode::Char('O')),
+            || Message::PickProgramThenOpen,
+        )
+        .long_description("Select which program to open in")
+        .hide_from_hotbar()
     }
 
     fn back(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1078,6 +1090,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     }
 
     builder.open_in_program().register();
+    builder.open_in_program_picker().register();
 
     builder.reload().register();
     builder.back().hide_from_hotbar().register();
