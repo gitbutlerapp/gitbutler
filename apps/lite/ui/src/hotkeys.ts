@@ -117,15 +117,6 @@ export const workspaceHotkeys = {
 			name: "Update workspace (rebases all stacks)",
 		},
 	},
-	focusDetails: {
-		hotkey: "0",
-	},
-	focusUncommittedFiles: {
-		hotkey: "1",
-	},
-	focusOutline: {
-		hotkey: "2",
-	},
 	focusHorizontalSelectionScopeLeft: {
 		hotkey: "Mod+Alt+ArrowLeft",
 	},

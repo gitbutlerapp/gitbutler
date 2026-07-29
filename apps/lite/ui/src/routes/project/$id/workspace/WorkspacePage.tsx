@@ -130,18 +130,18 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusDetails.hotkey,
+			hotkey: "0",
 			callback: () => focusSelectionScope("details"),
 		},
 		{
-			hotkey: workspaceHotkeys.focusUncommittedFiles.hotkey,
+			hotkey: "1",
 			callback: () => focusSelectionScope("uncommitted-files"),
 			options: {
 				enabled: outlineVisible,
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusOutline.hotkey,
+			hotkey: "2",
 			callback: () => focusSelectionScope("outline"),
 			options: {
 				enabled: outlineVisible,
