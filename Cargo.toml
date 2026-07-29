@@ -318,7 +318,7 @@ sapling-renderdag = "0.1.0"
 # Keep workspace crates that use the `gix 0.86` line on the same git revision.
 # This was relevant to force `git-meta` to use our version.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "83e074c1e2d070059febaaab1022058948855101" }
-git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "efce108bf14cb1708cfc4c80f2ddf3244a2635ff" }
+git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.

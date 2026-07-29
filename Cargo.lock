@@ -3834,7 +3834,7 @@ dependencies = [
 [[package]]
 name = "git2"
 version = "0.21.0"
-source = "git+https://github.com/gitbutlerapp/git2-rs?rev=efce108bf14cb1708cfc4c80f2ddf3244a2635ff#efce108bf14cb1708cfc4c80f2ddf3244a2635ff"
+source = "git+https://github.com/gitbutlerapp/git2-rs?rev=a87a7bb3f6843504339fe7434ee0732a3e968f3e#a87a7bb3f6843504339fe7434ee0732a3e968f3e"
 dependencies = [
  "bitflags 2.13.0",
  "libc",
@@ -6286,7 +6286,7 @@ dependencies = [
 [[package]]
 name = "libgit2-sys"
 version = "0.18.5+1.9.4"
-source = "git+https://github.com/gitbutlerapp/git2-rs?rev=efce108bf14cb1708cfc4c80f2ddf3244a2635ff#efce108bf14cb1708cfc4c80f2ddf3244a2635ff"
+source = "git+https://github.com/gitbutlerapp/git2-rs?rev=a87a7bb3f6843504339fe7434ee0732a3e968f3e#a87a7bb3f6843504339fe7434ee0732a3e968f3e"
 dependencies = [
  "cc",
  "libc",
