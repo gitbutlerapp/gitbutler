@@ -1084,11 +1084,21 @@ const Diff: FC<{
 				: annotationsByPathForScope(comments, scopeChangeId),
 	});
 
-	const diffViewSansAnno = getDiffView({
-		fileParent,
-		changes,
-		treeChangeDiffs,
-	});
+	const diffViewSansAnno = useMemo(
+		() =>
+			getDiffView({
+				fileParent,
+				changes,
+				treeChangeDiffs,
+			}),
+		[
+			fileParent,
+			changes,
+			// oxlint-disable-next-line @tanstack/query/no-unstable-deps -- False positive?: https://github.com/TanStack/query/issues/9718
+			treeChangeDiffs,
+		],
+	);
+
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
 	const selectFileAndNavigateDiff = (selection: string) => {
