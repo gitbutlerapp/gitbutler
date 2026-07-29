@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::{Shift, test_tui};
 
 #[test]
 fn open_uncommitted_file_in_program() {
@@ -20,7 +20,7 @@ fn open_uncommitted_file_in_program() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o').assert_rendered_term_svg_eq(file![
+        tui.input(Shift('o')).assert_rendered_term_svg_eq(file![
             "snapshots/open_uncommitted_file_in_program_001.svg"
         ]);
         tui.input("touch").assert_rendered_term_svg_eq(file![
@@ -112,7 +112,7 @@ fn open_uncommitted_file_in_program_shows_only_programs_that_match_extension() {
 
     let app_data_dir = app_data_dir.display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o').assert_rendered_term_svg_eq(file![
+        tui.input(Shift('o')).assert_rendered_term_svg_eq(file![
             "snapshots/open_uncommitted_file_in_program_shows_only_programs_that_match_extension.svg"
         ]);
     });
@@ -150,7 +150,7 @@ fn open_uncommitted_file_with_multiple_hunks_in_program_from_details_view() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o').assert_rendered_term_svg_eq(file![
+        tui.input(Shift('o')).assert_rendered_term_svg_eq(file![
             "snapshots/open_uncommitted_file_with_multiple_hunks_in_program_from_details_view_001.svg"
         ]);
         tui.input("touch").assert_rendered_term_svg_eq(file![
@@ -183,7 +183,7 @@ fn open_committed_file_in_program() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o')
+        tui.input(Shift('o'))
             .assert_rendered_term_svg_eq(file!["snapshots/open_committed_file_in_program_001.svg"]);
         tui.input("touch")
             .assert_rendered_term_svg_eq(file!["snapshots/open_committed_file_in_program_002.svg"]);
@@ -209,7 +209,7 @@ fn cannot_open_uncommitted_area() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o')
+        tui.input(Shift('o'))
             .assert_rendered_term_svg_eq(file!["snapshots/cannot_open_uncommitted_area.svg"]);
     });
 }
@@ -225,7 +225,7 @@ fn cannot_open_branch() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o')
+        tui.input(Shift('o'))
             .assert_rendered_term_svg_eq(file!["snapshots/cannot_open_branch.svg"]);
     });
 }
@@ -241,7 +241,7 @@ fn cannot_open_commit() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o')
+        tui.input(Shift('o'))
             .assert_rendered_term_svg_eq(file!["snapshots/cannot_open_commit.svg"]);
     });
 }
@@ -257,7 +257,7 @@ fn cannot_open_common_base() {
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {
-        tui.input('o')
+        tui.input(Shift('o'))
             .assert_rendered_term_svg_eq(file!["snapshots/cannot_open_common_base.svg"]);
     });
 }
