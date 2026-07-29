@@ -25,7 +25,6 @@ use crate::{
                 },
                 backstack::{Backstack, BackstackEntry},
                 confirm::ConfirmMessage,
-                copy_selection_picker::Clipboard,
                 cursor::Cursor,
                 details::{DetailsMessage, ScrollDirection},
                 fuzzy_picker::{
@@ -41,7 +40,8 @@ use crate::{
     },
     id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
     tui::{
-        CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard, Tui, TuiInputOutputChannel,
+        Clipboard, CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard, Tui,
+        TuiInputOutputChannel,
         event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
     },
     utils::InputOutputChannel,

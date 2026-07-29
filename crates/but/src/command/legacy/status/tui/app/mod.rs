@@ -22,9 +22,7 @@ use crate::{
             TuiRunOptions,
             output::StatusOutputLineData,
             tui::{
-                Selectable, Tui,
-                copy_selection_picker::Clipboard,
-                count_allocations, dedup_mutation_messages,
+                Selectable, Tui, count_allocations, dedup_mutation_messages,
                 details::Details,
                 event_to_messages,
                 remember_selection::{self, save_selection_to_disk},
@@ -35,7 +33,7 @@ use crate::{
     },
     id::{CommitId, CommittedFileId},
     theme::Theme,
-    tui::{TerminalGuard, event_polling::EventPolling},
+    tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
 };
 
 use super::{

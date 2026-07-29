@@ -3,6 +3,7 @@
 //! These may be interactive or static, with interactive ones containing *verbs*, and static ones being *nouns*.
 
 pub mod table;
+use anyhow::Context as _;
 pub use table::types::Table;
 
 pub mod text;
@@ -18,6 +19,7 @@ mod picker;
 pub use picker::*;
 
 use std::{
+    borrow::Cow,
     io,
     sync::{Arc, Mutex},
 };
@@ -34,7 +36,7 @@ use ratatui::{
 
 use crate::{
     tui::event_polling::EventPolling,
-    utils::{InputOutputChannel, WriteWithUtils},
+    utils::{DebugAsType, InputOutputChannel, WriteWithUtils},
 };
 
 #[cfg(test)]
@@ -267,6 +269,14 @@ impl Drop for SuspendGuard<'_> {
     }
 }
 
+pub struct EmptyContext;
+
+impl<'a> From<&'a mut but_ctx::Context> for EmptyContext {
+    fn from(_ctx: &'a mut but_ctx::Context) -> Self {
+        Self
+    }
+}
+
 pub trait Tui {
     type UpdateContext<'a>;
 
@@ -305,4 +315,55 @@ impl TuiInputOutputChannel for InputOutputChannel<'_> {
     fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
         InputOutputChannel::prompt_single_line(self, prompt)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct Clipboard(DebugAsType<Arc<dyn ClipboardImpl + Send>>);
+
+impl Clipboard {
+    pub fn live() -> Self {
+        struct Live;
+
+        impl ClipboardImpl for Live {
+            fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()> {
+                arboard::Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.set_text(text))
+                    .context("failed to copy to system clipboard")?;
+                Ok(())
+            }
+        }
+
+        Self::new(Live)
+    }
+
+    #[cfg(test)]
+    pub fn test() -> (Self, Arc<std::sync::Mutex<String>>) {
+        struct Test(Arc<std::sync::Mutex<String>>);
+
+        let shared = <Arc<std::sync::Mutex<String>>>::default();
+
+        impl ClipboardImpl for Test {
+            fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()> {
+                *self.0.lock().unwrap() = text.to_string();
+                Ok(())
+            }
+        }
+
+        (Self::new(Test(Arc::clone(&shared))), shared)
+    }
+
+    fn new<C>(clipboard_impl: C) -> Self
+    where
+        C: ClipboardImpl + Send + 'static,
+    {
+        Self(DebugAsType(Arc::new(clipboard_impl)))
+    }
+
+    pub fn set_text<'a>(&self, text: impl Into<Cow<'a, str>>) -> anyhow::Result<()> {
+        self.0.set_text(text.into())
+    }
+}
+
+trait ClipboardImpl {
+    fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()>;
 }

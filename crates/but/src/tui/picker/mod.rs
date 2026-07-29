@@ -14,13 +14,16 @@ use ratatui::{
 
 use crate::{
     theme,
-    tui::{Tui, event_polling::CrosstermEventPolling},
+    tui::{EmptyContext, Tui, event_polling::CrosstermEventPolling},
     utils::InputOutputChannel,
 };
 
 use super::{
     CrosstermTerminalGuard, TerminalGuard, TuiInputOutputChannel, event_polling::EventPolling,
 };
+
+#[cfg(test)]
+mod tests;
 
 pub struct PickerOptions {
     pub allow_multiple: bool,
@@ -180,12 +183,18 @@ where
                     self.picks().map(|(_, value)| value).collect(),
                 )));
             } else {
-                let pick = &self.items[self.cursor];
+                let pick = self.pick();
                 return Ok(ControlFlow::Break(Some(Vec::from([pick.value]))));
             }
         }
 
-        self.update(terminal_guard, event_polling, events, out, &mut ())?;
+        self.update(
+            terminal_guard,
+            event_polling,
+            events,
+            out,
+            &mut EmptyContext,
+        )?;
 
         Ok(ControlFlow::Continue(()))
     }
@@ -294,13 +303,17 @@ where
             .filter(|item| item.selected)
             .map(|item| (item.key, item.value))
     }
+
+    fn pick(&self) -> &PickerItem<'a, Key, Value> {
+        &self.items[self.cursor]
+    }
 }
 
 impl<'a, Key, Value> Tui for App<'a, Key, Value>
 where
     Key: std::fmt::Display,
 {
-    type UpdateContext<'b> = ();
+    type UpdateContext<'b> = EmptyContext;
 
     fn update<T, E>(
         &mut self,
@@ -412,7 +425,7 @@ where
                 })?;
             } else {
                 render_final_frame(terminal_guard, |frame, area| {
-                    let pick = &self.items[self.cursor];
+                    let pick = self.pick();
                     frame.render_widget(
                         Line::from_iter([
                             Span::styled(self.prompt.clone(), t.hint),
@@ -457,274 +470,4 @@ where
     })?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    type Row = (&'static str, Option<&'static str>, bool);
-
-    /// Build a picker from `rows`, render its view lines, and flatten each line
-    /// to plain text (styling dropped) for assertions.
-    fn render_texts(allow_multiple: bool, cursor: usize, rows: &[Row]) -> Vec<String> {
-        let keys: Vec<String> = rows.iter().map(|(key, _, _)| key.to_string()).collect();
-        let items = rows
-            .iter()
-            .copied()
-            .enumerate()
-            .map(|(i, (_, help, selected))| PickerItem {
-                key: &keys[i],
-                help: help.map(str::to_owned),
-                value: &(),
-                selected,
-                disabled: false,
-            })
-            .collect::<Vec<_>>();
-        let app = App {
-            should_render: true,
-            should_quit: false,
-            should_confirm: false,
-            allow_multiple,
-            prompt: "Pick one".to_string(),
-            cursor,
-            items: NonEmpty::from_vec(items).expect("non-empty rows"),
-        };
-        app.view_lines()
-            .iter()
-            .map(|line| line.spans.iter().map(|s| s.content.as_ref()).collect())
-            .collect()
-    }
-
-    #[test]
-    fn help_is_a_pinned_footer_and_rows_do_not_reflow() {
-        let rows: [Row; 3] = [
-            ("Codex", Some("Use Codex."), true),
-            ("Claude", Some("Use Claude."), false),
-            ("Cursor", Some("Use Cursor."), false),
-        ];
-
-        let top = render_texts(true, 0, &rows);
-        // prompt + 3 rows + blank separator + caption.
-        assert_eq!(top.len(), 6);
-        assert_eq!(top[0], "Pick one");
-        assert!(top[1].contains("Codex"));
-        assert!(top[2].contains("Claude"));
-        assert!(top[3].contains("Cursor"));
-        assert_eq!(top[4], "", "separator line is blank");
-        assert!(
-            top[5].contains("Use Codex."),
-            "footer shows cursor-row help"
-        );
-
-        // Moving the cursor keeps every row at the same index (no reflow) and
-        // only swaps the footer caption.
-        let mid = render_texts(true, 1, &rows);
-        assert_eq!(mid.len(), 6);
-        assert!(mid[1].contains("Codex"));
-        assert!(mid[2].contains("Claude"));
-        assert!(mid[3].contains("Cursor"));
-        assert!(mid[5].contains("Use Claude."), "footer tracks the cursor");
-    }
-
-    #[test]
-    fn no_footer_when_no_row_has_help() {
-        let rows: [Row; 2] = [("Codex", None, false), ("Claude", None, false)];
-        // prompt + 2 rows, no footer reserved.
-        assert_eq!(render_texts(true, 0, &rows).len(), 3);
-    }
-
-    #[test]
-    fn single_select_cursor_starts_at_topmost_default_in_range() {
-        assert_eq!(initial_cursor(false, &[2], 5), 2);
-        assert_eq!(initial_cursor(false, &[], 5), 0, "no default starts at top");
-        assert_eq!(
-            initial_cursor(false, &[9], 5),
-            0,
-            "out-of-range default falls back to top"
-        );
-        assert_eq!(
-            initial_cursor(false, &[3, 1], 5),
-            1,
-            "picks the top-most selected row, not the first listed"
-        );
-        assert_eq!(
-            initial_cursor(false, &[4, 9], 5),
-            4,
-            "ignores out-of-range indices when picking the top-most"
-        );
-        assert_eq!(
-            initial_cursor(true, &[2], 5),
-            0,
-            "multi-select always starts at top"
-        );
-    }
-
-    #[test]
-    fn multi_select_marks_default_indices_selected() {
-        let items = NonEmpty::from_vec(vec![("a", ()), ("b", ()), ("c", ()), ("d", ())])
-            .expect("non-empty");
-        let built = build_picker_items(&items, &[0, 2], &[], |_| None::<&str>);
-        let selected = built.iter().map(|item| item.selected).collect::<Vec<_>>();
-        assert_eq!(selected, vec![true, false, true, false]);
-    }
-
-    #[test]
-    fn build_picker_items_marks_disabled_indices() {
-        let items = NonEmpty::from_vec(vec![("a", ()), ("b", ()), ("c", ())]).expect("non-empty");
-        let built = build_picker_items(&items, &[], &[1], |_| None::<&str>);
-        let disabled = built.iter().map(|item| item.disabled).collect::<Vec<_>>();
-        assert_eq!(disabled, vec![false, true, false]);
-    }
-
-    #[test]
-    fn build_picker_items_never_selects_a_disabled_row() {
-        let items = NonEmpty::from_vec(vec![("a", ()), ("b", ())]).expect("non-empty");
-        // Index 1 is listed as both a default and disabled; disabled wins so it is
-        // never returned as a pick.
-        let built = build_picker_items(&items, &[0, 1], &[1], |_| None::<&str>);
-        let selected = built.iter().map(|item| item.selected).collect::<Vec<_>>();
-        let disabled = built.iter().map(|item| item.disabled).collect::<Vec<_>>();
-        assert_eq!(selected, vec![true, false]);
-        assert_eq!(disabled, vec![false, true]);
-    }
-
-    #[test]
-    fn single_select_does_not_confirm_on_a_disabled_row() {
-        let keys = ["Enabled".to_string(), "Disabled".to_string()];
-        let make_app = |cursor| App {
-            should_render: true,
-            should_quit: false,
-            should_confirm: false,
-            allow_multiple: false,
-            prompt: "Pick".to_string(),
-            cursor,
-            items: NonEmpty::from_vec(vec![
-                PickerItem {
-                    key: &keys[0],
-                    help: None,
-                    value: &(),
-                    selected: false,
-                    disabled: false,
-                },
-                PickerItem {
-                    key: &keys[1],
-                    help: None,
-                    value: &(),
-                    selected: false,
-                    disabled: true,
-                },
-            ])
-            .expect("non-empty"),
-        };
-
-        // Enter on the disabled row is ignored.
-        let mut on_disabled = make_app(1);
-        on_disabled.confirm();
-        assert!(!on_disabled.should_confirm);
-
-        // Enter on an enabled row still confirms.
-        let mut on_enabled = make_app(0);
-        on_enabled.confirm();
-        assert!(on_enabled.should_confirm);
-    }
-
-    #[test]
-    fn multi_select_confirms_even_with_cursor_on_a_disabled_row() {
-        let keys = ["Enabled".to_string(), "Disabled".to_string()];
-        let mut app = App {
-            should_render: true,
-            should_quit: false,
-            should_confirm: false,
-            allow_multiple: true,
-            prompt: "Pick".to_string(),
-            cursor: 1,
-            items: NonEmpty::from_vec(vec![
-                PickerItem {
-                    key: &keys[0],
-                    help: None,
-                    value: &(),
-                    selected: true,
-                    disabled: false,
-                },
-                PickerItem {
-                    key: &keys[1],
-                    help: None,
-                    value: &(),
-                    selected: false,
-                    disabled: true,
-                },
-            ])
-            .expect("non-empty"),
-        };
-
-        app.confirm();
-        assert!(app.should_confirm);
-    }
-
-    #[test]
-    fn disabled_row_renders_unavailable_marker_and_cannot_toggle() {
-        let keys = ["Enabled".to_string(), "Disabled".to_string()];
-        let items = vec![
-            PickerItem {
-                key: &keys[0],
-                help: None,
-                value: &(),
-                selected: false,
-                disabled: false,
-            },
-            PickerItem {
-                key: &keys[1],
-                help: None,
-                value: &(),
-                selected: false,
-                disabled: true,
-            },
-        ];
-        let mut app = App {
-            should_render: true,
-            should_quit: false,
-            should_confirm: false,
-            allow_multiple: true,
-            prompt: "Pick".to_string(),
-            cursor: 1,
-            items: NonEmpty::from_vec(items).expect("non-empty"),
-        };
-
-        let texts = app
-            .view_lines()
-            .iter()
-            .map(|line| {
-                line.spans
-                    .iter()
-                    .map(|s| s.content.as_ref())
-                    .collect::<String>()
-            })
-            .collect::<Vec<_>>();
-        // The togglable row shows an empty checkbox; the disabled row shows the
-        // unavailable marker instead.
-        assert!(texts[1].contains("[ ]"));
-        assert!(texts[2].contains("[-]"));
-
-        // Space (toggle) on a disabled row is a no-op.
-        app.toggle_selection();
-        assert!(!app.items[1].selected, "disabled row must not toggle on");
-    }
-
-    #[test]
-    fn single_select_rows_have_no_checkbox() {
-        let rows: [Row; 2] = [
-            ("Apply", Some("Do it."), false),
-            ("Cancel", Some("Stop."), false),
-        ];
-        let lines = render_texts(false, 0, &rows);
-        // prompt + 2 rows + blank separator + caption.
-        assert_eq!(lines.len(), 5);
-        assert!(!lines[1].contains("[x]") && !lines[1].contains("[ ]"));
-        assert!(lines[1].contains("Apply"));
-        assert!(
-            lines[4].contains("Do it."),
-            "footer caption is the last line"
-        );
-    }
 }

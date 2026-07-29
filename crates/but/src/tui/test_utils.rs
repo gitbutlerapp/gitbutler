@@ -1,5 +1,6 @@
 use std::{convert::Infallible, path::PathBuf, sync::Arc, time::Duration};
 
+use but_ctx::Context;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use ratatui::{
@@ -17,6 +18,7 @@ use crate::{
 
 pub struct TestTui<T> {
     app: T,
+    ctx: Context,
     terminal: Terminal<TestBackend>,
     env: Option<Sandbox>,
     out: OutputChannel,
@@ -38,8 +40,9 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         app: T,
+        ctx: Context,
         terminal: Terminal<TestBackend>,
-        env: Option<Sandbox>,
+        env: Sandbox,
         out: OutputChannel,
         width: u16,
         height: u16,
@@ -48,8 +51,9 @@ where
     ) -> Self {
         Self {
             app,
+            ctx,
             terminal,
-            env,
+            env: Some(env),
             out,
             width,
             height,
@@ -83,9 +87,17 @@ where
         E: InputEventPolling,
         for<'a> T::UpdateContext<'a>: From<&'a mut but_ctx::Context>,
     {
-        let mut ctx = self.env().context();
-        let mut update_ctx = <T::UpdateContext<'_>>::from(&mut ctx);
-        self.render_with_update_context(event, &mut update_ctx)
+        {
+            let mut update_ctx = <T::UpdateContext<'_>>::from(&mut self.ctx);
+            update_then_render(
+                &mut self.app,
+                &mut self.out,
+                &mut self.terminal,
+                event,
+                &mut update_ctx,
+            );
+        }
+        TestTuiInputThenRenderResult(self)
     }
 
     /// Lower level utility method that shouldn't be used directly.
@@ -99,17 +111,13 @@ where
     where
         E: EventPolling,
     {
-        with_stable_commit_env(|| {
-            let mut out = TestTuiInputOutputChannel(&mut self.out);
-            let mut events = Vec::with_capacity(1);
-
-            self.app
-                .update(&mut self.terminal, event, &mut events, &mut out, update_ctx)
-                .unwrap();
-
-            self.app.render(&mut self.terminal).unwrap();
-        });
-
+        update_then_render(
+            &mut self.app,
+            &mut self.out,
+            &mut self.terminal,
+            event,
+            update_ctx,
+        );
         TestTuiInputThenRenderResult(self)
     }
 
@@ -120,6 +128,27 @@ where
         std::mem::forget(self);
         env
     }
+}
+
+fn update_then_render<T, E>(
+    app: &mut T,
+    out: &mut OutputChannel,
+    terminal: &mut Terminal<TestBackend>,
+    event: E,
+    update_ctx: &mut T::UpdateContext<'_>,
+) where
+    T: Tui,
+    E: EventPolling,
+{
+    with_stable_commit_env(|| {
+        let mut out = TestTuiInputOutputChannel(out);
+        let mut events = Vec::with_capacity(1);
+
+        app.update(terminal, event, &mut events, &mut out, update_ctx)
+            .unwrap();
+
+        app.render(terminal).unwrap();
+    });
 }
 
 impl<T> Drop for TestTui<T> {
@@ -157,6 +186,14 @@ impl<T> Drop for TestTui<T> {
             None => {}
         }
     }
+}
+
+pub fn configure_test_repo(env: &Sandbox) {
+    env.invoke_git("config user.name committer");
+    env.invoke_git("config user.email committer@example.com");
+    env.invoke_git("config gitoxide.commit.authorDate '2000-01-01 00:00:00 +0000'");
+    env.invoke_git("config gitoxide.commit.committerDate '2000-01-01 00:00:00 +0000'");
+    env.invoke_git("config gitbutler.testing.changeId 1");
 }
 
 pub fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
@@ -644,6 +681,8 @@ impl EventPolling for Option<Event> {
     }
 }
 
+impl InputEventPolling for Option<Event> {}
+
 pub trait InputEventPolling: EventPolling {}
 
 impl<const N: usize, T> InputEventPolling for [T; N] where
@@ -773,7 +812,7 @@ impl EventPolling for Shift {
     }
 }
 
-#[expect(dead_code)]
+#[cfg_attr(feature = "legacy", expect(dead_code))]
 pub struct Control(pub char);
 
 impl InputEventPolling for Control {}

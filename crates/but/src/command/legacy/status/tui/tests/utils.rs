@@ -6,14 +6,12 @@ use crate::{
     command::legacy::status::{
         StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
         build_status_context, build_status_output,
-        tui::{
-            App, BackstackEntry, Message, ReloadCause, app::UpdateContext,
-            copy_selection_picker::Clipboard,
-        },
+        tui::{App, BackstackEntry, Message, ReloadCause, app::UpdateContext},
     },
     tui::{
+        Clipboard,
         event_polling::EventPolling,
-        test_utils::{TestTui, TestTuiInputThenRenderResult},
+        test_utils::{TestTui, TestTuiInputThenRenderResult, configure_test_repo},
     },
     utils::OutputChannel,
 };
@@ -53,12 +51,7 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         launch_options,
     } = options;
 
-    env.invoke_git("config user.name committer");
-    env.invoke_git("config user.email committer@example.com");
-    env.invoke_git("config gitoxide.commit.authorDate '2000-01-01 00:00:00 +0000'");
-    env.invoke_git("config gitoxide.commit.committerDate '2000-01-01 00:00:00 +0000'");
-    env.invoke_git("config gitbutler.testing.changeId 1");
-
+    configure_test_repo(&env);
     let mut ctx = env.context();
     let operating_mode = but_api::legacy::modes::operating_mode(&ctx)
         .expect("failed to get operating mode")
@@ -107,8 +100,9 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
 
     TestTui::new(
         app,
+        ctx,
         terminal,
-        Some(env),
+        env,
         out,
         width,
         height,
