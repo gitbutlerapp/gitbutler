@@ -434,11 +434,14 @@ when possible, otherwise makes a signed merge commit; for a `gb-local` target it
 locally. Then reconciles the remaining branches like `but pull`.
 
 ```bash
-but land <branch-id> --yes            # Land onto the target (--yes required non-interactively)
-but land <branch-id> --no-ff --yes    # Force a merge commit instead of fast-forwarding
+but land <branch-id> --yes                  # Land onto the target (--yes required non-interactively)
+but land <branch-id> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but land <top-branch> --whole-stack --yes   # Land an entire stack by naming its top segment
 ```
 
 Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
+A branch stacked on other segments is refused (its tip would also publish them); `--whole-stack`
+is the explicit opt-in, and only the stack's top segment can be named with it.
 
 ## Workspace Maintenance
 

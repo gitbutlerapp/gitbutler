@@ -39,6 +39,18 @@ fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
     other
 }
 
+/// An unreachable remote that is not the target's must not block a dry-run push:
+/// `fetch_from_remotes` only fails when the target's own fetch remote failed.
+#[test]
+fn push_dry_run_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+    let env = repo_with_unpushed_branch()?;
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("push --dry-run branchB").assert().success();
+
+    Ok(())
+}
+
 #[test]
 fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
     let env = repo_with_unpushed_branch()?;

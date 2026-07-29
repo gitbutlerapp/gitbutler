@@ -2,6 +2,20 @@ use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
 
+/// An unreachable remote that is not the target's must not block pulling: `fetch_from_remotes`
+/// only fails when the target's own fetch remote failed, so a dead unrelated remote (old fork,
+/// deleted mirror) is tolerated.
+#[test]
+fn pull_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("pull").assert().success();
+
+    Ok(())
+}
+
 #[test]
 fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(

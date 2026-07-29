@@ -346,6 +346,9 @@ pub enum Subcommands {
     /// use `but push` and open a PR (`but pr new`) instead — `but land` deliberately bypasses that
     /// process. On a real remote, a branch protected against direct pushes will reject the land.
     ///
+    /// Landing a segment with other segments below it is refused unless `--whole-stack` is
+    /// passed with the stack's top segment, which lands the entire stack.
+    ///
     /// ## Examples
     ///
     /// Land a branch by its CLI ID:
@@ -359,6 +362,12 @@ pub enum Subcommands {
     /// ```text
     /// but land my-feature-branch --no-ff
     /// ```
+    ///
+    /// Land an entire stack by naming its top segment:
+    ///
+    /// ```text
+    /// but land top-branch --whole-stack
+    /// ```
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Land {
@@ -370,6 +379,10 @@ pub enum Subcommands {
         /// Always create a merge commit, even when the branch can be fast-forwarded.
         #[clap(long)]
         no_ff: bool,
+        /// Land the entire stack: BRANCH must be the top segment, and the segments below it are
+        /// published to the target along with it.
+        #[clap(long)]
+        whole_stack: bool,
     },
 
     #[cfg(feature = "legacy")]

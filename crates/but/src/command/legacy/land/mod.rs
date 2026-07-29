@@ -21,6 +21,7 @@ pub fn handle(
     branch_id: &str,
     yes: bool,
     no_ff: bool,
+    whole_stack: bool,
 ) -> anyhow::Result<()> {
     // Resolve the branch identifier and read the target configuration. The managed-workspace guard
     // runs here for a friendly message before the prompt; the API enforces it again, along with the
@@ -68,15 +69,31 @@ pub fn handle(
     };
     let target_display = format!("{push_remote_name}/{target_branch_name}");
 
-    let pr_number = messaging::branch_pr_number(ctx, &branch_name)?;
-    messaging::confirm_direct_target_update(out, &branch_name, pr_number, &target_display, yes)?;
+    // With --whole-stack the confirmation must disclose everything that will be published, not
+    // just the branch the user typed — including commits on segments that no longer have a name.
+    // The API re-derives and enforces this; what's gathered here is display.
+    let lower = if whole_stack {
+        but_api::land::lower_stack(ctx, &branch_name)?
+    } else {
+        but_api::land::LowerStack::default()
+    };
+
+    let attached_prs = messaging::attached_pr_numbers(ctx, &branch_name, &lower.segments)?;
+    messaging::confirm_direct_target_update(
+        out,
+        &branch_name,
+        &lower,
+        &attached_prs,
+        &target_display,
+        yes,
+    )?;
 
     {
         let mut progress = out.progress_channel();
         writeln!(progress, "Landing {branch_name} onto {target_display}...")?;
     }
 
-    let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff)?;
+    let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff, whole_stack)?;
 
     messaging::report_land_result(
         out,

@@ -246,6 +246,32 @@ fn land_no_ff_creates_signed_merge_commit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// An unreachable remote that is not the target's must not block landing: `but land` fetches only
+/// the target's fetch remote, so a dead unrelated remote (old fork, deleted mirror) is ignored.
+#[test]
+fn land_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("branch new first-branch").assert().success();
+    env.file("file1.txt", "content1");
+    env.but("commit -b first-branch -m 'first commit on branch A'")
+        .assert()
+        .success();
+    let branch_tip = env.invoke_git("rev-parse first-branch");
+
+    env.but("land first-branch --yes").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        branch_tip,
+        "the land must succeed and advance the target despite the unreachable unrelated remote"
+    );
+
+    Ok(())
+}
+
 /// Landing a non-bottom segment of a stack would silently publish the lower segments' commits, so
 /// it must be refused before anything is mutated, naming the lower segment.
 #[test]
@@ -284,6 +310,147 @@ fn land_refuses_non_bottom_stack_segment() -> anyhow::Result<()> {
     assert!(
         stderr.contains("bottom-seg"),
         "the refusal must name the lower segment that would be carried along; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("--whole-stack"),
+        "the refusal must advertise the explicit whole-stack opt-in; got:\n{stderr}"
+    );
+    assert_eq!(
+        target_before,
+        env.invoke_git("rev-parse gb-local/main"),
+        "a refused land must not move the target"
+    );
+
+    Ok(())
+}
+
+/// `--whole-stack` is the explicit opt-in: naming the top segment lands the entire stack, and the
+/// pre-flight warning names the lower segments being published so `--yes` runs stay honest.
+#[test]
+fn land_whole_stack_lands_top_segment() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+
+    env.but("branch new bottom-seg").assert().success();
+    env.file("bottom.txt", "bottom");
+    env.but("commit -b bottom-seg -m 'bottom commit'")
+        .assert()
+        .success();
+    env.but("branch new top-seg --anchor bottom-seg")
+        .assert()
+        .success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'top commit'")
+        .assert()
+        .success();
+    let top_tip = env.invoke_git("rev-parse top-seg");
+
+    let output = env
+        .but("land top-seg --whole-stack --yes")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("bottom-seg"),
+        "the warning must name the lower segment being published along; got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Landed top-seg onto gb-local/main"),
+        "the land should report success; got:\n{stdout}"
+    );
+
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        top_tip,
+        "the target should advance to the top segment's tip, publishing the whole stack"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        top_tip,
+        "the self-remote land should move the local target too"
+    );
+    assert_eq!(
+        status_json(&env)?["stacks"].as_array().unwrap().len(),
+        0,
+        "both landed segments should be removed from the workspace"
+    );
+
+    Ok(())
+}
+
+/// The conflicted-commit guard must cover every segment a whole-stack land would publish: a
+/// conflicted commit in a LOWER segment refuses `--whole-stack` on a clean top segment.
+#[test]
+fn land_whole_stack_refuses_conflicted_lower_segment() -> anyhow::Result<()> {
+    let env = super::util::sandbox_with_conflicted_commit();
+
+    // Stack a clean segment on top of branch A, which carries the conflicted commit.
+    env.but("branch new top-seg --anchor A").assert().success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'clean top commit'")
+        .assert()
+        .success();
+
+    let output = env
+        .but("land top-seg --whole-stack --yes")
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8_lossy(&output);
+    assert!(
+        stderr.contains("conflicted commit"),
+        "a conflicted commit below the named segment must refuse the whole-stack land; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("but resolve"),
+        "the refusal must point at the resolution command; got:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+/// `--whole-stack` always means "the entire stack lands": naming anything but the top segment is
+/// refused, pointing at the actual top, so a partial land can't strand the segments above.
+#[test]
+fn land_whole_stack_refuses_non_top_segment() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+
+    env.but("branch new bottom-seg").assert().success();
+    env.file("bottom.txt", "bottom");
+    env.but("commit -b bottom-seg -m 'bottom commit'")
+        .assert()
+        .success();
+    env.but("branch new top-seg --anchor bottom-seg")
+        .assert()
+        .success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'top commit'")
+        .assert()
+        .success();
+
+    let target_before = env.invoke_git("rev-parse gb-local/main");
+
+    let output = env
+        .but("land bottom-seg --whole-stack --yes")
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8_lossy(&output);
+    assert!(
+        stderr.contains("not the top of its stack"),
+        "--whole-stack on a non-top segment must be refused; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("top-seg"),
+        "the refusal must point at the actual top segment to name; got:\n{stderr}"
     );
     assert_eq!(
         target_before,

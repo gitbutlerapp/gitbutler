@@ -19,8 +19,10 @@
 //! ([`crate::workspace::workspace_integrate_upstream_with_perm`]). This module orchestrates them.
 //!
 //! Unlike the modern single-mutation endpoints, `branch_land` cannot hold one exclusive permission
-//! throughout: it interleaves `fetch_from_remotes` (which re-acquires shared access) with the
-//! retry loop, so it acquires and releases worktree access per step, like the legacy public APIs.
+//! throughout: it interleaves fetching the target remote with the retry loop, so it acquires and
+//! releases worktree access per step, like the legacy public APIs. Only the target's fetch remote
+//! is fetched — landing needs a fresh target tracking ref and nothing else, and an unreachable
+//! unrelated remote must not block the land.
 //! The reconcile step owns its own permission and oplog snapshot. The target move itself is not
 //! captured by the oplog (see the CLI's undo caveats), matching the prior CLI behavior.
 
@@ -33,6 +35,7 @@ use std::path::Path;
 use anyhow::bail;
 use but_api_macros::but_api;
 use but_ctx::Context;
+use gitbutler_git::GitContextExt as _;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
@@ -151,8 +154,10 @@ pub mod json {
 /// Land `branch` directly onto the configured target ref.
 ///
 /// `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
-/// must be the bottom segment of its stack and free of conflicted commits, and the workspace must
-/// be a managed GitButler workspace with a configured, non-triangular target remote.
+/// must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
+/// publishes every segment below it as well — and the landed segments must be free of conflicted
+/// commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
+/// target remote.
 ///
 /// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
 /// the target moves underneath us), then reconciles the remaining applied branches onto the moved
@@ -164,6 +169,7 @@ pub fn branch_land(
     ctx: &mut Context,
     branch: String,
     no_ff: bool,
+    whole_stack: bool,
 ) -> anyhow::Result<BranchLandResult> {
     let base_branch = {
         let mut guard = ctx.exclusive_worktree_access();
@@ -217,10 +223,12 @@ pub fn branch_land(
     };
 
     // Safety guards a non-CLI caller must not be able to bypass: never publish lower stack segments
-    // the user did not name, and never publish conflicted commits onto the target.
-    validate_branch_landing(ctx, &branch, &target_display)?;
+    // the user did not opt into, and never publish conflicted commits onto the target.
+    validate_branch_landing(ctx, &branch, &target_display, whole_stack)?;
 
-    crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+    // Fetch only the target's remote: landing needs a fresh target tracking ref and nothing else,
+    // and an unreachable unrelated remote must not block the land.
+    fetch_target_remote(ctx, &fetch_remote_name)?;
 
     // Land the branch, retrying when the target moves underneath us (optimistic concurrency).
     let mut landed: Option<BranchLandKind> = None;
@@ -275,7 +283,7 @@ pub fn branch_land(
             Err(err)
                 if deliver::is_retryable_concurrency_error(&err) && attempt < MAX_PUSH_ATTEMPTS =>
             {
-                crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+                fetch_target_remote(ctx, &fetch_remote_name)?;
             }
             Err(err) if deliver::is_retryable_concurrency_error(&err) => {
                 return Err(err.context(format!(
@@ -300,7 +308,7 @@ pub fn branch_land(
     if let BranchLandKind::Updated { new_target_oid, .. } = &landed
         && !update_target_locally
     {
-        crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+        fetch_target_remote(ctx, &fetch_remote_name)?;
 
         // A concurrent push may have moved the tip *past* our commit, which still counts as the
         // target having advanced to include what we landed — so test reachability, not equality.
@@ -333,14 +341,138 @@ pub fn branch_land(
     })
 }
 
-/// Refuse landing a non-bottom stack segment (it would publish the lower segments the user did not
-/// name) or a branch with conflicted commits (the same guard `but push` applies before sending
-/// commits to a remote). Both are computed from the graph workspace, not stack projections.
+/// Refuse landing a non-bottom stack segment unless `whole_stack` opts into publishing the lower
+/// segments — and even then only for the top segment, so `--whole-stack` always means "the entire
+/// stack lands", never a partial land that strands the segments above. Also refuse conflicted
+/// commits in any segment that would be published (the same guard `but push` applies before
+/// sending commits to a remote). All computed from the graph workspace, not stack projections.
 fn validate_branch_landing(
     ctx: &mut Context,
     branch: &str,
     target_display: &str,
+    whole_stack: bool,
 ) -> anyhow::Result<()> {
+    let Some(scan) = scan_stack(ctx, branch)? else {
+        return Ok(());
+    };
+
+    if whole_stack && scan.has_upper {
+        // Judge "top of the stack" by position, not by names: a segment whose branch ref was
+        // deleted still holds commits that "land the entire stack" would have to include.
+        if let Some(top) = scan.upper_segments.first() {
+            bail!(
+                "Refusing to land `{branch}` with --whole-stack: it is not the top of its stack. \
+                 --whole-stack lands the entire stack; name its top segment `{top}` instead.",
+            );
+        }
+        bail!(
+            "Refusing to land `{branch}` with --whole-stack: it is not the top of its stack — \
+             unnamed segment(s) with commits sit above it (their branch refs no longer exist), so \
+             landing `{branch}` would not land the entire stack.",
+        );
+    }
+    // Key off the commits below, not the segment names: segments whose branch ref was deleted are
+    // unnamed but their commits would be published all the same.
+    let publishes_below = scan.commits_below > 0 || !scan.lower_segments.is_empty();
+    if publishes_below && !whole_stack {
+        if scan.lower_segments.is_empty() {
+            bail!(
+                "Refusing to land `{branch}`: {} commit(s) on unnamed segment(s) below it would \
+                 also be published to {target_display}. Pass --whole-stack to land `{branch}` \
+                 together with everything below it.",
+                scan.commits_below,
+            );
+        }
+        bail!(
+            "Refusing to land `{branch}`: it is stacked on top of {} other segment(s) ({}) \
+             whose commits would also be published to {target_display}. Land the bottom segment \
+             `{}`, or pass --whole-stack to land `{branch}` together with everything below it.",
+            scan.lower_segments.len(),
+            scan.lower_segments.join(", "),
+            scan.lower_segments.last().expect("non-empty checked above"),
+        );
+    }
+
+    if !scan.conflicted.is_empty() {
+        bail!(
+            "Cannot land `{branch}`: it would publish {} conflicted commit{} ({}). \
+             Resolve them first with `but resolve <commit>`.",
+            scan.conflicted.len(),
+            if scan.conflicted.len() == 1 { "" } else { "s" },
+            scan.conflicted.join(", "),
+        );
+    }
+    Ok(())
+}
+
+/// Fetch the target's fetch remote and record the outcome on the project, mirroring the
+/// bookkeeping `fetch_from_remotes` performs so `last_fetched` and auto-fetch scheduling stay
+/// accurate for targeted fetches too.
+fn fetch_target_remote(ctx: &Context, remote: &str) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+
+    let result = ctx.fetch(remote, Some("land".to_string()));
+    let timestamp = std::time::SystemTime::now();
+    let project_data_last_fetched = match &result {
+        Ok(()) => gitbutler_project::FetchResult::Fetched { timestamp },
+        Err(err) => gitbutler_project::FetchResult::Error {
+            timestamp,
+            error: err.to_string(),
+        },
+    };
+    gitbutler_project::update(gitbutler_project::UpdateRequest {
+        project_data_last_fetched: Some(project_data_last_fetched),
+        ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id.clone())
+    })
+    .context("failed to update project with last fetched timestamp")?;
+    result
+}
+
+/// What landing `branch` would publish beyond the branch's own segment, for callers that must
+/// describe a whole-stack land before invoking [`branch_land`]. Empty when `branch` is the bottom
+/// of its stack or not an applied branch.
+#[derive(Debug, Clone, Default)]
+pub struct LowerStack {
+    /// Named segments below `branch`, top to bottom.
+    pub segments: Vec<String>,
+    /// Commits on unnamed segments below `branch` (their branch refs no longer exist) — published
+    /// all the same, so confirmations must disclose them even without a name to show.
+    pub unnamed_commits: usize,
+}
+
+/// The [`LowerStack`] landing `branch` would publish along with it.
+pub fn lower_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<LowerStack> {
+    Ok(scan_stack(ctx, branch)?
+        .map(|scan| LowerStack {
+            segments: scan.lower_segments,
+            unnamed_commits: scan.unnamed_below_commits,
+        })
+        .unwrap_or_default())
+}
+
+/// `branch`'s position in its stack as the landing guards see it.
+struct StackScan {
+    /// Named segments above `branch`, top of the stack first. Non-empty means landing `branch`
+    /// would leave these stranded above a moved target.
+    upper_segments: Vec<String>,
+    /// Whether any segment sits above `branch` in its stack, named or not.
+    has_upper: bool,
+    /// Named segments below `branch`, top to bottom. Non-empty means landing `branch` also
+    /// publishes their commits.
+    lower_segments: Vec<String>,
+    /// Commits in all segments below `branch`, named or not — everything its tip would publish
+    /// beyond its own segment.
+    commits_below: usize,
+    /// The subset of `commits_below` sitting on unnamed segments, for confirmations to disclose.
+    unnamed_below_commits: usize,
+    /// Short hashes of conflicted commits in `branch`'s segment and every segment below it — every
+    /// commit the branch's tip would publish.
+    conflicted: Vec<String>,
+}
+
+/// Locate `branch` in the graph workspace, or `None` when no applied stack has a segment by that
+/// name.
+fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackScan>> {
     let guard = ctx.exclusive_worktree_access();
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     let head_info = but_workspace::graph_to_ref_info(
@@ -354,6 +486,8 @@ fn validate_branch_landing(
         },
     )?;
 
+    // Segments are ordered top of the stack first, so everything after `pos` is published along
+    // with the branch's tip and everything before it sits on top of the branch.
     for stack in &head_info.stacks {
         let Some(pos) = stack
             .segments
@@ -362,42 +496,34 @@ fn validate_branch_landing(
         else {
             continue;
         };
-
-        // Segments below the named one (oldest last) carry commits the branch's tip would also
-        // publish. Naming a non-bottom segment is refused so lower segments aren't landed silently.
-        let lower_segments: Vec<String> = stack.segments[pos + 1..]
-            .iter()
-            .filter_map(segment_short_name)
-            .collect();
-        if !lower_segments.is_empty() {
-            bail!(
-                "Refusing to land `{branch}`: it is stacked on top of {} other segment(s) ({}) \
-                 whose commits would also be published to {target_display}. Land the bottom segment \
-                 `{}` (or the whole stack) instead.",
-                lower_segments.len(),
-                lower_segments.join(", "),
-                lower_segments.last().expect("non-empty checked above"),
-            );
-        }
-
-        let conflicted: Vec<String> = stack.segments[pos]
-            .commits
-            .iter()
-            .filter(|c| c.has_conflicts)
-            .map(|c| c.id.attach(&repo).shorten_or_id().to_string())
-            .collect();
-        if !conflicted.is_empty() {
-            bail!(
-                "Cannot land `{branch}`: it contains {} conflicted commit{} ({}). \
-                 Resolve them first with `but resolve <commit>`.",
-                conflicted.len(),
-                if conflicted.len() == 1 { "" } else { "s" },
-                conflicted.join(", "),
-            );
-        }
-        return Ok(());
+        return Ok(Some(StackScan {
+            upper_segments: stack.segments[..pos]
+                .iter()
+                .filter_map(segment_short_name)
+                .collect(),
+            has_upper: pos > 0,
+            lower_segments: stack.segments[pos + 1..]
+                .iter()
+                .filter_map(segment_short_name)
+                .collect(),
+            commits_below: stack.segments[pos + 1..]
+                .iter()
+                .map(|s| s.commits.len())
+                .sum(),
+            unnamed_below_commits: stack.segments[pos + 1..]
+                .iter()
+                .filter(|s| segment_short_name(s).is_none())
+                .map(|s| s.commits.len())
+                .sum(),
+            conflicted: stack.segments[pos..]
+                .iter()
+                .flat_map(|s| &s.commits)
+                .filter(|c| c.has_conflicts)
+                .map(|c| c.id.attach(&repo).shorten_or_id().to_string())
+                .collect(),
+        }));
     }
-    Ok(())
+    Ok(None)
 }
 
 /// The short local-branch name of a segment, or `None` if the segment isn't a named local branch.
