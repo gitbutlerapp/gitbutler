@@ -41,10 +41,6 @@ export enum ReduxTag {
 	IntegrationSteps = "IntegrationSteps",
 	GitConfigProperty = "GitConfigProperty",
 	GitButlerConfig = "GitButlerConfig",
-	IrcConnectionState = "IrcConnectionState",
-	IrcChannels = "IrcChannels",
-	IrcMessages = "IrcMessages",
-	IrcUsers = "IrcUsers",
 	User = "User",
 	UserProfile = "UserProfile",
 }

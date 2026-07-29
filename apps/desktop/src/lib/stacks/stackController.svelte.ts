@@ -224,12 +224,8 @@ export class StackController {
 		return !!this.stagedFocusedFile;
 	}
 
-	get ircPanelOpen(): boolean {
-		return this.selection.current?.irc === true;
-	}
-
 	get isDetailsViewOpen(): boolean {
-		return this.isSelectionPreviewOpen || this.hasStagedFileFocused || this.ircPanelOpen;
+		return this.isSelectionPreviewOpen || this.hasStagedFileFocused;
 	}
 
 	closePreview(): void {

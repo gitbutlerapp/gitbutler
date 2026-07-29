@@ -9,13 +9,11 @@
 	import { UncommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
 	import { AssignmentDropHandler } from "$lib/dragging/dropHandlers/hunkDropHandler";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
-	import { WORKING_FILES_BROADCAST } from "$lib/irc/workingFilesBroadcast.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { inject, injectOptional } from "@gitbutler/core/context";
+	import { inject } from "@gitbutler/core/context";
 
 	import { Badge, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
@@ -62,17 +60,6 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
-	const ircApiService = injectOptional(IRC_API_SERVICE, undefined);
-	const workingFilesBroadcast = injectOptional(WORKING_FILES_BROADCAST, undefined);
-
-	const workingFilesChannel = $derived(workingFilesBroadcast?.channel);
-	const workingFilesQuery = $derived(
-		ircApiService && workingFilesChannel
-			? ircApiService.workingFiles({ channel: workingFilesChannel })
-			: undefined,
-	);
-	const ircWorkingFiles = $derived(workingFilesQuery?.response);
-
 	// Create selectionId for this worktree lane
 	const selectionId = $derived(createWorktreeSelection({ stackId }));
 
@@ -116,7 +103,6 @@
 			draggable
 			showLockedIndicator
 			{visibleRange}
-			{ircWorkingFiles}
 			dataTestId={TestId.UncommittedChanges_FileList}
 			onselect={onFileClick && ((_change, index) => onFileClick(index))}
 		/>

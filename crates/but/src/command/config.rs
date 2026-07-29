@@ -468,7 +468,6 @@ fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
     let mut update = FeatureFlagsUpdate {
         unapply_v3_pgm: None,
         single_branch: None,
-        irc: None,
         worktree_manipulation: None,
     };
     match flag {

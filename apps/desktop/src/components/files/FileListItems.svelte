@@ -35,8 +35,6 @@
 		draggable?: boolean;
 		showLockedIndicator?: boolean;
 		visibleRange?: { start: number; end: number };
-		/** nick → file paths mapping from IRC working files broadcast */
-		ircWorkingFiles?: Record<string, string[]>;
 		/** Per-file conflict hints (rendered inline on each item) */
 		conflictEntries?: ConflictEntriesObj;
 		dataTestId?: string;
@@ -54,7 +52,6 @@
 		draggable,
 		showLockedIndicator = false,
 		visibleRange,
-		ircWorkingFiles,
 		conflictEntries,
 		dataTestId,
 		onselect,
@@ -64,23 +61,6 @@
 	const controller = getFileListContext();
 	const dependencyService = inject(DEPENDENCY_SERVICE);
 	const focusManager = inject(FOCUS_MANAGER);
-
-	/** Invert nick→paths map to path→nicks for per-file lookup. */
-	const ircWorkingUsersByPath = $derived.by(() => {
-		if (!ircWorkingFiles) return undefined;
-		const map = new Map<string, string[]>();
-		for (const [nick, paths] of Object.entries(ircWorkingFiles)) {
-			for (const p of paths) {
-				const nicks = map.get(p);
-				if (nicks) {
-					nicks.push(nick);
-				} else {
-					map.set(p, [nick]);
-				}
-			}
-		}
-		return map;
-	});
 
 	const filePaths = $derived(controller.changes.map((change) => change.path));
 	const fileDependenciesQuery = $derived(
@@ -119,7 +99,6 @@
 		{draggable}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
-		ircWorkingUsers={ircWorkingUsersByPath?.get(change.path)}
 		focusableOpts={{
 			onKeydown: (e) => {
 				// 1. Activation keys (Enter/Space/l)

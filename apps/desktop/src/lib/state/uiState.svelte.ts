@@ -14,7 +14,6 @@ export type GeneralSettingsPageId =
 	| "git"
 	| "integrations"
 	| "ai"
-	| "irc"
 	| "telemetry"
 	| "experimental"
 	| "organizations";
@@ -39,7 +38,6 @@ export type StackSelection = {
 	commitIds?: string[];
 	upstream?: boolean;
 	previewOpen: boolean;
-	irc?: boolean;
 };
 
 export type NewCommitMessage = {
@@ -159,13 +157,6 @@ export type GlobalUiState = {
 	useRuler: boolean;
 	rulerCountValue: number;
 	aiSuggestionsOnType: boolean;
-	ircChatOpen: boolean;
-	ircChatSize: {
-		width: number;
-		height: number;
-	};
-	ircChatXY: { x: number; y: number } | undefined;
-	channel: string | undefined;
 	draftBranchName: string | undefined;
 	modal: GlobalModalState | undefined;
 	// User settings (migrated from userSettings.ts)
@@ -242,13 +233,6 @@ export class UiState {
 		useRuler: true,
 		rulerCountValue: 72,
 		aiSuggestionsOnType: false,
-		ircChatOpen: false,
-		ircChatSize: {
-			width: 520,
-			height: 460,
-		},
-		ircChatXY: undefined,
-		channel: undefined,
 		draftBranchName: undefined,
 		modal: undefined,
 		// User settings defaults

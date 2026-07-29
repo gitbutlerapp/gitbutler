@@ -13,8 +13,6 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::Extra;
-#[cfg(feature = "irc")]
-use but_irc::WorkingFilesBroadcast;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,7 +42,6 @@ impl ActiveProjects {
         ctx: &Context,
         broadcaster: &Arc<Mutex<Broadcaster>>,
         app_settings_sync: AppSettingsWithDiskSync,
-        #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
     ) -> Result<()> {
         if self.projects.contains_key(&ctx.legacy_project.id) {
             return Ok(());
@@ -53,9 +50,6 @@ impl ActiveProjects {
         // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
             let broadcaster = broadcaster.clone();
-            #[cfg(feature = "irc")]
-            let wfb = working_files_broadcast;
-
             move |value| {
                 let frontend_event = match value {
                     Change::GitFetch(project_id) => FrontendEvent {
@@ -87,23 +81,10 @@ impl ActiveProjects {
                         project_id,
                         ref changes,
                         changed_paths: _,
-                    } => {
-                        #[cfg(feature = "irc")]
-                        {
-                            let paths: Vec<String> = changes
-                                .worktree_changes
-                                .changes
-                                .iter()
-                                .map(|c| c.path.to_string())
-                                .collect();
-                            wfb.on_worktree_change(project_id.clone(), paths);
-                        }
-
-                        FrontendEvent {
-                            name: format!("project://{project_id}/worktree_changes"),
-                            payload: serde_json::json!(&changes),
-                        }
-                    }
+                    } => FrontendEvent {
+                        name: format!("project://{project_id}/worktree_changes"),
+                        payload: serde_json::json!(&changes),
+                    },
                 };
 
                 let broadcaster = broadcaster.clone();
@@ -159,7 +140,6 @@ pub async fn set_project_active(
     broadcaster: &Arc<Mutex<Broadcaster>>,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
-    #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_json_error()?;
@@ -170,13 +150,7 @@ pub async fn set_project_active(
     let mut active_projects = extra.active_projects.lock().await;
     let mut ctx: Context = params.id.try_into()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
-    active_projects.set_active(
-        &ctx,
-        broadcaster,
-        app_settings_sync,
-        #[cfg(feature = "irc")]
-        working_files_broadcast,
-    )?;
+    active_projects.set_active(&ctx, broadcaster, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
 

@@ -78,7 +78,6 @@ members = [
     # 👉Might be exemplary if it was fully documented.
     "crates/but-settings", # 📄Store and retrieve layered application settings, react to changes in realtime.
     # 👉Experimental IRC support
-    "crates/but-irc", # 📄IRC client with WebSocket transport and GitButler protocol support.
     # 👉Experimental; needs docs, it's used from `but` CLI and not a library
     "crates/but-agentlog",    # 📄Capture coding-agent logs into Git metadata.
     "crates/but-transaction", # 📄TBD
@@ -165,7 +164,6 @@ but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-gerrit = { path = "crates/but-gerrit" }
-but-irc = { path = "crates/but-irc" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-bitbucket = { path = "crates/but-bitbucket" }

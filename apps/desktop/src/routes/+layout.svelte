@@ -110,14 +110,6 @@
 	}
 
 	// =============================================================================
-	// EXPERIMENTAL FEATURES
-	// =============================================================================
-
-	// IRC connections are managed by the Rust backend (irc_lifecycle.rs).
-	// The backend handles auto-connect on startup and reacts to settings changes.
-	// Frontend queries IRC state via RTKQ endpoints (ircApi.ts).
-
-	// =============================================================================
 	// DEBUG & DEVELOPMENT TOOLS
 	// =============================================================================
 

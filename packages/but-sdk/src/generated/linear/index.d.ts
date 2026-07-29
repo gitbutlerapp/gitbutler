@@ -771,9 +771,6 @@ export declare function updateFeatureFlags(update: FeatureFlagsUpdate): Promise<
 /** Update fetch settings; unset fields are left unchanged. */
 export declare function updateFetch(update: FetchUpdate): Promise<void>
 
-/** Update IRC settings; unset fields are left unchanged. */
-export declare function updateIrc(update: IrcUpdate): Promise<void>
-
 /** Set whether onboarding has been completed. */
 export declare function updateOnboardingComplete(update: boolean): Promise<void>
 
@@ -894,8 +891,6 @@ export type AppSettings = {
    * In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
    */
   appUpdatesCheckIntervalSec: number;
-  /** IRC integration settings. */
-  irc: IrcSettings;
 };
 
 /** JSON sibling of [`but_workspace::branch::apply::Outcome`]. */
@@ -1669,8 +1664,6 @@ export type FeatureFlags = {
   unapplyV3Pgm: boolean;
   /** Enable single branch mode. */
   singleBranch: boolean;
-  /** Enable IRC integration. */
-  irc: boolean;
   /**
    * Control how the filesystem watch should be established.
    * Possible values: "auto", "legacy", "modern".
@@ -1691,7 +1684,6 @@ export type FeatureFlags = {
 export type FeatureFlagsUpdate = {
   unapplyV3Pgm?: boolean | null;
   singleBranch?: boolean | null;
-  irc?: boolean | null;
   worktreeManipulation?: boolean | null;
 };
 
@@ -2249,83 +2241,6 @@ export type InteractiveIntegrationStep = {
   /** The commit whose change range should be merged. */
   commitId: HexHashString;
   kind: "merge";
-};
-
-export type IrcConnectionSettings = {
-  /** Whether this connection is enabled (controls connect/disconnect). */
-  enabled: boolean;
-  /** IRC nickname */
-  nickname: string | null;
-  /**
-   * Shared server connection password (the gate all clients must pass).
-   *
-   * # Security note
-   * Stored in plaintext on disk. Do not use a password that protects sensitive
-   * personal accounts — treat this as a low-value shared secret.
-   */
-  serverPassword: string | null;
-  /**
-   * Per-user SASL account password. On first use this registers the account.
-   *
-   * # Security note
-   * Stored in plaintext on disk. Do not reuse a password from another service.
-   */
-  saslPassword: string | null;
-  /** IRC real name */
-  realname: string | null;
-};
-
-/**
- * Update request for [`crate::app_settings::IrcConnectionSettings`].
- * Used for connection updates.
- */
-export type IrcConnectionUpdate = {
-  enabled?: boolean | null;
-  /** Pass `null` to clear the stored value; omit the field to leave it unchanged. */
-  nickname?: string | null;
-  /** Pass `null` to clear the stored value; omit the field to leave it unchanged. */
-  serverPassword?: string | null;
-  /** Pass `null` to clear the stored value; omit the field to leave it unchanged. */
-  saslPassword?: string | null;
-  /** Pass `null` to clear the stored value; omit the field to leave it unchanged. */
-  realname?: string | null;
-};
-
-export type IrcServerSettings = {
-  /** IRC server hostname (e.g., "irc.gitbutler.com") */
-  host: string;
-  /** IRC server port (default: 6697 for TLS) */
-  port: number;
-};
-
-/** Update request for [`crate::app_settings::IrcServerSettings`]. */
-export type IrcServerUpdate = {
-  host?: string | null;
-  port?: number | null;
-};
-
-export type IrcSettings = {
-  /** IRC server configuration */
-  server: IrcServerSettings;
-  /** Auto-share new Claude Code sessions to IRC channels */
-  autoShare: boolean;
-  /**
-   * Channel to auto-join when opening a project
-   * If set, joins that channel name (sanitized)
-   * If null, auto-constructs #project-name
-   */
-  projectChannel: string | null;
-  /** IRC connection settings */
-  connection: IrcConnectionSettings;
-};
-
-/** Update request for [`crate::app_settings::IrcSettings`]. */
-export type IrcUpdate = {
-  server?: IrcServerUpdate | null;
-  autoShare?: boolean | null;
-  /** Pass `null` to clear the stored value; omit the field to leave it unchanged. */
-  projectChannel?: string | null;
-  connection?: IrcConnectionUpdate | null;
 };
 
 /** Line statistics obtained from diffing the blobs of one or more [TreeChange](crate::TreeChange). */

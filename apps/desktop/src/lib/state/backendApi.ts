@@ -1,6 +1,5 @@
 import { buildBranchEndpoints } from "$lib/branches/branchEndpoints";
 import { buildGitEndpoints } from "$lib/git/gitEndpoints";
-import { buildIrcEndpoints } from "$lib/irc/ircEndpoints";
 import { buildModeEndpoints } from "$lib/mode/modeEndpoints";
 import { buildProjectEndpoints } from "$lib/project/projectEndpoints";
 import { buildStackEndpoints } from "$lib/stacks/stackEndpoints";
@@ -36,7 +35,6 @@ export function createBackendApi(ctx: HookContext) {
 			...buildGitEndpoints(build),
 			...buildModeEndpoints(build),
 			...buildProjectEndpoints(build),
-			...buildIrcEndpoints(build),
 			...buildUserEndpoints(build),
 		}),
 	});

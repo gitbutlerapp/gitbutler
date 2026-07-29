@@ -1,17 +1,16 @@
 <!--
 	Compound child that renders the left panel of a stack view.
-	Contains: worktree changes, start commit button, IRC row, and branch list.
+	Contains: worktree changes, start commit button, and branch list.
 	Reads shared state from StackController via context.
 
 	Usage:
 	```svelte
-	<StackPanel {segments} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
+	<StackPanel {segments} {topBranchName} {onFoldStack} />
 	```
 -->
 <script lang="ts">
 	import NewCommitView from "$components/commit/NewCommitView.svelte";
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
-	import IrcRow from "$components/irc/IrcRow.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import SashLayer from "$components/shared/SashLayer.svelte";
 	import StackDragHandle from "$components/stack/StackDragHandle.svelte";
@@ -29,11 +28,9 @@
 		segments: Segment[];
 		topBranchName?: string;
 		onFoldStack?: () => void;
-		ircEnabled: boolean;
-		ircChannel?: string;
 	};
 
-	const { segments, topBranchName, onFoldStack, ircEnabled, ircChannel }: Props = $props();
+	const { segments, topBranchName, onFoldStack }: Props = $props();
 
 	const controller = getStackContext();
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -223,10 +220,6 @@
 			{/if}
 		{/if}
 	</div>
-
-	{#if ircEnabled && topBranchName}
-		<IrcRow stackId={controller.stackId} channel={ircChannel} selected={controller.ircPanelOpen} />
-	{/if}
 
 	<BranchList {segments} />
 </div>

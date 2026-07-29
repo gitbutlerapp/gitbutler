@@ -29,9 +29,7 @@
 		ReorderCommitDzHandler,
 	} from "$lib/dragging/stackingReorderDropzoneManager";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
@@ -58,8 +56,6 @@
 	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
 	const forgeInfoService = inject(FORGE_INFO_SERVICE);
-	const ircApiService = inject(IRC_API_SERVICE);
-	const settingsService = inject(SETTINGS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 	const uiState = inject(UI_STATE);
@@ -68,14 +64,6 @@
 	const stackId = $derived(controller.stackId);
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
 	const forgeInfo = $derived(forgeInfoQuery.response);
-
-	const settingsStore = settingsService.appSettings;
-	const ircEnabled = $derived(
-		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
-	);
-
-	const commitReactionsQuery = $derived(ircEnabled ? ircApiService.commitReactions() : undefined);
-	const commitReactions = $derived(commitReactionsQuery?.response ?? {});
 
 	const exclusiveAction = $derived(controller.exclusiveAction);
 	const commitAction = $derived(exclusiveAction?.type === "commit" ? exclusiveAction : undefined);
@@ -423,7 +411,6 @@
 								controller.selectedCommitIds.length <= 1}
 							{tooltip}
 							active={controller.active && commit.id === selectedCommitId}
-							reactions={commitReactions[commit.id]}
 							onclick={(e) => handleCommitClick(commit.id, false, e)}
 							disableCommitActions={false}
 							editable={!!stackId}

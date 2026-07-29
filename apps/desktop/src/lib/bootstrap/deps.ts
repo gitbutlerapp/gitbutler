@@ -37,11 +37,6 @@ import { REMOTES_SERVICE, RemotesService } from "$lib/git/remotesService";
 import { HISTORY_SERVICE, HistoryService } from "$lib/history/history";
 import { OplogService, OPLOG_SERVICE } from "$lib/history/oplogService.svelte";
 import { DiffService, DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
-import { IrcApiService, IRC_API_SERVICE } from "$lib/irc/ircApiService";
-import {
-	WORKING_FILES_BROADCAST,
-	WorkingFilesBroadcast,
-} from "$lib/irc/workingFilesBroadcast.svelte";
 import { ModeService, MODE_SERVICE } from "$lib/mode/modeService";
 import { ProjectsService, PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { PROMPT_SERVICE, PromptService } from "$lib/prompt/promptService";
@@ -156,8 +151,6 @@ export function initDependencies(args: {
 		posthog,
 		uiState,
 	);
-	const ircApiService = new IrcApiService(clientState.backendApi);
-	const workingFilesBroadcast = new WorkingFilesBroadcast(backend);
 
 	// ============================================================================
 	// FORGE SERVICES
@@ -328,7 +321,6 @@ export function initDependencies(args: {
 		[HTTP_CLIENT, httpClient],
 		[FILE_SELECTION_MANAGER, fileSelectionManager],
 		[IME_COMPOSITION_HANDLER, imeHandler],
-		[IRC_API_SERVICE, ircApiService],
 		[MODE_SERVICE, modeService],
 		[OPLOG_SERVICE, oplogService],
 		[ORGANIZATION_SERVICE, organizationService],
@@ -352,6 +344,5 @@ export function initDependencies(args: {
 		[USER_SERVICE, userService],
 		[WORKTREE_SERVICE, worktreeService],
 		[EXTERNAL_LINK_SERVICE, externalLinkService],
-		[WORKING_FILES_BROADCAST, workingFilesBroadcast],
 	]);
 }

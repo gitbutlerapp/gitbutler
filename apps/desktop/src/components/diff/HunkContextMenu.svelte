@@ -13,10 +13,8 @@
 </script>
 
 <script lang="ts">
-	import IrcSendToSubmenus from "$components/diff/IrcSendToSubmenus.svelte";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { isDiffHunk, lineIdsToHunkHeaders } from "$lib/hunks/hunk";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -54,7 +52,6 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
-	const ircApiService = inject(IRC_API_SERVICE);
 	const projectService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
 
@@ -223,19 +220,6 @@
 					}}
 				/>
 			</ContextMenuSection>
-
-			<IrcSendToSubmenus
-				{projectId}
-				onSend={(target) => {
-					const data = JSON.stringify({ change, diff: item.hunk });
-					ircApiService.sendMessageWithData({
-						target,
-						message: change.path,
-						data,
-					});
-				}}
-				closeMenu={() => (menuOpen = false)}
-			/>
 
 			{#if selectable}
 				<ContextMenuSection>

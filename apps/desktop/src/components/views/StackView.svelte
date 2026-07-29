@@ -3,12 +3,8 @@
 	import Resizer from "$components/shared/Resizer.svelte";
 	import StackDetails from "$components/views/StackDetails.svelte";
 	import StackPanel from "$components/views/StackPanel.svelte";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
-	import { sessionChannel } from "$lib/irc/protocol";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { type Stack } from "$lib/stacks/stack";
 	import { StackController, setStackContext } from "$lib/stacks/stackController.svelte";
-	import { inject } from "@gitbutler/core/context";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 	import { TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
@@ -44,9 +40,6 @@
 		laneId: () => laneId,
 	});
 	setStackContext(controller);
-
-	const settingsService = inject(SETTINGS_SERVICE);
-	const ircApiService = inject(IRC_API_SERVICE);
 
 	const PANEL1_RESIZER = {
 		minWidth: 20,
@@ -92,17 +85,6 @@
 			}
 		};
 	});
-
-	const settingsStore = settingsService.appSettings;
-	const ircEnabled = $derived(
-		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
-	);
-
-	const ircNickQuery = $derived(ircApiService.nick());
-	const ircNick = $derived(ircNickQuery?.response);
-	const ircChannel = $derived(
-		ircNick && topBranchName ? sessionChannel(ircNick, topBranchName) : undefined,
-	);
 </script>
 
 <div
@@ -149,7 +131,7 @@
 			}}
 			bind:this={stackViewEl}
 		>
-			<StackPanel {segments} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
+			<StackPanel {segments} {topBranchName} {onFoldStack} />
 
 			<!-- RESIZE PANEL 1 -->
 			{#if stackViewEl}
@@ -172,7 +154,7 @@
 
 	<!-- DETAILS PANEL -->
 	{#if isDetailsOpen}
-		<StackDetails {ircChannel} {segments} onWidthChange={updateDetailsViewWidth} />
+		<StackDetails {segments} onWidthChange={updateDetailsViewWidth} />
 	{/if}
 </div>
 
