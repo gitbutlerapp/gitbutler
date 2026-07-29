@@ -1852,7 +1852,6 @@ async fn sync_github_native_reviews(
     repo: &str,
     reviews: &[ForgeReviewUpdate],
     storage: &but_forge_storage::Controller,
-    description_mode: ReviewStackingDescription,
 ) -> Result<but_github::stacks::Availability<Vec<String>>> {
     let pr_numbers: Vec<i64> = reviews.iter().map(|review| review.number).collect();
     let prepared =
@@ -1937,8 +1936,10 @@ async fn sync_github_native_reviews(
 
     but_github::stacks::finish(preferred_account, owner, repo, &prepared.plan, storage).await?;
 
-    // GitHub now renders the native stack. Independently honor the configured GitButler
-    // description mode and preserve user text.
+    // GitHub now renders the native stack, so GitButler's description footer is redundant.
+    // Strip any existing footers regardless of the configured description mode, which only
+    // applies to footer-based stacking. User text is preserved, and reviews whose body would
+    // not change are skipped entirely — unless the caller supplied a new description to push.
     for (review, current_body) in reviews.iter().zip(bodies) {
         let Some(current_body) = current_body else {
             continue;
@@ -1948,8 +1949,11 @@ async fn sync_github_native_reviews(
             review.number,
             &pr_numbers,
             "#",
-            description_mode,
+            ReviewStackingDescription::Disabled,
         );
+        if !review.update_description && current_body.as_deref().unwrap_or("") == updated_body {
+            continue;
+        }
         let params = but_github::UpdatePullRequestParams {
             owner,
             repo,
@@ -2020,15 +2024,8 @@ pub async fn sync_reviews(
                 && head_repo.is_none()
                 && !reviews.is_empty();
             if use_native {
-                match sync_github_native_reviews(
-                    preferred_account,
-                    owner,
-                    repo,
-                    reviews,
-                    storage,
-                    description_mode,
-                )
-                .await
+                match sync_github_native_reviews(preferred_account, owner, repo, reviews, storage)
+                    .await
                 {
                     Ok(but_github::stacks::Availability::Supported(native_errors)) => {
                         errors.extend(native_errors);
