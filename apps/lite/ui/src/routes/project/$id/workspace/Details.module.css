@@ -53,7 +53,9 @@
 .actions {
 	display: flex;
 	align-items: center;
+	padding: 10px;
 	gap: 6px;
+	border-bottom: 1px solid var(--border-3);
 }
 
 .checks {
@@ -99,14 +101,13 @@
 }
 
 .panels {
-	/* column-gap: 6px; */
 	border-top: 1px solid var(--border-3);
 }
 
 .panel {
 	/* Stretch/shrink single child element to fit this element. */
 	display: grid;
-	grid-template-rows: minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 }
 
@@ -125,13 +126,9 @@
 	padding-block-end: var(--panel-padding-block);
 }
 
-.diffTab {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-}
-
 .filesPanelContent {
 	display: flex;
+	grid-row: 1 / -1;
 	flex-direction: column;
 	overflow: hidden;
 }
