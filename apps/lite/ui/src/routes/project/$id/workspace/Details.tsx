@@ -1303,6 +1303,24 @@ const PullRequestForm: FC<{
 		localDocument.body !== remoteOrEmptyDocument.body ||
 		(isNew && localDocument.isDraft);
 
+	// Reset to latest remote data if we haven't locally diverged yet.
+	const [prevRemote, setPrevRemote] = useState(remoteOrEmptyDocument);
+	const remoteHasUpdated =
+		prevRemote.title !== remoteOrEmptyDocument.title ||
+		prevRemote.body !== remoteOrEmptyDocument.body;
+	if (remoteHasUpdated) {
+		setPrevRemote(remoteOrEmptyDocument);
+
+		const localHasDiverged =
+			localDocument.title !== prevRemote.title || localDocument.body !== prevRemote.body;
+		if (!localHasDiverged) {
+			setLocalDocument((prev) => ({
+				...prev,
+				...remoteOrEmptyDocument,
+			}));
+		}
+	}
+
 	const handleBlur = () => {
 		persistDraftPR({
 			projectId,
