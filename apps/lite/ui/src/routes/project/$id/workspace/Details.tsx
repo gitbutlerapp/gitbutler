@@ -419,6 +419,18 @@ const DiffContents: FC<{
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
 
+	useLayoutEffect(() => {
+		if (!diffSelectionFile) return;
+
+		viewerRef.current?.scrollTo({
+			type: "item",
+			id: diffSelectionFile.item.id,
+			align: "start",
+			behavior: "instant",
+		});
+		// oxlint-disable-next-line react-hooks/exhaustive-deps react-hooks-js/exhaustive-deps -- Sync scroll only on mount, otherwise use events.
+	}, []);
+
 	const selectDiff = (selection: HunkOperand) => {
 		dispatch(projectSlice.actions.selectDiff({ projectId, selection }));
 
