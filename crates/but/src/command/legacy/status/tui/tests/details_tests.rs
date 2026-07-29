@@ -289,6 +289,30 @@ fn details_diff_svg_shows_plus_and_minus_backgrounds() {
 }
 
 #[test]
+fn details_view_renders_tab_indented_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file(
+        "tab-indented.svelte",
+        "\t<CardGroup.Item>\n\t\t{#snippet title()}\n\t\t\tWorktree manipulation\n\t\t{/snippet}\n\t</CardGroup.Item>\n",
+    );
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 14,
+            ..Default::default()
+        },
+    );
+
+    tui.input('d').assert_rendered_term_svg_eq(file![
+        "snapshots/details_view_renders_tab_indented_file_001.svg"
+    ]);
+}
+
+#[test]
 fn toggling_details_off_and_on_resets_scroll_position() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);

@@ -311,17 +311,59 @@ fn syntax_highlight(
     highlight_lines: &mut HighlightLines<'_>,
     syntax_set: &SyntaxSet,
 ) -> Vec<Span<'static>> {
-    let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
-        return Vec::from([Span::raw(code.to_owned())]);
+    let mut visual_column = 0;
+    match highlight_lines.highlight_line(code, syntax_set) {
+        Ok(ranges) => ranges
+            .iter()
+            .map(|(style, text)| {
+                let color = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
+                let span = Span::raw(text.to_string()).fg(color);
+                expand_tabs_for_display(span, &mut visual_column)
+            })
+            .collect(),
+        Err(_) => Vec::from([expand_tabs_for_display(
+            Span::raw(code.to_owned()),
+            &mut visual_column,
+        )]),
+    }
+}
+
+fn expand_tabs_for_display(mut span: Span<'static>, visual_column: &mut usize) -> Span<'static> {
+    const TAB_WIDTH: usize = 4;
+
+    if !span.content.contains('\t') {
+        *visual_column += span.content.width();
+        return span;
+    }
+
+    let expanded = {
+        let content = span.content.as_ref();
+        let mut expanded = String::with_capacity(content.len());
+        let mut segment_start = 0;
+
+        for (index, character) in content.char_indices() {
+            if character != '\t' {
+                continue;
+            }
+
+            let segment = &content[segment_start..index];
+            expanded.push_str(segment);
+            *visual_column += segment.width();
+
+            let spaces = TAB_WIDTH - *visual_column % TAB_WIDTH;
+            expanded.extend(repeat_n(' ', spaces));
+            *visual_column += spaces;
+            segment_start = index + character.len_utf8();
+        }
+
+        let remaining = &content[segment_start..];
+        expanded.push_str(remaining);
+        *visual_column += remaining.width();
+        expanded
     };
 
-    ranges
-        .iter()
-        .map(|(style, text)| {
-            let color = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
-            Span::raw(text.to_string()).fg(color)
-        })
-        .collect::<Vec<_>>()
+    span.content = expanded.into();
+    span
 }
 
 pub fn num_digits(n: u32) -> u32 {
@@ -1176,7 +1218,29 @@ pub fn load_syntax_set() -> SyntaxSet {
 
 #[cfg(test)]
 mod tests {
-    use super::format_with_dot_thousands;
+    use ratatui::text::Span;
+
+    use super::{expand_tabs_for_display, format_with_dot_thousands};
+
+    #[test]
+    fn expands_tabs_to_four_column_stops_across_spans() {
+        let mut visual_column = 0;
+        let contents = [
+            Span::raw("\troot "),
+            Span::raw("a\tb"),
+            Span::raw("\t\tdeep"),
+        ]
+        .into_iter()
+        .map(|span| expand_tabs_for_display(span, &mut visual_column))
+        .map(|span| span.content.into_owned())
+        .collect::<Vec<_>>();
+
+        assert_eq!(
+            contents,
+            ["    root ", "a  b", "       deep"],
+            "tabs advance to the next four-column stop across syntax spans"
+        );
+    }
 
     #[test]
     fn formats_numbers_with_dot_thousands_separators() {
