@@ -218,22 +218,34 @@
 			{/if}
 
 			{#if $landDirectly}
-				{#if lastBranch && !isNewBranch && branchName}
+				{#if (lastBranch || firstBranch) && !isNewBranch && branchName}
+					{@const wholeStack = !lastBranch}
+					{@const lowerBranches = wholeStack
+						? segments
+								.slice(i + 1)
+								.map((s) => s.refName?.displayName)
+								.filter((name): name is string => !!name)
+						: []}
+					{@const blockedByConflicts = wholeStack
+						? segments.slice(i).some((s) => s.commits.some((c) => c.hasConflicts))
+						: isConflicted}
 					<Button
 						size="tag"
 						kind="outline"
 						shrinkable
 						onclick={(e) => {
 							e.stopPropagation();
-							landBranchModal?.show(branchName);
+							landBranchModal?.show(branchName, wholeStack ? { lowerBranches } : undefined);
 						}}
-						disabled={!!controller.exclusiveAction || isConflicted}
-						tooltip={isConflicted
+						disabled={!!controller.exclusiveAction || blockedByConflicts}
+						tooltip={blockedByConflicts
 							? "Resolve conflicts before landing"
-							: "Land directly into the target branch"}
+							: wholeStack
+								? "Land the whole stack directly into the target branch"
+								: "Land directly into the target branch"}
 						icon="branch-merge"
 					>
-						Land
+						{wholeStack ? "Land stack" : "Land"}
 					</Button>
 				{/if}
 			{:else if canPublishPR && !isNewBranch && branchName}

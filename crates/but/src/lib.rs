@@ -1557,12 +1557,18 @@ async fn match_subcommand(
             Ok(())
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Land { branch, yes, no_ff } => {
+        Subcommands::Land {
+            branch,
+            yes,
+            no_ff,
+            whole_stack,
+        } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let result = command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
-                .context("Failed to land branch.")
-                .emit_metrics(metrics_ctx);
+            let result =
+                command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
+                    .context("Failed to land branch.")
+                    .emit_metrics(metrics_ctx);
             if result.is_ok() {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,
