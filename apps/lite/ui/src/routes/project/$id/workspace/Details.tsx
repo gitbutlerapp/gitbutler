@@ -136,7 +136,6 @@ import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.
 import {
 	annotationSideToDiffSide,
 	annotationsByPathForScope,
-	commentScopeChangeId,
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
@@ -370,8 +369,6 @@ const DiffContents: FC<{
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
-	/** See [commentScopeChangeId]; `undefined` disables annotating. */
-	scopeChangeId: string | null | undefined;
 	projectId: string;
 	diffView: DiffView;
 	annotationsByPath: LocalAnnotationsByPath;
@@ -385,7 +382,6 @@ const DiffContents: FC<{
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
-	scopeChangeId,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	annotationsByPath,
@@ -650,52 +646,51 @@ const DiffContents: FC<{
 					/>
 				);
 			}}
-			renderGutterUtility={
-				scopeChangeId === undefined
-					? undefined
-					: (getHoveredLine, item) => {
-							const handleClick = () => {
-								const badlyTypedLine = getHoveredLine();
-								if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
-								const line = badlyTypedLine as GetHoveredLineResult<"diff">;
+			renderGutterUtility={(getHoveredLine, item) => {
+				// We don't currently support annotations on branches.
+				if (fileParent._tag === "Branch") return;
 
-								const file = fileByItemId.get(item.id);
-								if (!file) return;
+				const handleClick = () => {
+					const badlyTypedLine = getHoveredLine();
+					if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
+					const line = badlyTypedLine as GetHoveredLineResult<"diff">;
 
-								createComment(
-									{
-										projectId,
-										comment: {
-											path: file.operand.path,
-											commitChangeId: scopeChangeId,
-											side: annotationSideToDiffSide(line.side),
-											lineNumber: line.lineNumber,
-											payload: "",
-										},
-									},
-									{
-										onSuccess: (comment) => {
-											newFocusableAnnotationIdRef.current = comment.id;
-										},
-									},
-								);
-							};
+					const file = fileByItemId.get(item.id);
+					if (!file) return;
 
-							return (
-								<button
-									type="button"
-									onClick={handleClick}
-									aria-label="Annotate"
-									className={classes(
-										getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-										styles.annotate,
-									)}
-								>
-									<Icon name="plus" />
-								</button>
-							);
-						}
-			}
+					createComment(
+						{
+							projectId,
+							comment: {
+								path: file.operand.path,
+								commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+								side: annotationSideToDiffSide(line.side),
+								lineNumber: line.lineNumber,
+								payload: "",
+							},
+						},
+						{
+							onSuccess: (comment) => {
+								newFocusableAnnotationIdRef.current = comment.id;
+							},
+						},
+					);
+				};
+
+				return (
+					<button
+						type="button"
+						onClick={handleClick}
+						aria-label="Annotate"
+						className={classes(
+							getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+							styles.annotate,
+						)}
+					>
+						<Icon name="plus" />
+					</button>
+				);
+			}}
 			renderAnnotation={(anno, item) => {
 				if (!("side" in anno)) throw new Error("Only diff items may be rendered");
 
@@ -1072,16 +1067,10 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => results.map((result) => result.data),
 	});
-	// A primitive so the select closure below is memoised on it (see lite-render-perf).
-	const scopeChangeId = commentScopeChangeId(fileParent);
-	// Not a suspense query: comments are a garnish on the diff, so a failing listing must
-	// degrade to "no annotations" rather than take down the whole details pane.
+
 	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
 		...commentsQueryOptions(projectId),
-		select: (comments) =>
-			scopeChangeId === undefined
-				? EMPTY_ANNOTATIONS_BY_PATH
-				: annotationsByPathForScope(comments, scopeChangeId),
+		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
 	const diffViewSansAnno = useMemo(
@@ -1262,7 +1251,6 @@ const Diff: FC<{
 							localAnnotationFormId={localAnnotationFormId}
 							onViewerFileSelection={onFileSelection}
 							fileParent={fileParent}
-							scopeChangeId={scopeChangeId}
 							projectId={projectId}
 							diffView={diffView}
 							annotationsByPath={annotationsByPath}
