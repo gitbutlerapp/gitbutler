@@ -451,8 +451,9 @@ async fn match_subcommand(
     };
 
     let is_expand = matches!(&cmd, Subcommands::_Expand { .. });
-    let show_agent_skill_notice = out.format().is_human_text()
-        && !out.can_prompt()
+    // A non-interactive invocation of a regular command: the situation where an
+    // agent-facing maintenance notice is worth printing.
+    let notice_worthy_command = !out.can_prompt()
         && !is_expand
         && !matches!(
             &cmd,
@@ -463,6 +464,7 @@ async fn match_subcommand(
                 | Subcommands::Completions { .. }
                 | Subcommands::Metrics { .. }
         );
+    let show_agent_skill_notice = out.format().is_human_text() && notice_worthy_command;
     let agent_skill_notice = show_agent_skill_notice
         .then(|| command::skill::agent_skill_notice(&args.current_dir))
         .flatten();
@@ -472,11 +474,30 @@ async fn match_subcommand(
         writeln!(human, "{}", notice.text()).ok();
         writeln!(human).ok();
     }
+    // Unlike the skill notice, the policy cleanup also runs for JSON-driven
+    // agents; its notice goes to stderr there so the JSON contract on stdout
+    // stays intact.
+    let retired_policy_notice = notice_worthy_command
+        .then(command::agent::retired_policy_syntax_notice)
+        .flatten();
+    if let Some(notice) = retired_policy_notice.as_ref() {
+        if let Some(human) = out.for_human() {
+            writeln!(human, "{notice}").ok();
+            writeln!(human).ok();
+        } else if out.is_json() {
+            print_err_infallible(format!("{notice}\n"));
+        }
+    }
     let mut metrics_ctx = cmd.to_metrics_context(&app_settings, &args.current_dir);
     if agent_skill_notice.is_some_and(|notice| notice.is_hint())
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
     {
         metrics_ctx.push_extra_prop("agentSkillHintShown", true);
+    }
+    if retired_policy_notice.is_some()
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("retiredPolicySyntaxCleaned", true);
     }
     if retired_syntax::was_used()
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
