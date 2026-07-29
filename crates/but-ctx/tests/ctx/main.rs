@@ -1,4 +1,8 @@
-use std::fs;
+use std::{
+    fs,
+    sync::{Arc, Barrier},
+    thread,
+};
 
 use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
@@ -279,11 +283,48 @@ fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
 }
 
 #[test]
+fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
+    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+    let gitdir = repo.git_dir().to_owned();
+    let barrier = Arc::new(Barrier::new(9));
+    let repos = (0..8)
+        .map(|_| open_repo(&gitdir))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let threads = repos
+        .into_iter()
+        .map(|repo| {
+            let barrier = barrier.clone();
+            thread::spawn(move || -> anyhow::Result<()> {
+                barrier.wait();
+                Context::from_repo_for_testing(repo)?;
+                Ok(())
+            })
+        })
+        .collect::<Vec<_>>();
+    barrier.wait();
+
+    for thread in threads {
+        thread.join().expect("context creation does not panic")?;
+    }
+    assert_eq!(
+        ProjectMeta::resolve(&repo)?,
+        project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?,
+        "legacy project metadata is ported"
+    );
+    Ok(())
+}
+
+#[test]
 fn context_creation_preserves_unmarked_project_config() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
     but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
         but_core::git_config::remove_config_value(config, "gitbutler.project.portedMeta")
     })?;
+    fs::write(
+        repo.git_dir().join("gitbutler/virtual_branches.toml"),
+        "invalid legacy metadata",
+    )?;
 
     let ctx = Context::from_repo_for_testing(repo)?;
     snapbox::assert_data_eq!(

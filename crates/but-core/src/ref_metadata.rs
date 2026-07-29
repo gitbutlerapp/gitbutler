@@ -460,31 +460,54 @@ impl ProjectMeta {
     pub fn persist(&self, repo: &gix::Repository) -> anyhow::Result<()> {
         let project_meta = repair_target_metadata_for_migration(self, repo);
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-            set_or_remove(
-                config,
-                PROJECT_TARGET_REF,
-                project_meta.target_ref.as_ref().map(ToString::to_string),
-            )?;
-            set_or_remove(
-                config,
-                PROJECT_TARGET_COMMIT_ID,
-                project_meta
-                    .target_commit_id
-                    .filter(|id| !id.is_null())
-                    .map(|id| id.to_string()),
-            )?;
-            set_or_remove(
-                config,
-                PROJECT_PUSH_REMOTE,
-                project_meta.push_remote.as_deref(),
-            )?;
-            git_config::set_config_value(config, PROJECT_PORTED_META, "true")?;
-            Ok(())
+            project_meta.write_to_config(config)
         })?;
-        if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
-            but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
-        }
+        notify_legacy_storage(repo, changed);
         Ok(())
+    }
+
+    /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
+    pub fn port_if_needed(
+        repo: &gix::Repository,
+        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
+    ) -> anyhow::Result<()> {
+        let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+            if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
+                return Ok(());
+            }
+            let configured = Self::try_from_config(config)?;
+            let project_meta = if configured == Self::default() {
+                legacy_fallback()?
+            } else {
+                configured
+            };
+            repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
+        })?;
+        notify_legacy_storage(repo, changed);
+        Ok(())
+    }
+
+    fn write_to_config(&self, config: &mut gix::config::File) -> anyhow::Result<()> {
+        set_or_remove(
+            config,
+            PROJECT_TARGET_REF,
+            self.target_ref.as_ref().map(ToString::to_string),
+        )?;
+        set_or_remove(
+            config,
+            PROJECT_TARGET_COMMIT_ID,
+            self.target_commit_id
+                .filter(|id| !id.is_null())
+                .map(|id| id.to_string()),
+        )?;
+        set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
+        git_config::set_config_value(config, PROJECT_PORTED_META, "true")
+    }
+}
+
+fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
+    if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
+        but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
     }
 }
 

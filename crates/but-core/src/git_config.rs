@@ -37,7 +37,7 @@ pub fn open_config_for_editing(
     std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
     let lock = gix::lock::File::acquire_to_update_resource(
         &path,
-        gix::lock::acquire::Fail::Immediately,
+        gix::lock::acquire::Fail::AfterDurationWithBackoff(std::time::Duration::from_secs(1)),
         None,
     )?;
     if !path.exists() {
