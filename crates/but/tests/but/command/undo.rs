@@ -1,25 +1,10 @@
-use crate::{
-    command::undo::undo_commit::commit_empty_with_message,
-    utils::{Sandbox, assert_ignored_tests_have_linear_ticket, make_absolute},
-};
+use crate::{command::undo::undo_commit::commit_empty_with_message, utils::Sandbox};
 
 mod undo_commit;
 mod undo_move;
 mod undo_redo;
 mod undo_squash;
 mod undo_uncommit;
-
-#[test]
-fn ignored_tests_have_linear_tickets() {
-    assert_ignored_tests_have_linear_ticket(file!());
-
-    let this_file = make_absolute(file!());
-    let this_dir = make_absolute(this_file.parent().unwrap()).join("undo");
-    for entry in this_dir.read_dir().unwrap() {
-        let entry = entry.unwrap();
-        assert_ignored_tests_have_linear_ticket(entry.path());
-    }
-}
 
 /// Run an undo test tests a roundtrip `mutate` -> `but undo`, and asserts that the status output is
 /// the same before and after the roundtrip.

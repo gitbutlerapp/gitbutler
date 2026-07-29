@@ -122,7 +122,7 @@ To return to GitButler mode, run:
 /// - Should detect the dangling commit
 /// - Should reset the commit
 #[test]
-#[ignore = "flaky test - needs investigation"]
+#[ignore = "flaky test - needs investigation. https://linear.app/gitbutler/issue/GB-1784/flaky-tests-in-but-suite"]
 fn dangling_commit_on_workspace() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -195,7 +195,7 @@ To return to GitButler mode, run:
 /// - Should detect the dangling commit
 /// - This tests the edge case where changes belong to different virtual branches
 #[test]
-#[ignore = "flaky test - needs investigation"]
+#[ignore = "flaky test - needs investigation. https://linear.app/gitbutler/issue/GB-1784/flaky-tests-in-but-suite"]
 fn dangling_commit_spanning_multiple_branches() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
