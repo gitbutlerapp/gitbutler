@@ -411,6 +411,17 @@ export const useOutlineTreeHotkeys = ({
 							meta: outlineHotkeys.rewordCommit.meta,
 						},
 					},
+					{
+						hotkey: "F2",
+						callback: () => {
+							dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+						},
+					},
 				],
 				Branch: (selection): Array<UseHotkeyDefinition> => [
 					{
@@ -423,6 +434,17 @@ export const useOutlineTreeHotkeys = ({
 							enabled: defaultOutlineHotkeysEnabled,
 							target: ref,
 							meta: outlineHotkeys.renameBranch.meta,
+						},
+					},
+					{
+						hotkey: "F2",
+						callback: () => {
+							dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
 						},
 					},
 				],
