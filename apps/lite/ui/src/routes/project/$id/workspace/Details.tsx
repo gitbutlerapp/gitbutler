@@ -93,7 +93,11 @@ import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panel
 import styles from "./Details.module.css";
 import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { type SelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import {
+	autofocusSelectionScope,
+	type SelectionScope,
+	useNavigationIndexHotkeys,
+} from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import {
@@ -1227,7 +1231,9 @@ const Diff: FC<{
 						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
 						className={styles.diffContentsContainer}
-						ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
+						ref={useMergedRefs(selectionScopeRef, diffContentsEl, (el) => {
+							if (el) autofocusSelectionScope(el);
+						})}
 					>
 						<DiffContents
 							localAnnotationFormId={localAnnotationFormId}
@@ -1344,6 +1350,9 @@ const PullRequestForm: FC<{
 					render={<FieldControlStyles />}
 					className="text-15 text-semibold"
 					data-selection-scope={"pr" satisfies SelectionScope}
+					ref={(el) => {
+						if (el) autofocusSelectionScope(el);
+					}}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="Title"
@@ -1726,6 +1735,53 @@ const BranchDetails: FC<{
 	const filesVisible = canShowFiles && filesVisibleState;
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 
+	const ref = useRef<HTMLDivElement>(null);
+
+	useHotkeys([
+		{
+			hotkey: "[",
+			callback: () => {
+				switch (branchTab) {
+					case "diff": {
+						setBranchTab("pr");
+						break;
+					}
+					case "pr": {
+						setBranchTab("diff");
+						break;
+					}
+					default:
+						branchTab satisfies never;
+				}
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+			},
+		},
+		{
+			hotkey: "]",
+			callback: () => {
+				switch (branchTab) {
+					case "diff": {
+						setBranchTab("pr");
+						break;
+					}
+					case "pr": {
+						setBranchTab("diff");
+						break;
+					}
+					default:
+						branchTab satisfies never;
+				}
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+			},
+		},
+	]);
+
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
@@ -1744,7 +1800,7 @@ const BranchDetails: FC<{
 	const branchName = branchDetailsParams(decodeBytes(selection.branchRef)).branchName;
 
 	return (
-		<div className={styles.container}>
+		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
 					{detailsFullWindow && <TopLeftControls />}
