@@ -12,10 +12,8 @@
 	import { HunkDropDataV3 } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { canBePartiallySelected, getLineLocks, hunkHeaderEquals } from "$lib/hunks/hunk";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { isImageFile } from "@gitbutler/shared/utils/file";
@@ -25,7 +23,6 @@
 	import { untrack } from "svelte";
 	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
-	import type { Reaction } from "$lib/irc/ircEndpoints";
 	import type { DiffHunk } from "@gitbutler/but-sdk";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
@@ -84,37 +81,6 @@
 	);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
-
-	const ircApiService = inject(IRC_API_SERVICE);
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
-	const ircEnabled = $derived(
-		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
-	);
-	const fileReactionsQuery = $derived(
-		ircEnabled ? ircApiService.fileMessageReactions({ filePath: change.path }) : undefined,
-	);
-	const fileReactions = $derived(fileReactionsQuery?.response ?? {});
-
-	function hunkKey(hunk: DiffHunk): string {
-		return `${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
-	}
-
-	function groupReactions(
-		reactions: Reaction[],
-	): { emoji: string; count: number; senders: string[] }[] {
-		const map = new Map<string, string[]>();
-		for (const r of reactions) {
-			const senders = map.get(r.reaction) ?? [];
-			senders.push(r.sender);
-			map.set(r.reaction, senders);
-		}
-		return Array.from(map.entries()).map(([emoji, senders]) => ({
-			emoji,
-			count: senders.length,
-			senders,
-		}));
-	}
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== "worktree") return hunks;
@@ -253,7 +219,6 @@
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					{@const hunkId = generateHunkId(change.path, hunkIndex)}
-					{@const reactions = fileReactions[hunkKey(hunk)] ?? []}
 					<div
 						class="hunk-content"
 						use:draggableChips={{
@@ -349,18 +314,6 @@
 								<LineLocksWarning {projectId} {locks} />
 							{/snippet}
 						</HunkDiff>
-						{#if reactions.length > 0}
-							<div class="hunk-reactions">
-								{#each groupReactions(reactions) as group}
-									<span class="hunk-reaction-pill" title={group.senders.join(", ")}>
-										{group.emoji}
-										{#if group.count > 1}
-											{group.count}
-										{/if}
-									</span>
-								{/each}
-							</div>
-						{/if}
 					</div>
 				{:else}
 					{#if diff.subject.hunks.length === 0}
@@ -440,21 +393,5 @@
 
 	.hunk-content {
 		user-select: text;
-	}
-	.hunk-reactions {
-		display: flex;
-		align-items: center;
-		padding: 4px 0 0;
-		gap: 4px;
-	}
-	.hunk-reaction-pill {
-		display: inline-flex;
-		align-items: center;
-		padding: 2px 6px;
-		gap: 4px;
-		border: 1px solid transparent;
-		border-radius: 10px;
-		background-color: var(--bg-2);
-		font-size: 12px;
 	}
 </style>

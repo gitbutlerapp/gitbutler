@@ -2,12 +2,11 @@
 	Compound child that renders the stack details/preview panel (right side).
 	Reads shared state from StackController via context.
 
-	Handles: commit view, branch view, worktree multi-diff, IRC channel.
+	Handles: commit view, branch view, worktree multi-diff.
 
 	Usage:
 	```svelte
 	<StackDetails
-		{ircChannel}
 		onWidthChange={(w) => ...}
 	/>
 	```
@@ -15,7 +14,6 @@
 <script lang="ts">
 	import CommitView from "$components/commit/CommitView.svelte";
 	import MultiDiffView from "$components/diff/MultiDiffView.svelte";
-	import IrcChannel from "$components/irc/IrcChannel.svelte";
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from "$components/lib";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
@@ -42,12 +40,11 @@
 	import { fly } from "svelte/transition";
 	import type { Segment } from "@gitbutler/but-sdk";
 	type Props = {
-		ircChannel?: string;
 		segments: Segment[];
 		onWidthChange: (width: number) => void;
 	};
 
-	const { ircChannel, segments, onWidthChange }: Props = $props();
+	const { segments, onWidthChange }: Props = $props();
 
 	const controller = getStackContext();
 
@@ -74,6 +71,40 @@
 		return undefined;
 	});
 	const runHooks = $derived(projectRunCommitHooks(controller.projectId));
+	const dzCommit: DzCommitData | undefined = $derived(
+		selectedCommit
+			? {
+					id: selectedCommit.id,
+					isRemote: isUpstreamCommit(selectedCommit),
+					isIntegrated:
+						isLocalAndRemoteCommit(selectedCommit) && selectedCommit.state.type === "Integrated",
+					hasConflicts: isLocalAndRemoteCommit(selectedCommit) && selectedCommit.hasConflicts,
+				}
+			: undefined,
+	);
+	const { amendHandler, squashHandler, hunkHandler } = $derived(
+		controller.isCommitView && dzCommit
+			? createCommitDropHandlers({
+					projectId: controller.projectId,
+					stackId: controller.stackId,
+					commit: dzCommit,
+					runHooks: $runHooks,
+					okWithForce: true,
+					onCommitIdChange: (newId) => {
+						// branchName may be undefined for commits in anonymous segments
+						// (refName === null); the selection state already tolerates that.
+						if (selection) {
+							const previewOpen = selection.previewOpen ?? true;
+							controller.laneState.selection.set({
+								branchName,
+								commitId: newId,
+								previewOpen,
+							});
+						}
+					},
+				})
+			: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined },
+	);
 	const commitFiles = $derived(
 		controller.commitId
 			? stackService.commitChanges(controller.projectId, controller.commitId)
@@ -130,153 +161,116 @@
 <div
 	in:fly={{ y: 20, duration: 200 }}
 	class="details-view"
-	class:irc-view={selection?.irc}
 	bind:this={detailsEl}
 	data-details={stackId}
 	style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 	use:focusable={{ vertical: true }}
 	data-testid={TestId.StackPreview}
 >
-	{#if stackId && selection?.irc && ircChannel}
-		<IrcChannel projectId={controller.projectId} type="group" channel={ircChannel} autojoin />
-	{:else}
-		{@const commit = selectedCommit}
-		{@const dzCommit: DzCommitData | undefined = commit
-			? {
-					id: commit.id,
-					isRemote: isUpstreamCommit(commit),
-					isIntegrated:
-						isLocalAndRemoteCommit(commit) && commit.state.type === "Integrated",
-					hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-				}
-			: undefined}
-		{@const { amendHandler, squashHandler, hunkHandler } =
-			controller.isCommitView && dzCommit
-				? createCommitDropHandlers({
-						projectId: controller.projectId,
-						stackId: controller.stackId,
-						commit: dzCommit,
-						runHooks: $runHooks,
-						okWithForce: true,
-						onCommitIdChange: (newId) => {
-							// branchName may be undefined for commits in anonymous segments
-							// (refName === null); the selection state already tolerates that.
-							if (selection) {
-								const previewOpen = selection.previewOpen ?? true;
-								controller.laneState.selection.set({
-									branchName,
-									commitId: newId,
-									previewOpen,
-								});
-							}
-						},
-					})
-				: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
-		{#if commitId}
-			<Dropzone
-				handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
-				fillHeight
-				overflow
-			>
-				{#snippet overlay({ hovered, activated, handler })}
-					{@const label =
-						handler instanceof AmendCommitWithChangeDzHandler ||
-						handler instanceof AmendCommitWithHunkDzHandler
-							? "Amend"
-							: "Squash"}
-					<DropzoneOverlay {hovered} {activated} {label} />
-				{/snippet}
-				<div class="details-view__inner">
-					{#if commit}
-						<CommitView
-							{projectId}
-							{stackId}
-							{laneId}
-							{commit}
-							draggableFiles
-							rounded
-							onclose={() => controller.closePreview()}
-							onpopout={() => controller.openFloatingDiff()}
-						/>
-					{/if}
-					{#if commitFiles}
-						{@const commitResult = commitFiles?.result}
-						{#if commitResult}
-							<ReduxResult {projectId} {stackId} result={commitResult}>
-								{#snippet children(commit)}
-									<MultiDiffView
-										{stackId}
-										selectionId={{ type: "commit", commitId, stackId }}
-										bind:this={multiDiffView}
-										{projectId}
-										changes={commit.changes}
-										draggable={true}
-										selectable={false}
-										startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
-										{onVisibleChange}
-									/>
-								{/snippet}
-							</ReduxResult>
-						{/if}
-					{/if}
-				</div>
-			</Dropzone>
-		{:else if branchName && selectedSegment && selectedContext}
-			{@const changesQuery = stackService.branchChanges({
-				projectId: controller.projectId,
-				branch: branchName,
-			})}
+	{#if commitId}
+		<Dropzone
+			handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
+			fillHeight
+			overflow
+		>
+			{#snippet overlay({ hovered, activated, handler })}
+				{@const label =
+					handler instanceof AmendCommitWithChangeDzHandler ||
+					handler instanceof AmendCommitWithHunkDzHandler
+						? "Amend"
+						: "Squash"}
+				<DropzoneOverlay {hovered} {activated} {label} />
+			{/snippet}
 			<div class="details-view__inner">
-				<BranchView
-					{stackId}
-					{laneId}
-					{projectId}
-					{branchName}
-					segment={selectedSegment}
-					branchIndex={selectedContext.branchIndex}
-					parent={selectedContext.parent}
-					child={selectedContext.child}
-					withForce={selectedContext.withForce}
-					stackLength={segments.length}
-					onclose={() => controller.closePreview()}
-					rounded
-					onpopout={() => controller.openFloatingDiff()}
-				/>
-				<ReduxResult {projectId} {stackId} result={changesQuery.result}>
-					{#snippet children(result)}
-						<MultiDiffView
-							{stackId}
-							selectionId={{
-								type: "branch",
-								branchName,
-								remote: undefined,
-								stackId,
-							}}
-							changes={result.changes}
-							bind:this={multiDiffView}
-							{projectId}
-							draggable={true}
-							selectable={false}
-							startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
-							{onVisibleChange}
-						/>
-					{/snippet}
-				</ReduxResult>
+				{#if selectedCommit}
+					<CommitView
+						{projectId}
+						{stackId}
+						{laneId}
+						commit={selectedCommit}
+						draggableFiles
+						rounded
+						onclose={() => controller.closePreview()}
+						onpopout={() => controller.openFloatingDiff()}
+					/>
+				{/if}
+				{#if commitFiles}
+					{@const commitResult = commitFiles?.result}
+					{#if commitResult}
+						<ReduxResult {projectId} {stackId} result={commitResult}>
+							{#snippet children(commit)}
+								<MultiDiffView
+									{stackId}
+									selectionId={{ type: "commit", commitId, stackId }}
+									bind:this={multiDiffView}
+									{projectId}
+									changes={commit.changes}
+									draggable={true}
+									selectable={false}
+									startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
+									{onVisibleChange}
+								/>
+							{/snippet}
+						</ReduxResult>
+					{/if}
+				{/if}
 			</div>
-		{:else if focusedFileStore}
-			<MultiDiffView
+		</Dropzone>
+	{:else if branchName && selectedSegment && selectedContext}
+		{@const changesQuery = stackService.branchChanges({
+			projectId: controller.projectId,
+			branch: branchName,
+		})}
+		<div class="details-view__inner">
+			<BranchView
 				{stackId}
-				selectionId={{ type: "worktree", stackId }}
-				changes={assignedFiles}
-				bind:this={multiDiffView}
+				{laneId}
 				{projectId}
-				draggable={true}
-				selectable={controller.isCommitting}
+				{branchName}
+				segment={selectedSegment}
+				branchIndex={selectedContext.branchIndex}
+				parent={selectedContext.parent}
+				child={selectedContext.child}
+				withForce={selectedContext.withForce}
+				stackLength={segments.length}
 				onclose={() => controller.closePreview()}
-				startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
-				{onVisibleChange}
+				rounded
+				onpopout={() => controller.openFloatingDiff()}
 			/>
-		{/if}
+			<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+				{#snippet children(result)}
+					<MultiDiffView
+						{stackId}
+						selectionId={{
+							type: "branch",
+							branchName,
+							remote: undefined,
+							stackId,
+						}}
+						changes={result.changes}
+						bind:this={multiDiffView}
+						{projectId}
+						draggable={true}
+						selectable={false}
+						startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
+						{onVisibleChange}
+					/>
+				{/snippet}
+			</ReduxResult>
+		</div>
+	{:else if focusedFileStore}
+		<MultiDiffView
+			{stackId}
+			selectionId={{ type: "worktree", stackId }}
+			changes={assignedFiles}
+			bind:this={multiDiffView}
+			{projectId}
+			draggable={true}
+			selectable={controller.isCommitting}
+			onclose={() => controller.closePreview()}
+			startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
+			{onVisibleChange}
+		/>
 	{/if}
 </div>
 
@@ -307,13 +301,6 @@
 		height: 100%;
 		max-height: calc(100% - 24px);
 		margin-right: 2px;
-	}
-
-	.irc-view {
-		overflow: hidden;
-		border: 1px solid var(--border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--bg-1);
 	}
 
 	:global(.details-view__inner) {

@@ -5,13 +5,11 @@
 	import GeneralSettings from "$components/settings/GeneralSettings.svelte";
 	import GitSettings from "$components/settings/GitSettings.svelte";
 	import IntegrationsSettings from "$components/settings/IntegrationsSettings.svelte";
-	import IrcSettings from "$components/settings/IrcSettings.svelte";
 	import LanesAndBranchesSettings from "$components/settings/LanesAndBranchesSettings.svelte";
 	import OrganisationSettings from "$components/settings/OrganisationSettings.svelte";
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
 	import TelemetrySettings from "$components/settings/TelemetrySettings.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { generalSettingsPages } from "$lib/settings/generalSettingsPages";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -25,9 +23,6 @@
 	const { data }: Props = $props();
 
 	const userService = inject(USER_SERVICE);
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
-	const ircEnabled = $derived($settingsStore?.featureFlags.irc ?? false);
 	const urlService = inject(URL_SERVICE);
 
 	let currentSelectedId = $derived(data.selectedId || generalSettingsPages[0]!.id);
@@ -39,7 +34,7 @@
 
 <SettingsModalLayout
 	title="Global settings"
-	pages={generalSettingsPages.filter((p) => p.id !== "irc" || ircEnabled)}
+	pages={generalSettingsPages}
 	selectedId={currentSelectedId}
 	isAdmin={userService.user?.role === "admin"}
 	onSelectPage={selectPage}
@@ -58,8 +53,6 @@
 				<IntegrationsSettings />
 			{:else if currentPage.id === "ai"}
 				<AiSettings />
-			{:else if currentPage.id === "irc"}
-				<IrcSettings />
 			{:else if currentPage.id === "telemetry"}
 				<TelemetrySettings />
 			{:else if currentPage.id === "experimental"}

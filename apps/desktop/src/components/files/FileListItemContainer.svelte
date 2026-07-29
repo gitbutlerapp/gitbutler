@@ -39,7 +39,6 @@
 		lockedTargets?: HunkLockTarget[];
 		isLast?: boolean;
 		notched?: boolean;
-		ircWorkingUsers?: string[];
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		conflictEntries?: ConflictEntriesObj;
@@ -64,7 +63,6 @@
 		lockedTargets = [],
 		isLast = false,
 		notched,
-		ircWorkingUsers,
 		onclick,
 		onkeydown,
 	}: Props = $props();
@@ -190,7 +188,6 @@
 		{lockText}
 		{isLast}
 		{notched}
-		{ircWorkingUsers}
 		onlockhover={handleLockHover}
 		onlockunhover={handleLockUnhover}
 		conflicted={!!conflict}

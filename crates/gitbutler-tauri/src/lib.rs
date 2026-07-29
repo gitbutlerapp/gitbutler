@@ -17,11 +17,6 @@
     clippy::too_many_lines
 )]
 
-#[cfg(feature = "irc")]
-pub mod irc;
-#[cfg(feature = "irc")]
-pub mod irc_lifecycle;
-
 pub mod logs;
 pub mod menu;
 pub mod window;

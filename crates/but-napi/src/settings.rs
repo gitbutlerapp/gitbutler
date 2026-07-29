@@ -96,11 +96,3 @@ pub async fn update_ui(
 ) -> napi::Result<()> {
     apply_update(update, AppSettingsWithDiskSync::update_ui)
 }
-
-/// Update IRC settings; unset fields are left unchanged.
-#[napi]
-pub async fn update_irc(
-    #[napi(ts_arg_type = "IrcUpdate")] update: serde_json::Value,
-) -> napi::Result<()> {
-    apply_update(update, AppSettingsWithDiskSync::update_irc)
-}

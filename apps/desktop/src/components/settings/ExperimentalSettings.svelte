@@ -73,23 +73,6 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
-
-	<CardGroup.Item labelFor="irc">
-		{#snippet title()}
-			IRC integration
-		{/snippet}
-		{#snippet caption()}
-			Enable IRC for remote collaboration and automated Claude Code session sharing.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="irc"
-				checked={$settingsStore?.featureFlags.irc}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ irc: !$settingsStore?.featureFlags.irc })}
-			/>
-		{/snippet}
-	</CardGroup.Item>
 </CardGroup>
 
 <style>

@@ -16,34 +16,13 @@ use but_api::{
     bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
     workspace,
 };
-#[cfg(feature = "irc")]
-use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
-#[cfg(feature = "irc")]
-use gitbutler_tauri::irc;
 use gitbutler_tauri::{
     WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
-
-#[cfg(feature = "irc")]
-/// Return a copy of `irc` with `connection.enabled` forced to `false` when
-/// the IRC feature flag is off. This lets the existing reconciliation logic
-/// treat "flag turned off" the same as "user disabled the connection".
-fn effective_irc(
-    irc: &but_settings::app_settings::IrcSettings,
-    feature_enabled: bool,
-) -> but_settings::app_settings::IrcSettings {
-    if feature_enabled {
-        irc.clone()
-    } else {
-        let mut copy = irc.clone();
-        copy.connection.enabled = false;
-        copy
-    }
-}
 
 fn main() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
@@ -178,39 +157,10 @@ fn main() -> anyhow::Result<()> {
                                    name = %app_handle.package_info().name, "starting app");
 
                 app_handle.manage(WindowState::new(app_handle.clone()));
-                #[cfg(feature = "irc")]
-                {
-                    let irc_manager = IrcManager::new();
-                    app_handle.manage(but_irc::WorkingFilesBroadcast::new(irc_manager.clone()));
-                    app_handle.manage(irc_manager);
-                }
-
-                // Track previous effective IRC settings for diffing on changes.
-                // "Effective" means connection.enabled is forced false when the
-                // feature flag is off, so toggling the flag also disconnects.
-                #[cfg(feature = "irc")]
-                let prev_irc_settings = std::sync::Mutex::new(
-                    app_settings.get().ok().map(|s| effective_irc(&s.irc, s.feature_flags.irc))
-                );
 
                 app_settings.watch_in_background({
                     let app_handle = app_handle.clone();
                     move |app_settings| {
-                        #[cfg(feature = "irc")]
-                        {
-                            let new_irc = effective_irc(&app_settings.irc, app_settings.feature_flags.irc);
-                            if let Ok(mut prev) = prev_irc_settings.lock() {
-                                if let Some(old_irc) = prev.as_ref()
-                                    && old_irc != &new_irc
-                                {
-                                    gitbutler_tauri::irc_lifecycle::on_settings_changed(
-                                        &app_handle, old_irc, &new_irc,
-                                    );
-                                }
-                                *prev = Some(new_irc);
-                            }
-                        }
-
                         gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                     }
                 })?;
@@ -222,12 +172,6 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(archival);
                 app_handle.manage(app_settings);
 
-                // Auto-connect IRC connections based on settings (only when feature flag is on).
-                #[cfg(feature = "irc")]
-                if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
-                    let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
-                    gitbutler_tauri::irc_lifecycle::auto_connect_on_startup(app_handle, &irc);
-                }
                 tauri_app.on_menu_event(move |handle, event| {
                     let target_window = handle
                         .webview_windows()
@@ -421,72 +365,9 @@ fn main() -> anyhow::Result<()> {
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
-                settings::update_irc,
                 // Debug-only - not for production!
                 #[cfg(debug_assertions)]
                 env::env_vars,
-                #[cfg(feature = "irc")]
-                irc::irc_connect,
-                #[cfg(feature = "irc")]
-                irc::irc_disconnect,
-                #[cfg(feature = "irc")]
-                irc::irc_state,
-                #[cfg(feature = "irc")]
-                irc::irc_wait_ready,
-                #[cfg(feature = "irc")]
-                irc::irc_join,
-                #[cfg(feature = "irc")]
-                irc::irc_part,
-                #[cfg(feature = "irc")]
-                irc::irc_auto_join,
-                #[cfg(feature = "irc")]
-                irc::irc_auto_leave,
-                #[cfg(feature = "irc")]
-                irc::irc_send_message,
-                #[cfg(feature = "irc")]
-                irc::irc_send_message_with_data,
-                #[cfg(feature = "irc")]
-                irc::irc_send_raw,
-                #[cfg(feature = "irc")]
-                irc::irc_send_typing,
-                #[cfg(feature = "irc")]
-                irc::irc_send_reaction,
-                #[cfg(feature = "irc")]
-                irc::irc_remove_reaction,
-                #[cfg(feature = "irc")]
-                irc::irc_redact_message,
-                #[cfg(feature = "irc")]
-                irc::irc_list_connections,
-                #[cfg(feature = "irc")]
-                irc::irc_exists,
-                #[cfg(feature = "irc")]
-                irc::irc_nick,
-                #[cfg(feature = "irc")]
-                irc::irc_request_history,
-                #[cfg(feature = "irc")]
-                irc::irc_request_history_before,
-                #[cfg(feature = "irc")]
-                irc::irc_messages,
-                #[cfg(feature = "irc")]
-                irc::irc_channels,
-                #[cfg(feature = "irc")]
-                irc::irc_users,
-                #[cfg(feature = "irc")]
-                irc::irc_mark_read,
-                #[cfg(feature = "irc")]
-                irc::irc_clear_messages,
-                #[cfg(feature = "irc")]
-                irc::irc_get_all_commit_reactions,
-                #[cfg(feature = "irc")]
-                irc::irc_get_all_message_reactions,
-                #[cfg(feature = "irc")]
-                irc::irc_get_file_message_reactions,
-                #[cfg(feature = "irc")]
-                irc::irc_get_working_files,
-                #[cfg(feature = "irc")]
-                irc::irc_start_working_files_broadcast,
-                #[cfg(feature = "irc")]
-                irc::irc_stop_working_files_broadcast,
                 commit::reword::tauri_commit_reword::commit_reword,
                 commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
                 commit::create::tauri_commit_create::commit_create,
@@ -537,15 +418,7 @@ fn main() -> anyhow::Result<()> {
         builder
             .build(tauri_context)
             .expect("Failed to build tauri app")
-            .run(|#[cfg_attr(not(feature = "irc"), allow(unused_variables))] app_handle,
-                  #[cfg_attr(not(feature = "irc"), allow(unused_variables))] event| {
-                #[cfg(feature = "irc")]
-                if let tauri::RunEvent::Exit = event {
-                    let irc_manager = app_handle.state::<IrcManager>();
-                    // Note that we can't use `tauri::async_runtime::block_on`  during shutdown as it panics.
-                    irc_manager.shutdown_now();
-                }
-            });
+            .run(|_app_handle, _event| {});
     });
     Ok(())
 }

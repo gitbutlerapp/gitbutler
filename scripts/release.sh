@@ -198,10 +198,6 @@ else
 	exit 1
 fi
 
-# Enable experimental features
-if [ "$CHANNEL" != "release" ]; then
-	FEATURES="$FEATURES irc"
-fi
 
 # update the version in the tauri release config
 jq  --arg version "$VERSION"\

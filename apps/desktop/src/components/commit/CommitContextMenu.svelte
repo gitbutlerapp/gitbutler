@@ -53,20 +53,14 @@
 </script>
 
 <script lang="ts">
-	import IrcSendToSubmenus from "$components/diff/IrcSendToSubmenus.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { projectAiGenEnabled } from "$lib/config/config";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
-	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
-	import { Messages, serialize } from "$lib/irc/protocol";
-	import { buildSharedCommitPayload } from "$lib/irc/sharedStack";
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { dismissToast, showToast } from "$lib/notifications/toasts";
-	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import {
@@ -98,9 +92,6 @@
 	const stackService = inject(STACK_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
-	const diffService = inject(DIFF_SERVICE);
-	const ircApiService = inject(IRC_API_SERVICE);
-	const projectsService = inject(PROJECTS_SERVICE);
 	const aiService = inject(AI_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit.useMutation();
 	const [createRef, refCreation] = stackService.createReference;
@@ -129,11 +120,6 @@
 			stale = true;
 		};
 	});
-
-	const projectQuery = $derived(projectsService.getProject(projectId));
-	const projectTitle = $derived(projectQuery.response?.title ?? projectId);
-
-	let sending = $state(false);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(
@@ -214,35 +200,6 @@
 			});
 		} finally {
 			resolvingCommits.delete(commitId);
-		}
-	}
-
-	async function sendCommitToChannel(
-		channelName: string,
-		commitId: string,
-		commitMessage: string,
-		stackId: string,
-	) {
-		if (sending) return;
-		sending = true;
-		try {
-			const payload = await buildSharedCommitPayload(
-				stackId,
-				commitId,
-				projectId,
-				projectTitle,
-				stackService,
-				diffService,
-			);
-			const msg = Messages.sharedCommit({ sender: "me", commit: payload });
-			const { text, data } = serialize(msg);
-			await ircApiService.sendMessageWithData({
-				target: channelName,
-				message: text,
-				data,
-			});
-		} finally {
-			sending = false;
 		}
 	}
 </script>
@@ -449,16 +406,6 @@
 						</ContextMenuItemSubmenu>
 					{/if}
 				</ContextMenuSection>
-
-				{#if "stackId" in contextData && contextData.stackId}
-					{@const ctxStackId = contextData.stackId}
-					<IrcSendToSubmenus
-						{projectId}
-						disabled={sending}
-						onSend={(target) => sendCommitToChannel(target, commitId, commitMessage, ctxStackId)}
-						closeMenu={close}
-					/>
-				{/if}
 
 				<ContextMenuSection>
 					<ContextMenuItem

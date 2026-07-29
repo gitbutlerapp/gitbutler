@@ -589,14 +589,6 @@ mod config_feature {
     }
 
     #[test]
-    fn does_not_expose_irc() {
-        let err = Args::try_parse_from(["but", "config", "feature", "irc"])
-            .expect_err("IRC feature flag is intentionally hidden");
-
-        assert_eq!(err.kind(), clap::error::ErrorKind::InvalidValue);
-    }
-
-    #[test]
     fn json_keys_use_snake_case() {
         assert_eq!(FeatureFlag::UnapplyV3Pgm.as_json_key(), "unapply_v3_pgm");
         assert_eq!(FeatureFlag::SingleBranch.as_json_key(), "single_branch");

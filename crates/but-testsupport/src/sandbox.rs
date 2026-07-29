@@ -493,7 +493,6 @@ impl Sandbox {
             feature_flags: FeatureFlags {
                 unapply_v3_pgm: false,
                 single_branch: true,
-                irc: false,
                 watch_mode: "auto".into(),
                 write_commit_evolution: true,
                 tui_file_browser: false,
@@ -525,21 +524,6 @@ impl Sandbox {
                 check_for_updates_interval_in_seconds: 0,
             },
             app_updates_check_interval_sec: 0,
-            irc: but_settings::app_settings::IrcSettings {
-                server: but_settings::app_settings::IrcServerSettings {
-                    host: "irc.example.com".to_string(),
-                    port: 6697,
-                },
-                auto_share: false,
-                project_channel: None,
-                connection: but_settings::app_settings::IrcConnectionSettings {
-                    enabled: false,
-                    nickname: None,
-                    server_password: None,
-                    sasl_password: None,
-                    realname: None,
-                },
-            },
         };
         settings
             .save(&self.app_data_dir().join("gitbutler/settings.json"), None)

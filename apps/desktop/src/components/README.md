@@ -116,7 +116,7 @@ Individual components that read the controller from context and own their specif
 
 ### FileList — multi-consumer compound component
 
-Used by four independent consumers; requires a separate Provider.
+Used by multiple independent consumers; requires a separate Provider.
 
 | File                                             | Role                                                                        |
 | ------------------------------------------------ | --------------------------------------------------------------------------- |
@@ -128,7 +128,7 @@ Used by four independent consumers; requires a separate Provider.
 Consumer examples showing different compositions:
 
 ```svelte
-<!-- IrcCommit.svelte — minimal: just items -->
+<!-- Minimal: just items -->
 <FileListProvider {changes} {selectionId}>
 	<FileListItems {projectId} mode="list" onselect={(_, i) => (selectedIndex = i)} />
 </FileListProvider>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import IrcChatWindow from "$components/irc/IrcChatWindow.svelte";
 	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
@@ -18,9 +17,6 @@
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
-	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
-	import { projectChannel } from "$lib/irc/protocol";
-	import { WORKING_FILES_BROADCAST } from "$lib/irc/workingFilesBroadcast.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showInfo, showWarning } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -355,42 +351,6 @@
 		}
 	});
 
-	// =============================================================================
-	// IRC PROJECT CHANNEL
-	// =============================================================================
-
-	const ircApiService = inject(IRC_API_SERVICE);
-	const workingFilesBroadcast = inject(WORKING_FILES_BROADCAST);
-
-	// Extract primitive values via $derived so the effect only re-runs when
-	// the actual IRC-relevant settings change, not on every settings store emit.
-	const ircEnabled = $derived(
-		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
-	);
-	const ircProjectChannelSetting = $derived($settingsStore?.irc?.projectChannel);
-	const projectTitle = $derived(currentProject?.title);
-
-	$effect(() => {
-		if (!ircEnabled || !projectTitle) return;
-
-		const channel =
-			ircProjectChannelSetting !== null && ircProjectChannelSetting !== undefined
-				? ircProjectChannelSetting
-				: projectChannel(projectTitle);
-
-		const botsChannel = `${channel}/bots`;
-
-		ircApiService.autoJoin({ channel });
-		ircApiService.autoJoin({ channel: botsChannel });
-		workingFilesBroadcast.start(projectId, botsChannel);
-
-		return () => {
-			ircApiService.autoLeave({ channel });
-			ircApiService.autoLeave({ channel: botsChannel });
-			workingFilesBroadcast.stop();
-		};
-	});
-
 	// Cleanup on destroy
 	onDestroy(() => {
 		clearFetchInterval();
@@ -425,8 +385,6 @@
 		<ProblemLoadingRepo {projectId} error={baseError} />
 	{/snippet}
 </ReduxResult>
-
-<IrcChatWindow {projectId} />
 
 <AnalyticsMonitor {projectId} />
 
