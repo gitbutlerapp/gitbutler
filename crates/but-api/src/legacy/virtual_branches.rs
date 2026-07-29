@@ -702,6 +702,11 @@ pub fn get_branch_listing_details(
     Ok(branches)
 }
 
+/// Fetch from every configured remote, tolerating failures of remotes the workspace does not
+/// depend on: the call fails only when the target branch's own fetch remote failed (or when no
+/// target is configured to judge by). An unreachable unrelated remote (an old fork, a deleted
+/// mirror) must not block operations that only need the target refreshed, like `pull` or a
+/// dry-run push. Every remote's error is still recorded on the project's fetch status.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseBranch> {
@@ -712,13 +717,20 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
             .map(|name| name.to_str().map(str::to_owned))
             .collect::<std::result::Result<Vec<_>, _>>()?
     };
+    let target_fetch_remote: Option<String> = {
+        let guard = ctx.shared_worktree_access();
+        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
+            .ok()
+            .map(|base| base.remote_name)
+            .filter(|name| !name.is_empty())
+    };
     let askpass = Some(action.unwrap_or_else(|| "unknown".to_string()));
-    let fetch_errors: Vec<_> = remotes
+    let fetch_errors: Vec<(String, String)> = remotes
         .iter()
         .filter_map(|remote| {
             ctx.fetch(remote, askpass.clone())
                 .err()
-                .map(|err| err.to_string())
+                .map(|err| (remote.clone(), err.to_string()))
         })
         .collect();
 
@@ -728,7 +740,11 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     } else {
         FetchResult::Error {
             timestamp,
-            error: fetch_errors.join("\n"),
+            error: fetch_errors
+                .iter()
+                .map(|(remote, error)| format!("{remote}: {error}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
         }
     };
     let project_meta = ctx.project_meta()?;
@@ -750,7 +766,19 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     .context("failed to update project with last fetched timestamp")?;
 
     if let FetchResult::Error { error, .. } = project_data_last_fetched {
-        return Err(anyhow!(error));
+        // The target counts as failed when its fetch errored — and also when it isn't among the
+        // configured remotes at all (stale target metadata), since it was then never fetched and
+        // cannot vouch for anything.
+        let target_failed = match &target_fetch_remote {
+            Some(target) => {
+                !remotes.iter().any(|remote| remote == target)
+                    || fetch_errors.iter().any(|(remote, _)| remote == target)
+            }
+            None => true,
+        };
+        if target_failed {
+            return Err(anyhow!(error));
+        }
     }
 
     let guard = ctx.shared_worktree_access();
