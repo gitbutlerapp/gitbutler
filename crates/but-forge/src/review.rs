@@ -1676,7 +1676,8 @@ pub enum ReviewStackingDescription {
 /// Controls whether same-repository GitHub reviews use GitHub's native stacks API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GitHubStackingMode {
-    Unconfigured,
+    /// Use native stacks when the repository supports them, description metadata otherwise.
+    Auto,
     Disabled,
     Native,
 }
@@ -1702,7 +1703,7 @@ pub async fn prepare_review_target_updates(
         forge, owner, repo, ..
     } = forge_repo_info;
     if *forge != ForgeName::GitHub
-        || github_stacking_mode != GitHubStackingMode::Native
+        || github_stacking_mode == GitHubStackingMode::Disabled
         || reviews.is_empty()
     {
         return Ok(Vec::new());
@@ -2015,7 +2016,7 @@ pub async fn sync_reviews(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
             let (_, head_repo) = github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
-            let use_native = github_stacking_mode == GitHubStackingMode::Native
+            let use_native = github_stacking_mode != GitHubStackingMode::Disabled
                 && head_repo.is_none()
                 && !reviews.is_empty();
             if use_native {
@@ -2033,9 +2034,13 @@ pub async fn sync_reviews(
                         errors.extend(native_errors);
                     }
                     Ok(but_github::stacks::Availability::Unsupported) => {
-                        errors.push(
-                            "GitHub native stacks are not enabled for this repository".to_string(),
-                        );
+                        // Under `Auto` an unenrolled repository is the expected case, not an error.
+                        if github_stacking_mode == GitHubStackingMode::Native {
+                            errors.push(
+                                "GitHub native stacks are not enabled for this repository"
+                                    .to_string(),
+                            );
+                        }
                         errors.extend(
                             sync_github_reviews_with_descriptions(
                                 preferred_account,

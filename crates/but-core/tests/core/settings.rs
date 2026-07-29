@@ -183,7 +183,11 @@ mod git {
 
     #[test]
     fn github_stacking_mode_round_trips() -> anyhow::Result<()> {
-        for value in [GitHubStackingMode::Disabled, GitHubStackingMode::Native] {
+        for value in [
+            GitHubStackingMode::Auto,
+            GitHubStackingMode::Disabled,
+            GitHubStackingMode::Native,
+        ] {
             let tmp = gix_testtools::tempfile::TempDir::new()?;
             gix::init(tmp.path())?;
             let repo = gix::open_opts(tmp.path(), gix::open::Options::isolated())?;

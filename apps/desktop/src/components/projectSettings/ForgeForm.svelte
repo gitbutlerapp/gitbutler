@@ -59,7 +59,7 @@
 			"bottom") as ReviewStackingDescription,
 	);
 	const githubStackingMode = $derived(
-		(gitConfigQuery.response?.gitbutlerGithubStackingMode ?? "disabled") as GitHubStackingMode,
+		(gitConfigQuery.response?.gitbutlerGithubStackingMode ?? "auto") as GitHubStackingMode,
 	);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectQuery.response);
@@ -203,14 +203,17 @@
 
 			{#snippet caption()}
 				Register this project’s reviewed stacks with GitHub’s private-preview stacks API. Higher
-				pull requests may merge the pull requests below them. Changes apply on the next push or pull
-				request creation. Fork-backed pull requests continue using description metadata.
+				pull requests may merge the pull requests below them. Auto falls back to description
+				metadata when the repository is not enrolled in the preview, while Native reports an error.
+				Changes apply on the next push or pull request creation. Fork-backed pull requests always
+				use description metadata.
 			{/snippet}
 
 			<div data-testid="github-stacking-mode-select">
 				<Select
 					value={githubStackingMode}
 					options={[
+						{ label: "Auto", value: "auto" },
 						{ label: "Disabled", value: "disabled" },
 						{ label: "Native", value: "native" },
 					]}

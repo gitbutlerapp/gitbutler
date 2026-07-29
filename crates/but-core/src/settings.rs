@@ -44,6 +44,8 @@ pub mod git {
         #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
         #[serde(rename_all = "lowercase")]
         pub enum GitHubStackingMode {
+            /// Use native stacks when available, description metadata otherwise.
+            Auto,
             /// Keep using ordinary pull requests and GitButler-managed description metadata.
             Disabled,
             /// Register same-repository GitHub pull requests as native GitHub stacks.
@@ -216,11 +218,12 @@ pub mod git {
             let gitbutler_github_stacking_mode = config
                 .string(GITBUTLER_GITHUB_STACKING_MODE)
                 .map(|value| match value.as_slice() {
+                    b"auto" => GitHubStackingMode::Auto,
                     b"disabled" => GitHubStackingMode::Disabled,
                     b"native" => GitHubStackingMode::Native,
                     invalid => {
-                        tracing::warn!(value = ?invalid, "Invalid gitbutler.githubStackingMode; using disabled");
-                        GitHubStackingMode::Disabled
+                        tracing::warn!(value = ?invalid, "Invalid gitbutler.githubStackingMode; using auto");
+                        GitHubStackingMode::Auto
                     }
                 });
             let gitbutler_forge_review_template_path = config.string(GITBUTLER_FORGE_TEMPLATE_PATH);
@@ -280,6 +283,7 @@ pub mod git {
                     config.set_raw_value(
                         GITBUTLER_GITHUB_STACKING_MODE,
                         match mode {
+                            GitHubStackingMode::Auto => "auto",
                             GitHubStackingMode::Disabled => "disabled",
                             GitHubStackingMode::Native => "native",
                         },

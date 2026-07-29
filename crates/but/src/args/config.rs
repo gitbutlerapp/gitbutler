@@ -573,7 +573,7 @@ pub enum ForgeSubcommand {
     /// repository-local Git config and shared with the GitButler desktop application.
     #[cfg(feature = "legacy")]
     GithubStacks {
-        /// Enable or disable native GitHub stacked pull requests.
+        /// Enable, disable, or auto-detect native GitHub stacked pull requests.
         #[clap(value_enum)]
         status: Option<GitHubStacksStatus>,
     },
@@ -583,6 +583,8 @@ pub enum ForgeSubcommand {
 #[cfg(feature = "legacy")]
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum GitHubStacksStatus {
+    /// Use native stacks when the repository supports them (the default).
+    Auto,
     Enable,
     Disable,
 }

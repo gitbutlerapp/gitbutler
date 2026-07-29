@@ -683,6 +683,7 @@ pub(crate) fn github_stacks_config(
         match status {
             Some(status) => {
                 let mode = match status {
+                    GitHubStacksStatus::Auto => GitHubStackingMode::Auto,
                     GitHubStacksStatus::Enable => GitHubStackingMode::Native,
                     GitHubStacksStatus::Disable => GitHubStackingMode::Disabled,
                 };
@@ -695,10 +696,9 @@ pub(crate) fn github_stacks_config(
             None => repo
                 .git_settings()?
                 .gitbutler_github_stacking_mode
-                .unwrap_or(GitHubStackingMode::Disabled),
+                .unwrap_or(GitHubStackingMode::Auto),
         }
     };
-    let enabled = configured == GitHubStackingMode::Native;
     if let Some(out) = out.for_human() {
         let t = theme::get();
         let symbol = if status.is_some() {
@@ -710,25 +710,31 @@ pub(crate) fn github_stacks_config(
             out,
             "{} Native GitHub stacks are {} for this repository",
             symbol,
-            if enabled {
-                t.success.paint("enabled")
-            } else {
-                t.hint.paint("disabled")
+            match configured {
+                GitHubStackingMode::Auto => t.success.paint("automatic"),
+                GitHubStackingMode::Native => t.success.paint("enabled"),
+                GitHubStackingMode::Disabled => t.hint.paint("disabled"),
             }
         )?;
-        if enabled {
-            writeln!(
+        match configured {
+            GitHubStackingMode::Auto => writeln!(
+                out,
+                "{}",
+                t.hint.paint(
+                    "They are used when the repository is enrolled in GitHub's stacked pull requests preview."
+                )
+            )?,
+            GitHubStackingMode::Native => writeln!(
                 out,
                 "{}",
                 t.hint.paint(
                     "The repository must be enrolled in GitHub's stacked pull requests preview."
                 )
-            )?;
+            )?,
+            GitHubStackingMode::Disabled => {}
         }
     } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "mode": if enabled { "native" } else { "disabled" },
-        }))?;
+        out.write_value(serde_json::json!({ "mode": configured }))?;
     }
     Ok(())
 }
