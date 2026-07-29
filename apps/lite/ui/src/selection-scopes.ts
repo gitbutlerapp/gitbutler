@@ -16,7 +16,7 @@ const allSelectionScopes: Set<string> = new Set([
 	"pr",
 ] satisfies Array<SelectionScope>);
 
-// Supports arbitarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
+// Supports arbitrarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
 // left to right.
 const selectionScopeChildren: Partial<Record<SelectionScope, Set<SelectionScope>>> = {
 	details: new Set(["diff", "pr", "files"]),
