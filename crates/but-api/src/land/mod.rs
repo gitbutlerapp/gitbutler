@@ -19,8 +19,10 @@
 //! ([`crate::workspace::workspace_integrate_upstream_with_perm`]). This module orchestrates them.
 //!
 //! Unlike the modern single-mutation endpoints, `branch_land` cannot hold one exclusive permission
-//! throughout: it interleaves `fetch_from_remotes` (which re-acquires shared access) with the
-//! retry loop, so it acquires and releases worktree access per step, like the legacy public APIs.
+//! throughout: it interleaves fetching the target remote with the retry loop, so it acquires and
+//! releases worktree access per step, like the legacy public APIs. Only the target's fetch remote
+//! is fetched — landing needs a fresh target tracking ref and nothing else, and an unreachable
+//! unrelated remote must not block the land.
 //! The reconcile step owns its own permission and oplog snapshot. The target move itself is not
 //! captured by the oplog (see the CLI's undo caveats), matching the prior CLI behavior.
 
@@ -33,6 +35,7 @@ use std::path::Path;
 use anyhow::bail;
 use but_api_macros::but_api;
 use but_ctx::Context;
+use gitbutler_git::GitContextExt as _;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
@@ -223,7 +226,9 @@ pub fn branch_land(
     // the user did not opt into, and never publish conflicted commits onto the target.
     validate_branch_landing(ctx, &branch, &target_display, whole_stack)?;
 
-    crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+    // Fetch only the target's remote: landing needs a fresh target tracking ref and nothing else,
+    // and an unreachable unrelated remote must not block the land.
+    fetch_target_remote(ctx, &fetch_remote_name)?;
 
     // Land the branch, retrying when the target moves underneath us (optimistic concurrency).
     let mut landed: Option<BranchLandKind> = None;
@@ -278,7 +283,7 @@ pub fn branch_land(
             Err(err)
                 if deliver::is_retryable_concurrency_error(&err) && attempt < MAX_PUSH_ATTEMPTS =>
             {
-                crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+                fetch_target_remote(ctx, &fetch_remote_name)?;
             }
             Err(err) if deliver::is_retryable_concurrency_error(&err) => {
                 return Err(err.context(format!(
@@ -303,7 +308,7 @@ pub fn branch_land(
     if let BranchLandKind::Updated { new_target_oid, .. } = &landed
         && !update_target_locally
     {
-        crate::legacy::virtual_branches::fetch_from_remotes(ctx, Some("land".to_string()))?;
+        fetch_target_remote(ctx, &fetch_remote_name)?;
 
         // A concurrent push may have moved the tip *past* our commit, which still counts as the
         // target having advanced to include what we landed — so test reachability, not equality.
@@ -398,6 +403,29 @@ fn validate_branch_landing(
         );
     }
     Ok(())
+}
+
+/// Fetch the target's fetch remote and record the outcome on the project, mirroring the
+/// bookkeeping `fetch_from_remotes` performs so `last_fetched` and auto-fetch scheduling stay
+/// accurate for targeted fetches too.
+fn fetch_target_remote(ctx: &Context, remote: &str) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+
+    let result = ctx.fetch(remote, Some("land".to_string()));
+    let timestamp = std::time::SystemTime::now();
+    let project_data_last_fetched = match &result {
+        Ok(()) => gitbutler_project::FetchResult::Fetched { timestamp },
+        Err(err) => gitbutler_project::FetchResult::Error {
+            timestamp,
+            error: err.to_string(),
+        },
+    };
+    gitbutler_project::update(gitbutler_project::UpdateRequest {
+        project_data_last_fetched: Some(project_data_last_fetched),
+        ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id.clone())
+    })
+    .context("failed to update project with last fetched timestamp")?;
+    result
 }
 
 /// What landing `branch` would publish beyond the branch's own segment, for callers that must

@@ -246,6 +246,32 @@ fn land_no_ff_creates_signed_merge_commit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// An unreachable remote that is not the target's must not block landing: `but land` fetches only
+/// the target's fetch remote, so a dead unrelated remote (old fork, deleted mirror) is ignored.
+#[test]
+fn land_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("branch new first-branch").assert().success();
+    env.file("file1.txt", "content1");
+    env.but("commit -b first-branch -m 'first commit on branch A'")
+        .assert()
+        .success();
+    let branch_tip = env.invoke_git("rev-parse first-branch");
+
+    env.but("land first-branch --yes").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        branch_tip,
+        "the land must succeed and advance the target despite the unreachable unrelated remote"
+    );
+
+    Ok(())
+}
+
 /// Landing a non-bottom segment of a stack would silently publish the lower segments' commits, so
 /// it must be refused before anything is mutated, naming the lower segment.
 #[test]
