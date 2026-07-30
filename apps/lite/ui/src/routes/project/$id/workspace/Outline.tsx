@@ -391,17 +391,25 @@ export const Outline: FC<{
 					value={[outlineTab]}
 					onValueChange={selectOutlineTab}
 				>
-					<Toggle render={<ToggleStyles />} value={"workspace" satisfies OutlineTab}>
+					<Toggle
+						render={<ToggleStyles />}
+						value={"workspace" satisfies OutlineTab}
+						aria-label="Workspace"
+					>
 						<Icon name="workbench" />
-						Workspace
+						<span className={styles.tabLabel}>Workspace</span>
 					</Toggle>
-					<Toggle render={<ToggleStyles />} value="upstream" disabled>
+					<Toggle render={<ToggleStyles />} value="upstream" disabled aria-label="Upstream">
 						<Icon name="inbox" />
-						Upstream
+						<span className={styles.tabLabel}>Upstream</span>
 					</Toggle>
-					<Toggle render={<ToggleStyles />} value={"branches" satisfies OutlineTab}>
+					<Toggle
+						render={<ToggleStyles />}
+						value={"branches" satisfies OutlineTab}
+						aria-label="Branches"
+					>
 						<Icon name="branch" />
-						Branches
+						<span className={styles.tabLabel}>Branches</span>
 					</Toggle>
 				</ToggleGroup>
 			</div>
