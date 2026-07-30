@@ -72,6 +72,9 @@ export const CommitRow: FC<
 	};
 	const operand = commitOperand(commitOperandV);
 
+	const canCheck = useAppSelector((state) =>
+		projectSlice.selectors.selectCanCheckCommits(state, projectId),
+	);
 	const isHighlighted = useAppSelector((state) =>
 		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
@@ -355,7 +358,7 @@ export const CommitRow: FC<
 					disableHoverablePopup
 				>
 					<RowCheckbox
-						disabled={!isDefaultMode}
+						disabled={!isDefaultMode || !canCheck}
 						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.checkbox}

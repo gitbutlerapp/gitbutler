@@ -138,6 +138,18 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 }) => {
 	const dispatch = useAppDispatch();
 
+	const checkedType = useAppSelector((state): string | null => {
+		switch (projectSlice.selectors.selectCheckedOperandsContext(state, projectId)) {
+			case "Commit":
+				return "commit";
+			case "File":
+				return "file";
+			case null:
+				return null;
+		}
+	});
+	if (checkedType === null) return;
+
 	const cancel = () => {
 		dispatch(projectSlice.actions.clearCheckedOperands({ projectId }));
 	};
@@ -146,8 +158,8 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 		<Container>
 			<ControlsRow>
 				<Label>
-					{new Intl.NumberFormat().format(checkedOperandCount)}{" "}
-					{new Intl.PluralRules().select(checkedOperandCount) === "one" ? "item" : "items"} checked
+					{new Intl.NumberFormat().format(checkedOperandCount)} {checkedType}
+					{new Intl.PluralRules().select(checkedOperandCount) !== "one" && "s"} selected
 				</Label>
 				<Controls onCancel={cancel} />
 			</ControlsRow>

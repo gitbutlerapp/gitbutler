@@ -145,6 +145,10 @@ const useFilesTreeHotkeys = ({
 		((fileParent._tag === "Commit" && !isCommitDiscardChangesPending) ||
 			(fileParent._tag === "UncommittedChanges" && !isDiscardWorktreeChangesPending));
 
+	const canCheckTheseFiles = useAppSelector((state) =>
+		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+	);
+
 	useHotkeys([
 		{
 			hotkey: changesFileHotkeys.absorb.hotkey,
@@ -161,7 +165,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedFileChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode,
+				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -183,7 +187,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedFileChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode,
+				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -268,6 +272,9 @@ export const FilesTree: FC<
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
+	const canCheck = useAppSelector((state) =>
+		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+	);
 	const checkedOperandKeys = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedOperandKeys(state, projectId),
 	);
@@ -382,6 +389,7 @@ export const FilesTree: FC<
 												isSelected={selection !== null && selection === item.path}
 												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}
 												onSelect={() => onFileSelection(item.path)}
+												canCheck={canCheck}
 												checkFile={checkFile}
 												projectId={projectId}
 												fileParent={fileParent}
