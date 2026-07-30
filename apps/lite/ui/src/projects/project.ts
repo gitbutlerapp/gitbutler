@@ -43,6 +43,12 @@ import {
 	type BranchesState,
 } from "./branches.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import {
+	createInitialUpstreamState,
+	getUpstreamSelectors,
+	upstreamReducers,
+	type UpstreamState,
+} from "./upstream.ts";
 
 export type SelectionState = {
 	uncommittedFiles: string | null;
@@ -82,7 +88,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	selection: createInitialSelectionState(),
 });
 
-export type OutlineTab = "workspace" | "branches";
+export type OutlineTab = "workspace" | "upstream" | "branches";
 
 const defaultBranchTab: BranchTab = "diff";
 
@@ -90,6 +96,7 @@ export type ProjectState = {
 	filesVisible: boolean;
 	outlineTab: OutlineTab;
 	branches: BranchesState;
+	upstream: UpstreamState;
 	workspace: WorkspaceState;
 };
 
@@ -97,6 +104,7 @@ export const createInitialProjectState = (): ProjectState => ({
 	filesVisible: false,
 	outlineTab: "workspace",
 	branches: createInitialBranchesState(),
+	upstream: createInitialUpstreamState(),
 	workspace: createInitialWorkspaceState(),
 });
 
@@ -131,6 +139,15 @@ export const projectReducers = {
 	},
 	selectBranches: (state: ProjectState, { selection }: { selection: Operand | null }) => {
 		branchesReducers.select(state.branches, { selection });
+	},
+	selectUpstream: (state: ProjectState, { selection }: { selection: Operand | null }) => {
+		upstreamReducers.select(state.upstream, { selection });
+	},
+	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
+		upstreamReducers.toggleSegment(state.upstream, { segmentId });
+	},
+	toggleUpstreamIncoming: (state: ProjectState) => {
+		upstreamReducers.toggleIncoming(state.upstream);
 	},
 	selectFiles: (state: ProjectState, { selection }: { selection: string | null }) => {
 		const workspaceState = state.workspace;
@@ -403,10 +420,11 @@ export const projectReducers = {
 
 		state.outlineTab = tab;
 		state.workspace.mode = defaultOutlineMode;
-		// The branches tab has no uncommitted changes panel, so its selection
-		// cannot drive the details pane. Leave the scope alone on the way back,
-		// so returning to the workspace restores the panel it was showing.
-		if (tab === "branches") state.workspace.detailsSelectionScope = "outline";
+		// The branches and upstream tabs have no uncommitted changes panel, so
+		// their selection cannot drive the details pane. Leave the scope alone on
+		// the way back, so returning to the workspace restores the panel it was
+		// showing.
+		if (tab !== "workspace") state.workspace.detailsSelectionScope = "outline";
 	},
 	toggleBranchUnfolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
 		branchesReducers.toggleUnfolded(state.branches, { branchRef });
@@ -588,4 +606,5 @@ export const projectSelectors = {
 		}
 	},
 	...getBranchesSelectors((state: ProjectState) => state.branches),
+	...getUpstreamSelectors((state: ProjectState) => state.upstream),
 };

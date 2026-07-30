@@ -58,6 +58,7 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
+import { useUpstreamOutline } from "./useUpstreamOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import { defaultSettings } from "#ui/settings.ts";
@@ -160,6 +161,15 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				},
 			]),
 			Match.when("branches", () => [
+				{
+					hotkey: "1",
+					callback: () => focusSelectionScope("outline"),
+					options: {
+						enabled: outlineVisible,
+					},
+				},
+			]),
+			Match.when("upstream", () => [
 				{
 					hotkey: "1",
 					callback: () => focusSelectionScope("outline"),
@@ -468,6 +478,7 @@ const WorkspacePage: FC = () => {
 		projectSlice.selectors.selectOutlineTab(state, projectId),
 	);
 	const branchesOutline = useBranchesOutline(projectId);
+	const upstreamOutline = useUpstreamOutline(projectId);
 
 	const outlineSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
@@ -477,6 +488,13 @@ const WorkspacePage: FC = () => {
 			state,
 			projectId,
 			branchesOutline.navigationIndex,
+		),
+	);
+	const upstreamSelection = useAppSelector((state) =>
+		projectSlice.selectors.selectSelectionUpstream(
+			state,
+			projectId,
+			upstreamOutline.navigationIndex,
 		),
 	);
 
@@ -523,7 +541,14 @@ const WorkspacePage: FC = () => {
 		projectSlice.selectors.selectDetailsSelectionScope(state, projectId),
 	);
 	const detailsSelection = Match.value(detailsSelectionScope).pipe(
-		Match.when("outline", () => (outlineTab === "branches" ? branchesSelection : outlineSelection)),
+		Match.when("outline", () =>
+			Match.value(outlineTab).pipe(
+				Match.when("workspace", () => outlineSelection),
+				Match.when("upstream", () => upstreamSelection),
+				Match.when("branches", () => branchesSelection),
+				Match.exhaustive,
+			),
+		),
 		Match.when("uncommitted-files", () =>
 			uncommittedFilesSelection === null
 				? null
@@ -577,6 +602,7 @@ const WorkspacePage: FC = () => {
 							projectId={projectId}
 							project={selectedProject}
 							branchesOutline={branchesOutline}
+							upstreamOutline={upstreamOutline}
 							navigationIndex={outlineNavigationIndex}
 							uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 							absorptionTargetCommitIds={absorptionTargetCommitIds}

@@ -20,6 +20,12 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["branchList" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDetails" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });
+			void client.invalidateQueries({
+				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
+			});
+			void client.invalidateQueries({
+				queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId],
+			});
 			break;
 		case "gitActivity":
 		case "workspaceActivity": {
@@ -38,6 +44,12 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["headInfo" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({
 				queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId],
+			});
+			void client.invalidateQueries({
+				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
+			});
+			void client.invalidateQueries({
+				queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId],
 			});
 			break;
 		}

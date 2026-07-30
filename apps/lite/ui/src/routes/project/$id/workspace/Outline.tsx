@@ -29,6 +29,10 @@ import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx"
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesOutline } from "#ui/routes/project/$id/workspace/useBranchesOutline.ts";
+import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
+import type { UpstreamOutline } from "#ui/routes/project/$id/workspace/useUpstreamOutline.ts";
+import { assert } from "#ui/assert.ts";
+import { Badge } from "#ui/components/Badge.tsx";
 import type { OutlineTab } from "#ui/projects/project.ts";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
@@ -89,9 +93,20 @@ const FetchFromRemotesButton: FC<{
 	);
 };
 
+/** The tabs in the order they are shown, for cycling with `[` and `]`. */
+const outlineTabOrder: Array<OutlineTab> = ["workspace", "upstream", "branches"];
+
+const adjacentOutlineTab = (tab: OutlineTab, offset: -1 | 1): OutlineTab => {
+	const index = outlineTabOrder.indexOf(tab);
+	return assert(
+		outlineTabOrder[(index + offset + outlineTabOrder.length) % outlineTabOrder.length],
+	);
+};
+
 export const Outline: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	branchesOutline: BranchesOutline;
+	upstreamOutline: UpstreamOutline;
 	navigationIndex: NavigationIndex<Operand>;
 	uncommittedFilesNavigationIndex: NavigationIndex<string>;
 	onActiveFileSelection: (selection: string) => void;
@@ -100,6 +115,7 @@ export const Outline: FC<{
 }> = ({
 	absorptionTargetCommitIds,
 	branchesOutline,
+	upstreamOutline,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	onActiveFileSelection,
@@ -165,6 +181,7 @@ export const Outline: FC<{
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.autoFetchFrequency,
 	});
+	const incomingCommitCount = headInfo?.target?.commitsAhead ?? 0;
 	const { data: workspaceFetchStatus } = useQuery(workspaceFetchStatusQueryOptions(projectId));
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
@@ -248,18 +265,12 @@ export const Outline: FC<{
 		{
 			hotkey: "[",
 			callback: () => {
-				switch (outlineTab) {
-					case "workspace": {
-						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "branches" }));
-						break;
-					}
-					case "branches": {
-						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
-						break;
-					}
-					default:
-						outlineTab satisfies never;
-				}
+				dispatch(
+					projectSlice.actions.setOutlineTab({
+						projectId,
+						tab: adjacentOutlineTab(outlineTab, -1),
+					}),
+				);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -269,18 +280,9 @@ export const Outline: FC<{
 		{
 			hotkey: "]",
 			callback: () => {
-				switch (outlineTab) {
-					case "workspace": {
-						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "branches" }));
-						break;
-					}
-					case "branches": {
-						dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
-						break;
-					}
-					default:
-						outlineTab satisfies never;
-				}
+				dispatch(
+					projectSlice.actions.setOutlineTab({ projectId, tab: adjacentOutlineTab(outlineTab, 1) }),
+				);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -404,9 +406,14 @@ export const Outline: FC<{
 						<Icon name="workbench" />
 						<span className={styles.tabLabel}>Workspace</span>
 					</Toggle>
-					<Toggle render={<ToggleStyles />} value="upstream" disabled aria-label="Upstream">
+					<Toggle
+						render={<ToggleStyles />}
+						value={"upstream" satisfies OutlineTab}
+						aria-label="Upstream"
+					>
 						<Icon name="inbox" />
 						<span className={styles.tabLabel}>Upstream</span>
+						{incomingCommitCount > 0 && <Badge variant="fillGray">{incomingCommitCount}</Badge>}
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}
@@ -424,6 +431,12 @@ export const Outline: FC<{
 					className={styles.outlineTree}
 					projectId={projectId}
 					outline={branchesOutline}
+				/>
+			) : outlineTab === "upstream" ? (
+				<UpstreamList
+					className={styles.outlineTree}
+					projectId={projectId}
+					outline={upstreamOutline}
 				/>
 			) : (
 				<OutlineTree
