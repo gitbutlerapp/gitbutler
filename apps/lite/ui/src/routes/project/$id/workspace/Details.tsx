@@ -98,10 +98,8 @@ import {
 	type SelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
-import {
-	ChangesHeaderRow,
-	getLineStats,
-} from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import {

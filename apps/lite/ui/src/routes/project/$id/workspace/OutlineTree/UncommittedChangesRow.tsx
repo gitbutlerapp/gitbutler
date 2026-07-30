@@ -11,7 +11,7 @@ import {
 } from "#ui/native-menu.ts";
 import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getLineStats } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";

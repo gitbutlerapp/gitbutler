@@ -16,27 +16,13 @@ import {
 import type { FileParent } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { Toolbar } from "@base-ui/react";
-import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import type { FC } from "react";
 import styles from "./ChangesHeaderRow.module.css";
+import type { LineStats } from "./lineStats.ts";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { RowToolbar, SectionHeaderRow } from "./Row.tsx";
-
-export type LineStats = {
-	linesAdded: number;
-	linesRemoved: number;
-};
-
-export const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
-	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
-	for (const diff of diffs) {
-		if (diff?.type !== "Patch") continue;
-		stats.linesAdded += diff.subject.linesAdded;
-		stats.linesRemoved += diff.subject.linesRemoved;
-	}
-	return stats;
-};
 
 export const ChangesHeaderRow: FC<{
 	projectId: string;
