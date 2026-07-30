@@ -42,10 +42,7 @@ export const OperationSourceC: FC<
 		if (source._tag !== "Commit" && source._tag !== "File") return source;
 
 		const isChecked = projectSlice.selectors.selectOperandChecked(state, projectId, source);
-		if (!isChecked) return source;
-
-		const checkedOperands = projectSlice.selectors.selectCheckedOperands(state, projectId);
-		return checkedOperands.length > 0 ? checkedOperands : source;
+		return isChecked ? projectSlice.selectors.selectCheckedOperands(state, projectId) : source;
 	});
 	const dragSources = Array.isArray(dragSource) ? dragSource : [dragSource];
 
