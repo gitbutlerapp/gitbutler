@@ -4,7 +4,7 @@ use but_core::{DiffSpec, HunkHeader};
 
 use crate::{
     CliId,
-    id::{CommitId, CommittedFileId, ShortId, UncommittedHunkOrFile, WorktreeHunk},
+    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
 };
 
 #[derive(Debug)]
@@ -81,12 +81,12 @@ impl<'a> DiffSpecBuilder<'a> {
 
     pub fn push_changes_from_path_prefix(
         &mut self,
-        hunk_assignments: &nonempty::NonEmpty<(ShortId, WorktreeHunk)>,
+        hunk_assignments: &nonempty::NonEmpty<IdAndHunk>,
     ) -> anyhow::Result<()> {
         self.push_hunk_assignments(
             hunk_assignments
                 .iter()
-                .map(|(_id, assignment)| assignment.clone()),
+                .map(|id_and_hunk| id_and_hunk.hunk.clone()),
         )
     }
 

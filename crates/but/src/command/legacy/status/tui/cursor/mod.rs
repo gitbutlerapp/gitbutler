@@ -722,8 +722,8 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
             },
         ) => previous
             .iter()
-            .map(|(_, assignment)| assignment)
-            .eq(current.iter().map(|(_, assignment)| assignment)),
+            .map(|id_and_hunk| &id_and_hunk.hunk)
+            .eq(current.iter().map(|id_and_hunk| &id_and_hunk.hunk)),
         (
             CliId::CommittedFile {
                 committed_file:

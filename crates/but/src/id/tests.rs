@@ -1290,9 +1290,9 @@ fn uncommitted_path() -> anyhow::Result<()> {
     PathPrefix {
         id: "prefix/",
         hunk_assignments: NonEmpty {
-            head: (
-                "yz:q",
-                WorktreeHunk {
+            head: IdAndHunk {
+                id: "yz:q",
+                hunk: WorktreeHunk {
                     id: None,
                     hunk_header: None,
                     path: "",
@@ -1301,11 +1301,11 @@ fn uncommitted_path() -> anyhow::Result<()> {
                     line_nums_removed: None,
                     diff: None,
                 },
-            ),
+            },
             tail: [
-                (
-                    "uo:q",
-                    WorktreeHunk {
+                IdAndHunk {
+                    id: "uo:q",
+                    hunk: WorktreeHunk {
                         id: None,
                         hunk_header: None,
                         path: "",
@@ -1314,7 +1314,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
                         line_nums_removed: None,
                         diff: None,
                     },
-                ),
+                },
             ],
         },
     },

@@ -11,7 +11,7 @@ use crate::{
         diff2::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, UncommittedHunkOrFile, WorktreeHunk},
+    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -99,8 +99,16 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     &mut writer,
                 )?;
             }
-            DiffOperation::PathPrefix { .. } => {
-                anyhow::bail!("Diffing paths is not supported")
+            DiffOperation::PathPrefix { id, hunks } => {
+                diff_rendering::render_path_prefix(
+                    &id,
+                    hunks,
+                    ctx,
+                    theme,
+                    &mut id_gen,
+                    options,
+                    &mut writer,
+                )?;
             }
         }
 
@@ -252,9 +260,8 @@ enum DiffOperation {
         commit: CommitId,
         path: BString,
     },
-    #[expect(dead_code)]
     PathPrefix {
         id: String,
-        hunks: NonEmpty<(String, WorktreeHunk)>,
+        hunks: NonEmpty<IdAndHunk>,
     },
 }

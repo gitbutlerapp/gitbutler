@@ -5,7 +5,7 @@ use crate::{
     CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme,
 };
 
@@ -206,12 +206,9 @@ impl CliIdArg {
             } => Ok(Some(
                 hunk_assignments
                     .into_iter()
-                    .map(|(id, assignment)| UncommittedHunkOrFile {
-                        id: id.clone(),
-                        hunk_assignments: NonEmpty::new(IdAndHunk {
-                            id,
-                            hunk: assignment,
-                        }),
+                    .map(|id_and_hunk| UncommittedHunkOrFile {
+                        id: id_and_hunk.id.clone(),
+                        hunk_assignments: NonEmpty::new(id_and_hunk),
                         // In a world without staging, all these hunk assignments should be turned
                         // into "entire file" assignments for every file under the given PathPrefix.
                         // However, currently, already assigned changes are not resolved by
@@ -425,7 +422,7 @@ pub enum ResolvedCliIdArg {
     Uncommitted,
     PathPrefix {
         id: String,
-        hunks: NonEmpty<(String, WorktreeHunk)>,
+        hunks: NonEmpty<IdAndHunk>,
     },
     Stack,
 }
@@ -500,7 +497,7 @@ pub enum ResolvedCliIdArgRef<'a> {
     CommittedFile(&'a CommittedFileId),
     PathPrefix {
         id: &'a str,
-        hunks: &'a NonEmpty<(String, WorktreeHunk)>,
+        hunks: &'a NonEmpty<IdAndHunk>,
     },
     Uncommitted,
     Stack,

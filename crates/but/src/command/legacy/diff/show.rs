@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     IdMap,
-    id::{UncommittedHunkOrFile, WorktreeHunk},
+    id::{IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
     utils::OutputChannel,
 };
 
@@ -47,12 +47,12 @@ pub(crate) fn worktree(
 }
 
 pub(crate) fn hunk_assignments<'a>(
-    hunk_assignments: impl IntoIterator<Item = &'a (String, WorktreeHunk)>,
+    hunk_assignments: impl IntoIterator<Item = &'a IdAndHunk>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let short_id_assignment_pairs: Vec<(&str, &WorktreeHunk)> = hunk_assignments
         .into_iter()
-        .map(|(short_id, hunk_assignment)| (short_id.as_str(), hunk_assignment))
+        .map(|id_and_hunk| (id_and_hunk.id.as_str(), &id_and_hunk.hunk))
         .collect();
     print_short_id_assignment_pairs(short_id_assignment_pairs, out)
 }

@@ -17,6 +17,7 @@ use but_core::{
 use but_ctx::Context;
 use gix::{ObjectId, actor::Signature};
 use itertools::{Itertools, Position};
+use nonempty::NonEmpty;
 use ratatui::{
     style::{Color, Stylize as _},
     text::{Line, Span},
@@ -29,7 +30,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{UncommittedHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile, WorktreeHunk},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -629,7 +630,42 @@ pub fn render_uncommitted_hunk(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("hunk");
     let mut id_gen = id_gen.scoped(&hunk.id);
-    let mut hunks = hunk.hunk_assignments.into_iter().collect::<Vec<_>>();
+    render_id_and_hunks(
+        hunk.hunk_assignments.into_iter().collect(),
+        theme,
+        &mut id_gen,
+        options,
+        out,
+    )
+}
+
+pub fn render_path_prefix(
+    id: &str,
+    hunks: NonEmpty<IdAndHunk>,
+    _ctx: &mut Context,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    options: Options,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let mut id_gen = id_gen.scoped("path_prefix");
+    let mut id_gen = id_gen.scoped(id);
+    render_id_and_hunks(
+        hunks.into_iter().collect(),
+        theme,
+        &mut id_gen,
+        options,
+        out,
+    )
+}
+
+fn render_id_and_hunks(
+    mut hunks: Vec<IdAndHunk>,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    options: Options,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
     hunks.sort_by(|a, b| {
         (
             &a.hunk.path_bytes,
@@ -656,7 +692,7 @@ pub fn render_uncommitted_hunk(
         let id = id_gen.new_id(raw_id);
         let cli_id = Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
             id: raw_id.clone(),
-            hunk_assignments: nonempty::NonEmpty::new(id_and_hunk.clone()),
+            hunk_assignments: NonEmpty::new(id_and_hunk.clone()),
             is_entire_file: false,
         }));
 

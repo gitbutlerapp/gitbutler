@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 use crate::{
-    id::{UncommittedHunkOrFile, WorktreeHunk},
+    id::{IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
     theme,
     tui::TerminalGuard as _,
 };
@@ -77,11 +77,14 @@ impl DiffFileEntry {
     }
 
     pub fn from_hunk_assignments<'a>(
-        hunk_assignments: impl IntoIterator<Item = &'a (String, WorktreeHunk)>,
+        hunk_assignments: impl IntoIterator<Item = &'a IdAndHunk>,
     ) -> Vec<DiffFileEntry> {
         let mut by_path: BTreeMap<String, Vec<&WorktreeHunk>> = BTreeMap::new();
-        for (_, a) in hunk_assignments {
-            by_path.entry(a.path.clone()).or_default().push(a);
+        for id_and_hunk in hunk_assignments {
+            by_path
+                .entry(id_and_hunk.hunk.path.clone())
+                .or_default()
+                .push(&id_and_hunk.hunk);
         }
 
         Self::from_hunk_assignments_by_path(by_path)

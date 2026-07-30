@@ -995,14 +995,17 @@ impl IdMap {
     }
 
     fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
-        let mut hunk_assignments = Vec::<(String, WorktreeHunk)>::new();
+        let mut hunk_assignments = Vec::new();
         for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
             let hunk_assignment = &uncommitted_hunk.hunk_assignment;
             if hunk_assignment.path_bytes.starts_with(element.as_bytes()) {
-                hunk_assignments.push((short_id.to_owned(), hunk_assignment.to_owned()));
+                hunk_assignments.push(IdAndHunk {
+                    id: short_id.to_owned(),
+                    hunk: hunk_assignment.to_owned(),
+                });
             }
         }
-        hunk_assignments.sort_by(|a, b| a.1.path_bytes.cmp(&b.1.path_bytes));
+        hunk_assignments.sort_by(|a, b| a.hunk.path_bytes.cmp(&b.hunk.path_bytes));
         let Some(hunk_assignments) = NonEmpty::from_vec(hunk_assignments) else {
             return vec![];
         };
@@ -1525,7 +1528,7 @@ pub enum CliId {
         /// The ID as given by the user
         id: ShortId,
         /// The hunk assignments with their associated short IDs
-        hunk_assignments: NonEmpty<(ShortId, WorktreeHunk)>,
+        hunk_assignments: NonEmpty<IdAndHunk>,
     },
     /// A file that exists in a commit.
     CommittedFile {
