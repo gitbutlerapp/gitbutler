@@ -422,16 +422,18 @@ fn route_commit_operation(
                 stacks => {
                     let stack_heads = stacks
                         .iter()
-                        .filter_map(|stack| stack.segments.first())
+                        .flat_map(|stack| &stack.segments)
                         .filter_map(|segment| segment.ref_info.as_ref())
+                        .filter(|ref_info| {
+                            merged
+                                .ensure_branch_not_merged(ref_info.ref_name.as_ref())
+                                .is_ok()
+                        })
                         .map(|ref_info| (ref_info.ref_name.shorten(), &ref_info.ref_name))
                         .collect::<Vec<_>>();
 
                     let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
-                        return Err(anyhow::anyhow!(
-                            "BUG: found multiple stacks but none of them have heads"
-                        )
-                        .into());
+                        return Err(bad_input("Found not stack that could be committed to").into());
                     };
 
                     let Some(mut input) = out.prepare_for_terminal_input() else {
@@ -443,7 +445,7 @@ fn route_commit_operation(
                     };
 
                     let mut stack_heads =
-                        stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
+                        stack_heads.map(|(name, branch)| (name, PickerItem::Branch(branch)));
                     stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
 
                     let Some(selection) = input.prompt_select(
@@ -455,7 +457,7 @@ fn route_commit_operation(
                     };
 
                     match selection {
-                        PickerItem::StackHead(full_name) => {
+                        PickerItem::Branch(full_name) => {
                             Ok(CommitOperation::CommitAt(CommitAtOperation {
                                 target: CommitRelativeToTarget::BranchTip {
                                     name: (*full_name).clone(),
@@ -473,7 +475,7 @@ fn route_commit_operation(
 }
 
 enum PickerItem<'a> {
-    StackHead(&'a FullName),
+    Branch(&'a FullName),
     NewStack,
 }
 
