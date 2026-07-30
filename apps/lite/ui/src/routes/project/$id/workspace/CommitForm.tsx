@@ -80,6 +80,7 @@ export const CommitForm: FC<{
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
+	const commitButtonLabelRef = useRef<HTMLSpanElement | null>(null);
 
 	const { data: draftMessage } = useQuery(draftCommitMessageQueryOptions(projectId));
 	const { mutate: persistDraftMessage } = usePersistDraftCommitMessage();
@@ -97,6 +98,7 @@ export const CommitForm: FC<{
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
+	const [commitTooltipOpen, setCommitTooltipOpen] = useState(false);
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -354,15 +356,32 @@ export const CommitForm: FC<{
 					</Tooltip.Root>
 
 					<div className={styles.dropdownButton}>
-						<Button
-							className={getButtonClassName({ variant: "pop" })}
-							focusableWhenDisabled
-							type="submit"
-							disabled={!canCommit}
+						<Tooltip.Root
+							open={commitTooltipOpen}
+							onOpenChange={(nextOpen) => {
+								// Only show the tooltip when the container query hides the label.
+								const label = commitButtonLabelRef.current;
+								const labelHidden = label !== null && getComputedStyle(label).display === "none";
+								setCommitTooltipOpen(nextOpen && labelHidden);
+							}}
 						>
-							Commit
-							<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
-						</Button>
+							<Tooltip.Trigger
+								className={getButtonClassName({ variant: "pop" })}
+								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
+							>
+								<span ref={commitButtonLabelRef} className={styles.commitButtonLabel}>
+									Commit
+								</span>
+								<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
+										Commit
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 						<div aria-hidden className={styles.dropdownButtonSeparator} />
 						<Button
 							focusableWhenDisabled
