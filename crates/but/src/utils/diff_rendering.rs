@@ -588,7 +588,9 @@ pub fn render_uncommitted(
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
-            &uncommitted_hunks,
+            uncommitted_hunks
+                .iter()
+                .map(|(_, _, hunk)| &hunk.hunk_assignment),
         ));
         out.write_selectable_text(id_gen.new_id("line_stats"), None, line_stats)?;
         out.write_section_separator()?;
@@ -620,7 +622,6 @@ pub fn render_uncommitted(
 
 pub fn render_uncommitted_hunk(
     hunk: UncommittedHunkOrFile,
-    ctx: &mut Context,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
     options: Options,
@@ -628,36 +629,47 @@ pub fn render_uncommitted_hunk(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("hunk");
     let mut id_gen = id_gen.scoped(&hunk.id);
-
-    let wt_changes = but_api::diff::changes_in_worktree(ctx, true)?;
-    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
-    let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
-        uncommitted_hunk_matches_selection(hunk_assignment, &hunk)
-    })?;
+    let mut hunks = hunk.hunk_assignments.into_iter().collect::<Vec<_>>();
+    hunks.sort_by(|a, b| {
+        (
+            &a.hunk.path_bytes,
+            a.hunk.hunk_header.as_ref().map(|header| header.old_start),
+            &a.id,
+        )
+            .cmp(&(
+                &b.hunk.path_bytes,
+                b.hunk.hunk_header.as_ref().map(|header| header.old_start),
+                &b.id,
+            ))
+    });
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
-            &uncommitted_hunks,
+            hunks.iter().map(|hunk| &hunk.hunk),
         ));
         out.write_selectable_text(id_gen.new_id("line_stats"), None, line_stats)?;
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk_assignment })) in
-        uncommitted_hunks.into_iter().with_position()
-    {
+    for (pos, id_and_hunk) in hunks.into_iter().with_position() {
+        let raw_id = &id_and_hunk.id;
         let id = id_gen.new_id(raw_id);
+        let cli_id = Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
+            id: raw_id.clone(),
+            hunk_assignments: nonempty::NonEmpty::new(id_and_hunk.clone()),
+            is_entire_file: false,
+        }));
 
         render_hunk_path_header(
             id,
             Some(Arc::clone(&cli_id)),
-            hunk_assignment.path_bytes.as_ref(),
+            id_and_hunk.hunk.path_bytes.as_ref(),
             Some(ShortIdOrTreeStatus::ShortId(raw_id)),
             out,
             theme,
         )?;
 
-        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), &id_and_hunk.hunk, theme, out)?;
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -1073,19 +1085,18 @@ fn render_unified_patch(
     Ok(())
 }
 
-fn compute_line_stats_from_uncommitted_hunks(
-    uncommitted_hunks: &[(&str, Arc<CliId>, &UncommittedHunk)],
+fn compute_line_stats_from_uncommitted_hunks<'a>(
+    uncommitted_hunks: impl IntoIterator<Item = &'a WorktreeHunk>,
 ) -> LineStats {
     let mut line_stats = LineStats::default();
     let mut unique_paths = HashSet::new();
-    for (_, _, hunk) in uncommitted_hunks {
-        let hunk_assignment = &hunk.hunk_assignment;
-        unique_paths.insert(&hunk_assignment.path_bytes);
-        line_stats.lines_added += hunk_assignment
+    for hunk in uncommitted_hunks {
+        unique_paths.insert(&hunk.path_bytes);
+        line_stats.lines_added += hunk
             .line_nums_added
             .as_ref()
             .map_or(0, |lines| lines.len() as u64);
-        line_stats.lines_removed += hunk_assignment
+        line_stats.lines_removed += hunk
             .line_nums_removed
             .as_ref()
             .map_or(0, |lines| lines.len() as u64);
@@ -1143,20 +1154,6 @@ where
     });
 
     Ok(uncommitted_hunks)
-}
-
-/// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
-fn uncommitted_hunk_matches_selection(
-    hunk_assignment: &WorktreeHunk,
-    hunk: &UncommittedHunkOrFile,
-) -> bool {
-    let selected_hunk = &hunk.hunk_assignments.first().hunk;
-
-    if hunk.is_entire_file {
-        hunk_assignment.path_bytes == selected_hunk.path_bytes
-    } else {
-        hunk_assignment == selected_hunk
-    }
 }
 
 trait PositionExt {
@@ -1218,9 +1215,117 @@ pub fn load_syntax_set() -> SyntaxSet {
 
 #[cfg(test)]
 mod tests {
+    use bstr::BString;
+    use nonempty::NonEmpty;
     use ratatui::text::Span;
 
-    use super::{expand_tabs_for_display, format_with_dot_thousands};
+    use super::{
+        DetailsLine, DiffLineWriter, IdGen, Options, compute_line_stats_from_uncommitted_hunks,
+        expand_tabs_for_display, format_with_dot_thousands, render_uncommitted_hunk,
+    };
+    use crate::{
+        CliId,
+        id::{IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+        utils::string_interning::Strings,
+    };
+
+    #[derive(Default)]
+    struct CollectingWriter {
+        lines: Vec<DetailsLine>,
+    }
+
+    impl DiffLineWriter for CollectingWriter {
+        fn write(&mut self, line: DetailsLine) -> anyhow::Result<()> {
+            self.lines.push(line);
+            Ok(())
+        }
+    }
+
+    fn id_and_hunk(id: &str, path: &str) -> IdAndHunk {
+        IdAndHunk {
+            id: id.to_owned(),
+            hunk: WorktreeHunk {
+                id: None,
+                hunk_header: None,
+                path: path.to_owned(),
+                path_bytes: BString::from(path),
+                line_nums_added: None,
+                line_nums_removed: None,
+                diff: None,
+            },
+        }
+    }
+
+    #[test]
+    fn renders_the_hunks_stored_in_the_selection() -> anyhow::Result<()> {
+        let selection = UncommittedHunkOrFile {
+            id: "fi".to_owned(),
+            hunk_assignments: NonEmpty {
+                head: id_and_hunk("fi:b", "file.txt"),
+                tail: vec![id_and_hunk("fi:a", "file.txt")],
+            },
+            is_entire_file: true,
+        };
+        let mut id_gen = IdGen::new(Strings::default());
+        let mut writer = CollectingWriter::default();
+
+        render_uncommitted_hunk(
+            selection,
+            crate::theme::get(),
+            &mut id_gen,
+            Options {
+                skip_commit_header: true,
+                skip_line_stats: true,
+            },
+            &mut writer,
+        )?;
+
+        let rendered_ids = writer
+            .lines
+            .iter()
+            .filter_map(|line| match line {
+                DetailsLine::HunkHeader {
+                    cli_id: Some(cli_id),
+                    ..
+                } => match &**cli_id {
+                    CliId::UncommittedHunkOrFile(hunk) => Some(hunk.id.as_str()),
+                    CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Branch(..)
+                    | CliId::Commit { .. }
+                    | CliId::Uncommitted { .. }
+                    | CliId::Stack { .. } => None,
+                },
+                DetailsLine::Text { .. }
+                | DetailsLine::TextToWrap { .. }
+                | DetailsLine::Code(..)
+                | DetailsLine::SectionSeparator
+                | DetailsLine::HunkHeader { cli_id: None, .. } => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rendered_ids,
+            ["fi:a", "fi:b"],
+            "the renderer uses every supplied hunk and preserves deterministic ordering"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn computes_stats_from_the_supplied_hunks() {
+        let mut first = id_and_hunk("fi:a", "first.txt").hunk;
+        first.line_nums_added = Some(vec![1, 2]);
+        first.line_nums_removed = Some(vec![3]);
+        let mut second = id_and_hunk("se:a", "second.txt").hunk;
+        second.line_nums_added = Some(vec![1]);
+
+        let stats = compute_line_stats_from_uncommitted_hunks([&first, &second]);
+
+        assert_eq!(stats.files_changed, 2, "both supplied paths are counted");
+        assert_eq!(stats.lines_added, 3, "all supplied additions are counted");
+        assert_eq!(stats.lines_removed, 1, "all supplied removals are counted");
+    }
 
     #[test]
     fn expands_tabs_to_four_column_stops_across_spans() {

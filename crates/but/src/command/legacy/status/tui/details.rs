@@ -316,10 +316,9 @@ impl Details {
                     ctx,
                     None,
                     selection_did_change,
-                    move |ctx, theme, id_gen, line_writer, options| {
+                    move |_ctx, theme, id_gen, line_writer, options| {
                         diff_rendering::render_uncommitted_hunk(
                             uncommitted,
-                            ctx,
                             theme,
                             id_gen,
                             options,

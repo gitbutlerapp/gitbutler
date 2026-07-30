@@ -82,7 +82,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
             DiffOperation::UncommittedHunkOrFile { hunk } => {
                 diff_rendering::render_uncommitted_hunk(
                     *hunk,
-                    ctx,
                     theme,
                     &mut id_gen,
                     options,
