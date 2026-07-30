@@ -783,7 +783,7 @@ fn render_hunk_assignment(
                 old_lines: hunk_header.old_lines,
                 new_start: hunk_header.new_start,
                 new_lines: hunk_header.new_lines,
-                diff,
+                diff: Arc::unwrap_or_clone(diff),
             };
 
             let is_result_of_binary_to_text_conversion = false;

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_core::{UnifiedPatch, unified_diff::DiffHunk};
@@ -173,7 +175,7 @@ fn hunk_assignment_to_json(id: Option<&str>, assignment: &WorktreeHunk) -> JsonC
                 old_lines: header.old_lines,
                 new_start: header.new_start,
                 new_lines: header.new_lines,
-                diff: diff_bytes.clone(),
+                diff: Arc::unwrap_or_clone(Arc::clone(diff_bytes)),
             })],
             is_binary_to_text: false,
         }

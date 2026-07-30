@@ -848,7 +848,6 @@ dependencies = [
  "but-path",
  "but-rebase",
  "but-secret",
- "but-serde",
  "but-settings",
  "but-testsupport",
  "but-transaction",
