@@ -14,7 +14,7 @@ import {
 } from "#ui/operands.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { type CodeViewDiffItem, type CodeViewLineSelection, parsePatchFiles } from "@pierre/diffs";
+import { processFile, type CodeViewDiffItem, type CodeViewLineSelection } from "@pierre/diffs";
 
 export type Annotation = { _tag: "local"; id: string };
 
@@ -35,6 +35,7 @@ export type DiffViewFile = {
 type DiffViewHunk = {
 	operand: HunkOperand;
 	selectedLines: CodeViewLineSelection;
+	file: DiffViewFile;
 };
 
 export type DiffView = {
@@ -42,7 +43,6 @@ export type DiffView = {
 	items: Array<CodeViewDiffItem<Annotation>>;
 	fileByItemId: Map<string, DiffViewFile>;
 	fileByPath: Map<string, DiffViewFile>;
-	fileByHunkKey: Map<string, DiffViewFile>;
 	hunkByKey: Map<string, DiffViewHunk>;
 };
 
@@ -53,17 +53,10 @@ const parseFileDiff = (
 	patch: string,
 	version: string,
 ): CodeViewDiffItem<Annotation>["fileDiff"] => {
-	const parsed = parsePatchFiles(patch, version);
+	const parsed = processFile(patch, { cacheKey: version });
+	if (!parsed) throw new Error("Failed to parse patch");
 
-	const [parsedPatch, ...restPatches] = parsed;
-	if (!parsedPatch) throw new Error("Failed to parse any patches");
-	if (restPatches.length > 0) throw new Error("Parsed more than one patch");
-
-	const [fileDiff, ...restFiles] = parsedPatch.files;
-	if (!fileDiff) throw new Error("Failed to parse any files in patch");
-	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
-
-	return fileDiff;
+	return parsed;
 };
 
 type DiffFileNavigation = {
@@ -121,7 +114,6 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 
 	const fileByItemId = new Map<string, DiffViewFile>();
 	const fileByPath = new Map<string, DiffViewFile>();
-	const fileByHunkKey = new Map<string, DiffViewFile>();
 	const hunkByKey = new Map<string, DiffViewHunk>();
 
 	for (const [ci, change] of changes.entries()) {
@@ -134,7 +126,7 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 
 		const combinedFilePatch = synthesizeFilePatch(
 			change,
-			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
+			mdiff?.type === "Patch" ? mdiff.subject.hunks : [],
 		);
 		const version = hash(combinedFilePatch);
 		const item: CodeViewDiffItem<Annotation> = {
@@ -179,9 +171,9 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 							id: item.id,
 							range,
 						},
+						file: diffViewFile,
 					};
 					diffViewFile.hunks.push(diffViewHunk);
-					fileByHunkKey.set(hunkKey, diffViewFile);
 					hunkByKey.set(hunkKey, diffViewHunk);
 				}
 			}
@@ -192,7 +184,6 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 		items,
 		fileByItemId,
 		fileByPath,
-		fileByHunkKey,
 		hunkByKey,
 		navigationIndex,
 	};

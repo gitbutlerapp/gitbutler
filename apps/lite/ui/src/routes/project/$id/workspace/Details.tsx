@@ -241,7 +241,7 @@ const DiffContents: FC<{
 	onViewerFileSelection,
 	fileParent,
 	projectId,
-	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffView: { items, navigationIndex, hunkByKey, fileByItemId },
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -270,18 +270,18 @@ const DiffContents: FC<{
 	const diffSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionDiff(state, projectId, navigationIndex),
 	);
-	const diffSelectionFile =
-		diffSelection !== null ? fileByHunkKey.get(hunkOperandIdentityKey(diffSelection)) : null;
+	const diffSelectionHunk =
+		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
 	const selectedRange = diffSelection
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
 
 	useLayoutEffect(() => {
-		if (!diffSelectionFile) return;
+		if (!diffSelectionHunk) return;
 
 		viewerRef.current?.scrollTo({
 			type: "item",
-			id: diffSelectionFile.item.id,
+			id: diffSelectionHunk.file.item.id,
 			align: "start",
 			behavior: "instant",
 		});
@@ -310,7 +310,7 @@ const DiffContents: FC<{
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
 			const k = hunkOperandIdentityKey(hunk);
-			return hunkOperandIdentityKey(assert(assert(fileByHunkKey.get(k)).hunks[0]).operand) === k;
+			return hunkOperandIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).operand) === k;
 		},
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
@@ -320,9 +320,10 @@ const DiffContents: FC<{
 	useHotkeys([
 		{
 			hotkey: diffHotkeys.foldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(true),
+			callback: () =>
+				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(true),
 			options: {
-				enabled: !!diffSelectionFile && !collapsedItems.has(diffSelectionFile.item.id),
+				enabled: !!diffSelectionHunk && !collapsedItems.has(diffSelectionHunk.file.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.foldFile.meta,
@@ -330,9 +331,10 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: diffHotkeys.unfoldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(false),
+			callback: () =>
+				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(false),
 			options: {
-				enabled: !!diffSelectionFile && collapsedItems.has(diffSelectionFile.item.id),
+				enabled: !!diffSelectionHunk && collapsedItems.has(diffSelectionHunk.file.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.unfoldFile.meta,
@@ -341,16 +343,16 @@ const DiffContents: FC<{
 		{
 			hotkey: diffHotkeys.openInEditor.hotkey,
 			callback: () =>
-				diffSelectionFile &&
+				diffSelectionHunk &&
 				settings?.editor &&
 				openInProgram({
 					projectId,
 					programId: settings.editor.id,
-					path: diffSelectionFile.change.path,
+					path: diffSelectionHunk.file.change.path,
 					lineNr: selectedRange?.range.start ?? null,
 				}),
 			options: {
-				enabled: !!diffSelectionFile && !!settings?.editor,
+				enabled: !!diffSelectionHunk && !!settings?.editor,
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.openInEditor.meta,
