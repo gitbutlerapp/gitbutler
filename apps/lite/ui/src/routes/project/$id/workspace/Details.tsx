@@ -765,9 +765,8 @@ const DiffContents: FC<{
 				__devOnlyValidateItemHeights: false,
 				onPostRender: handleHunkPostRender,
 				itemMetrics: {
-					// Computed custom header height.
-					diffHeaderHeight: 38,
-					// Default spacing plus our 1px border.
+					diffHeaderHeight: 37,
+					paddingTop: 1,
 					paddingBottom: 9,
 				},
 				unsafeCSS: `
