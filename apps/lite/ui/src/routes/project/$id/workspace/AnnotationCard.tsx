@@ -7,8 +7,9 @@ import {
 } from "#ui/annotation.ts";
 import { Annotation } from "#ui/components/Annotation.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import type { FileParent } from "#ui/operands.ts";
-import type { FC, RefObject } from "react";
+import { useRef, useState, type FC, type RefObject } from "react";
 
 type Props = {
 	projectId: string;
@@ -28,6 +29,32 @@ export const AnnotationCard: FC<Props> = (p) => {
 	const { annotation, focusAnnotationIdRef } = p;
 	const { mutate: updateComment } = useCommentUpdate();
 	const { mutate: archiveComment } = useCommentArchive();
+
+	// A comment mounted with an empty persisted body is being created. Kept as state rather than
+	// derived from the body: blur persists typed text (see persistBody), and deriving would swap
+	// Save/Cancel for the saved-comment actions mid-interaction, under the user's focus.
+	const [isDraft, setIsDraft] = useState(annotation.body.trim() === "");
+
+	// The last body we sent to the backend, so blur followed by an explicit Save (whose click blurs
+	// the textarea first) does not fire a duplicate update.
+	const persistedBodyRef = useRef(annotation.body);
+	const persistBody = (body: string) => {
+		if (body === persistedBodyRef.current) return;
+		persistedBodyRef.current = body;
+		updateComment({ projectId: p.projectId, id: annotation.id, payload: body });
+	};
+
+	const bodyFromForm = (form: HTMLFormElement | null): string => {
+		if (!form) throw new Error("Missing owning form");
+		const body = new FormData(form).get(annotation.id);
+		if (typeof body !== "string") throw new Error("Missing or invalid body");
+		return body;
+	};
+
+	const archiveAndRefocus = () => {
+		archiveComment({ projectId: p.projectId, id: annotation.id });
+		p.selectionScopeRef.current?.focus({ focusVisible: false });
+	};
 
 	return (
 		<Annotation
@@ -49,80 +76,106 @@ export const AnnotationCard: FC<Props> = (p) => {
 				// archive it (cancel) rather than leaving a blank box around forever.
 				if (body.trim() === "" && annotation.body.trim() === "")
 					archiveComment({ projectId: p.projectId, id: annotation.id });
-				else if (body !== annotation.body)
-					updateComment({ projectId: p.projectId, id: annotation.id, payload: body });
+				else persistBody(body);
 			}}
 			actions={
-				<>
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={() => {
-							archiveComment({ projectId: p.projectId, id: annotation.id });
-							p.selectionScopeRef.current?.focus({ focusVisible: false });
-						}}
-					>
-						Archive
-					</button>
+				isDraft ? (
+					<>
+						<button
+							type="button"
+							form={p.formId}
+							className={getButtonClassName({ variant: "pop" })}
+							onClick={(evt) => {
+								const body = bodyFromForm(evt.currentTarget.form);
+								if (body.trim() === "") {
+									archiveAndRefocus();
+								} else {
+									persistBody(body);
+									setIsDraft(false);
+									p.selectionScopeRef.current?.focus({ focusVisible: false });
+								}
+							}}
+						>
+							Save
+						</button>
 
-					<button
-						type="button"
-						form={p.formId}
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={(evt) => {
-							const form = evt.currentTarget.form;
-							if (!form) throw new Error("Missing owning form");
+						<button
+							type="button"
+							className={getButtonClassName({ variant: "ghost" })}
+							onClick={archiveAndRefocus}
+						>
+							Cancel
+						</button>
+					</>
+				) : (
+					<>
+						<button
+							type="button"
+							className={getButtonClassName({ variant: "ghost" })}
+							onClick={archiveAndRefocus}
+						>
+							Archive
+						</button>
 
-							const body = new FormData(form).get(annotation.id);
-							if (typeof body !== "string") throw new Error("Missing or invalid body");
-
-							void window.lite.clipboardWriteText(
-								feedbackPrompt([
-									{
-										annotation: { ...annotation, body },
-										fileParent: p.fileParent,
-										path: p.path,
-									},
-								]),
-							);
-						}}
-					>
-						Copy as prompt
-					</button>
-
-					<button
-						type="button"
-						form={p.formId}
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={(evt) => {
-							const form = evt.currentTarget.form;
-							if (!form) throw new Error("Missing owning form");
-
-							const formData = new FormData(form);
-							const feedback = p.annotationsByPath
-								.entries()
-								.flatMap(([path, annotations]) =>
-									annotations.map((annotation) => {
-										// Use any live mounted bodies, falling back to persisted.
-										const formBody = formData.get(annotation.id);
-										return {
-											annotation: {
-												...annotation,
-												body: typeof formBody === "string" ? formBody : annotation.body,
-											},
+						<button
+							type="button"
+							form={p.formId}
+							aria-label="Copy as prompt"
+							title="Copy as prompt"
+							style={{ marginLeft: "auto" }}
+							className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+							onClick={(evt) => {
+								const body = bodyFromForm(evt.currentTarget.form);
+								void window.lite.clipboardWriteText(
+									feedbackPrompt([
+										{
+											annotation: { ...annotation, body },
 											fileParent: p.fileParent,
-											path,
-										};
-									}),
-								)
-								.toArray();
+											path: p.path,
+										},
+									]),
+								);
+							}}
+						>
+							<Icon name="copy" />
+						</button>
 
-							void window.lite.clipboardWriteText(feedbackPrompt(feedback));
-						}}
-					>
-						Copy all as prompt
-					</button>
-				</>
+						<button
+							type="button"
+							form={p.formId}
+							aria-label="Copy all as prompt"
+							title="Copy all as prompt"
+							className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+							onClick={(evt) => {
+								const form = evt.currentTarget.form;
+								if (!form) throw new Error("Missing owning form");
+
+								const formData = new FormData(form);
+								const feedback = p.annotationsByPath
+									.entries()
+									.flatMap(([path, annotations]) =>
+										annotations.map((annotation) => {
+											// Use any live mounted bodies, falling back to persisted.
+											const formBody = formData.get(annotation.id);
+											return {
+												annotation: {
+													...annotation,
+													body: typeof formBody === "string" ? formBody : annotation.body,
+												},
+												fileParent: p.fileParent,
+												path,
+											};
+										}),
+									)
+									.toArray();
+
+								void window.lite.clipboardWriteText(feedbackPrompt(feedback));
+							}}
+						>
+							<Icon name="checklist" />
+						</button>
+					</>
+				)
 			}
 		/>
 	);
