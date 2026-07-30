@@ -173,12 +173,12 @@
 
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
-		border-top: 1px solid var(--border-3);
-		border-bottom: 1px solid var(--border-3);
+		/*border-top: 1px solid var(--border-3);
+		border-bottom: 1px solid var(--border-3);*/
 
-		&:first-child {
+		/*&:first-child {
 			border-top: none;
-		}
+		}*/
 	}
 
 	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within & {
@@ -261,11 +261,12 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 8px;
-	border-bottom: 1px solid var(--border-3);
+	/*border-bottom: 1px solid var(--border-3);*/
+	border: 1px solid var(--border-3);
 	white-space: nowrap;
 
 	&.lone {
-		border-bottom: none;
+		/*border-bottom: none;*/
 	}
 }
 
