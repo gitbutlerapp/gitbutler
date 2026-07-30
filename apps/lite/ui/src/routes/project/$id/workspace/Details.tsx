@@ -756,8 +756,7 @@ const DiffContents: FC<{
 				__devOnlyValidateItemHeights: false,
 				onPostRender: handleHunkPostRender,
 				itemMetrics: {
-					diffHeaderHeight: 37,
-					paddingTop: 1,
+					diffHeaderHeight: 38,
 					paddingBottom: 9,
 				},
 				unsafeCSS: `
