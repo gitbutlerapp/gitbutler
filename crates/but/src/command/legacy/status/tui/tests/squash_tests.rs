@@ -494,3 +494,21 @@ fn from_squash_mode_to_commit_mode() {
         .assert_backstack_eq([BackstackEntry::LeaveNormalMode])
         .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_commit_mode_003.svg"]);
 }
+
+#[test]
+fn from_squash_mode_to_mode_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_mode_mode_001.svg"]);
+    tui.input('r')
+        .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_mode_mode_002.svg"]);
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_mode_mode_003.svg"]);
+    tui.input('r')
+        .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_mode_mode_004.svg"]);
+}

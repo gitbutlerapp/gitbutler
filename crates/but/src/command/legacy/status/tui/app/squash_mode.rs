@@ -32,7 +32,7 @@ use crate::{
 };
 
 use super::{
-    CommitSource,
+    CommitSource, MoveSource,
     mark::{Marks, MarksRef},
 };
 
@@ -352,6 +352,19 @@ impl App {
                 }
                 CommitSource::Marks(hunks) => {
                     self.start_with_source(SquashSource::Marks(SquashMarks::Hunks(hunks.clone())));
+                }
+            },
+            Mode::Move(move_mode) => match &*move_mode.source {
+                MoveSource::Marks(commits) => {
+                    self.start_with_source(SquashSource::Marks(SquashMarks::Commits(
+                        commits.clone(),
+                    )));
+                }
+                MoveSource::Commit(commit) => {
+                    self.start_with_source(SquashSource::Commit(commit.clone()));
+                }
+                MoveSource::Branch(branch) => {
+                    self.start_with_source(SquashSource::Branch(branch.clone()));
                 }
             },
             _ => {}
