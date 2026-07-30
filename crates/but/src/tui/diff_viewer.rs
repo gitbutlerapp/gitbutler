@@ -62,9 +62,9 @@ impl DiffFileEntry {
                 Some(WorktreeFilter::UncommittedArea) => true,
                 Some(WorktreeFilter::Uncommitted(id)) => {
                     if id.is_entire_file {
-                        a.path_bytes == id.hunk_assignments.first().path_bytes
+                        a.path_bytes == id.hunk_assignments.first().hunk.path_bytes
                     } else {
-                        a.eq(id.hunk_assignments.first())
+                        a.eq(&id.hunk_assignments.first().hunk)
                     }
                 }
             };

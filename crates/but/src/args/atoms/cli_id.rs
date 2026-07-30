@@ -5,7 +5,7 @@ use crate::{
     CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{CommitId, CommitIdRef, CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
     theme,
 };
 
@@ -88,11 +88,16 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
-            CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
-            CliId::CommittedFile {
-                committed_file,
-                id: _,
-            } => ResolvedCliIdArg::CommittedFile(committed_file),
+            CliId::PathPrefix {
+                id,
+                hunk_assignments,
+            } => ResolvedCliIdArg::PathPrefix {
+                id,
+                hunks: hunk_assignments,
+            },
+            CliId::CommittedFile { committed_file, .. } => {
+                ResolvedCliIdArg::CommittedFile(committed_file)
+            }
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
@@ -202,8 +207,11 @@ impl CliIdArg {
                 hunk_assignments
                     .into_iter()
                     .map(|(id, assignment)| UncommittedHunkOrFile {
-                        id,
-                        hunk_assignments: NonEmpty::new(assignment),
+                        id: id.clone(),
+                        hunk_assignments: NonEmpty::new(IdAndHunk {
+                            id,
+                            hunk: assignment,
+                        }),
                         // In a world without staging, all these hunk assignments should be turned
                         // into "entire file" assignments for every file under the given PathPrefix.
                         // However, currently, already assigned changes are not resolved by
@@ -415,9 +423,10 @@ pub enum ResolvedCliIdArg {
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
     Uncommitted,
-    // These have no data because we don't have any commands that use them. So just add data if you
-    // have a use case
-    PathPrefix,
+    PathPrefix {
+        id: String,
+        hunks: NonEmpty<(String, WorktreeHunk)>,
+    },
     Stack,
 }
 
@@ -438,7 +447,7 @@ impl ResolvedCliIdArg {
     pub fn kind_for_humans(&self) -> &'static str {
         match self {
             ResolvedCliIdArg::UncommittedHunkOrFile { .. } => "an uncommitted file or hunk",
-            ResolvedCliIdArg::PathPrefix => "a path prefix",
+            ResolvedCliIdArg::PathPrefix { .. } => "a path prefix",
             ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
             ResolvedCliIdArg::Branch { .. } => "a branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
@@ -458,7 +467,9 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedFile(committed_file) => {
                 ResolvedCliIdArgRef::CommittedFile(committed_file)
             }
-            ResolvedCliIdArg::PathPrefix => ResolvedCliIdArgRef::PathPrefix,
+            ResolvedCliIdArg::PathPrefix { id, hunks } => {
+                ResolvedCliIdArgRef::PathPrefix { id, hunks }
+            }
             ResolvedCliIdArg::Uncommitted => ResolvedCliIdArgRef::Uncommitted,
             ResolvedCliIdArg::Stack => ResolvedCliIdArgRef::Stack,
         }
@@ -471,8 +482,8 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::Commit(commit) => theme::Commit(commit.as_ref()).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
-            ResolvedCliIdArg::PathPrefix => f.write_str("path"),
-            ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
+            ResolvedCliIdArg::PathPrefix { .. } => f.write_str("path"),
+            ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
         }
@@ -487,9 +498,10 @@ pub enum ResolvedCliIdArgRef<'a> {
     Branch(&'a str),
     UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
     CommittedFile(&'a CommittedFileId),
-    // These have no data because we don't have any commands that use them. So just add data if you
-    // have a use case
-    PathPrefix,
+    PathPrefix {
+        id: &'a str,
+        hunks: &'a NonEmpty<(String, WorktreeHunk)>,
+    },
     Uncommitted,
     Stack,
 }

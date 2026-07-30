@@ -343,7 +343,7 @@ impl Cursor {
                 line.data.cli_id().map(|id| &**id)
             {
                 let assignment = uncommitted.hunk_assignments.first();
-                &**assignment.path_bytes == path
+                &**assignment.hunk.path_bytes == path
             } else {
                 false
             }
@@ -706,7 +706,7 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
             if previous.is_entire_file {
                 let previous = previous.hunk_assignments.first();
                 let current = current.hunk_assignments.first();
-                previous.path_bytes == current.path_bytes
+                previous.hunk.path_bytes == current.hunk.path_bytes
             } else {
                 previous == current
             }

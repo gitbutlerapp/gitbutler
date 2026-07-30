@@ -76,7 +76,7 @@ impl<'a> DiffSpecBuilder<'a> {
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
         let assignments = uncommitted.hunk_assignments.iter().cloned();
-        self.push_hunk_assignments(assignments)
+        self.push_hunk_assignments(assignments.map(|hunk| hunk.hunk))
     }
 
     pub fn push_changes_from_path_prefix(

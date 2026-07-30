@@ -46,7 +46,7 @@ impl Openable {
         repo: &gix::Repository,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<Self> {
-        let hunk = uncommitted.hunk_assignments.first();
+        let hunk = &uncommitted.hunk_assignments.first().hunk;
 
         let path = repo
             .workdir_path(hunk.path_bytes.as_bstr())

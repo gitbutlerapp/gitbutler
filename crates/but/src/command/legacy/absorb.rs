@@ -80,7 +80,7 @@ pub(crate) fn handle(
                 // Absorb this particular file
                 AbsorptionTarget::HunkAssignments {
                     assignments: hunk_assignments
-                        .map(|hunk| hunk.into_hunk_assignment_ignoring_stack_assignments())
+                        .map(|hunk| hunk.hunk.into_hunk_assignment_ignoring_stack_assignments())
                         .into(),
                 }
             }

@@ -1,6 +1,7 @@
 use bstr::BString;
 use but_ctx::Context;
 use gix::refs::FullName;
+use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
         diff2::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, UncommittedHunkOrFile, WorktreeHunk},
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -98,6 +99,9 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     options,
                     &mut writer,
                 )?;
+            }
+            DiffOperation::PathPrefix { .. } => {
+                anyhow::bail!("Diffing paths is not supported")
             }
         }
 
@@ -222,12 +226,9 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             },
             path,
         }),
+        ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
         ResolvedCliIdArg::Stack => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
-        }
-        ResolvedCliIdArg::PathPrefix => {
-            // TODO(david)
-            Err(anyhow::anyhow!("path prefix targets are not yet implemented").into())
         }
     }
 }
@@ -239,8 +240,22 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 #[derive(Debug)]
 enum DiffOperation {
     Uncommitted,
-    Commit { commit: CommitId },
-    Branch { branch: FullName },
-    UncommittedHunkOrFile { hunk: Box<UncommittedHunkOrFile> },
-    CommittedFile { commit: CommitId, path: BString },
+    Commit {
+        commit: CommitId,
+    },
+    Branch {
+        branch: FullName,
+    },
+    UncommittedHunkOrFile {
+        hunk: Box<UncommittedHunkOrFile>,
+    },
+    CommittedFile {
+        commit: CommitId,
+        path: BString,
+    },
+    #[expect(dead_code)]
+    PathPrefix {
+        id: String,
+        hunks: NonEmpty<(String, WorktreeHunk)>,
+    },
 }

@@ -1150,7 +1150,7 @@ fn uncommitted_hunk_matches_selection(
     hunk_assignment: &WorktreeHunk,
     hunk: &UncommittedHunkOrFile,
 ) -> bool {
-    let selected_hunk = hunk.hunk_assignments.first();
+    let selected_hunk = &hunk.hunk_assignments.first().hunk;
 
     if hunk.is_entire_file {
         hunk_assignment.path_bytes == selected_hunk.path_bytes

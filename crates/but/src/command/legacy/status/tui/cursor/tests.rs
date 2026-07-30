@@ -21,7 +21,7 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile, WorktreeHunk},
+    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -117,7 +117,10 @@ fn uncommitted_cli_id(path: &str, id: &str) -> Arc<CliId> {
 fn uncommitted_cli_id_with_old_start(path: &str, id: &str, old_start: u32) -> Arc<CliId> {
     Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
         id: id.to_owned(),
-        hunk_assignments: NonEmpty::new(hunk_assignment(path, old_start)),
+        hunk_assignments: NonEmpty::new(IdAndHunk {
+            id: id.to_owned(),
+            hunk: hunk_assignment(path, old_start),
+        }),
         is_entire_file: true,
     }))
 }
