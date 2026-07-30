@@ -369,6 +369,58 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
 }
 
 #[test]
+fn cherry_pick_then_reword_copied_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CherryPick);
+
+    let outcome = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            let copied =
+                tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
+            let reworded = tx.reword_commit(copied[0].id, "copied commit".into())?;
+
+            Ok(DynamicOutcome::<_, ()>::Commit(reworded))
+        },
+    )
+    .unwrap();
+
+    let DynamicOutcome::Commit((reworded, _workspace)) = outcome else {
+        panic!("transaction should commit");
+    };
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    assert_eq!(
+        Some(reworded.id),
+        ref_target(&env, branch.as_ref()),
+        "reworded cherry-picked commit should become the branch tip"
+    );
+    assert_ne!(reworded.id, one, "cherry-pick should create a new commit");
+    assert_eq!(
+        env.open_repo()
+            .find_commit(reworded.id)
+            .unwrap()
+            .message_raw()
+            .unwrap(),
+        "copied commit",
+        "returned identifier should refer to the reworded copy"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
 fn move_commits_then_commit_relative_to_moved_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
