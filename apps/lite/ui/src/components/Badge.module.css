@@ -37,3 +37,16 @@
 	background-color: var(--badge-danger-bg, color-mix(in srgb, var(--_bg) 22%, var(--bg-1)));
 	color: var(--badge-danger-fg, light-dark(var(--text-danger), var(--clr-danger-60)));
 }
+
+.purple {
+	background-color: var(
+		--badge-purple-bg,
+		color-mix(in srgb, var(--clr-purple-50) 18%, transparent)
+	);
+	color: var(--badge-purple-fg, var(--clr-purple-40));
+}
+
+.blue {
+	background-color: var(--badge-blue-bg, color-mix(in srgb, var(--clr-blue-50) 18%, transparent));
+	color: var(--badge-blue-fg, var(--clr-blue-40));
+}

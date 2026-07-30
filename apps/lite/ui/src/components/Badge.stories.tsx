@@ -7,7 +7,15 @@ const meta = preview.meta({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["fillGray", "lightGray", "safe", "warn", "danger"] satisfies Array<BadgeVariant>,
+			options: [
+				"fillGray",
+				"lightGray",
+				"safe",
+				"warn",
+				"danger",
+				"purple",
+				"blue",
+			] satisfies Array<BadgeVariant>,
 		},
 	},
 	args: {
@@ -26,6 +34,8 @@ export const AllVariants = meta.story({
 			<Badge variant="safe">safe</Badge>
 			<Badge variant="warn">warn</Badge>
 			<Badge variant="danger">danger</Badge>
+			<Badge variant="purple">purple</Badge>
+			<Badge variant="blue">blue</Badge>
 		</div>
 	),
 });
