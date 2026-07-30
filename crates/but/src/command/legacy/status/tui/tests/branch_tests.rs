@@ -3,7 +3,7 @@ use crossterm::event::*;
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::{
-    Message, ReloadCause, SelectAfterReload, tests::utils::test_tui,
+    Message, ReloadCause, SelectAfterReload, tests::utils::test_status_tui,
 };
 
 #[test]
@@ -11,7 +11,7 @@ fn branch_key_from_uncommitted_creates_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -25,7 +25,7 @@ fn branch_key_from_commit_is_noop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   lrm add B"]);
@@ -39,7 +39,7 @@ fn branch_key_from_branch_creates_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -53,7 +53,7 @@ fn branch_key_keeps_global_file_list_open() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -72,7 +72,7 @@ fn focus_reload_preserves_branch_selection() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -86,7 +86,7 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -123,7 +123,7 @@ fn focus_reload_preserves_merge_base_selection() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -140,7 +140,7 @@ fn inline_branch_reword_confirm_renames_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -170,7 +170,7 @@ fn inline_branch_reword_esc_cancels() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -190,7 +190,7 @@ fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches(
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -216,7 +216,7 @@ fn inline_branch_reword_space_before_close_bracket() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
 
@@ -236,7 +236,7 @@ fn cannot_select_merged_branches() {
     env.setup_metadata(&["A", "B"]);
     env.set_target_sha("refs/heads/base");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/cannot_select_merged_branches_001.svg"]);
@@ -252,7 +252,7 @@ fn reload_moves_selection_off_merged_branch() {
     env.setup_metadata(&["A", "B"]);
     env.set_target_sha("refs/heads/base");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.render_with_messages(
         None,

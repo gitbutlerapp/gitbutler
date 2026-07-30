@@ -4,7 +4,7 @@ use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::{
     Message, ReloadCause,
-    tests::utils::{TestTuiOptions, test_tui, test_tui_with_options},
+    tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
 };
 
 #[test]
@@ -12,7 +12,7 @@ fn esc_leaves_move_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -33,7 +33,7 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             width: 100,
@@ -71,7 +71,7 @@ fn move_commit_above_other_commit_reorders_tui() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -111,7 +111,7 @@ fn move_commit_down_from_source_selects_next_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -140,7 +140,7 @@ fn move_commit_up_from_top_commit_selects_source_branch() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊╭┄ h0 [C]"]);
@@ -163,7 +163,7 @@ fn move_branch_onto_other_branch_reorders_stacks() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -193,7 +193,7 @@ fn move_branch_to_merge_base_tears_off_branch() {
     );
     env.setup_metadata(&["A", "C", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -230,7 +230,7 @@ fn moving_multiple_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('b');
     tui.input('g')

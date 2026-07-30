@@ -2,14 +2,14 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::test_status_tui;
 
 #[test]
 fn unapply_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('b');
@@ -37,7 +37,7 @@ fn unapply_stack_selects_base_branch_when_next_stack_has_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('b');
@@ -56,7 +56,7 @@ fn enter_stack_mode_from_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('j');
@@ -69,7 +69,7 @@ fn moving_stacks() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     for name in ["one", "two", "three"] {
         tui.input('g');
@@ -109,7 +109,7 @@ fn applying_stacks() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     for name in ["one", "two"] {
         tui.input('g');
@@ -151,7 +151,7 @@ fn escape_moves_cursor_back_to_valid_position() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input('s');
@@ -170,7 +170,7 @@ fn maintains_cursor_position_if_on_source() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input('s');

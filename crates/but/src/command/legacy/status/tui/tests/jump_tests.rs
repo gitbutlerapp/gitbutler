@@ -2,7 +2,7 @@ use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{BackstackEntry, tests::test_tui};
+use crate::command::legacy::status::tui::{BackstackEntry, tests::test_status_tui};
 
 #[test]
 fn jumping_around() {
@@ -16,7 +16,7 @@ fn jumping_around() {
     env.file("three", "");
     env.file("kl", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // jumping straight to the matching line
     tui.input('/')
@@ -50,7 +50,7 @@ fn jump_from_other_modes() {
 
     env.file("one", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('r')
         .assert_rendered_term_svg_eq(file!["snapshots/jump_from_other_modes_001.svg"]);
@@ -67,7 +67,7 @@ fn clears_backstack_on_escape() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('/')
         .assert_backstack_eq([BackstackEntry::LeaveNormalMode]);
@@ -83,7 +83,7 @@ fn restores_backstack_from_previous_mode() {
 
     env.file("one", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(' ');
     tui.input('r')
@@ -107,7 +107,7 @@ fn highlights_exact_matches_when_file_list_is_open() {
     );
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'F'));
     tui.input('/');
@@ -133,7 +133,7 @@ fn when_branch_short_code_and_commit_change_id_have_same_initial_character() {
     );
     env.setup_metadata(&["rr-branch"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input("g");
     tui.input("/");

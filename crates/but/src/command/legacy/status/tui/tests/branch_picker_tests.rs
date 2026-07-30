@@ -2,14 +2,14 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::test_status_tui;
 
 #[test]
 fn opens_branch_picker_popup_layout() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t')
         .assert_rendered_term_svg_eq(file!["snapshots/opens_branch_picker_popup_layout_001.svg"])
@@ -23,7 +23,7 @@ fn branch_picker_filters_and_highlights_matches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t');
 
@@ -40,7 +40,7 @@ fn branch_picker_cursor_movement_updates_selected_row() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t');
 
@@ -54,7 +54,7 @@ fn esc_closes_branch_picker_without_changing_selection() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -70,7 +70,7 @@ fn confirm_selects_highlighted_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t');
 
@@ -85,7 +85,7 @@ fn confirm_with_no_matches_keeps_picker_open() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('t');
 
@@ -101,7 +101,7 @@ fn pick_and_goto_noop_when_commit_file_list_open() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
@@ -121,7 +121,7 @@ fn goto_uncommitted_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);

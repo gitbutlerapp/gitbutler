@@ -3,7 +3,7 @@ use crossterm::event::*;
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::test_status_tui;
 
 const TEST_EDITOR_MESSAGE: &str = "commit from tui test";
 
@@ -12,7 +12,7 @@ fn commit_mode_enter_and_escape() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -35,7 +35,7 @@ fn commit_confirm_on_source_is_noop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -57,7 +57,7 @@ fn commiting_with_no_uncommitted_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
@@ -101,7 +101,7 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
     let editor_path = env.projects_root().join("editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -138,7 +138,7 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
     let editor_path = env.projects_root().join("editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -181,7 +181,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
         .join("\n")
         + "\n";
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("multi-hunk.txt", &base);
 
@@ -240,7 +240,7 @@ fn commit_mode_shows_commit_below_on_commit_rows() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -269,7 +269,7 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
     let editor_path = env.projects_root().join("editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -313,7 +313,7 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
     let editor_path = env.projects_root().join("editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -347,7 +347,7 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -397,7 +397,7 @@ fn commit_with_inline_reword() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -441,7 +441,7 @@ fn commit_moved_file_from_uncommitted_changes_line() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // show files in commits
     tui.input((KeyModifiers::SHIFT, 'F'));
@@ -481,7 +481,7 @@ fn commit_moved_file_from_file_line() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // show files in commits
     tui.input((KeyModifiers::SHIFT, 'F'));
@@ -523,7 +523,7 @@ fn commit_moved_and_modified_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // show files in commits
     tui.input((KeyModifiers::SHIFT, 'F'));
@@ -568,7 +568,7 @@ fn cannot_select_uncommitted_files_with_commits_marked() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -591,7 +591,7 @@ fn cannot_select_committed_files_with_commits_marked() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -614,7 +614,7 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -645,7 +645,7 @@ fn escape_from_commit_mode_preserves_marks() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("one", "content");
     tui.env().file("two", "content");
@@ -664,7 +664,7 @@ fn mark_and_commit_multiple_uncommitted_files() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("one", "content");
     tui.env().file("two", "content");
@@ -693,7 +693,7 @@ fn committing_above_below() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -711,7 +711,7 @@ fn cannot_commit_to_new_branch_from_commit_line() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -730,7 +730,7 @@ fn commit_to_new_branch_from_uncommitted_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 

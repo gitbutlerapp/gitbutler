@@ -38,7 +38,6 @@ use crate::{
             },
             backstack::Backstack,
             confirm::Confirm,
-            copy_selection_picker::Clipboard,
             count_allocations,
             details::worker::Worker,
             highlight::{self, Highlights},
@@ -49,6 +48,7 @@ use crate::{
     },
     id::{CommitId, CommittedFileId},
     theme::{Rgb, Theme},
+    tui::Clipboard,
     utils::{
         DebugAsType,
         diff_rendering::{
@@ -1654,7 +1654,7 @@ enum ScrollIntent {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(super) enum ScrollDirection {
+pub enum ScrollDirection {
     Up,
     Down,
 }

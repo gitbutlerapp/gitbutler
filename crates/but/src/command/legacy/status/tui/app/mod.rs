@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::Cell,
     sync::{Arc, mpsc::Receiver},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use bstr::{BStr, ByteSlice};
@@ -22,14 +22,18 @@ use crate::{
             TuiRunOptions,
             output::StatusOutputLineData,
             tui::{
-                Selectable, copy_selection_picker::Clipboard, details::Details, remember_selection,
+                Selectable, Tui, count_allocations, dedup_mutation_messages,
+                details::Details,
+                event_to_messages,
+                remember_selection::{self, save_selection_to_disk},
+                render::render_app,
             },
         },
         open::{self, Openable},
     },
     id::{CommitId, CommittedFileId},
     theme::Theme,
-    tui::TerminalGuard,
+    tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
 };
 
 use super::{
@@ -115,6 +119,7 @@ pub struct App {
     pub file_browser: Option<FileBrowser>,
     pub head_sha: String,
     pub clipboard: Clipboard,
+    pub operating_mode: OperatingMode,
 }
 
 pub(super) fn changed_paths_affect_uncommitted_details<'a>(
@@ -139,6 +144,162 @@ pub(super) fn changed_paths_affect_uncommitted_details<'a>(
         })
 }
 
+pub struct UpdateContext<'a> {
+    pub messages: Vec<Message>,
+    pub other_messages: Vec<Message>,
+    pub ctx: &'a mut Context,
+}
+
+impl<'a> From<&'a mut Context> for UpdateContext<'a> {
+    fn from(ctx: &'a mut Context) -> Self {
+        Self {
+            messages: Default::default(),
+            other_messages: Default::default(),
+            ctx,
+        }
+    }
+}
+
+impl Tui for App {
+    type UpdateContext<'a> = UpdateContext<'a>;
+
+    fn update<T, E>(
+        &mut self,
+        terminal_guard: &mut T,
+        event_polling: E,
+        events: &mut Vec<crossterm::event::Event>,
+        out: &mut dyn TuiInputOutputChannel,
+        update_ctx: &mut Self::UpdateContext<'_>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+        E: EventPolling,
+    {
+        let UpdateContext {
+            messages,
+            other_messages,
+            ctx,
+        } = update_ctx;
+
+        self.updates += 1;
+
+        // update at full speed while we're rendering the diff
+        let event_poll_timeout = if self.details.is_polling_thread() {
+            Duration::from_millis(0)
+        } else {
+            Duration::from_millis(30)
+        };
+        // poll terminal events
+        events.clear();
+        event_polling.poll_into(event_poll_timeout, events)?;
+        for event in events.drain(..) {
+            let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
+            event_to_messages(event, self, terminal_area, messages);
+        }
+        dedup_mutation_messages(messages, other_messages);
+
+        // check for any out of band messages
+        self.incoming_out_of_band_messages
+            .retain(|rx| match rx.try_recv() {
+                Ok(msg) => {
+                    messages.push(msg);
+                    true
+                }
+                Err(err) => match err {
+                    std::sync::mpsc::TryRecvError::Empty => true,
+                    std::sync::mpsc::TryRecvError::Disconnected => false,
+                },
+            });
+
+        // handle messages
+        let mut did_reload = false;
+        loop {
+            if messages.is_empty() {
+                break;
+            }
+            for msg in messages.drain(..) {
+                if matches!(msg, Message::Reload(..)) {
+                    if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
+                        self.toasts
+                            .insert(ToastKind::Error, "Double reload".to_owned());
+                    } else {
+                        did_reload = true;
+                    }
+                }
+                self.handle_message(ctx, out, terminal_guard, other_messages, msg);
+            }
+            std::mem::swap(messages, other_messages);
+        }
+
+        if self.toasts.update() {
+            self.should_render = true;
+        }
+
+        if self.highlight.update() {
+            self.should_render = true;
+        }
+
+        if self.details.update_highlights() {
+            self.should_render = true;
+        }
+
+        let selection = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .map(|id| &**id);
+
+        if self
+            .details
+            .update(ctx, selection, self.is_details_visible)?
+        {
+            self.should_render = true;
+        }
+
+        if let Some(file_browser) = &mut self.file_browser
+            && let Mode::Details(details_mode) = &*self.mode
+            && file_browser.needs_update(self.is_details_visible && details_mode.full_screen)
+        {
+            match file_browser.update(ctx, selection) {
+                Ok(true) => {
+                    self.should_render = true;
+                }
+                Ok(false) => {}
+                Err(err) => {
+                    messages.push(Message::ShowError(err));
+                }
+            }
+        }
+
+        if self.fps.update() {
+            self.should_render = true;
+        }
+
+        if self.outcome.is_some() && self.launch_options.remember_selection {
+            _ = save_selection_to_disk(ctx, self);
+        }
+
+        Ok(())
+    }
+
+    fn render<T>(&mut self, terminal_guard: &mut T) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if std::mem::take(&mut self.should_render) {
+            let _span = tracing::trace_span!("render").entered();
+            terminal_guard.terminal_mut().draw(|frame| {
+                self.renders += 1;
+                count_allocations("render", || render_app(self, frame))
+            })?;
+        }
+
+        Ok(())
+    }
+}
+
 impl App {
     pub fn new(
         ctx: &Context,
@@ -150,6 +311,7 @@ impl App {
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
         head_sha: String,
         clipboard: Clipboard,
+        operating_mode: OperatingMode,
     ) -> Self {
         let cursor = if let Some(object_id) = launch_options.select_commit {
             Cursor::select_commit(object_id, &status_lines)
@@ -211,6 +373,7 @@ impl App {
             file_browser,
             head_sha,
             clipboard,
+            operating_mode,
         }
     }
 
@@ -238,7 +401,6 @@ impl App {
         &mut self,
         ctx: &mut Context,
         out: &mut dyn TuiInputOutputChannel,
-        mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
         msg: Message,
@@ -248,7 +410,7 @@ impl App {
     {
         let start = Instant::now();
         let m = format!("{msg:?}");
-        if let Err(err) = self.try_handle_message(ctx, out, mode, terminal_guard, messages, msg) {
+        if let Err(err) = self.try_handle_message(ctx, out, terminal_guard, messages, msg) {
             messages.push(Message::ShowError(err));
         }
         tracing::debug!("try_handle_message ({}): {:?}", m, start.elapsed());
@@ -258,7 +420,6 @@ impl App {
         &mut self,
         ctx: &mut Context,
         out: &mut dyn TuiInputOutputChannel,
-        mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
         msg: Message,
@@ -392,7 +553,7 @@ impl App {
                 }
             },
             Message::Reload(select_after_reload, cause) => {
-                self.handle_reload(ctx, out, mode, select_after_reload, cause)?
+                self.handle_reload(ctx, out, select_after_reload, cause)?
             }
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => {
@@ -514,7 +675,7 @@ impl App {
                 self.to_be_discarded.clear();
             }
             Message::AndThen { lhs, rhs } => {
-                self.try_handle_message(ctx, out, mode, terminal_guard, messages, *lhs)?;
+                self.try_handle_message(ctx, out, terminal_guard, messages, *lhs)?;
 
                 // Push `rhs` to the end of the queue. That way any messages enqueued by `lhs` will
                 // be handled first.
@@ -995,7 +1156,6 @@ impl App {
         &mut self,
         ctx: &mut Context,
         out: &mut dyn TuiInputOutputChannel,
-        mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
         cause: ReloadCause,
     ) -> anyhow::Result<()> {
@@ -1058,7 +1218,13 @@ impl App {
             }
         }
 
-        let new_lines = operations::reload_legacy(ctx, out, mode, self.flags, self.launch_options)?;
+        let new_lines = operations::reload_legacy(
+            ctx,
+            out,
+            &self.operating_mode,
+            self.flags,
+            self.launch_options,
+        )?;
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = if let Some(select_after_reload) = select_after_reload {

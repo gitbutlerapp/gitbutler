@@ -3,9 +3,12 @@
 //! These may be interactive or static, with interactive ones containing *verbs*, and static ones being *nouns*.
 
 pub mod table;
+use anyhow::Context as _;
 pub use table::types::Table;
 
 pub mod text;
+
+pub mod event_polling;
 
 pub mod get_text;
 
@@ -16,6 +19,7 @@ mod picker;
 pub use picker::*;
 
 use std::{
+    borrow::Cow,
     io,
     sync::{Arc, Mutex},
 };
@@ -27,7 +31,16 @@ use crossterm::{
 use ratatui::{
     Terminal, TerminalOptions, Viewport,
     backend::{CrosstermBackend, TestBackend},
+    prelude::Backend,
 };
+
+use crate::{
+    tui::event_polling::EventPolling,
+    utils::{DebugAsType, InputOutputChannel, WriteWithUtils},
+};
+
+#[cfg(test)]
+pub mod test_utils;
 
 type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
 
@@ -254,4 +267,103 @@ impl Drop for SuspendGuard<'_> {
             _ = self.0.terminal.clear();
         }
     }
+}
+
+pub struct EmptyContext;
+
+impl<'a> From<&'a mut but_ctx::Context> for EmptyContext {
+    fn from(_ctx: &'a mut but_ctx::Context) -> Self {
+        Self
+    }
+}
+
+pub trait Tui {
+    type UpdateContext<'a>;
+
+    fn update<T, E>(
+        &mut self,
+        terminal_guard: &mut T,
+        event_polling: E,
+        events: &mut Vec<crossterm::event::Event>,
+        out: &mut dyn TuiInputOutputChannel,
+        update_ctx: &mut Self::UpdateContext<'_>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+        E: EventPolling;
+
+    fn render<T>(&mut self, terminal_guard: &mut T) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>;
+}
+
+/// Required to abstract over input/output channels for the TUI.
+///
+/// In production we want to require `InputOutputChannel`. This means the caller must check that
+/// input is actually supported and return an error otherwise. However in tests we don't want to
+/// enforce that.
+///
+/// So this trait exists such that we can make a fake to use in tests that panics on
+/// `prompt_single_line`.
+pub trait TuiInputOutputChannel: WriteWithUtils {
+    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>>;
+}
+
+impl TuiInputOutputChannel for InputOutputChannel<'_> {
+    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
+        InputOutputChannel::prompt_single_line(self, prompt)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Clipboard(DebugAsType<Arc<dyn ClipboardImpl + Send>>);
+
+impl Clipboard {
+    pub fn live() -> Self {
+        struct Live;
+
+        impl ClipboardImpl for Live {
+            fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()> {
+                arboard::Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.set_text(text))
+                    .context("failed to copy to system clipboard")?;
+                Ok(())
+            }
+        }
+
+        Self::new(Live)
+    }
+
+    #[cfg(test)]
+    pub fn test() -> (Self, Arc<std::sync::Mutex<String>>) {
+        struct Test(Arc<std::sync::Mutex<String>>);
+
+        let shared = <Arc<std::sync::Mutex<String>>>::default();
+
+        impl ClipboardImpl for Test {
+            fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()> {
+                *self.0.lock().unwrap() = text.to_string();
+                Ok(())
+            }
+        }
+
+        (Self::new(Test(Arc::clone(&shared))), shared)
+    }
+
+    fn new<C>(clipboard_impl: C) -> Self
+    where
+        C: ClipboardImpl + Send + 'static,
+    {
+        Self(DebugAsType(Arc::new(clipboard_impl)))
+    }
+
+    pub fn set_text<'a>(&self, text: impl Into<Cow<'a, str>>) -> anyhow::Result<()> {
+        self.0.set_text(text.into())
+    }
+}
+
+trait ClipboardImpl {
+    fn set_text(&self, text: Cow<'_, str>) -> anyhow::Result<()>;
 }

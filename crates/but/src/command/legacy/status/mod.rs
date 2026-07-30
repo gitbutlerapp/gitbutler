@@ -150,7 +150,7 @@ pub enum TuiOutcome {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum CommitClassification {
+pub(crate) enum CommitClassification {
     Upstream,
     LocalOnly,
     Pushed,
@@ -280,7 +280,7 @@ pub(crate) fn worktree(
             let (final_lines, _outcome) = tui::render_tui(
                 ctx,
                 &mut inout,
-                &mode,
+                mode,
                 flags,
                 lines,
                 launch_options,
@@ -335,7 +335,7 @@ pub(crate) fn tui_with_options(
     let mut output = StatusOutput::Buffer { lines: &mut lines };
     build_status_output(ctx, &status_ctx, &mut output)?;
     let (_final_lines, outcome) =
-        tui::render_tui(ctx, out, &mode, flags, lines, launch_options, run_options)?;
+        tui::render_tui(ctx, out, mode, flags, lines, launch_options, run_options)?;
 
     let guard = ctx.exclusive_worktree_access();
 

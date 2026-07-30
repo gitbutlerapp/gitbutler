@@ -6,7 +6,7 @@ description: Use when adding or modifying tests for the GitButler TUI (`but tui`
 ## Where tests live
 
 - Main TUI tests: `crates/but/src/command/legacy/status/tui/tests/`
-- Test harness/helpers: `crates/but/src/command/legacy/status/tui/tests/utils.rs`
+- Test harness/helpers: `crates/but/src/tui/test_utils.rs` and `crates/but/src/command/legacy/status/tui/tests/utils.rs`
 - Snapshots: `crates/but/src/command/legacy/status/tui/tests/snapshots/`
 
 ## Basic pattern
@@ -17,7 +17,7 @@ fn describes_behavior_under_test() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input_then_render(KeyCode::Down)
         .assert_rendered_term_svg_eq(file!["snapshots/describes_behavior_under_test_001.svg"]);
@@ -54,10 +54,11 @@ Be careful using `assert_rendered_contains` and `assert_rendered_not_contains`
 since they might lead to false positives. They're intended to use while
 iterating on a test where snapshots would cause too much churn.
 
-Read `crates/but/src/command/legacy/status/tui/tests/utils.rs` for more
-specialized assertions.
+Read `crates/but/src/tui/test_utils.rs` and
+`crates/but/src/command/legacy/status/tui/tests/utils.rs` for more specialized
+assertions.
 
-You're not allowed to add new kinds of assertions to
+You're not allowed to add new kinds of assertions to `crates/but/src/tui/test_utils.rs` or
 `crates/but/src/command/legacy/status/tui/tests/utils.rs`. Rely entirely on the
 existing assertions.
 

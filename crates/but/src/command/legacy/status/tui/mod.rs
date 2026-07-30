@@ -1,9 +1,6 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
-use std::{
-    sync::mpsc::{Receiver, Sender},
-    time::Duration,
-};
+use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Context as _;
 use bstr::BString;
@@ -24,31 +21,31 @@ use crate::{
                 app::{
                     CommandMessage, CommandModeKind, CommitMessage, JumpMessage, MoveMessage,
                     NormalMode, PickChangesMode, RewordMessage, SquashMessage, StackMessage,
+                    UpdateContext,
                 },
                 backstack::{Backstack, BackstackEntry},
                 confirm::ConfirmMessage,
-                copy_selection_picker::Clipboard,
                 cursor::Cursor,
                 details::{DetailsMessage, ScrollDirection},
-                event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
                 fuzzy_picker::{
                     Col, FuzzyPicker, FuzzyPickerItem, FuzzyPickerMessage, SearchableToken,
                 },
                 help::HelpMessage,
                 key_bind::{KeyBinds, fuzzy_picker_key_binds},
                 mode::Mode,
-                remember_selection::save_selection_to_disk,
                 toast::ToastKind,
             },
         },
         open::Openable,
     },
     id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
-    tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
-    utils::{InputOutputChannel, WriteWithUtils},
+    tui::{
+        Clipboard, CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard, Tui,
+        TuiInputOutputChannel,
+        event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
+    },
+    utils::InputOutputChannel,
 };
-
-use render::render_app;
 
 use app::{App, InlineRewordMode, Modal, format_error_for_tui};
 
@@ -58,7 +55,6 @@ mod confirm;
 mod copy_selection_picker;
 mod cursor;
 mod details;
-mod event_polling;
 mod file_browser;
 mod fps;
 mod fuzzy_picker;
@@ -89,7 +85,7 @@ const DETAILS_MAX_SIZE_PERCENTAGE: u16 = 90;
 pub fn render_tui(
     ctx: &mut Context,
     out: &mut InputOutputChannel<'_>,
-    mode: &OperatingMode,
+    operating_mode: OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     launch_options: TuiLaunchOptions,
@@ -108,26 +104,30 @@ pub fn render_tui(
         Vec::from([watcher_rx]),
         head_sha,
         Clipboard::live(),
+        operating_mode,
     );
 
-    let mut messages = Vec::new();
+    let messages = Vec::new();
 
     // second buffer so we can send messages from `App::handle_message`
-    let mut other_messages = Vec::new();
+    let other_messages = Vec::new();
 
     let outcome = if app.launch_options.headless {
         let mut terminal_guard = HeadlessTerminalGuard::new(240, 240)?;
         let mut event_polling = NoopEventPolling;
 
+        let mut update_ctx = UpdateContext {
+            messages,
+            other_messages,
+            ctx,
+        };
+
         render_loop(
             &mut app,
             &mut terminal_guard,
             &mut event_polling,
-            &mut messages,
-            &mut other_messages,
-            ctx,
             out,
-            mode,
+            &mut update_ctx,
         )?
     } else {
         let _watcher_handle =
@@ -136,15 +136,18 @@ pub fn render_tui(
         let mut terminal_guard = CrosstermTerminalGuard::alt_screen(true)?;
         let mut event_polling = CrosstermEventPolling::default();
 
+        let mut update_ctx = UpdateContext {
+            messages,
+            other_messages,
+            ctx,
+        };
+
         render_loop(
             &mut app,
             &mut terminal_guard,
             &mut event_polling,
-            &mut messages,
-            &mut other_messages,
-            ctx,
             out,
-            mode,
+            &mut update_ctx,
         )?
     };
 
@@ -155,18 +158,15 @@ fn render_loop<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
     event_polling: &mut E,
-    messages: &mut Vec<Message>,
-    other_messages: &mut Vec<Message>,
-    ctx: &mut Context,
     out: &mut dyn TuiInputOutputChannel,
-    mode: &OperatingMode,
+    update_ctx: &mut UpdateContext<'_>,
 ) -> anyhow::Result<TuiOutcome>
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
     for<'a> &'a mut E: EventPolling,
 {
-    render(app, terminal_guard)?;
+    app.render(terminal_guard)?;
 
     let mut events = Vec::with_capacity(128);
 
@@ -184,11 +184,8 @@ where
             terminal_guard,
             &mut *event_polling,
             &mut events,
-            messages,
-            other_messages,
-            ctx,
             out,
-            mode,
+            update_ctx,
         )?;
 
         if let Some(outcome) = app.outcome.take() {
@@ -197,17 +194,13 @@ where
     }
 }
 
-#[expect(clippy::too_many_arguments)]
 fn render_loop_once<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
     event_polling: E,
     events: &mut Vec<Event>,
-    messages: &mut Vec<Message>,
-    other_messages: &mut Vec<Message>,
-    ctx: &mut Context,
     out: &mut dyn TuiInputOutputChannel,
-    mode: &OperatingMode,
+    update_ctx: &mut UpdateContext<'_>,
 ) -> anyhow::Result<()>
 where
     T: TerminalGuard,
@@ -215,153 +208,12 @@ where
     E: EventPolling,
 {
     count_allocations("update", || {
-        update(
-            app,
-            terminal_guard,
-            event_polling,
-            events,
-            messages,
-            other_messages,
-            ctx,
-            out,
-            mode,
-        )
+        app.update(terminal_guard, event_polling, events, out, update_ctx)
     })?;
 
-    render(app, terminal_guard)?;
+    app.render(terminal_guard)?;
 
     app.fps.frame_finished();
-
-    Ok(())
-}
-
-#[expect(clippy::too_many_arguments)]
-fn update<T, E>(
-    app: &mut App,
-    terminal_guard: &mut T,
-    event_polling: E,
-    events: &mut Vec<Event>,
-    messages: &mut Vec<Message>,
-    other_messages: &mut Vec<Message>,
-    ctx: &mut Context,
-    out: &mut dyn TuiInputOutputChannel,
-    mode: &OperatingMode,
-) -> anyhow::Result<()>
-where
-    T: TerminalGuard,
-    anyhow::Error: From<<T::Backend as Backend>::Error>,
-    E: EventPolling,
-{
-    app.updates += 1;
-
-    // update at full speed while we're rendering the diff
-    let event_poll_timeout = if app.details.is_polling_thread() {
-        Duration::from_millis(0)
-    } else {
-        Duration::from_millis(30)
-    };
-    // poll terminal events
-    events.clear();
-    event_polling.poll_into(event_poll_timeout, events)?;
-    for event in events.drain(..) {
-        let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
-        event_to_messages(event, app, terminal_area, messages);
-    }
-    dedup_mutation_messages(messages, other_messages);
-
-    // check for any out of band messages
-    app.incoming_out_of_band_messages
-        .retain(|rx| match rx.try_recv() {
-            Ok(msg) => {
-                messages.push(msg);
-                true
-            }
-            Err(err) => match err {
-                std::sync::mpsc::TryRecvError::Empty => true,
-                std::sync::mpsc::TryRecvError::Disconnected => false,
-            },
-        });
-
-    // handle messages
-    let mut did_reload = false;
-    loop {
-        if messages.is_empty() {
-            break;
-        }
-        for msg in messages.drain(..) {
-            if matches!(msg, Message::Reload(..)) {
-                if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
-                    app.toasts
-                        .insert(ToastKind::Error, "Double reload".to_owned());
-                } else {
-                    did_reload = true;
-                }
-            }
-            app.handle_message(ctx, out, mode, terminal_guard, other_messages, msg);
-        }
-        std::mem::swap(messages, other_messages);
-    }
-
-    if app.toasts.update() {
-        app.should_render = true;
-    }
-
-    if app.highlight.update() {
-        app.should_render = true;
-    }
-
-    if app.details.update_highlights() {
-        app.should_render = true;
-    }
-
-    let selection = app
-        .cursor
-        .selected_line(&app.status_lines)
-        .and_then(|line| line.data.cli_id())
-        .map(|id| &**id);
-
-    if app.details.update(ctx, selection, app.is_details_visible)? {
-        app.should_render = true;
-    }
-
-    if let Some(file_browser) = &mut app.file_browser
-        && let Mode::Details(details_mode) = &*app.mode
-        && file_browser.needs_update(app.is_details_visible && details_mode.full_screen)
-    {
-        match file_browser.update(ctx, selection) {
-            Ok(true) => {
-                app.should_render = true;
-            }
-            Ok(false) => {}
-            Err(err) => {
-                messages.push(Message::ShowError(err));
-            }
-        }
-    }
-
-    if app.fps.update() {
-        app.should_render = true;
-    }
-
-    if app.outcome.is_some() && app.launch_options.remember_selection {
-        _ = save_selection_to_disk(ctx, app);
-    }
-
-    Ok(())
-}
-
-fn render<T>(app: &mut App, terminal_guard: &mut T) -> anyhow::Result<()>
-where
-    T: TerminalGuard,
-    anyhow::Error: From<<T::Backend as Backend>::Error>,
-{
-    if std::mem::take(&mut app.should_render) {
-        let _span = tracing::trace_span!("render").entered();
-        terminal_guard.terminal_mut().draw(|frame| {
-            app.renders += 1;
-            count_allocations("render", || render_app(app, frame))
-        })?;
-    }
 
     Ok(())
 }
@@ -532,31 +384,8 @@ fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
-mod private {
-    pub trait Sealed {}
-    impl Sealed for crate::utils::InputOutputChannel<'_> {}
-}
-
-/// Required to abstract over input/output channels for the TUI.
-///
-/// In production we want to require `InputOutputChannel`. This means the caller must check that
-/// input is actually supported and return an error otherwise. However in tests we don't want to
-/// enforce that.
-///
-/// So this trait exists such that we can make a fake to use in tests that panics on
-/// `prompt_single_line`.
-pub trait TuiInputOutputChannel: WriteWithUtils + private::Sealed {
-    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>>;
-}
-
-impl TuiInputOutputChannel for InputOutputChannel<'_> {
-    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
-        InputOutputChannel::prompt_single_line(self, prompt)
-    }
-}
-
 #[derive(Debug)]
-enum Message {
+pub enum Message {
     // Lifecycle
     JustRender,
     Quit,
@@ -646,7 +475,7 @@ impl Message {
 }
 
 #[derive(Debug)]
-enum DetailsLayoutMessage {
+pub enum DetailsLayoutMessage {
     /// Focus the details view, showing it first if needed.
     ///
     /// `full_screen` controls whether focus enters the split view or expands details to cover the
@@ -668,7 +497,7 @@ enum DetailsLayoutMessage {
 /// we'd get double reloads after performing an operation from the TUI since that changes the git
 /// repo which triggers the watcher.
 #[derive(Debug, Clone, Copy)]
-enum ReloadCause {
+pub enum ReloadCause {
     /// Reloading because some mutation was made by the TUI.
     Mutation,
     /// Reloading because the watcher came back with an event.
@@ -680,14 +509,14 @@ enum ReloadCause {
 }
 
 #[derive(Debug)]
-enum FilesMessage {
+pub enum FilesMessage {
     ToggleGlobalFilesList,
     ToggleFilesForSelectedCommit,
 }
 
 /// What to select after reloading
 #[derive(Debug)]
-enum SelectAfterReload {
+pub enum SelectAfterReload {
     Commit(gix::ObjectId),
     FirstFileInCommit(gix::ObjectId),
     #[expect(dead_code)]

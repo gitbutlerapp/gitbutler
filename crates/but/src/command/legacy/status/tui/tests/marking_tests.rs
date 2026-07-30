@@ -2,9 +2,9 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{
-    BackstackEntry,
-    tests::utils::{Shift, test_tui},
+use crate::{
+    command::legacy::status::tui::{BackstackEntry, tests::utils::test_status_tui},
+    tui::test_utils::Shift,
 };
 
 #[test]
@@ -12,7 +12,7 @@ fn marking_individual_commit_toggles_mark_indicator() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
@@ -33,7 +33,7 @@ fn marking_uncommitted_toggles_all_uncommitted_files() {
     env.file("a.txt", "content");
     env.file("b.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
@@ -61,7 +61,7 @@ fn marking_middle_row_uses_neighbor_states() {
     env.file("b.txt", "content");
     env.file("c.txt", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down]);
@@ -94,7 +94,7 @@ fn marking_section_edge_moves_only_when_neighbor_differs() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('b');
     for message in ["one", "two"] {
@@ -118,7 +118,7 @@ fn marks_still_show_in_split_details() {
     env.file("one", "content of one");
     env.file("two", "content of two");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // mark some things
     tui.input('j');
@@ -170,7 +170,7 @@ fn manual_reload_preserves_marks_when_split_details_visible() {
     env.file("one", "content of one");
     env.file("two", "content of two");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('d');
     tui.input('j');
@@ -196,7 +196,7 @@ fn can_only_mark_files_from_one_commit() {
     env.file("three", "");
     env.file("four", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input(' ');
@@ -250,7 +250,7 @@ fn marking_commit_on_branch_with_one_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('j');
@@ -273,7 +273,7 @@ fn marking_and_squashing_branches() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     for _ in 0..3 {
         tui.input('g');
@@ -311,7 +311,7 @@ fn fix_backstack_with_marks_in_squash_mode_from_commit_file_list() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('j');
@@ -339,7 +339,7 @@ fn marking_branches_shows_checkmark_in_the_right_place() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j').assert_current_line_eq(str![["┊╭┄ g0 [A]"]]);
     tui.input(' ').assert_current_line_eq(str![["┊✔︎  g0 [A]"]]);

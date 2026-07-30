@@ -2,9 +2,9 @@ use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{
-    backstack::BackstackEntry,
-    tests::utils::{Shift, test_tui},
+use crate::{
+    command::legacy::status::tui::{backstack::BackstackEntry, tests::utils::test_status_tui},
+    tui::test_utils::Shift,
 };
 
 #[test]
@@ -12,7 +12,7 @@ fn discard_prompt_can_be_cancelled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -35,7 +35,7 @@ fn discard_uncommitted_confirm_yes_discards_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -63,7 +63,7 @@ fn discard_uncommitted_cancel_keeps_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -94,7 +94,7 @@ fn discard_commit_confirm_yes_removes_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
@@ -122,7 +122,7 @@ fn discard_top_commit_selects_next_commit_in_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -148,7 +148,7 @@ fn discard_bottom_commit_selects_rewritten_commit_above() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -173,7 +173,7 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
 
@@ -218,7 +218,7 @@ fn discard_branch_confirm_yes_removes_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -250,7 +250,7 @@ fn discard_branch_cancel_keeps_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -282,7 +282,7 @@ fn discard_multiple_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('b')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
@@ -315,7 +315,7 @@ fn mark_and_discard_uncommitted_files() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input(' ');
@@ -340,7 +340,7 @@ fn discard_individual_committed_files_from_local_file_list() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -390,7 +390,7 @@ fn discard_individual_committed_files_from_global_file_list() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -431,7 +431,7 @@ fn discard_marked_committed_files_from_local_file_list() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -478,7 +478,7 @@ fn discard_marked_committed_files_from_global_file_list() {
     env.file("two", "");
     env.file("three", "");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('c');
     tui.input('e');
@@ -511,7 +511,7 @@ fn global_file_list_stays_open_after_discarding_the_last_file_in_a_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'F'))
         .assert_rendered_term_svg_eq(file![
@@ -539,7 +539,7 @@ fn global_file_list_stays_open_after_marking_and_discarding_all_files_in_a_commi
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input((KeyModifiers::SHIFT, 'F'));
 
@@ -563,7 +563,7 @@ fn marking_and_discarding_multiple_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
     tui.input('b');
@@ -599,7 +599,7 @@ fn marking_and_discarding_multiple_branches_fails_with_dependencies() {
 
     env.file("file", "content");
 
-    let mut tui = test_tui(env);
+    let mut tui = test_status_tui(env);
 
     // create a stack of two branches where the top has a dependency on the bottom
     tui.input('c');

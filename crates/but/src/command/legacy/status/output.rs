@@ -9,7 +9,7 @@ use crate::{
     utils::WriteWithUtils,
 };
 
-pub(super) enum StatusOutput<'a> {
+pub enum StatusOutput<'a> {
     /// Immediately print the outputs as it's being generated.
     ///
     /// This is used when running the status command in one-shot mode.
@@ -45,7 +45,7 @@ impl StatusOutput<'_> {
         Ok(())
     }
 
-    pub(super) fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -53,7 +53,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(<_>::default()),
@@ -61,7 +61,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn between_stacks(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn between_stacks(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(<_>::default()),
@@ -69,7 +69,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn staged_changes(
+    pub fn staged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -84,7 +84,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn staged_file(
+    pub fn staged_file(
         &mut self,
         connector: Vec<Span<'static>>,
         line: FileLineContent,
@@ -99,7 +99,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn unstaged_changes(
+    pub fn unstaged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: UncommittedLineContent,
@@ -114,7 +114,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn uncommitted_file(
+    pub fn uncommitted_file(
         &mut self,
         connector: Vec<Span<'static>>,
         line: FileLineContent,
@@ -129,7 +129,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn branch(
+    pub fn branch(
         &mut self,
         connector: Vec<Span<'static>>,
         line: BranchLineContent,
@@ -146,7 +146,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn file(
+    pub fn file(
         &mut self,
         connector: Vec<Span<'static>>,
         line: FileLineContent,
@@ -161,7 +161,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn commit(
+    pub fn commit(
         &mut self,
         connector: Vec<Span<'static>>,
         line: CommitLineContent,
@@ -180,7 +180,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn commit_message(
+    pub fn commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -192,7 +192,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn empty_commit_message(
+    pub fn empty_commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -204,7 +204,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -212,7 +212,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+    pub fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             None,
             StatusOutputContent::Plain(line),
@@ -220,7 +220,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn no_assignments_unstaged(
+    pub fn no_assignments_unstaged(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -232,7 +232,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn merge_base(
+    pub fn merge_base(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -244,7 +244,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn upstream_changes(
+    pub fn upstream_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
@@ -259,7 +259,7 @@ impl StatusOutput<'_> {
 
 /// The non-connector content rendered for one status line.
 #[derive(Debug, Clone)]
-pub(super) enum StatusOutputContent {
+pub enum StatusOutputContent {
     Plain(Vec<Span<'static>>),
     Commit(CommitLineContent),
     Branch(BranchLineContent),
@@ -268,60 +268,60 @@ pub(super) enum StatusOutputContent {
 }
 
 #[derive(Debug, Default, Clone)]
-pub(super) struct CommitLineContent {
-    pub(super) change_id: Vec<Span<'static>>,
-    pub(super) sha: Vec<Span<'static>>,
-    pub(super) author: Vec<Span<'static>>,
-    pub(super) message: Vec<Span<'static>>,
-    pub(super) suffix: Vec<Span<'static>>,
+pub struct CommitLineContent {
+    pub change_id: Vec<Span<'static>>,
+    pub sha: Vec<Span<'static>>,
+    pub author: Vec<Span<'static>>,
+    pub message: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
 }
 
 /// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
-pub(super) struct BranchLineContent {
+pub struct BranchLineContent {
     /// "dp" in the example
-    pub(super) id: Vec<Span<'static>>,
+    pub id: Vec<Span<'static>>,
     /// " [" in the example
-    pub(super) decoration_start: Vec<Span<'static>>,
+    pub decoration_start: Vec<Span<'static>>,
     /// "dp-branch-1" in the example
-    pub(super) branch_name: Vec<Span<'static>>,
+    pub branch_name: Vec<Span<'static>>,
     /// "] " in the example
-    pub(super) decoration_end: Vec<Span<'static>>,
+    pub decoration_end: Vec<Span<'static>>,
     /// "(no commits)" in the example
-    pub(super) suffix: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
 }
 
 /// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
-pub(super) struct FileLineContent {
+pub struct FileLineContent {
     /// "ae:sv" in the example
-    pub(super) id: Vec<Span<'static>>,
+    pub id: Vec<Span<'static>>,
     /// "A" in the example
-    pub(super) status: Vec<Span<'static>>,
+    pub status: Vec<Span<'static>>,
     /// "a/b/c.rs" in the example
-    pub(super) path: Vec<Span<'static>>,
+    pub path: Vec<Span<'static>>,
 }
 
 /// Considering the example "zz [uncommitted] (no changes)" see the field docs for what exactly
 /// they correspond to.
 #[derive(Debug, Default, Clone)]
-pub(super) struct UncommittedLineContent {
+pub struct UncommittedLineContent {
     /// "zz" in the example
-    pub(super) id: Vec<Span<'static>>,
+    pub id: Vec<Span<'static>>,
     /// " [" in the example
-    pub(super) decoration_start: Vec<Span<'static>>,
+    pub decoration_start: Vec<Span<'static>>,
     /// "uncommitted" in the example
-    pub(super) label: Vec<Span<'static>>,
+    pub label: Vec<Span<'static>>,
     /// "]" in the example
-    pub(super) decoration_end: Vec<Span<'static>>,
+    pub decoration_end: Vec<Span<'static>>,
     /// " (no changes)" in the example
-    pub(super) suffix: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct StatusOutputLine {
+pub struct StatusOutputLine {
     /// The span holding the connector, if any, for this line. Includes padding and indicators that
     /// might be shown along side the connector.
     ///
@@ -336,18 +336,18 @@ pub(super) struct StatusOutputLine {
     /// ┊                                                               | Some("┊ ")
     /// ┊● 7cd07f6 (upstream: origin/main) 1 new commit (checked 34 seconds ago) | Some("┊● ")
     /// ├╯ 8678259 [origin/main] 2026-03-11 nix                         | Some("├╯ ")
-    pub(super) connector: Option<Vec<Span<'static>>>,
+    pub connector: Option<Vec<Span<'static>>>,
     /// The content of the line such as the commit, branch, or file.
-    pub(super) content: StatusOutputContent,
+    pub content: StatusOutputContent,
     /// The backing data associated with this line.
     ///
     /// This tells the TUI what data the actual line is showing. Used for performing operations on
     /// the line.
-    pub(super) data: StatusOutputLineData,
+    pub data: StatusOutputLineData,
 }
 
 impl StatusOutputLine {
-    pub(super) fn is_selectable(&self) -> bool {
+    pub fn is_selectable(&self) -> bool {
         match &self.data {
             StatusOutputLineData::Commit { classification, .. } => match classification {
                 CommitClassification::LocalOnly
@@ -378,7 +378,7 @@ impl StatusOutputLine {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum StatusOutputLineData {
+pub enum StatusOutputLineData {
     UpdateNotice,
     Connector,
     BetweenStacks,
@@ -416,7 +416,7 @@ pub(super) enum StatusOutputLineData {
 }
 
 impl StatusOutputLineData {
-    pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
+    pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
             StatusOutputLineData::UncommittedChanges { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
