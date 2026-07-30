@@ -31,7 +31,10 @@ use crate::{
     utils::merged_upstream::MergedUpstream,
 };
 
-use super::mark::{Marks, MarksRef};
+use super::{
+    CommitSource,
+    mark::{Marks, MarksRef},
+};
 
 #[derive(Debug, Clone)]
 pub enum SquashSource {
@@ -339,6 +342,17 @@ impl App {
                 MarksRef::Branches { .. }
                 | MarksRef::Commits { .. }
                 | MarksRef::CommittedFiles { .. } => {}
+            },
+            Mode::Commit(commit_mode) => match &*commit_mode.source {
+                CommitSource::Uncommitted => {
+                    self.start_with_source(SquashSource::Uncommitted);
+                }
+                CommitSource::UncommittedHunk(hunk) => {
+                    self.start_with_source(SquashSource::UncommittedHunk(hunk.clone()));
+                }
+                CommitSource::Marks(hunks) => {
+                    self.start_with_source(SquashSource::Marks(SquashMarks::Hunks(hunks.clone())));
+                }
             },
             _ => {}
         }

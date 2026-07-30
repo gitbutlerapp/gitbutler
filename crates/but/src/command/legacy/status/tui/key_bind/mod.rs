@@ -39,6 +39,11 @@ pub fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Squash => {
                 builder.squash_confirm().register();
                 builder.squash_use_target_message().register();
+                builder
+                    .commit()
+                    .hide_from_hotbar()
+                    .show_only_in_normal_mode_help_section()
+                    .register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Commit => {
@@ -47,6 +52,11 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.commit_reword_inline().register();
                 builder.commit_toggle_insert_side().register();
                 builder.commit_to_new_branch().register();
+                builder
+                    .squash()
+                    .hide_from_hotbar()
+                    .show_only_in_normal_mode_help_section()
+                    .register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Move => {

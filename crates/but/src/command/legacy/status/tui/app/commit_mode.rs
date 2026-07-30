@@ -29,7 +29,7 @@ use crate::{
     utils::targeting,
 };
 
-use super::mark::MarksRef;
+use super::{SquashMarks, SquashSource, mark::MarksRef};
 
 #[derive(Debug, Clone)]
 pub struct CommitMode {
@@ -116,6 +116,16 @@ impl CommitSource {
             }
         }
     }
+
+    fn try_from_cli_id(id: &CliId) -> Option<Self> {
+        match id {
+            CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
+                Some(CommitSource::Uncommitted)
+            }
+            CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -144,7 +154,11 @@ impl App {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
             CommitMessage::Start => self.handle_commit_start(messages),
-            CommitMessage::StartWithSource(source) => self.handle_commit_start_source(source),
+            CommitMessage::StartWithSource(source) => {
+                if let Some(source) = CommitSource::try_from_cli_id(&source) {
+                    self.handle_commit_start_source(source);
+                }
+            }
             CommitMessage::Confirm => self.handle_commit_confirm(ctx, terminal_guard, messages)?,
             CommitMessage::ToggleMessageComposer(composer) => {
                 self.handle_commit_toggle_message_composer(composer);
@@ -164,14 +178,15 @@ impl App {
         match &*self.mode {
             Mode::Normal(..) => {
                 if self.marks_ref().is_empty() {
-                    let Some(selection) = self
+                    let Some(source) = self
                         .cursor
                         .selected_line(&self.status_lines)
                         .and_then(|selection| selection.data.cli_id())
+                        .and_then(|id| CommitSource::try_from_cli_id(id))
                     else {
                         return;
                     };
-                    self.handle_commit_start_source(Arc::clone(selection));
+                    self.handle_commit_start_source(source);
                 } else {
                     self.handle_commit_start_marks();
                 }
@@ -202,18 +217,30 @@ impl App {
                 | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {}
             },
+            Mode::Squash(squash_mode) => match &squash_mode.source {
+                SquashSource::Uncommitted => {
+                    self.handle_commit_start_source(CommitSource::Uncommitted);
+                }
+                SquashSource::UncommittedHunk(hunk) => {
+                    self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));
+                }
+                SquashSource::Marks(squash_marks) => match squash_marks {
+                    SquashMarks::Hunks(hunks) => {
+                        self.handle_commit_start_source(CommitSource::Marks(hunks.clone()));
+                    }
+                    SquashMarks::Commits(..)
+                    | SquashMarks::CommittedFiles(..)
+                    | SquashMarks::Branches(..) => {}
+                },
+                SquashSource::Branch(..)
+                | SquashSource::CommittedFile(..)
+                | SquashSource::Commit(..) => {}
+            },
             _ => {}
         }
     }
 
-    fn handle_commit_start_source(&mut self, cli_id: Arc<CliId>) {
-        let source = match Arc::unwrap_or_clone(cli_id) {
-            CliId::Uncommitted { .. } | CliId::Branch(..) | CliId::Commit { .. } => {
-                CommitSource::Uncommitted
-            }
-            CliId::UncommittedHunkOrFile(hunk) => CommitSource::UncommittedHunk(hunk),
-            CliId::Stack { .. } | CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
-        };
+    fn handle_commit_start_source(&mut self, source: CommitSource) {
         let commit_mode = CommitMode {
             source: Arc::new(source),
             insert_side: InsertSide::Below,
