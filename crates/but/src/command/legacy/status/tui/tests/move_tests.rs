@@ -3,8 +3,7 @@ use crossterm::event::*;
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::tests::utils::{
-    TestTuiOptions, setup_two_stacks_one_single_and_one_double, test_status_tui,
-    test_status_tui_with_options,
+    TestTuiOptions, test_status_tui, test_status_tui_with_options,
 };
 
 #[test]
@@ -138,7 +137,7 @@ fn move_commit_up_from_top_commit_selects_source_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_status_tui(env);
 
@@ -161,7 +160,7 @@ fn move_branch_onto_other_branch_reorders_stacks() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_status_tui(env);
 

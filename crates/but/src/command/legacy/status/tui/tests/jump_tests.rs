@@ -2,17 +2,14 @@ use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{
-    BackstackEntry,
-    tests::utils::{setup_two_stacks_one_single_and_one_double, test_status_tui},
-};
+use crate::command::legacy::status::tui::{BackstackEntry, tests::test_status_tui};
 
 #[test]
 fn jumping_around() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     env.file("one", "");
     env.file("two", "");
@@ -49,7 +46,7 @@ fn jump_from_other_modes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     env.file("one", "");
 
@@ -68,7 +65,7 @@ fn clears_backstack_on_escape() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_status_tui(env);
 
@@ -82,7 +79,7 @@ fn restores_backstack_from_previous_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     env.file("one", "");
 
@@ -108,7 +105,7 @@ fn highlights_exact_matches_when_file_list_is_open() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    setup_two_stacks_one_single_and_one_double(&env);
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_status_tui(env);
 
