@@ -1986,9 +1986,7 @@ const BranchDetails: FC<{
 	);
 };
 
-const FileDetailsSkeleton: FC<{
-	path: string;
-}> = ({ path }) => {
+const FileDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	return (
@@ -1999,7 +1997,7 @@ const FileDetailsSkeleton: FC<{
 
 					<div className={styles.title}>
 						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
+						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
 				</div>
 			</div>
@@ -2025,13 +2023,11 @@ const FileDetails: FC<{
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-	const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-		(item) => item.path === selection.path,
-	);
+	const filesItems = getChangesFileRowItems(worktreeChanges);
 	const changes = filesItems.flatMap((item) => (item._tag === "Change" ? [item.change] : []));
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
 	};
 
 	return (
@@ -2042,7 +2038,7 @@ const FileDetails: FC<{
 
 					<div className={styles.title}>
 						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>{selection.path}</h3>
+						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
 				</div>
 			</div>
@@ -2076,8 +2072,8 @@ export const Details: FC<{
 			Branch: (branch) => <BranchDetails key={branchIdentityKey(branch)} selection={branch} />,
 		}),
 		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
-			<Suspense fallback={<FileDetailsSkeleton path={file.path} />}>
-				<FileDetails key={weakFileIdentityKey(file)} selection={file} />
+			<Suspense fallback={<FileDetailsSkeleton />}>
+				<FileDetails selection={file} />
 			</Suspense>
 		)),
 		Match.orElseAbsurd,
