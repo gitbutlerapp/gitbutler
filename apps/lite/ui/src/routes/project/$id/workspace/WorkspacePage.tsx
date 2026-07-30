@@ -1,8 +1,10 @@
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
@@ -28,7 +30,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useDeferredValue } from "react";
+import { type FC, Activity, useDeferredValue, useRef } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
@@ -38,10 +40,12 @@ import {
 	operandEquals,
 	operandIdentityKey,
 	type BranchOperand,
+	type HunkOperand,
 	type Operand,
 	uncommittedChangesFileParent,
 } from "#ui/operands.ts";
-import { Details } from "./Details.tsx";
+import { Details, type DiffViewerHandle } from "./Details.tsx";
+import { getDiffFileNavigation } from "./diff-view.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -56,6 +60,7 @@ import { Settings } from "./Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
+import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -324,6 +329,39 @@ const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: renderAllFiles } = useSuspenseQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+	});
+
+	const viewerRef = useRef<DiffViewerHandle>(null);
+
+	// In the all-in-one view, file selection scrolls to that file, which triggers CodeView's scroll
+	// handler and updates file selection again (as per usual scrolling scenario). That latter file
+	// selection is based upon the first file visible in the viewport, which may exclude trailing
+	// files collectively shorter than the scroll container.
+	//
+	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
+	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
+	// container, but that comes with other complexities and tradeoffs.
+	const didScrollToViaFileRef = useRef(false);
+
+	const onActiveFileSelection = (itemId: string, firstHunk: HunkOperand | null) => {
+		dispatch(
+			projectSlice.actions.selectDiff({
+				projectId,
+				selection: firstHunk,
+			}),
+		);
+
+		if (renderAllFiles) {
+			didScrollToViaFileRef.current = true;
+			viewerRef.current?.scrollTo({
+				type: "item",
+				id: itemId,
+			});
+		}
+	};
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
@@ -444,6 +482,35 @@ const WorkspacePage: FC = () => {
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesNavigationIndex = buildUncommittedFilesNavigationIndex({ worktreeChanges });
+	const uncommittedTreeChangeDiffs = useQueries({
+		queries:
+			worktreeChanges?.changes.map((change) =>
+				treeChangeDiffsQueryOptions({ projectId, change }),
+			) ?? [],
+		combine: (results) => {
+			if (!worktreeChanges || results.some((result) => result.data === undefined)) return null;
+
+			return results.map((result) => result.data ?? null);
+		},
+	});
+
+	const onActiveUncommittedFileSelection = (selection: string) => {
+		const index = uncommittedFilesNavigationIndex.indexByKey.get(selection);
+		const change = index !== undefined ? worktreeChanges?.changes[index] : undefined;
+		const treeChangeDiff = index !== undefined ? uncommittedTreeChangeDiffs?.[index] : undefined;
+		const navigation =
+			change && treeChangeDiff !== undefined
+				? getDiffFileNavigation({
+						fileParent: uncommittedChangesFileParent,
+						change,
+						treeChangeDiff,
+					})
+				: null;
+
+		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
+	};
+
 	const uncommittedFilesSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUncommittedFiles(
 			state,
@@ -513,6 +580,7 @@ const WorkspacePage: FC = () => {
 							navigationIndex={outlineNavigationIndex}
 							uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 							absorptionTargetCommitIds={absorptionTargetCommitIds}
+							onActiveFileSelection={onActiveUncommittedFileSelection}
 						/>
 					</Panel>
 					<Separator className={styles.resizeHandle} />
@@ -523,7 +591,12 @@ const WorkspacePage: FC = () => {
 					className={styles.panel}
 					data-selection-scope={"details" satisfies SelectionScope}
 				>
-					<Details selection={deferredDetailsSelection} />
+					<Details
+						selection={deferredDetailsSelection}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+					/>
 				</Panel>
 			</Group>
 

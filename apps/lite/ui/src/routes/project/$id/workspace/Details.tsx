@@ -33,12 +33,10 @@ import {
 	type FileOperand,
 	fileOperand,
 	hunkOperand,
-	operandIdentityKey,
 	type FileParent,
 	type HunkOperand,
 	type Operand,
 	weakCommitIdentityKey,
-	weakFileIdentityKey,
 } from "#ui/operands.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -58,20 +56,13 @@ import {
 	FieldTextareaStyles,
 } from "#ui/components/Field.tsx";
 import { Field, Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import type { CiCheck, CommitDetails, TreeChange } from "@gitbutler/but-sdk";
 import type {
-	CiCheck,
-	CommitDetails,
-	DiffHunk,
-	TreeChange,
-	UnifiedPatch,
-} from "@gitbutler/but-sdk";
-import {
-	type CodeViewDiffItem,
-	type CodeView as CodeViewClass,
-	type CodeViewLineSelection,
-	parsePatchFiles,
-	type GetHoveredLineResult,
-	type DiffLineAnnotation,
+	CodeViewDiffItem,
+	CodeView as CodeViewClass,
+	CodeViewLineSelection,
+	GetHoveredLineResult,
+	DiffLineAnnotation,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -109,12 +100,7 @@ import {
 	getChangesFileRowItems,
 	type FileRowItem,
 } from "./file-row.ts";
-import {
-	contiguousSelectionByLine,
-	contiguousSelectionsFromHunk,
-	rangeFromLineGroups,
-	synthesizeFilePatch,
-} from "#ui/hunk.ts";
+import { contiguousSelectionByLine } from "#ui/hunk.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
@@ -144,8 +130,14 @@ import {
 	useCommentCreate,
 } from "#ui/annotation.ts";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
+import {
+	type Annotation,
+	type DiffView,
+	getDiffView,
+	hunkOperandIdentityKey,
+} from "./diff-view.ts";
 
-type Annotation = { _tag: "local"; id: string };
+export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -158,9 +150,6 @@ const diffDefaults = {
 	diffOverflow: "scroll",
 	diffStyle: "split",
 } satisfies Partial<GUISettings>;
-
-const hunkOperandIdentityKey = (operand: HunkOperand): string =>
-	operandIdentityKey(hunkOperand(operand));
 
 const getCommitFileRowItems = ({
 	commitDetails,
@@ -194,140 +183,6 @@ const getCommitFileRowItems = ({
 				}),
 			),
 	];
-};
-
-const mkCodeViewItem = (
-	id: string,
-	change: TreeChange,
-	hunks: Array<DiffHunk>,
-): CodeViewDiffItem<Annotation> => {
-	const combinedFilePatch = synthesizeFilePatch(change, hunks);
-	const version = hash(combinedFilePatch);
-	const parsed = parsePatchFiles(combinedFilePatch, String(version));
-
-	const [patch, ...restPatches] = parsed;
-	if (!patch) throw new Error("Failed to parse any patches");
-	if (restPatches.length > 0) throw new Error("Parsed more than one patch");
-
-	const [fileDiff, ...restFiles] = patch.files;
-	if (!fileDiff) throw new Error("Failed to parse any files in patch");
-	if (restFiles.length > 0) throw new Error("Parsed more than one file in patch");
-
-	return {
-		type: "diff",
-		id,
-		version,
-		fileDiff,
-	};
-};
-
-type DiffViewDeps = {
-	fileParent: FileParent;
-	changes: Array<TreeChange>;
-	treeChangeDiffs: Array<UnifiedPatch | null>;
-};
-
-type DiffViewFile = {
-	operand: FileOperand;
-	item: CodeViewDiffItem<Annotation>;
-	change: TreeChange;
-	patch: UnifiedPatch | null;
-	hunks: Array<DiffViewHunk>;
-};
-
-type DiffViewHunk = {
-	operand: HunkOperand;
-	selectedLines: CodeViewLineSelection;
-};
-
-type DiffView = {
-	navigationIndex: NavigationIndex<HunkOperand>;
-	items: Array<CodeViewDiffItem<Annotation>>;
-	fileByItemId: Map<string, DiffViewFile>;
-	fileByPath: Map<string, DiffViewFile>;
-	fileByHunkKey: Map<string, DiffViewFile>;
-	hunkByKey: Map<string, DiffViewHunk>;
-};
-
-/** Build relationships between our SDK data and Pierre's view. */
-const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
-	const navigationIndex: NavigationIndex<HunkOperand> = {
-		items: [],
-		indexByKey: new Map(),
-	};
-
-	const items: Array<CodeViewDiffItem<Annotation>> = [];
-
-	const fileByItemId = new Map<string, DiffViewFile>();
-	const fileByPath = new Map<string, DiffViewFile>();
-	const fileByHunkKey = new Map<string, DiffViewFile>();
-	const hunkByKey = new Map<string, DiffViewHunk>();
-
-	for (const [ci, change] of changes.entries()) {
-		const mdiff = treeChangeDiffs[ci];
-
-		const file: FileOperand = {
-			parent: fileParent,
-			path: change.path,
-		};
-		const item = mkCodeViewItem(
-			weakFileIdentityKey(file),
-			change,
-			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
-		);
-
-		items.push(item);
-
-		const diffViewFile: DiffViewFile = {
-			operand: file,
-			item,
-			change,
-			patch: mdiff ?? null,
-			hunks: [],
-		};
-
-		fileByItemId.set(item.id, diffViewFile);
-		fileByPath.set(change.path, diffViewFile);
-
-		if (mdiff?.type === "Patch") {
-			for (const hunk of item.fileDiff.hunks) {
-				for (const selection of contiguousSelectionsFromHunk(hunk)) {
-					const range = rangeFromLineGroups(selection.lineGroups);
-					if (!range) continue;
-
-					const hunkOperand: HunkOperand = {
-						parent: file,
-						...selection,
-						isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
-					};
-					const hunkKey = hunkOperandIdentityKey(hunkOperand);
-
-					const len = navigationIndex.items.push(hunkOperand);
-					navigationIndex.indexByKey.set(hunkKey, len - 1);
-
-					const diffViewHunk: DiffViewHunk = {
-						operand: hunkOperand,
-						selectedLines: {
-							id: item.id,
-							range,
-						},
-					};
-					diffViewFile.hunks.push(diffViewHunk);
-					fileByHunkKey.set(hunkKey, diffViewFile);
-					hunkByKey.set(hunkKey, diffViewHunk);
-				}
-			}
-		}
-	}
-
-	return {
-		items,
-		fileByItemId,
-		fileByPath,
-		fileByHunkKey,
-		hunkByKey,
-		navigationIndex,
-	};
 };
 
 const withAnnotations = (
@@ -386,7 +241,7 @@ const DiffContents: FC<{
 	onViewerFileSelection,
 	fileParent,
 	projectId,
-	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffView: { items, navigationIndex, hunkByKey, fileByItemId },
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -415,18 +270,18 @@ const DiffContents: FC<{
 	const diffSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionDiff(state, projectId, navigationIndex),
 	);
-	const diffSelectionFile =
-		diffSelection !== null ? fileByHunkKey.get(hunkOperandIdentityKey(diffSelection)) : null;
+	const diffSelectionHunk =
+		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
 	const selectedRange = diffSelection
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
 
 	useLayoutEffect(() => {
-		if (!diffSelectionFile) return;
+		if (!diffSelectionHunk) return;
 
 		viewerRef.current?.scrollTo({
 			type: "item",
-			id: diffSelectionFile.item.id,
+			id: diffSelectionHunk.file.item.id,
 			align: "start",
 			behavior: "instant",
 		});
@@ -455,7 +310,7 @@ const DiffContents: FC<{
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
 			const k = hunkOperandIdentityKey(hunk);
-			return hunkOperandIdentityKey(assert(assert(fileByHunkKey.get(k)).hunks[0]).operand) === k;
+			return hunkOperandIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).operand) === k;
 		},
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
@@ -465,9 +320,10 @@ const DiffContents: FC<{
 	useHotkeys([
 		{
 			hotkey: diffHotkeys.foldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(true),
+			callback: () =>
+				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(true),
 			options: {
-				enabled: !!diffSelectionFile && !collapsedItems.has(diffSelectionFile.item.id),
+				enabled: !!diffSelectionHunk && !collapsedItems.has(diffSelectionHunk.file.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.foldFile.meta,
@@ -475,9 +331,10 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: diffHotkeys.unfoldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(false),
+			callback: () =>
+				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(false),
 			options: {
-				enabled: !!diffSelectionFile && collapsedItems.has(diffSelectionFile.item.id),
+				enabled: !!diffSelectionHunk && collapsedItems.has(diffSelectionHunk.file.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.unfoldFile.meta,
@@ -486,16 +343,16 @@ const DiffContents: FC<{
 		{
 			hotkey: diffHotkeys.openInEditor.hotkey,
 			callback: () =>
-				diffSelectionFile &&
+				diffSelectionHunk &&
 				settings?.editor &&
 				openInProgram({
 					projectId,
 					programId: settings.editor.id,
-					path: diffSelectionFile.change.path,
+					path: diffSelectionHunk.file.change.path,
 					lineNr: selectedRange?.range.start ?? null,
 				}),
 			options: {
-				enabled: !!diffSelectionFile && !!settings?.editor,
+				enabled: !!diffSelectionHunk && !!settings?.editor,
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.openInEditor.meta,
@@ -1008,25 +865,31 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileRowItem>;
-	onFileSelection: (selection: string) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	onPassiveFileSelection: (selection: string) => void;
 	selection: Operand;
 	projectId: string;
-}> = ({ changes, filesVisible, filesItems, onFileSelection, selection, projectId }) => {
+	viewerRef: RefObject<DiffViewerHandle | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
+}> = ({
+	changes,
+	filesVisible,
+	filesItems,
+	onPassiveFileSelection,
+	selection,
+	projectId,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
-	const viewerRef = useRef<CodeViewHandle<Annotation>>(null);
 
-	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
-	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
-	// scenario). That latter file selection is based upon the first file visible in the viewport,
-	// which may exclude trailing files collectively shorter than the scroll container.
-	//
-	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
-	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
-	// container, but that comes with other complexities and tradeoffs.
-	const didScrollToViaFileRef = useRef(false);
+	const { data: renderAllFiles } = useSuspenseQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+	});
 
-	const dispatch = useAppDispatch();
 	const canShowFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
@@ -1054,6 +917,8 @@ const Diff: FC<{
 		[selection],
 	);
 
+	// Eagerly fetch all diffs regardless of unidiff setting, both for UX and for the total line
+	// stats.
 	const { treeChangeDiffs, lineStats } = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => {
@@ -1067,36 +932,28 @@ const Diff: FC<{
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
-	const diffViewSansAnno = useMemo(
-		() =>
-			getDiffView({
-				fileParent,
-				changes,
-				treeChangeDiffs,
-			}),
-		[fileParent, changes, treeChangeDiffs],
-	);
+	const diffViewSansAnno = useMemo(() => {
+		const selectedFile = selection._tag === "File" ? selection.path : filesSelection;
+		const selectedFileIdx = changes.findIndex((change) => change.path === selectedFile);
+
+		return getDiffView({
+			fileParent,
+			changes: renderAllFiles ? changes : changes.slice(selectedFileIdx, selectedFileIdx + 1),
+			treeChangeDiffs: renderAllFiles
+				? treeChangeDiffs
+				: treeChangeDiffs.slice(selectedFileIdx, selectedFileIdx + 1),
+		});
+	}, [fileParent, renderAllFiles, selection, filesSelection, changes, treeChangeDiffs]);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
-	const selectFileAndNavigateDiff = (selection: string) => {
-		onFileSelection(selection);
+	const activateFile = (selection: string) => {
+		onPassiveFileSelection(selection);
 
-		const file = diffView.fileByPath.get(selection);
+		const file = diffViewSansAnno.fileByPath.get(selection);
 		if (!file) return;
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: file.hunks[0]?.operand ?? null,
-			}),
-		);
-
-		didScrollToViaFileRef.current = true;
-		viewerRef.current?.scrollTo({
-			type: "item",
-			id: file.item.id,
-		});
+		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
 	};
 
 	const { data: diffSettings } = useQuery({
@@ -1185,7 +1042,7 @@ const Diff: FC<{
 								>
 									<FilesTree
 										data-selection-scope={"files" satisfies SelectionScope}
-										onFileSelection={selectFileAndNavigateDiff}
+										onFileSelection={activateFile}
 										projectId={projectId}
 										items={filesItems}
 										selection={filesSelection}
@@ -1250,7 +1107,7 @@ const Diff: FC<{
 					>
 						<DiffContents
 							localAnnotationFormId={localAnnotationFormId}
-							onViewerFileSelection={onFileSelection}
+							onViewerFileSelection={onPassiveFileSelection}
 							fileParent={fileParent}
 							projectId={projectId}
 							diffView={diffView}
@@ -1626,7 +1483,10 @@ const CommitDetailsSkeleton: FC = () => {
 
 const CommitDetails: FC<{
 	selection: Extract<Operand, { _tag: "Commit" }>;
-}> = ({ selection }) => {
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	viewerRef: RefObject<DiffViewerHandle | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
+}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
@@ -1740,9 +1600,12 @@ const CommitDetails: FC<{
 				changes={commitDetails.changes}
 				filesVisible={filesVisible}
 				filesItems={getCommitFileRowItems({ commitDetails })}
-				onFileSelection={selectFile}
+				onPassiveFileSelection={selectFile}
 				selection={selection}
 				projectId={projectId}
+				onActiveFileSelection={onActiveFileSelection}
+				viewerRef={viewerRef}
+				didScrollToViaFileRef={didScrollToViaFileRef}
 			/>
 		</div>
 	);
@@ -1750,7 +1613,10 @@ const CommitDetails: FC<{
 
 const BranchDetails: FC<{
 	selection: Extract<Operand, { _tag: "Branch" }>;
-}> = ({ selection }) => {
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	viewerRef: RefObject<DiffViewerHandle | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
+}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1974,9 +1840,12 @@ const BranchDetails: FC<{
 										dependencyCommitIds: [],
 									}),
 								)}
-								onFileSelection={selectFile}
+								onPassiveFileSelection={selectFile}
 								selection={selection}
 								projectId={projectId}
+								onActiveFileSelection={onActiveFileSelection}
+								viewerRef={viewerRef}
+								didScrollToViaFileRef={didScrollToViaFileRef}
 							/>
 						)}
 					</SuspenseQuery>
@@ -1986,9 +1855,7 @@ const BranchDetails: FC<{
 	);
 };
 
-const FileDetailsSkeleton: FC<{
-	path: string;
-}> = ({ path }) => {
+const FileDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	return (
@@ -1999,7 +1866,7 @@ const FileDetailsSkeleton: FC<{
 
 					<div className={styles.title}>
 						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
+						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
 				</div>
 			</div>
@@ -2013,7 +1880,10 @@ const FileDetails: FC<{
 	selection: Extract<Operand, { _tag: "File" }> & {
 		parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
 	};
-}> = ({ selection }) => {
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	viewerRef: RefObject<DiffViewerHandle | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
+}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
@@ -2025,13 +1895,11 @@ const FileDetails: FC<{
 	);
 	const filesVisible = canShowFiles && filesVisibleState;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-	const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-		(item) => item.path === selection.path,
-	);
+	const filesItems = getChangesFileRowItems(worktreeChanges);
 	const changes = filesItems.flatMap((item) => (item._tag === "Change" ? [item.change] : []));
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
 	};
 
 	return (
@@ -2042,7 +1910,7 @@ const FileDetails: FC<{
 
 					<div className={styles.title}>
 						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>{selection.path}</h3>
+						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
 				</div>
 			</div>
@@ -2052,9 +1920,12 @@ const FileDetails: FC<{
 					changes={changes}
 					filesVisible={filesVisible}
 					filesItems={filesItems}
-					onFileSelection={selectFile}
+					onPassiveFileSelection={selectFile}
 					selection={selection}
 					projectId={projectId}
+					onActiveFileSelection={onActiveFileSelection}
+					viewerRef={viewerRef}
+					didScrollToViaFileRef={didScrollToViaFileRef}
 				/>
 			)}
 		</div>
@@ -2063,21 +1934,43 @@ const FileDetails: FC<{
 
 export const Details: FC<{
 	selection: Operand | null;
-}> = ({ selection }) => {
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	viewerRef: RefObject<DiffViewerHandle | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
+}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	if (!selection) return;
 
 	return Match.value(selection).pipe(
 		Match.tags({
 			Commit: (commit) => (
 				<Suspense fallback={<CommitDetailsSkeleton />}>
-					<CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} />
+					<CommitDetails
+						key={weakCommitIdentityKey(commit)}
+						selection={commit}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+					/>
 				</Suspense>
 			),
-			Branch: (branch) => <BranchDetails key={branchIdentityKey(branch)} selection={branch} />,
+			Branch: (branch) => (
+				<BranchDetails
+					key={branchIdentityKey(branch)}
+					selection={branch}
+					onActiveFileSelection={onActiveFileSelection}
+					viewerRef={viewerRef}
+					didScrollToViaFileRef={didScrollToViaFileRef}
+				/>
+			),
 		}),
 		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
-			<Suspense fallback={<FileDetailsSkeleton path={file.path} />}>
-				<FileDetails key={weakFileIdentityKey(file)} selection={file} />
+			<Suspense fallback={<FileDetailsSkeleton />}>
+				<FileDetails
+					selection={file}
+					onActiveFileSelection={onActiveFileSelection}
+					viewerRef={viewerRef}
+					didScrollToViaFileRef={didScrollToViaFileRef}
+				/>
 			</Suspense>
 		)),
 		Match.orElseAbsurd,

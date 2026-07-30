@@ -133,7 +133,8 @@ export const Settings: FC<Props> = ({ open, onOpenChange }) => {
 							</div>
 
 							<div className={styles.input}>
-								<label htmlFor="theme" className={styles.label}>
+								{/* oxlint-disable-next-line jsx-a11y/label-has-associated-control */}
+								<label id="theme" className={styles.label}>
 									Theme
 								</label>
 
@@ -196,6 +197,30 @@ export const Settings: FC<Props> = ({ open, onOpenChange }) => {
 										</option>
 									))}
 								</select>
+							</div>
+
+							<div className={styles.input}>
+								{/* oxlint-disable-next-line jsx-a11y/label-has-associated-control */}
+								<label id="unidiff" className={styles.label}>
+									Diff files
+								</label>
+
+								<ToggleGroup
+									aria-labelledby="unidiff"
+									value={[String(settings.unidiff ?? defaultSettings.unidiff)]}
+									onValueChange={([unidiff]) => {
+										if (unidiff !== undefined) saveGUISettings({ unidiff: unidiff !== "false" });
+									}}
+									render={<ToggleGroupStyles />}
+									className={styles.unstretchedValue}
+								>
+									<Toggle render={<ToggleStyles />} value="true">
+										All-in-one diff
+									</Toggle>
+									<Toggle render={<ToggleStyles />} value="false">
+										Selected file only
+									</Toggle>
+								</ToggleGroup>
 							</div>
 
 							<div className={styles.input}>
