@@ -133,7 +133,7 @@
 			}
 		}
 
-		@media (--tablet-viewport) {
+		@media (--header-menu-breakpoint) {
 			display: block;
 		}
 

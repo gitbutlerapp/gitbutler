@@ -150,7 +150,7 @@
 	.banner {
 		display: flex;
 		position: relative;
-		flex: 3.2;
+		flex: 3.3;
 		padding: 36px 48px;
 	}
 

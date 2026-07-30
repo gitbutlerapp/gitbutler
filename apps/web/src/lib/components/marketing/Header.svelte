@@ -88,7 +88,7 @@
 		align-items: center;
 		gap: 32px;
 
-		@media (--tablet-viewport) {
+		@media (--header-menu-breakpoint) {
 			display: none;
 		}
 	}
