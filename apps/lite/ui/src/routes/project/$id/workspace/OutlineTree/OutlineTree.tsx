@@ -238,6 +238,7 @@ const UncommittedChanges: FC<{
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
+	onActiveFileSelection: (selection: string) => void;
 	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
 	navigationIndex,
@@ -246,6 +247,7 @@ const UncommittedChanges: FC<{
 	targetComboboxItems,
 	onAmendCommit,
 	canAmendCommit,
+	onActiveFileSelection,
 	worktreeChanges,
 }) => {
 	const dispatch = useAppDispatch();
@@ -279,9 +281,7 @@ const UncommittedChanges: FC<{
 					fileParent={uncommittedChangesFileParent}
 					items={fileRowItems}
 					navigationIndex={navigationIndex}
-					onFileSelection={(selection) =>
-						dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }))
-					}
+					onFileSelection={onActiveFileSelection}
 					projectId={projectId}
 					ref={(el) => {
 						if (el) autofocusSelectionScope(el);
@@ -647,6 +647,7 @@ export const OutlineTree: FC<
 		navigationIndex: NavigationIndex<Operand>;
 		uncommittedFilesNavigationIndex: NavigationIndex<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
+		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
@@ -654,6 +655,7 @@ export const OutlineTree: FC<
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	absorptionTargetCommitIds,
+	onActiveFileSelection,
 	stacksHeaderActions,
 	...props
 }) => {
@@ -795,6 +797,7 @@ export const OutlineTree: FC<
 											targetComboboxItems={commitTargetComboboxItems}
 											onAmendCommit={amendCommit}
 											canAmendCommit={canAmendCommit}
+											onActiveFileSelection={onActiveFileSelection}
 											worktreeChanges={worktreeChanges}
 										/>
 									}

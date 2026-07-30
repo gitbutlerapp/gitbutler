@@ -3,6 +3,7 @@ import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
@@ -41,7 +42,8 @@ import {
 	type Operand,
 	uncommittedChangesFileParent,
 } from "#ui/operands.ts";
-import { Details, type DiffViewFile, type DiffViewerHandle } from "./Details.tsx";
+import { Details, type DiffViewerHandle } from "./Details.tsx";
+import { type DiffViewFile, getDiffView } from "./diff-view.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -475,6 +477,37 @@ const WorkspacePage: FC = () => {
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesNavigationIndex = buildUncommittedFilesNavigationIndex({ worktreeChanges });
+	const uncommittedTreeChangeDiffs = useQueries({
+		queries:
+			worktreeChanges?.changes.map((change) =>
+				treeChangeDiffsQueryOptions({ projectId, change }),
+			) ?? [],
+		combine: (results) => {
+			if (!worktreeChanges || results.some((result) => result.data === undefined)) return null;
+
+			return results.map((result) => result.data ?? null);
+		},
+	});
+
+	const onActiveUncommittedFileSelection = (selection: string) => {
+		const index = uncommittedFilesNavigationIndex.indexByKey.get(selection);
+		const change = index !== undefined ? worktreeChanges?.changes[index] : undefined;
+		const treeChangeDiff = index !== undefined ? uncommittedTreeChangeDiffs?.[index] : undefined;
+
+		if (change && treeChangeDiff !== undefined) {
+			// Construct a cheap diff view only for the selected file.
+			const diffViewFile = getDiffView({
+				fileParent: uncommittedChangesFileParent,
+				changes: [change],
+				treeChangeDiffs: [treeChangeDiff],
+			}).fileByPath.get(selection);
+
+			if (diffViewFile) return onActiveFileSelection(selection, diffViewFile);
+		}
+
+		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+	};
+
 	const uncommittedFilesSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUncommittedFiles(
 			state,
@@ -544,6 +577,7 @@ const WorkspacePage: FC = () => {
 							navigationIndex={outlineNavigationIndex}
 							uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 							absorptionTargetCommitIds={absorptionTargetCommitIds}
+							onActiveFileSelection={onActiveUncommittedFileSelection}
 						/>
 					</Panel>
 					<Separator className={styles.resizeHandle} />

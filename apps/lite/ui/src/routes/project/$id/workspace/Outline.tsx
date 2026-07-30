@@ -94,6 +94,7 @@ export const Outline: FC<{
 	branchesOutline: BranchesOutline;
 	navigationIndex: NavigationIndex<Operand>;
 	uncommittedFilesNavigationIndex: NavigationIndex<string>;
+	onActiveFileSelection: (selection: string) => void;
 	project: ProjectForFrontend;
 	projectId: string;
 }> = ({
@@ -101,6 +102,7 @@ export const Outline: FC<{
 	branchesOutline,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
+	onActiveFileSelection,
 	project,
 	projectId,
 }) => {
@@ -430,6 +432,7 @@ export const Outline: FC<{
 					uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
 					projectId={projectId}
+					onActiveFileSelection={onActiveFileSelection}
 					stacksHeaderActions={
 						<RowToolbar forceVisible>
 							<Tooltip.Root>
