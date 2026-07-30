@@ -1,4 +1,6 @@
 .badge {
+	--bg-opacity: 16%;
+
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -23,30 +25,42 @@
 
 .safe {
 	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background-color: var(--badge-safe-bg, color-mix(in srgb, var(--_bg) 25%, var(--bg-1)));
+	background-color: var(
+		--badge-safe-bg,
+		color-mix(in srgb, var(--_bg) var(--bg-opacity), var(--bg-1))
+	);
 	color: var(--badge-safe-fg, light-dark(var(--text-safe), var(--clr-safe-60)));
 }
 
 .warn {
-	background-color: var(--badge-warn-bg, color-mix(in srgb, var(--clr-warn-50) 18%, transparent));
+	background-color: var(
+		--badge-warn-bg,
+		color-mix(in srgb, var(--clr-warn-50) var(--bg-opacity), transparent)
+	);
 	color: var(--badge-warn-fg, var(--clr-warn-40));
 }
 
 .danger {
 	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background-color: var(--badge-danger-bg, color-mix(in srgb, var(--_bg) 22%, var(--bg-1)));
+	background-color: var(
+		--badge-danger-bg,
+		color-mix(in srgb, var(--_bg) var(--bg-opacity), var(--bg-1))
+	);
 	color: var(--badge-danger-fg, light-dark(var(--text-danger), var(--clr-danger-60)));
 }
 
 .purple {
 	background-color: var(
 		--badge-purple-bg,
-		color-mix(in srgb, var(--clr-purple-50) 18%, transparent)
+		color-mix(in srgb, var(--clr-purple-50) var(--bg-opacity), transparent)
 	);
 	color: var(--badge-purple-fg, var(--clr-purple-40));
 }
 
 .blue {
-	background-color: var(--badge-blue-bg, color-mix(in srgb, var(--clr-blue-50) 18%, transparent));
+	background-color: var(
+		--badge-blue-bg,
+		color-mix(in srgb, var(--clr-blue-50) var(--bg-opacity), transparent)
+	);
 	color: var(--badge-blue-fg, var(--clr-blue-40));
 }
