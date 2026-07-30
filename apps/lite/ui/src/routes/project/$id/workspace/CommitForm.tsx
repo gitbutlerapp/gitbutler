@@ -107,11 +107,10 @@ export const CommitForm: FC<{
 		const label = commitButtonLabelRef.current;
 		if (form === null || label === null) return;
 
-		const update = () => {
+		// ResizeObserver fires once on observe, providing the initial value.
+		const observer = new ResizeObserver(() => {
 			setCommitLabelHidden(getComputedStyle(label).display === "none");
-		};
-		update();
-		const observer = new ResizeObserver(update);
+		});
 		observer.observe(form);
 		return () => observer.disconnect();
 	}, []);
