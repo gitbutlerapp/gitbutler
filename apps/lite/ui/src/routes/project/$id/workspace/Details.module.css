@@ -175,10 +175,6 @@
 		--diffs-selection-number-fg: var(--text-1);
 		border-top: 1px solid var(--border-3);
 		border-bottom: 1px solid var(--border-3);
-
-		&:first-child {
-			border-top: none;
-		}
 	}
 
 	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within & {
