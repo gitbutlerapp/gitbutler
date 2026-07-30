@@ -2004,6 +2004,96 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
 }
 
 #[test]
+fn apply_in_managed_workspace_drops_stack_whose_ref_disappeared() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "managed-workspace-with-missing-applied-branch",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 863775d (C) add C
+| *   12c0f48 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| | * 239dcaf add A
+| |/  
+|/|   
+| * 208b2ad (B) add B
+|/  
+* 893d602 (origin/main, main) M
+
+"#]]
+    );
+
+    let ws = graph.into_workspace()?;
+    assert!(matches!(ws.kind, WorkspaceKind::Managed { .. }));
+    assert!(!ws.refname_is_segment(r("refs/heads/A")));
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 893d602
+├── ≡📙:3:B on 893d602 {2}
+│   └── 📙:3:B
+│       └── ·208b2ad (🏘️)
+└── ≡:4:anon: on 893d602
+    └── :4:anon:
+        └── ·239dcaf (🏘️)
+
+"#]]
+    );
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(out.status, OutcomeStatus::Applied);
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&out.workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 893d602
+├── ≡:5:anon: on 893d602
+│   └── :5:anon:
+│       └── ·239dcaf (🏘️)
+├── ≡📙:3:B on 893d602 {2}
+│   └── 📙:3:B
+│       └── ·208b2ad (🏘️)
+└── ≡📙:4:C on 893d602 {43}
+    └── 📙:4:C
+        └── ·863775d (🏘️)
+
+"#]]
+    );
+
+    let ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/A"), StackKind::AppliedAndUnapplied)
+            .is_some(),
+        "the disappeared stack configuration is retained"
+    );
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/A"), StackKind::Applied)
+            .is_none(),
+        "the stack whose branch disappeared is no longer applied"
+    );
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/B"), StackKind::Applied)
+            .is_some()
+    );
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/C"), StackKind::Applied)
+            .is_some()
+    );
+    Ok(())
+}
+
+#[test]
 fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> anyhow::Result<()> {
     // A managed workspace has two live stacks, then HEAD is moved to one of its branches. Applying
     // a third branch from that enclosed AdHoc checkout rebuilds the workspace around the checked-out

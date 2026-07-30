@@ -506,7 +506,7 @@ where
         };
         let mut meta = RecordingMetadata {
             workspace_name: workspace.ref_name().map(ToOwned::to_owned),
-            workspace: workspace.metadata.clone(),
+            workspace: workspace.metadata_from_projection()?,
             updates: Vec::new(),
         };
 
