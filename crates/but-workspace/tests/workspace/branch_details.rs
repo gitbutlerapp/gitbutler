@@ -1,3 +1,36 @@
+mod without_workspace {
+    use but_core::ref_metadata::ProjectMeta;
+    use but_testsupport::InMemoryRefMetadata;
+
+    use crate::utils::read_only_in_memory_scenario_named;
+
+    #[test]
+    fn uses_the_project_target_as_the_traversal_boundary() -> anyhow::Result<()> {
+        let repo =
+            read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
+        let meta = InMemoryRefMetadata::default();
+        let project_meta = ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            ..Default::default()
+        };
+
+        let details =
+            but_workspace::branch_details(&repo, "refs/heads/A".try_into()?, &meta, &project_meta)?;
+        let target_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
+
+        assert_eq!(
+            details.base_commit, target_id,
+            "the configured project target bounds branch traversal"
+        );
+        assert_eq!(
+            details.commits.len(),
+            2,
+            "only commits above the configured project target are returned"
+        );
+        Ok(())
+    }
+}
+
 /// All tests have a workspace present.
 mod with_workspace {
     use snapbox::prelude::*;
