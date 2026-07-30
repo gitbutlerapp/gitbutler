@@ -40,6 +40,29 @@ export const AllVariants = meta.story({
 	),
 });
 
+export const Inverted = meta.story({
+	render: () => (
+		<div
+			style={{
+				["--badge-inverted" as string]: "true",
+				display: "flex",
+				gap: 8,
+				alignItems: "center",
+				padding: 8,
+				borderRadius: 6,
+				backgroundColor: "var(--fill-gray-bg)",
+				color: "var(--fill-gray-fg)",
+			}}
+		>
+			<Badge variant="fillGray">fillGray</Badge>
+			<Badge variant="lightGray">lightGray</Badge>
+			<Badge variant="safe">safe</Badge>
+			<Badge variant="warn">warn</Badge>
+			<Badge variant="danger">danger</Badge>
+		</div>
+	),
+});
+
 export const WithIcon = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
