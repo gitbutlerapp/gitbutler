@@ -5,11 +5,19 @@
 }
 
 .top {
+	container-type: inline-size;
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
+}
+
+/* When the panel is too narrow to fit the tab labels, show icons only. */
+@container (max-width: 320px) {
+	.tabLabel {
+		display: none;
+	}
 }
 
 .workspaceControls {
