@@ -7,11 +7,7 @@ use gix::{
 };
 use itertools::Itertools;
 
-use crate::{
-    ref_info::workspace_data_of_default_workspace_branch,
-    ui,
-    ui::{CommitState, PushStatus, UpstreamCommit},
-};
+use crate::ui::{self, CommitState, PushStatus, UpstreamCommit};
 
 /// Returns information about the current state of a branch identified by its `name`.
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
@@ -33,10 +29,6 @@ pub fn branch_details(
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
 ) -> anyhow::Result<ui::BranchDetails> {
-    workspace_data_of_default_workspace_branch(meta)?.context(
-        "TODO: cannot run in non-workspace mode yet.\
-        It would need a way to deal with limiting the commit traversal",
-    )?;
     let integration_branch_name = project_meta
         .target_ref
         .clone()
