@@ -20,7 +20,7 @@ import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type SubmitEventHandler, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, useEffect, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
@@ -80,6 +80,7 @@ export const CommitForm: FC<{
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
+	const commitButtonLabelRef = useRef<HTMLSpanElement | null>(null);
 
 	const { data: draftMessage } = useQuery(draftCommitMessageQueryOptions(projectId));
 	const { mutate: persistDraftMessage } = usePersistDraftCommitMessage();
@@ -97,6 +98,22 @@ export const CommitForm: FC<{
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
+	const [commitTooltipOpen, setCommitTooltipOpen] = useState(false);
+	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
+
+	// Track whether the container query hides the label, including while resizing.
+	useEffect(() => {
+		const form = formRef.current;
+		const label = commitButtonLabelRef.current;
+		if (form === null || label === null) return;
+
+		// ResizeObserver fires once on observe, providing the initial value.
+		const observer = new ResizeObserver(() => {
+			setCommitLabelHidden(getComputedStyle(label).display === "none");
+		});
+		observer.observe(form);
+		return () => observer.disconnect();
+	}, []);
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -354,15 +371,29 @@ export const CommitForm: FC<{
 					</Tooltip.Root>
 
 					<div className={styles.dropdownButton}>
-						<Button
-							className={getButtonClassName({ variant: "pop" })}
-							focusableWhenDisabled
-							type="submit"
-							disabled={!canCommit}
+						<Tooltip.Root
+							// Only show the tooltip when the container query hides the label.
+							open={commitTooltipOpen && commitLabelHidden}
+							onOpenChange={setCommitTooltipOpen}
 						>
-							Commit
-							<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
-						</Button>
+							<Tooltip.Trigger
+								aria-label="Commit"
+								className={getButtonClassName({ variant: "pop" })}
+								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
+							>
+								<span ref={commitButtonLabelRef} className={styles.commitButtonLabel}>
+									Commit
+								</span>
+								<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
+										Commit
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 						<div aria-hidden className={styles.dropdownButtonSeparator} />
 						<Button
 							focusableWhenDisabled

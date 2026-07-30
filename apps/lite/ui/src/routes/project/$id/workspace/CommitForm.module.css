@@ -3,6 +3,7 @@
 }
 
 .form {
+	container-type: inline-size;
 	display: flex;
 	row-gap: 10px;
 	flex-direction: column;
@@ -48,6 +49,13 @@
 .commitActions {
 	display: flex;
 	column-gap: 4px;
+}
+
+/* When the panel is too narrow to fit the commit button label, hide it. */
+@container (max-width: 300px) {
+	.commitButtonLabel {
+		display: none;
+	}
 }
 
 .dropdownButton {
