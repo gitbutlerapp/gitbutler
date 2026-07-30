@@ -1,6 +1,7 @@
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -59,6 +60,7 @@ import { Settings } from "./Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
+import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -327,13 +329,17 @@ const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: renderAllFiles } = useSuspenseQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+	});
 
 	const viewerRef = useRef<DiffViewerHandle>(null);
 
-	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
-	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
-	// scenario). That latter file selection is based upon the first file visible in the viewport,
-	// which may exclude trailing files collectively shorter than the scroll container.
+	// In the all-in-one view, file selection scrolls to that file, which triggers CodeView's scroll
+	// handler and updates file selection again (as per usual scrolling scenario). That latter file
+	// selection is based upon the first file visible in the viewport, which may exclude trailing
+	// files collectively shorter than the scroll container.
 	//
 	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
 	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
@@ -348,11 +354,13 @@ const WorkspacePage: FC = () => {
 			}),
 		);
 
-		didScrollToViaFileRef.current = true;
-		viewerRef.current?.scrollTo({
-			type: "item",
-			id: itemId,
-		});
+		if (renderAllFiles) {
+			didScrollToViaFileRef.current = true;
+			viewerRef.current?.scrollTo({
+				type: "item",
+				id: itemId,
+			});
+		}
 	};
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);

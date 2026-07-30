@@ -885,6 +885,11 @@ const Diff: FC<{
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 
+	const { data: renderAllFiles } = useSuspenseQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+	});
+
 	const canShowFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
@@ -912,6 +917,8 @@ const Diff: FC<{
 		[selection],
 	);
 
+	// Eagerly fetch all diffs regardless of unidiff setting, both for UX and for the total line
+	// stats.
 	const { treeChangeDiffs, lineStats } = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => {
@@ -925,23 +932,27 @@ const Diff: FC<{
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
-	const diffViewSansAnno = useMemo(
-		() =>
-			getDiffView({
-				fileParent,
-				changes,
-				treeChangeDiffs,
-			}),
-		[fileParent, changes, treeChangeDiffs],
-	);
+	const diffViewSansAnno = useMemo(() => {
+		const selectedFile = selection._tag === "File" ? selection.path : filesSelection;
+		const selectedFileIdx = changes.findIndex((change) => change.path === selectedFile);
+
+		return getDiffView({
+			fileParent,
+			changes: renderAllFiles ? changes : changes.slice(selectedFileIdx, selectedFileIdx + 1),
+			treeChangeDiffs: renderAllFiles
+				? treeChangeDiffs
+				: treeChangeDiffs.slice(selectedFileIdx, selectedFileIdx + 1),
+		});
+	}, [fileParent, renderAllFiles, selection, filesSelection, changes, treeChangeDiffs]);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
 	const activateFile = (selection: string) => {
+		onPassiveFileSelection(selection);
+
 		const file = diffViewSansAnno.fileByPath.get(selection);
 		if (!file) return;
 
-		onPassiveFileSelection(selection);
 		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
 	};
 
