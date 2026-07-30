@@ -1,6 +1,3 @@
-use std::ops::DerefMut;
-
-use but_core::{RefMetadata, WORKSPACE_REF_NAME};
 use but_testsupport::Sandbox;
 use ratatui::{Terminal, backend::TestBackend};
 
@@ -43,24 +40,6 @@ impl Default for TestTuiOptions {
 
 pub fn test_status_tui(env: Sandbox) -> TestTui<App> {
     test_status_tui_with_options(env, TestTuiOptions::default())
-}
-
-pub fn setup_two_stacks_one_single_and_one_double(env: &Sandbox) {
-    env.setup_metadata(&["A", "B"]);
-
-    let mut meta = env.meta();
-    let mut workspace = meta
-        .workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))
-        .expect("workspace metadata is available");
-    workspace
-        .deref_mut()
-        .insert_new_segment_above_anchor_if_not_present(
-            "refs/heads/C".try_into().expect("valid branch ref"),
-            "refs/heads/B".try_into().expect("valid branch ref"),
-        )
-        .expect("B is present in workspace metadata");
-    meta.set_workspace(&workspace)
-        .expect("workspace metadata can be persisted");
 }
 
 pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui<App> {

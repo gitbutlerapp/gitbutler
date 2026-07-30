@@ -5497,6 +5497,50 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
 }
 
 #[test]
+fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
+
+    add_stack(&mut meta, 0, "A", StackState::InWorkspace);
+    let stack_b_id = add_stack(&mut meta, 1, "B", StackState::InWorkspace);
+    // C is notably missing at the tip of the second stack.
+
+    let workspace = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    assert_eq!(
+        workspace.stacks[0]
+            .ref_name()
+            .map(ToString::to_string)
+            .as_deref(),
+        Some("refs/heads/A"),
+        "metadata order places A before the physical C-on-B stack"
+    );
+    assert_eq!(
+        workspace.stacks[1].id,
+        Some(stack_b_id),
+        "the physical stack with unrecorded top C keeps B's stable stack identity"
+    );
+    // Incomplete metadata orders the whole physical stack through its present lower branch.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:3:A on 85efbe4 {0}
+│   └── 📙:3:A
+│       └── ·09d8e52 (🏘️)
+└── ≡:5:C on 85efbe4 {1}
+    ├── :5:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:4:B
+        └── ·c813d8d (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("ws/two-dependent-branches-with-interesting-remote-setup")?;
