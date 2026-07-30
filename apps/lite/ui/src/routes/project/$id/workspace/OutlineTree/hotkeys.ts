@@ -100,17 +100,6 @@ export const useOutlineTreeHotkeys = ({
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segment
 			: undefined;
 
-	const selectedBranchCommitsChecked = useAppSelector((state) =>
-		selectedBranchSegment && selectedBranchSegment.commits.length > 0
-			? selectedBranchSegment.commits.every((commit) =>
-					projectSlice.selectors.selectOperandChecked(
-						state,
-						projectId,
-						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
-					),
-				)
-			: false,
-	);
 	const selectedCommit =
 		selection?._tag === "Commit"
 			? (headInfoIndex?.commitContextByCommitId(selection.commitId) ?? null)?.commit
@@ -217,6 +206,15 @@ export const useOutlineTreeHotkeys = ({
 
 	const toggleSelectedBranchChecked = () => {
 		if (!selectedBranchSegment) return;
+
+		const selectedBranchCommitsChecked =
+			selectedBranchSegment.commits.length > 0
+				? selectedBranchSegment.commits.every((commit) =>
+						projectSlice.selectors
+							.selectCheckedCommitIds(store.getState(), projectId)
+							.has(commit.id),
+					)
+				: false;
 
 		dispatch(
 			projectSlice.actions.checkOperands({
