@@ -398,25 +398,15 @@ const DiffContents: FC<{
 	const dispatch = useAppDispatch();
 	const { mutate: createComment } = useCommentCreate();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
+	const { data: settings } = useQuery({
 		...guiSettingsQueryOptions,
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
-	const { data: preferredFontFamily } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffFontFamily,
-	});
-	const { data: preferredFontSize } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffFontSize,
-	});
-	const { data: preferredTabSize } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffTabSize,
-	});
-	const { data: theme } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.theme,
+		select: (cfg) => ({
+			editor: editors?.find((editor) => editor.id === cfg.editorId),
+			diffFontFamily: cfg.diffFontFamily,
+			diffFontSize: cfg.diffFontSize,
+			diffTabSize: cfg.diffTabSize,
+			theme: cfg.theme,
+		}),
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
@@ -496,15 +486,15 @@ const DiffContents: FC<{
 			hotkey: diffHotkeys.openInEditor.hotkey,
 			callback: () =>
 				diffSelectionFile &&
-				preferredEditor &&
+				settings?.editor &&
 				openInProgram({
 					projectId,
-					programId: preferredEditor.id,
+					programId: settings.editor.id,
 					path: diffSelectionFile.change.path,
 					lineNr: selectedRange?.range.start ?? null,
 				}),
 			options: {
-				enabled: !!diffSelectionFile && !!preferredEditor,
+				enabled: !!diffSelectionFile && !!settings?.editor,
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.openInEditor.meta,
@@ -738,7 +728,7 @@ const DiffContents: FC<{
 				diffStyle: diffStyle ?? diffDefaults.diffStyle,
 				disableBackground: !(diffBackgrounds ?? diffDefaults.diffBackground),
 				overflow: diffOverflow ?? diffDefaults.diffOverflow,
-				themeType: theme ?? defaultSettings.theme,
+				themeType: settings?.theme ?? defaultSettings.theme,
 				stickyHeaders: true,
 				enableLineSelection: true,
 				// Manually wire these up instead of using renderGutterUtility to separate annotations from
@@ -794,9 +784,9 @@ const DiffContents: FC<{
         `,
 			}}
 			style={{
-				"--diffs-font-family": preferredFontFamily ?? defaultSettings.diffFontFamily,
-				"--diffs-font-size": `${preferredFontSize ?? defaultSettings.diffFontSize}px`,
-				"--diffs-tab-size": `${preferredTabSize ?? defaultSettings.diffTabSize}`,
+				"--diffs-font-family": settings?.diffFontFamily ?? defaultSettings.diffFontFamily,
+				"--diffs-font-size": `${settings?.diffFontSize ?? defaultSettings.diffFontSize}px`,
+				"--diffs-tab-size": `${settings?.diffTabSize ?? defaultSettings.diffTabSize}`,
 			}}
 		/>
 	);
