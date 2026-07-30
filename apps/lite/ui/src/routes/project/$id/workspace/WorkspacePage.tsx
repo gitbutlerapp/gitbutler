@@ -28,7 +28,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useDeferredValue } from "react";
+import { type FC, Activity, useDeferredValue, useRef } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
@@ -41,7 +41,7 @@ import {
 	type Operand,
 	uncommittedChangesFileParent,
 } from "#ui/operands.ts";
-import { Details } from "./Details.tsx";
+import { Details, type DiffViewFile, type DiffViewerHandle } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -325,6 +325,37 @@ const WorkspacePage: FC = () => {
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
+	const viewerRef = useRef<DiffViewerHandle>(null);
+
+	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
+	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
+	// scenario). That latter file selection is based upon the first file visible in the viewport,
+	// which may exclude trailing files collectively shorter than the scroll container.
+	//
+	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
+	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
+	// container, but that comes with other complexities and tradeoffs.
+	const didScrollToViaFileRef = useRef(false);
+
+	const onActiveFileSelection = (selection: string, diffViewFile: DiffViewFile) => {
+		if (diffViewFile.operand.parent._tag === "UncommittedChanges")
+			dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+		else dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+
+		dispatch(
+			projectSlice.actions.selectDiff({
+				projectId,
+				selection: diffViewFile.hunks[0]?.operand ?? null,
+			}),
+		);
+
+		didScrollToViaFileRef.current = true;
+		viewerRef.current?.scrollTo({
+			type: "item",
+			id: diffViewFile.item.id,
+		});
+	};
+
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
 	const outlineMode = useAppSelector((state) =>
@@ -523,7 +554,12 @@ const WorkspacePage: FC = () => {
 					className={styles.panel}
 					data-selection-scope={"details" satisfies SelectionScope}
 				>
-					<Details selection={deferredDetailsSelection} />
+					<Details
+						selection={deferredDetailsSelection}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+					/>
 				</Panel>
 			</Group>
 
