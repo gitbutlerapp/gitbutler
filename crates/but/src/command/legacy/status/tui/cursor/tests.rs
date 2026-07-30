@@ -16,7 +16,7 @@ use crate::{
             InlineRewordMode, Mode, NormalMode, SelectAfterReload,
             app::{
                 CommitMessageComposer, CommitMode, CommitSource, MoveMode, MoveSource,
-                MoveStackMode, ReorderStackSource, UncommittedAreaCommitSource,
+                MoveStackMode, ReorderStackSource,
                 mark::{MarkStore, MarkableRef, Marks},
             },
         },
@@ -137,7 +137,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
     if cli_ids.len() == 0 {
         match &**first {
             CliId::UncommittedHunkOrFile(uncommitted) => {
-                CommitSource::Uncommitted(uncommitted.clone())
+                CommitSource::UncommittedHunk(uncommitted.clone())
             }
             CliId::Uncommitted { .. }
             | CliId::PathPrefix { .. }
@@ -1962,9 +1962,7 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
-        source: Arc::new(CommitSource::UncommittedArea(UncommittedAreaCommitSource {
-            id: "zz".into(),
-        })),
+        source: Arc::new(CommitSource::Uncommitted),
         insert_side: InsertSide::Above,
         scope_to_stack: Some(scoped_stack_id),
         message_composer: CommitMessageComposer::default(),

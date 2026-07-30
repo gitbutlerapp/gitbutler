@@ -24,7 +24,7 @@ use crate::{
             },
         },
     },
-    id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile},
+    id::UncommittedHunkOrFile,
     tui::TerminalGuard,
     utils::targeting,
 };
@@ -59,19 +59,8 @@ pub enum CommitMessageComposer {
 #[derive(Debug)]
 pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
-    UncommittedArea(UncommittedAreaCommitSource),
-    Uncommitted(UncommittedHunkOrFile),
-    Stack(StackCommitSource),
-}
-
-#[derive(Debug)]
-pub struct UncommittedAreaCommitSource {
-    pub id: ShortId,
-}
-
-#[derive(Debug)]
-pub struct StackCommitSource {
-    pub stack_id: StackId,
+    Uncommitted,
+    UncommittedHunk(UncommittedHunkOrFile),
 }
 
 impl ModeRender for CommitMode {
@@ -115,29 +104,12 @@ impl CommitSource {
                     false
                 }
             }
-            CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: lhs_id }) => {
-                if let CliId::Uncommitted { id: rhs_id } = other {
-                    lhs_id == rhs_id
-                } else {
-                    false
-                }
+            CommitSource::Uncommitted => {
+                matches!(other, CliId::Uncommitted { .. })
             }
-            CommitSource::Uncommitted(lhs) => {
+            CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs || hunk_is_child_of(rhs, lhs)
-                } else {
-                    false
-                }
-            }
-            CommitSource::Stack(StackCommitSource {
-                stack_id: stack_id_lhs,
-            }) => {
-                if let CliId::Stack {
-                    stack_id: stack_id_rhs,
-                    ..
-                } = other
-                {
-                    stack_id_lhs == stack_id_rhs
                 } else {
                     false
                 }
@@ -236,17 +208,11 @@ impl App {
 
     fn handle_commit_start_source(&mut self, cli_id: Arc<CliId>) {
         let source = match Arc::unwrap_or_clone(cli_id) {
-            CliId::Uncommitted { id } => {
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id })
+            CliId::Uncommitted { .. } | CliId::Branch(..) | CliId::Commit { .. } => {
+                CommitSource::Uncommitted
             }
-            CliId::UncommittedHunkOrFile(hunk) => CommitSource::Uncommitted(hunk),
-            CliId::Stack { stack_id, .. } => CommitSource::Stack(StackCommitSource { stack_id }),
-            CliId::Branch(..) | CliId::Commit { .. } => {
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource {
-                    id: UNCOMMITTED.to_string(),
-                })
-            }
-            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
+            CliId::UncommittedHunkOrFile(hunk) => CommitSource::UncommittedHunk(hunk),
+            CliId::Stack { .. } | CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
         };
         let commit_mode = CommitMode {
             source: Arc::new(source),
@@ -464,12 +430,9 @@ where
 
     let commit_selection = match &**source {
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(hunks.clone())),
-        CommitSource::UncommittedArea(..) => commit::CommitSelection::AllChanges,
-        CommitSource::Uncommitted(hunk) => {
+        CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
+        CommitSource::UncommittedHunk(hunk) => {
             commit::CommitSelection::Changes(Box::new(NonEmpty::new(hunk.clone())))
-        }
-        CommitSource::Stack(..) => {
-            anyhow::bail!("committing stack assignments is not supported. Use `but commit`")
         }
     };
 
