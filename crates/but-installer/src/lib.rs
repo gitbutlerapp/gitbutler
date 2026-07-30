@@ -199,11 +199,19 @@ fn offer_agent_skill_setup(but_path: &std::path::Path) {
     }
 
     // The setup wizard requires a terminal on stdin. Under `curl | sh` this
-    // process inherits curl's pipe as stdin, so connect the child directly to
-    // the controlling terminal instead.
-    let child_stdin = std::fs::File::open("/dev/tty")
-        .map(std::process::Stdio::from)
-        .unwrap_or_else(|_| std::process::Stdio::inherit());
+    // process inherits curl's pipe as stdin, so give the child a duplicate of
+    // our stdout instead — in interactive mode that is the terminal device,
+    // opened read-write by the terminal emulator. Deliberately not an opened
+    // `/dev/tty`: on macOS, kqueue cannot poll that alias device, and the
+    // wizard's event loop would hang before reading a single key.
+    let child_stdin = {
+        use std::os::fd::AsFd;
+        std::io::stdout()
+            .as_fd()
+            .try_clone_to_owned()
+            .map(std::process::Stdio::from)
+            .unwrap_or_else(|_| std::process::Stdio::inherit())
+    };
 
     let status = std::process::Command::new(but_path)
         .args(["agent", "setup"])
