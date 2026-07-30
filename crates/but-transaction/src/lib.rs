@@ -638,6 +638,41 @@ where
         })
     }
 
+    /// Cherry-pick commits into the transaction's workspace graph.
+    ///
+    /// Source and target commit IDs are automatically mapped through changes made earlier in the
+    /// transaction. The returned identifiers refer to the newly created commits and can be passed
+    /// to subsequent transaction operations.
+    pub fn cherry_pick_commits(
+        &mut self,
+        source_commit_ids: impl IntoIterator<Item = ObjectId>,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<Vec<CommitIdentifiers>> {
+        self.rebase(|editor, commit_mappings, _| {
+            let source_commit_ids = source_commit_ids
+                .into_iter()
+                .map(|commit| commit_mappings.map(commit));
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
+                editor,
+                source_commit_ids,
+                relative_to,
+                side,
+            )?;
+            let new_commits = inserted_selectors
+                .into_iter()
+                .map(|selector| rebase.lookup_commit(selector))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            Ok((new_commits, rebase))
+        })
+    }
+
     pub fn move_commits(
         &mut self,
         subject_commit_ids: impl IntoIterator<Item = ObjectId>,
