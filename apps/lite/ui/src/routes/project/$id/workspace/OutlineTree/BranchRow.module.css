@@ -2,6 +2,7 @@
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
+	overflow: hidden;
 }
 
 .labelMeta {
@@ -12,8 +13,21 @@
 
 .labelMetaItem {
 	display: flex;
+	flex-shrink: 0;
 	align-items: center;
 	/* Match small button height to prevent layout shift when buttons appear/disappear. */
 	height: 20px;
 	gap: 4px;
+}
+
+/* Item that yields space to its siblings by truncating its text. */
+.labelMetaItemShrinkable {
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.labelMetaItemText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

@@ -395,15 +395,23 @@ export const BranchRow: FC<
 					</RowLabelContainer>
 
 					<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
-						<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
-							{Match.value(pushStatus).pipe(
-								Match.when("nothingToPush", () => "Nothing to push"),
-								Match.when("unpushedCommits", () => "Some unpushed"),
-								Match.when("completelyUnpushed", () => "Unpushed branch"),
-								Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
-								Match.when("integrated", () => "Integrated"),
-								Match.exhaustive,
+						<span
+							className={classes(
+								rowStyles.fadedText,
+								styles.labelMetaItem,
+								styles.labelMetaItemShrinkable,
 							)}
+						>
+							<span className={styles.labelMetaItemText}>
+								{Match.value(pushStatus).pipe(
+									Match.when("nothingToPush", () => "Nothing to push"),
+									Match.when("unpushedCommits", () => "Some unpushed"),
+									Match.when("completelyUnpushed", () => "Unpushed branch"),
+									Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
+									Match.when("integrated", () => "Integrated"),
+									Match.exhaustive,
+								)}
+							</span>
 						</span>
 
 						{mforgeUrl != null && (
