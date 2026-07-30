@@ -96,6 +96,38 @@ impl Workspace {
         )
     }
 
+    /// Return workspace metadata normalized against this projection.
+    ///
+    /// Unlike [`Self::metadata`], applied stacks absent from the projection are
+    /// treated as outside the workspace.
+    pub fn metadata_from_projection(
+        &self,
+    ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
+        let Some(mut metadata) = self.metadata.clone() else {
+            return Ok(None);
+        };
+        for stack in &mut metadata.stacks {
+            if stack.workspacecommit_relation.is_in_workspace()
+                && !self.stacks.iter().any(|projected| {
+                    projected.id == Some(stack.id)
+                        || projected.segments.iter().any(|segment| {
+                            segment.ref_name().is_some_and(|projected_ref| {
+                                stack
+                                    .branches
+                                    .iter()
+                                    .any(|branch| branch.ref_name.as_ref() == projected_ref)
+                            })
+                        })
+                })
+            {
+                stack.workspacecommit_relation =
+                    but_core::ref_metadata::WorkspaceCommitRelation::Outside;
+            }
+        }
+        self.reconcile_metadata(&mut metadata)?;
+        Ok(Some(metadata))
+    }
+
     /// Return the name of the remote most closely associated with this workspace.
     /// In order, we try:
     /// - The remote name of the [Self::target_ref].

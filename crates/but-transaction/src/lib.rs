@@ -599,7 +599,7 @@ where
         let mut meta = RecordingMetadata {
             persisted_meta,
             workspace_name: workspace.ref_name().map(ToOwned::to_owned),
-            workspace: workspace.metadata.clone(),
+            workspace: workspace.metadata_from_projection()?,
             branch_stack_orders,
             updates: Vec::new(),
         };
