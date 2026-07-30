@@ -46,7 +46,7 @@ pub enum Subcommands {
     /// View and manage forge configuration.
     ///
     /// Shows configured forge accounts (GitHub, GitLab, Bitbucket) and authentication status.
-    /// Use subcommands to authenticate or forget accounts.
+    /// Use subcommands to manage accounts or native GitHub stacked pull requests.
     ///
     /// ## Examples
     ///
@@ -72,6 +72,13 @@ pub enum Subcommands {
     ///
     /// ```text
     /// but config forge forget username
+    /// ```
+    ///
+    /// View or configure native GitHub stacked pull requests:
+    ///
+    /// ```text
+    /// but config forge github-stacks
+    /// but config forge github-stacks enable
     /// ```
     Forge {
         #[clap(subcommand)]

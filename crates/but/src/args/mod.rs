@@ -962,6 +962,12 @@ pub enum Subcommands {
     /// but pick feature-branch
     /// ```
     ///
+    /// If one or more cherry-picks conflict, GitButler keeps the commits in a
+    /// conflicted state instead of aborting the operation. Resolve all of them,
+    /// oldest first, with `but resolve --ai`; or find their IDs with `but status`
+    /// and resolve them individually with `but resolve <commit-id>`. Back out of
+    /// the pick operation with `but undo`.
+    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pick {

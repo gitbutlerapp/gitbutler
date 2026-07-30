@@ -12,6 +12,11 @@ pub mod pr {
         /// Create a new review for a branch.
         /// If no branch is specified, you will be prompted to select one.
         /// If there is only one branch without a review, you will be asked to confirm.
+        ///
+        /// If the branch is part of a stack, GitButler pushes that branch and its ancestors
+        /// and creates missing reviews from the bottom upward. It also updates stack metadata
+        /// using native GitHub stacks when enabled and supported, or review descriptions
+        /// otherwise.
         New {
             /// The branch to create a review for.
             #[clap(value_name = "BRANCH")]

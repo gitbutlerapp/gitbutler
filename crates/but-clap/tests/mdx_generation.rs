@@ -168,6 +168,24 @@ fn test_simple_command_mdx_generation() {
 }
 
 #[test]
+fn test_escapes_mdx_angle_brackets_in_argument_help() {
+    let cmd = Command::new("move").arg(
+        Arg::new("sources")
+            .help("Place <SOURCES> above <TARGET>. See <https://example.com>.")
+            .required(true),
+    );
+    let mdx = but_clap::generator::generate_command_mdx(&cmd);
+
+    assert!(
+        mdx.contains(
+            "Place &lt;SOURCES&gt; above &lt;TARGET&gt;. See \
+             [https://example.com](https://example.com)."
+        ),
+        "argument help must escape placeholders without breaking Rustdoc autolinks"
+    );
+}
+
+#[test]
 fn test_command_with_subcommands_mdx_generation() {
     let cmd = create_command_with_subcommands();
     let mdx = but_clap::generator::generate_command_mdx(&cmd);

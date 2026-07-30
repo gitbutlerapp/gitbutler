@@ -227,10 +227,7 @@ fn generate_argument_doc(arg: &Arg) -> String {
 
     doc.push_str(&format!("* `<{arg_name}>` "));
 
-    // Add help text, preferring long_help
-    if let Some(long_help) = arg.get_long_help() {
-        doc.push_str(&format!("— {long_help}"));
-    } else if let Some(help) = arg.get_help() {
+    if let Some(help) = mdx_help(arg) {
         doc.push_str(&format!("— {help}"));
     }
 
@@ -272,10 +269,7 @@ fn generate_option_doc(opt: &Arg) -> String {
 
     doc.push_str(&format!("* {sig} "));
 
-    // Add help text, preferring long_help
-    if let Some(long_help) = opt.get_long_help() {
-        doc.push_str(&format!("— {long_help}"));
-    } else if let Some(help) = opt.get_help() {
+    if let Some(help) = mdx_help(opt) {
         doc.push_str(&format!("— {help}"));
     }
 
@@ -293,4 +287,12 @@ fn generate_option_doc(opt: &Arg) -> String {
 
     doc.push('\n');
     doc
+}
+
+fn mdx_help(arg: &Arg) -> Option<String> {
+    arg.get_long_help().or_else(|| arg.get_help()).map(|help| {
+        replace_rustdoc_hyperlinks(&help.to_string())
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+    })
 }
