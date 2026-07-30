@@ -20,7 +20,7 @@ pub enum Subcommands {
     /// ```text
     /// but alias add st status
     /// but alias add stv "status --verbose"
-    /// but alias add co "commit --only"
+    /// but alias add branches "branch list --all"
     /// ```
     Add {
         /// The name of the alias to create
