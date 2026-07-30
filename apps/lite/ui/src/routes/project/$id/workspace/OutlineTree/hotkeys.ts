@@ -391,6 +391,9 @@ export const useOutlineTreeHotkeys = ({
 		selectedSegmentIndex !== undefined &&
 		canRemoveBranchReference(selectionStack, selectedSegmentIndex) &&
 		!isBranchRemovePending;
+	const canCheckCommits = useAppSelector((state) =>
+		projectSlice.selectors.selectCanCheckCommits(state, projectId),
+	);
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -488,7 +491,7 @@ export const useOutlineTreeHotkeys = ({
 			callback: toggleSelectedCommitChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && canCheckCommits,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -500,7 +503,7 @@ export const useOutlineTreeHotkeys = ({
 			callback: toggleSelectedCommitChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && canCheckCommits,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -511,7 +514,7 @@ export const useOutlineTreeHotkeys = ({
 			callback: toggleSelectedBranchChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch && canCheckCommits,
 				target: ref,
 				meta: outlineHotkeys.checkBranchCommits.meta,
 			},

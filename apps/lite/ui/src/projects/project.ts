@@ -10,6 +10,7 @@ import {
 	type BranchOperand,
 	type CommitOperand,
 	type FileOperand,
+	type FileParent,
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
@@ -41,6 +42,7 @@ import {
 	type BranchFilter,
 	type BranchesState,
 } from "./branches.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 
 export type SelectionState = {
 	uncommittedFiles: string | null;
@@ -429,7 +431,9 @@ const selectCheckedOperandKeys = createSelector(
 
 type GroupedCheckedOperands = {
 	commits: Array<CommitOperand>;
-	files: Array<FileOperand>;
+	uncommittedFiles: Array<FileOperand>;
+	filesByCommitId: Map<string, Array<FileOperand>>;
+	filesByBranchRef: Map<string, Array<FileOperand>>;
 };
 
 const selectGroupedCheckedOperands = createSelector(
@@ -441,16 +445,36 @@ const selectGroupedCheckedOperands = createSelector(
 					case "Commit":
 						acc.commits.push(operand);
 						break;
-					case "File":
-						acc.files.push(operand);
+					case "File": {
+						switch (operand.parent._tag) {
+							case "UncommittedChanges":
+								acc.uncommittedFiles.push(operand);
+								break;
+							case "Commit":
+								acc.filesByCommitId.getOrInsert(operand.parent.commitId, []).push(operand);
+								break;
+							case "Branch":
+								acc.filesByBranchRef
+									.getOrInsert(decodeBytes(operand.parent.branchRef), [])
+									.push(operand);
+								break;
+							default:
+								operand.parent satisfies never;
+						}
 						break;
+					}
 					default:
 						operand satisfies never;
 				}
 
 				return acc;
 			},
-			{ commits: [], files: [] },
+			{
+				commits: [],
+				uncommittedFiles: [],
+				filesByCommitId: new Map(),
+				filesByBranchRef: new Map(),
+			},
 		),
 );
 
@@ -463,11 +487,7 @@ const selectCheckedCommitIds = createSelector(
 const selectCheckedUncommittedFilePaths = createSelector(
 	selectGroupedCheckedOperands,
 	(checkedGroupedOperands): Set<string> =>
-		new Set(
-			checkedGroupedOperands.files.flatMap((operand) =>
-				operand.parent._tag === "UncommittedChanges" ? [operand.path] : [],
-			),
-		),
+		new Set(checkedGroupedOperands.uncommittedFiles.map((operand) => operand.path)),
 );
 
 const selectCheckedOperandCount = createSelector(
@@ -539,5 +559,33 @@ export const projectSelectors = {
 	selectCheckedUncommittedFilePaths,
 	selectCheckedOperandCount,
 	selectHasCheckedOperands,
+	// Checking has been defined in a flexible way to support heterogeneous items, however in the UI
+	// we currently only allow a single context of checked items at a time, hence these selectors.
+	selectCheckedOperandsContext: (state: ProjectState): CheckableOperand["_tag"] | null =>
+		selectCheckedOperandCount(state) === 0
+			? null
+			: selectGroupedCheckedOperands(state).commits.length > 0
+				? "Commit"
+				: "File",
+	selectCanCheckCommits: (state: ProjectState) =>
+		selectCheckedOperands(state).length === selectGroupedCheckedOperands(state).commits.length,
+	selectCanCheckFiles: (state: ProjectState, fileParent: FileParent) => {
+		switch (fileParent._tag) {
+			case "UncommittedChanges":
+				return (
+					selectCheckedOperands(state).length ===
+					selectGroupedCheckedOperands(state).uncommittedFiles.length
+				);
+			case "Commit":
+				return (
+					selectCheckedOperands(state).length ===
+					(selectGroupedCheckedOperands(state).filesByCommitId.get(fileParent.commitId)?.length ??
+						0)
+				);
+			// We currently don't support any operations on branch files.
+			case "Branch":
+				return false;
+		}
+	},
 	...getBranchesSelectors((state: ProjectState) => state.branches),
 };

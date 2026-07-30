@@ -25,6 +25,7 @@ export const FileRow: FC<
 		projectId: string;
 		fileParent: FileParent;
 		branchNameByCommitId: (commitId: string) => string | undefined;
+		canCheck: boolean;
 		isChecked: boolean;
 		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
@@ -33,6 +34,7 @@ export const FileRow: FC<
 	projectId,
 	fileParent,
 	branchNameByCommitId,
+	canCheck,
 	isChecked,
 	checkFile,
 	id,
@@ -79,7 +81,7 @@ export const FileRow: FC<
 						disableHoverablePopup
 					>
 						<RowCheckbox
-							disabled={!isDefaultMode}
+							disabled={!isDefaultMode || !canCheck}
 							aria-label={`Check file ${relativePath}`}
 							checked={isChecked}
 							className={styles.checkbox}
