@@ -2,8 +2,77 @@ use but_core::RefMetadata;
 
 use crate::support::{
     assert_workspace_ref, checkout_branch_in_linked_worktree, create_empty_branch_above,
-    repo_with_feature_branch,
+    repo_with_feature_branch, set_project_target_to_feature,
 };
+
+#[test]
+fn branch_remove_rejects_non_local_reference() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let remote = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+
+    let err = but_api::branch::branch_remove(&mut ctx, remote.clone())
+        .expect_err("remote-tracking references cannot be deleted as local branches");
+    assert!(
+        err.to_string().contains("local branches"),
+        "unexpected error: {err}"
+    );
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(remote.as_ref())?.is_some(),
+        "the rejected remote-tracking reference remains"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn branch_remove_rejects_gitbutler_technical_reference() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let technical = gix::refs::FullName::try_from("refs/heads/gitbutler/target")?;
+    let head_id = repo.head_id()?.detach();
+    repo.reference(
+        technical.as_ref(),
+        head_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create technical branch for test",
+    )?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let err = but_api::branch::branch_remove(&mut ctx, technical.clone())
+        .expect_err("GitButler technical references cannot be deleted as user branches");
+    assert!(
+        err.to_string().contains("technical branch"),
+        "unexpected error: {err}"
+    );
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(technical.as_ref())?.is_some(),
+        "the rejected technical reference remains"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn branch_remove_deletes_standalone_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    set_project_target_to_feature(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+
+    but_api::branch::branch_remove(&mut ctx, feature.clone())?;
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(feature.as_ref())?.is_none(),
+        "the standalone branch reference was removed"
+    );
+
+    Ok(())
+}
 
 #[test]
 fn branch_remove_deletes_middle_empty_branch_and_keeps_head() -> anyhow::Result<()> {

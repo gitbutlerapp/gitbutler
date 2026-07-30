@@ -1043,8 +1043,9 @@ pub fn branch_remove(
     branch_remove_with_perm(ctx, ref_name, guard.write_permission())
 }
 
-/// Remove the local branch `ref_name` under caller-held exclusive repository
-/// access and record an oplog snapshot on success.
+/// Remove the local branch `ref_name`, whether or not it is part of the current
+/// workspace projection, under caller-held exclusive repository access and
+/// record an oplog snapshot on success.
 ///
 /// See [`branch_remove()`] for the checked-out-reference behaviour and
 /// [`but_workspace::branch::remove_reference()`] for the lower-level deletion.
@@ -1053,6 +1054,19 @@ pub fn branch_remove_with_perm(
     ref_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchRemoveResult> {
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        bail!(
+            "Can only delete local branches under refs/heads, got '{}'",
+            ref_name.as_bstr()
+        );
+    }
+    if but_branches::is_technical_branch_name(ref_name.shorten()) {
+        bail!(
+            "Cannot delete GitButler technical branch '{}'",
+            ref_name.shorten()
+        );
+    }
+
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::DeleteBranch)
@@ -1104,15 +1118,35 @@ pub fn branch_remove_with_perm(
         }
     };
 
-    let changed = if let Some(below) = move_head_to {
-        // Land `HEAD` on the reference underneath, then delete the now-detached
-        // tip and its metadata directly: after the checkout the tip sits above
-        // the entrypoint and is no longer part of the downward projection, so
-        // `remove_reference` would not find it there.
+    let moved_head = move_head_to.is_some();
+    if let Some(below) = move_head_to {
+        // Land `HEAD` on the reference underneath. The old tip now sits above
+        // the entrypoint and is no longer part of the downward projection.
         branch_checkout_with_perm(ctx, below, perm)?;
+    }
 
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let new_ws = if moved_head {
+        None
+    } else {
+        but_workspace::branch::remove_reference(
+            ref_name.as_ref(),
+            &repo,
+            &ws,
+            &mut meta,
+            but_workspace::branch::remove_reference::Options {
+                avoid_anonymous_stacks: true,
+                keep_metadata: false,
+            },
+        )?
+    };
+    let changed = if let Some(new_ws) = new_ws {
+        *ws = new_ws;
+        true
+    } else {
+        // Standalone branches are intentionally absent from the workspace
+        // projection, as is a checked-out tip after moving HEAD below it.
         let deleted_ref = if let Some(reference) = repo.try_find_reference(ref_name.as_ref())? {
             let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
             let out = safe_delete.delete_reference(&reference)?;
@@ -1136,25 +1170,10 @@ pub fn branch_remove_with_perm(
         } else {
             false
         }
-    } else {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let new_ws = but_workspace::branch::remove_reference(
-            ref_name.as_ref(),
-            &repo,
-            &ws,
-            &mut meta,
-            but_workspace::branch::remove_reference::Options {
-                avoid_anonymous_stacks: true,
-                keep_metadata: false,
-            },
-        )?;
-        let changed = new_ws.is_some();
-        if let Some(new_ws) = new_ws {
-            *ws = new_ws;
-        }
-        changed
     };
+    drop(ws);
+    drop(repo);
+    drop(meta);
 
     if changed && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
