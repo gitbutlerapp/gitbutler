@@ -414,8 +414,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 3.9.1
-        version: 3.9.1
+        specifier: 3.10.0
+        version: 3.10.0
       '@pierre/diffs':
         specifier: ^1.2.12
         version: 1.2.12(@shikijs/themes@4.3.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2023,6 +2023,9 @@ packages:
 
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
+
+  '@gitbutler/design-core@3.10.0':
+    resolution: {integrity: sha512-4nZ5VR/r8ZKOgKarFsrUTnJ0pDK4ZkVStCNyPDyyNVvJIw7TEFBvWyyshGBfQoR39G6NJX+cBAtKSyOPVLYG8w==}
 
   '@gitbutler/design-core@3.9.1':
     resolution: {integrity: sha512-kLkZ1+pqeqpBntBOSV53kYVCmY/ZFemjxsWc78GTGLgn1Op8p7bWCNxCUSU822MKLJrzmjUg99MpqdHpXGcNAQ==}
@@ -11194,6 +11197,8 @@ snapshots:
       - supports-color
 
   '@gitbutler/design-core@2.2.2': {}
+
+  '@gitbutler/design-core@3.10.0': {}
 
   '@gitbutler/design-core@3.9.1': {}
 
