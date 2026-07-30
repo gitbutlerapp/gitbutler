@@ -143,6 +143,13 @@ export const workspaceHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
+export const branchesHotkeys = {
+	deleteBranchRef: {
+		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
+		meta: { group: "Branch", name: "Delete branch reference" },
+	},
+} satisfies Record<string, HotkeyWithMeta>;
+
 export const outlineHotkeys = {
 	checkCommit: {
 		hotkey: "Space",

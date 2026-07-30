@@ -10,7 +10,7 @@ mod walk;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME};
 use but_graph::{Graph, SegmentIndex, Workspace};
 use gix::{
@@ -595,8 +595,9 @@ fn listed_stack(status: ListedStackStatus, branches: Vec<ListedBranch>) -> Liste
     }
 }
 
-/// GitButler-internal branches that are never interesting to users.
-fn is_technical_branch(identity: &BString) -> bool {
+/// Return `true` if `identity` is a GitButler-internal branch name that must not
+/// be shown or treated as a user branch.
+pub fn is_technical_branch_name(identity: &BStr) -> bool {
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
         b"HEAD",
         b"gitbutler/edit",
@@ -637,7 +638,7 @@ fn enumerate_branch_refs(
             }
             _ => continue,
         };
-        if is_technical_branch(&identity) {
+        if is_technical_branch_name(identity.as_bstr()) {
             continue;
         }
         let Ok(tip) = reference.into_fully_peeled_id() else {

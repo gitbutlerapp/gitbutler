@@ -1,8 +1,8 @@
 import rowStyles from "./Row.module.css";
 import { Scroller } from "#ui/components/Scroller.tsx";
-import { useApply } from "#ui/api/mutations.ts";
+import { useApply, useBranchRemove } from "#ui/api/mutations.ts";
 import { branchDetailsQueryOptions } from "#ui/api/queries.ts";
-import { encodeBytes } from "#ui/api/bytes.ts";
+import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import {
 	branchDetailsParams,
@@ -16,8 +16,10 @@ import { classes } from "#ui/components/classes.ts";
 import { FieldControlStyles } from "#ui/components/Field.tsx";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
+	nativeMenuSeparator,
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
@@ -41,6 +43,7 @@ import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
 	type ComponentProps,
 	type FC,
@@ -153,6 +156,7 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 	const review = branch.review;
 
 	const { isPending: isApplyPending, mutate: apply } = useApply();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 
 	const toggleUnfolded = () => {
 		dispatch(projectSlice.actions.toggleBranchUnfolded({ projectId, branchRef }));
@@ -189,6 +193,13 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 			label: "Apply to Workspace",
 			enabled: !isApplyPending,
 			onSelect: applyBranch,
+		}),
+		nativeMenuSeparator,
+		nativeMenuItem({
+			label: "Delete Branch Reference",
+			enabled: branch.hasLocal && !isBranchRemovePending,
+			accelerator: toElectronAccelerator(branchesHotkeys.deleteBranchRef.hotkey),
+			onSelect: () => branchRemove({ projectId, refName: encodeBytes(branchRef) }),
 		}),
 	];
 
@@ -337,6 +348,12 @@ export const BranchesList: FC<
 
 	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
+	const selectedBranchIsLocal =
+		selection?._tag === "Branch" && decodeBytes(selection.branchRef).startsWith("refs/heads/");
+	const removeBranch = (branchRef: Array<number>) => {
+		branchRemove({ projectId, refName: branchRef });
+	};
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
@@ -349,6 +366,18 @@ export const BranchesList: FC<
 		ref: hotkeysRef,
 		getKey: operandIdentityKey,
 	});
+
+	useHotkey(
+		branchesHotkeys.deleteBranchRef.hotkey,
+		() => {
+			if (selection?._tag === "Branch") removeBranch(selection.branchRef);
+		},
+		{
+			enabled: selectedBranchIsLocal && !isBranchRemovePending,
+			meta: branchesHotkeys.deleteBranchRef.meta,
+			target: hotkeysRef,
+		},
+	);
 
 	const showFilterMenu = (trigger: HTMLElement) => {
 		void showNativeMenuFromTrigger(
