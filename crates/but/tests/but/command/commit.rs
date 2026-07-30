@@ -901,6 +901,24 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
+fn empty_commit_ignores_metadata_for_missing_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
+
+    env.but("commit -m 'empty commit' --empty")
+        .assert()
+        .success();
+
+    assert!(
+        env.open_repo()
+            .try_find_reference("refs/heads/A")
+            .expect("reference lookup succeeds")
+            .is_none(),
+        "oplog preparation must not recreate a branch from stale metadata"
+    );
+}
+
+#[test]
 fn commit_empty_above_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);

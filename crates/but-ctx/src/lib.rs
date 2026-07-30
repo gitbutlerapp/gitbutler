@@ -783,6 +783,14 @@ impl Context {
         let graph = but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options)?;
         graph.into_workspace()
     }
+
+    /// Project the current workspace without reading from or updating the workspace cache.
+    pub fn workspace_from_head_uncached(
+        &self,
+        _perm: &RepoShared,
+    ) -> anyhow::Result<but_graph::Workspace> {
+        self.workspace_from_head()
+    }
 }
 
 /// Non-project/global data access. Only for when no project is available (yet).
