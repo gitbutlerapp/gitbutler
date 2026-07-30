@@ -113,18 +113,32 @@ export const rangeFromLineGroups = (
 	return range;
 };
 
+const contiguousSelectionFromContent = (
+	hunk: Hunk,
+	content: Hunk["hunkContent"][number],
+): HunkLineSelection | null => {
+	if (content.type !== "change") return null;
+
+	const lineGroups = lineGroupsFromChangeContent(hunk, content);
+	if (lineGroups.length === 0) return null;
+
+	return {
+		hunkHeader: hunkHeaderFromHunk(hunk),
+		lineGroups,
+	};
+};
+
 export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelection> =>
-	hunk.hunkContent.flatMap((content): HunkLineSelection | [] => {
-		if (content.type !== "change") return [];
+	hunk.hunkContent.flatMap((content) => contiguousSelectionFromContent(hunk, content) ?? []);
 
-		const lineGroups = lineGroupsFromChangeContent(hunk, content);
-		if (lineGroups.length === 0) return [];
+export const firstContiguousSelectionFromHunk = (hunk: Hunk): HunkLineSelection | null => {
+	for (const content of hunk.hunkContent) {
+		const sel = contiguousSelectionFromContent(hunk, content);
+		if (sel) return sel;
+	}
 
-		return {
-			hunkHeader: hunkHeaderFromHunk(hunk),
-			lineGroups,
-		};
-	});
+	return null;
+};
 
 export const contiguousSelectionByLine = ({
 	hunks,

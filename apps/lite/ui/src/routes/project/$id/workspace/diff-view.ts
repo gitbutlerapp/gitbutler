@@ -1,6 +1,7 @@
 import { hash } from "#ui/hash.ts";
 import {
 	contiguousSelectionsFromHunk,
+	firstContiguousSelectionFromHunk,
 	rangeFromLineGroups,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
@@ -79,24 +80,24 @@ export const getDiffFileNavigation = ({
 	};
 	const itemId = weakFileIdentityKey(file);
 
-	if (treeChangeDiff?.type !== "Patch") return { itemId, firstHunk: null };
-
-	for (const diffHunk of treeChangeDiff.subject.hunks) {
-		const patch = synthesizeFilePatch(change, [diffHunk]);
-		const fileDiff = parseFileDiff(patch, itemId);
-
-		for (const hunk of fileDiff.hunks) {
-			const [selection] = contiguousSelectionsFromHunk(hunk);
-			if (!selection) continue;
-
-			return {
-				itemId,
-				firstHunk: {
-					parent: file,
-					...selection,
-					isResultOfBinaryToTextConversion: treeChangeDiff.subject.isResultOfBinaryToTextConversion,
-				},
-			};
+	if (treeChangeDiff?.type === "Patch") {
+		const fstDiffHunk = treeChangeDiff.subject.hunks[0];
+		if (fstDiffHunk) {
+			const fstHunk = parseFileDiff(synthesizeFilePatch(change, [fstDiffHunk]), itemId).hunks[0];
+			if (fstHunk) {
+				const fstSelection = firstContiguousSelectionFromHunk(fstHunk);
+				if (fstSelection) {
+					return {
+						itemId,
+						firstHunk: {
+							parent: file,
+							...fstSelection,
+							isResultOfBinaryToTextConversion:
+								treeChangeDiff.subject.isResultOfBinaryToTextConversion,
+						},
+					};
+				}
+			}
 		}
 	}
 
