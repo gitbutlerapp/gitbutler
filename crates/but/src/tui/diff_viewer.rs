@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use bstr::{BString, ByteSlice};
 use but_core::unified_diff::DiffHunk;
@@ -218,7 +218,7 @@ pub(crate) fn parse_hunk_assignment_to_lines(assignment: &WorktreeHunk) -> Vec<D
             old_lines: header.old_lines,
             new_start: header.new_start,
             new_lines: header.new_lines,
-            diff: diff.clone(),
+            diff: Arc::unwrap_or_clone(Arc::clone(diff)),
         };
         parse_hunk_to_lines(&hunk)
     } else {

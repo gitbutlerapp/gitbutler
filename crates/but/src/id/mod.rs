@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
+use std::sync::Arc;
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::HunkHeader;
@@ -578,8 +579,7 @@ self_cell!(
 
 // The CLI treats every worktree change as uncommitted, regardless of backend assignments. This
 // type enforces that. Its like `HunkAssignment` but without assignment related fields.
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct WorktreeHunk {
     pub id: Option<Uuid>,
     pub hunk_header: Option<HunkHeader>,
@@ -587,7 +587,7 @@ pub struct WorktreeHunk {
     pub path_bytes: BString,
     pub line_nums_added: Option<Vec<usize>>,
     pub line_nums_removed: Option<Vec<usize>>,
-    pub diff: Option<BString>,
+    pub diff: Option<Arc<BString>>,
 }
 
 impl From<HunkAssignment> for WorktreeHunk {
@@ -610,7 +610,7 @@ impl From<HunkAssignment> for WorktreeHunk {
             path_bytes,
             line_nums_added,
             line_nums_removed,
-            diff,
+            diff: diff.map(Arc::new),
         }
     }
 }
@@ -633,7 +633,7 @@ impl WorktreeHunk {
             path_bytes,
             line_nums_added,
             line_nums_removed,
-            diff,
+            diff: diff.map(Arc::unwrap_or_clone),
             stack_id: None,
             branch_ref_bytes: None,
         }

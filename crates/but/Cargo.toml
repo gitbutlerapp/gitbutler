@@ -50,7 +50,6 @@ raw-clap-docs = []
 [dependencies]
 but-core.workspace = true
 but-settings.workspace = true
-but-serde.workspace = true
 but-secret.workspace = true
 but-askpass.workspace = true
 but-update.workspace = true

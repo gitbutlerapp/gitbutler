@@ -4,20 +4,18 @@ use bstr::BString;
 
 use crate::{IdMap, id::WorktreeHunk};
 
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CLIHunkAssignment {
-    #[serde(flatten)]
+#[derive(Debug, Clone)]
+pub struct CliHunkAssignment {
+    #[expect(dead_code)]
     pub inner: WorktreeHunk,
     /// The CLI ID representation of this assignment
     pub cli_id: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone)]
 pub(crate) struct FileAssignment {
-    #[serde(with = "but_serde::bstring_lossy")]
     pub path: BString,
-    pub assignments: Vec<CLIHunkAssignment>,
+    pub assignments: Vec<CliHunkAssignment>,
 }
 
 impl FileAssignment {
@@ -37,7 +35,7 @@ impl FileAssignment {
                     .assignments
             };
             for hunk_assignment in uncommitted_file.hunk_assignments() {
-                assignments.push(CLIHunkAssignment {
+                assignments.push(CliHunkAssignment {
                     inner: hunk_assignment.1.clone(),
                     cli_id: uncommitted_file.short_id.clone(),
                 });

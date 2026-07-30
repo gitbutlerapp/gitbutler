@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use but_core::{UnifiedPatch, ui, unified_diff::DiffHunk};
 use colored::ColoredString;
 
@@ -226,7 +228,7 @@ impl DiffDisplay for WorktreeHunk {
                 old_lines: header.old_lines,
                 new_start: header.new_start,
                 new_lines: header.new_lines,
-                diff: diff.clone(),
+                diff: Arc::unwrap_or_clone(Arc::clone(diff)),
             };
             output.push_str(&fmt_hunk(&hunk));
         } else if self.hunk_header.is_none() {
