@@ -1,6 +1,7 @@
 use bstr::BString;
 use but_ctx::Context;
 use gix::refs::FullName;
+use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
         diff2::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -81,7 +82,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
             DiffOperation::UncommittedHunkOrFile { hunk } => {
                 diff_rendering::render_uncommitted_hunk(
                     *hunk,
-                    ctx,
                     theme,
                     &mut id_gen,
                     options,
@@ -92,6 +92,17 @@ impl CliOutputHuman for DiffOutcome<'_> {
                 diff_rendering::render_committed_file(
                     commit.commit_id,
                     path,
+                    ctx,
+                    theme,
+                    &mut id_gen,
+                    options,
+                    &mut writer,
+                )?;
+            }
+            DiffOperation::PathPrefix { id, hunks } => {
+                diff_rendering::render_path_prefix(
+                    &id,
+                    hunks,
                     ctx,
                     theme,
                     &mut id_gen,
@@ -222,12 +233,9 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             },
             path,
         }),
+        ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
         ResolvedCliIdArg::Stack => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
-        }
-        ResolvedCliIdArg::PathPrefix => {
-            // TODO(david)
-            Err(anyhow::anyhow!("path prefix targets are not yet implemented").into())
         }
     }
 }
@@ -239,8 +247,21 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 #[derive(Debug)]
 enum DiffOperation {
     Uncommitted,
-    Commit { commit: CommitId },
-    Branch { branch: FullName },
-    UncommittedHunkOrFile { hunk: Box<UncommittedHunkOrFile> },
-    CommittedFile { commit: CommitId, path: BString },
+    Commit {
+        commit: CommitId,
+    },
+    Branch {
+        branch: FullName,
+    },
+    UncommittedHunkOrFile {
+        hunk: Box<UncommittedHunkOrFile>,
+    },
+    CommittedFile {
+        commit: CommitId,
+        path: BString,
+    },
+    PathPrefix {
+        id: String,
+        hunks: NonEmpty<IdAndHunk>,
+    },
 }

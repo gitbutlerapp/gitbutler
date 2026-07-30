@@ -809,7 +809,7 @@ pub fn resolve_target(
         }
         ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::CommittedFile { .. }
-        | ResolvedCliIdArgRef::PathPrefix
+        | ResolvedCliIdArgRef::PathPrefix { .. }
         | ResolvedCliIdArgRef::Stack => Err(ResolveTargetError::InvalidTarget),
     }
 }
@@ -1001,7 +1001,7 @@ impl<'a> Squashable<'a> {
             ResolvedCliIdArgRef::CommittedFile(file) => {
                 return Ok(Self::CommittedFile(file.clone()));
             }
-            ResolvedCliIdArgRef::PathPrefix => "a path",
+            ResolvedCliIdArgRef::PathPrefix { .. } => "a path",
             ResolvedCliIdArgRef::Stack => "a stack",
         };
         Err(bad_input(format!(

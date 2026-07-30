@@ -316,10 +316,9 @@ impl Details {
                     ctx,
                     None,
                     selection_did_change,
-                    move |ctx, theme, id_gen, line_writer, options| {
+                    move |_ctx, theme, id_gen, line_writer, options| {
                         diff_rendering::render_uncommitted_hunk(
                             uncommitted,
-                            ctx,
                             theme,
                             id_gen,
                             options,
@@ -1255,7 +1254,7 @@ impl Details {
             if let CliId::UncommittedHunkOrFile(hunk) = &*section_cli_id {
                 (
                     Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
-                    Span::raw(hunk.hunk_assignments.head.path.clone()),
+                    Span::raw(hunk.hunk_assignments.head.hunk.path.clone()),
                     DiscardOperation::Uncommitted(UncommittedSelection::Changes(Box::new(
                         NonEmpty::new(hunk.clone()),
                     ))),
@@ -1444,8 +1443,8 @@ impl Details {
                 };
                 // the detail view can contain hunks from multiple files, for example if viewing
                 // the uncommitted area, so only check hunks from the marked file
-                if section_hunk.hunk_assignments.head.path_bytes
-                    != hunk.hunk_assignments.head.path_bytes
+                if section_hunk.hunk_assignments.head.hunk.path_bytes
+                    != hunk.hunk_assignments.head.hunk.path_bytes
                 {
                     return None;
                 }

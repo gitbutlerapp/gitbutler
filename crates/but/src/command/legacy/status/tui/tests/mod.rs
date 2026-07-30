@@ -930,7 +930,7 @@ fn pick_changes_mode() {
         .map(|hunk| {
             (
                 hunk.id,
-                hunk.hunk_assignments.head.path,
+                hunk.hunk_assignments.head.hunk.path,
                 hunk.is_entire_file,
             )
         })
@@ -1021,7 +1021,7 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
         .map(|hunk| {
             (
                 hunk.id,
-                hunk.hunk_assignments.head.path,
+                hunk.hunk_assignments.head.hunk.path,
                 hunk.is_entire_file,
             )
         })

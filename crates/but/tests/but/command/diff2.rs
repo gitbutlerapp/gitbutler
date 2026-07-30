@@ -41,3 +41,35 @@ puts "\nA distant door unlocks."
         .success()
         .stdout_eq(snapbox::file!["snapshots/diff2/uncommitted.stdout"].raw());
 }
+
+#[test]
+fn path_prefix() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("a/b/c.txt", "content of c");
+    env.file("a/b/d.txt", "content of d");
+    env.file("a/b.txt", "content of b");
+
+    env.but("_diff2 a/b/")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ up:2 a/b/c.txt │
+────────────────╯
+ 
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +content of c
+
+────────────────╮
+ oz:8 a/b/d.txt │
+────────────────╯
+ 
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +content of d
+
+"#]]);
+}

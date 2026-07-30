@@ -24,12 +24,12 @@ use crate::{
             },
         },
     },
-    id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile},
+    id::UncommittedHunkOrFile,
     tui::TerminalGuard,
     utils::targeting,
 };
 
-use super::mark::MarksRef;
+use super::{SquashMarks, SquashSource, mark::MarksRef};
 
 #[derive(Debug, Clone)]
 pub struct CommitMode {
@@ -59,19 +59,8 @@ pub enum CommitMessageComposer {
 #[derive(Debug)]
 pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
-    UncommittedArea(UncommittedAreaCommitSource),
-    Uncommitted(UncommittedHunkOrFile),
-    Stack(StackCommitSource),
-}
-
-#[derive(Debug)]
-pub struct UncommittedAreaCommitSource {
-    pub id: ShortId,
-}
-
-#[derive(Debug)]
-pub struct StackCommitSource {
-    pub stack_id: StackId,
+    Uncommitted,
+    UncommittedHunk(UncommittedHunkOrFile),
 }
 
 impl ModeRender for CommitMode {
@@ -115,33 +104,26 @@ impl CommitSource {
                     false
                 }
             }
-            CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: lhs_id }) => {
-                if let CliId::Uncommitted { id: rhs_id } = other {
-                    lhs_id == rhs_id
-                } else {
-                    false
-                }
+            CommitSource::Uncommitted => {
+                matches!(other, CliId::Uncommitted { .. })
             }
-            CommitSource::Uncommitted(lhs) => {
+            CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs || hunk_is_child_of(rhs, lhs)
                 } else {
                     false
                 }
             }
-            CommitSource::Stack(StackCommitSource {
-                stack_id: stack_id_lhs,
-            }) => {
-                if let CliId::Stack {
-                    stack_id: stack_id_rhs,
-                    ..
-                } = other
-                {
-                    stack_id_lhs == stack_id_rhs
-                } else {
-                    false
-                }
+        }
+    }
+
+    fn try_from_cli_id(id: &CliId) -> Option<Self> {
+        match id {
+            CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
+                Some(CommitSource::Uncommitted)
             }
+            CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
         }
     }
 }
@@ -172,7 +154,11 @@ impl App {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
             CommitMessage::Start => self.handle_commit_start(messages),
-            CommitMessage::StartWithSource(source) => self.handle_commit_start_source(source),
+            CommitMessage::StartWithSource(source) => {
+                if let Some(source) = CommitSource::try_from_cli_id(&source) {
+                    self.handle_commit_start_source(source);
+                }
+            }
             CommitMessage::Confirm => self.handle_commit_confirm(ctx, terminal_guard, messages)?,
             CommitMessage::ToggleMessageComposer(composer) => {
                 self.handle_commit_toggle_message_composer(composer);
@@ -192,14 +178,15 @@ impl App {
         match &*self.mode {
             Mode::Normal(..) => {
                 if self.marks_ref().is_empty() {
-                    let Some(selection) = self
+                    let Some(source) = self
                         .cursor
                         .selected_line(&self.status_lines)
                         .and_then(|selection| selection.data.cli_id())
+                        .and_then(|id| CommitSource::try_from_cli_id(id))
                     else {
                         return;
                     };
-                    self.handle_commit_start_source(Arc::clone(selection));
+                    self.handle_commit_start_source(source);
                 } else {
                     self.handle_commit_start_marks();
                 }
@@ -230,24 +217,30 @@ impl App {
                 | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {}
             },
+            Mode::Squash(squash_mode) => match &squash_mode.source {
+                SquashSource::Uncommitted => {
+                    self.handle_commit_start_source(CommitSource::Uncommitted);
+                }
+                SquashSource::UncommittedHunk(hunk) => {
+                    self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));
+                }
+                SquashSource::Marks(squash_marks) => match squash_marks {
+                    SquashMarks::Hunks(hunks) => {
+                        self.handle_commit_start_source(CommitSource::Marks(hunks.clone()));
+                    }
+                    SquashMarks::Commits(..)
+                    | SquashMarks::CommittedFiles(..)
+                    | SquashMarks::Branches(..) => {}
+                },
+                SquashSource::Branch(..)
+                | SquashSource::CommittedFile(..)
+                | SquashSource::Commit(..) => {}
+            },
             _ => {}
         }
     }
 
-    fn handle_commit_start_source(&mut self, cli_id: Arc<CliId>) {
-        let source = match Arc::unwrap_or_clone(cli_id) {
-            CliId::Uncommitted { id } => {
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id })
-            }
-            CliId::UncommittedHunkOrFile(hunk) => CommitSource::Uncommitted(hunk),
-            CliId::Stack { stack_id, .. } => CommitSource::Stack(StackCommitSource { stack_id }),
-            CliId::Branch(..) | CliId::Commit { .. } => {
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource {
-                    id: UNCOMMITTED.to_string(),
-                })
-            }
-            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
-        };
+    fn handle_commit_start_source(&mut self, source: CommitSource) {
         let commit_mode = CommitMode {
             source: Arc::new(source),
             insert_side: InsertSide::Below,
@@ -464,12 +457,9 @@ where
 
     let commit_selection = match &**source {
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(hunks.clone())),
-        CommitSource::UncommittedArea(..) => commit::CommitSelection::AllChanges,
-        CommitSource::Uncommitted(hunk) => {
+        CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
+        CommitSource::UncommittedHunk(hunk) => {
             commit::CommitSelection::Changes(Box::new(NonEmpty::new(hunk.clone())))
-        }
-        CommitSource::Stack(..) => {
-            anyhow::bail!("committing stack assignments is not supported. Use `but commit`")
         }
     };
 

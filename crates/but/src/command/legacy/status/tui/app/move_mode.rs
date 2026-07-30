@@ -28,7 +28,7 @@ use crate::{
     utils::targeting,
 };
 
-use super::mark::MarksRef;
+use super::{MoveCursorDiration, SquashMarks, SquashSource, mark::MarksRef};
 
 #[derive(Debug, Clone)]
 pub struct MoveMode {
@@ -98,24 +98,16 @@ impl MoveSource {
             }
         }
     }
-}
 
-impl TryFrom<CliId> for MoveSource {
-    type Error = anyhow::Error;
-
-    fn try_from(id: CliId) -> Result<Self, Self::Error> {
+    fn try_from_cli_id(id: &CliId) -> Option<Self> {
         match id {
-            CliId::Branch(branch) => Ok(Self::Branch(branch)),
-            CliId::Commit { commit, .. } => Ok(Self::Commit(commit)),
-            CliId::UncommittedHunkOrFile(uncommitted_cli_id) => {
-                anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
-            }
-            CliId::PathPrefix { id, .. }
-            | CliId::CommittedFile { id, .. }
-            | CliId::Uncommitted { id }
-            | CliId::Stack { id, .. } => {
-                anyhow::bail!("cannot move: {id:?}")
-            }
+            CliId::Branch(branch) => Some(Self::Branch(branch.clone())),
+            CliId::Commit { commit, .. } => Some(Self::Commit(commit.clone())),
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. } => None,
         }
     }
 }
@@ -152,23 +144,23 @@ impl App {
             | MarksRef::CommittedFiles { .. } => {}
         }
 
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+        let Some(selection) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|selection| selection.data.cli_id())
+        else {
             return;
         };
 
-        let move_mode = if let Mode::Normal(normal_mode) = &*self.mode
-            && let Some(commits) = normal_mode.marks.as_commits().cloned()
-        {
-            MoveMode {
-                source: Arc::new(MoveSource::Marks(commits)),
-                insert_side: InsertSide::Above,
-            }
-        } else {
-            match &selection.data {
-                StatusOutputLineData::Branch { cli_id, .. }
-                | StatusOutputLineData::Commit { cli_id, .. } => {
-                    let Ok(source) = MoveSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
-                    else {
+        let move_mode = match &*self.mode {
+            Mode::Normal(normal_mode) => {
+                if let Some(commits) = normal_mode.marks.as_commits().cloned() {
+                    MoveMode {
+                        source: Arc::new(MoveSource::Marks(commits)),
+                        insert_side: InsertSide::Above,
+                    }
+                } else {
+                    let Some(source) = MoveSource::try_from_cli_id(selection) else {
                         return;
                     };
                     MoveMode {
@@ -176,28 +168,39 @@ impl App {
                         insert_side: InsertSide::Above,
                     }
                 }
-                StatusOutputLineData::UpdateNotice
-                | StatusOutputLineData::Connector
-                | StatusOutputLineData::BetweenStacks
-                | StatusOutputLineData::StagedChanges { .. }
-                | StatusOutputLineData::StagedFile { .. }
-                | StatusOutputLineData::UncommittedChanges { .. }
-                | StatusOutputLineData::UncommittedFile { .. }
-                | StatusOutputLineData::CommitMessage
-                | StatusOutputLineData::EmptyCommitMessage
-                | StatusOutputLineData::File { .. }
-                | StatusOutputLineData::MergeBase
-                | StatusOutputLineData::UpstreamChanges
-                | StatusOutputLineData::Warning
-                | StatusOutputLineData::Hint
-                | StatusOutputLineData::NoAssignmentsUnstaged => return,
             }
+            Mode::Squash(squash_mode) => match &squash_mode.source {
+                SquashSource::Marks(squash_marks) => match squash_marks {
+                    SquashMarks::Commits(commits) => MoveMode {
+                        source: Arc::new(MoveSource::Marks(commits.clone())),
+                        insert_side: InsertSide::Above,
+                    },
+                    SquashMarks::Hunks(..)
+                    | SquashMarks::Branches(..)
+                    | SquashMarks::CommittedFiles(..) => return,
+                },
+                SquashSource::Commit(commit) => MoveMode {
+                    source: Arc::new(MoveSource::Commit(commit.clone())),
+                    insert_side: InsertSide::Above,
+                },
+                SquashSource::Branch(branch) => MoveMode {
+                    source: Arc::new(MoveSource::Branch(branch.clone())),
+                    insert_side: InsertSide::Above,
+                },
+
+                SquashSource::UncommittedHunk(..)
+                | SquashSource::CommittedFile(..)
+                | SquashSource::Uncommitted => return,
+            },
+            _ => return,
         };
 
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Move(move_mode);
             });
+
+        self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Down);
     }
 
     fn handle_move_toggle_insert_side(&mut self) {

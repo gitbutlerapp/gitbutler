@@ -51,7 +51,7 @@ pub fn uncommitted_hunk_picker(
     hunk: UncommittedHunkOrFile,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
-    let path = hunk.hunk_assignments.head.path.clone();
+    let path = hunk.hunk_assignments.head.hunk.path.clone();
     picker(
         NonEmpty::from_slice(&[
             CopySelectionItem::ShortId(hunk.id.clone()),
@@ -293,9 +293,9 @@ fn uncommitted_hunk_matches_selection(
     let selected_hunk = uncommitted.hunk_assignments.first();
 
     if uncommitted.is_entire_file {
-        hunk_assignment.path_bytes == selected_hunk.path_bytes
+        hunk_assignment.path_bytes == selected_hunk.hunk.path_bytes
     } else {
-        hunk_assignment == selected_hunk
+        hunk_assignment == &selected_hunk.hunk
     }
 }
 

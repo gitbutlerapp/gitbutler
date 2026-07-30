@@ -1047,6 +1047,7 @@ impl App {
                                 changed_paths.iter().any(|changed_path| {
                                     hunk.hunk_assignments
                                         .head
+                                        .hunk
                                         .path_bytes
                                         .to_path()
                                         .is_ok_and(|path| path == changed_path)
@@ -1094,7 +1095,7 @@ impl App {
                                     | StatusOutputLineData::NoAssignmentsUnstaged => None,
                                 })
                                 .flat_map(|assignments| assignments.iter())
-                                .map(|assignment| assignment.path_bytes.as_ref());
+                                .map(|assignment| assignment.hunk.path_bytes.as_ref());
                             let current_uncommitted_paths = changes
                                 .worktree_changes
                                 .changes
@@ -1463,7 +1464,7 @@ impl App {
                 id: _,
             } => path.to_str_lossy(),
             CliId::UncommittedHunkOrFile(uncommitted) => {
-                Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
+                Cow::Borrowed(&*uncommitted.hunk_assignments.first().hunk.path)
             }
             CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
@@ -1561,7 +1562,7 @@ impl App {
                 ctx,
                 std::iter::once(head)
                     .chain(tail)
-                    .map(|hunk| hunk.hunk_assignments.head.path_bytes.as_bstr()),
+                    .map(|hunk| hunk.hunk_assignments.head.hunk.path_bytes.as_bstr()),
             ),
             mark::MarksRef::CommittedFiles { head, tail } => openable_from_paths(
                 ctx,

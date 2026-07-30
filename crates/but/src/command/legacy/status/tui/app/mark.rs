@@ -18,7 +18,7 @@ use crate::{
     },
     id::{
         BranchId, BranchIdRef, CommitId, CommitIdRef, CommittedFileId, CommittedFileIdRef,
-        UncommittedHunkOrFile, WorktreeHunk,
+        IdAndHunk, UncommittedHunkOrFile,
     },
 };
 
@@ -789,7 +789,7 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
 fn synthetic_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<WorktreeHunk>,
+    hunk_assignments: NonEmpty<IdAndHunk>,
     is_entire_file: bool,
 ) -> UncommittedHunkOrFile {
     UncommittedHunkOrFile {
@@ -802,7 +802,7 @@ fn synthetic_hunk(
 pub fn synthetic_parent_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<WorktreeHunk>,
+    hunk_assignments: NonEmpty<IdAndHunk>,
 ) -> UncommittedHunkOrFile {
     synthetic_hunk(base_id, idx, hunk_assignments, true)
 }
@@ -810,7 +810,7 @@ pub fn synthetic_parent_hunk(
 pub fn synthetic_child_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<WorktreeHunk>,
+    hunk_assignments: NonEmpty<IdAndHunk>,
 ) -> UncommittedHunkOrFile {
     synthetic_hunk(base_id, idx, hunk_assignments, false)
 }

@@ -270,7 +270,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             }
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => hunk_sources.push(*change),
             ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
-            ResolvedCliIdArg::PathPrefix => {
+            ResolvedCliIdArg::PathPrefix { .. } => {
                 return Err(bad_input("Path prefixes cannot be discarded")
                     .arg_name("<CHANGES>")
                     .arg_value(value)

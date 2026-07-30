@@ -70,7 +70,9 @@ fn path(ctx: &Context) -> PathBuf {
 
 fn line_id(id: &CliId) -> Option<String> {
     Some(match id {
-        CliId::UncommittedHunkOrFile(hunk) => format!("hunk:{}", hunk.hunk_assignments.head.path),
+        CliId::UncommittedHunkOrFile(hunk) => {
+            format!("hunk:{}", hunk.hunk_assignments.head.hunk.path)
+        }
         CliId::Branch(branch) => format!("branch:{}", branch.name),
         CliId::CommittedFile {
             committed_file:
