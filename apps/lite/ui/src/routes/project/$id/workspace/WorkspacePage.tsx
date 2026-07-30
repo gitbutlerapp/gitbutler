@@ -39,11 +39,12 @@ import {
 	operandEquals,
 	operandIdentityKey,
 	type BranchOperand,
+	type HunkOperand,
 	type Operand,
 	uncommittedChangesFileParent,
 } from "#ui/operands.ts";
 import { Details, type DiffViewerHandle } from "./Details.tsx";
-import { type DiffViewFile, getDiffView } from "./diff-view.ts";
+import { getDiffFileNavigation } from "./diff-view.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -339,22 +340,18 @@ const WorkspacePage: FC = () => {
 	// container, but that comes with other complexities and tradeoffs.
 	const didScrollToViaFileRef = useRef(false);
 
-	const onActiveFileSelection = (selection: string, diffViewFile: DiffViewFile) => {
-		if (diffViewFile.operand.parent._tag === "UncommittedChanges")
-			dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
-		else dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
-
+	const onActiveFileSelection = (itemId: string, firstHunk: HunkOperand | null) => {
 		dispatch(
 			projectSlice.actions.selectDiff({
 				projectId,
-				selection: diffViewFile.hunks[0]?.operand ?? null,
+				selection: firstHunk,
 			}),
 		);
 
 		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
 			type: "item",
-			id: diffViewFile.item.id,
+			id: itemId,
 		});
 	};
 
@@ -493,19 +490,17 @@ const WorkspacePage: FC = () => {
 		const index = uncommittedFilesNavigationIndex.indexByKey.get(selection);
 		const change = index !== undefined ? worktreeChanges?.changes[index] : undefined;
 		const treeChangeDiff = index !== undefined ? uncommittedTreeChangeDiffs?.[index] : undefined;
-
-		if (change && treeChangeDiff !== undefined) {
-			// Construct a cheap diff view only for the selected file.
-			const diffViewFile = getDiffView({
-				fileParent: uncommittedChangesFileParent,
-				changes: [change],
-				treeChangeDiffs: [treeChangeDiff],
-			}).fileByPath.get(selection);
-
-			if (diffViewFile) return onActiveFileSelection(selection, diffViewFile);
-		}
+		const navigation =
+			change && treeChangeDiff !== undefined
+				? getDiffFileNavigation({
+						fileParent: uncommittedChangesFileParent,
+						change,
+						treeChangeDiff,
+					})
+				: null;
 
 		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
 	};
 
 	const uncommittedFilesSelection = useAppSelector((state) =>

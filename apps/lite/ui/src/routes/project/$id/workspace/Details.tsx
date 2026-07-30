@@ -133,7 +133,6 @@ import { FileIcon } from "#ui/components/FileIcon.tsx";
 import {
 	type Annotation,
 	type DiffView,
-	type DiffViewFile,
 	getDiffView,
 	hunkOperandIdentityKey,
 } from "./diff-view.ts";
@@ -864,7 +863,7 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileRowItem>;
-	onActiveFileSelection: (selection: string, diffViewFile: DiffViewFile) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	onPassiveFileSelection: (selection: string) => void;
 	selection: Operand;
 	projectId: string;
@@ -940,7 +939,8 @@ const Diff: FC<{
 		const file = diffViewSansAnno.fileByPath.get(selection);
 		if (!file) return;
 
-		onActiveFileSelection(selection, file);
+		onPassiveFileSelection(selection);
+		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
 	};
 
 	const { data: diffSettings } = useQuery({
@@ -1470,7 +1470,7 @@ const CommitDetailsSkeleton: FC = () => {
 
 const CommitDetails: FC<{
 	selection: Extract<Operand, { _tag: "Commit" }>;
-	onActiveFileSelection: (selection: string, diffViewFile: DiffViewFile) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
@@ -1600,7 +1600,7 @@ const CommitDetails: FC<{
 
 const BranchDetails: FC<{
 	selection: Extract<Operand, { _tag: "Branch" }>;
-	onActiveFileSelection: (selection: string, diffViewFile: DiffViewFile) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
@@ -1867,7 +1867,7 @@ const FileDetails: FC<{
 	selection: Extract<Operand, { _tag: "File" }> & {
 		parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
 	};
-	onActiveFileSelection: (selection: string, diffViewFile: DiffViewFile) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
@@ -1921,7 +1921,7 @@ const FileDetails: FC<{
 
 export const Details: FC<{
 	selection: Operand | null;
-	onActiveFileSelection: (selection: string, diffViewFile: DiffViewFile) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
