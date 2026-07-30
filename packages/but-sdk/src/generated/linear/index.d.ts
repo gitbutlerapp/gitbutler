@@ -94,15 +94,17 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * Land `branch` directly onto the configured target ref.
  *
  * `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
- * must be the bottom segment of its stack and free of conflicted commits, and the workspace must
- * be a managed GitButler workspace with a configured, non-triangular target remote.
+ * must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
+ * publishes every segment below it as well — and the landed segments must be free of conflicted
+ * commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
+ * target remote.
  *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  */
-export declare function branchLand(projectId: string, branch: string, noFf: boolean): Promise<BranchLandResult>
+export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
 
 /**
  * Lists all local and remote branches of the project, grouped into stacks where
@@ -2400,6 +2402,8 @@ export type MoveChangesResult = {
 
 /** Everything needed to create a new comment. See [`DiffComment`] for the field semantics. */
 export type NewComment = {
+  /** An optional client-supplied ID. An ID will be generated if this is absent. */
+  id: string | null;
   /** The worktree-relative path of the file to anchor the comment to. */
   path: string;
   /**

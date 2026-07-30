@@ -1,8 +1,10 @@
 import {
 	useBranchCreate,
+	useBranchRemove,
 	useCommitDiscard,
 	useCommitInsertBlank,
 	useCommitMove,
+	useCommitUncommit,
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
@@ -31,7 +33,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import type { RefObject } from "react";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
-import { downstackPushStatusDisabled, downstackPushStatusFromSegments } from "#ui/segment.ts";
+import {
+	canRemoveBranchReference,
+	downstackPushStatusDisabled,
+	downstackPushStatusFromSegments,
+} from "#ui/segment.ts";
 
 type PushContext = {
 	refName: BranchReference;
@@ -121,6 +127,7 @@ export const useOutlineTreeHotkeys = ({
 
 	const { isPending: isCommitMovePending, mutate: commitMove } = useCommitMove();
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
+	const { isPending: isCommitUncommitPending, mutate: commitUncommit } = useCommitUncommit();
 	const { isPending: isCommitInsertBlankPending, mutate: commitInsertBlank } =
 		useCommitInsertBlank();
 	const {
@@ -130,12 +137,13 @@ export const useOutlineTreeHotkeys = ({
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { mutate: branchCreate } = useBranchCreate();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 
 	const openBranchPicker = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "BranchPicker" } }));
 	};
 
-	const insertEmptyCommit = () => {
+	const insertEmptyCommit = (sideIntent: InsertSide) => {
 		if (!selection) return;
 
 		type Placement = { relativeTo: RelativeTo; side: InsertSide };
@@ -143,7 +151,7 @@ export const useOutlineTreeHotkeys = ({
 			Match.tags({
 				Commit: (selection): Placement => ({
 					relativeTo: { type: "commit", subject: selection.commitId },
-					side: "above",
+					side: sideIntent,
 				}),
 				Branch: (selection): Placement => ({
 					relativeTo: {
@@ -292,6 +300,26 @@ export const useOutlineTreeHotkeys = ({
 		);
 	};
 
+	const deleteSelectedBranchReference = () => {
+		if (!selection || selection._tag !== "Branch") return;
+
+		branchRemove({
+			projectId,
+			refName: selection.branchRef,
+		});
+	};
+
+	const uncommitSelectedCommit = () => {
+		if (!selection || selection._tag !== "Commit") return;
+
+		commitUncommit({
+			projectId,
+			assignTo: null,
+			subjectCommitIds: [selection.commitId],
+			dryRun: false,
+		});
+	};
+
 	const selectedSegmentIndex =
 		selection?._tag === "Branch"
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
@@ -359,6 +387,12 @@ export const useOutlineTreeHotkeys = ({
 		!downstackPushStatusDisabled(
 			downstackPushStatusFromSegments(selectedPushContext.downstackSegments),
 		);
+	const canDeleteSelectedBranchReference =
+		isSelectedBranch &&
+		selectionStack !== undefined &&
+		selectedSegmentIndex !== undefined &&
+		canRemoveBranchReference(selectionStack, selectedSegmentIndex) &&
+		!isBranchRemovePending;
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -411,6 +445,17 @@ export const useOutlineTreeHotkeys = ({
 							meta: outlineHotkeys.rewordCommit.meta,
 						},
 					},
+					{
+						hotkey: "F2",
+						callback: () => {
+							dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+						},
+					},
 				],
 				Branch: (selection): Array<UseHotkeyDefinition> => [
 					{
@@ -423,6 +468,17 @@ export const useOutlineTreeHotkeys = ({
 							enabled: defaultOutlineHotkeysEnabled,
 							target: ref,
 							meta: outlineHotkeys.renameBranch.meta,
+						},
+					},
+					{
+						hotkey: "F2",
+						callback: () => {
+							dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
 						},
 					},
 				],
@@ -463,6 +519,16 @@ export const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
+			hotkey: outlineHotkeys.deleteBranchRef.hotkey,
+			callback: deleteSelectedBranchReference,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && canDeleteSelectedBranchReference,
+				target: ref,
+				meta: outlineHotkeys.deleteBranchRef.meta,
+			},
+		},
+		{
 			hotkey: outlineHotkeys.deleteCommit.hotkey,
 			callback: deleteSelectedCommit,
 			options: {
@@ -470,6 +536,16 @@ export const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitDiscardPending,
 				target: ref,
 				meta: outlineHotkeys.deleteCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.uncommitCommit.hotkey,
+			callback: uncommitSelectedCommit,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitUncommitPending,
+				target: ref,
+				meta: outlineHotkeys.uncommitCommit.meta,
 			},
 		},
 		{
@@ -537,8 +613,8 @@ export const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
-			hotkey: outlineHotkeys.insertEmptyCommit.hotkey,
-			callback: insertEmptyCommit,
+			hotkey: outlineHotkeys.insertEmptyCommitAbove.hotkey,
+			callback: () => insertEmptyCommit("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
@@ -546,7 +622,20 @@ export const useOutlineTreeHotkeys = ({
 					(isSelectedBranch || isSelectedCommit) &&
 					!isCommitInsertBlankPending,
 				target: ref,
-				meta: outlineHotkeys.insertEmptyCommit.meta,
+				meta: outlineHotkeys.insertEmptyCommitAbove.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.insertEmptyCommitBelow.hotkey,
+			callback: () => insertEmptyCommit("below"),
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled &&
+					(isSelectedBranch || isSelectedCommit) &&
+					!isCommitInsertBlankPending,
+				target: ref,
+				meta: outlineHotkeys.insertEmptyCommitBelow.meta,
 			},
 		},
 		...Match.value(selection).pipe(

@@ -162,26 +162,50 @@ fn print_undo_caveat(
     Ok(())
 }
 
-/// Confirm a direct target update. The PR-attached warning is always printed; `--yes` only skips
-/// the interactive prompt, never the warning.
+/// Confirm a direct target update. For a whole-stack land, `lower` describes everything else that
+/// will be published — named segments and commits on unnamed segments alike — so the user confirms
+/// the full set. The PR-attached warning is always printed; `--yes` only skips the interactive
+/// prompt, never the warning.
 pub(super) fn confirm_direct_target_update(
     out: &mut OutputChannel,
     branch_name: &str,
-    pr_number: Option<usize>,
+    lower: &but_api::land::LowerStack,
+    attached_prs: &[(String, usize)],
     target_display: &str,
     yes: bool,
 ) -> anyhow::Result<()> {
+    let mut extras = Vec::new();
+    if !lower.segments.is_empty() {
+        extras.push(format!(
+            "the {} segment(s) below it ({})",
+            lower.segments.len(),
+            lower.segments.join(", "),
+        ));
+    }
+    if lower.unnamed_commits > 0 {
+        extras.push(format!(
+            "{} commit(s) on unnamed segments below it",
+            lower.unnamed_commits,
+        ));
+    }
+    let subject = if extras.is_empty() {
+        branch_name.to_string()
+    } else {
+        format!("{branch_name} — together with {} —", extras.join(" and "))
+    };
     let action = format!(
-        "This lands {branch_name} directly onto {target_display} without a pull request — \
+        "This lands {subject} directly onto {target_display} without a pull request — \
          skipping any code review, CI checks, or branch protections your team may rely on."
     );
-    let warning = if let Some(pr_number) = pr_number {
-        format!(
-            "Branch {branch_name} has PR #{pr_number} attached. {action} The pull request will be \
-             left open and its remote branch orphaned."
-        )
-    } else {
+    let warning = if attached_prs.is_empty() {
         action
+    } else {
+        let prs = attached_prs
+            .iter()
+            .map(|(name, pr)| format!("{name} (PR #{pr})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{action} This orphans open pull request(s): {prs}.")
     };
 
     if let Some(out) = out.for_human() {
@@ -198,23 +222,51 @@ pub(super) fn confirm_direct_target_update(
         );
     };
 
-    if inout.confirm(
-        format!("Land {branch_name} directly onto {target_display}?"),
-        ConfirmDefault::No,
-    )? == Confirm::No
-    {
+    let question = if extras.is_empty() {
+        format!("Land {branch_name} directly onto {target_display}?")
+    } else {
+        format!("Land {branch_name} and everything below it directly onto {target_display}?")
+    };
+    if inout.confirm(question, ConfirmDefault::No)? == Confirm::No {
         bail!("Land cancelled");
     }
 
     Ok(())
 }
 
-/// The open pull-request number attached to `branch_name`, if any, read from its stack.
-pub(super) fn branch_pr_number(ctx: &Context, branch_name: &str) -> anyhow::Result<Option<usize>> {
-    let pr_number = but_api::legacy::virtual_branches::list_branches(ctx, None)?
-        .into_iter()
-        .find(|branch| branch.name.to_string() == branch_name)
-        .and_then(|branch| branch.stack)
-        .and_then(|stack| stack.pull_requests.get(branch_name).copied());
-    Ok(pr_number)
+/// The open pull-request numbers attached to `branch_name` or any of `lower_segments`. Whole-stack
+/// landing orphans every one of them, so all are surfaced.
+///
+/// Only applied workspace segments can land, so this reads the forge review associations that
+/// `head_info` projects onto the workspace segments (`segment.metadata.review.pull_request` is
+/// overwritten from the forge review cache there, not stored state) instead of computing the
+/// repository-wide branch listing.
+pub(super) fn attached_pr_numbers(
+    ctx: &Context,
+    branch_name: &str,
+    lower_segments: &[String],
+) -> anyhow::Result<Vec<(String, usize)>> {
+    let info = but_api::legacy::workspace::head_info(ctx)?;
+    // A segment shared between stacks is listed once per stack; dedup so the warning doesn't
+    // repeat it.
+    let mut seen = std::collections::HashSet::new();
+    Ok(info
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .filter_map(|segment| {
+            let ref_name = &segment.ref_info.as_ref()?.ref_name;
+            if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+                return None;
+            }
+            let name = ref_name.shorten();
+            let name = std::str::from_utf8(name.as_ref()).ok()?;
+            if name != branch_name && !lower_segments.iter().any(|lower| lower == name) {
+                return None;
+            }
+            let pr = segment.metadata.as_ref()?.review.pull_request?;
+            Some((name.to_string(), pr))
+        })
+        .filter(|(name, _)| seen.insert(name.clone()))
+        .collect())
 }

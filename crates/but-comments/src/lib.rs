@@ -93,6 +93,8 @@ but_schemars::register_sdk_type!(DiffComment);
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct NewComment {
+    /// An optional client-supplied ID. An ID will be generated if this is absent.
+    pub id: Option<String>,
     /// The worktree-relative path of the file to anchor the comment to.
     pub path: String,
     /// `None` to anchor to the uncommitted worktree diff, or the change-id of a workspace commit
@@ -159,7 +161,9 @@ pub fn create_comment(
         .map(|line| line.content.clone());
 
     let stored = StoredComment {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: comment
+            .id
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
         path: comment.path,
         commit_change_id: comment.commit_change_id,
         side: comment.side,

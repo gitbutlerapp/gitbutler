@@ -170,7 +170,8 @@
 
 		{#snippet caption()}
 			Choose where GitButler-managed stack information appears. Changes apply on the next review
-			sync. The default is Bottom.
+			sync. The default is Bottom. Does not apply to native GitHub stacked pull requests, where
+			GitHub shows the stack on its own.
 		{/snippet}
 
 		<div data-testid="review-stacking-description-select">

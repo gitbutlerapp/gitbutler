@@ -440,11 +440,13 @@ describe("buildStackEndpoints", () => {
 				projectId: "project-1",
 				branch: "feature",
 				noFf: false,
+				wholeStack: true,
 			}),
 		).toEqual({
 			projectId: "project-1",
 			branch: "feature",
 			noFf: false,
+			wholeStack: true,
 		});
 
 		// The base-branch query provides a type-level tag, so it must be invalidated

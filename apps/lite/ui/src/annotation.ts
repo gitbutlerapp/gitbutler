@@ -3,14 +3,14 @@ import type {
 	CommentCreateParams,
 	CommentUpdateParams,
 } from "#electron/ipc.ts";
-import type { QueryKey } from "#ui/api/queries.ts";
+import { commentsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { FileParent } from "#ui/operands.ts";
 import { Toast } from "@base-ui/react";
 import type { DiffComment, DiffSide } from "@gitbutler/but-sdk";
 import type { AnnotationSide } from "@pierre/diffs";
-import { type QueryClient, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
 /**
  * A backend comment anchored to a diff line, shaped for the diff view. Comments are read by
@@ -26,22 +26,6 @@ export type LocalAnnotation = {
 
 export type LocalAnnotationsByPath = Map<string, Array<LocalAnnotation>>;
 
-/**
- * The backend anchor scope of a file parent: `null` for the uncommitted worktree diff, the
- * commit's change id for a commit diff, and `undefined` when comments are not supported
- * (branch diffs have no stable anchor scope).
- */
-export const commentScopeChangeId = (fileParent: FileParent): string | null | undefined => {
-	switch (fileParent._tag) {
-		case "UncommittedChanges":
-			return null;
-		case "Commit":
-			return fileParent.changeId;
-		case "Branch":
-			return undefined;
-	}
-};
-
 export const annotationSideToDiffSide = (side: AnnotationSide): DiffSide =>
 	side === "deletions" ? "old" : "new";
 
@@ -51,11 +35,17 @@ const diffSideToAnnotationSide = (side: DiffSide): AnnotationSide =>
 /** Group the comments belonging to the given scope by path, shaped for the diff view. */
 export const annotationsByPathForScope = (
 	comments: Array<DiffComment>,
-	commitChangeId: string | null,
+	fileParent: FileParent,
 ): LocalAnnotationsByPath => {
 	const byPath: LocalAnnotationsByPath = new Map();
+
+	// We don't currently support annotations on branches.
+	if (fileParent._tag === "Branch") return byPath;
+
+	const commitChangeId = fileParent._tag === "Commit" ? fileParent.changeId : null;
 	for (const comment of comments) {
 		if (comment.commitChangeId !== commitChangeId) continue;
+
 		const annotations = byPath.get(comment.path) ?? [];
 		annotations.push({
 			id: comment.id,
@@ -66,50 +56,107 @@ export const annotationsByPathForScope = (
 		});
 		byPath.set(comment.path, annotations);
 	}
+
 	return byPath;
 };
 
-const invalidateComments = (client: QueryClient, projectId: string) =>
-	void client.invalidateQueries({ queryKey: ["comments" satisfies QueryKey, projectId] });
-
-const useCommentErrorToast = (title: string) => {
-	const toastManager = Toast.useToastManager();
-	return (error: unknown) => {
-		// oxlint-disable-next-line no-console
-		console.error(error);
-		toastManager.add({
-			type: "error",
-			title,
-			description: errorMessageForToast(error),
-			priority: "high",
-		});
-	};
-};
-
 export const useCommentCreate = () => {
-	const onError = useCommentErrorToast("Failed to create comment");
+	const toastManager = Toast.useToastManager();
+
 	return useMutation({
-		mutationFn: (params: CommentCreateParams) => window.lite.commentCreate(params),
-		onSuccess: (_comment, input, _result, ctx) => invalidateComments(ctx.client, input.projectId),
-		onError,
+		mutationFn: (params: CommentCreateParams & { comment: { id: string } }) =>
+			window.lite.commentCreate(params),
+		onMutate: async (input, ctx) => {
+			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
+
+			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
+
+			const now = Date.now();
+			const appended: DiffComment = {
+				...input.comment,
+				lineContent: "",
+				createdAtMs: now,
+				updatedAtMs: now,
+				context: null,
+			};
+
+			ctx.client.setQueryData(
+				commentsQueryOptions(input.projectId).queryKey,
+				(comments) => comments?.concat(appended) ?? [appended],
+			);
+
+			return prev;
+		},
+		onSettled: (_comment, _err, input, _result, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to create comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
 	});
 };
 
 export const useCommentUpdate = () => {
-	const onError = useCommentErrorToast("Failed to save comment");
+	const toastManager = Toast.useToastManager();
+
 	return useMutation({
 		mutationFn: (params: CommentUpdateParams) => window.lite.commentUpdate(params),
-		onSuccess: (_data, input, _result, ctx) => invalidateComments(ctx.client, input.projectId),
-		onError,
+		onSettled: (_comment, _err, input, _result, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to update comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
 	});
 };
 
 export const useCommentArchive = () => {
-	const onError = useCommentErrorToast("Failed to archive comment");
+	const toastManager = Toast.useToastManager();
+
 	return useMutation({
 		mutationFn: (params: CommentArchiveParams) => window.lite.commentArchive(params),
-		onSuccess: (_archived, input, _result, ctx) => invalidateComments(ctx.client, input.projectId),
-		onError,
+		onMutate: async (input, ctx) => {
+			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
+
+			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
+
+			ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, (comments) =>
+				comments?.filter((comment) => comment.id !== input.id),
+			);
+
+			return prev;
+		},
+		onSettled: (_comment, _err, input, _result, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to archive comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
 	});
 };
 

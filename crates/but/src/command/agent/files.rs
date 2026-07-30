@@ -58,6 +58,31 @@ fn inside_fenced_block(haystack: &str, idx: usize) -> bool {
     open
 }
 
+/// Byte spans of each managed block, from the first byte of the start marker
+/// to just past the last byte of the end marker (both markers lie inside the
+/// end-exclusive `Range`). Pairs every line-anchored start with the first
+/// line-anchored end after it. Errors when a start marker has no matching end,
+/// so callers refuse to touch a malformed block.
+pub(super) fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<usize>>> {
+    let mut spans = Vec::new();
+    let mut pos = 0;
+    while let Some(start) = find_line_anchored(existing, MANAGED_BLOCK_START, pos) {
+        let Some(end) = find_line_anchored(
+            existing,
+            MANAGED_BLOCK_END,
+            start + MANAGED_BLOCK_START.len(),
+        ) else {
+            anyhow::bail!(
+                "Found a GitButler managed block start marker without a matching end marker. Refusing to edit a partial managed block."
+            );
+        };
+        let span_end = end + MANAGED_BLOCK_END.len();
+        spans.push(start..span_end);
+        pos = span_end;
+    }
+    Ok(spans)
+}
+
 /// Rewrite `block` to use CRLF line endings when `existing` already does, so a
 /// replaced or appended block does not introduce mixed line endings.
 fn match_line_endings(existing: &str, block: &str) -> String {
@@ -88,29 +113,18 @@ pub(super) fn upsert_managed_block(existing: &str, block: &str) -> Result<String
         (Some(_), Some(_)) => {}
     }
 
-    // Pair each start marker with the first end marker after it. Replace the
-    // first block with the fresh one and drop any extra blocks (e.g. left over
-    // from an earlier buggy run), so the file converges to exactly one block.
+    // Replace the first block with the fresh one and drop any extra blocks
+    // (e.g. left over from an earlier buggy run), so the file converges to
+    // exactly one block.
     let mut spans = Vec::new();
-    let mut pos = 0;
-    while let Some(start) = find_line_anchored(existing, MANAGED_BLOCK_START, pos) {
-        let Some(end) = find_line_anchored(
-            existing,
-            MANAGED_BLOCK_END,
-            start + MANAGED_BLOCK_START.len(),
-        ) else {
-            anyhow::bail!(
-                "Found a GitButler managed block start marker without a matching end marker. Refusing to edit a partial managed block."
-            );
-        };
-        let mut block_end = end + MANAGED_BLOCK_END.len();
+    for span in managed_block_spans(existing)? {
+        let mut block_end = span.end;
         if existing[block_end..].starts_with("\r\n") {
             block_end += 2;
         } else if existing[block_end..].starts_with('\n') {
             block_end += 1;
         }
-        spans.push((start, block_end));
-        pos = block_end;
+        spans.push((span.start, block_end));
     }
 
     let block = match_line_endings(existing, block);

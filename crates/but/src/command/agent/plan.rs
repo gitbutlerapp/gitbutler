@@ -342,7 +342,7 @@ pub(super) fn collect_instruction_writes(
     ))
 }
 
-fn join_components(base: &Path, components: &[&str]) -> PathBuf {
+pub(super) fn join_components(base: &Path, components: &[&str]) -> PathBuf {
     components
         .iter()
         .fold(base.to_path_buf(), |path, component| path.join(component))

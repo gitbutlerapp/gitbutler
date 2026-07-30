@@ -152,11 +152,18 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
-	insertEmptyCommit: {
+	insertEmptyCommitAbove: {
 		hotkey: "N",
 		meta: {
 			group: "Commit",
-			name: "Insert empty commit",
+			name: "Insert empty commit above",
+		},
+	},
+	insertEmptyCommitBelow: {
+		hotkey: "Shift+N",
+		meta: {
+			group: "Commit",
+			name: "Insert empty commit below",
 		},
 	},
 	createDependentBranchAbove: {
@@ -173,6 +180,10 @@ export const outlineHotkeys = {
 	},
 	composeCommitMessage: {
 		hotkey: "Shift+Z",
+	},
+	deleteBranchRef: {
+		hotkey: "Mod+Alt+Backspace",
+		meta: { group: "Branch", name: "Delete branch reference" },
 	},
 	deleteCommit: {
 		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
@@ -206,6 +217,10 @@ export const outlineHotkeys = {
 		hotkey: "T",
 		meta: { group: "Workspace", name: "Jump to branch" },
 	},
+	uncommitCommit: {
+		hotkey: "Mod+Alt+Backspace",
+		meta: { group: "Commit", name: "Uncommit" },
+	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const changesHotkeys = {
@@ -231,9 +246,17 @@ export const changesFileHotkeys = {
 		hotkey: "Space",
 		meta: { group: "File", name: "Check file" },
 	},
+	discard: {
+		hotkey: "Mod+Backspace",
+		meta: { group: "File", name: "Discard changes" },
+	},
 	openInEditor: {
 		hotkey: "E",
 		meta: { group: "File", name: "Open in editor" },
+	},
+	uncommit: {
+		hotkey: "Mod+Alt+Backspace",
+		meta: { group: "File", name: "Uncommit" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

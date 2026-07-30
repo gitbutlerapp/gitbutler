@@ -131,6 +131,12 @@ impl WizardAnswers {
     }
 }
 
+/// The selected-change commit fast-path rule. Named so `super::cleanup` can
+/// rewrite the retired wording in already-installed policy blocks to exactly
+/// this text. Rewording it strands old installs on the previous wording unless
+/// the cleanup learns that wording as another retired variant.
+pub(super) const FAST_PATH_BULLET: &str = "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.";
+
 /// Render the GitButler steering as a managed block. Mirrors the published
 /// guidance: an always-on `## Version control` baseline (see the docs "Getting
 /// started" page) followed by one `###` section per selected preference (see
@@ -147,7 +153,7 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         &[
             "Use GitButler (`but`) for version-control inspection and write operations, including status, diffs, branching, committing, pushing, and history edits.",
             "Assume multiple agents may be working in this repository. Do not move, amend, squash, discard, commit, push, or otherwise modify another agent's work unless the user asks.",
-            "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.",
+            FAST_PATH_BULLET,
             "For that fast path, after the commit succeeds, stop and summarize; do not run separate branch, staging, status, or diff commands unless the commit output is missing information you need.",
             "Use the installed GitButler skill for command recipes and syntax before guessing flags, using `--help`, or translating Git habits directly.",
             "Mutation commands report their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise do not rerun status or diff to verify success.",

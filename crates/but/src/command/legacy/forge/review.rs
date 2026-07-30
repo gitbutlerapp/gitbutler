@@ -732,24 +732,29 @@ async fn publish_reviews_for_branch_and_dependents(
     Ok(outcome)
 }
 
-/// Display a summary of published and already existing reviews for humans
+/// Display a summary of published and already existing reviews for humans.
+///
+/// Already-existing reviews (usually the selected branch's dependencies) print
+/// before newly created ones so the summary ends on the command's actual
+/// outcome — readers and tools that only look at the last lines see the
+/// created review, not a dependency that already had one.
 fn display_review_publication_summary(
     outcome: PublishReviewsOutcome,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    // Show newly published PRs
-    if !outcome.published.is_empty() {
-        writeln!(out)?;
-        for review in &outcome.published {
-            print_new_pr_info(review, out)?;
-        }
-    }
-
     // Show already existing PRs
     if !outcome.already_existing.is_empty() {
         writeln!(out)?;
         for review in &outcome.already_existing {
             print_existing_pr_info(review, out)?;
+        }
+    }
+
+    // Show newly published PRs
+    if !outcome.published.is_empty() {
+        writeln!(out)?;
+        for review in &outcome.published {
+            print_new_pr_info(review, out)?;
         }
     }
 
@@ -1399,6 +1404,33 @@ mod tests {
         assert_eq!(
             from_branch_details(&reviews, b"feature".as_bstr()).map(|review| review.number),
             Some(2)
+        );
+    }
+
+    #[test]
+    fn publication_summary_ends_with_the_created_review() {
+        let mut created = forge_review("top-branch");
+        created.number = 2;
+        let existing = forge_review("dependency-branch");
+        let outcome = PublishReviewsOutcome {
+            published: vec![created],
+            already_existing: vec![existing],
+            review_sync: vec![],
+        };
+
+        let mut rendered = String::new();
+        display_review_publication_summary(outcome, &mut rendered).unwrap();
+
+        let existing_at = rendered
+            .find("PR already exists for")
+            .expect("summary mentions the dependency's existing review");
+        let created_at = rendered
+            .find("Created review")
+            .expect("summary mentions the created review");
+        assert!(
+            existing_at < created_at,
+            "the created review is the command's outcome, so it must come last \
+             where truncated/tailed output still shows it"
         );
     }
 

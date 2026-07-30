@@ -178,7 +178,7 @@ export const BranchRow: FC<
 	} = useWorkspaceBranchAndAncestorsPush();
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
-	const { mutate: branchRemove } = useBranchRemove();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -355,7 +355,8 @@ export const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Delete Branch Reference",
-			enabled: canRemoveBranch,
+			enabled: canRemoveBranch && !isBranchRemovePending,
+			accelerator: toElectronAccelerator(outlineHotkeys.deleteBranchRef.hotkey),
 			onSelect: () =>
 				branchRemove({
 					projectId,

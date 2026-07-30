@@ -420,6 +420,8 @@ Agents must use `--message (-m)`, `--file (-F)`, or `--default (-t)` to avoid ed
 
 **Stacked branches:** Use `but pr` for stacked PRs. It creates reviews against the right bases and updates GitButler stack footers in PR descriptions. Creating stacked PRs with `gh pr create` or another forge tool loses that stack-aware behavior. To publish a whole stack, run `but pr new <top-branch-id> -t`; custom messages (`-m` or `-F`) only apply to the selected branch, while dependent branches use default messages (commit title/description).
 
+When the selected branch sits on dependencies that already have PRs, the summary lists those as "PR already exists for ..." and ends with the newly created review. The already-exists lines are normal stack reporting, not a failure to create the selected branch's PR.
+
 Requires forge integration to be configured via `but config forge auth`.
 
 Same-repository pull requests are automatically registered with GitHub's native stacked pull
@@ -434,11 +436,14 @@ when possible, otherwise makes a signed merge commit; for a `gb-local` target it
 locally. Then reconciles the remaining branches like `but pull`.
 
 ```bash
-but land <branch-id> --yes            # Land onto the target (--yes required non-interactively)
-but land <branch-id> --no-ff --yes    # Force a merge commit instead of fast-forwarding
+but land <branch-id> --yes                  # Land onto the target (--yes required non-interactively)
+but land <branch-id> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but land <top-branch> --whole-stack --yes   # Land an entire stack by naming its top segment
 ```
 
 Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
+A branch stacked on other segments is refused (its tip would also publish them); `--whole-stack`
+is the explicit opt-in, and only the stack's top segment can be named with it.
 
 ## Workspace Maintenance
 

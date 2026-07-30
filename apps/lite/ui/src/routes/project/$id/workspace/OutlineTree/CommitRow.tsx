@@ -322,6 +322,7 @@ export const CommitRow: FC<
 		nativeMenuItem({
 			label: "Uncommit",
 			enabled: !isCommitUncommitPending,
+			accelerator: toElectronAccelerator(outlineHotkeys.uncommitCommit.hotkey),
 			onSelect: () =>
 				commitUncommit({
 					projectId,
