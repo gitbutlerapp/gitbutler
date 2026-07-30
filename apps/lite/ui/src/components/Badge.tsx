@@ -3,7 +3,14 @@ import { Match } from "effect";
 import type { ComponentProps, FC } from "react";
 import styles from "./Badge.module.css";
 
-export type BadgeVariant = "fillGray" | "lightGray" | "safe" | "warn" | "danger" | "purple" | "blue";
+export type BadgeVariant =
+	| "fillGray"
+	| "lightGray"
+	| "safe"
+	| "warn"
+	| "danger"
+	| "purple"
+	| "blue";
 
 export const Badge: FC<{ variant: BadgeVariant } & ComponentProps<"span">> = ({
 	variant,
@@ -21,8 +28,10 @@ export const Badge: FC<{ variant: BadgeVariant } & ComponentProps<"span">> = ({
 				Match.when("lightGray", () => styles.lightGray),
 				Match.when("safe", () => styles.safe),
 				Match.when("warn", () => styles.warn),
-				Match.when("danger", () => styles.danger),					Match.when("purple", () => styles.purple),
-					Match.when("blue", () => styles.blue),				Match.exhaustive,
+				Match.when("danger", () => styles.danger),
+				Match.when("purple", () => styles.purple),
+				Match.when("blue", () => styles.blue),
+				Match.exhaustive,
 			),
 		)}
 	/>

@@ -135,6 +135,7 @@ import {
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import type { DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
+import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import {
 	annotationSideToDiffSide,
@@ -824,13 +825,6 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
-	const changeType = Match.value(p.item.fileDiff.type).pipe(
-		Match.when("new", () => "Added"),
-		Match.whenOr("change", "rename-changed", () => "Modified"),
-		Match.when("rename-pure", () => "Renamed"),
-		Match.when("deleted", () => "Deleted"),
-		Match.exhaustive,
-	);
 	const collapseHotkey = p.collapsed ? diffHotkeys.unfoldFile : diffHotkeys.foldFile;
 	const collapseLabel = collapseHotkey.meta.name;
 
@@ -864,7 +858,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
-				<span>{changeType}</span>
+				<ChangeTypeBadge type={p.item.fileDiff.type} />
 				<span>
 					<span className={styles.fileDiffAdded}>+{p.item.fileDiff.additionLines.length}</span>{" "}
 					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
