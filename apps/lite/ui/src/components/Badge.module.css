@@ -27,7 +27,7 @@
 	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
 	background-color: var(
 		--badge-safe-bg,
-		color-mix(in srgb, var(--_bg) var(--bg-opacity), var(--bg-1))
+		color-mix(in srgb, var(--_bg) var(--bg-opacity), transparent)
 	);
 	color: var(--badge-safe-fg, light-dark(var(--text-safe), var(--clr-safe-60)));
 }
@@ -44,7 +44,7 @@
 	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
 	background-color: var(
 		--badge-danger-bg,
-		color-mix(in srgb, var(--_bg) var(--bg-opacity), var(--bg-1))
+		color-mix(in srgb, var(--_bg) var(--bg-opacity), transparent)
 	);
 	color: var(--badge-danger-fg, light-dark(var(--text-danger), var(--clr-danger-60)));
 }
