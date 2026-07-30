@@ -159,7 +159,10 @@ export const Outline: FC<{
 	};
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const { data: guiSettings } = useQuery(guiSettingsQueryOptions);
+	const { data: autoFetchFrequency } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.autoFetchFrequency,
+	});
 	const { data: workspaceFetchStatus } = useQuery(workspaceFetchStatusQueryOptions(projectId));
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
@@ -169,7 +172,7 @@ export const Outline: FC<{
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { isFetching: isWorkspaceFetchFromRemotesPending, refetch: workspaceFetchFromRemotes } =
-		useQuery(workspaceFetchQueryOptions(projectId, guiSettings?.autoFetchFrequency));
+		useQuery(workspaceFetchQueryOptions(projectId, autoFetchFrequency));
 	const fetchFromRemotes = () => {
 		void workspaceFetchFromRemotes().then(({ error }) => {
 			if (!error) return;
