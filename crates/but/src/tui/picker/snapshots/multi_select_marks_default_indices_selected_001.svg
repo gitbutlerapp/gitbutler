@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
+  <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10 18 26 34" y="24" style="fill:#CCCCCC;opacity:0.75;">Pick</text>
+    <text x="50 58 66 74 82 90 98 106 114" y="24" style="fill:#CCCCCC;opacity:0.75;">something</text>
+    <text x="26 34 42" y="42" style="fill:#00AA00;">[x]</text>
+    <text x="58" y="42" style="fill:#CCCCCC;">a</text>
+    <text x="26 34 42" y="60" style="fill:#00AA00;">[x]</text>
+    <text x="58" y="60" style="fill:#CCCCCC;">c</text>
+  </g>
+</svg>

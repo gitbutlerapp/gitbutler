@@ -229,7 +229,6 @@ where
 
         let selection = &mut self.items[self.cursor];
         if selection.disabled {
-            // Leave the cursor put so its help stays visible, explaining why.
             return;
         }
         selection.selected = !selection.selected;
@@ -237,10 +236,6 @@ where
         self.move_down();
     }
 
-    /// Build the picker's display lines: the prompt, one line per row, then a
-    /// pinned two-line footer (blank separator + the current row's help) when
-    /// any row carries help. The footer keeps the help on its own line below the
-    /// list so the rows never reflow as the cursor moves.
     fn view_lines(&self) -> Vec<Line<'_>> {
         let t = theme::get();
 
@@ -407,9 +402,6 @@ where
                         return 1;
                     }
 
-                    // Show the prompt, then one checked line per pick, so a
-                    // multi-select receipt stays readable instead of a long
-                    // comma-joined line.
                     let mut lines = Vec::new();
                     lines.push(Line::from(Span::styled(self.prompt.clone(), t.hint)));
                     for (key, _) in picks {
