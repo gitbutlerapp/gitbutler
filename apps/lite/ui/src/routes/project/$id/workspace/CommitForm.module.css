@@ -51,8 +51,8 @@
 	column-gap: 4px;
 }
 
-/* When the panel is too narrow to fit the tab labels, show icons only. */
-@container (max-width: 320px) {
+/* When the panel is too narrow to fit the commit button label, hide it. */
+@container (max-width: 300px) {
 	.commitButtonLabel {
 		display: none;
 	}
