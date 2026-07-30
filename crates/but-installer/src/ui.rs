@@ -88,20 +88,44 @@ pub fn println_empty() {
 /// a pipe (e.g., during `curl | sh` installation). Falls back to stdin if
 /// `/dev/tty` is not available.
 pub fn prompt_for_confirmation(prompt: &str) -> bool {
+    confirm(prompt, false)
+}
+
+/// Prompts a user for a [Y/n] style confirmation where yes is the default.
+///
+/// Returns true if the user enters "y", "yes", or just presses Enter; false
+/// otherwise. EOF (no terminal user to answer) declines.
+///
+/// Reads from `/dev/tty` when available so that prompts work even when stdin is
+/// a pipe (e.g., during `curl | sh` installation). Falls back to stdin if
+/// `/dev/tty` is not available.
+pub fn prompt_for_confirmation_default_yes(prompt: &str) -> bool {
+    confirm(prompt, true)
+}
+
+fn confirm(prompt: &str, default_yes: bool) -> bool {
     print(prompt);
-    print(" [y/N] ");
+    print(if default_yes { " [Y/n] " } else { " [y/N] " });
 
     let mut response = String::new();
-    if let Some(tty) = open_tty() {
-        io::BufReader::new(tty)
-            .read_line(&mut response)
-            .unwrap_or_default();
+    let read = if let Some(tty) = open_tty() {
+        io::BufReader::new(tty).read_line(&mut response)
     } else {
-        stdin().read_line(&mut response).unwrap_or_default();
+        stdin().read_line(&mut response)
+    };
+    // A zero-byte read means EOF: there is no user who can answer, so never
+    // assume consent — only an actual empty line accepts the default.
+    if !matches!(read, Ok(n) if n > 0) {
+        println_empty();
+        return false;
     }
-    response = response.trim().to_lowercase();
+    let response = response.trim().to_lowercase();
 
-    response == "yes" || response == "y"
+    if response.is_empty() {
+        default_yes
+    } else {
+        response == "yes" || response == "y"
+    }
 }
 
 /// Checks if there is a terminal to run interactive prompts on.
