@@ -20,7 +20,7 @@ import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type SubmitEventHandler, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, useEffect, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
@@ -99,6 +99,22 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [commitTooltipOpen, setCommitTooltipOpen] = useState(false);
+	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
+
+	// Track whether the container query hides the label, including while resizing.
+	useEffect(() => {
+		const form = formRef.current;
+		const label = commitButtonLabelRef.current;
+		if (form === null || label === null) return;
+
+		const update = () => {
+			setCommitLabelHidden(getComputedStyle(label).display === "none");
+		};
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(form);
+		return () => observer.disconnect();
+	}, []);
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -357,15 +373,12 @@ export const CommitForm: FC<{
 
 					<div className={styles.dropdownButton}>
 						<Tooltip.Root
-							open={commitTooltipOpen}
-							onOpenChange={(nextOpen) => {
-								// Only show the tooltip when the container query hides the label.
-								const label = commitButtonLabelRef.current;
-								const labelHidden = label !== null && getComputedStyle(label).display === "none";
-								setCommitTooltipOpen(nextOpen && labelHidden);
-							}}
+							// Only show the tooltip when the container query hides the label.
+							open={commitTooltipOpen && commitLabelHidden}
+							onOpenChange={setCommitTooltipOpen}
 						>
 							<Tooltip.Trigger
+								aria-label="Commit"
 								className={getButtonClassName({ variant: "pop" })}
 								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
 							>
