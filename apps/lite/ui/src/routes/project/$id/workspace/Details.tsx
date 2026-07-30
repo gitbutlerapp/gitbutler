@@ -1091,12 +1091,7 @@ const Diff: FC<{
 				changes,
 				treeChangeDiffs,
 			}),
-		[
-			fileParent,
-			changes,
-			// oxlint-disable-next-line @tanstack/query/no-unstable-deps -- False positive?: https://github.com/TanStack/query/issues/9718
-			treeChangeDiffs,
-		],
+		[fileParent, changes, treeChangeDiffs],
 	);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
