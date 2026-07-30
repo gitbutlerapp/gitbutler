@@ -6,34 +6,58 @@
 	height: 16px;
 	padding-inline: 5px;
 	border-radius: 10px;
+	--badge-bg-opacity: 20%;
+
+	/* Selected rows set --badge-inverted; flipping to the opposite color scheme
+	   makes every light-dark() token inside the badge resolve to its inverted
+	   value, matching the row's inverted selection background. */
+	@container style(--badge-inverted: true) {
+		--badge-bg-opacity: 40%;
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+			--badge-bg-opacity: 20%;
+		}
+	}
 }
 
 .fillGray {
-	background-color: var(--badge-fillGray-bg, var(--fill-gray-bg));
-	color: var(--badge-fillGray-fg, var(--fill-gray-fg));
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
 }
 
 .lightGray {
-	background-color: var(
-		--badge-lightGray-bg,
-		light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5))
-	);
-	color: var(--badge-lightGray-fg, var(--text-1));
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 16%, transparent);
+	color: var(--text-1);
 }
 
 .safe {
-	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background-color: var(--badge-safe-bg, color-mix(in srgb, var(--_bg) 25%, var(--bg-1)));
-	color: var(--badge-safe-fg, light-dark(var(--text-safe), var(--clr-safe-60)));
+	--_bg: var(--fill-safe-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-safe);
 }
 
 .warn {
-	background-color: var(--badge-warn-bg, color-mix(in srgb, var(--clr-warn-50) 18%, transparent));
-	color: var(--badge-warn-fg, var(--clr-warn-40));
+	--_bg: var(--fill-warn-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-warn);
 }
 
 .danger {
-	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background-color: var(--badge-danger-bg, color-mix(in srgb, var(--_bg) 22%, var(--bg-1)));
-	color: var(--badge-danger-fg, light-dark(var(--text-danger), var(--clr-danger-60)));
+	--_bg: var(--fill-danger-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-danger);
+}
+
+.purple {
+	--_bg: var(--fill-purple-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-purple);
+}
+
+.blue {
+	--_bg: var(--fill-blue-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-blue);
 }

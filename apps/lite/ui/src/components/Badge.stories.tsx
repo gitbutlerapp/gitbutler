@@ -7,7 +7,15 @@ const meta = preview.meta({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["fillGray", "lightGray", "safe", "warn", "danger"] satisfies Array<BadgeVariant>,
+			options: [
+				"fillGray",
+				"lightGray",
+				"safe",
+				"warn",
+				"danger",
+				"purple",
+				"blue",
+			] satisfies Array<BadgeVariant>,
 		},
 	},
 	args: {
@@ -21,6 +29,31 @@ export const Default = meta.story({ args: { variant: "fillGray", children: "42" 
 export const AllVariants = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+			<Badge variant="fillGray">fillGray</Badge>
+			<Badge variant="lightGray">lightGray</Badge>
+			<Badge variant="safe">safe</Badge>
+			<Badge variant="warn">warn</Badge>
+			<Badge variant="danger">danger</Badge>
+			<Badge variant="purple">purple</Badge>
+			<Badge variant="blue">blue</Badge>
+		</div>
+	),
+});
+
+export const Inverted = meta.story({
+	render: () => (
+		<div
+			style={{
+				["--badge-inverted" as string]: "true",
+				display: "flex",
+				gap: 8,
+				alignItems: "center",
+				padding: 8,
+				borderRadius: 6,
+				backgroundColor: "var(--fill-gray-bg)",
+				color: "var(--fill-gray-fg)",
+			}}
+		>
 			<Badge variant="fillGray">fillGray</Badge>
 			<Badge variant="lightGray">lightGray</Badge>
 			<Badge variant="safe">safe</Badge>
