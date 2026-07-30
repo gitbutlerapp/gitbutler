@@ -1,6 +1,6 @@
 ---
 name: tui-tests
-description: Use when adding or modifying tests for the GitButler TUI (`but tui`) under `crates/but/src/command/legacy/status/tui/tests`.
+description: Use when adding or modifying tests for one of GitButler's Ratatui TUIs
 ---
 
 ## Where tests live

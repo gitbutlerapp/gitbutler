@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
+  <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10 18 26 34" y="24" style="fill:#CCCCCC;font-weight:bold;">Pick</text>
+    <text x="50 58 66" y="24" style="fill:#CCCCCC;font-weight:bold;">one</text>
+    <text x="10" y="42" style="fill:#00AAAA;">&gt;</text>
+    <text x="26 34 42 50 58" y="42" style="fill:#CCCCCC;font-weight:bold;">Apply</text>
+    <text x="26 34 42 50 58 66" y="60" style="fill:#CCCCCC;">Cancel</text>
+    <text x="26 34" y="96" style="fill:#CCCCCC;opacity:0.75;">Do</text>
+    <text x="50 58 66" y="96" style="fill:#CCCCCC;opacity:0.75;">it.</text>
+  </g>
+</svg>
