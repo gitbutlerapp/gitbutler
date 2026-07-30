@@ -11,10 +11,11 @@ import {
 } from "#ui/native-menu.ts";
 import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";
-import type { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import type { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -22,21 +23,6 @@ import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 import styles from "./UncommittedChangesRow.module.css";
-
-type LineStats = {
-	linesAdded: number;
-	linesRemoved: number;
-};
-
-const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
-	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
-	for (const diff of diffs) {
-		if (diff?.type !== "Patch") continue;
-		stats.linesAdded += diff.subject.linesAdded;
-		stats.linesRemoved += diff.subject.linesRemoved;
-	}
-	return stats;
-};
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;

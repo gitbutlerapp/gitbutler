@@ -53,7 +53,9 @@
 .actions {
 	display: flex;
 	align-items: center;
+	padding: 10px;
 	gap: 6px;
+	border-bottom: 1px solid var(--border-3);
 }
 
 .checks {
@@ -99,18 +101,19 @@
 }
 
 .panels {
-	column-gap: 6px;
+	border-top: 1px solid var(--border-3);
 }
 
 .panel {
 	/* Stretch/shrink single child element to fit this element. */
 	display: grid;
-	grid-template-rows: minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 }
 
 .resizeHandle {
 	width: 1px;
+	background-color: var(--border-3);
 
 	&[data-separator="hover"],
 	&[data-separator="active"] {
@@ -124,14 +127,32 @@
 }
 
 .diffTab {
+	/* Stretch/shrink the panel group to fit this element. */
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	row-gap: 12px;
-	padding-inline: var(--panel-padding-inline);
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.filesPanelContent {
+	display: flex;
+	grid-row: 1 / -1;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.filesScrollerArea {
+	--scroll-gradient-height: 14px;
+	--scroll-gradient-overlap: 4px;
 }
 
 .diffFiles {
+	padding-inline: var(--panel-padding-inline);
 	padding-block-end: var(--panel-padding-block);
+
+	/* Stretch the scroll separator over the inline padding to full width. */
+	&::before {
+		margin-inline: calc(-1 * var(--panel-padding-inline));
+	}
 }
 
 .diffContentsContainer {
@@ -146,11 +167,18 @@
 	--diffs-bg-selection-override: transparent;
 
 	overflow: auto;
+	background-color: var(--bg-2);
 	font-variant-ligatures: common-ligatures;
 	user-select: text;
 
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
+		border-top: 1px solid var(--border-3);
+		border-bottom: 1px solid var(--border-3);
+
+		&:first-child {
+			border-top: none;
+		}
 	}
 
 	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within & {
@@ -233,12 +261,11 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 8px;
-	border: 1px solid var(--border-3);
-	border-radius: var(--radius-card) var(--radius-card) 0 0;
+	border-bottom: 1px solid var(--border-3);
 	white-space: nowrap;
 
 	&.lone {
-		border-radius: 10px;
+		border-bottom: none;
 	}
 }
 

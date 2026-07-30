@@ -99,6 +99,8 @@ import {
 	type SelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
+import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import {
@@ -777,15 +779,10 @@ const DiffContents: FC<{
             background-color: var(--bg-1);
           }
 
-          [data-code] {
-            border-radius: 0 0 var(--radius-card) var(--radius-card);
-          }
-
           [data-diff] {
             border-width: 0 1px 1px 1px;
             border-style: solid;
-            border-color: var(--border-3);
-            border-radius: 0 0 var(--radius-card) var(--radius-card);
+            border: none;
           }
 
           [data-column-number] {
@@ -889,9 +886,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const FilesToggle: FC<
-	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
+const FilesToggle: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) =>
@@ -902,12 +897,15 @@ const FilesToggle: FC<
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle files"
-						pressed={filesVisible}
-						onPressedChange={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
-					/>
+					<button
+						type="button"
+						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
+						aria-label={workspaceHotkeys.toggleFiles.meta.name}
+						aria-pressed={filesVisible}
+						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+					>
+						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-show" />}
+					</button>
 				}
 			/>
 			<Tooltip.Portal>
@@ -1073,9 +1071,12 @@ const Diff: FC<{
 		[selection],
 	);
 
-	const treeChangeDiffs = useSuspenseQueries({
+	const { treeChangeDiffs, lineStats } = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => results.map((result) => result.data),
+		combine: (results) => {
+			const treeChangeDiffs = results.map((result) => result.data);
+			return { treeChangeDiffs, lineStats: getLineStats(treeChangeDiffs) };
+		},
 	});
 
 	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
@@ -1090,12 +1091,7 @@ const Diff: FC<{
 				changes,
 				treeChangeDiffs,
 			}),
-		[
-			fileParent,
-			changes,
-			// oxlint-disable-next-line @tanstack/query/no-unstable-deps -- False positive?: https://github.com/TanStack/query/issues/9718
-			treeChangeDiffs,
-		],
+		[fileParent, changes, treeChangeDiffs],
 	);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
@@ -1177,45 +1173,6 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<form id={localAnnotationFormId} hidden />
 
-			<div className={styles.actions}>
-				{canShowFiles && <FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>}
-
-				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-					<ToggleGroupStyles>
-						<Toolbar.Button
-							render={
-								<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
-									<Icon name="text-wrap" />
-								</DiffOverflowToggle>
-							}
-						/>
-						<Toolbar.Button
-							render={
-								<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
-									<Icon name="text-block" />
-								</DiffBackgroundsToggle>
-							}
-						/>
-					</ToggleGroupStyles>
-					{canUseSplitDiff && (
-						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
-							<Toolbar.Button
-								render={<Toggle render={<ToggleStyles />} />}
-								value={"split" satisfies GUISettings["diffStyle"]}
-							>
-								Split
-							</Toolbar.Button>
-							<Toolbar.Button
-								render={<Toggle render={<ToggleStyles />} />}
-								value={"unified" satisfies GUISettings["diffStyle"]}
-							>
-								Unified
-							</Toolbar.Button>
-						</DiffStyleToggleGroup>
-					)}
-				</Toolbar.Root>
-			</div>
-
 			<Group
 				id={layoutId}
 				className={styles.panels}
@@ -1231,23 +1188,74 @@ const Diff: FC<{
 							minSize={180}
 							groupResizeBehavior="preserve-pixel-size"
 						>
-							<Scroller withSeparator viewportClassName={styles.diffFiles}>
-								<FilesTree
-									data-selection-scope={"files" satisfies SelectionScope}
-									onFileSelection={selectFileAndNavigateDiff}
+							<div className={styles.filesPanelContent}>
+								<ChangesHeaderRow
 									projectId={projectId}
-									items={filesItems}
-									selection={filesSelection}
-									navigationIndex={filesNavigationIndex}
 									fileParent={fileParent}
+									changes={changes}
+									lineStats={lineStats}
 								/>
-							</Scroller>
+								<Scroller
+									withSeparator
+									className={styles.filesScrollerArea}
+									viewportClassName={styles.diffFiles}
+								>
+									<FilesTree
+										data-selection-scope={"files" satisfies SelectionScope}
+										onFileSelection={selectFileAndNavigateDiff}
+										projectId={projectId}
+										items={filesItems}
+										selection={filesSelection}
+										navigationIndex={filesNavigationIndex}
+										fileParent={fileParent}
+									/>
+								</Scroller>
+							</div>
 						</Panel>
 						<Separator className={styles.resizeHandle} />
 					</>
 				)}
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
+					<div className={styles.actions}>
+						{canShowFiles && <FilesToggle />}
+
+						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+							<ToggleGroupStyles>
+								<Toolbar.Button
+									render={
+										<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
+											<Icon name="text-wrap" />
+										</DiffOverflowToggle>
+									}
+								/>
+								<Toolbar.Button
+									render={
+										<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
+											<Icon name="text-block" />
+										</DiffBackgroundsToggle>
+									}
+								/>
+							</ToggleGroupStyles>
+							{canUseSplitDiff && (
+								<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+									<Toolbar.Button
+										render={<Toggle render={<ToggleStyles />} />}
+										value={"split" satisfies GUISettings["diffStyle"]}
+									>
+										Split
+									</Toolbar.Button>
+									<Toolbar.Button
+										render={<Toggle render={<ToggleStyles />} />}
+										value={"unified" satisfies GUISettings["diffStyle"]}
+									>
+										Unified
+									</Toolbar.Button>
+								</DiffStyleToggleGroup>
+							)}
+						</Toolbar.Root>
+					</div>
+
 					<div
 						data-selection-scope={"diff" satisfies SelectionScope}
 						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
