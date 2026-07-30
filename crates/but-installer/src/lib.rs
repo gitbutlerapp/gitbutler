@@ -71,7 +71,38 @@ pub fn run_installation_with_version(
 /// changes on installation failure.
 pub fn run_installation() -> Result<()> {
     let config = InstallerConfig::new()?;
-    run_installation_impl(config, ui::is_connected_to_terminal())
+    let interactive = ui::is_connected_to_terminal();
+    let but_path = but_binary_path(&config.home_dir);
+    run_installation_impl(config, interactive)?;
+    if supports_agent_setup(&but_path) {
+        if interactive {
+            ui::println_empty();
+            offer_agent_skill_setup(&but_path);
+        } else {
+            info("To install the GitButler skill for your coding agent, run: but agent setup");
+        }
+    }
+    Ok(())
+}
+
+/// Returns true if the installed `but` has the built-in `agent setup` command.
+///
+/// Detected by `but --help` listing an `agent` subcommand. Do not probe by
+/// running `but agent ...` itself: pinned older versions lack the command and
+/// some of them would dispatch it to an unrelated `but-agent` executable on
+/// PATH, whereas `--help` is built in on every version.
+fn supports_agent_setup(but_path: &std::path::Path) -> bool {
+    std::process::Command::new(but_path)
+        .arg("--help")
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .is_ok_and(|out| {
+            out.status.success()
+                && String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .any(|line| line.trim_start().starts_with("agent "))
+        })
 }
 
 fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<()> {
@@ -153,4 +184,33 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
     }
 
     Ok(())
+}
+
+/// Offers to run `but agent setup` after a successful interactive installation.
+///
+/// Best-effort: the installation has already succeeded at this point, so
+/// declining, cancelling the wizard, or any failure never fails the install.
+fn offer_agent_skill_setup(but_path: &std::path::Path) {
+    if !ui::prompt_for_confirmation_default_yes(
+        "Install the GitButler skill for your coding agent (Claude Code, Codex, ...)?",
+    ) {
+        info("You can install it later with: but agent setup");
+        return;
+    }
+
+    // The setup wizard requires a terminal on stdin. Under `curl | sh` this
+    // process inherits curl's pipe as stdin, so connect the child directly to
+    // the controlling terminal instead.
+    let child_stdin = std::fs::File::open("/dev/tty")
+        .map(std::process::Stdio::from)
+        .unwrap_or_else(|_| std::process::Stdio::inherit());
+
+    let status = std::process::Command::new(but_path)
+        .args(["agent", "setup"])
+        .stdin(child_stdin)
+        .status();
+
+    if !status.map(|s| s.success()).unwrap_or(false) {
+        info("Agent setup did not complete. You can run it again with: but agent setup");
+    }
 }
