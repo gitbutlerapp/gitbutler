@@ -52,6 +52,10 @@
 				label: jsonLinks.resources.downloads.label,
 			})}
 			{@render link({
+				href: jsonLinks.resources.jobs.url,
+				label: jsonLinks.resources.jobs.label,
+			})}
+			{@render link({
 				href: jsonLinks.resources.blog.url,
 				label: jsonLinks.resources.blog.label,
 			})}
@@ -84,7 +88,7 @@
 		align-items: center;
 		gap: 32px;
 
-		@media (--tablet-viewport) {
+		@media (--header-menu-breakpoint) {
 			display: none;
 		}
 	}

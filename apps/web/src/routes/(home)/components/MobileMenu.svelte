@@ -65,6 +65,12 @@
 						rel="noopener noreferrer"
 						class="mobile-link">Blog</a
 					>
+					<a
+						href={linkJson.resources.jobs.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="mobile-link">{linkJson.resources.jobs.label}</a
+					>
 				</nav>
 
 				<HeaderAuthSection />
@@ -127,7 +133,7 @@
 			}
 		}
 
-		@media (--tablet-viewport) {
+		@media (--header-menu-breakpoint) {
 			display: block;
 		}
 
