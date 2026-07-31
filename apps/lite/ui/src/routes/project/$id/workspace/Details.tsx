@@ -1636,8 +1636,6 @@ const CommitDetails: FC<{
 						</span>{" "}
 						at {fmtDate}
 					</span>
-					<span>•</span>
-
 					<CopyableId
 						label="Change ID"
 						icon="finger-print"
