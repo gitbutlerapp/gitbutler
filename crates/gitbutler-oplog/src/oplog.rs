@@ -704,12 +704,17 @@ fn prepare_snapshot_with_target(
         )?;
         // Overlay *projected* workspace metadata onto the legacy snapshot format.
         // We want the metadata to represent what's actually there.
-        if let (Some(workspace_ref), Some(workspace_meta)) =
-            (ws.ref_name(), ws.metadata_from_projection()?)
-        {
+        if let Some(workspace_meta) = ws.metadata_from_projection()? {
+            let workspace_ref = ws
+                .ref_name()
+                .context("workspace metadata requires a workspace reference")?;
             let mut handle = legacy_meta.workspace(workspace_ref)?;
             *handle = workspace_meta;
             legacy_meta.set_workspace(&handle)?;
+        } else {
+            for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
+                stack.in_workspace = false;
+            }
         }
         for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
             let stack_head =
