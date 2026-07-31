@@ -97,3 +97,12 @@ pub struct Platform {
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
 }
+
+/// Example invocations appended to a `but move` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+";

@@ -62,6 +62,12 @@ documentation from `Platform`.
 
 Use `#[clap(group = "...")]` to create mutually exclusive groups of arguments.
 
+Commands with tricky grammar can define a `pub(crate) const ERROR_EXAMPLES`
+next to `Platform` and register it in `args::error_examples`; the block is
+appended after clap parse errors. At most 4 lines, each a
+`but <cmd> ...   # what it does` invocation that works as written (e.g.
+include `-m` where omitting it would open an editor).
+
 ## Handling the command
 
 Add match arm to `crates/but/src/lib.rs` to handle the command:

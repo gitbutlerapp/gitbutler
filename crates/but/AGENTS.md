@@ -9,6 +9,9 @@ changes, also read `crates/WORKSPACE_MODEL.md`.
 ## Command structure and I/O
 
 - Use the `cli-commands` skill for guidance on how to write new CLI commands.
+- Some commands define `ERROR_EXAMPLES` in `crates/but/src/args/` that are
+  shown on parse errors; keep them accurate when changing a command's
+  arguments or behavior.
 
 ## Worktree Guards And Deadlocks
 

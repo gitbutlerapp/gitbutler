@@ -5,6 +5,29 @@ mod amend;
 #[cfg(feature = "legacy")]
 mod reword;
 
+mod find_subcommand {
+    fn found(args: &[&str]) -> Option<String> {
+        let args: Vec<std::ffi::OsString> = args.iter().map(Into::into).collect();
+        crate::args::find_subcommand(&args).map(|(_, name)| name.to_string_lossy().into_owned())
+    }
+
+    #[test]
+    fn skips_root_options_including_short_clusters() {
+        assert_eq!(found(&["but", "move", "ab"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-C", ".", "move"]).as_deref(), Some("move"));
+        // Clap accepts `-C`'s value clustered behind other shorts or attached.
+        assert_eq!(found(&["but", "-tC", ".", "move"]).as_deref(), Some("move"));
+        assert_eq!(
+            found(&["but", "-ttC", ".", "move"]).as_deref(),
+            Some("move")
+        );
+        assert_eq!(found(&["but", "-tC.", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-C.", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-t", "move"]).as_deref(), Some("move"));
+        assert_eq!(found(&["but", "-t"]), None);
+    }
+}
+
 mod config_ai {
     use clap::Parser;
 

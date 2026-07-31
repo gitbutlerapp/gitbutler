@@ -90,18 +90,38 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                 }
                 Translation::Refused => None,
                 Translation::NotRetired => {
+                    // Help and version requests also arrive as `Err`; they
+                    // print to stdout and must pass through untouched.
+                    if !err.use_stderr() {
+                        err.exit()
+                    }
                     // The other revamped commands are never translated, but a
                     // rejected line that looks like their retired syntax gets
-                    // a teaching hint before the error. Help and version
-                    // requests also arrive as `Err` and must pass untouched.
-                    if err.use_stderr()
-                        && let Some((command, hint)) =
-                            retired_syntax::parse_failure_hint(&args, agent_detected)
-                    {
+                    // a teaching hint before the error.
+                    let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
+                    if let Some((command, hint)) = &retired_hint {
                         print_err_infallible(hint);
-                        utils::metrics::emit_retired_syntax_hint(command);
+                        utils::metrics::emit_retired_syntax_hint(*command);
                     }
-                    err.exit()
+                    let _ = err.print();
+                    // For the commands with the trickiest grammar, follow the
+                    // error with example invocations — unless the hint above
+                    // already named a concrete rewrite. The usage-line check
+                    // keeps root-level errors (e.g. a bad root flag before the
+                    // subcommand) from getting examples for a grammar that
+                    // never rejected anything.
+                    let concrete_rewrite = retired_hint
+                        .as_ref()
+                        .is_some_and(|(_, hint)| retired_syntax::hint_is_concrete(hint));
+                    if !concrete_rewrite
+                        && let Some(examples) = args::find_subcommand(&args)
+                            .and_then(|(_, name)| name.to_str())
+                            .filter(|name| err.to_string().contains(&format!("but {name}")))
+                            .and_then(args::error_examples)
+                    {
+                        print_err_infallible(format!("\n{examples}"));
+                    }
+                    std::process::exit(err.exit_code())
                 }
             };
             match retry {

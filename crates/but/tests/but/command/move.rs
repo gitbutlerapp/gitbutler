@@ -2288,7 +2288,7 @@ Error: Bad input 'B' for '--below'
 
 Invalid target for branch source
 
-Hint: Branches can only be moved with `--above <branch>` to stack or `--unstack` to unstack
+Hint: Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack
 
 "#]]);
 }
@@ -2327,6 +2327,8 @@ Hint: run `but help` for all commands
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot combine `--branch` with a branch source
+
+Hint: Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack
 
 "#]]);
 }
@@ -2461,6 +2463,12 @@ Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch 
 
 For more information, try '--help'.
 
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+
 "#]]);
 }
 
@@ -2480,6 +2488,12 @@ Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch 
 
 For more information, try '--help'.
 
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
+
 "#]]);
 }
 
@@ -2498,6 +2512,12 @@ error: the following required arguments were not provided:
 Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
 
 For more information, try '--help'.
+
+Examples:
+  but move <child-branch> --above <parent-branch>   # stack a branch on top of another
+  but move <commit> --below <other-commit>          # reorder commits
+  but move <commit> --branch <branch>               # move a commit onto a branch
+  but move <branch> --unstack                       # tear a branch off its stack
 
 "#]]);
 }
