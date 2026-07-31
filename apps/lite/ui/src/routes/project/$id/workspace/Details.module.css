@@ -4,6 +4,11 @@
 	row-gap: 12px;
 }
 
+.containerLone {
+	grid-template-rows: minmax(0, 1fr);
+	row-gap: 0;
+}
+
 .headerWrap {
 	display: flex;
 	row-gap: 12px;
@@ -53,9 +58,16 @@
 .actions {
 	display: flex;
 	align-items: center;
+	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 10px;
-	gap: 6px;
+	gap: 12px;
 	border-bottom: 1px solid var(--border-3);
+
+	/* Lone layout: the title lives in this row, match the panel padding. */
+	.containerLone & {
+		padding-inline: var(--panel-padding-inline);
+		padding-block: var(--panel-padding-block);
+	}
 }
 
 .checks {
@@ -102,6 +114,11 @@
 
 .panels {
 	border-top: 1px solid var(--border-3);
+
+	/* No header above in the lone layout; the border would shift content down 1px. */
+	.containerLone & {
+		border-top: none;
+	}
 }
 
 .panel {
@@ -314,6 +331,26 @@
 	align-items: center;
 	gap: 8px;
 	color: var(--text-3);
+}
+
+.commitDetailsMetaSha {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	gap: 4px;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	font: inherit;
+
+	& > span {
+		text-decoration: underline dotted;
+		text-underline-offset: 2px;
+	}
+
+	&:hover {
+		color: var(--text-2);
+	}
 }
 
 .commitConflictBadge {

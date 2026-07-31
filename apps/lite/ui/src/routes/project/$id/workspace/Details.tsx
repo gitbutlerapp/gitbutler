@@ -72,6 +72,7 @@ import {
 	type ComponentProps,
 	type FC,
 	type MouseEvent,
+	type ReactNode,
 	type RefObject,
 	type SubmitEventHandler,
 	Suspense,
@@ -870,6 +871,7 @@ const Diff: FC<{
 	projectId: string;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	headerSlot?: ReactNode;
 }> = ({
 	changes,
 	filesVisible,
@@ -880,6 +882,7 @@ const Diff: FC<{
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	headerSlot,
 }) => {
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
@@ -1058,6 +1061,8 @@ const Diff: FC<{
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div className={styles.actions}>
 						{canShowFiles && <FilesToggle />}
+
+						{headerSlot}
 
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 							<ToggleGroupStyles>
@@ -1461,6 +1466,49 @@ const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p)
 	);
 };
 
+const CopyableId: FC<{
+	label: string;
+	icon: IconName;
+	displayValue: string;
+	copyValue: string;
+}> = ({ label, icon, displayValue, copyValue }) => {
+	const [copied, setCopied] = useState(false);
+	const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const handleCopy = () => {
+		void window.lite.clipboardWriteText(copyValue);
+		setCopied(true);
+
+		if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
+		resetTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+	};
+
+	useLayoutEffect(
+		() => () => {
+			if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
+		},
+		[],
+	);
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				className={styles.commitDetailsMetaSha}
+				onClick={handleCopy}
+				render={<button type="button" aria-label={label} />}
+			>
+				<Icon size={14} name={copied ? "tick" : icon} />
+				<span>{copied ? "Copied!" : displayValue}</span>
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const CommitDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
@@ -1588,10 +1636,18 @@ const CommitDetails: FC<{
 						</span>{" "}
 						at {fmtDate}
 					</span>
-					<span>
-						{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)}
-						)
-					</span>
+					<CopyableId
+						label="Copy change ID"
+						icon="finger-print"
+						displayValue={shortCommitId(commitDetails.commit.changeId)}
+						copyValue={commitDetails.commit.changeId}
+					/>
+					<CopyableId
+						label="Copy commit ID"
+						icon="hash"
+						displayValue={shortCommitId(commitDetails.commit.id)}
+						copyValue={commitDetails.commit.id}
+					/>
 				</div>
 			</div>
 
@@ -1901,20 +1957,20 @@ const FileDetails: FC<{
 		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
 	};
 
-	return (
-		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
+	const title = (
+		<>
+			{detailsFullWindow && <TopLeftControls />}
 
-					<div className={styles.title}>
-						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
-					</div>
-				</div>
+			<div className={styles.title}>
+				<Icon name="file-diff" />
+				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 			</div>
+		</>
+	);
 
-			{changes.length > 0 && (
+	return (
+		<div className={classes(styles.container, changes.length > 0 && styles.containerLone)}>
+			{changes.length > 0 ? (
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
@@ -1925,7 +1981,12 @@ const FileDetails: FC<{
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
 					didScrollToViaFileRef={didScrollToViaFileRef}
+					headerSlot={title}
 				/>
+			) : (
+				<div className={styles.headerWrap}>
+					<div className={styles.titleRow}>{title}</div>
+				</div>
 			)}
 		</div>
 	);
