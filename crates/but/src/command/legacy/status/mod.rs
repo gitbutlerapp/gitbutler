@@ -24,7 +24,7 @@ use serde::Serialize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
-    args::OutputFormat,
+    args::{self, OutputFormat},
     command::legacy::{
         forge::review,
         status::output::{
@@ -127,6 +127,50 @@ pub struct TuiLaunchOptions {
     pub skip_status_after: bool,
     pub show_diff: bool,
     pub select_commit: Option<gix::ObjectId>,
+}
+
+impl TuiLaunchOptions {
+    pub fn resolve(args: args::tui::Platform) -> Self {
+        let args::tui::Platform {
+            remember_selection,
+            dev_flags,
+        } = args;
+
+        let mut args = Self {
+            remember_selection,
+            show_diff: false,
+            debug: false,
+            quit_after: None,
+            headless: false,
+            skip_status_after: false,
+            select_commit: None,
+        };
+
+        args.resolve_dev_flags(dev_flags);
+
+        args
+    }
+
+    #[cfg(feature = "tui-profiling")]
+    fn resolve_dev_flags(&mut self, flags: args::tui::DevFlags) {
+        let args::tui::DevFlags {
+            debug,
+            quit_after,
+            headless,
+            skip_status_after,
+            diff,
+            select_commit,
+        } = flags;
+        self.debug = debug;
+        self.quit_after = quit_after;
+        self.headless = headless;
+        self.skip_status_after = skip_status_after;
+        self.show_diff = diff;
+        self.select_commit = select_commit;
+    }
+
+    #[cfg(not(feature = "tui-profiling"))]
+    fn resolve_dev_flags(&mut self, _: args::tui::DevFlags) {}
 }
 
 #[derive(Debug, Default, Copy, Clone)]

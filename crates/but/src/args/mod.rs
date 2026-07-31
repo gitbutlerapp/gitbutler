@@ -744,61 +744,9 @@ pub enum Subcommands {
         program_id: Option<String>,
     },
 
-    /// Open a live terminal workspace for branches, commits, changes, and diffs.
-    ///
-    /// The GitButler TUI provides a visual experience similar to the GitButler GUI - right in your
-    /// terminal. For the full workflow and key bindings, see <https://docs.gitbutler.com/gitbutler-tui>
-    ///
-    /// **Environment variables:**
-    ///
-    /// **BUT_THEME**  Sets the theme for but. Options: dark, light. [default: detected from the terminal, falling back to dark]
-    ///
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[cfg(feature = "legacy")]
-    Tui {
-        /// When the TUI quits save the selection and restore it when re-opening.
-        ///
-        /// If the saved selection cannot be restore the TUI launch normally as if
-        /// `--remember-selection` wasn't passed.
-        #[clap(long, default_value_t = false)]
-        remember_selection: bool,
-        /// Show debug pane with selected-line metadata.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long, default_value_t = false)]
-        debug: bool,
-        /// Quit after rendering this many frames.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long)]
-        quit_after: Option<u64>,
-        /// Run the TUI with an in-memory terminal and no terminal event polling.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long)]
-        headless: bool,
-        /// Do not print status when the TUI exits.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long)]
-        skip_status_after: bool,
-        /// Automatically show the diff when opening the TUI.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long)]
-        diff: bool,
-        /// Automatically select this commit when opening the TUI.
-        ///
-        /// Requires `tui-profiling` feature.
-        #[cfg(feature = "tui-profiling")]
-        #[clap(long)]
-        select_commit: Option<gix::ObjectId>,
-    },
+    Tui(tui::Platform),
 
     /// Remove empty branches from the workspace.
     ///
@@ -1233,6 +1181,8 @@ pub mod r#move;
 pub mod skill;
 #[cfg(feature = "legacy")]
 pub mod squash;
+#[cfg(feature = "legacy")]
+pub mod tui;
 #[cfg(feature = "legacy")]
 pub mod uncommit;
 pub mod update;
