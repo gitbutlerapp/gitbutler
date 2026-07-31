@@ -12,11 +12,12 @@ import {
 } from "./api/queries.ts";
 import { useParams } from "@tanstack/react-router";
 import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
-import { useEffectEvent, useLayoutEffect } from "react";
+import { useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
-import { commitOperand } from "./operands.ts";
+import { branchOperand, commitOperand } from "./operands.ts";
 import { decodeBytes } from "./api/bytes.ts";
+import type { RefInfo } from "@gitbutler/but-sdk";
 
 /**
  * Reconcile state between Redux and React Query. This hook should be called very high up in the
@@ -50,6 +51,34 @@ export const useStateReconciler = (): void => {
 			}),
 		);
 	});
+	const reconcileSelectedBranch = useEffectEvent(
+		(headInfo: RefInfo, headInfoIndex: HeadInfoIndex, prevHeadInfoIndex: HeadInfoIndex) => {
+			if (outlineSelection?._tag !== "Branch") return;
+
+			const curr = headInfoIndex.branchContextByRefBytes(outlineSelection.branchRef);
+			if (curr) return;
+
+			const prev = prevHeadInfoIndex.branchContextByRefBytes(outlineSelection.branchRef);
+			if (!prev) return;
+
+			// We've no stable identifier for branches, so assume a rename retains its stack and segment
+			// positions between snapshots.
+			const sameSegmentBranch =
+				headInfo.stacks[prev.stackIndex]?.segments[prev.segmentIndex]?.refName;
+			if (
+				!sameSegmentBranch ||
+				prevHeadInfoIndex.branchContextByRefBytes(sameSegmentBranch.fullNameBytes)
+			)
+				return;
+
+			dispatch(
+				projectSlice.actions.selectOutline({
+					projectId,
+					selection: branchOperand({ branchRef: sameSegmentBranch.fullNameBytes }),
+				}),
+			);
+		},
+	);
 
 	const checkedOperands = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedOperands(state, projectId),
@@ -124,16 +153,20 @@ export const useStateReconciler = (): void => {
 		},
 	);
 
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
+	const prevHeadInfoIndexRef = useRef<HeadInfoIndex>(null);
 	useLayoutEffect(() => {
-		if (!headInfoIndex) return;
+		if (!headInfo || !headInfoIndex) return;
+
+		const prevHeadInfoIndex = prevHeadInfoIndexRef.current;
+		if (prevHeadInfoIndex) reconcileSelectedBranch(headInfo, headInfoIndex, prevHeadInfoIndex);
 
 		reconcileSelectedCommit(headInfoIndex);
 		reconcileCheckedCommits(headInfoIndex);
-	}, [headInfoIndex]);
+
+		prevHeadInfoIndexRef.current = headInfoIndex;
+	}, [headInfo, headInfoIndex]);
 
 	const { data: worktreeChangePaths } = useQuery({
 		...changesInWorktreeQueryOptions(projectId),
