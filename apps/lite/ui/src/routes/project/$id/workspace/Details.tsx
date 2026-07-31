@@ -1466,6 +1466,49 @@ const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p)
 	);
 };
 
+const CopyableId: FC<{
+	label: string;
+	icon: IconName;
+	displayValue: string;
+	copyValue: string;
+}> = ({ label, icon, displayValue, copyValue }) => {
+	const [copied, setCopied] = useState(false);
+	const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const handleCopy = () => {
+		void window.lite.clipboardWriteText(copyValue);
+		setCopied(true);
+
+		if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
+		resetTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+	};
+
+	useLayoutEffect(
+		() => () => {
+			if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
+		},
+		[],
+	);
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				className={styles.commitDetailsMetaSha}
+				onClick={handleCopy}
+				render={<button type="button" aria-label={`Copy ${label}`} />}
+			>
+				<Icon size={14} name={copied ? "tick" : icon} />
+				<span>{copied ? "Copied!" : displayValue}</span>
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const CommitDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
@@ -1593,10 +1636,20 @@ const CommitDetails: FC<{
 						</span>{" "}
 						at {fmtDate}
 					</span>
-					<span>
-						{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)}
-						)
-					</span>
+					<span>•</span>
+
+					<CopyableId
+						label="Change ID"
+						icon="finger-print"
+						displayValue={shortCommitId(commitDetails.commit.changeId)}
+						copyValue={commitDetails.commit.changeId}
+					/>
+					<CopyableId
+						label="Commit ID"
+						icon="hash"
+						displayValue={shortCommitId(commitDetails.commit.id)}
+						copyValue={commitDetails.commit.id}
+					/>
 				</div>
 			</div>
 

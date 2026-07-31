@@ -333,6 +333,22 @@
 	color: var(--text-3);
 }
 
+.commitDetailsMetaSha {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	gap: 4px;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	font: inherit;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-2);
+	}
+}
+
 .commitConflictBadge {
 	flex-shrink: 0;
 }
