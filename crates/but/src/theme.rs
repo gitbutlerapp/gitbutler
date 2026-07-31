@@ -705,12 +705,14 @@ impl Display for Branch<FullName> {
 
 impl Display for Branch<&FullName> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Branch(&*self.0.shorten().to_str_lossy()).fmt(f)
+    }
+}
+
+impl Display for Branch<&str> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = get();
-        write!(
-            f,
-            "'{}'",
-            t.local_branch.paint(self.0.shorten().to_str_lossy())
-        )
+        write!(f, "'{}'", t.local_branch.paint(self.0))
     }
 }
 
