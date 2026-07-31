@@ -1911,7 +1911,7 @@ const FileDetails: FC<{
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
-				<Icon name="file" />
+				<Icon name="file-diff" />
 				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 			</div>
 		</>

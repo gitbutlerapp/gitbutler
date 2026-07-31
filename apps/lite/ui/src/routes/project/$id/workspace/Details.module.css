@@ -58,9 +58,16 @@
 .actions {
 	display: flex;
 	align-items: center;
+	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 10px;
-	gap: 6px;
+	gap: 12px;
 	border-bottom: 1px solid var(--border-3);
+
+	/* Lone layout: the title lives in this row, match the panel padding. */
+	.containerLone & {
+		padding-inline: var(--panel-padding-inline);
+		padding-block: var(--panel-padding-block);
+	}
 }
 
 .checks {
@@ -107,6 +114,11 @@
 
 .panels {
 	border-top: 1px solid var(--border-3);
+
+	/* No header above in the lone layout; the border would shift content down 1px. */
+	.containerLone & {
+		border-top: none;
+	}
 }
 
 .panel {
