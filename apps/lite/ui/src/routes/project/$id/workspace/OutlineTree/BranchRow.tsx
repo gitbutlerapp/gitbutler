@@ -391,7 +391,7 @@ export const BranchRow: FC<
 			) : (
 				<div className={styles.label}>
 					<RowLabelContainer>
-						<RowLabel heading singleLine>
+						<RowLabel heading singleLine title={optimisticBranchDisplayName}>
 							{optimisticBranchDisplayName}
 						</RowLabel>
 					</RowLabelContainer>
