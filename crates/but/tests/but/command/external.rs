@@ -64,6 +64,9 @@ Default aliases (overridable):
   default  →  status
   st       →  status
   stf      →  status --files
+  c        →  commit
+  s        →  squash
+  m        →  move
 
 "#]]);
 }
