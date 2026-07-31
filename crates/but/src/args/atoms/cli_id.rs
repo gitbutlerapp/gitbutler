@@ -473,6 +473,57 @@ impl ResolvedCliIdArg {
     }
 }
 
+impl PartialEq<CliId> for ResolvedCliIdArg {
+    fn eq(&self, other: &CliId) -> bool {
+        match self {
+            ResolvedCliIdArg::Commit(lhs) => {
+                if let CliId::Commit { commit: rhs, .. } = other {
+                    return lhs == rhs;
+                }
+            }
+            ResolvedCliIdArg::Branch(lhs) => {
+                if let CliId::Branch(rhs) = other {
+                    return lhs.0 == rhs.name;
+                }
+            }
+            ResolvedCliIdArg::UncommittedHunkOrFile(lhs) => {
+                if let CliId::UncommittedHunkOrFile(rhs) = other {
+                    return &**lhs == rhs;
+                }
+            }
+            ResolvedCliIdArg::CommittedFile(lhs) => {
+                if let CliId::CommittedFile {
+                    committed_file: rhs,
+                    ..
+                } = other
+                {
+                    return lhs == rhs;
+                }
+            }
+            ResolvedCliIdArg::Uncommitted => {
+                return matches!(other, CliId::Uncommitted { .. });
+            }
+            ResolvedCliIdArg::PathPrefix {
+                id: lhs_id,
+                hunks: lhs_hunks,
+            } => {
+                if let CliId::PathPrefix {
+                    id: rhs_id,
+                    hunk_assignments: rhs_hunks,
+                } = other
+                {
+                    return lhs_id == rhs_id && lhs_hunks == rhs_hunks;
+                }
+            }
+            ResolvedCliIdArg::Stack => {
+                // stacks are being phased out of the cli so ignore them for now
+                return false;
+            }
+        }
+        false
+    }
+}
+
 impl std::fmt::Display for ResolvedCliIdArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

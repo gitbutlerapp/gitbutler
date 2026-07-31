@@ -23,8 +23,8 @@ use ratatui::{style::Modifier, text::Span};
 use serde::Serialize;
 
 use crate::{
-    CLI_DATE, CliId, IdMap,
-    args::OutputFormat,
+    CLI_DATE, CliId, CliResult, IdMap,
+    args::{self, OutputFormat, atoms::CliIdArg},
     command::legacy::{
         forge::review,
         status::output::{
@@ -112,21 +112,64 @@ impl FilesStatusFlag {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum StatusRenderMode {
     Oneshot,
     Tui(TuiLaunchOptions),
 }
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TuiLaunchOptions {
     pub remember_selection: bool,
+    pub target: Option<CliIdArg>,
     pub debug: bool,
     pub quit_after: Option<u64>,
     pub headless: bool,
     pub skip_status_after: bool,
     pub show_diff: bool,
-    pub select_commit: Option<gix::ObjectId>,
+}
+
+impl TuiLaunchOptions {
+    pub fn resolve(args: args::tui::Platform) -> Self {
+        let args::tui::Platform {
+            remember_selection,
+            target,
+            dev_flags,
+        } = args;
+
+        let mut args = Self {
+            remember_selection,
+            target,
+            show_diff: false,
+            debug: false,
+            quit_after: None,
+            headless: false,
+            skip_status_after: false,
+        };
+
+        args.resolve_dev_flags(dev_flags);
+
+        args
+    }
+
+    #[cfg(feature = "tui-profiling")]
+    fn resolve_dev_flags(&mut self, flags: args::tui::DevFlags) {
+        let args::tui::DevFlags {
+            debug,
+            quit_after,
+            headless,
+            skip_status_after,
+            diff,
+        } = flags;
+        self.debug = debug;
+        self.quit_after = quit_after;
+        self.headless = headless;
+        self.skip_status_after = skip_status_after;
+        self.show_diff = diff;
+    }
+
+    #[cfg(not(feature = "tui-profiling"))]
+    fn resolve_dev_flags(&mut self, _: args::tui::DevFlags) {}
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -225,12 +268,12 @@ pub(crate) fn worktree(
     out: &mut OutputChannel,
     flags: StatusFlags,
     render_mode: StatusRenderMode,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
         // In edit mode, show the conflict resolution status
-        return show_edit_mode_status(ctx, out);
+        return show_edit_mode_status(ctx, out).map_err(Into::into);
     }
 
     let status_ctx = {
@@ -243,7 +286,7 @@ pub(crate) fn worktree(
             format,
             &mode,
             flags,
-            render_mode,
+            render_mode.clone(),
         )?
     };
 
@@ -279,11 +322,12 @@ pub(crate) fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
             let (final_lines, _outcome) = tui::render_tui(
                 ctx,
+                &status_ctx.id_map,
                 &mut inout,
                 mode,
                 flags,
                 lines,
-                launch_options,
+                launch_options.clone(),
                 run_options,
             )?;
 
@@ -307,19 +351,20 @@ pub(crate) fn tui_with_options(
     mut guard: RepoExclusiveGuard,
     out: &mut InputOutputChannel<'_>,
     run_options: TuiRunOptions,
-) -> anyhow::Result<(RepoExclusiveGuard, TuiOutcome)> {
+) -> CliResult<(RepoExclusiveGuard, TuiOutcome)> {
     let flags = StatusFlags::for_tui();
-    let mode = but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
-        .operating_mode;
+    let operating_mode =
+        but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+            .operating_mode;
     let launch_options = TuiLaunchOptions::default();
-    let render_mode = StatusRenderMode::Tui(launch_options);
+    let render_mode = StatusRenderMode::Tui(launch_options.clone());
 
     let status_ctx = build_status_context(
         ctx,
         guard.write_permission(),
         out,
         OutputFormat::Human { agent: false },
-        &mode,
+        &operating_mode,
         flags,
         render_mode,
     )?;
@@ -334,8 +379,16 @@ pub(crate) fn tui_with_options(
     let mut lines = Vec::new();
     let mut output = StatusOutput::Buffer { lines: &mut lines };
     build_status_output(ctx, &status_ctx, &mut output)?;
-    let (_final_lines, outcome) =
-        tui::render_tui(ctx, out, mode, flags, lines, launch_options, run_options)?;
+    let (_final_lines, outcome) = tui::render_tui(
+        ctx,
+        &status_ctx.id_map,
+        out,
+        operating_mode,
+        flags,
+        lines,
+        launch_options,
+        run_options,
+    )?;
 
     let guard = ctx.exclusive_worktree_access();
 
@@ -555,7 +608,7 @@ fn build_status_context<'a>(
         .unwrap_or(common_merge_base_data.commit_id);
 
     let is_paged = out.is_paged();
-    let should_truncate_for_terminal = truncation_policy(format, render_mode, is_paged);
+    let should_truncate_for_terminal = truncation_policy(format, &render_mode, is_paged);
 
     Ok(StatusContext {
         stack_details,
@@ -584,7 +637,7 @@ fn build_status_context<'a>(
 }
 
 /// Decide if status text should be pre-truncated for terminal output.
-fn truncation_policy(format: OutputFormat, render_mode: StatusRenderMode, is_paged: bool) -> bool {
+fn truncation_policy(format: OutputFormat, render_mode: &StatusRenderMode, is_paged: bool) -> bool {
     format.allows_truncation() && matches!(render_mode, StatusRenderMode::Oneshot) && !is_paged
 }
 
@@ -2150,7 +2203,7 @@ mod tests {
     fn truncation_policy_enables_truncation_for_oneshot_unpaged() {
         assert!(truncation_policy(
             OutputFormat::Human { agent: false },
-            StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot,
             false
         ));
     }
@@ -2159,7 +2212,7 @@ mod tests {
     fn truncation_policy_disables_truncation_for_oneshot_paged() {
         assert!(!truncation_policy(
             OutputFormat::Human { agent: false },
-            StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot,
             true
         ));
     }
@@ -2168,7 +2221,7 @@ mod tests {
     fn truncation_policy_disables_truncation_for_agent_output() {
         assert!(!truncation_policy(
             OutputFormat::Human { agent: true },
-            StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot,
             false
         ));
     }
@@ -2177,7 +2230,7 @@ mod tests {
     fn truncation_policy_disables_truncation_for_tui() {
         assert!(!truncation_policy(
             OutputFormat::Human { agent: false },
-            StatusRenderMode::Tui(TuiLaunchOptions {
+            &StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()
             }),
@@ -2185,7 +2238,7 @@ mod tests {
         ));
         assert!(!truncation_policy(
             OutputFormat::Human { agent: false },
-            StatusRenderMode::Tui(TuiLaunchOptions {
+            &StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()
             }),

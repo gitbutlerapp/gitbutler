@@ -1014,24 +1014,9 @@ async fn match_subcommand(
                 command::legacy::status::StatusRenderMode::Oneshot,
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Tui {
-            remember_selection,
-            #[cfg(feature = "tui-profiling")]
-            debug,
-            #[cfg(feature = "tui-profiling")]
-            quit_after,
-            #[cfg(feature = "tui-profiling")]
-            headless,
-            #[cfg(feature = "tui-profiling")]
-            skip_status_after,
-            #[cfg(feature = "tui-profiling")]
-            diff,
-            #[cfg(feature = "tui-profiling")]
-            select_commit,
-        } => {
+        Subcommands::Tui(tui_args) => {
             use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
             if !out.format().allows_human_ui() {
@@ -1049,29 +1034,14 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            #[cfg(feature = "tui-profiling")]
-            let _options = TuiLaunchOptions {
-                remember_selection,
-                debug,
-                quit_after,
-                headless,
-                skip_status_after,
-                show_diff: diff,
-                select_commit,
-            };
-            #[cfg(not(feature = "tui-profiling"))]
-            let _options = TuiLaunchOptions {
-                remember_selection,
-                ..Default::default()
-            };
+            let options = TuiLaunchOptions::resolve(tui_args);
             command::legacy::status::worktree(
                 &mut ctx,
                 out,
                 StatusFlags::for_tui(),
-                StatusRenderMode::Tui(_options),
+                StatusRenderMode::Tui(options),
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Diff {

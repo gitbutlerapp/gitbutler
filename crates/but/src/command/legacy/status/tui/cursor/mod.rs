@@ -3,7 +3,9 @@ use std::sync::Arc;
 use bstr::BStr;
 
 use crate::{
-    CliId,
+    CliId, CliResult,
+    args::atoms::ResolvedCliIdArg,
+    bad_input,
     command::legacy::status::{
         FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
@@ -76,6 +78,53 @@ impl Cursor {
         }
 
         current_top
+    }
+
+    pub fn select_resolved_target(
+        target: ResolvedCliIdArg,
+        lines: &[StatusOutputLine],
+    ) -> CliResult<Option<Self>> {
+        let hint = "`TARGET` can be a commit, branch, or uncommitted file";
+        match &target {
+            ResolvedCliIdArg::Commit(..)
+            | ResolvedCliIdArg::Branch(..)
+            | ResolvedCliIdArg::Uncommitted => {}
+            ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
+                // https://linear.app/gitbutler/issue/GB-1798/support-opening-the-tui-on-committed-files-or-hunks
+                if !hunk.is_entire_file {
+                    return Err(bad_input("Selecting hunks is not supported")
+                        .hint(hint)
+                        .into());
+                }
+            }
+            ResolvedCliIdArg::CommittedFile(..) => {
+                // https://linear.app/gitbutler/issue/GB-1798/support-opening-the-tui-on-committed-files-or-hunks
+                return Err(bad_input("Selecting committed files is not supported")
+                    .hint(hint)
+                    .into());
+            }
+            ResolvedCliIdArg::PathPrefix { .. } => {
+                return Err(bad_input("Selecting path prefixes is not supported")
+                    .hint(hint)
+                    .into());
+            }
+            ResolvedCliIdArg::Stack => {
+                return Err(bad_input("Selecting stacks is not supported")
+                    .hint(hint)
+                    .into());
+            }
+        }
+
+        let Some(idx) = lines
+            .iter()
+            .position(|line| line.data.cli_id().is_some_and(|cli_id| target == **cli_id))
+        else {
+            return Ok(None);
+        };
+        if !lines[idx].is_selectable() {
+            return Err(bad_input("`TARGET` is not selectable").hint(hint).into());
+        }
+        Ok(Some(Self(idx)))
     }
 
     pub fn restore(selected_cli_id: &CliId, lines: &[StatusOutputLine]) -> Option<Self> {
