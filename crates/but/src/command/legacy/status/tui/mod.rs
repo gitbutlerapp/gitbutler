@@ -47,7 +47,7 @@ use crate::{
     utils::InputOutputChannel,
 };
 
-use app::{App, InlineRewordMode, Modal, format_error_for_tui};
+use app::{App, InlineRewordMode, Modal};
 
 mod app;
 mod backstack;
