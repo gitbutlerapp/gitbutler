@@ -28,11 +28,6 @@ use crate::{
     },
 };
 
-/// Guidance shown whenever a branch source is combined with a target it does
-/// not support.
-const BRANCH_SOURCE_HINT: &str =
-    "Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack";
-
 pub enum MoveOutcome {
     Commits {
         sources: NonEmpty<CommitId>,
@@ -535,11 +530,25 @@ fn resolve(
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
             match (branch.try_resolve_branch(&repo, id_map)?, resolved_sources) {
-                (_, ResolvedSources::Branch(_)) => {
-                    Err(bad_input("Cannot combine `--branch` with a branch source")
-                        .hint(BRANCH_SOURCE_HINT)
-                        .into())
+                (Some(target), ResolvedSources::Branch(source)) => {
+                    let target = target.resolve_local_branch_name()?;
+                    if source == target {
+                        return Err(bad_input("Source cannot also be target")
+                            .arg_name("--branch")
+                            .arg_value(branch.to_string())
+                            .into());
+                    }
+                    Ok(MoveOperation::StackBranch(StackBranchOnOperation {
+                        source_branch: source,
+                        target_branch: target,
+                    }))
                 }
+                (None, ResolvedSources::Branch(_)) => Err(bad_input(format!(
+                    "Branch {} not found",
+                    theme::Branch(&*branch.0)
+                ))
+                .hint("`--branch` can only move branches onto existing branches")
+                .into()),
                 (
                     Some(branch),
                     ResolvedSources::Commits {
@@ -678,7 +687,7 @@ fn create_move_above_or_below_op(
                 return Err(bad_input("Invalid target for branch source")
                     .arg_name(format!("--{side}"))
                     .arg_value(unresolved_target.to_string())
-                    .hint(BRANCH_SOURCE_HINT)
+                    .hint("Branches can only be moved with `--above <branch>` or `--branch <branch>` to stack or `--unstack` to unstack")
                     .into());
             };
 

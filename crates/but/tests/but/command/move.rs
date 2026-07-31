@@ -2288,47 +2288,7 @@ Error: Bad input 'B' for '--below'
 
 Invalid target for branch source
 
-Hint: Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack
-
-"#]]);
-}
-
-#[test]
-fn cannot_move_branch_to_branch_tip() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings(
-        "one-stack-three-dependent-branches",
-    );
-    env.setup_metadata(&["A", "B", "C"]);
-
-    env.but("status")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
-┊
-┊╭┄ g0 [C]
-┊●   wlx add C
-┊│
-┊├┄ h0 [B]
-┊●   wwm add B
-┊│
-┊├┄ i0 [A]
-┊●   tpm add A
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
-
-Hint: run `but help` for all commands
-
-"#]]);
-
-    env.but("move C -b B")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot combine `--branch` with a branch source
-
-Hint: Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack
+Hint: Branches can only be moved with `--above <branch>` or `--branch <branch>` to stack or `--unstack` to unstack
 
 "#]]);
 }
@@ -2556,6 +2516,16 @@ Hint: Trying to move items below 'ywx'? Remove 'ywx' from '<SOURCES>' and try ag
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Bad input 'A' for '--above'
+
+Source cannot also be target
+
+"#]]);
+
+    env.but("move A --branch A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'A' for '--branch'
 
 Source cannot also be target
 
@@ -2802,6 +2772,96 @@ error: the following required arguments were not provided:
 Usage: but move <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
 
 For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn move_onto_branch_with_dash_dash_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --branch A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_onto_new_branch_with_dash_dash_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A --branch new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'new-branch' not found
+
+Hint: `--branch` can only move branches onto existing branches
 
 "#]]);
 }

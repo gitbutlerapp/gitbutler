@@ -35,12 +35,14 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 pub struct Platform {
     /// Place `<SOURCES>` on the branch `BRANCH`.
     ///
-    /// If `BRANCH` does not exist, it is created as an unstacked branch.
+    /// If `BRANCH` exists, commits or committed files are moved onto its tip. A branch source is
+    /// instead stacked on top of `BRANCH`, equivalent to `--above BRANCH`.
+    ///
+    /// If `BRANCH` does not exist, it is created as an unstacked branch for commit or
+    /// committed-file sources. Using a branch source with a nonexistent `BRANCH` is an error.
     ///
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created. This is
     /// exactly equivalent to `--unstack` and is allowed for any source kind.
-    ///
-    /// If `BRANCH` is provided, `<SOURCES>` must be either commits or committed files.
     ///
     /// Attempting to place `<SOURCES>` on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH")]
