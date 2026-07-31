@@ -70,7 +70,7 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         format,
         &operating_mode,
         flags,
-        StatusRenderMode::Tui(launch_options),
+        StatusRenderMode::Tui(launch_options.clone()),
     )
     .expect("failed to build status context");
     let mut lines = Vec::new();
@@ -85,6 +85,7 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
 
     let app = App::new(
         &ctx,
+        &status_ctx.id_map,
         lines,
         flags,
         launch_options,
@@ -94,7 +95,9 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         head_sha,
         clipboard,
         operating_mode,
-    );
+    )
+    .unwrap();
+
     let terminal =
         Terminal::new(TestBackend::new(width, height)).expect("failed to create test terminal");
 

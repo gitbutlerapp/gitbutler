@@ -2,6 +2,8 @@
 
 #![deny(missing_docs)]
 
+use crate::args::atoms::CliIdArg;
+
 /// Open a live terminal workspace for branches, commits, changes, and diffs.
 ///
 /// The GitButler TUI provides a visual experience similar to the GitButler GUI - right in your
@@ -20,6 +22,10 @@ pub struct Platform {
     /// `--remember-selection` wasn't passed.
     #[clap(long, default_value_t = false)]
     pub remember_selection: bool,
+
+    /// The target to select.
+    #[clap(conflicts_with = "remember_selection")]
+    pub target: Option<CliIdArg>,
 
     #[clap(flatten)]
     #[allow(missing_docs)]
@@ -65,11 +71,4 @@ pub struct DevFlags {
     #[cfg(feature = "tui-profiling")]
     #[clap(long)]
     pub diff: bool,
-
-    /// Automatically select this commit when opening the TUI.
-    ///
-    /// Requires `tui-profiling` feature.
-    #[cfg(feature = "tui-profiling")]
-    #[clap(long)]
-    pub select_commit: Option<gix::ObjectId>,
 }

@@ -1014,7 +1014,6 @@ async fn match_subcommand(
                 command::legacy::status::StatusRenderMode::Oneshot,
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Tui(tui_args) => {
@@ -1043,7 +1042,6 @@ async fn match_subcommand(
                 StatusRenderMode::Tui(options),
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Diff {
