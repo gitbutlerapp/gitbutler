@@ -19,8 +19,8 @@
 	flex-shrink: 0;
 	/* The label gets an extra inset to line up with row content inside the
 	   section, while action buttons on the right align with the panel edge. */
-	padding-inline: calc(var(--panel-padding-inline) + 4px) var(--panel-padding-inline);
-	padding-block: calc(var(--panel-padding-block) - 4px);
+	padding-inline: calc(var(--panel-padding-inline) + 4px) calc(var(--panel-padding-inline) + 4px);
+	padding-block: calc(var(--panel-padding-block) - 2px);
 }
 
 .containerInteractive {
