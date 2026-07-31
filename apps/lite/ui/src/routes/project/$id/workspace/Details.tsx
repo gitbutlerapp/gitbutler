@@ -1495,7 +1495,7 @@ const CopyableId: FC<{
 			<Tooltip.Trigger
 				className={styles.commitDetailsMetaSha}
 				onClick={handleCopy}
-				render={<button type="button" aria-label={`Copy ${label}`} />}
+				render={<button type="button" aria-label={label} />}
 			>
 				<Icon size={14} name={copied ? "tick" : icon} />
 				<span>{copied ? "Copied!" : displayValue}</span>
@@ -1637,13 +1637,13 @@ const CommitDetails: FC<{
 						at {fmtDate}
 					</span>
 					<CopyableId
-						label="Change ID"
+						label="Copy change ID"
 						icon="finger-print"
 						displayValue={shortCommitId(commitDetails.commit.changeId)}
 						copyValue={commitDetails.commit.changeId}
 					/>
 					<CopyableId
-						label="Commit ID"
+						label="Copy commit ID"
 						icon="hash"
 						displayValue={shortCommitId(commitDetails.commit.id)}
 						copyValue={commitDetails.commit.id}

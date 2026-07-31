@@ -342,7 +342,6 @@
 	background: none;
 	color: var(--text-3);
 	font: inherit;
-	cursor: pointer;
 
 	& > span {
 		text-decoration: underline dotted;
