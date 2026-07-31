@@ -47,7 +47,7 @@ pub struct Platform {
     /// Attempting to place `<SOURCES>` on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH")]
     pub branch: Option<Option<CliIdArg>>,
-    /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, `<SOURCES>` are placed on the same branch as the targeted
     /// commit.
@@ -58,7 +58,7 @@ pub struct Platform {
     /// This target is applicable for all kinds of `<SOURCES>`.
     #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
     pub above: Option<CliIdArg>,
-    /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the `<SOURCES>` are placed on the same branch as the
     /// targeted commit.
