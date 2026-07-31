@@ -11,8 +11,7 @@ pub const BUT_PAGER: &str = "BUT_PAGER";
 pub const BUT_PAGER_DESCRIPTION: &str = "Sets the pager for large outputs. [default: less]";
 
 pub const BUT_THEME: &str = "BUT_THEME";
-pub const BUT_THEME_DESCRIPTION: &str =
-    "Sets the theme for but. Options: dark, light. [default: dark]";
+pub const BUT_THEME_DESCRIPTION: &str = "Sets the theme for but. Options: dark, light. [default: detected from the terminal, falling back to dark]";
 
 pub const ALL_ENVS: [(&str, &str); 3] = [
     (BUT_OUTPUT_FORMAT, BUT_OUTPUT_FORMAT_DESCRIPTION),
