@@ -343,7 +343,7 @@
 	color: var(--text-3);
 	font: inherit;
 
-	& > span {
+	> span {
 		text-decoration: underline dotted;
 		text-underline-offset: 2px;
 	}
