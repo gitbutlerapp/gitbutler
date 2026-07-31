@@ -72,6 +72,7 @@ import {
 	type ComponentProps,
 	type FC,
 	type MouseEvent,
+	type ReactNode,
 	type RefObject,
 	type SubmitEventHandler,
 	Suspense,
@@ -870,6 +871,7 @@ const Diff: FC<{
 	projectId: string;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	headerSlot?: ReactNode;
 }> = ({
 	changes,
 	filesVisible,
@@ -880,6 +882,7 @@ const Diff: FC<{
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	headerSlot,
 }) => {
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
@@ -1058,6 +1061,8 @@ const Diff: FC<{
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div className={styles.actions}>
 						{canShowFiles && <FilesToggle />}
+
+						{headerSlot}
 
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 							<ToggleGroupStyles>
@@ -1901,20 +1906,20 @@ const FileDetails: FC<{
 		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
 	};
 
-	return (
-		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
+	const title = (
+		<>
+			{detailsFullWindow && <TopLeftControls />}
 
-					<div className={styles.title}>
-						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
-					</div>
-				</div>
+			<div className={styles.title}>
+				<Icon name="file" />
+				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 			</div>
+		</>
+	);
 
-			{changes.length > 0 && (
+	return (
+		<div className={classes(styles.container, changes.length > 0 && styles.containerLone)}>
+			{changes.length > 0 ? (
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
@@ -1925,7 +1930,12 @@ const FileDetails: FC<{
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
 					didScrollToViaFileRef={didScrollToViaFileRef}
+					headerSlot={title}
 				/>
+			) : (
+				<div className={styles.headerWrap}>
+					<div className={styles.titleRow}>{title}</div>
+				</div>
 			)}
 		</div>
 	);

@@ -4,6 +4,11 @@
 	row-gap: 12px;
 }
 
+.containerLone {
+	grid-template-rows: minmax(0, 1fr);
+	row-gap: 0;
+}
+
 .headerWrap {
 	display: flex;
 	row-gap: 12px;
