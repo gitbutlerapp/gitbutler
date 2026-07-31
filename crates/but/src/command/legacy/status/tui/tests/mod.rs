@@ -7,6 +7,7 @@ use crossterm::event::*;
 use snapbox::{ToDebug, file, str};
 use temp_env::with_var;
 
+use crate::command::legacy::status::tui::app::format_error_for_tui;
 use crate::command::legacy::status::tui::tests::utils::{
     TestTuiOptions, test_status_tui, test_status_tui_with_options,
 };
@@ -279,7 +280,7 @@ fn format_error_for_tui_shows_cause_chain_without_backtrace() {
         .context("context-level-1")
         .context("context-level-2");
 
-    let rendered = super::format_error_for_tui(&err);
+    let rendered = format_error_for_tui(&err);
 
     assert_eq!(
         rendered,
@@ -292,7 +293,7 @@ fn format_error_for_tui_shows_cause_chain_without_backtrace() {
 fn format_error_for_tui_shows_single_message_for_leaf_error() {
     let err = anyhow!("leaf-error");
 
-    let rendered = super::format_error_for_tui(&err);
+    let rendered = format_error_for_tui(&err);
 
     assert_eq!(rendered, "leaf-error");
     assert!(!rendered.contains("Caused by:"));

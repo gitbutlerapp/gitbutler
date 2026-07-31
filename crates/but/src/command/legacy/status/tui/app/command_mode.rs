@@ -8,8 +8,7 @@ use ratatui_textarea::{CursorMove, TextArea};
 
 use crate::{
     command::legacy::status::tui::{
-        App, Message, Mode, NormalMode, ReloadCause, ToastKind, TuiInputOutputChannel,
-        format_error_for_tui,
+        App, Message, Mode, NormalMode, ReloadCause, TuiInputOutputChannel,
         mode::{DetailsMode, ModeRef},
         render::ModeRender,
     },
@@ -246,12 +245,6 @@ impl App {
         drop(_suspend_guard);
 
         Ok(())
-    }
-
-    /// Adds a transient error toast message that auto-dismisses after a short duration.
-    fn push_transient_error(&mut self, err: anyhow::Error) {
-        self.toasts
-            .insert(ToastKind::Error, format_error_for_tui(&err));
     }
 }
 

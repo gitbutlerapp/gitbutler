@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ansi_to_tui::IntoText as _;
 use bstr::{BStr, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
@@ -1325,14 +1326,24 @@ impl App {
         Ok(())
     }
 
-    /// Handles showing a transient UI error.
     fn handle_show_error(&mut self, err: anyhow::Error, messages: &mut Vec<Message>) {
-        self.toasts
-            .insert(ToastKind::Error, format_error_for_tui(&err));
+        self.push_transient_error(err);
 
         // ensure we always enter normal mode when something does wrong
         // so we don't get stuck in whatever mode we were in previously
         messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+    }
+
+    fn push_transient_error(&mut self, err: anyhow::Error) {
+        let text = format_error_for_tui(&err);
+        match text.into_text() {
+            Ok(text) => {
+                self.toasts.insert(ToastKind::Error, text);
+            }
+            Err(_) => {
+                self.toasts.insert(ToastKind::Error, text);
+            }
+        }
     }
 
     /// Handles creating an empty commit relative to the current selection.
