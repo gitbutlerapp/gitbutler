@@ -1026,7 +1026,7 @@ const Diff: FC<{
 						<Panel
 							id={"files-panel" satisfies PanelId}
 							className={styles.panel}
-							defaultSize={250}
+							defaultSize={320}
 							minSize={180}
 							groupResizeBehavior="preserve-pixel-size"
 						>
