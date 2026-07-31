@@ -11,7 +11,7 @@
 
 .headerWrap {
 	display: flex;
-	row-gap: 12px;
+	row-gap: 8px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline);
 	padding-block-start: var(--panel-padding-block);
@@ -192,6 +192,11 @@
 		--diffs-selection-number-fg: var(--text-1);
 		border-top: 1px solid var(--border-3);
 		border-bottom: 1px solid var(--border-3);
+
+		/* Hide the first diff's top border so it doesn't double up with the container above. */
+		&:first-child {
+			border-top-color: var(--bg-1);
+		}
 	}
 
 	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within & {
