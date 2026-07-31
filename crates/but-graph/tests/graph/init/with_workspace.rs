@@ -2095,6 +2095,36 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
 }
 
 #[test]
+fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    add_workspace(&mut meta);
+    let stack_id =
+        add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["missing"]);
+
+    let metadata = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
+        .validated()?
+        .into_workspace()?
+        .metadata_from_projection()?
+        .expect("workspace metadata is present");
+    let stack = metadata
+        .stacks
+        .iter()
+        .find(|stack| stack.id == stack_id)
+        .expect("projected stack retains its metadata");
+
+    assert_eq!(
+        stack
+            .branches
+            .iter()
+            .map(|branch| branch.ref_name.shorten())
+            .collect::<Vec<_>>(),
+        ["B"],
+        "branches missing from a partially projected stack must be excluded"
+    );
+    Ok(())
+}
+
+#[test]
 fn just_init_with_archived_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
