@@ -95,3 +95,12 @@ pub struct Platform {
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
 }
+
+/// Example invocations appended to a `but squash` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but squash <commit>... -t <other-commit> -m \"message\"   # squash commits into another commit
+  but squash <branch> -m \"message\"                # squash a branch into a single commit
+  but squash <file> -t <commit>                    # move an uncommitted file into a commit
+  but squash <commit>:<file> -t <other-commit>     # move a committed file to another commit
+";

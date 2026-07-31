@@ -42,7 +42,10 @@
 use std::ffi::OsString;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{args::metrics::CommandName, theme::Paint as _};
+use crate::{
+    args::{find_subcommand, metrics::CommandName},
+    theme::Paint as _,
+};
 
 static USED: AtomicBool = AtomicBool::new(false);
 
@@ -235,25 +238,6 @@ pub(crate) fn translate_commit(args: &[OsString]) -> Translation {
     Translation::Translated(translated)
 }
 
-/// Find the subcommand token and its index, skipping root options.
-fn find_subcommand(args: &[OsString]) -> Option<(usize, &OsString)> {
-    let mut ix = 1;
-    while ix < args.len() {
-        let token = &args[ix];
-        // Root options that consume a separate value token.
-        if token == "-C" || token == "--current-dir" || token == "--log-file" {
-            ix += 2;
-            continue;
-        }
-        if token.as_encoded_bytes().starts_with(b"-") {
-            ix += 1;
-            continue;
-        }
-        return Some((ix, token));
-    }
-    None
-}
-
 /// A teaching hint for a command line the modern parser rejected, when the
 /// failure looks like retired syntax for one of the revamped subcommands.
 /// Returns the command's metrics name alongside the hint so the caller can
@@ -273,6 +257,13 @@ pub(crate) fn parse_failure_hint(args: &[OsString], agent: bool) -> Option<(Comm
         _ => return None,
     };
     Some((command, hint?))
+}
+
+/// Whether a failure hint embeds a concrete modern command line (the
+/// indented `but ...` block produced by [`equivalent_body`]), as opposed to a
+/// generic "syntax has changed" pointer.
+pub(crate) fn hint_is_concrete(hint: &str) -> bool {
+    hint.contains("\n    but ")
 }
 
 /// Hint body naming the concrete modern equivalent of a retired invocation.

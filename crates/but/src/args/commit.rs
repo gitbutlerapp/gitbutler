@@ -93,3 +93,11 @@ pub struct Platform {
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
 }
+
+/// Example invocations appended to a `but commit` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but commit -b <branch> -m \"message\"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m \"message\" <file-or-hunk>...  # commit only the given changes
+  but commit -m \"message\"                                # commit when only one stack is applied
+";

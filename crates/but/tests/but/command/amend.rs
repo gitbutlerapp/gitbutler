@@ -279,6 +279,47 @@ For more information, try '--help'.
 }
 
 #[test]
+fn parse_error_appends_examples() {
+    let env = Sandbox::empty();
+
+    // A rejected amend command line must end with the registered example
+    // invocations, after clap's own error and usage output.
+    env.but("amend").assert().failure().stderr_eq(str![[r#"
+error: the following required arguments were not provided:
+  --target <COMMIT_OR_BRANCH>
+
+Usage: but amend --target <COMMIT_OR_BRANCH> [SOURCES]...
+
+For more information, try '--help'.
+
+Examples:
+  but amend -t <commit> <file-or-hunk>...   # amend selected uncommitted changes
+  but amend -t <commit>                     # amend all uncommitted changes
+  but amend -t <branch>                     # amend into the tip of a branch
+
+"#]]);
+}
+
+#[test]
+fn root_level_parse_error_gets_no_examples() {
+    let env = Sandbox::empty();
+
+    // The bad flag belongs to the root grammar; appending `amend` examples
+    // would misattribute the failure to the amend grammar.
+    env.but("--nope amend")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: unexpected argument '--nope' found
+
+Usage: but [OPTIONS] [COMMAND]
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
 fn retired_flag_with_help_passes_through_without_hint() {
     let env = Sandbox::empty();
 

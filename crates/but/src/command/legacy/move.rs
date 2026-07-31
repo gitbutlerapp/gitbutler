@@ -28,6 +28,11 @@ use crate::{
     },
 };
 
+/// Guidance shown whenever a branch source is combined with a target it does
+/// not support.
+const BRANCH_SOURCE_HINT: &str =
+    "Branches can be moved with `--above <branch>` to stack or `--unstack` to unstack";
+
 pub enum MoveOutcome {
     Commits {
         sources: NonEmpty<CommitId>,
@@ -531,7 +536,9 @@ fn resolve(
         (Some(Some(branch)), None, None, false) => {
             match (branch.try_resolve_branch(&repo, id_map)?, resolved_sources) {
                 (_, ResolvedSources::Branch(_)) => {
-                    Err(bad_input("Cannot combine `--branch` with a branch source").into())
+                    Err(bad_input("Cannot combine `--branch` with a branch source")
+                        .hint(BRANCH_SOURCE_HINT)
+                        .into())
                 }
                 (
                     Some(branch),
@@ -671,7 +678,7 @@ fn create_move_above_or_below_op(
                 return Err(bad_input("Invalid target for branch source")
                     .arg_name(format!("--{side}"))
                     .arg_value(unresolved_target.to_string())
-                    .hint("Branches can only be moved with `--above <branch>` to stack or `--unstack` to unstack")
+                    .hint(BRANCH_SOURCE_HINT)
                     .into());
             };
 

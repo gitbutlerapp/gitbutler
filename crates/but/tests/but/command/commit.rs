@@ -1000,6 +1000,11 @@ Usage: but commit --above <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
 
+Examples:
+  but commit -b <branch> -m "message"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m "message" <file-or-hunk>...  # commit only the given changes
+  but commit -m "message"                                # commit when only one stack is applied
+
 "#]]);
 }
 
@@ -1018,6 +1023,11 @@ Usage: but commit --above <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
 
+Examples:
+  but commit -b <branch> -m "message"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m "message" <file-or-hunk>...  # commit only the given changes
+  but commit -m "message"                                # commit when only one stack is applied
+
 "#]]);
 }
 
@@ -1035,6 +1045,11 @@ error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--branch [
 Usage: but commit --below <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
+
+Examples:
+  but commit -b <branch> -m "message"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m "message" <file-or-hunk>...  # commit only the given changes
+  but commit -m "message"                                # commit when only one stack is applied
 
 "#]]);
 }
@@ -2270,6 +2285,11 @@ error: unexpected argument '-c' found
 Usage: but commit [OPTIONS] [CHANGES]...
 
 For more information, try '--help'.
+
+Examples:
+  but commit -b <branch> -m "message"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m "message" <file-or-hunk>...  # commit only the given changes
+  but commit -m "message"                                # commit when only one stack is applied
 
 "#]]);
 

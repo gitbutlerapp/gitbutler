@@ -29,3 +29,11 @@ pub struct Platform {
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
 }
+
+/// Example invocations appended to a `but amend` parse error.
+pub(crate) const ERROR_EXAMPLES: &str = "\
+Examples:
+  but amend -t <commit> <file-or-hunk>...   # amend selected uncommitted changes
+  but amend -t <commit>                     # amend all uncommitted changes
+  but amend -t <branch>                     # amend into the tip of a branch
+";

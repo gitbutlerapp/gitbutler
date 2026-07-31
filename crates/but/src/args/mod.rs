@@ -1311,5 +1311,49 @@ pub mod worktree {
 
 pub mod branch;
 
+/// Find the subcommand token and its index in raw argv, skipping root options.
+pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &std::ffi::OsString)> {
+    let mut ix = 1;
+    while ix < args.len() {
+        let token = &args[ix].as_encoded_bytes();
+        // Root options that consume a separate value token. `-C` is the only
+        // value-taking short option, so a short cluster ending in it (e.g.
+        // `-tC`) consumes the next token too; with an attached value
+        // (`-C.`, `-tC.`) the cluster ends in the value instead.
+        let cluster_ending_in_c =
+            token.starts_with(b"-") && !token.starts_with(b"--") && token.ends_with(b"C");
+        if cluster_ending_in_c || *token == b"--current-dir" || *token == b"--log-file" {
+            ix += 2;
+            continue;
+        }
+        if token.starts_with(b"-") {
+            ix += 1;
+            continue;
+        }
+        return Some((ix, &args[ix]));
+    }
+    None
+}
+
+/// Example invocations appended to a subcommand's parse error, for the
+/// commands whose grammar most often trips people up.
+pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
+    #[cfg(feature = "legacy")]
+    {
+        Some(match subcommand {
+            "commit" => commit::ERROR_EXAMPLES,
+            "amend" => amend::ERROR_EXAMPLES,
+            "move" => r#move::ERROR_EXAMPLES,
+            "squash" => squash::ERROR_EXAMPLES,
+            _ => return None,
+        })
+    }
+    #[cfg(not(feature = "legacy"))]
+    {
+        let _ = subcommand;
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests;
