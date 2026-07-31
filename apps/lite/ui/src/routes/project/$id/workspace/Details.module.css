@@ -344,6 +344,11 @@
 	font: inherit;
 	cursor: pointer;
 
+	& > span {
+		text-decoration: underline dotted;
+		text-underline-offset: 2px;
+	}
+
 	&:hover {
 		color: var(--text-2);
 	}
