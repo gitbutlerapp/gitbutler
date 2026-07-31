@@ -3,6 +3,7 @@
 }
 
 .statusBadge {
+	flex-shrink: 0;
 	align-self: center;
 	width: 12px;
 	font-weight: 700;

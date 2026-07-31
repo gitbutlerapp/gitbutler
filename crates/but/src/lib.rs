@@ -22,7 +22,10 @@
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
-use std::ffi::OsString;
+use std::{
+    ffi::{OsStr, OsString},
+    io::IsTerminal as _,
+};
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
@@ -155,6 +158,30 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
     (args, output_format)
 }
 
+fn should_detect_terminal_theme(
+    args: &[OsString],
+    agent_detected: bool,
+    stdout_is_terminal: bool,
+) -> bool {
+    stdout_is_terminal
+        && !agent_detected
+        && !args.iter().any(|arg| arg == "--json")
+        && !matches!(
+            OutputFormat::try_from_env(agent_detected),
+            Some(OutputFormat::Json)
+        )
+}
+
+fn resolve_theme_preset(
+    theme_name_from_env: Option<&OsStr>,
+    detected_preset: Option<theme::ThemePreset>,
+) -> anyhow::Result<theme::ThemePreset> {
+    match theme_name_from_env {
+        Some(theme_name) => theme_name.to_string_lossy().parse(),
+        None => Ok(detected_preset.unwrap_or(theme::ThemePreset::Dark)),
+    }
+}
+
 static APP_SETTINGS: std::sync::OnceLock<AppSettings> = std::sync::OnceLock::new();
 
 /// The application settings, loaded from the default path once per process.
@@ -174,15 +201,29 @@ pub(crate) fn app_settings() -> Result<&'static AppSettings> {
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
-    let theme_preset_from_env: anyhow::Result<theme::ThemePreset> =
-        if let Some(theme_name) = std::env::var_os(envs::BUT_THEME) {
-            theme_name.to_string_lossy().parse()
-        } else {
-            Ok(theme::ThemePreset::Dark)
-        };
+    let args: Vec<_> = args.collect();
+
+    // Check if version is requested
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        let version = option_env!("VERSION").unwrap_or("dev");
+        println!("but {version}");
+        return Ok(());
+    }
+
+    let agent_detected = utils::detect_agent::detect().is_some();
+    let (args, alias_expansion_warning) = expand_aliases(args);
+    let theme_name_from_env = std::env::var_os(envs::BUT_THEME);
+    let detected_preset = if theme_name_from_env.is_none()
+        && should_detect_terminal_theme(&args, agent_detected, std::io::stdout().is_terminal())
+    {
+        theme::detect_terminal_preset()
+    } else {
+        None
+    };
+    let theme_preset_result = resolve_theme_preset(theme_name_from_env.as_deref(), detected_preset);
 
     {
-        let theme_preset = match &theme_preset_from_env {
+        let theme_preset = match &theme_preset_result {
             Ok(theme_preset) => theme_preset.clone(),
             Err(_) => {
                 // ignore for now, we print a warning once the output channel has been initialized
@@ -201,16 +242,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         theme::init(theme);
     }
 
-    let args: Vec<_> = args.collect();
-
-    // Check if version is requested
-    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
-        let version = option_env!("VERSION").unwrap_or("dev");
-        println!("but {version}");
-        return Ok(());
+    if let Some(warning) = alias_expansion_warning {
+        print_err_infallible(theme::get().attention.paint(warning));
     }
-
-    let agent_detected = utils::detect_agent::detect().is_some();
 
     // Check if help is requested and show grouped help instead of clap's default
     // Only intercept top-level help (but -h or but --help), not subcommand help
@@ -221,8 +255,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
-
-    let args = expand_aliases(args);
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
@@ -273,7 +305,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         out.request_pager();
     }
 
-    if let (Err(theme_preset_err), Some(out)) = (theme_preset_from_env, out.for_human_ui()) {
+    if let (Err(theme_preset_err), Some(out)) = (theme_preset_result, out.for_human_ui()) {
         writeln!(
             out,
             "{}: {theme_preset_err}",
@@ -399,14 +431,22 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 /// ```
 ///
 /// This function never fails - any unexpected situation leads to the original args being returned.
-fn expand_aliases(args: Vec<OsString>) -> Vec<OsString> {
+/// An alias expansion failure also returns a warning to print after the theme is initialized.
+fn expand_aliases(args: Vec<OsString>) -> (Vec<OsString>, Option<String>) {
+    expand_aliases_with(args, alias::expand_alias)
+}
+
+fn expand_aliases_with(
+    args: Vec<OsString>,
+    alias_expander: impl FnOnce(&str) -> anyhow::Result<Vec<OsString>>,
+) -> (Vec<OsString>, Option<String>) {
     let parsed_args = match Args::try_parse_from(&args) {
         Ok(parsed) => parsed,
         Err(_) => {
             // We let the core parsing logic handle hard parse errors as there is special handling
             // of e.g. help output. If we get rid of that bespoke parsing we can also get rid of
             // this early return and let Clap handle parse errors with [`Args::parse_from`].
-            return args;
+            return (args, None);
         }
     };
 
@@ -417,28 +457,29 @@ fn expand_aliases(args: Vec<OsString>) -> Vec<OsString> {
             if let Some(command_name) = command_name.to_str() {
                 let subcommand_start = args.len() - subcommand_args.len();
 
-                let expanded = match alias::expand_alias(command_name) {
+                let expanded = match alias_expander(command_name) {
                     Ok(expanded) => expanded,
                     Err(err) => {
-                        print_err_infallible(theme::get().attention.paint(format!(
+                        let warning = format!(
                             "Failed to expand alias '{command_name}': {err}\nSkipping alias expansion\n",
-                        )));
-                        return args;
+                        );
+                        return (args, Some(warning));
                     }
                 };
 
-                Vec::<OsString>::new()
+                let expanded_args = Vec::<OsString>::new()
                     .iter()
                     .chain(args[..subcommand_start].iter())
                     .chain(expanded.iter())
                     .chain(args[subcommand_start + 1..].iter())
                     .cloned()
-                    .collect()
+                    .collect();
+                (expanded_args, None)
             } else {
-                args
+                (args, None)
             }
         }
-        _ => args,
+        _ => (args, None),
     }
 }
 
@@ -1920,6 +1961,74 @@ mod tests {
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(|arg| OsString::from(*arg)).collect()
+    }
+
+    #[test]
+    fn expanded_alias_arguments_control_terminal_theme_detection() {
+        let (expanded_args, warning) = expand_aliases_with(os_args(&["but", "js"]), |alias| {
+            assert_eq!(alias, "js", "the external command should be expanded");
+            Ok(os_args(&["status", "--json"]))
+        });
+
+        assert!(
+            warning.is_none(),
+            "successful alias expansion should not produce a warning"
+        );
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            assert!(
+                !should_detect_terminal_theme(&expanded_args, false, true),
+                "an alias that enables JSON output should not query the terminal"
+            );
+        });
+    }
+
+    #[test]
+    fn terminal_theme_detection_is_limited_to_interactive_human_output() {
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            assert!(
+                should_detect_terminal_theme(&os_args(&["but", "status"]), false, true),
+                "an interactive human command should detect the terminal theme"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), true, true),
+                "an agent command should not query the terminal"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status", "--json"]), false, true),
+                "a JSON command should not query the terminal"
+            );
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), false, false),
+                "a redirected command should not query the terminal"
+            );
+        });
+
+        temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
+            assert!(
+                !should_detect_terminal_theme(&os_args(&["but", "status"]), false, true),
+                "JSON output selected through the environment should not query the terminal"
+            );
+        });
+    }
+
+    #[test]
+    fn explicit_theme_overrides_detection_and_detection_falls_back_to_dark() {
+        assert_eq!(
+            resolve_theme_preset(Some(OsStr::new("light")), Some(theme::ThemePreset::Dark))
+                .unwrap(),
+            theme::ThemePreset::Light,
+            "BUT_THEME should override the detected terminal theme"
+        );
+        assert_eq!(
+            resolve_theme_preset(None, Some(theme::ThemePreset::Light)).unwrap(),
+            theme::ThemePreset::Light,
+            "the detected terminal theme should be used without an override"
+        );
+        assert_eq!(
+            resolve_theme_preset(None, None).unwrap(),
+            theme::ThemePreset::Dark,
+            "failed terminal detection should fall back to the dark preset"
+        );
     }
 
     #[test]

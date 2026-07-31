@@ -751,7 +751,7 @@ pub enum Subcommands {
     ///
     /// **Environment variables:**
     ///
-    /// **BUT_THEME**  Sets the theme for but. Options: dark, light. [default: dark]
+    /// **BUT_THEME**  Sets the theme for but. Options: dark, light. [default: detected from the terminal, falling back to dark]
     ///
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[cfg(feature = "legacy")]

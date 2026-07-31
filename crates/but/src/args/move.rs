@@ -35,17 +35,19 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 pub struct Platform {
     /// Place `<SOURCES>` on the branch `BRANCH`.
     ///
-    /// If `BRANCH` does not exist, it is created as an unstacked branch.
+    /// If `BRANCH` exists, commits or committed files are moved onto its tip. A branch source is
+    /// instead stacked on top of `BRANCH`, equivalent to `--above BRANCH`.
+    ///
+    /// If `BRANCH` does not exist, it is created as an unstacked branch for commit or
+    /// committed-file sources. Using a branch source with a nonexistent `BRANCH` is an error.
     ///
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created. This is
     /// exactly equivalent to `--unstack` and is allowed for any source kind.
     ///
-    /// If `BRANCH` is provided, `<SOURCES>` must be either commits or committed files.
-    ///
     /// Attempting to place `<SOURCES>` on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH")]
     pub branch: Option<Option<CliIdArg>>,
-    /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, `<SOURCES>` are placed on the same branch as the targeted
     /// commit.
@@ -56,7 +58,7 @@ pub struct Platform {
     /// This target is applicable for all kinds of `<SOURCES>`.
     #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
     pub above: Option<CliIdArg>,
-    /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the `<SOURCES>` are placed on the same branch as the
     /// targeted commit.

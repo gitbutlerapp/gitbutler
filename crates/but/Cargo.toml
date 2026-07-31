@@ -119,6 +119,7 @@ colored = "3.0.0"
 serde_json.workspace = true
 boolean-enums.workspace = true
 terminal_size = "0.4.4"
+terminal-colorsaurus = "1.0.0"
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
     "env-filter",

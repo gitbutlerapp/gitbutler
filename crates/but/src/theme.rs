@@ -233,6 +233,22 @@ impl FromStr for ThemePreset {
     }
 }
 
+/// Detect the theme preset from the terminal's foreground and background colors.
+///
+/// Returns `None` if the terminal does not support color queries or does not respond in time.
+pub(crate) fn detect_terminal_preset() -> Option<ThemePreset> {
+    terminal_colorsaurus::theme_mode(terminal_colorsaurus::QueryOptions::default())
+        .ok()
+        .map(theme_preset_from_terminal_mode)
+}
+
+fn theme_preset_from_terminal_mode(mode: terminal_colorsaurus::ThemeMode) -> ThemePreset {
+    match mode {
+        terminal_colorsaurus::ThemeMode::Dark => ThemePreset::Dark,
+        terminal_colorsaurus::ThemeMode::Light => ThemePreset::Light,
+    }
+}
+
 /// The CLI color theme.
 ///
 /// Style fields ([`Style`]) control colors and text attributes for semantic
@@ -705,12 +721,14 @@ impl Display for Branch<FullName> {
 
 impl Display for Branch<&FullName> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Branch(&*self.0.shorten().to_str_lossy()).fmt(f)
+    }
+}
+
+impl Display for Branch<&str> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = get();
-        write!(
-            f,
-            "'{}'",
-            t.local_branch.paint(self.0.shorten().to_str_lossy())
-        )
+        write!(f, "'{}'", t.local_branch.paint(self.0))
     }
 }
 
@@ -738,6 +756,20 @@ impl Rgb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terminal_theme_modes_map_to_presets() {
+        assert_eq!(
+            theme_preset_from_terminal_mode(terminal_colorsaurus::ThemeMode::Dark),
+            ThemePreset::Dark,
+            "a dark terminal should select the dark preset"
+        );
+        assert_eq!(
+            theme_preset_from_terminal_mode(terminal_colorsaurus::ThemeMode::Light),
+            ThemePreset::Light,
+            "a light terminal should select the light preset"
+        );
+    }
 
     #[test]
     fn round_trip_default_theme_through_json() {
