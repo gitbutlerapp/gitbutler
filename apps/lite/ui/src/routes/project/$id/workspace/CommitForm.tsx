@@ -20,7 +20,7 @@ import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type SubmitEventHandler, useEffect, useRef, useState } from "react";
+import { type FC, type RefCallback, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
@@ -80,7 +80,6 @@ export const CommitForm: FC<{
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const commitButtonLabelRef = useRef<HTMLSpanElement | null>(null);
 
 	const { data: draftMessage } = useQuery(draftCommitMessageQueryOptions(projectId));
 	const { mutate: persistDraftMessage } = usePersistDraftCommitMessage();
@@ -98,22 +97,26 @@ export const CommitForm: FC<{
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
-	const [commitTooltipOpen, setCommitTooltipOpen] = useState(false);
 	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
 
 	// Track whether the container query hides the label, including while resizing.
-	useEffect(() => {
-		const form = formRef.current;
-		const label = commitButtonLabelRef.current;
-		if (form === null || label === null) return;
+	// This is a ref callback rather than a mount effect because the form is
+	// conditionally rendered, so on mount the label doesn't exist yet. The label is
+	// a flex item, so `display: none` zeroes its box and observing it is enough to
+	// tell — no need to read computed styles.
+	const observeCommitLabel: RefCallback<HTMLSpanElement> = (label) => {
+		if (label === null) return;
 
-		// ResizeObserver fires once on observe, providing the initial value.
-		const observer = new ResizeObserver(() => {
-			setCommitLabelHidden(getComputedStyle(label).display === "none");
+		// A zero-size box matches the initial reported size, so it doesn't trigger
+		// an observation. Measure up front to catch a label that mounts hidden.
+		setCommitLabelHidden(label.offsetWidth === 0);
+
+		const observer = new ResizeObserver((entries) => {
+			for (const entry of entries) setCommitLabelHidden(entry.contentRect.width === 0);
 		});
-		observer.observe(form);
+		observer.observe(label);
 		return () => observer.disconnect();
-	}, []);
+	};
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -371,17 +374,14 @@ export const CommitForm: FC<{
 					</Tooltip.Root>
 
 					<div className={styles.dropdownButton}>
-						<Tooltip.Root
-							// Only show the tooltip when the container query hides the label.
-							open={commitTooltipOpen && commitLabelHidden}
-							onOpenChange={setCommitTooltipOpen}
-						>
+						{/* The tooltip is redundant while the label is visible. */}
+						<Tooltip.Root disabled={!commitLabelHidden}>
 							<Tooltip.Trigger
 								aria-label="Commit"
 								className={getButtonClassName({ variant: "pop" })}
 								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
 							>
-								<span ref={commitButtonLabelRef} className={styles.commitButtonLabel}>
+								<span ref={observeCommitLabel} className={styles.commitButtonLabel}>
 									Commit
 								</span>
 								<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
