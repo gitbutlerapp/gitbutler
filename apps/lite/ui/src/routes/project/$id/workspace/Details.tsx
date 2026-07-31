@@ -1059,7 +1059,7 @@ const Diff: FC<{
 				)}
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
-					<div className={styles.actions}>
+					<div className={classes(styles.actions, !filesVisible && styles.filesHidden)}>
 						{canShowFiles && <FilesToggle />}
 
 						{headerSlot}
