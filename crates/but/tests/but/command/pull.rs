@@ -6,18 +6,16 @@ use crate::utils::{CommandExt, Sandbox};
 /// only fails when the target's own fetch remote failed, so a dead unrelated remote (old fork,
 /// deleted mirror) is tolerated.
 #[test]
-fn pull_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+fn pull_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("pull").assert().success();
-
-    Ok(())
 }
 
 #[test]
-fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() -> anyhow::Result<()> {
+fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-one-of-two-stacks-integrated",
     );
@@ -56,15 +54,15 @@ Hint: run `but help` for all commands
 "#]]);
 
     assert!(
-        !git_ref_exists(&env, "refs/heads/A")?,
+        !git_ref_exists(&env, "refs/heads/A"),
         "the branch already integrated into the target should be removed"
     );
     assert!(
-        git_ref_exists(&env, "refs/heads/B")?,
+        git_ref_exists(&env, "refs/heads/B"),
         "the remaining stack should stay in the workspace"
     );
 
-    let workspace_parents = rev_parse_all(&env, "gitbutler/workspace^@")?;
+    let workspace_parents = rev_parse_all(&env, "gitbutler/workspace^@");
     assert_eq!(
         workspace_parents.len(),
         1,
@@ -72,29 +70,27 @@ Hint: run `but help` for all commands
     );
     assert_eq!(
         workspace_parents[0],
-        rev_parse(&env, "B")?,
+        rev_parse(&env, "B"),
         "the remaining stack should remain the workspace parent"
     );
     assert_ne!(
         workspace_parents[0],
-        rev_parse(&env, "origin/main")?,
+        rev_parse(&env, "origin/main"),
         "the workspace should not be reparented directly to the target while a stack remains"
     );
     assert_eq!(
-        status_stack_count(&env)?,
+        status_stack_count(&env),
         1,
         "exactly the remaining stack should stay applied"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_prunes_integrated_branch_from_partial_stack() -> anyhow::Result<()> {
+fn pull_prunes_integrated_branch_from_partial_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-partially-integrated-multi-branch-stack",
     );
-    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base")?;
+    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -130,56 +126,52 @@ Hint: run `but help` for all commands
 "#]]);
 
     assert!(
-        git_ref_exists(&env, "refs/heads/A")?,
+        git_ref_exists(&env, "refs/heads/A"),
         "the remaining top branch should stay in the workspace"
     );
     assert_eq!(
-        status_branch_names(&env)?,
+        status_branch_names(&env),
         vec!["A"],
         "workspace status should contain only the rebased top branch after pruning the integrated lower branch"
     );
     assert_eq!(
-        status_stack_count(&env)?,
+        status_stack_count(&env),
         1,
         "the partially integrated stack should remain applied through its top branch"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_keeps_empty_branch_above_merged_branch() -> anyhow::Result<()> {
+fn pull_keeps_empty_branch_above_merged_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-merged-branch-below-empty-branch",
     );
-    env.setup_single_stack_metadata_at_target(&["top", "bottom"], "refs/heads/main")?;
+    env.setup_single_stack_metadata_at_target(&["top", "bottom"], "refs/heads/main");
     env.invoke_git("remote set-url origin .");
 
     env.but("pull").assert().success();
 
     assert_eq!(
-        status_branch_names(&env)?,
+        status_branch_names(&env),
         vec!["top"],
         "pull should prune only the genuinely merged lower branch and preserve the empty top branch"
     );
     assert!(
-        git_ref_exists(&env, "refs/heads/top")?,
+        git_ref_exists(&env, "refs/heads/top"),
         "the empty top branch was not merged itself and must survive"
     );
     assert!(
-        !git_ref_exists(&env, "refs/heads/bottom")?,
+        !git_ref_exists(&env, "refs/heads/bottom"),
         "the lower branch landed upstream and should be removed"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_check_uses_workspace_dry_run_for_partial_stack() -> anyhow::Result<()> {
+fn pull_check_uses_workspace_dry_run_for_partial_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-partially-integrated-multi-branch-stack",
     );
-    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base")?;
+    env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -219,11 +211,11 @@ Run `but pull` to update your branches
 "#]]);
 
     assert!(
-        git_ref_exists(&env, "refs/heads/C")?,
+        git_ref_exists(&env, "refs/heads/C"),
         "dry-run check should not remove the integrated lower branch"
     );
     assert_eq!(
-        status_branch_names(&env)?,
+        status_branch_names(&env),
         vec!["A", "C"],
         "dry-run check should leave both stack branches in workspace status"
     );
@@ -245,12 +237,10 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_check_reports_conflicted_branches_as_rebasable() -> anyhow::Result<()> {
+fn pull_check_reports_conflicted_branches_as_rebasable() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted");
     env.setup_metadata_at_target(&["A"], "refs/heads/base");
     env.invoke_git("remote set-url origin .");
@@ -277,7 +267,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
         .get_output()
         .stdout
         .clone();
-    let output: serde_json::Value = serde_json::from_slice(&output)?;
+    let output: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let branch_status = output["branchStatuses"]
         .as_array()
         .and_then(|statuses| statuses.iter().find(|status| status["name"] == "A"))
@@ -306,12 +296,10 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_reparents_workspace_to_target_after_all_stacks_integrate() -> anyhow::Result<()> {
+fn pull_reparents_workspace_to_target_after_all_stacks_integrate() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
@@ -343,21 +331,19 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 
     assert_eq!(
-        rev_parse(&env, "gitbutler/workspace^")?,
-        rev_parse(&env, "origin/main")?,
+        rev_parse(&env, "gitbutler/workspace^"),
+        rev_parse(&env, "origin/main"),
         "once all stacks are integrated, the workspace should be parented to the advanced target"
     );
     assert_eq!(
-        status_stack_count(&env)?,
+        status_stack_count(&env),
         0,
         "no stacks should remain applied once both are integrated"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_reparents_empty_workspace_when_target_advances() -> anyhow::Result<()> {
+fn pull_reparents_empty_workspace_when_target_advances() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata_at_target(&[], "origin/main");
     env.invoke_git("remote set-url origin .");
@@ -389,16 +375,14 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 
     assert_eq!(
-        rev_parse(&env, "gitbutler/workspace^")?,
-        rev_parse(&env, "origin/main")?,
+        rev_parse(&env, "gitbutler/workspace^"),
+        rev_parse(&env, "origin/main"),
         "an empty workspace should still move forward when the target advances"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() -> anyhow::Result<()> {
+fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-branch-and-dirty-worktree-conflict",
     );
@@ -422,7 +406,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
 
-    let output = env.but("pull").output()?;
+    let output = env.but("pull").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(
@@ -434,12 +418,12 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         "branch rebase conflicts should not be reported as dirty worktree conflicts; stdout:\n{stdout}"
     );
     assert_eq!(
-        status_branch_names(&env)?,
+        status_branch_names(&env),
         vec!["A"],
         "conflicted branch should remain in the workspace after pull"
     );
     assert!(
-        branch_has_conflicted_commit(&env, "A")?,
+        branch_has_conflicted_commit(&env, "A"),
         "pull should materialize the rebase conflict on a commit inside branch A"
     );
 
@@ -456,12 +440,10 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() -> anyhow::Result<()> {
+fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-branch-and-dirty-worktree-conflict",
     );
@@ -489,7 +471,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
         .get_output()
         .stdout
         .clone();
-    let output: serde_json::Value = serde_json::from_slice(&output)?;
+    let output: serde_json::Value = serde_json::from_slice(&output).unwrap();
 
     assert_eq!(
         output["status"], "completed_with_conflicts",
@@ -504,7 +486,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
         "pull JSON should identify the branch that needs conflict resolution"
     );
     assert!(
-        branch_has_conflicted_commit(&env, "A")?,
+        branch_has_conflicted_commit(&env, "A"),
         "pull should leave the conflicted commit visible in branch status"
     );
 
@@ -520,16 +502,14 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_reports_conflict_in_lower_branch_of_stack() -> anyhow::Result<()> {
+fn pull_reports_conflict_in_lower_branch_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflict-in-lower-branch-of-stack",
     );
-    env.setup_single_stack_metadata_at_target(&["A", "B"], "main")?;
+    env.setup_single_stack_metadata_at_target(&["A", "B"], "main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -588,16 +568,14 @@ To undo this operation:
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_reports_conflicts_in_multiple_branches_of_stack() -> anyhow::Result<()> {
+fn pull_reports_conflicts_in_multiple_branches_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflicts-in-both-branches-of-stack",
     );
-    env.setup_single_stack_metadata_at_target(&["A", "B"], "main")?;
+    env.setup_single_stack_metadata_at_target(&["A", "B"], "main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
@@ -658,12 +636,10 @@ To undo this operation:
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pull_does_not_write_conflict_markers_into_uncommitted_files() -> anyhow::Result<()> {
+fn pull_does_not_write_conflict_markers_into_uncommitted_files() {
     // A dirty worktree edit on the same path a branch rebase conflicts on used to be at risk of
     // silently receiving conflict markers. Modern integration materializes the conflict onto the
     // commit instead, so the uncommitted file must be left untouched.
@@ -676,21 +652,19 @@ fn pull_does_not_write_conflict_markers_into_uncommitted_files() -> anyhow::Resu
 
     env.but("pull").assert().success();
 
-    let shared = std::fs::read_to_string(env.projects_root().join("shared.txt"))?;
+    let shared = std::fs::read_to_string(env.projects_root().join("shared.txt")).unwrap();
     assert!(
         !shared.contains("<<<<<<<"),
         "pull must not write conflict markers into uncommitted files; got:\n{shared}"
     );
     assert!(
-        branch_has_conflicted_commit(&env, "A")?,
+        branch_has_conflicted_commit(&env, "A"),
         "the rebase conflict should be materialized on branch A's commit, not the worktree file"
     );
-
-    Ok(())
 }
 
 #[test]
-fn pull_reports_worktree_conflict_paths() -> anyhow::Result<()> {
+fn pull_reports_worktree_conflict_paths() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-dirty-worktree-conflicts-with-clean-rebase",
     );
@@ -713,59 +687,59 @@ To update anyway, park them on a temporary commit first:
   3. Run `but uncommit <commit>` afterwards to make those changes uncommitted again
 
 "#]]);
-
-    Ok(())
 }
 
-fn git_ref_exists(env: &Sandbox, ref_name: &str) -> anyhow::Result<bool> {
-    Ok(env.open_repo().try_find_reference(ref_name)?.is_some())
+fn git_ref_exists(env: &Sandbox, ref_name: &str) -> bool {
+    env.open_repo()
+        .try_find_reference(ref_name)
+        .unwrap()
+        .is_some()
 }
 
-fn rev_parse(env: &Sandbox, spec: &str) -> anyhow::Result<String> {
-    let values = rev_parse_all(env, spec)?;
+fn rev_parse(env: &Sandbox, spec: &str) -> String {
+    let values = rev_parse_all(env, spec);
     let [value] = values.as_slice() else {
-        anyhow::bail!("expected exactly one rev for {spec}, got {values:?}");
+        panic!("expected exactly one rev for {spec}, got {values:?}");
     };
-    Ok(value.clone())
+    value.clone()
 }
 
-fn rev_parse_all(env: &Sandbox, spec: &str) -> anyhow::Result<Vec<String>> {
-    Ok(env
-        .invoke_git(&format!("rev-parse {spec}"))
+fn rev_parse_all(env: &Sandbox, spec: &str) -> std::vec::Vec<std::string::String> {
+    env.invoke_git(&format!("rev-parse {spec}"))
         .lines()
         .map(str::to_owned)
-        .collect())
+        .collect()
 }
 
-fn status_stack_count(env: &Sandbox) -> anyhow::Result<usize> {
-    let status = status_json(env)?;
-    Ok(status["stacks"].as_array().map_or(0, Vec::len))
+fn status_stack_count(env: &Sandbox) -> usize {
+    let status = status_json(env);
+    status["stacks"].as_array().map_or(0, Vec::len)
 }
 
-fn status_branch_names(env: &Sandbox) -> anyhow::Result<Vec<String>> {
-    let status = status_json(env)?;
-    Ok(status["stacks"]
+fn status_branch_names(env: &Sandbox) -> Vec<String> {
+    let status = status_json(env);
+    status["stacks"]
         .as_array()
         .into_iter()
         .flatten()
         .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
         .filter_map(|branch| branch["name"].as_str().map(str::to_owned))
-        .collect())
+        .collect()
 }
 
-fn branch_has_conflicted_commit(env: &Sandbox, branch_name: &str) -> anyhow::Result<bool> {
-    let status = status_json(env)?;
-    Ok(status["stacks"]
+fn branch_has_conflicted_commit(env: &Sandbox, branch_name: &str) -> bool {
+    let status = status_json(env);
+    status["stacks"]
         .as_array()
         .into_iter()
         .flatten()
         .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
         .filter(|branch| branch["name"].as_str() == Some(branch_name))
         .flat_map(|branch| branch["commits"].as_array().into_iter().flatten())
-        .any(|commit| commit["conflicted"].as_bool() == Some(true)))
+        .any(|commit| commit["conflicted"].as_bool() == Some(true))
 }
 
-fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+fn status_json(env: &Sandbox) -> serde_json::Value {
     let output = env
         .but("status --json")
         .allow_json()
@@ -774,5 +748,5 @@ fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
         .get_output()
         .stdout
         .clone();
-    Ok(serde_json::from_slice(&output)?)
+    serde_json::from_slice(&output).unwrap()
 }

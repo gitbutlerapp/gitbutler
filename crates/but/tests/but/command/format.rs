@@ -43,7 +43,7 @@ Please run 'but setup' to initialize the project.
 
 #[test]
 #[cfg(feature = "legacy")]
-fn default_command_respects_c_flag_for_setup_checks() -> anyhow::Result<()> {
+fn default_command_respects_c_flag_for_setup_checks() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
 
@@ -54,13 +54,11 @@ Error: No target branch is configured and none could be inferred. Run `but confi
 
 "#]])
         .failure();
-
-    Ok(())
 }
 
 #[test]
 #[cfg(feature = "legacy")]
-fn default_alias_can_provide_c_flag_for_implicit_default_command() -> anyhow::Result<()> {
+fn default_alias_can_provide_c_flag_for_implicit_default_command() {
     let env = Sandbox::empty();
     env.invoke_bash(
         r#"
@@ -74,13 +72,11 @@ git config but.alias.default "-C repo status"
 Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 #[cfg(feature = "legacy")]
-fn explicit_c_flag_overrides_default_alias_c_flag() -> anyhow::Result<()> {
+fn explicit_c_flag_overrides_default_alias_c_flag() {
     let env = Sandbox::empty();
     env.invoke_bash(
         r#"
@@ -98,6 +94,4 @@ git config but.alias.default "-C repo status"
 Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
 
 "#]]);
-
-    Ok(())
 }

@@ -269,7 +269,7 @@ fn json_shows_paths_as_strings() {
 // IDs for hunks, a command (e.g. `rub`) is taught to use them, and that command
 // is tested.
 #[test]
-fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
+fn uncommitted_and_committed_file_cli_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
@@ -337,8 +337,6 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
@@ -383,7 +381,7 @@ fn long_cli_ids() {
 }
 
 #[test]
-fn json_commit_cli_ids_use_change_ids() -> anyhow::Result<()> {
+fn json_commit_cli_ids_use_change_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
@@ -439,8 +437,6 @@ fn json_commit_cli_ids_use_change_ids() -> anyhow::Result<()> {
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
@@ -781,7 +777,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
     env.invoke_git("remote set-url origin .");
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
 
-    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+    let branches: Vec<String> = status_json(&env)["stacks"]
         .as_array()
         .unwrap()
         .iter()
@@ -859,7 +855,7 @@ fn no_change_commit_above_squash_merged_branch_is_not_treated_as_merged() {
     env.invoke_git("remote set-url origin .");
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
 
-    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+    let branches: Vec<String> = status_json(&env)["stacks"]
         .as_array()
         .unwrap()
         .iter()
@@ -1059,7 +1055,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 /// its tip is only reachable from the new target (post-fetch), not from the
 /// workspace commit.
 #[test]
-fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()> {
+fn status_upstream_advanced_target_does_not_leak_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
         "upstream-advanced-after-workspace",
     );
@@ -1071,20 +1067,21 @@ fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()
         use but_core::RefMetadata;
         use std::ops::DerefMut;
         let mut meta = env.meta();
-        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
-        let mut ws = meta.workspace(ws_ref)?;
+        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut ws = meta.workspace(ws_ref).unwrap();
         ws.deref_mut()
             .insert_new_segment_above_anchor_if_not_present(
-                "refs/heads/old-integrated".try_into()?,
-                "refs/heads/A".try_into()?,
+                "refs/heads/old-integrated".try_into().unwrap(),
+                "refs/heads/A".try_into().unwrap(),
             );
-        meta.set_workspace(&ws)?;
+        meta.set_workspace(&ws).unwrap();
     }
 
     let output = env
         .but("status --upstream")
         .env("NO_BG_TASKS", "1")
-        .output()?;
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // old-integrated must NOT appear in any workspace stack
@@ -1092,8 +1089,6 @@ fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()
         !stdout.contains("old-integrated"),
         "old-integrated should not appear in workspace stacks, but got:\n{stdout}"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -1207,7 +1202,7 @@ Hint: commits are listed newest first. The first token on each line is the ID to
 }
 
 #[test]
-fn conflicted_uncommitted_file_is_surfaced() -> anyhow::Result<()> {
+fn conflicted_uncommitted_file_is_surfaced() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -1244,7 +1239,7 @@ Hint: run `but help` for all commands
 "#]]);
 
     assert_eq!(
-        status_json(&env)?["conflictedFiles"],
+        status_json(&env)["conflictedFiles"],
         serde_json::json!(["conflicted.txt"]),
         "JSON status should list uncommitted files with unresolved index conflicts"
     );
@@ -1269,25 +1264,23 @@ Hint: run `but help` for all commands
     env.file("conflicted.txt", "resolved\n");
     env.invoke_git("add -- conflicted.txt");
     assert_eq!(
-        status_json(&env)?["conflictedFiles"],
+        status_json(&env)["conflictedFiles"],
         serde_json::Value::Null,
         "the conflict warning is gone after resolving"
     );
     assert!(
-        status_json(&env)?["uncommittedChanges"]
+        status_json(&env)["uncommittedChanges"]
             .as_array()
             .is_some_and(|changes| changes
                 .iter()
                 .any(|change| change["filePath"] == "conflicted.txt")),
         "the resolved file becomes an ordinary committable change"
     );
-
-    Ok(())
 }
 
 #[test]
-fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
-    let env = enter_edit_mode_with_conflicted_commit()?;
+fn status_in_edit_mode_delegates_to_resolve_status() {
+    let env = enter_edit_mode_with_conflicted_commit();
 
     env.file("file.txt", "resolved content\n");
     env.invoke_git("add file.txt");
@@ -1300,8 +1293,6 @@ fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/edit-mode/status-delegates-to-resolve-status.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]

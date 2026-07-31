@@ -114,11 +114,7 @@ impl Sandbox {
 
     /// Create metadata for a single stack holding all of `branch_names`
     /// (topmost first), then pin the workspace target to `target_spec`.
-    pub fn setup_single_stack_metadata_at_target(
-        &self,
-        branch_names: &[&str],
-        target_spec: &str,
-    ) -> anyhow::Result<()> {
+    pub fn setup_single_stack_metadata_at_target(&self, branch_names: &[&str], target_spec: &str) {
         use but_core::{
             RefMetadata, WORKSPACE_REF_NAME,
             ref_metadata::{
@@ -131,7 +127,7 @@ impl Sandbox {
         }
 
         let mut meta = self.meta();
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
+        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
         let repo = self.open_repo();
         let ws_data = ws.deref_mut();
         ws_data.stacks = vec![WorkspaceStack {
@@ -145,11 +141,10 @@ impl Sandbox {
                 .collect(),
             workspacecommit_relation: WorkspaceCommitRelation::Merged,
         }];
-        let mut project_meta = ProjectMeta::resolve(&repo)?;
-        project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec)?.detach());
-        meta.set_workspace(&ws)?;
-        project_meta.persist(&repo)?;
-        Ok(())
+        let mut project_meta = ProjectMeta::resolve(&repo).unwrap();
+        project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec).unwrap().detach());
+        meta.set_workspace(&ws).unwrap();
+        project_meta.persist(&repo).unwrap();
     }
 }
 

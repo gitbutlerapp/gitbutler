@@ -531,7 +531,7 @@ fn json_target_uncommitted_area() {
 }
 
 #[test]
-fn json_commit_target_tree_change_statuses() -> anyhow::Result<()> {
+fn json_commit_target_tree_change_statuses() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
@@ -542,11 +542,12 @@ fn json_commit_target_tree_change_statuses() -> anyhow::Result<()> {
 
     env.file("added.txt", "added\n");
     env.file("modified.txt", "after\n");
-    fs::remove_file(env.projects_root().join("deleted.txt"))?;
+    fs::remove_file(env.projects_root().join("deleted.txt")).unwrap();
     fs::rename(
         env.projects_root().join("renamed-before.txt"),
         env.projects_root().join("renamed-after.txt"),
-    )?;
+    )
+    .unwrap();
     env.but("commit -b A -m status-target").assert().success();
 
     env.but("status -f")
@@ -652,6 +653,4 @@ Hint: run `but help` for all commands
 }
 
 "#]]);
-
-    Ok(())
 }

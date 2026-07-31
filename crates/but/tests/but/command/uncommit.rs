@@ -22,17 +22,19 @@ fn committed_file_id_in_commit(
     file_path: &str,
 ) -> Option<String> {
     status["stacks"]
-        .as_array()?
-        .iter()
-        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
-        .find(|branch| branch["name"].as_str().unwrap() == branch_name)?["commits"]
-        .as_array()?
-        .get(commit_index)?["changes"]
-        .as_array()?
-        .iter()
-        .find_map(|change| {
-            (change["filePath"].as_str().unwrap() == file_path)
-                .then(|| change["cliId"].as_str().unwrap().to_string())
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|stack| stack["branches"].as_array().unwrap())
+        .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .and_then(|branch| branch["commits"].as_array())
+        .and_then(|commits| commits.get(commit_index))
+        .and_then(|commit| commit["changes"].as_array())
+        .and_then(|changes| {
+            changes.iter().find_map(|change| {
+                (change["filePath"].as_str().unwrap() == file_path)
+                    .then(|| change["cliId"].as_str().unwrap().to_string())
+            })
         })
 }
 
@@ -41,12 +43,10 @@ fn committed_file_id_in_commit(
 /// commit's tree.
 fn commit_file_content(env: &Sandbox, revspec: &str) -> Option<String> {
     let repo = env.open_repo();
-    let object = repo
-        .rev_parse_single(revspec.as_bytes())
-        .ok()?
-        .object()
-        .ok()?;
-    Some(String::from_utf8_lossy(&object.data).into_owned())
+    repo.rev_parse_single(revspec.as_bytes())
+        .ok()
+        .and_then(|object_id| object_id.object().ok())
+        .map(|object| String::from_utf8_lossy(&object.data).into_owned())
 }
 
 /// Read the contents of a file in the working directory.
@@ -55,7 +55,7 @@ fn worktree_file_content(env: &Sandbox, path: &str) -> String {
 }
 
 #[test]
-fn uncommit_different_files_from_the_same_commit() -> anyhow::Result<()> {
+fn uncommit_different_files_from_the_same_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
@@ -92,7 +92,7 @@ Hint: run `but help` for all commands
 "#]]);
 
     // Both files live in the same (newest) commit.
-    let before = status_json(&env)?;
+    let before = status_json(&env);
     let c1_id =
         committed_file_id_in_commit(&before, "A", 0, "c1.txt").expect("c1.txt committed-file id");
     let c2_id =
@@ -143,7 +143,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
 
-    let after = status_json(&env)?;
+    let after = status_json(&env);
     assert!(uncommitted_contains_file(&after, "c1.txt"));
     assert!(uncommitted_contains_file(&after, "c2.txt"));
 
@@ -152,12 +152,10 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     assert_eq!(commit_file_content(&env, "A:c2.txt"), None);
     assert_eq!(worktree_file_content(&env, "c1.txt"), "c1 content\n");
     assert_eq!(worktree_file_content(&env, "c2.txt"), "c2 content\n");
-
-    Ok(())
 }
 
 #[test]
-fn uncommit_rejects_files_from_different_commits() -> anyhow::Result<()> {
+fn uncommit_rejects_files_from_different_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
@@ -166,7 +164,7 @@ fn uncommit_rejects_files_from_different_commits() -> anyhow::Result<()> {
     env.file("c2.txt", "c2 content\n");
     env.but("commit -b A -m 'add c2'").assert().success();
 
-    let before = status_json(&env)?;
+    let before = status_json(&env);
     let c2_id =
         committed_file_id_in_commit(&before, "A", 0, "c2.txt").expect("c2.txt committed-file id");
     let c1_id =
@@ -181,25 +179,23 @@ Error: All committed files must come from the same commit. Found files from [..]
 
 "#]]);
 
-    let after = status_json(&env)?;
+    let after = status_json(&env);
     assert!(committed_file_id_in_commit(&after, "A", 0, "c2.txt").is_some());
     assert!(committed_file_id_in_commit(&after, "A", 1, "c1.txt").is_some());
     assert!(!uncommitted_contains_file(&after, "c1.txt"));
     assert!(!uncommitted_contains_file(&after, "c2.txt"));
-
-    Ok(())
 }
 
 #[test]
-fn uncommit_command_on_commit() -> anyhow::Result<()> {
+fn uncommit_command_on_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env.but("--json status").allow_json().output()?;
-    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let status_output = env.but("--json status").allow_json().output().unwrap();
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout).unwrap();
     let commit_cli_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
         .unwrap();
@@ -236,8 +232,6 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]

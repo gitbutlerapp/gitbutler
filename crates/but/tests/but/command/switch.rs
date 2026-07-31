@@ -4,8 +4,8 @@ use snapbox::str;
 use crate::utils::CommandExt as _;
 
 #[test]
-fn switches_to_existing_branch_by_short_name() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn switches_to_existing_branch_by_short_name() {
+    let env = switch_env();
 
     #[cfg(feature = "legacy")]
     assert_workspace_status(&env);
@@ -20,12 +20,11 @@ Switched to branch 'A'
 "#]]);
 
     assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
-    Ok(())
 }
 
 #[test]
-fn switches_to_existing_branch_by_full_ref() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn switches_to_existing_branch_by_full_ref() {
+    let env = switch_env();
 
     #[cfg(feature = "legacy")]
     assert_workspace_status(&env);
@@ -40,12 +39,11 @@ Switched to branch 'A'
 "#]]);
 
     assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
-    Ok(())
 }
 
 #[test]
-fn switches_to_existing_branch_with_remote_like_name() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn switches_to_existing_branch_with_remote_like_name() {
+    let env = switch_env();
     env.invoke_git("branch origin/main main");
 
     env.but("switch origin/main")
@@ -61,17 +59,16 @@ Switched to branch 'origin/main'
         env.invoke_git("rev-parse --symbolic-full-name HEAD"),
         "refs/heads/origin/main"
     );
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
-fn switches_to_existing_branch_by_workspace_cli_id() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn switches_to_existing_branch_by_workspace_cli_id() {
+    let env = switch_env();
 
     assert_workspace_status(&env);
 
-    let status = status_json(&env)?;
+    let status = status_json(&env);
     let branch_cli_id = status["stacks"][0]["branches"][0]["cliId"]
         .as_str()
         .expect("branch cli id should exist");
@@ -86,12 +83,11 @@ Switched to branch 'A'
 "#]]);
 
     assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
-    Ok(())
 }
 
 #[test]
-fn switches_back_to_workspace() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn switches_back_to_workspace() {
+    let env = switch_env();
     env.invoke_git("checkout A");
 
     env.but("switch --workspace")
@@ -110,12 +106,11 @@ Switched to workspace
 
     #[cfg(feature = "legacy")]
     assert_workspace_status(&env);
-    Ok(())
 }
 
 #[test]
-fn creates_named_branch_and_switches_to_it() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn creates_named_branch_and_switches_to_it() {
+    let env = switch_env();
 
     #[cfg(feature = "legacy")]
     assert_workspace_status(&env);
@@ -134,12 +129,11 @@ Created and switched to branch 'my-feature'
         env.invoke_git("rev-parse my-feature"),
         env.invoke_git("rev-parse main")
     );
-    Ok(())
 }
 
 #[test]
-fn creates_generated_branch_and_switches_to_it() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn creates_generated_branch_and_switches_to_it() {
+    let env = switch_env();
 
     #[cfg(feature = "legacy")]
     assert_workspace_status(&env);
@@ -158,12 +152,11 @@ Created and switched to branch 'a-branch-1'
         env.invoke_git("rev-parse a-branch-1"),
         env.invoke_git("rev-parse main")
     );
-    Ok(())
 }
 
 #[test]
-fn rejects_workspace_with_target() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn rejects_workspace_with_target() {
+    let env = switch_env();
 
     env.but("switch --workspace A")
         .assert()
@@ -177,13 +170,11 @@ Usage: but switch <TARGET|--workspace|--new>
 For more information, try '--help'.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn rejects_remote_branch() -> anyhow::Result<()> {
-    let env = switch_env()?;
+fn rejects_remote_branch() {
+    let env = switch_env();
 
     env.but("switch origin/main")
         .assert()
@@ -193,15 +184,13 @@ fn rejects_remote_branch() -> anyhow::Result<()> {
 Error: Can only switch to local branches, got 'origin/main'
 
 "#]]);
-
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
-fn rejects_non_branch_cli_id() -> anyhow::Result<()> {
-    let env = switch_env()?;
-    let status = status_json(&env)?;
+fn rejects_non_branch_cli_id() {
+    let env = switch_env();
+    let status = status_json(&env);
     let commit_cli_id = status["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
         .expect("commit cli id should exist");
@@ -216,21 +205,20 @@ Error: Could not find branch: 'tpm'
 Hint: Run `but status` for applicable targets.
 
 "#]]);
-
-    Ok(())
 }
 
-fn switch_env() -> anyhow::Result<crate::utils::Sandbox> {
+fn switch_env() -> crate::utils::Sandbox {
     let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    Ok(env)
+    env
 }
 
 #[cfg(feature = "legacy")]
-fn status_json(env: &crate::utils::Sandbox) -> anyhow::Result<serde_json::Value> {
-    let output = env.but("--json status").allow_json().output()?;
+fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
+    let output = env.but("--json status").allow_json().output().unwrap();
     serde_json::from_slice(&output.stdout)
         .map_err(|err| anyhow::anyhow!("status output should be valid JSON: {err}"))
+        .unwrap()
 }
 
 #[cfg(feature = "legacy")]

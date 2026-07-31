@@ -58,7 +58,7 @@ Updated commit message for 1
 }
 
 #[test]
-fn reword_commit_with_multiline_message() -> anyhow::Result<()> {
+fn reword_commit_with_multiline_message() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -94,14 +94,14 @@ Updated commit message for [..]
 
     let repo = env.open_repo();
     assert_eq!(
-        repo.rev_parse_single(":/First line")?
-            .object()?
+        repo.rev_parse_single(":/First line")
+            .unwrap()
+            .object()
+            .unwrap()
             .into_commit()
             .message_bstr(),
         "First line\n\n\tSecond paragraph with details"
     );
-
-    Ok(())
 }
 
 // Note: Branch rename test is omitted because the test scenario uses single-character
@@ -261,7 +261,7 @@ fn reword_commit_with_json_flag() {
 }
 
 #[test]
-fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
+fn reword_commit_json_can_request_status_after() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -269,7 +269,7 @@ fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
         .but("reword tpm -m 'Updated commit message' --json --status-after")
         .assert()
         .success();
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout)?;
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
 
     assert!(
         json["result"]["new_commit_id"].is_string(),
@@ -279,8 +279,6 @@ fn reword_commit_json_can_request_status_after() -> anyhow::Result<()> {
         json["status"]["stacks"].is_array(),
         "status-after must include the workspace with fresh commit IDs"
     );
-
-    Ok(())
 }
 
 #[test]

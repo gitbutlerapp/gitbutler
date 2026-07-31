@@ -145,7 +145,7 @@ fn json_output_no_empty_branches() {
 }
 
 #[test]
-fn creates_oplog_entry() -> anyhow::Result<()> {
+fn creates_oplog_entry() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -153,11 +153,10 @@ fn creates_oplog_entry() -> anyhow::Result<()> {
     env.but("clean").assert().success();
 
     // Verify oplog has a CLEAN entry
-    let output = env.but("oplog").output()?;
+    let output = env.but("oplog").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("CLEAN"),
         "oplog should contain a CLEAN entry, got:\n{stdout}"
     );
-    Ok(())
 }

@@ -123,7 +123,7 @@ To return to GitButler mode, run:
 /// - Should reset the commit
 #[test]
 #[ignore = "flaky test - needs investigation. https://linear.app/gitbutler/issue/GB-1784/flaky-tests-in-but-suite"]
-fn dangling_commit_on_workspace() -> anyhow::Result<()> {
+fn dangling_commit_on_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -187,8 +187,6 @@ To return to GitButler mode, run:
         status.contains("UserFile"),
         "UserFile should be uncommitted: {status}"
     );
-
-    Ok(())
 }
 
 /// Test 4: User commit on workspace with changes locked to two different branches
@@ -196,7 +194,7 @@ To return to GitButler mode, run:
 /// - This tests the edge case where changes belong to different virtual branches
 #[test]
 #[ignore = "flaky test - needs investigation. https://linear.app/gitbutler/issue/GB-1784/flaky-tests-in-but-suite"]
-fn dangling_commit_spanning_multiple_branches() -> anyhow::Result<()> {
+fn dangling_commit_spanning_multiple_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
@@ -206,7 +204,8 @@ fn dangling_commit_spanning_multiple_branches() -> anyhow::Result<()> {
         .arg("-c")
         .arg("echo modified >> A && echo modified >> B")
         .current_dir(git_dir)
-        .output()?;
+        .output()
+        .unwrap();
     env.invoke_git("add A B");
     env.invoke_git("commit -m 'User commit touching both branches'");
 
@@ -258,8 +257,8 @@ To return to GitButler mode, run:
     // Verify that changes to file A AND B are present
     let file_a_path = env.projects_root().join("A");
     let file_b_path = env.projects_root().join("B");
-    let content_a = std::fs::read_to_string(&file_a_path)?;
-    let content_b = std::fs::read_to_string(&file_b_path)?;
+    let content_a = std::fs::read_to_string(&file_a_path).unwrap();
+    let content_b = std::fs::read_to_string(&file_b_path).unwrap();
     assert!(
         content_a.contains("modified"),
         "File A should contain the modifications"
@@ -268,14 +267,12 @@ To return to GitButler mode, run:
         content_b.contains("modified"),
         "File B should contain the modifications"
     );
-
-    Ok(())
 }
 
 /// Test 5: User has committed twice on top of gitbutler/workspace
 /// - After teardown, second branch should be unapplied
 #[test]
-fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
+fn two_dangling_commits_different_branches() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits");
     // Initial state: user has made two commits on top of workspace
@@ -345,8 +342,8 @@ To return to GitButler mode, run:
     // Verify that changes to file A AND B are present
     let file_a_path = env.projects_root().join("FileForA");
     let file_b_path = env.projects_root().join("FileForB");
-    let content_a = std::fs::read_to_string(&file_a_path)?;
-    let content_b = std::fs::read_to_string(&file_b_path)?;
+    let content_a = std::fs::read_to_string(&file_a_path).unwrap();
+    let content_b = std::fs::read_to_string(&file_b_path).unwrap();
     assert!(
         content_a.contains("FileForA\n"),
         "File A should contain the modifications"
@@ -355,8 +352,6 @@ To return to GitButler mode, run:
         content_b.contains("FileForB\n"),
         "File B should contain the modifications"
     );
-
-    Ok(())
 }
 
 /// Test: JSON output format
@@ -424,7 +419,7 @@ Error: Failed to determine checkout target branch. Specify a target branch with 
 }
 
 #[test]
-fn teardown_checks_out_to_branch_override() -> anyhow::Result<()> {
+fn teardown_checks_out_to_branch_override() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
@@ -450,14 +445,13 @@ fn teardown_checks_out_to_branch_override() -> anyhow::Result<()> {
         .arg("rev-parse")
         .arg("--abbrev-ref")
         .arg("HEAD")
-        .output()?;
+        .output()
+        .unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "A");
-
-    Ok(())
 }
 
 #[test]
-fn teardown_checks_out_to_branch_override_with_qualified_ref_name() -> anyhow::Result<()> {
+fn teardown_checks_out_to_branch_override_with_qualified_ref_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
@@ -483,10 +477,9 @@ fn teardown_checks_out_to_branch_override_with_qualified_ref_name() -> anyhow::R
         .arg("rev-parse")
         .arg("--abbrev-ref")
         .arg("HEAD")
-        .output()?;
+        .output()
+        .unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "A");
-
-    Ok(())
 }
 
 #[test]
