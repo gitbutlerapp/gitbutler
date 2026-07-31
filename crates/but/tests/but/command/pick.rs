@@ -107,7 +107,7 @@ fn pick_target_is_case_insensitive() {
 }
 
 #[test]
-fn pick_json_output() -> anyhow::Result<()> {
+fn pick_json_output() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
     let stack_ids = env.setup_metadata(&["applied-branch"]);
 
@@ -115,16 +115,16 @@ fn pick_json_output() -> anyhow::Result<()> {
     let result = env
         .but(format!("--json pick {sha} applied-branch"))
         .allow_json()
-        .output()?;
+        .output()
+        .unwrap();
 
     assert!(result.status.success());
     let stdout = String::from_utf8_lossy(&result.stdout);
-    let json: serde_json::Value = serde_json::from_str(stdout.trim())?;
+    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
 
     assert_eq!(json["picked_commit"], sha);
     assert_eq!(json["target_branch"], "applied-branch");
     assert_eq!(json["target_stack_id"], stack_ids[0].to_string());
-    Ok(())
 }
 
 // === Error cases ===

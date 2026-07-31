@@ -3,7 +3,7 @@ use snapbox::str;
 use super::util::sandbox_with_conflicted_commit;
 use crate::utils::{CommandExt, Sandbox};
 
-fn repo_with_unpushed_branch() -> anyhow::Result<Sandbox> {
+fn repo_with_unpushed_branch() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -21,7 +21,7 @@ fn repo_with_unpushed_branch() -> anyhow::Result<Sandbox> {
         .assert()
         .success();
 
-    Ok(env)
+    env
 }
 
 fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
@@ -42,30 +42,29 @@ fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
 /// An unreachable remote that is not the target's must not block a dry-run push:
 /// `fetch_from_remotes` only fails when the target's own fetch remote failed.
 #[test]
-fn push_dry_run_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
-    let env = repo_with_unpushed_branch()?;
+fn push_dry_run_ignores_unreachable_unrelated_remote() {
+    let env = repo_with_unpushed_branch();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("push --dry-run branchB").assert().success();
-
-    Ok(())
 }
 
 #[test]
-fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
-    let env = repo_with_unpushed_branch()?;
+fn push_dry_run_json_reports_remote_and_remote_ref() {
+    let env = repo_with_unpushed_branch();
     configure_other_tracking_remote(&env);
 
     let output = env
         .but("push --dry-run --json branchB")
         .allow_json()
-        .output()?;
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "push --dry-run --json branchB failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let branches = json["branches"]
         .as_array()
         .unwrap_or_else(|| panic!("expected branches array in JSON output: {json:#}"));
@@ -90,21 +89,20 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
                     .expect("remoteRef bytes should be valid u8 values")
             })
             .collect();
-        String::from_utf8(bytes)?
+        String::from_utf8(bytes).unwrap()
     };
     assert_eq!(remote_ref, "refs/remotes/other/branchB");
-
-    Ok(())
 }
 
 #[test]
-fn push_dry_run_agent_reports_human_summary() -> anyhow::Result<()> {
-    let env = repo_with_unpushed_branch()?;
+fn push_dry_run_agent_reports_human_summary() {
+    let env = repo_with_unpushed_branch();
 
     let output = env
         .but("push --dry-run branchB")
         .env("PI_CODING_AGENT", "true")
-        .output()?;
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "push --dry-run branchB failed: {}",
@@ -121,13 +119,11 @@ fn push_dry_run_agent_reports_human_summary() -> anyhow::Result<()> {
         "agent dry-run push should not print progress, got: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-
-    Ok(())
 }
 
 #[test]
-fn push_uses_tracking_remote_when_branch_tracks_another_remote() -> anyhow::Result<()> {
-    let env = repo_with_unpushed_branch()?;
+fn push_uses_tracking_remote_when_branch_tracks_another_remote() {
+    let env = repo_with_unpushed_branch();
     let local_tip = env.invoke_git("rev-parse refs/heads/branchB");
     let other = configure_other_tracking_remote(&env);
 
@@ -141,12 +137,10 @@ fn push_uses_tracking_remote_when_branch_tracks_another_remote() -> anyhow::Resu
         local_tip,
         "push should update the branch's tracking remote"
     );
-
-    Ok(())
 }
 
 #[test]
-fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
+fn push_refuses_conflicted_commits() {
     let env = sandbox_with_conflicted_commit();
 
     // Try to push the branch - should fail with an error about conflicted commits.
@@ -156,8 +150,6 @@ Conflicted commits: [..]
 Please resolve conflicts before pushing using 'but resolve <commit>'.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]

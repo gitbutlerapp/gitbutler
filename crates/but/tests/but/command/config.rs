@@ -272,7 +272,7 @@ fn ai_global_config_works_outside_repository() {
 }
 
 #[test]
-fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
+fn ai_show_outputs_current_global_configuration_json() {
     let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
@@ -285,18 +285,17 @@ fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
         .but("--json config ai show")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .allow_json()
-        .output()?;
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
     assert_eq!(json["provider"], "openai");
     assert_eq!(json["openai_key_option"], "butlerAPI");
     assert_eq!(json["openai_model"], "gpt-5.4-nano");
-
-    Ok(())
 }
 
 #[test]
-fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
+fn ai_show_outputs_current_local_configuration_json() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
     #[cfg(feature = "legacy")]
@@ -309,14 +308,13 @@ fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
     let output = env
         .but("-C repo --json config ai --local show")
         .allow_json()
-        .output()?;
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
     assert_eq!(json["provider"], "ollama");
     assert_eq!(json["ollama_endpoint"], "localhost:11434");
     assert_eq!(json["ollama_model"], "llama3.1");
-
-    Ok(())
 }
 
 #[test]
@@ -351,14 +349,15 @@ AI Configuration (global)
 }
 
 #[test]
-fn ai_openai_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> {
+fn ai_openai_byok_without_api_key_fails_non_interactive() {
     let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     let output = env
         .but("config ai openai --key-option bring-your-own --model gpt-5.4-nano")
         .env("GIT_CONFIG_GLOBAL", &global_config)
-        .output()?;
+        .output()
+        .unwrap();
 
     assert!(!output.status.success(), "command should fail");
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -373,19 +372,18 @@ fn ai_openai_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> 
         "config --file global.gitconfig --get gitbutler.aiModelProvider",
         "provider should not be written when BYOK key is missing",
     );
-
-    Ok(())
 }
 
 #[test]
-fn ai_anthropic_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> {
+fn ai_anthropic_byok_without_api_key_fails_non_interactive() {
     let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     let output = env
         .but("config ai anthropic --key-option bring-your-own --model claude-3-5-haiku-latest")
         .env("GIT_CONFIG_GLOBAL", &global_config)
-        .output()?;
+        .output()
+        .unwrap();
 
     assert!(!output.status.success(), "command should fail");
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -400,6 +398,4 @@ fn ai_anthropic_byok_without_api_key_fails_non_interactive() -> anyhow::Result<(
         "config --file global.gitconfig --get gitbutler.aiModelProvider",
         "provider should not be written when BYOK key is missing",
     );
-
-    Ok(())
 }

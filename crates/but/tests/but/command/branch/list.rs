@@ -2,14 +2,14 @@ use crate::utils::{CommandExt, Sandbox};
 
 /// Hide empty applied branches by default and show them again with `--empty`.
 #[test]
-fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
+fn list_hides_empty_applied_branches_by_default() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
     env.setup_metadata(&["A", "B"]);
 
-    let result = env.but("--json branch list").allow_json().output()?;
+    let result = env.but("--json branch list").allow_json().output().unwrap();
     assert!(result.status.success());
     let stdout = String::from_utf8_lossy(&result.stdout);
-    let json: serde_json::Value = serde_json::from_str(stdout.trim())?;
+    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
 
     let applied_heads: Vec<_> = json["appliedStacks"]
         .as_array()
@@ -27,10 +27,11 @@ fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
     let result = env
         .but("--json branch list --empty")
         .allow_json()
-        .output()?;
+        .output()
+        .unwrap();
     assert!(result.status.success());
     let stdout = String::from_utf8_lossy(&result.stdout);
-    let json: serde_json::Value = serde_json::from_str(stdout.trim())?;
+    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
 
     let applied_heads: Vec<_> = json["appliedStacks"]
         .as_array()
@@ -42,8 +43,6 @@ fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
 
     assert!(applied_heads.contains(&"A"));
     assert!(applied_heads.contains(&"B"));
-
-    Ok(())
 }
 
 #[test]

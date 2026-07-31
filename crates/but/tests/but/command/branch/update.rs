@@ -4,27 +4,26 @@ use snapbox::str;
 use crate::command::util;
 use crate::utils::{CommandExt, Sandbox};
 
-fn pretty_status(env: &Sandbox) -> anyhow::Result<String> {
-    Ok(serde_json::to_string_pretty(&util::status_json(env)?)?)
+fn pretty_status(env: &Sandbox) -> String {
+    serde_json::to_string_pretty(&util::status_json(env)).unwrap()
 }
 
-fn raw_json_status(env: &Sandbox) -> anyhow::Result<String> {
-    let output = env.but("--json status").allow_json().output()?;
-    Ok(format!(
+fn raw_json_status(env: &Sandbox) -> String {
+    let output = env.but("--json status").allow_json().output().unwrap();
+    format!(
         "status={}\nstdout:\n{}\nstderr:\n{}",
         output.status,
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
-    ))
+    )
 }
 
-fn install_editor_script(env: &Sandbox, script: &str) -> anyhow::Result<()> {
+fn install_editor_script(env: &Sandbox, script: &str) {
     env.file("editor.sh", script);
-    Ok(())
 }
 
 #[test]
-fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Result<()> {
+fn integrate_pull_rebase_applies_and_snapshots_before_and_after() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
 
     snapbox::assert_data_eq!(
@@ -42,7 +41,7 @@ fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Res
         .raw()
     );
     snapbox::assert_data_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         snapbox::str![[r#"
 {
   "uncommittedChanges": [],
@@ -101,7 +100,7 @@ Updated branch A.
         .raw()
     );
     snapbox::assert_data_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         snapbox::str![[r#"
 {
   "uncommittedChanges": [],
@@ -136,12 +135,10 @@ Updated branch A.
 "#]]
         .raw()
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_smart_squash_applies_matching_change_ids() -> anyhow::Result<()> {
+fn integrate_smart_squash_applies_matching_change_ids() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash");
 
@@ -156,7 +153,7 @@ fn integrate_smart_squash_applies_matching_change_ids() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        raw_json_status(&env)?,
+        raw_json_status(&env),
         snapbox::str![[r#"
 status=exit status: 1
 stdout:
@@ -187,7 +184,7 @@ Updated branch A.
 "#]]
     );
     snapbox::assert_data_eq!(
-        raw_json_status(&env)?,
+        raw_json_status(&env),
         snapbox::str![[r#"
 status=exit status: 1
 stdout:
@@ -197,15 +194,13 @@ Error: GitButler mode exit required: please run `but teardown` to preserve your 
 
 "#]]
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_dry_run_shows_preview_without_changing_repo() -> anyhow::Result<()> {
+fn integrate_dry_run_shows_preview_without_changing_repo() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     let before_log = env.git_log();
-    let before_status = pretty_status(&env)?;
+    let before_status = pretty_status(&env);
 
     env.but("branch update A --dry-run")
         .assert()
@@ -273,19 +268,17 @@ o 0dc3733
     );
     assert_eq!(env.git_log(), before_log, "dry-run must not rewrite refs");
     assert_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         before_status,
         "dry-run must not change workspace status"
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_dry_run_verbose_shows_divergence_before_preview() -> anyhow::Result<()> {
+fn integrate_dry_run_verbose_shows_divergence_before_preview() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     let before_log = env.git_log();
-    let before_status = pretty_status(&env)?;
+    let before_status = pretty_status(&env);
 
     env.but("branch update A --dry-run --verbose")
         .assert()
@@ -316,12 +309,10 @@ o 0dc3733
         "verbose dry-run must not rewrite refs"
     );
     assert_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         before_status,
         "verbose dry-run must not change workspace status"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -346,9 +337,9 @@ o 6a997fd
 }
 
 #[test]
-fn integrate_interactive_unchanged_script_applies_generated_plan() -> anyhow::Result<()> {
+fn integrate_interactive_unchanged_script_applies_generated_plan() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
-    install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n")?;
+    install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n");
 
     env.but("branch update A --interactive")
         .env("GIT_EDITOR", "bash editor.sh")
@@ -373,16 +364,14 @@ Updated branch A.
 "#]]
         .raw()
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_interactive_dry_run_keeps_repo_unchanged() -> anyhow::Result<()> {
+fn integrate_interactive_dry_run_keeps_repo_unchanged() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
-    install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n")?;
+    install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n");
     let before_log = env.git_log();
-    let before_status = pretty_status(&env)?;
+    let before_status = pretty_status(&env);
 
     env.but("branch update A --interactive --dry-run")
         .env("GIT_EDITOR", "bash editor.sh")
@@ -405,16 +394,14 @@ o 0dc3733
         "interactive dry-run must not rewrite refs"
     );
     assert_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         before_status,
         "interactive dry-run must not change workspace status"
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_interactive_applies_edited_merge_plan() -> anyhow::Result<()> {
+fn integrate_interactive_applies_edited_merge_plan() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
@@ -424,7 +411,7 @@ pick 643ade3
 merge 28baf9a
 EOF
 "#,
-    )?;
+    );
 
     env.but("branch update A --interactive")
         .env("GIT_EDITOR", "bash editor.sh")
@@ -449,19 +436,17 @@ EOF
 "#]]
         .raw()
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_interactive_fails_on_parse_error() -> anyhow::Result<()> {
+fn integrate_interactive_fails_on_parse_error() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
         r#"#!/usr/bin/env bash
 printf 'drop 643ade3\n' > "$1"
 "#,
-    )?;
+    );
     let before_log = env.git_log();
 
     env.but("branch update A --interactive")
@@ -479,19 +464,17 @@ Error: line 1: unknown command 'drop'
         before_log,
         "parse failures must not rewrite refs"
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_interactive_fails_on_out_of_scope_commit() -> anyhow::Result<()> {
+fn integrate_interactive_fails_on_out_of_scope_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
         r#"#!/usr/bin/env bash
 printf 'pick 0dc3733\n' > "$1"
 "#,
-    )?;
+    );
     let before_log = env.git_log();
 
     env.but("branch update A --interactive")
@@ -509,12 +492,10 @@ Error: line 1: invalid pick commit: commit '0dc3733' is not part of the editable
         before_log,
         "validation failures must not rewrite refs"
     );
-
-    Ok(())
 }
 
 #[test]
-fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
+fn integrate_errors_cleanly_without_tracking_branch() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-no-tracking");
     snapbox::assert_data_eq!(
@@ -527,7 +508,7 @@ fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
 "#]]
     );
     snapbox::assert_data_eq!(
-        pretty_status(&env)?,
+        pretty_status(&env),
         snapbox::str![[r#"
 {
   "uncommittedChanges": [],
@@ -571,6 +552,4 @@ fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
 Error: Branch 'refs/heads/A' has no tracking branch
 
 "#]]);
-
-    Ok(())
 }

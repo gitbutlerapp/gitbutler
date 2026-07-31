@@ -18,7 +18,7 @@ fn undo_move_commit_to_branch() {
         "commit-to-branch-b.txt",
         "first",
     );
-    let source_cli_id = branch_commit_cli_ids(&status_json(&env).unwrap(), "A")[0].clone();
+    let source_cli_id = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but(format!("move {source_cli_id} --branch B"))

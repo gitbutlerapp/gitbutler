@@ -7,18 +7,19 @@ use snapbox::str;
 use crate::utils::Sandbox;
 
 #[test]
-fn delegates_plain_name_to_but_prefixed_executable() -> anyhow::Result<()> {
+fn delegates_plain_name_to_but_prefixed_executable() {
     let env = Sandbox::empty();
     let bin = env.projects_root().join("external-cmd-bin");
-    fs::create_dir_all(&bin)?;
+    fs::create_dir_all(&bin).unwrap();
     let helper = bin.join("but-forecast");
     fs::write(
         &helper,
         "#!/bin/sh\nprintf 'args:'\nprintf ' %s' \"$@\"\nprintf '\\n'\n",
-    )?;
-    let mut perms = fs::metadata(&helper)?.permissions();
+    )
+    .unwrap();
+    let mut perms = fs::metadata(&helper).unwrap().permissions();
     perms.set_mode(0o755);
-    fs::set_permissions(&helper, perms)?;
+    fs::set_permissions(&helper, perms).unwrap();
 
     let path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{path}", bin.display());
@@ -32,23 +33,22 @@ fn delegates_plain_name_to_but_prefixed_executable() -> anyhow::Result<()> {
 args: one two
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn prefers_builtin_command_when_external_command_clashes() -> anyhow::Result<()> {
+fn prefers_builtin_command_when_external_command_clashes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     let bin = env.projects_root().join("external-cmd-bin");
-    fs::create_dir_all(&bin)?;
+    fs::create_dir_all(&bin).unwrap();
     let helper = bin.join("but-alias");
     fs::write(
         &helper,
         "#!/bin/sh\nprintf 'args:'\nprintf ' %s' \"$@\"\nprintf '\\n'\n",
-    )?;
-    let mut perms = fs::metadata(&helper)?.permissions();
+    )
+    .unwrap();
+    let mut perms = fs::metadata(&helper).unwrap().permissions();
     perms.set_mode(0o755);
-    fs::set_permissions(&helper, perms)?;
+    fs::set_permissions(&helper, perms).unwrap();
 
     let path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{path}", bin.display());
@@ -66,20 +66,19 @@ Default aliases (overridable):
   stf      →  status --files
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn propagates_reasonable_error_when_program_is_not_executable() -> anyhow::Result<()> {
+fn propagates_reasonable_error_when_program_is_not_executable() {
     let env = Sandbox::empty();
     let bin = env.projects_root().join("external-cmd-bin");
-    fs::create_dir_all(&bin)?;
+    fs::create_dir_all(&bin).unwrap();
     let helper = bin.join("but-forecast");
     fs::write(
         &helper,
         "#!/bin/sh\nprintf 'args:'\nprintf ' %s' \"$@\"\nprintf '\\n'\n",
-    )?;
+    )
+    .unwrap();
 
     let path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{path}", bin.display());
@@ -96,12 +95,10 @@ Caused by:
 
 "#]])
         .stdout_eq(str![[]]);
-
-    Ok(())
 }
 
 #[test]
-fn refuses_to_execute_command_with_forward_slash() -> anyhow::Result<()> {
+fn refuses_to_execute_command_with_forward_slash() {
     let env = Sandbox::empty();
 
     env.but("bad/command")
@@ -115,12 +112,10 @@ Subcommand contains illegal characters
 Hint: Are you trying to write an extension command 'but-<command>'? Make sure that '<command>' only contains characters in the set [a-zA-Z_-]
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn refuses_to_execute_command_with_dot() -> anyhow::Result<()> {
+fn refuses_to_execute_command_with_dot() {
     let env = Sandbox::empty();
 
     env.but("bad.command")
@@ -134,8 +129,6 @@ Subcommand contains illegal characters
 Hint: Are you trying to write an extension command 'but-<command>'? Make sure that '<command>' only contains characters in the set [a-zA-Z_-]
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]

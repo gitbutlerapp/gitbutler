@@ -7,7 +7,7 @@ use crate::utils::{CommandExt, Sandbox};
 
 #[cfg(not(feature = "legacy"))]
 #[test]
-fn single_branch() -> anyhow::Result<()> {
+fn single_branch() {
     let env = Sandbox::open_with_default_settings("one-fork");
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -32,7 +32,7 @@ Applied branch 'A' to workspace
 "#]]);
 
     snapbox::assert_data_eq!(
-        env.workspace_debug_at_head()?,
+        env.workspace_debug_at_head().unwrap(),
         snapbox::str![[r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:2:A on e31e6ca {1}
@@ -68,7 +68,7 @@ Applied remote branch 'origin/B' to workspace
 "#]])
         .stderr_eq(str![""]);
     snapbox::assert_data_eq!(
-        env.workspace_debug_at_head()?,
+        env.workspace_debug_at_head().unwrap(),
         snapbox::str![[r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:3:B <> origin/B →:4: on e31e6ca {1}
@@ -98,7 +98,6 @@ Applied remote branch 'origin/B' to workspace
     "]]
         .raw()
     );
-    Ok(())
 }
 
 use utils::create_local_branch_with_commit;
@@ -441,18 +440,22 @@ Applied remote branch 'origin/remote-feature' to workspace
 }
 
 #[test]
-fn concurrent_apply_of_independent_branches_succeeds() -> anyhow::Result<()> {
+fn concurrent_apply_of_independent_branches_succeeds() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     create_local_branch_with_commit(&env, "feature-branch-a");
     create_local_branch_with_commit_with_message(&env, "feature-branch-b", "Add other feature");
 
-    let child_a = util::but_std_cmd(&env, "apply feature-branch-a").spawn()?;
-    let child_b = util::but_std_cmd(&env, "apply feature-branch-b").spawn()?;
+    let child_a = util::but_std_cmd(&env, "apply feature-branch-a")
+        .spawn()
+        .unwrap();
+    let child_b = util::but_std_cmd(&env, "apply feature-branch-b")
+        .spawn()
+        .unwrap();
 
-    let out_a = child_a.wait_with_output()?;
-    let out_b = child_b.wait_with_output()?;
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
 
     assert!(
         out_a.status.success(),
@@ -465,11 +468,9 @@ fn concurrent_apply_of_independent_branches_succeeds() -> anyhow::Result<()> {
         out_b.stderr.as_bstr()
     );
 
-    let status = util::status_json(&env)?;
-    util::find_branch(&status, "feature-branch-a")?;
-    util::find_branch(&status, "feature-branch-b")?;
-
-    Ok(())
+    let status = util::status_json(&env);
+    util::find_branch(&status, "feature-branch-a");
+    util::find_branch(&status, "feature-branch-b");
 }
 
 #[test]

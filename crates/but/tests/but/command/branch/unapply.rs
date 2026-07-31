@@ -248,7 +248,7 @@ Unapplied stack with branches 'remote-feature' from workspace
 }
 
 #[test]
-fn concurrent_unapply_of_independent_branches_succeeds() -> anyhow::Result<()> {
+fn concurrent_unapply_of_independent_branches_succeeds() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -256,11 +256,13 @@ fn concurrent_unapply_of_independent_branches_succeeds() -> anyhow::Result<()> {
 
     env.but("apply feature-branch-a").assert().success();
 
-    let child_a = util::but_std_cmd(&env, "unapply A").spawn()?;
-    let child_b = util::but_std_cmd(&env, "unapply feature-branch-a").spawn()?;
+    let child_a = util::but_std_cmd(&env, "unapply A").spawn().unwrap();
+    let child_b = util::but_std_cmd(&env, "unapply feature-branch-a")
+        .spawn()
+        .unwrap();
 
-    let out_a = child_a.wait_with_output()?;
-    let out_b = child_b.wait_with_output()?;
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
 
     assert!(
         out_a.status.success(),
@@ -273,21 +275,24 @@ fn concurrent_unapply_of_independent_branches_succeeds() -> anyhow::Result<()> {
         out_b.stderr.as_bstr()
     );
 
-    let status = util::status_json(&env)?;
+    let status = util::status_json(&env);
+    let is_applied = |branch_name| {
+        status["stacks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|stack| stack["branches"].as_array().unwrap())
+            .any(|branch| branch["name"].as_str() == Some(branch_name))
+    };
+    assert!(!is_applied("A"), "A should no longer be applied");
     assert!(
-        util::find_branch(&status, "A").is_err(),
-        "A should no longer be applied"
-    );
-    assert!(
-        util::find_branch(&status, "feature-branch-a").is_err(),
+        !is_applied("feature-branch-a"),
         "feature-branch-a should no longer be applied"
     );
-
-    Ok(())
 }
 
 #[test]
-fn unapply_using_cli_branch_id() -> anyhow::Result<()> {
+fn unapply_using_cli_branch_id() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -298,8 +303,8 @@ fn unapply_using_cli_branch_id() -> anyhow::Result<()> {
     env.but("apply").arg(branch_name).assert().success();
 
     // Get the CLI ID from status --json
-    let status_output = env.but("status --json").allow_json().output()?;
-    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let status_output = env.but("status --json").allow_json().output().unwrap();
+    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout).unwrap();
 
     // Find the branch's CLI ID - JSON uses camelCase and "branches" not "heads"
     let stacks = status["stacks"]
@@ -330,8 +335,8 @@ Unapplied stack with branches 'feature-branch' from workspace
 "#]]);
 
     // Verify the branch is no longer in workspace
-    let status_output = env.but("status --json").allow_json().output()?;
-    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let status_output = env.but("status --json").allow_json().output().unwrap();
+    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout).unwrap();
     let stacks = status["stacks"]
         .as_array()
         .expect("stacks should be an array");
@@ -348,12 +353,10 @@ Unapplied stack with branches 'feature-branch' from workspace
             }
         }
     }
-
-    Ok(())
 }
 
 #[test]
-fn unapply_using_cli_stack_id() -> anyhow::Result<()> {
+fn unapply_using_cli_stack_id() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -364,8 +367,8 @@ fn unapply_using_cli_stack_id() -> anyhow::Result<()> {
     env.but("apply").arg(branch_name).assert().success();
 
     // Get the stack CLI ID from status --json
-    let status_output = env.but("status --json").allow_json().output()?;
-    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let status_output = env.but("status --json").allow_json().output().unwrap();
+    let status: serde_json::Value = serde_json::from_slice(&status_output.stdout).unwrap();
 
     // Find the stack's CLI ID for the feature-branch - JSON uses camelCase and "branches" not "heads"
     let stacks = status["stacks"]
@@ -394,12 +397,10 @@ fn unapply_using_cli_stack_id() -> anyhow::Result<()> {
 Unapplied stack with branches 'feature-branch' from workspace
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn unapply_json_output_validation() -> anyhow::Result<()> {
+fn unapply_json_output_validation() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -414,11 +415,12 @@ fn unapply_json_output_validation() -> anyhow::Result<()> {
         .but("--json unapply")
         .arg(branch_name)
         .allow_json()
-        .output()?;
+        .output()
+        .unwrap();
 
     assert!(output.status.success());
 
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
     // Validate JSON structure
     assert_eq!(json["unapplied"], serde_json::json!(true));
@@ -427,8 +429,6 @@ fn unapply_json_output_validation() -> anyhow::Result<()> {
         .expect("branches should be an array");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0], serde_json::json!("feature-branch"));
-
-    Ok(())
 }
 
 mod utils {

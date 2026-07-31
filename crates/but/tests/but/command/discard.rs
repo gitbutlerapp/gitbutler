@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[test]
-fn discard_removes_selected_change() -> anyhow::Result<()> {
+fn discard_removes_selected_change() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -34,8 +34,6 @@ Hint: run `but help` for all commands
         !env.projects_root().join("src/discard-me.ts").exists(),
         "discarding a new file should remove it from the worktree"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -79,18 +77,22 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
-fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
+fn concurrent_discard_to_independent_files_succeeds() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     env.file("src/a/discard.ts", "export const a = true;\n");
     env.file("src/b/discard.ts", "export const b = true;\n");
 
-    let child_a = util::but_std_cmd(&env, "discard src/a/discard.ts").spawn()?;
-    let child_b = util::but_std_cmd(&env, "discard src/b/discard.ts").spawn()?;
+    let child_a = util::but_std_cmd(&env, "discard src/a/discard.ts")
+        .spawn()
+        .unwrap();
+    let child_b = util::but_std_cmd(&env, "discard src/b/discard.ts")
+        .spawn()
+        .unwrap();
 
-    let out_a = child_a.wait_with_output()?;
-    let out_b = child_b.wait_with_output()?;
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
 
     assert!(
         out_a.status.success(),
@@ -119,12 +121,10 @@ fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn discard_reverts_simple_rename() -> anyhow::Result<()> {
+fn discard_reverts_simple_rename() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -136,7 +136,8 @@ fn discard_reverts_simple_rename() -> anyhow::Result<()> {
     std::fs::rename(
         env.projects_root().join("src/rename-source.ts"),
         env.projects_root().join("src/rename-target.ts"),
-    )?;
+    )
+    .unwrap();
 
     env.but("discard src/rename-target.ts").assert().success();
 
@@ -153,12 +154,10 @@ fn discard_reverts_simple_rename() -> anyhow::Result<()> {
         "",
         "discarding a rename should leave a clean worktree"
     );
-
-    Ok(())
 }
 
 #[test]
-fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
+fn discard_rename_does_not_discard_unrelated_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -170,7 +169,8 @@ fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
     std::fs::rename(
         env.projects_root().join("src/rename-source-only.ts"),
         env.projects_root().join("src/rename-target-only.ts"),
-    )?;
+    )
+    .unwrap();
     env.file("src/keep-me.ts", "export const keep = true;\n");
 
     env.but("discard src/rename-target-only.ts")
@@ -219,12 +219,10 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         !git_status.contains("rename-target-only") && !git_status.contains("rename-source-only"),
         "rename paths should no longer be dirty, got:\n{git_status}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn discard_the_whole_uncommitted_changes() -> anyhow::Result<()> {
+fn discard_the_whole_uncommitted_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -236,7 +234,8 @@ fn discard_the_whole_uncommitted_changes() -> anyhow::Result<()> {
     std::fs::rename(
         env.projects_root().join("src/rename-source-only.ts"),
         env.projects_root().join("src/rename-target-only.ts"),
-    )?;
+    )
+    .unwrap();
     env.file("src/keep-me.ts", "export const keep = true;\n");
 
     env.but("discard zz").assert().success();
@@ -278,12 +277,10 @@ Hint: run `but help` for all commands
         "",
         "discarding a rename should leave a clean worktree"
     );
-
-    Ok(())
 }
 
 #[test]
-fn discarding_multiple_hunks_in_a_file_works() -> anyhow::Result<()> {
+fn discarding_multiple_hunks_in_a_file_works() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -303,13 +300,11 @@ fn discarding_multiple_hunks_in_a_file_works() -> anyhow::Result<()> {
         "discarding multiple hunks should keep the tracked file present"
     );
 
-    let content_after_discard = env.read_file(file_path)?;
+    let content_after_discard = env.read_file(file_path).unwrap();
     assert_eq!(
         content_after_discard, content,
         "discarding all hunks should restore the committed contents"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -705,12 +700,12 @@ lw:e hunks.txt│
 }
 
 #[test]
-fn discard_that_conflicts_warns_on_stderr_in_json_mode() -> anyhow::Result<()> {
+fn discard_that_conflicts_warns_on_stderr_in_json_mode() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-commits");
     env.setup_metadata(&["A"]);
 
-    let status = util::status_json(&env)?;
+    let status = util::status_json(&env);
     let bottom = util::branch_commit_cli_ids(&status, "A")
         .pop()
         .expect("branch A has commits");
@@ -736,6 +731,4 @@ fn discard_that_conflicts_warns_on_stderr_in_json_mode() -> anyhow::Result<()> {
 warning: this operation left 1 commit(s) conflicted: [..]. Resolve with `but resolve`, or back out with `but undo`.
 
 "#]]);
-
-    Ok(())
 }

@@ -67,8 +67,6 @@ mod worktree;
 
 #[cfg(feature = "legacy")]
 mod util {
-    use anyhow::Context as _;
-
     use crate::utils::{CommandExt as _, Sandbox};
 
     /// Create two files `filename1` and `filename2` and commit them to `branch`,
@@ -118,15 +116,15 @@ mod util {
     }
 
     /// Return `but status` JSON output as a parsed value.
-    pub fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
-        let output = env.but("--json status").allow_json().output()?;
-        serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
+    pub fn status_json(env: &Sandbox) -> serde_json::Value {
+        let output = env.but("--json status").allow_json().output().unwrap();
+        serde_json::from_slice(&output.stdout).expect("status output should be valid JSON")
     }
 
     /// Return `but status -f` JSON output as a parsed value.
-    pub fn status_json_with_files(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
-        let output = env.but("--json status -f").allow_json().output()?;
-        serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
+    pub fn status_json_with_files(env: &Sandbox) -> serde_json::Value {
+        let output = env.but("--json status -f").allow_json().output().unwrap();
+        serde_json::from_slice(&output.stdout).expect("status output should be valid JSON")
     }
 
     /// Return the CLI IDs for all commits on `branch_name` in `status` output.
@@ -195,10 +193,10 @@ mod util {
     pub fn find_branch<'a>(
         status: &'a serde_json::Value,
         branch_name: &str,
-    ) -> anyhow::Result<&'a serde_json::Value> {
+    ) -> &'a serde_json::Value {
         status["stacks"]
             .as_array()
-            .context("status.stacks should be an array")?
+            .expect("status.stacks should be an array")
             .iter()
             .flat_map(|stack| {
                 stack["branches"]
@@ -207,7 +205,7 @@ mod util {
                     .flat_map(|branches| branches.iter())
             })
             .find(|branch| branch["name"].as_str() == Some(branch_name))
-            .context("expected branch in status output")
+            .expect("expected branch in status output")
     }
 
     /// Create a sandbox where pulling the target materializes a conflicted commit on branch A.
@@ -220,23 +218,23 @@ mod util {
     }
 
     /// Create a conflicted edit-mode session by integrating upstream and entering `resolve`.
-    pub fn enter_edit_mode_with_conflicted_commit() -> anyhow::Result<Sandbox> {
+    pub fn enter_edit_mode_with_conflicted_commit() -> Sandbox {
         let env = sandbox_with_conflicted_commit();
-        let status = status_json(&env)?;
-        let branch = find_branch(&status, "A")?;
+        let status = status_json(&env);
+        let branch = find_branch(&status, "A");
         let conflicted_commit_cli_id = branch["commits"]
             .as_array()
-            .context("branch commits should be an array")?
+            .expect("branch commits should be an array")
             .iter()
             .find(|commit| commit["conflicted"].as_bool() == Some(true))
             .and_then(|commit| commit["cliId"].as_str())
-            .context("should find conflicted commit cli id")?;
+            .expect("should find conflicted commit cli id");
 
         env.file("uncommitted.txt", "uncommitted work\n");
         env.but(format!("resolve {conflicted_commit_cli_id}"))
             .assert()
             .success();
-        Ok(env)
+        env
     }
 
     /// Whether `file_path` currently appears among the uncommitted changes.

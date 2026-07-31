@@ -55,7 +55,7 @@ fn assert_default_policy(policy: &str) {
 }
 
 #[test]
-fn agent_setup_print_outputs_default_managed_policy() -> anyhow::Result<()> {
+fn agent_setup_print_outputs_default_managed_policy() {
     let env = Sandbox::empty();
 
     let output = env
@@ -66,15 +66,13 @@ fn agent_setup_print_outputs_default_managed_policy() -> anyhow::Result<()> {
         .get_output()
         .stdout
         .clone();
-    let stdout = std::str::from_utf8(&output)?;
+    let stdout = std::str::from_utf8(&output).unwrap();
 
     assert_default_policy(stdout);
-
-    Ok(())
 }
 
 #[test]
-fn agent_setup_print_json_outputs_policy_field() -> anyhow::Result<()> {
+fn agent_setup_print_json_outputs_policy_field() {
     let env = Sandbox::empty();
 
     let output = env
@@ -86,15 +84,13 @@ fn agent_setup_print_json_outputs_policy_field() -> anyhow::Result<()> {
         .get_output()
         .stdout
         .clone();
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let policy = json
         .get("policy")
         .and_then(|value| value.as_str())
         .expect("JSON output should include a string policy field");
 
     assert_default_policy(policy);
-
-    Ok(())
 }
 
 #[test]

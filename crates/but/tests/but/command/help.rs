@@ -23,25 +23,24 @@ For more information, try '--help'.
 
 #[test]
 /// We want the output of `help --help` to be the same as `help`.
-fn help_help_should_be_help() -> anyhow::Result<()> {
+fn help_help_should_be_help() {
     let env = Sandbox::empty();
 
-    let help = env.but("help").output()?.stdout;
+    let help = env.but("help").output().unwrap().stdout;
     env.but("help --help")
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());
-
-    Ok(())
 }
 
 #[test]
-fn top_level_help_honors_agent_format_after_help_flag() -> anyhow::Result<()> {
+fn top_level_help_honors_agent_format_after_help_flag() {
     let env = Sandbox::empty();
     let help = env
         .but("help")
         .env("PI_CODING_AGENT", "true")
-        .output()?
+        .output()
+        .unwrap()
         .stdout;
 
     env.but("--help")
@@ -55,6 +54,4 @@ fn top_level_help_honors_agent_format_after_help_flag() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());
-
-    Ok(())
 }

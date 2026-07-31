@@ -30,7 +30,7 @@ Use --global to check global installations, or run from within a repository.
 }
 
 #[test]
-fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
+fn skill_check_json_output_is_valid() {
     let env = Sandbox::empty();
 
     // Check with --global to avoid needing a repo context
@@ -45,7 +45,7 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
         .clone();
 
     // Verify it's valid JSON
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
 
     // Verify the expected structure
     assert!(json.get("cli_version").is_some(), "should have cli_version");
@@ -54,8 +54,6 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
         json.get("outdated_count").is_some(),
         "should have outdated_count"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -356,7 +354,7 @@ fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
 
 #[test]
 #[cfg(feature = "legacy")]
-fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> anyhow::Result<()> {
+fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.but("skill install")
@@ -369,20 +367,21 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> an
         .success();
 
     let claude_skill_path = env.home_dir().join(".claude/skills/gitbutler/SKILL.md");
-    let expected = std::fs::read_to_string(&claude_skill_path)?;
-    std::fs::write(&claude_skill_path, "---\nname: but\nversion: old\n---\n")?;
+    let expected = std::fs::read_to_string(&claude_skill_path).unwrap();
+    std::fs::write(&claude_skill_path, "---\nname: but\nversion: old\n---\n").unwrap();
     env.file("file.txt", "Some text");
 
     let output = env
         .but("commit --no-message --json")
         .env("AI_AGENT", "codex")
         .allow_json()
-        .output()?;
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "the JSON mutation used to verify skill repair must succeed"
     );
-    let stdout: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(
         stdout.get("commitId").is_some()
             && stdout.get("changeId").is_some()
@@ -396,11 +395,10 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() -> an
         "JSON commands should report skill upkeep on stderr without wrapping stdout, got: {stderr}"
     );
     assert_eq!(
-        std::fs::read_to_string(&claude_skill_path)?,
+        std::fs::read_to_string(&claude_skill_path).unwrap(),
         expected,
         "a JSON agent command should still refresh other agents' global skill installations"
     );
-    Ok(())
 }
 
 #[test]
@@ -494,7 +492,7 @@ Use --global --path <path> for a global installation, use an absolute path, or r
 }
 
 #[test]
-fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow::Result<()> {
+fn skill_install_absolute_path_outside_repo_does_not_require_global() {
     let env = Sandbox::empty();
     let install_dir = env.projects_root().join("abs-skill-install");
 
@@ -512,7 +510,7 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
         .stdout
         .clone();
 
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
     let expected_path = install_dir.display().to_string();
     let paths = json
@@ -523,12 +521,10 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
         paths.iter().map(|v| v.as_str()).collect::<Vec<_>>(),
         vec![Some(expected_path.as_str())]
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() -> anyhow::Result<()> {
+fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() {
     let env = Sandbox::empty();
     let install_dir = env.projects_root().join("agent-skill-install");
 
@@ -547,7 +543,7 @@ fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() -> anyhow
         .stdout
         .clone();
 
-    let stdout = std::str::from_utf8(&output)?;
+    let stdout = std::str::from_utf8(&output).unwrap();
     assert!(
         stdout.contains("GitButler skill installed successfully"),
         "agent skill install should print the human success message, got: {stdout}"
@@ -560,12 +556,10 @@ fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() -> anyhow
         !stdout.contains("To use it in this session"),
         "the read-it-now hint is for detected agent callers only, got: {stdout}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()> {
+fn skill_check_detects_agent_skills_installation_in_repo() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
     let install_path = relative_agent_skill_path(".agents");
 
@@ -588,7 +582,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
         .stdout
         .clone();
 
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let skills = json
         .get("skills")
         .and_then(|value| value.as_array())
@@ -605,12 +599,10 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
         }),
         "expected Agent Skills installation in .agents/skills/gitbutler, got: {skills:?}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_check_marks_an_incomplete_bundle_outdated() -> anyhow::Result<()> {
+fn skill_check_marks_an_incomplete_bundle_outdated() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
     let install_path = relative_agent_skill_path(".agents");
     env.but("")
@@ -624,7 +616,8 @@ fn skill_check_marks_an_incomplete_bundle_outdated() -> anyhow::Result<()> {
         env.projects_root()
             .join(&install_path)
             .join("references/concepts.md"),
-    )?;
+    )
+    .unwrap();
 
     let output = env
         .but("skill check --local --json")
@@ -634,17 +627,16 @@ fn skill_check_marks_an_incomplete_bundle_outdated() -> anyhow::Result<()> {
         .get_output()
         .stdout
         .clone();
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
 
     assert_eq!(
         json.get("outdated_count").and_then(|value| value.as_u64()),
         Some(1)
     );
-    Ok(())
 }
 
 #[test]
-fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Result<()> {
+fn skill_install_detect_finds_agent_skills_installation_in_repo() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
     let install_path = relative_agent_skill_path(".agents");
 
@@ -667,7 +659,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
         .stdout
         .clone();
 
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let paths = json
         .get("paths")
         .and_then(|value| value.as_array())
@@ -679,12 +671,10 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
             .any(path_ends_with_gitbutler_agents_dir),
         "expected detect to reuse .agents/skills/gitbutler, got: {json:?}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_install_detect_updates_every_installation_in_scope() -> anyhow::Result<()> {
+fn skill_install_detect_updates_every_installation_in_scope() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // Two GitButler skills installed under different formats in the local scope.
@@ -709,7 +699,7 @@ fn skill_install_detect_updates_every_installation_in_scope() -> anyhow::Result<
         .stdout
         .clone();
 
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let paths = json
         .get("paths")
         .and_then(|value| value.as_array())
@@ -719,12 +709,10 @@ fn skill_install_detect_updates_every_installation_in_scope() -> anyhow::Result<
         2,
         "detect refreshes every install in the scope, got: {json:?}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_check_ignores_format_outside_its_scope() -> anyhow::Result<()> {
+fn skill_check_ignores_format_outside_its_scope() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // `.copilot/skills` is a global-only format. Installed inside a repo via an
@@ -752,7 +740,7 @@ fn skill_check_ignores_format_outside_its_scope() -> anyhow::Result<()> {
         .stdout
         .clone();
 
-    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     let skills = json
         .get("skills")
         .and_then(|value| value.as_array())
@@ -769,15 +757,13 @@ fn skill_check_ignores_format_outside_its_scope() -> anyhow::Result<()> {
         }),
         "a global-only .copilot install must not be discovered in local scope, got: {skills:?}"
     );
-
-    Ok(())
 }
 
 #[test]
-fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
+fn skill_install_surfaces_non_repo_discovery_errors() {
     let env = Sandbox::empty();
     let invalid_dir = env.projects_root().join("not-a-directory");
-    std::fs::write(&invalid_dir, "not a dir")?;
+    std::fs::write(&invalid_dir, "not a dir").unwrap();
 
     let output = env
         .but("")
@@ -790,7 +776,7 @@ fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
         .assert()
         .failure();
 
-    let stderr = std::str::from_utf8(&output.get_output().stderr)?;
+    let stderr = std::str::from_utf8(&output.get_output().stderr).unwrap();
     assert!(
         stderr.contains("Failed to access a directory, or path is not a directory"),
         "Expected directory access error, got: {stderr}"
@@ -799,6 +785,4 @@ fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
         !stderr.contains("In non-interactive mode, you must specify --path"),
         "Unexpected fallback to non-interactive path prompt: {stderr}"
     );
-
-    Ok(())
 }

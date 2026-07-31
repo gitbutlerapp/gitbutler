@@ -180,7 +180,7 @@ fn with_json_output() {
 }
 
 #[test]
-fn single_branch_outputs_created_branch_for_all_formats() -> anyhow::Result<()> {
+fn single_branch_outputs_created_branch_for_all_formats() {
     let env = Sandbox::open_with_default_settings("one-fork");
 
     env.but("branch new human-feature")
@@ -217,16 +217,18 @@ fn single_branch_outputs_created_branch_for_all_formats() -> anyhow::Result<()> 
     for branch_name in ["human-feature", "shell-feature", "json-feature"] {
         let reference_name = format!("refs/heads/{branch_name}");
         assert!(
-            repo.try_find_reference(reference_name.as_str())?.is_some(),
+            repo.try_find_reference(reference_name.as_str())
+                .unwrap()
+                .is_some(),
             "single-branch creation writes the branch reference"
         );
     }
     assert!(
-        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
             .is_none(),
         "single-branch creation does not create a managed workspace reference"
     );
-    Ok(())
 }
 
 #[test]

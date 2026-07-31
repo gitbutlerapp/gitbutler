@@ -1,3 +1,5 @@
+#![warn(clippy::unnecessary_wraps)]
+
 use std::collections::VecDeque;
 
 use crate::utils::{assert_ignored_tests_have_linear_ticket, make_absolute};

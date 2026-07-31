@@ -4,7 +4,7 @@ use crate::utils::{CommandExt, Sandbox};
 /// remote target (no merge commit), leaves the local `main` untouched, and rebases the sibling
 /// branch onto the moved target.
 #[test]
-fn land_first_branch_into_origin() -> anyhow::Result<()> {
+fn land_first_branch_into_origin() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
     let remote = env.projects_root().with_extension("origin.git");
@@ -74,7 +74,7 @@ fn land_first_branch_into_origin() -> anyhow::Result<()> {
     );
 
     // The remaining sibling rebased onto the new target and the landed branch was removed.
-    let status = status_json(&env)?;
+    let status = status_json(&env);
     assert_eq!(
         status["stacks"].as_array().unwrap().len(),
         1,
@@ -85,15 +85,13 @@ fn land_first_branch_into_origin() -> anyhow::Result<()> {
         env.invoke_git("rev-parse origin/main"),
         "second-branch should be rebased on top of the moved target"
     );
-
-    Ok(())
 }
 
 /// Self-remote (`gb-local`) path: landing a branch that is ahead of the local target fast-forwards
 /// both `refs/heads/main` and the `gb-local/main` tracking ref, advances `behind` to 0, and removes
 /// the integrated branch.
 #[test]
-fn land_fast_forwards_self_remote() -> anyhow::Result<()> {
+fn land_fast_forwards_self_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     env.but("setup").assert().success();
@@ -147,7 +145,7 @@ fn land_fast_forwards_self_remote() -> anyhow::Result<()> {
         "fast-forward must not create a merge commit"
     );
 
-    let status = status_json(&env)?;
+    let status = status_json(&env);
     assert_eq!(
         status["stacks"].as_array().unwrap().len(),
         0,
@@ -158,15 +156,13 @@ fn land_fast_forwards_self_remote() -> anyhow::Result<()> {
         Some(0),
         "the stored base should be advanced to the updated target"
     );
-
-    Ok(())
 }
 
 /// `--no-ff` forces a merge commit even when a fast-forward is possible, and with signing enabled
 /// the merge commit is signed and carries a GitButler change-id header. This is the regression
 /// guard for the silent-unsigned-commit and missing-change-id bugs.
 #[test]
-fn land_no_ff_creates_signed_merge_commit() -> anyhow::Result<()> {
+fn land_no_ff_creates_signed_merge_commit() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     env.but("setup").assert().success();
@@ -190,9 +186,9 @@ fn land_no_ff_creates_signed_merge_commit() -> anyhow::Result<()> {
         // Skip rather than fail where OpenSSH isn't installed (e.g. minimal CI containers).
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("skipping: ssh-keygen not available");
-            return Ok(());
+            return;
         }
-        Err(err) => return Err(err.into()),
+        Err(err) => panic!("failed to run ssh-keygen: {err}"),
     }
     env.invoke_git("config gpg.format ssh");
     env.invoke_git(&format!("config user.signingKey {}", key_path.display()));
@@ -242,14 +238,12 @@ fn land_no_ff_creates_signed_merge_commit() -> anyhow::Result<()> {
         raw_commit.contains("change-id"),
         "the landed merge commit must carry a change-id header; got:\n{raw_commit}"
     );
-
-    Ok(())
 }
 
 /// An unreachable remote that is not the target's must not block landing: `but land` fetches only
 /// the target's fetch remote, so a dead unrelated remote (old fork, deleted mirror) is ignored.
 #[test]
-fn land_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
+fn land_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
@@ -268,14 +262,12 @@ fn land_ignores_unreachable_unrelated_remote() -> anyhow::Result<()> {
         branch_tip,
         "the land must succeed and advance the target despite the unreachable unrelated remote"
     );
-
-    Ok(())
 }
 
 /// Landing a non-bottom segment of a stack would silently publish the lower segments' commits, so
 /// it must be refused before anything is mutated, naming the lower segment.
 #[test]
-fn land_refuses_non_bottom_stack_segment() -> anyhow::Result<()> {
+fn land_refuses_non_bottom_stack_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -320,14 +312,12 @@ fn land_refuses_non_bottom_stack_segment() -> anyhow::Result<()> {
         env.invoke_git("rev-parse gb-local/main"),
         "a refused land must not move the target"
     );
-
-    Ok(())
 }
 
 /// `--whole-stack` is the explicit opt-in: naming the top segment lands the entire stack, and the
 /// pre-flight warning names the lower segments being published so `--yes` runs stay honest.
 #[test]
-fn land_whole_stack_lands_top_segment() -> anyhow::Result<()> {
+fn land_whole_stack_lands_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -373,18 +363,16 @@ fn land_whole_stack_lands_top_segment() -> anyhow::Result<()> {
         "the self-remote land should move the local target too"
     );
     assert_eq!(
-        status_json(&env)?["stacks"].as_array().unwrap().len(),
+        status_json(&env)["stacks"].as_array().unwrap().len(),
         0,
         "both landed segments should be removed from the workspace"
     );
-
-    Ok(())
 }
 
 /// The conflicted-commit guard must cover every segment a whole-stack land would publish: a
 /// conflicted commit in a LOWER segment refuses `--whole-stack` on a clean top segment.
 #[test]
-fn land_whole_stack_refuses_conflicted_lower_segment() -> anyhow::Result<()> {
+fn land_whole_stack_refuses_conflicted_lower_segment() {
     let env = super::util::sandbox_with_conflicted_commit();
 
     // Stack a clean segment on top of branch A, which carries the conflicted commit.
@@ -410,14 +398,12 @@ fn land_whole_stack_refuses_conflicted_lower_segment() -> anyhow::Result<()> {
         stderr.contains("but resolve"),
         "the refusal must point at the resolution command; got:\n{stderr}"
     );
-
-    Ok(())
 }
 
 /// `--whole-stack` always means "the entire stack lands": naming anything but the top segment is
 /// refused, pointing at the actual top, so a partial land can't strand the segments above.
 #[test]
-fn land_whole_stack_refuses_non_top_segment() -> anyhow::Result<()> {
+fn land_whole_stack_refuses_non_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -457,8 +443,6 @@ fn land_whole_stack_refuses_non_top_segment() -> anyhow::Result<()> {
         env.invoke_git("rev-parse gb-local/main"),
         "a refused land must not move the target"
     );
-
-    Ok(())
 }
 
 /// Rename tracking must be ON so a rename on the branch and a conflicting rename on the target
@@ -466,7 +450,7 @@ fn land_whole_stack_refuses_non_top_segment() -> anyhow::Result<()> {
 /// rename/rename scenario: conflicts with rename tracking on (the shipped fix), but would merge
 /// cleanly — silently — with it off, so this test fails if the fix is ever reverted.
 #[test]
-fn land_rename_no_silent_mismerge() -> anyhow::Result<()> {
+fn land_rename_no_silent_mismerge() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -479,7 +463,7 @@ fn land_rename_no_silent_mismerge() -> anyhow::Result<()> {
 
     // Branch renames foo.txt -> bar.txt (keeping it similar so the rename is detectable) and edits line 5.
     env.but("branch new rename-branch").assert().success();
-    std::fs::remove_file(env.projects_root().join("foo.txt"))?;
+    std::fs::remove_file(env.projects_root().join("foo.txt")).unwrap();
     env.file("bar.txt", "l1\nl2\nl3\nl4\nBRANCH\nl6\nl7\nl8\n");
     env.but("commit -b rename-branch -m 'rename foo to bar'")
         .assert()
@@ -499,8 +483,8 @@ fn land_rename_no_silent_mismerge() -> anyhow::Result<()> {
         wt.display(),
         target_tip
     ));
-    std::fs::remove_file(wt.join("foo.txt"))?;
-    std::fs::write(wt.join("baz.txt"), "l1\nl2\nl3\nl4\nTARGET\nl6\nl7\nl8\n")?;
+    std::fs::remove_file(wt.join("foo.txt")).unwrap();
+    std::fs::write(wt.join("baz.txt"), "l1\nl2\nl3\nl4\nTARGET\nl6\nl7\nl8\n").unwrap();
     env.invoke_git(&format!("-C {} add -A", wt.display()));
     env.invoke_git(&format!(
         "-C {} commit -m 'target renames foo to baz'",
@@ -529,14 +513,12 @@ fn land_rename_no_silent_mismerge() -> anyhow::Result<()> {
         env.invoke_git("rev-parse gb-local/main"),
         "a conflicting land must not move the target"
     );
-
-    Ok(())
 }
 
 /// The load-bearing safety gate: without `--yes`, a non-interactive `but land` (a script or agent)
 /// must refuse before mutating anything, rather than silently publishing to the target.
 #[test]
-fn land_without_yes_refuses_non_interactively() -> anyhow::Result<()> {
+fn land_without_yes_refuses_non_interactively() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
     env.but("branch new first-branch").assert().success();
@@ -565,15 +547,13 @@ fn land_without_yes_refuses_non_interactively() -> anyhow::Result<()> {
         "a refused land must not move the target"
     );
     assert_eq!(
-        status_json(&env)?["stacks"].as_array().unwrap().len(),
+        status_json(&env)["stacks"].as_array().unwrap().len(),
         1,
         "the branch must remain applied after a refused land"
     );
-
-    Ok(())
 }
 
-fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+fn status_json(env: &Sandbox) -> serde_json::Value {
     let stdout = env
         .but("status --json")
         .allow_json()
@@ -582,5 +562,5 @@ fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
         .get_output()
         .stdout
         .clone();
-    Ok(serde_json::from_str(&String::from_utf8_lossy(&stdout))?)
+    serde_json::from_str(&String::from_utf8_lossy(&stdout)).unwrap()
 }

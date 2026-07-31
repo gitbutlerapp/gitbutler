@@ -3,7 +3,7 @@ use crate::utils::{CommandExt as _, Sandbox};
 /// The full lifecycle on uncommitted changes: add a comment, see it drift with edits above it,
 /// then archive it by id prefix.
 #[test]
-fn add_list_drift_archive_on_uncommitted_changes() -> anyhow::Result<()> {
+fn add_list_drift_archive_on_uncommitted_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -34,7 +34,7 @@ Added comment
 
 "#]]);
 
-    let id = single_comment_id(&env)?;
+    let id = single_comment_id(&env);
     env.but(format!("_comment archive {}", &id[..8]))
         .assert()
         .success()
@@ -49,14 +49,12 @@ Archived comment [..]
 No comments
 
 "#]]);
-
-    Ok(())
 }
 
 /// Committing the file removes it from the uncommitted diff, so the comment is auto-archived —
 /// and archiving it afterwards (the typical "agent finishes its fix" race) is a success no-op.
 #[test]
-fn commenting_and_committing_the_file_auto_archives() -> anyhow::Result<()> {
+fn commenting_and_committing_the_file_auto_archives() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -64,7 +62,7 @@ fn commenting_and_committing_the_file_auto_archives() -> anyhow::Result<()> {
     env.but("_comment add src/note.ts:1 -m 'about to disappear'")
         .assert()
         .success();
-    let id = single_comment_id(&env)?;
+    let id = single_comment_id(&env);
 
     env.but("commit -b A -m 'add note'").assert().success();
 
@@ -83,14 +81,12 @@ No comments
 Comment [..] was already archived; nothing to do
 
 "#]]);
-
-    Ok(())
 }
 
 /// Comments anchored to a commit's diff via its change id survive listing and carry the commit
 /// scope in the output.
 #[test]
-fn add_and_list_on_a_commit() -> anyhow::Result<()> {
+fn add_and_list_on_a_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -114,14 +110,12 @@ Added comment
   | +A
 
 "#]]);
-
-    Ok(())
 }
 
 /// `list --wait` returns immediately with the listing when comments already exist, and reports
 /// the timeout when none appear within the bound.
 #[test]
-fn wait_returns_existing_comments_or_times_out() -> anyhow::Result<()> {
+fn wait_returns_existing_comments_or_times_out() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -150,13 +144,11 @@ No comments appeared within 0s. Run `but _comment list --wait` again to keep wai
 
     // --timeout only makes sense while waiting.
     env.but("_comment list --timeout 5").assert().failure();
-
-    Ok(())
 }
 
 /// A comment written by another process unblocks a wait that is already sleeping.
 #[test]
-fn wait_unblocks_when_a_comment_appears_mid_wait() -> anyhow::Result<()> {
+fn wait_unblocks_when_a_comment_appears_mid_wait() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.file("src/note.ts", "line one\n");
@@ -175,14 +167,12 @@ fn wait_unblocks_when_a_comment_appears_mid_wait() -> anyhow::Result<()> {
 
 "#]]);
     });
-
-    Ok(())
 }
 
 /// Comments created by the GUI's gutter click start with an empty payload; agents must not see
 /// them until text is typed.
 #[test]
-fn blank_comments_are_hidden_from_the_cli() -> anyhow::Result<()> {
+fn blank_comments_are_hidden_from_the_cli() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -205,14 +195,12 @@ No comments
 No comments appeared within 0s. Run `but _comment list --wait` again to keep waiting.
 
 "#]]);
-
-    Ok(())
 }
 
 /// Unapplying the branch that holds a commented commit hides the comment instead of destroying
 /// it: re-applying the branch brings it back.
 #[test]
-fn comments_on_unapplied_branches_survive() -> anyhow::Result<()> {
+fn comments_on_unapplied_branches_survive() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -239,8 +227,6 @@ No comments
   | +A
 
 "#]]);
-
-    Ok(())
 }
 
 /// Bad anchors and unknown ids are rejected as bad input.
@@ -280,7 +266,7 @@ Hint: Use `but _comment list` to see the ids of all comments
         .failure();
 }
 
-fn single_comment_id(env: &Sandbox) -> anyhow::Result<String> {
+fn single_comment_id(env: &Sandbox) -> String {
     let stdout = env
         .but("_comment list --json")
         .allow_json()
@@ -289,13 +275,13 @@ fn single_comment_id(env: &Sandbox) -> anyhow::Result<String> {
         .get_output()
         .stdout
         .clone();
-    let value: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&stdout))?;
+    let value: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&stdout)).unwrap();
     let comments = value["comments"]
         .as_array()
         .expect("list output has a comments array");
     assert_eq!(comments.len(), 1, "exactly one comment in this test");
-    Ok(comments[0]["id"]
+    comments[0]["id"]
         .as_str()
         .expect("comment ids are strings")
-        .to_string())
+        .to_string()
 }

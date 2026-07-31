@@ -8,14 +8,15 @@ use crate::{
 
 fn find_uncommitted_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
     status["uncommittedChanges"]
-        .as_array()?
-        .iter()
+        .as_array()
+        .into_iter()
+        .flatten()
         .find(|change| change["filePath"].as_str() == Some(path))
         .and_then(|change| change["cliId"].as_str().map(ToOwned::to_owned))
 }
 
 #[test]
-fn unresolvable_source_errors_instead_of_absorbing_everything() -> anyhow::Result<()> {
+fn unresolvable_source_errors_instead_of_absorbing_everything() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -26,17 +27,15 @@ fn unresolvable_source_errors_instead_of_absorbing_everything() -> anyhow::Resul
     env.but("absorb zq").assert().failure();
 
     // The worktree change is untouched.
-    let status = util::status_json(&env).expect("status should be valid JSON");
+    let status = util::status_json(&env);
     assert!(
         find_uncommitted_cli_id(&status, "a.txt").is_some(),
         "nothing was absorbed by the failed command"
     );
-
-    Ok(())
 }
 
 #[test]
-fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() -> anyhow::Result<()> {
+fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -48,17 +47,15 @@ fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() -> anyhow::
     env.but("absorb kp").assert().failure();
 
     // Nothing was absorbed by the ambiguous selector.
-    let status = util::status_json(&env).expect("status should be valid JSON");
+    let status = util::status_json(&env);
     assert!(
         find_uncommitted_cli_id(&status, "a.txt").is_some(),
         "the ambiguous command must not touch any commit"
     );
-
-    Ok(())
 }
 
 #[test]
-fn uncommitted_file() -> anyhow::Result<()> {
+fn uncommitted_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -100,7 +97,7 @@ Hint: you can run `but undo` to undo these changes
 
     // Change was absorbed
     let repo = env.open_repo();
-    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    let blob = repo.rev_parse_single(b"A:a.txt").unwrap().object().unwrap();
     snapbox::assert_data_eq!(
         blob.data.as_bstr().to_string(),
         snapbox::str![[r#"
@@ -129,12 +126,10 @@ lasta
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn uncommitted_hunk() -> anyhow::Result<()> {
+fn uncommitted_hunk() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -182,7 +177,7 @@ Hint: you can run `but undo` to undo these changes
 
     // Change was partially absorbed
     let repo = env.open_repo();
-    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    let blob = repo.rev_parse_single(b"A:a.txt").unwrap().object().unwrap();
     snapbox::assert_data_eq!(
         blob.data.as_bstr().to_string(),
         snapbox::str![[r#"
@@ -217,12 +212,10 @@ last
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn committed_hunk() -> anyhow::Result<()> {
+fn committed_hunk() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -428,7 +421,7 @@ Hint: run `but help` for all commands
 
     // Change was full absorbed
     let repo = env.open_repo();
-    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    let blob = repo.rev_parse_single(b"A:a.txt").unwrap().object().unwrap();
     snapbox::assert_data_eq!(
         blob.data.as_bstr().to_string(),
         snapbox::str![[r#"
@@ -444,27 +437,29 @@ last new
 
 "#]]
     );
-
-    Ok(())
 }
 
 #[test]
-fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
+fn concurrent_absorb_of_independent_files_succeeds() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
     commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
 
-    let status = util::status_json(&env)?;
+    let status = util::status_json(&env);
     let id_a = find_uncommitted_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
     let id_b = find_uncommitted_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
 
-    let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
-    let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
+    let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}"))
+        .spawn()
+        .unwrap();
+    let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}"))
+        .spawn()
+        .unwrap();
 
-    let out_a = child_a.wait_with_output()?;
-    let out_b = child_b.wait_with_output()?;
+    let out_a = child_a.wait_with_output().unwrap();
+    let out_b = child_b.wait_with_output().unwrap();
 
     assert!(
         out_a.status.success(),
@@ -477,7 +472,7 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
         out_b.stderr.as_bstr()
     );
 
-    let status = util::status_json(&env)?;
+    let status = util::status_json(&env);
     assert_eq!(
         status["uncommittedChanges"]
             .as_array()
@@ -486,19 +481,22 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
         0,
         "both files should be absorbed from the worktree"
     );
-
-    Ok(())
 }
 
 #[test]
-fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
+fn dry_run_shows_plan_without_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Get initial status
-    let initial_status = env.but("--json status -f").allow_json().output()?.stdout;
+    let initial_status = env
+        .but("--json status -f")
+        .allow_json()
+        .output()
+        .unwrap()
+        .stdout;
 
     // Run absorb with dry-run flag
     env.but("absorb --dry-run")
@@ -518,7 +516,12 @@ Dry run complete. No changes were made.
         .stderr_eq(str![""]);
 
     // Verify that no changes were actually made - status should be unchanged
-    let post_dry_run_status = env.but("--json status -f").allow_json().output()?.stdout;
+    let post_dry_run_status = env
+        .but("--json status -f")
+        .allow_json()
+        .output()
+        .unwrap()
+        .stdout;
     assert_eq!(
         initial_status, post_dry_run_status,
         "Status should be unchanged after dry-run"
@@ -526,15 +529,21 @@ Dry run complete. No changes were made.
 
     // Also verify the workspace commit did NOT change during dry-run
     let repo = env.open_repo();
-    let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    let ws_id = repo
+        .rev_parse_single(b"gitbutler/workspace")
+        .unwrap()
+        .detach();
     // Re-run dry-run and confirm workspace is still the same
     env.but("absorb --dry-run").assert().success();
-    let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    let ws_id_after = repo
+        .rev_parse_single(b"gitbutler/workspace")
+        .unwrap()
+        .detach();
     assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
 
     // Verify the file content wasn't actually changed
     let repo = env.open_repo();
-    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    let blob = repo.rev_parse_single(b"A:a.txt").unwrap().object().unwrap();
     snapbox::assert_data_eq!(
         blob.data.as_bstr().to_string(),
         snapbox::str![[r#"
@@ -569,8 +578,6 @@ last
 ...
 
 "#]]);
-
-    Ok(())
 }
 
 /// Regression test for https://github.com/gitbutlerapp/gitbutler/issues/12750
@@ -578,7 +585,7 @@ last
 /// tools inspecting HEAD (e.g. pre-push hooks that stash against it) see
 /// an up-to-date synthetic commit rather than a stale one.
 #[test]
-fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
+fn workspace_head_is_refreshed_after_absorb() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
@@ -586,19 +593,23 @@ fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
 
     // Record the workspace commit *before* absorb.
     let repo = env.open_repo();
-    let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    let ws_before = repo
+        .rev_parse_single(b"gitbutler/workspace")
+        .unwrap()
+        .detach();
 
     env.but("absorb").assert().success().stderr_eq(str![""]);
 
     // After absorb the workspace commit must have changed.
-    let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    let ws_after = repo
+        .rev_parse_single(b"gitbutler/workspace")
+        .unwrap()
+        .detach();
 
     assert_ne!(
         ws_before, ws_after,
         "gitbutler/workspace HEAD should be refreshed after absorb"
     );
-
-    Ok(())
 }
 
 #[test]

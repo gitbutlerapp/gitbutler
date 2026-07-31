@@ -461,7 +461,7 @@ Error: No git repository found - run `but setup --init` to initialize a new repo
 }
 
 #[test]
-fn init_flag_creates_repo() -> anyhow::Result<()> {
+fn init_flag_creates_repo() {
     let env = Sandbox::empty();
 
     // Verify no git repo exists
@@ -531,13 +531,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
     assert!(!output.is_empty());
 
     // Verify initial commit was created (may have additional workspace commit)
-    let commit_count: u32 = env.invoke_git("rev-list --count HEAD").parse()?;
+    let commit_count: u32 = env.invoke_git("rev-list --count HEAD").parse().unwrap();
     assert!(
         commit_count >= 1,
         "Expected at least 1 commit, found {commit_count}"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -627,7 +625,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 }
 
 #[test]
-fn setup_called_on_unmigrated_projects_json() -> anyhow::Result<()> {
+fn setup_called_on_unmigrated_projects_json() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // Run first to create the metadata in `projects.json` which we then mutate
@@ -686,14 +684,17 @@ Learn more at https://docs.gitbutler.com/cli-overview
 "#]]);
 
     let projects_file = env.app_data_dir().join("com.gitbutler.app/projects.json");
-    let mut file: serde_json::Value = std::fs::read_to_string(&projects_file)?.parse()?;
+    let mut file: serde_json::Value = std::fs::read_to_string(&projects_file)
+        .unwrap()
+        .parse()
+        .unwrap();
 
     file.as_array_mut().unwrap()[0]
         .as_object_mut()
         .unwrap()
         .insert("git_dir".into(), json!(""));
 
-    std::fs::write(projects_file, serde_json::to_string_pretty(&file)?)?;
+    std::fs::write(projects_file, serde_json::to_string_pretty(&file).unwrap()).unwrap();
 
     env.but("setup")
         .assert()
@@ -728,6 +729,4 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
-
-    Ok(())
 }

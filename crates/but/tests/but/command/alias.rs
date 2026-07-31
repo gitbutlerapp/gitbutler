@@ -74,13 +74,13 @@ active  ✓ *A          26y ago    author
 
 #[cfg(feature = "legacy")]
 #[test]
-fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
+fn can_invoke_alias_with_root_flags() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     env.but("alias add b branch").assert().success();
 
-    let output = env.but("-t b").output()?;
+    let output = env.but("-t b").output().unwrap();
     assert!(
         output.status.success(),
         "alias with root trace flag should succeed: {}",
@@ -97,13 +97,11 @@ fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
         stderr.lines().any(|line| line.starts_with("INFO ")),
         "trace flag should emit INFO logs: {stderr}"
     );
-
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
-fn can_invoke_alias_with_root_flags_with_args() -> anyhow::Result<()> {
+fn can_invoke_alias_with_root_flags_with_args() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -121,10 +119,8 @@ active  ✓ *A          26y ago    author
 "#]])
         .stderr_eq(str![[]]);
 
-    let log_file_content = std::fs::read_to_string(&log_file_path)?;
+    let log_file_content = std::fs::read_to_string(&log_file_path).unwrap();
     assert!(!log_file_content.is_empty(), "Log file must be non-empty");
-
-    Ok(())
 }
 
 #[cfg(unix)]
@@ -134,7 +130,7 @@ active  ✓ *A          26y ago    author
 /// no particular security concern with this as aliases can only be defined in trusted files, so
 /// there's no risk that you'd for example clone a repository with a malicious alias (as is the case
 /// with Cargo, see https://github.com/rust-lang/cargo/issues/10049).
-fn can_invoke_alias_that_shadows_external_command() -> anyhow::Result<()> {
+fn can_invoke_alias_that_shadows_external_command() {
     use std::{fs, os::unix::fs::PermissionsExt};
 
     use tempfile::tempdir;
@@ -142,12 +138,12 @@ fn can_invoke_alias_that_shadows_external_command() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    let bin = tempdir()?;
+    let bin = tempdir().unwrap();
     let helper = bin.path().join("but-b");
-    fs::write(&helper, "#!/bin/sh\necho 'called but-b'\n")?;
-    let mut perms = fs::metadata(&helper)?.permissions();
+    fs::write(&helper, "#!/bin/sh\necho 'called but-b'\n").unwrap();
+    let mut perms = fs::metadata(&helper).unwrap().permissions();
     perms.set_mode(0o755);
-    fs::set_permissions(&helper, perms)?;
+    fs::set_permissions(&helper, perms).unwrap();
 
     let path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{path}", bin.path().display());
@@ -172,8 +168,6 @@ active  ✓ *A          26y ago    author
 
 "#]])
         .stderr_eq(str![[]]);
-
-    Ok(())
 }
 
 #[cfg(unix)]
@@ -210,7 +204,7 @@ For more information, try '--help'.
 /// There are multiple layers of protection in the application against this. The parsing should make
 /// it impossible as known subcommands should not be parsed as external commands, and the alias
 /// expansion itself should bail if a known subcommand is passed in.
-fn alias_of_known_subcommand_is_not_expanded() -> anyhow::Result<()> {
+fn alias_of_known_subcommand_is_not_expanded() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -224,6 +218,4 @@ active  ✓ *A          26y ago    author
 
 "#]])
         .stderr_eq(str![[]]);
-
-    Ok(())
 }
