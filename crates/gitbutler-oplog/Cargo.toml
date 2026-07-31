@@ -34,7 +34,7 @@ toml.workspace = true
 schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
-but-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["sandbox"] }
 pretty_assertions = "1.4"
 tempfile.workspace = true
 
