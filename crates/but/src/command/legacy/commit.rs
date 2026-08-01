@@ -58,7 +58,6 @@ impl CliOutputHuman for CommitOutcome {
             branch_name,
         } = self;
 
-        // GB-1771 missing change ID here
         match branch_name {
             Some(BranchNameTarget::New(branch_name)) => writeln!(
                 out,
