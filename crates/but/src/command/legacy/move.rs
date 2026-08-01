@@ -493,7 +493,6 @@ impl Display for MoveTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Commit { commit, side } => {
-                // GB-1771 missing change ID here
                 write!(f, "{} commit {}", side, theme::Commit(commit))
             }
             Self::BranchTip { name } => {

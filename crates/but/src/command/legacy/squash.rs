@@ -57,7 +57,6 @@ impl CliOutputHuman for SquashOutcome {
         _agent: bool,
         _theme: &Theme,
     ) -> anyhow::Result<()> {
-        // GB-1771 missing change ID here
         match self {
             SquashOutcome::Commits {
                 sources,
