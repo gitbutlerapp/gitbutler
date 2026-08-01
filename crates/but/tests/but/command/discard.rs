@@ -37,32 +37,25 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn discard_rejects_path_prefixes() {
+fn discard_removes_path_prefix_mixed_with_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     env.file("path/to/first.txt", "first\n");
     env.file("path/to/second.txt", "second\n");
+    env.file("path/to-other.txt", "outside the prefix\n");
+    env.file("also-discard.txt", "selected separately\n");
 
-    env.but("discard path/to/")
+    env.but("discard path/to/ also-discard.txt")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input 'path/to/' for '<CHANGES>'
-
-Path prefixes cannot be discarded
-
-Hint: Use uncommitted file or hunk CLI IDs instead
-
-"#]]);
+        .success();
 
     env.but("status -f")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted]
-┊   ms A path/to/first.txt
-┊   rr A path/to/second.txt
+┊   nl A path/to-other.txt
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A

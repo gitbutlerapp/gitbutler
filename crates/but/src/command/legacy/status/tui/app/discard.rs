@@ -79,8 +79,8 @@ impl App {
                 CliId::UncommittedHunkOrFile(uncommitted) => {
                     self.to_be_discarded =
                         Vec::from([Selectable::UncommittedHunkOrFile(uncommitted.clone())]);
-                    let operation = DiscardOperation::Uncommitted(UncommittedSelection::Changes(
-                        Box::new(NonEmpty::new(uncommitted.clone())),
+                    let operation = DiscardOperation::Uncommitted(UncommittedSelection::changes(
+                        NonEmpty::new(uncommitted.clone()),
                     ));
 
                     // Discarding only part of a file: select the previous selectable line.
@@ -253,9 +253,9 @@ impl App {
                 };
                 DiscardOperation::Branches(branches)
             }
-            Marks::Hunks(hunks) => DiscardOperation::Uncommitted(UncommittedSelection::Changes(
-                Box::new(hunks.clone()),
-            )),
+            Marks::Hunks(hunks) => {
+                DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks.clone()))
+            }
             Marks::CommittedFiles(files) => {
                 let source = CommitId {
                     commit_id: files.head.commit_id,

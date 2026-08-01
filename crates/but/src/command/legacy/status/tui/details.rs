@@ -1255,8 +1255,8 @@ impl Details {
                 (
                     Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
                     Span::raw(hunk.hunk_assignments.head.hunk.path.clone()),
-                    DiscardOperation::Uncommitted(UncommittedSelection::Changes(Box::new(
-                        NonEmpty::new(hunk.clone()),
+                    DiscardOperation::Uncommitted(UncommittedSelection::changes(NonEmpty::new(
+                        hunk.clone(),
                     ))),
                 )
             } else {
@@ -1367,8 +1367,7 @@ impl Details {
         let Marks::Hunks(hunks) = marks.to_owned() else {
             return;
         };
-        let operation =
-            DiscardOperation::Uncommitted(UncommittedSelection::Changes(Box::new(hunks)));
+        let operation = DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks));
 
         let confirm = Confirm::new(
             NonEmpty::new(Span::raw("Discard?").into()),

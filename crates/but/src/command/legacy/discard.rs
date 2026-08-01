@@ -21,7 +21,7 @@ use crate::{
         discard::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
@@ -44,7 +44,7 @@ pub enum DiscardOperation {
 enum ClassifiedDiscardables {
     Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
-    UncommittedHunks(NonEmpty<UncommittedHunkOrFile>),
+    UncommittedChanges(NonEmpty<UncommittedDiscardSource>),
     Uncommitted,
     CommittedFiles(NonEmpty<CommittedFileId>),
 }
@@ -53,20 +53,20 @@ impl ClassifiedDiscardables {
     fn try_from_sources(
         commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
-        hunk_sources: Vec<UncommittedHunkOrFile>,
+        uncommitted_change_sources: Vec<UncommittedDiscardSource>,
         uncommitted_sources: Vec<()>,
         committed_file_sources: Vec<CommittedFileId>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
         let has_branches = !branch_sources.is_empty();
-        let has_hunks = !hunk_sources.is_empty();
+        let has_uncommitted_changes = !uncommitted_change_sources.is_empty();
         let has_uncommitted = !uncommitted_sources.is_empty();
         let has_committed_files = !committed_file_sources.is_empty();
 
         let source_type_count = [
             has_commits,
             has_branches,
-            has_hunks,
+            has_uncommitted_changes,
             has_uncommitted,
             has_committed_files,
         ]
@@ -87,8 +87,8 @@ impl ClassifiedDiscardables {
             Ok(Self::Commits(commits))
         } else if let Some(branches) = NonEmpty::from_vec(branch_sources) {
             Ok(Self::Branches(branches))
-        } else if let Some(hunks) = NonEmpty::from_vec(hunk_sources) {
-            Ok(Self::UncommittedHunks(hunks))
+        } else if let Some(changes) = NonEmpty::from_vec(uncommitted_change_sources) {
+            Ok(Self::UncommittedChanges(changes))
         } else if has_uncommitted {
             Ok(Self::Uncommitted)
         } else if let Some(files) = NonEmpty::from_vec(committed_file_sources) {
@@ -102,7 +102,19 @@ impl ClassifiedDiscardables {
 #[derive(Debug)]
 pub enum UncommittedSelection {
     All,
-    Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
+    Changes(Box<NonEmpty<UncommittedDiscardSource>>),
+}
+
+impl UncommittedSelection {
+    pub fn changes(changes: NonEmpty<UncommittedHunkOrFile>) -> Self {
+        Self::Changes(Box::new(changes.map(UncommittedDiscardSource::HunkOrFile)))
+    }
+}
+
+#[derive(Debug)]
+pub enum UncommittedDiscardSource {
+    HunkOrFile(UncommittedHunkOrFile),
+    PathPrefix(NonEmpty<IdAndHunk>),
 }
 
 #[must_use]
@@ -257,7 +269,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
     let mut branch_sources = Vec::new();
     let mut commit_sources = Vec::new();
     let mut committed_file_sources = Vec::new();
-    let mut hunk_sources = Vec::new();
+    let mut uncommitted_change_sources = Vec::new();
     let mut uncommitted_sources = Vec::new();
 
     for change in changes {
@@ -268,14 +280,12 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::CommittedFile(committed_file) => {
                 committed_file_sources.push(committed_file)
             }
-            ResolvedCliIdArg::UncommittedHunkOrFile(change) => hunk_sources.push(*change),
+            ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
+                uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
+            }
             ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
-            ResolvedCliIdArg::PathPrefix { .. } => {
-                return Err(bad_input("Path prefixes cannot be discarded")
-                    .arg_name("<CHANGES>")
-                    .arg_value(value)
-                    .hint("Use uncommitted file or hunk CLI IDs instead")
-                    .into());
+            ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
+                uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
             }
             ResolvedCliIdArg::Stack => {
                 return Err(bad_input("Stacks cannot be discarded")
@@ -290,7 +300,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
     let classified = ClassifiedDiscardables::try_from_sources(
         commit_sources,
         branch_sources,
-        hunk_sources,
+        uncommitted_change_sources,
         uncommitted_sources,
         committed_file_sources,
     )?;
@@ -345,7 +355,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
         ClassifiedDiscardables::Uncommitted => {
             Ok(DiscardOperation::Uncommitted(UncommittedSelection::All))
         }
-        ClassifiedDiscardables::UncommittedHunks(changes) => Ok(DiscardOperation::Uncommitted(
+        ClassifiedDiscardables::UncommittedChanges(changes) => Ok(DiscardOperation::Uncommitted(
             UncommittedSelection::Changes(Box::new(changes)),
         )),
     }
@@ -410,7 +420,14 @@ pub fn run(
                     UncommittedSelection::All => builder.push_changes_from_uncommitted_area()?,
                     UncommittedSelection::Changes(changes) => {
                         for change in *changes {
-                            builder.push_changes_from_uncommitted(&change)?;
+                            match change {
+                                UncommittedDiscardSource::HunkOrFile(change) => {
+                                    builder.push_changes_from_uncommitted(&change)?;
+                                }
+                                UncommittedDiscardSource::PathPrefix(hunks) => {
+                                    builder.push_changes_from_path_prefix(&hunks)?;
+                                }
+                            }
                         }
                     }
                 }
