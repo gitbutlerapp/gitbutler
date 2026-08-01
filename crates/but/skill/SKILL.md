@@ -76,7 +76,7 @@ The first token on each `but diff` / `but status` line is that line's ID — pas
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Stack branches: `but move <branch> --above <target-branch>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch> --unstack`
-- Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed files, uncommitted files/hunks, or `zz` for all uncommitted changes
+- Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed files, uncommitted files/hunks/path prefixes, or `zz` for all uncommitted changes
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull (update workspace from the target): `but pull` — the output reports the result; `but pull --check` previews without updating when a preview is actually needed
 - Create PR: `but pr new <branch-id> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes first; do not run `but push` before it

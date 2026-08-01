@@ -299,6 +299,7 @@ Permanently drop branches, commits, or changes. Undo with `but undo`.
 ```bash
 but discard <file-id>              # Discard an uncommitted file's changes
 but discard <hunk-id>              # Discard a single hunk
+but discard path/prefix/            # Discard uncommitted changes under a path
 but discard zz                     # Discard all uncommitted changes
 but discard <commit-id>            # Drop a commit
 but discard <commit-id>:<file-id>  # Drop one file's changes from its commit

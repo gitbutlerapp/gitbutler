@@ -270,12 +270,12 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             }
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => hunk_sources.push(*change),
             ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
-            ResolvedCliIdArg::PathPrefix { .. } => {
-                return Err(bad_input("Path prefixes cannot be discarded")
-                    .arg_name("<CHANGES>")
-                    .arg_value(value)
-                    .hint("Use uncommitted file or hunk CLI IDs instead")
-                    .into());
+            ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
+                hunk_sources.extend(hunks.into_iter().map(|id_and_hunk| UncommittedHunkOrFile {
+                    id: id_and_hunk.id.clone(),
+                    hunk_assignments: NonEmpty::new(id_and_hunk.clone()),
+                    is_entire_file: false,
+                }));
             }
             ResolvedCliIdArg::Stack => {
                 return Err(bad_input("Stacks cannot be discarded")
