@@ -1825,6 +1825,48 @@ fn uncommitted_hunk_to_commit_smoke() {
 }
 
 #[test]
+fn squash_path_prefix_into_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("prefix/a", "content of a\n");
+    env.file("prefix/b", "content of b\n");
+    env.file("prefixx", "content outside the prefix\n");
+
+    let before = status_json(&env);
+    let target_cli_id = branch_commit_cli_ids(&before, "A")[0].clone();
+
+    env.but(format!("squash prefix/ -t {target_cli_id} -u"))
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   tm A prefixx
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+┊│     tpm:y A prefix/a
+┊│     tpm:u A prefix/b
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
 fn uncommitted_area_to_commit_smoke() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

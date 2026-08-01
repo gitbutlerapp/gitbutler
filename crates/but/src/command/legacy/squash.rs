@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice as _};
 use but_api::json::{ChangeIdString, HexHash};
@@ -8,7 +10,7 @@ use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, commit::squash_commits::MessageCombinationStrategy};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::{FullName, FullNameRef};
-use itertools::{Either, Itertools};
+use itertools::Itertools;
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -20,7 +22,7 @@ use crate::{
     },
     bad_input,
     command::legacy::reword2::RewordCommitOperation,
-    id::{CommitId, CommitIdRef, CommittedFileId, UNCOMMITTED, UncommittedHunkOrFile},
+    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -322,14 +324,16 @@ pub fn resolve<'a>(
 
             let mut commit_sources = Vec::new();
             let mut branch_sources = Vec::new();
-            let mut hunk_sources = Vec::new();
+            let mut uncommitted_change_sources = Vec::new();
             let mut uncommitted_sources = Vec::new();
             let mut committed_file_sources = Vec::new();
             for source in sources {
                 match source {
                     Squashable::Commit(object_id) => commit_sources.push(object_id),
                     Squashable::Branch(branch_arg) => branch_sources.push(branch_arg),
-                    Squashable::UncommittedHunkOrFile(hunk) => hunk_sources.push(hunk),
+                    Squashable::UncommittedChange(change) => {
+                        uncommitted_change_sources.push(change)
+                    }
                     Squashable::Uncommitted(zz) => uncommitted_sources.push(zz),
                     Squashable::CommittedFile(committed_file) => {
                         committed_file_sources.push(committed_file)
@@ -340,7 +344,7 @@ pub fn resolve<'a>(
             match ClassifiedSquashables::try_from_sources(
                 commit_sources,
                 branch_sources,
-                hunk_sources,
+                uncommitted_change_sources,
                 uncommitted_sources,
                 committed_file_sources,
             )? {
@@ -350,7 +354,7 @@ pub fn resolve<'a>(
                 ClassifiedSquashables::Branches(branch_sources) => {
                     resolve_squash_branch(target, branch_sources, repo, ws)?
                 }
-                ClassifiedSquashables::UncommittedHunks(source_hunks) => {
+                ClassifiedSquashables::UncommittedChanges(sources) => {
                     let (target, reword) = match target {
                         SquashTarget::Commit { commit, reword } => {
                             (commit, reword.try_into_uncommitting()?)
@@ -361,7 +365,7 @@ pub fn resolve<'a>(
                     };
                     ResolvedSquash::UncommittedHunk(AmendUncommittedHunks {
                         target,
-                        source_hunks: MaybeBorrowedNonEmpty::Borrowed(source_hunks),
+                        sources,
                         reword,
                     })
                 }
@@ -672,42 +676,34 @@ pub enum ResolvedSquash<'a> {
 #[derive(Clone, Debug)]
 pub struct AmendUncommittedHunks<'a> {
     pub target: CommitId,
-    pub source_hunks: MaybeBorrowedNonEmpty<'a, UncommittedHunkOrFile>,
+    pub sources: NonEmpty<UncommittedSquashSource<'a>>,
     pub reword: HowToRewordTargetNoSource,
 }
 
-impl<'a> AmendUncommittedHunks<'a> {
+impl AmendUncommittedHunks<'_> {
     pub fn into_fully_owned(self) -> AmendUncommittedHunks<'static> {
         AmendUncommittedHunks {
             target: self.target,
-            source_hunks: self.source_hunks.into_owned(),
+            sources: self.sources.map(UncommittedSquashSource::into_owned),
             reword: self.reword,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum MaybeBorrowedNonEmpty<'a, T> {
-    Owned(NonEmpty<T>),
-    Borrowed(NonEmpty<&'a T>),
+#[derive(Clone, Debug)]
+pub enum UncommittedSquashSource<'a> {
+    HunkOrFile(Cow<'a, UncommittedHunkOrFile>),
+    PathPrefix(Cow<'a, NonEmpty<IdAndHunk>>),
 }
 
-impl<'a, T> MaybeBorrowedNonEmpty<'a, T> {
-    fn iter(&self) -> impl Iterator<Item = &T> {
+impl UncommittedSquashSource<'_> {
+    fn into_owned(self) -> UncommittedSquashSource<'static> {
         match self {
-            MaybeBorrowedNonEmpty::Owned(inner) => Either::Left(inner.iter()),
-            MaybeBorrowedNonEmpty::Borrowed(inner) => Either::Right(inner.iter().copied()),
-        }
-    }
-
-    fn into_owned(self) -> MaybeBorrowedNonEmpty<'static, T>
-    where
-        T: Clone,
-    {
-        match self {
-            MaybeBorrowedNonEmpty::Owned(inner) => MaybeBorrowedNonEmpty::Owned(inner),
-            MaybeBorrowedNonEmpty::Borrowed(inner) => {
-                MaybeBorrowedNonEmpty::Owned(inner.map(|item| item.clone()))
+            UncommittedSquashSource::HunkOrFile(source) => {
+                UncommittedSquashSource::HunkOrFile(Cow::Owned(source.into_owned()))
+            }
+            UncommittedSquashSource::PathPrefix(source) => {
+                UncommittedSquashSource::PathPrefix(Cow::Owned(source.into_owned()))
             }
         }
     }
@@ -981,7 +977,7 @@ impl HowToRewordTargetNoSource {
 enum Squashable<'a> {
     Commit(CommitId),
     Branch(BranchArg),
-    UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
+    UncommittedChange(UncommittedSquashSource<'a>),
     Uncommitted(&'static str),
     CommittedFile(CommittedFileId),
 }
@@ -994,13 +990,19 @@ impl<'a> Squashable<'a> {
                 return Ok(Self::Branch(BranchArg(branch_name.to_owned())));
             }
             ResolvedCliIdArgRef::UncommittedHunkOrFile(hunk) => {
-                return Ok(Self::UncommittedHunkOrFile(hunk));
+                return Ok(Self::UncommittedChange(
+                    UncommittedSquashSource::HunkOrFile(Cow::Borrowed(hunk)),
+                ));
             }
             ResolvedCliIdArgRef::Uncommitted => return Ok(Self::Uncommitted(UNCOMMITTED)),
             ResolvedCliIdArgRef::CommittedFile(file) => {
                 return Ok(Self::CommittedFile(file.clone()));
             }
-            ResolvedCliIdArgRef::PathPrefix { .. } => "a path",
+            ResolvedCliIdArgRef::PathPrefix { id: _, hunks } => {
+                return Ok(Self::UncommittedChange(
+                    UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
+                ));
+            }
             ResolvedCliIdArgRef::Stack => "a stack",
         };
         Err(bad_input(format!(
@@ -1013,7 +1015,7 @@ impl<'a> Squashable<'a> {
 enum ClassifiedSquashables<'a> {
     Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
-    UncommittedHunks(NonEmpty<&'a UncommittedHunkOrFile>),
+    UncommittedChanges(NonEmpty<UncommittedSquashSource<'a>>),
     Uncommitted,
     CommittedFiles(NonEmpty<CommittedFileId>),
 }
@@ -1022,20 +1024,20 @@ impl<'a> ClassifiedSquashables<'a> {
     fn try_from_sources(
         commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
-        hunk_sources: Vec<&'a UncommittedHunkOrFile>,
+        uncommitted_change_sources: Vec<UncommittedSquashSource<'a>>,
         uncommitted_sources: Vec<&'static str>,
         committed_file_sources: Vec<CommittedFileId>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
         let has_branches = !branch_sources.is_empty();
-        let has_hunks = !hunk_sources.is_empty();
+        let has_uncommitted_changes = !uncommitted_change_sources.is_empty();
         let has_uncommitted = !uncommitted_sources.is_empty();
         let has_committed_file_sources = !committed_file_sources.is_empty();
 
         let source_type_count = [
             has_commits,
             has_branches,
-            has_hunks,
+            has_uncommitted_changes,
             has_uncommitted,
             has_committed_file_sources,
         ]
@@ -1051,8 +1053,8 @@ impl<'a> ClassifiedSquashables<'a> {
             Ok(Self::Commits(commit_sources))
         } else if let Some(branch_sources) = NonEmpty::from_vec(branch_sources) {
             Ok(Self::Branches(branch_sources))
-        } else if let Some(hunk_sources) = NonEmpty::from_vec(hunk_sources) {
-            Ok(Self::UncommittedHunks(hunk_sources))
+        } else if let Some(sources) = NonEmpty::from_vec(uncommitted_change_sources) {
+            Ok(Self::UncommittedChanges(sources))
         } else if has_uncommitted {
             Ok(Self::Uncommitted)
         } else if let Some(committed_file_sources) = NonEmpty::from_vec(committed_file_sources) {
@@ -1112,14 +1114,21 @@ pub fn run(
         }
         SquashOperation::UncommittedHunks(AmendUncommittedHunks {
             target,
-            source_hunks,
+            sources,
             reword,
         }) => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-            for hunk in source_hunks.iter() {
-                builder.push_changes_from_uncommitted(hunk)?;
+            for source in &sources {
+                match source {
+                    UncommittedSquashSource::HunkOrFile(source) => {
+                        builder.push_changes_from_uncommitted(source)?;
+                    }
+                    UncommittedSquashSource::PathPrefix(source) => {
+                        builder.push_changes_from_path_prefix(source)?;
+                    }
+                }
             }
             builder.reconcile_worktree_diff_specs()?;
             let changes = builder.into_diff_specs();
