@@ -91,6 +91,7 @@ import {
 	type SelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
+import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
@@ -895,6 +896,13 @@ const Diff: FC<{
 	const canShowFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanShowFiles(state, projectId),
 	);
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
+	// panel — in the outline's "Uncommitted" row. Surface them in the toolbar below whenever
+	// whichever of those owns them is hidden, so they never disappear entirely.
+	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
+
 	const files = filesItems.map((item) => item.path);
 	const filesNavigationIndex: NavigationIndex<string> = {
 		items: files,
@@ -1063,6 +1071,10 @@ const Diff: FC<{
 						{canShowFiles && <FilesToggle />}
 
 						{headerSlot}
+
+						{!statsShownElsewhere && (
+							<ChangeStats fileCount={changes.length} lineStats={lineStats} />
+						)}
 
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 							<ToggleGroupStyles>
