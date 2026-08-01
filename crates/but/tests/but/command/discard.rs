@@ -725,3 +725,36 @@ warning: this operation left 1 commit(s) conflicted: [..]. Resolve with `but res
 
 "#]]);
 }
+
+#[test]
+fn discard_defaults_to_zz() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("src/discard-me.ts", "export const value = true;\n");
+
+    env.but("discard")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from src/discard-me.ts
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
