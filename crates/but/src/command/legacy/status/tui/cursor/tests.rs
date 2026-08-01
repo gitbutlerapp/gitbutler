@@ -21,7 +21,7 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -93,19 +93,15 @@ fn stack_branch_line(name: &str, id: &str, stack_id: StackId) -> StatusOutputLin
     })
 }
 
-fn hunk_assignment(path: &str, old_start: u32) -> WorktreeHunk {
-    WorktreeHunk {
-        id: None,
+fn hunk(path: &str, old_start: u32) -> but_core::SingleHunk {
+    but_core::SingleHunk {
         hunk_header: Some(HunkHeader {
             old_start,
             old_lines: 1,
             new_start: old_start,
             new_lines: 1,
         }),
-        path: path.to_owned(),
-        path_bytes: BString::from(path),
-        line_nums_added: None,
-        line_nums_removed: None,
+        path: BString::from(path),
         diff: None,
     }
 }
@@ -117,9 +113,9 @@ fn uncommitted_cli_id(path: &str, id: &str) -> Arc<CliId> {
 fn uncommitted_cli_id_with_old_start(path: &str, id: &str, old_start: u32) -> Arc<CliId> {
     Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
         id: id.to_owned(),
-        hunk_assignments: NonEmpty::new(IdAndHunk {
+        hunks: NonEmpty::new(IdAndHunk {
             id: id.to_owned(),
-            hunk: hunk_assignment(path, old_start),
+            hunk: hunk(path, old_start),
         }),
         is_entire_file: true,
     }))
@@ -337,7 +333,7 @@ fn restore_returns_matching_uncommitted_file_after_its_hunks_change() {
     assert_eq!(
         Cursor::restore(&selected_cli_id, &lines),
         Some(Cursor(0)),
-        "the file path and assignment should identify a whole file as its hunks change"
+        "the file path should identify a whole file as its hunks change"
     );
 }
 

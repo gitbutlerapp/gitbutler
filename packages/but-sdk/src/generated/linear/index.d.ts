@@ -828,9 +828,9 @@ export type AbsorptionTarget = {
     branchName: string;
   };
 } | {
-  type: "hunkAssignments";
+  type: "hunks";
   subject: {
-    assignments: Array<HunkAssignment>;
+    hunks: Array<SingleHunk>;
   };
 } | {
   type: "treeChanges";
@@ -1372,7 +1372,7 @@ export type CommitAbsorption = {
   stackId: string;
   commitId: string;
   commitSummary: string;
-  files: Array<FileAbsorption>;
+  hunks: Array<SingleHunk>;
   reason: AbsorptionReason;
 };
 
@@ -1704,12 +1704,6 @@ export type Fetch = {
 /** Update request for [`crate::app_settings::Fetch`]. */
 export type FetchUpdate = {
   autoFetchIntervalMinutes?: number | null;
-};
-
-/** Information about a file being absorbed */
-export type FileAbsorption = {
-  path: string;
-  assignment: HunkAssignment;
 };
 
 export type ForgeCapabilities = {
@@ -2824,6 +2818,24 @@ export type Segment = {
 export type SerdeError = {
   description: string;
   source: any | null;
+};
+
+/**
+ * A single hunk of an uncommitted change, identified by its `path` and `hunk_header`.
+ *
+ * Unlike `but_hunk_assignment::HunkAssignment` this carries no assignment state. It is a
+ * pure function of the diff, so it needs no database and is meaningful in any checkout.
+ */
+export type SingleHunk = {
+  /**
+   * The hunk within `path`.
+   *
+   * `None` for binary files, files too large to diff, and whole-file changes, where
+   * `path` is the only identity.
+   */
+  hunkHeader: HunkHeader | null;
+  /** The worktree-relative path of the file this hunk belongs to. */
+  pathBytes: Array<number>;
 };
 
 export type Snapshot = {

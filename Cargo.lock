@@ -922,7 +922,6 @@ dependencies = [
  "tracing-subscriber",
  "unicode-width",
  "url",
- "uuid",
 ]
 
 [[package]]

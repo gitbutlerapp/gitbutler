@@ -395,9 +395,8 @@ pub fn run(
         DiscardOperation::CommittedFiles { source, paths } => {
             let changes = {
                 let context_lines = ctx.settings.context_lines;
-                let (repo, workspace, mut db) =
-                    ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-                let mut builder = DiffSpecBuilder::new(&mut db, &repo, &workspace, context_lines);
+                let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+                let mut builder = DiffSpecBuilder::new(&repo, context_lines);
                 for path in &paths {
                     builder.push_changes_from_committed_file(source.commit_id, path.as_bstr())?;
                 }
@@ -413,9 +412,8 @@ pub fn run(
         DiscardOperation::Uncommitted(selection) => {
             let changes = {
                 let context_lines = ctx.settings.context_lines;
-                let (repo, workspace, mut db) =
-                    ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-                let mut builder = DiffSpecBuilder::new(&mut db, &repo, &workspace, context_lines);
+                let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+                let mut builder = DiffSpecBuilder::new(&repo, context_lines);
                 match selection {
                     UncommittedSelection::All => builder.push_changes_from_uncommitted_area()?,
                     UncommittedSelection::Changes(changes) => {

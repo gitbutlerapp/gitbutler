@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Context as _;
-use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{
@@ -25,6 +24,7 @@ use serde::Serialize;
 use crate::{
     CLI_DATE, CliId, CliResult, IdMap,
     args::{self, OutputFormat, atoms::CliIdArg},
+    command::legacy::status::uncommitted_file::UncommittedFileWithId,
     command::legacy::{
         forge::review,
         status::output::{
@@ -45,8 +45,8 @@ use crate::{
     },
 };
 
-pub(crate) mod assignment;
 pub(crate) mod json;
+pub(crate) mod uncommitted_file;
 
 mod output;
 mod render_oneshot;
@@ -201,7 +201,7 @@ pub(crate) enum CommitClassification {
     Integrated,
 }
 
-type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
+type StackDetail = (Option<StackWithId>, Vec<UncommittedFileWithId>);
 type StackEntry = (Option<StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -468,7 +468,7 @@ fn build_status_context<'a>(
     let worktree_changes = but_api::diff::changes_in_worktree_with_perm(
         ctx,
         but_api::commit::json::ChangesSource::Head,
-        true,
+        false,
         perm.read_permission(),
     )?;
 
@@ -481,22 +481,23 @@ fn build_status_context<'a>(
         .collect();
     conflicted_paths.sort();
 
-    let id_map = IdMap::new(
-        stacks,
-        worktree_changes.assignments.clone(),
-        commit_id_to_change_id,
-    )?;
+    let uncommitted_hunks = {
+        let repo = ctx.repo.get()?;
+        but_core::hunks_from_changes(
+            &repo,
+            worktree_changes.worktree_changes.changes.clone(),
+            ctx.settings.context_lines,
+        )
+    };
+    let id_map = IdMap::new(stacks, uncommitted_hunks, commit_id_to_change_id)?;
 
     let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later
     let has_branches = !stacks.is_empty();
 
-    let assignments_by_file: BTreeMap<BString, FileAssignment> =
-        FileAssignment::get_assignments_by_file(&id_map);
     let mut stack_details: Vec<StackEntry> = Vec::new();
 
-    let uncommitted = assignments_by_file.values().cloned().collect();
-    stack_details.push((None, (None, uncommitted)));
+    stack_details.push((None, (None, UncommittedFileWithId::all_by_path(&id_map))));
 
     for stack in stacks {
         stack_details.push((stack.id, (Some(stack.clone()), Vec::new())));
@@ -1093,28 +1094,27 @@ fn print_worktree_status(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<bool> {
     let mut has_merged_upstream_branch = false;
-    for (i, (stack_id, (stack_with_id, assignments))) in status_ctx.stack_details.iter().enumerate()
-    {
-        // assignments to the stack
+    for (i, (stack_id, (stack_with_id, files))) in status_ctx.stack_details.iter().enumerate() {
+        // files assigned to the stack
         if let Some(stack_with_id) = stack_with_id {
             let branch_name = stack_with_id
                 .segments
                 .first()
                 .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
             let repo = ctx.repo.get()?;
-            print_assignments(
+            print_files(
                 &repo,
                 status_ctx,
                 *stack_id,
                 branch_name,
-                assignments,
+                files,
                 false,
                 output,
             )?;
         }
 
         has_merged_upstream_branch |=
-            print_group(ctx, status_ctx, stack_with_id, assignments, i == 0, output)?;
+            print_group(ctx, status_ctx, stack_with_id, files, i == 0, output)?;
     }
 
     Ok(has_merged_upstream_branch)
@@ -1158,12 +1158,12 @@ fn ci_map(
     Ok(ci_map)
 }
 
-fn print_assignments(
+fn print_files(
     repo: &gix::Repository,
     status_ctx: &StatusContext<'_>,
     stack: Option<StackId>,
     branch_name: Option<&BStr>,
-    assignments: &[FileAssignment],
+    files: &[UncommittedFileWithId],
     unstaged: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -1174,7 +1174,7 @@ fn print_assignments(
         .unwrap_or_default();
 
     if let Some(stack) = stack
-        && (!unstaged && !assignments.is_empty())
+        && (!unstaged && !files.is_empty())
     {
         let assigned_changes_cli_id = status_ctx
             .id_map
@@ -1200,7 +1200,7 @@ fn print_assignments(
             ]
             .into_iter()
             .chain(
-                assignments
+                files
                     .is_empty()
                     .then(|| [Span::raw(" "), Span::styled("(no changes)", t.hint)])
                     .into_iter()
@@ -1211,23 +1211,22 @@ fn print_assignments(
         )?;
     }
 
-    let max_id_width = assignments
+    let max_id_width = files
         .iter()
-        .map(|fa| fa.assignments[0].cli_id.len())
+        .map(|file| file.short_id.len())
         .max()
         .unwrap_or(0);
 
-    for fa in assignments {
-        let state = status_from_changes(&status_ctx.worktree_changes, fa.path.clone());
+    for file in files {
+        let state = status_from_changes(&status_ctx.worktree_changes, file.path.clone());
         let path = match &state {
-            Some(state) => path_with_color_ui(state, fa.path.to_string()),
-            None => Span::raw(fa.path.to_string()),
+            Some(state) => path_with_color_ui(state, file.path.to_string()),
+            None => Span::raw(file.path.to_string()),
         };
 
         let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
-        let first_assignment = &fa.assignments[0];
-        let cli_id = &first_assignment.cli_id;
+        let cli_id = &file.short_id;
         let id_padding = " ".repeat(max_id_width.saturating_sub(cli_id.len()) + 1);
 
         let file_cli_id = lookup_cli_id_for_short_id(
@@ -1258,7 +1257,7 @@ fn print_assignments(
         }
     }
 
-    if !unstaged && !assignments.is_empty() {
+    if !unstaged && !files.is_empty() {
         output.connector(Vec::from([Span::raw("┊  │")]))?;
     }
 
@@ -1269,7 +1268,7 @@ fn print_group(
     ctx: &Context,
     status_ctx: &StatusContext<'_>,
     stack_with_id: &Option<StackWithId>,
-    assignments: &[FileAssignment],
+    files: &[UncommittedFileWithId],
     first: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<bool> {
@@ -1507,15 +1506,15 @@ fn print_group(
             decoration_start: Vec::from([Span::raw(" [")]),
             label: Vec::from([Span::styled("uncommitted", t.info)]),
             decoration_end: Vec::from([Span::raw("]")]),
-            suffix: if assignments.is_empty() && status_ctx.conflicted_paths.is_empty() {
+            suffix: if files.is_empty() && status_ctx.conflicted_paths.is_empty() {
                 Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
             } else {
                 Vec::new()
             },
         };
         output.unstaged_changes(Vec::from([Span::raw("╭┄ ")]), line, cli_id.clone())?;
-        if !assignments.is_empty() {
-            print_assignments(&repo, status_ctx, None, None, assignments, true, output)?;
+        if !files.is_empty() {
+            print_files(&repo, status_ctx, None, None, files, true, output)?;
         }
         for path in &status_ctx.conflicted_paths {
             output.no_assignments_unstaged(

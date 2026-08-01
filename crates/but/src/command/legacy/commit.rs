@@ -271,8 +271,8 @@ pub fn run(
 ) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let mut builder = DiffSpecBuilder::new(&repo, context_lines);
 
         match commit_selection {
             CommitSelection::AllChanges => {

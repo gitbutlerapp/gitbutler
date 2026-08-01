@@ -1121,8 +1121,8 @@ pub fn run(
             reword,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for source in &sources {
                 match source {
                     UncommittedSquashSource::HunkOrFile(source) => {
@@ -1148,8 +1148,8 @@ pub fn run(
         }
         SquashOperation::Uncommitted { target, reword } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
             let changes = builder.into_diff_specs();
 
@@ -1170,8 +1170,8 @@ pub fn run(
             reword,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for path in source_paths {
                 builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }
@@ -1194,8 +1194,8 @@ pub fn run(
             source_paths,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for path in source_paths {
                 builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }

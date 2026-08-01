@@ -4,30 +4,21 @@ use but_core::{DiffSpec, HunkHeader};
 
 use crate::{
     CliId,
-    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
 };
 
 #[derive(Debug)]
 pub struct DiffSpecBuilder<'a> {
-    db: &'a mut but_db::DbHandle,
     repo: &'a gix::Repository,
-    workspace: &'a but_graph::Workspace,
     context_lines: u32,
     worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
     diff_specs: Vec<DiffSpec>,
 }
 
 impl<'a> DiffSpecBuilder<'a> {
-    pub fn new(
-        db: &'a mut but_db::DbHandle,
-        repo: &'a gix::Repository,
-        workspace: &'a but_graph::Workspace,
-        context_lines: u32,
-    ) -> Self {
+    pub fn new(repo: &'a gix::Repository, context_lines: u32) -> Self {
         Self {
-            db,
             repo,
-            workspace,
             context_lines,
             worktree_changes: None,
             diff_specs: Default::default(),
@@ -40,10 +31,7 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 self.push_changes_from_uncommitted(uncommitted)
             }
-            CliId::PathPrefix {
-                id: _,
-                hunk_assignments,
-            } => self.push_changes_from_path_prefix(hunk_assignments),
+            CliId::PathPrefix { id: _, hunks } => self.push_changes_from_path_prefix(hunks),
             CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {
@@ -75,19 +63,15 @@ impl<'a> DiffSpecBuilder<'a> {
         &mut self,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
-        let assignments = uncommitted.hunk_assignments.iter().cloned();
-        self.push_hunk_assignments(assignments.map(|hunk| hunk.hunk))
+        let hunks = uncommitted.hunks.iter().cloned();
+        self.push_hunks(hunks.map(|id_and_hunk| id_and_hunk.hunk))
     }
 
     pub fn push_changes_from_path_prefix(
         &mut self,
-        hunk_assignments: &nonempty::NonEmpty<IdAndHunk>,
+        hunks: &nonempty::NonEmpty<IdAndHunk>,
     ) -> anyhow::Result<()> {
-        self.push_hunk_assignments(
-            hunk_assignments
-                .iter()
-                .map(|id_and_hunk| id_and_hunk.hunk.clone()),
-        )
+        self.push_hunks(hunks.iter().map(|id_and_hunk| id_and_hunk.hunk.clone()))
     }
 
     pub fn push_changes_from_committed_file(
@@ -117,24 +101,17 @@ impl<'a> DiffSpecBuilder<'a> {
 
     pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
-        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-            self.db.hunk_assignments_mut()?,
-            self.repo,
-            self.workspace,
-            Some(changes.clone()),
-            self.context_lines,
-        )?;
-        let assignments = assignments.into_iter().map(WorktreeHunk::from);
-        self.push_hunk_assignments_with_changes(assignments, &changes);
+        let hunks = but_core::hunks_from_changes(self.repo, changes.clone(), self.context_lines);
+        self.push_hunks_with_changes(hunks, &changes);
         Ok(())
     }
 
-    pub fn push_hunk_assignments(
+    pub fn push_hunks(
         &mut self,
-        assignments: impl IntoIterator<Item = WorktreeHunk>,
+        hunks: impl IntoIterator<Item = but_core::SingleHunk>,
     ) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
-        self.push_hunk_assignments_with_changes(assignments, &changes);
+        self.push_hunks_with_changes(hunks, &changes);
         Ok(())
     }
 
@@ -238,17 +215,13 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(self.worktree_changes.as_deref().unwrap_or_default())
     }
 
-    fn push_hunk_assignments_with_changes(
+    fn push_hunks_with_changes(
         &mut self,
-        assignments: impl IntoIterator<Item = WorktreeHunk>,
+        hunks: impl IntoIterator<Item = but_core::SingleHunk>,
         changes: &[but_core::ui::TreeChange],
     ) {
-        let assignments = assignments
-            .into_iter()
-            .map(|hunk| hunk.into_hunk_assignment_ignoring_stack_assignments());
-        self.diff_specs.extend(
-            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, changes),
-        );
+        self.diff_specs
+            .extend(but_core::diff_specs_with_changes(hunks, changes));
     }
 
     fn diff_specs_for_path_in_commit(

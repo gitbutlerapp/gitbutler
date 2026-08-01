@@ -141,20 +141,15 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
         }],
         CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file => {
             vec![Resource::UncommittedFile {
-                path: uncommitted
-                    .hunk_assignments
-                    .first()
-                    .hunk
-                    .path_bytes
-                    .to_string(),
+                path: uncommitted.hunks.first().hunk.path.to_string(),
             }]
         }
         CliId::UncommittedHunkOrFile(uncommitted) => uncommitted
-            .hunk_assignments
+            .hunks
             .into_iter()
-            .map(|assignment| Resource::UncommittedHunk {
-                path: assignment.hunk.path_bytes.to_string(),
-                hunk_header: assignment
+            .map(|id_and_hunk| Resource::UncommittedHunk {
+                path: id_and_hunk.hunk.path.to_string(),
+                hunk_header: id_and_hunk
                     .hunk
                     .hunk_header
                     .map(format_hunk_header)
