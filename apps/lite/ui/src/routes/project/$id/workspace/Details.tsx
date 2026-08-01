@@ -745,7 +745,7 @@ const FilesToggle: FC = () => {
 						aria-pressed={filesVisible}
 						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 					>
-						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-show" />}
+						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
 					</button>
 				}
 			/>

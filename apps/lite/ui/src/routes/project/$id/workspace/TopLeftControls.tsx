@@ -24,7 +24,7 @@ const FullWindowButton: FC = () => {
 							dispatch(interfaceSlice.actions.setDetailsFullWindow({ fullWindow: !fullWindow }))
 						}
 					>
-						{fullWindow ? <Icon name="sidebar-show" /> : <Icon name="sidebar-hide" />}
+						{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
 					</button>
 				}
 			/>
