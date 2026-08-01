@@ -380,7 +380,7 @@ Branching and Committing:
   unapply      Unapply a branch from the workspace
   apply        Apply a branch to the workspace
   clean        Remove empty branches from the workspace
-  pick         Cherry-pick a commit from an unapplied branch into an applied v…
+  pick         Cherry-pick commits into an applied branch
 
 Editing Commits:
   squash       Squash commits, branches, or changes
@@ -445,7 +445,7 @@ Environment variables:
 
         assert!(
             output.contains(
-                "Cherry-pick a commit from an unapplied branch into an applied virtual branch"
+                "Uncommit changes from commits or committed files to the uncommitted area"
             ),
             "agent help should keep the full command description"
         );

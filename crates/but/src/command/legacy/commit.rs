@@ -25,6 +25,7 @@ use crate::{
         reword2::RewordCommitOperation,
         status::{Selectable, TuiOutcome, TuiRunOptions, tui_with_options},
     },
+    error::BadInput,
     id::{CommitId, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
@@ -41,6 +42,7 @@ pub struct CommitOutcome {
 
 /// `--json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
+#[derive(Debug)]
 pub enum BranchNameTarget {
     Existing(FullName),
     New(FullName),
@@ -158,19 +160,7 @@ fn resolve(
 
     let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
 
-    let target_ish = match (branch, above, below) {
-        (Some(Some(branch)), None, None) => CommitOperationTargetIsh::Branch(branch),
-        (Some(None), None, None) => CommitOperationTargetIsh::UnstackedCannedBranch,
-        (None, Some(cli_id), None) => CommitOperationTargetIsh::Above(cli_id),
-        (None, None, Some(cli_id)) => CommitOperationTargetIsh::Below(cli_id),
-        (None, None, None) => CommitOperationTargetIsh::Default,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "BUG: Should not be able to supply more than one of above, below or branch"
-            )
-            .into());
-        }
-    };
+    let target_ish = CommitOperationTargetIsh::resolve(branch, above, below)?;
 
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
@@ -229,7 +219,19 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged)?
+        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
+            |err| match err {
+                RouteCommitOperationError::NoStackToCommitTo => {
+                    bad_input("Found no stack that could be committed to").into()
+                }
+                RouteCommitOperationError::UnclearTargetCantPrompt => {
+                    bad_input("Unclear where to commit. Found more than one stack")
+                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                        .into()
+                }
+                RouteCommitOperationError::Other(cli_error) => cli_error,
+            },
+        )?
     };
 
     let reword_op = RewordCommitOperation::resolve(no_message, message);
@@ -326,7 +328,7 @@ pub fn run(
 }
 
 /// Targeting modes for committing.
-enum CommitOperationTargetIsh {
+pub enum CommitOperationTargetIsh {
     /// Target the branch if it exists, or create it at the newest base if it does not.
     Branch(CliIdArg),
     /// Target newest base with a new canned branch name.
@@ -342,7 +344,29 @@ enum CommitOperationTargetIsh {
     Default,
 }
 
-fn route_commit_operation(
+impl CommitOperationTargetIsh {
+    pub fn resolve(
+        branch: Option<Option<CliIdArg>>,
+        above: Option<CliIdArg>,
+        below: Option<CliIdArg>,
+    ) -> CliResult<Self> {
+        Ok(match (branch, above, below) {
+            (Some(Some(branch)), None, None) => CommitOperationTargetIsh::Branch(branch),
+            (Some(None), None, None) => CommitOperationTargetIsh::UnstackedCannedBranch,
+            (None, Some(cli_id), None) => CommitOperationTargetIsh::Above(cli_id),
+            (None, None, Some(cli_id)) => CommitOperationTargetIsh::Below(cli_id),
+            (None, None, None) => CommitOperationTargetIsh::Default,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "BUG: Should not be able to supply more than one of above, below or branch"
+                )
+                .into());
+            }
+        })
+    }
+}
+
+pub fn route_commit_operation(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
     head_info: &RefInfo,
@@ -350,15 +374,19 @@ fn route_commit_operation(
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
     merged: &MergedUpstream,
-) -> CliResult<CommitOperation> {
+) -> Result<CommitOperation, RouteCommitOperationError> {
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
             let side = Side::Above;
-            route_commit_above_or_below(repo, id_map, cli_id, side, merged)
+            Ok(route_commit_above_or_below(
+                repo, id_map, cli_id, side, merged,
+            )?)
         }
         CommitOperationTargetIsh::Below(cli_id) => {
             let side = Side::Below;
-            route_commit_above_or_below(repo, id_map, cli_id, side, merged)
+            Ok(route_commit_above_or_below(
+                repo, id_map, cli_id, side, merged,
+            )?)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
             if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
@@ -432,15 +460,11 @@ fn route_commit_operation(
                         .collect::<Vec<_>>();
 
                     let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
-                        return Err(bad_input("Found not stack that could be committed to").into());
+                        return Err(RouteCommitOperationError::NoStackToCommitTo);
                     };
 
                     let Some(mut input) = out.prepare_for_terminal_input() else {
-                        return Err(bad_input(
-                            "Unclear where to commit. Found more than one stack",
-                        )
-                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
-                        .into());
+                        return Err(RouteCommitOperationError::UnclearTargetCantPrompt);
                     };
 
                     let mut stack_heads =
@@ -470,6 +494,31 @@ fn route_commit_operation(
                 }
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum RouteCommitOperationError {
+    NoStackToCommitTo,
+    UnclearTargetCantPrompt,
+    Other(CliError),
+}
+
+impl From<anyhow::Error> for RouteCommitOperationError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Other(err.into())
+    }
+}
+
+impl From<CliError> for RouteCommitOperationError {
+    fn from(value: CliError) -> Self {
+        Self::Other(value)
+    }
+}
+
+impl From<BadInput> for RouteCommitOperationError {
+    fn from(value: BadInput) -> Self {
+        Self::Other(value.into())
     }
 }
 
@@ -595,13 +644,25 @@ impl CommitAtOperation {
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let (relative_to, side, branch_name_target) = match self.target {
+        let (relative_to, side, branch_name_target) = self.create_target(tx)?;
+
+        let commit_create_result =
+            tx.create_commit(relative_to.clone(), side, changes, String::new())?;
+
+        Ok((commit_create_result, branch_name_target))
+    }
+
+    pub fn create_target(
+        &self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
+        Ok(match &self.target {
             CommitRelativeToTarget::Commit { commit, side } => {
-                (RelativeTo::Commit(commit.commit_id), side.into(), None)
+                (RelativeTo::Commit(commit.commit_id), (*side).into(), None)
             }
             CommitRelativeToTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
-                let anchor = Anchor::at_segment(name.as_ref(), side.into());
+                let anchor = Anchor::at_segment(name.as_ref(), (*side).into());
                 tx.create_reference(
                     new_branch_name.as_ref(),
                     Some(anchor),
@@ -618,14 +679,9 @@ impl CommitAtOperation {
             CommitRelativeToTarget::BranchTip { name } => (
                 RelativeTo::Reference(name.clone()),
                 InsertSide::Below,
-                Some(BranchNameTarget::Existing(name)),
+                Some(BranchNameTarget::Existing(name.clone())),
             ),
-        };
-
-        let commit_create_result =
-            tx.create_commit(relative_to.clone(), side, changes, String::new())?;
-
-        Ok((commit_create_result, branch_name_target))
+        })
     }
 }
 

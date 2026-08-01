@@ -58,7 +58,6 @@ impl CliOutputHuman for MoveOutcome {
         _agent: bool,
         _theme: &Theme,
     ) -> anyhow::Result<()> {
-        // GB-1771 missing change ID here
         match self {
             Self::Commits {
                 sources,

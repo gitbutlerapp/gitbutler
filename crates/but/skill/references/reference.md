@@ -138,18 +138,18 @@ but branch show <id> --check  # Check if branch merges cleanly into upstream
 but branch show <id> -r       # Fetch and display review information
 ```
 
-### `but pick <source> [target]`
+### `but pick [SOURCES]...`
 
 Cherry-pick commits from unapplied branches into applied branches.
 
 ```bash
-but pick <commit-sha> <branch>       # Pick specific commit into branch
-but pick <cli-id> <branch>           # Pick using CLI ID (e.g., "nn")
+but pick <commit-sha> --branch <branch>       # Pick specific commit into branch
+but pick <cli-id> --branch <branch>           # Pick using CLI ID (e.g., "nn")
 ```
 
-Name both the source commit and the target branch. Passing a branch as the source opens an
-interactive commit picker, and omitting the target prompts for one when several branches exist —
-both block. The source can be a commit SHA (full or short) or a CLI ID from `but status`.
+Name both the source commit and the target branch. Omitting the target prompts
+for one when several branches exist. The source can be a commit SHA (full or
+short) or a CLI ID from `but status`.
 
 ## Committing
 
