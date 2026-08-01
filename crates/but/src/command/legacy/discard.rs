@@ -94,7 +94,7 @@ impl ClassifiedDiscardables {
         } else if let Some(files) = NonEmpty::from_vec(committed_file_sources) {
             Ok(Self::CommittedFiles(files))
         } else {
-            unreachable!("`changes` is required by clap")
+            Ok(Self::Uncommitted)
         }
     }
 }

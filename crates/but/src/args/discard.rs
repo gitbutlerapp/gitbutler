@@ -7,7 +7,7 @@ use crate::args::atoms::CliIdArg;
 /// Discard branches, commits, or changes.
 ///
 /// Changes may be selected by branch, commit, committed file, uncommitted file, or uncommitted
-/// hunk CLI ID. Use `zz` to discard all uncommitted changes.
+/// hunk CLI ID. Use `zz`, or omit `<CHANGES>`, to discard all uncommitted changes.
 ///
 /// All provided changes must be the same kind. Committed files must come from the same commit.
 ///
@@ -18,6 +18,7 @@ use crate::args::atoms::CliIdArg;
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
     /// One or more branches, commits, or changes to discard.
-    #[clap(required = true)]
+    ///
+    /// If omitted all uncommitted changes will be discarded.
     pub changes: Vec<CliIdArg>,
 }
