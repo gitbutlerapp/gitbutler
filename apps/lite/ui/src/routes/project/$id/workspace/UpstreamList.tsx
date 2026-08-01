@@ -1,12 +1,7 @@
 import rowStyles from "./Row.module.css";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
-import {
-	forgeInfoOptions,
-	headInfoQueryOptions,
-	olderTargetCommitsInfiniteQueryOptions,
-	workspaceTargetCommitsQueryOptions,
-} from "#ui/api/queries.ts";
+import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { commitTitle } from "#ui/commit.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -32,7 +27,7 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type ComponentProps,
 	type FC,
@@ -46,6 +41,7 @@ import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "./Row.tsx";
 import { treeItemId } from "./Row-utils.ts";
 import {
 	INCOMING_SEGMENT_ID,
+	useOlderTargetCommits,
 	type UpstreamBranchItem,
 	type UpstreamCommitItem,
 	type UpstreamListItem,
@@ -307,15 +303,8 @@ const SegmentExpanderRow: FC<{
 
 const OlderCommitsMoreRow: FC<{ projectId: string }> = ({ projectId }) => {
 	// Shares the pages the outline hook merges into the list; this instance
-	// only drives fetching.
-	const { data: olderFrom = null } = useQuery({
-		...workspaceTargetCommitsQueryOptions(projectId),
-		select: (commits) => commits.at(-1)?.commit.id ?? null,
-	});
-	const { fetchNextPage, isFetching } = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
-		enabled: olderFrom !== null,
-	});
+	// only drives fetching. Only rendered while the older segment is expanded.
+	const { fetchNextPage, isFetching } = useOlderTargetCommits(projectId, true);
 
 	return (
 		<button

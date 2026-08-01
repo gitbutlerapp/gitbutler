@@ -23,12 +23,8 @@ const OLDER_SEGMENT_ID = "older";
  */
 export const INCOMING_SEGMENT_ID = "incoming";
 
-/** A target commit annotated with the workspace boundary. */
-export type UpstreamCommitItem = TargetCommit & {
-	type: "commit";
-	/** Whether this is the first commit already in the workspace, i.e. the boundary. */
-	workspaceBoundary: boolean;
-};
+/** A target commit as a list item. */
+export type UpstreamCommitItem = TargetCommit & { type: "commit" };
 
 /**
  * A workspace branch positioned against the target line, rendered with the
@@ -133,17 +129,20 @@ const buildItems = (
 	commits: Array<UpstreamCommitItem>,
 	stacks: Array<WorkspaceStackBranches>,
 	expanded: Record<string, true>,
-	incomingHidden: boolean,
+	incoming: { count: number; hidden: boolean },
 	older: { commits: Array<UpstreamCommitItem>; showMore: boolean },
 ): Array<UpstreamListItem> => {
-	const stubsByBase = new Map<string, Array<Array<UpstreamBranchItem>>>();
+	const stubsByBase = new Map<string, Array<UpstreamBranchItem>>();
+	const strandedStubs: Array<UpstreamBranchItem> = [];
 	for (const stack of stacks) {
 		if (stack.unintegrated.length === 0) continue;
 		if (stack.base === null) {
-			stubsByBase.set("", [...(stubsByBase.get("") ?? []), stack.unintegrated]);
+			strandedStubs.push(...stack.unintegrated);
 			continue;
 		}
-		stubsByBase.set(stack.base, [...(stubsByBase.get(stack.base) ?? []), stack.unintegrated]);
+		const stubs = stubsByBase.get(stack.base);
+		if (stubs !== undefined) stubs.push(...stack.unintegrated);
+		else stubsByBase.set(stack.base, [...stack.unintegrated]);
 	}
 
 	// Attach each integrated branch to the first commit whose review landed it.
@@ -166,6 +165,18 @@ const buildItems = (
 	const unmatchedIntegrated = () => allIntegrated.filter((branch) => !matched.has(branch));
 
 	const items: Array<UpstreamListItem> = [];
+	// The incoming commits are always the prefix of the walk, so their
+	// expander leads the list. Hiding them keeps the integrated branch rows
+	// they landed visible below.
+	if (incoming.count > 0) {
+		items.push({
+			type: "expander",
+			segmentId: INCOMING_SEGMENT_ID,
+			count: incoming.count,
+			expanded: !incoming.hidden,
+		});
+	}
+
 	// Commits already in the workspace are not shown outright — the tab is
 	// about what's upstream — but each run of them between fork points becomes
 	// an expandable shared-history segment.
@@ -180,46 +191,34 @@ const buildItems = (
 		gap = [];
 	};
 
-	const incomingCount = commits.filter((commit) => !commit.inWorkspace).length;
-	let boundaryEmitted = false;
-	let incomingExpanderEmitted = false;
+	let boundarySeen = false;
 	for (const commit of commits) {
 		const attachedStubs = stubsByBase.get(commit.commit.id);
-		if (attachedStubs) stubsByBase.delete(commit.commit.id);
+		if (attachedStubs !== undefined) stubsByBase.delete(commit.commit.id);
 		const landed = integratedByCommitId.get(commit.commit.id);
 
-		if (commit.workspaceBoundary) {
+		if (commit.inWorkspace && !boundarySeen) {
+			boundarySeen = true;
 			items.push(...unmatchedIntegrated());
-			boundaryEmitted = true;
 		}
 		if (attachedStubs !== undefined || landed !== undefined) flushGap();
-		for (const stub of attachedStubs ?? []) items.push(...stub);
+		if (attachedStubs !== undefined) items.push(...attachedStubs);
 		if (!commit.inWorkspace) {
-			if (!incomingExpanderEmitted) {
-				items.push({
-					type: "expander",
-					segmentId: INCOMING_SEGMENT_ID,
-					count: incomingCount,
-					expanded: !incomingHidden,
-				});
-				incomingExpanderEmitted = true;
-			}
-			// Hiding the incoming commits keeps the integrated branch rows they
-			// landed visible below.
-			if (!incomingHidden) items.push(commit);
+			if (!incoming.hidden) items.push(commit);
 		} else {
 			gap.push(commit);
 		}
-		items.push(...(landed ?? []));
+		if (landed !== undefined) items.push(...landed);
 	}
-	for (const stranded of stubsByBase.values()) for (const stub of stranded) items.push(...stub);
+	for (const stranded of stubsByBase.values()) items.push(...stranded);
+	items.push(...strandedStubs);
 	// Without a boundary commit in the list there is no anchor; keep the
 	// integrated branches visible at the end instead of dropping them.
-	if (!boundaryEmitted) items.push(...unmatchedIntegrated());
+	if (!boundarySeen) items.push(...unmatchedIntegrated());
 
 	// The trailing shared history below the deepest fork point continues into
 	// older target commits, paged on demand through the same expander.
-	if (gap.length > 0 || commits.length > 0) {
+	if (commits.length > 0) {
 		const olderExpanded = expanded[OLDER_SEGMENT_ID] === true;
 		items.push({
 			type: "expander",
@@ -244,6 +243,24 @@ const buildItems = (
  * index. Both the list rendering and the selection resolution in the
  * workspace page consume it, so the two cannot drift apart.
  */
+/**
+ * The pages of target history older than the deepest fork point, continued
+ * below the last commit of the base listing with a commit-id cursor. Shared
+ * by the outline (which merges the pages into the items) and the show-more
+ * row (which drives fetching) so the two cannot disagree about the query.
+ */
+export const useOlderTargetCommits = (projectId: string, enabled: boolean) => {
+	const { data: olderFrom = null } = useQuery({
+		...workspaceTargetCommitsQueryOptions(projectId),
+		enabled,
+		select: (commits) => commits.at(-1)?.commit.id ?? null,
+	});
+	return useInfiniteQuery({
+		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom),
+		enabled,
+	});
+};
+
 export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 	const active = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineTab(state, projectId) === "upstream",
@@ -255,18 +272,8 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 		projectSlice.selectors.selectUpstreamIncomingHidden(state, projectId),
 	);
 
-	// Older target history pages continue below the last commit of the base
-	// listing; the cursor comes from the same cached response.
-	const { data: olderFrom = null } = useQuery({
-		...workspaceTargetCommitsQueryOptions(projectId),
-		enabled: active,
-		select: (commits) => commits.at(-1)?.commit.id ?? null,
-	});
 	const olderExpanded = expandedSegments[OLDER_SEGMENT_ID] === true;
-	const olderQuery = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
-		enabled: active && olderExpanded && olderFrom !== null,
-	});
+	const olderQuery = useOlderTargetCommits(projectId, active && olderExpanded);
 	const olderPages = olderQuery.data;
 	const olderShowMore = olderExpanded && (olderPages === undefined || olderQuery.hasNextPage);
 
@@ -285,25 +292,22 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			const headInfo = headInfoResult.data;
 			const stacks = workspaceStackBranches(headInfo);
 
-			let boundarySeen = false;
-			const commits = targetCommits.map((targetCommit): UpstreamCommitItem => {
-				const workspaceBoundary = targetCommit.inWorkspace && !boundarySeen;
-				boundarySeen ||= targetCommit.inWorkspace;
-				return { type: "commit", ...targetCommit, workspaceBoundary };
+			const asItem = (targetCommit: TargetCommit): UpstreamCommitItem => ({
+				type: "commit",
+				...targetCommit,
 			});
-
-			const olderCommits =
-				olderPages?.pages.flat().map(
-					(targetCommit): UpstreamCommitItem => ({
-						type: "commit",
-						...targetCommit,
-						workspaceBoundary: false,
-					}),
-				) ?? [];
-			const items = buildItems(commits, stacks, expandedSegments, incomingHidden, {
-				commits: olderCommits,
-				showMore: olderShowMore,
-			});
+			const commits = targetCommits.map(asItem);
+			const incomingCount = commits.filter((commit) => !commit.inWorkspace).length;
+			const items = buildItems(
+				commits,
+				stacks,
+				expandedSegments,
+				{ count: incomingCount, hidden: incomingHidden },
+				{
+					commits: olderPages?.pages.flat().map(asItem) ?? [],
+					showMore: olderShowMore,
+				},
+			);
 
 			const navigationItems = items.flatMap((item): Array<Operand> => {
 				switch (item.type) {
@@ -332,7 +336,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 				targetLabel: headInfo?.target
 					? `${headInfo.target.remoteTrackingRef.remoteName}/${headInfo.target.remoteTrackingRef.displayName}`
 					: null,
-				incomingCount: commits.filter((commit) => !commit.inWorkspace).length,
+				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),
 				navigationIndex: {
 					items: navigationItems,

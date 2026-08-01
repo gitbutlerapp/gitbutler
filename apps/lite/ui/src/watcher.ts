@@ -45,11 +45,13 @@ export const handleWatcher = (
 			void client.invalidateQueries({
 				queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId],
 			});
+			// Older target history (workspaceTargetCommitsOlder) is deliberately
+			// not invalidated here: history below the fork point cannot change
+			// from local activity, and refetching every loaded page on each
+			// workspace mutation is wasteful. A fetch can move it, so the
+			// gitFetch case above does invalidate it.
 			void client.invalidateQueries({
 				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
-			});
-			void client.invalidateQueries({
-				queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId],
 			});
 			break;
 		}
