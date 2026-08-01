@@ -13,7 +13,7 @@
 	display: flex;
 	row-gap: 8px;
 	flex-direction: column;
-	padding-inline: var(--panel-padding-inline);
+	padding-inline: var(--panel-padding-inline) 10px;
 	padding-block-start: var(--panel-padding-block);
 }
 
@@ -60,8 +60,13 @@
 	align-items: center;
 	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 10px;
-	gap: 12px;
+	gap: 10px;
 	border-bottom: 1px solid var(--border-3);
+
+	/* No files panel to the left, so align with the panel padding. */
+	&.filesHidden {
+		padding-inline-start: var(--panel-padding-inline);
+	}
 
 	/* Lone layout: the title lives in this row, match the panel padding. */
 	.containerLone & {

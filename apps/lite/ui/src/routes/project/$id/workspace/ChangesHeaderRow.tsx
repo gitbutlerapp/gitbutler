@@ -3,8 +3,6 @@ import {
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
 } from "#ui/api/mutations.ts";
-import { Badge } from "#ui/components/Badge.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import {
 	nativeMenuItem,
@@ -19,7 +17,7 @@ import { Toolbar } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import type { FC } from "react";
-import styles from "./ChangesHeaderRow.module.css";
+import { ChangeStats } from "./ChangeStats.tsx";
 import type { LineStats } from "./lineStats.ts";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { RowToolbar, SectionHeaderRow } from "./Row.tsx";
@@ -115,18 +113,7 @@ export const ChangesHeaderRow: FC<{
 				</Toolbar.Root>
 			}
 		>
-			<Badge variant="fillGray">{changes.length}</Badge>
-
-			{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-				<span className={classes("text-12", styles.lineStats)}>
-					{lineStats.linesAdded > 0 && (
-						<span className={styles.linesAdded}>+{lineStats.linesAdded}</span>
-					)}
-					{lineStats.linesRemoved > 0 && (
-						<span className={styles.linesRemoved}>-{lineStats.linesRemoved}</span>
-					)}
-				</span>
-			)}
+			<ChangeStats fileCount={changes.length} lineStats={lineStats} />
 		</SectionHeaderRow>
 	);
 };

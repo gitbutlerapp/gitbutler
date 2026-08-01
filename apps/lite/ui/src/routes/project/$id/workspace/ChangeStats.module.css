@@ -1,3 +1,9 @@
+.container {
+	display: inline-flex;
+	column-gap: 6px;
+	align-items: center;
+}
+
 .lineStats {
 	display: inline-flex;
 	align-items: center;

@@ -1,5 +1,4 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
-import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
@@ -18,11 +17,10 @@ import { Toolbar } from "@base-ui/react";
 import type { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { Badge } from "#ui/components/Badge.tsx";
+import { ChangeStats } from "../ChangeStats.tsx";
 import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
-import styles from "./UncommittedChangesRow.module.css";
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
@@ -109,18 +107,7 @@ export const UncommittedChangesRow: FC<{
 				)
 			}
 		>
-			<Badge variant="fillGray">{changes.length}</Badge>
-
-			{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-				<span className={classes("text-12", styles.lineStats)}>
-					{lineStats.linesAdded > 0 && (
-						<span className={styles.linesAdded}>+{lineStats.linesAdded}</span>
-					)}
-					{lineStats.linesRemoved > 0 && (
-						<span className={styles.linesRemoved}>-{lineStats.linesRemoved}</span>
-					)}
-				</span>
-			)}
+			<ChangeStats fileCount={changes.length} lineStats={lineStats} />
 		</SectionHeaderRow>
 	);
 };
