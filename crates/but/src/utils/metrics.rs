@@ -226,7 +226,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Land { .. } => Land,
             #[cfg(feature = "legacy")]
-            Subcommands::Pick { .. } => Pick,
+            Subcommands::Pick(..) => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,

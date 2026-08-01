@@ -1631,10 +1631,10 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pick {
-            source,
-            target_branch,
-        } => {
+        Subcommands::Pick(pick_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -1643,19 +1643,16 @@ async fn match_subcommand(
                 },
                 out,
             )?;
+            out.begin_status_after(status_after);
+
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let result =
-                command::legacy::pick::handle(&mut ctx, out, &source, target_branch.as_deref())
-                    .context("Failed to pick commit.")
-                    .emit_metrics(metrics_ctx);
-            if result.is_ok() {
-                command::legacy::conflict_notice::report_newly_conflicted(
-                    &ctx,
-                    out,
-                    conflicts_before,
-                );
-            }
-            result.show_root_cause_error_then_exit_without_destructors(output)
+            let outcome =
+                command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unapply { identifier } => {

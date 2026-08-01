@@ -1,175 +1,292 @@
 use snapbox::str;
 
-use crate::utils::{CommandExt, Sandbox};
-
-/// Get commit SHA from a git reference
-fn get_commit_sha(env: &Sandbox, git_ref: &str) -> String {
-    env.invoke_git(&format!("rev-parse {git_ref}"))
-}
-
-/// Check if a branch contains a commit with the given message substring
-fn branch_has_commit_message(env: &Sandbox, branch_name: &str, message_contains: &str) -> bool {
-    let result = env.but("status --json").assert().success();
-    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
-    let status: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
-
-    status["stacks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .flat_map(|stack| stack["branches"].as_array().unwrap())
-        .filter(|branch| branch["name"] == branch_name)
-        .flat_map(|branch| branch["commits"].as_array().unwrap())
-        .any(|commit| {
-            commit["message"]
-                .as_str()
-                .map(|m| m.contains(message_contains))
-                .unwrap_or(false)
-        })
-}
-
-// === Success cases ===
+use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn pick_by_full_sha() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
+fn pick_commit_to_existing_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
-    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {sha} applied-branch"))
-        .assert()
-        .success();
+    env.but("unapply B").assert().success();
 
-    assert!(branch_has_commit_message(
-        &env,
-        "applied-branch",
-        "first pickable commit"
-    ));
-}
-
-#[test]
-fn pick_by_short_sha() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
-
-    let short_sha = &get_commit_sha(&env, "refs/gitbutler/pickable-first")[..7];
-    env.but(format!("pick {short_sha} applied-branch"))
-        .assert()
-        .success();
-
-    assert!(branch_has_commit_message(
-        &env,
-        "applied-branch",
-        "first pickable commit"
-    ));
-}
-
-#[test]
-fn pick_by_branch_name() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
-
-    // When picking by branch name in non-interactive mode, picks the head commit
-    env.but("pick unapplied-branch applied-branch")
-        .assert()
-        .success();
-
-    assert!(branch_has_commit_message(
-        &env,
-        "applied-branch",
-        "second pickable commit"
-    ));
-}
-
-#[test]
-fn pick_auto_selects_single_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
-
-    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-
-    // No target specified - should auto-select the only stack
-    let result = env.but(format!("pick {sha}")).assert().success();
-    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
-
-    assert!(stdout.contains("into branch applied-branch"));
-}
-
-#[test]
-fn pick_target_is_case_insensitive() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
-
-    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {sha} APPLIED-BRANCH"))
-        .assert()
-        .success();
-}
-
-#[test]
-fn pick_json_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    let stack_ids = env.setup_metadata(&["applied-branch"]);
-
-    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    let result = env
-        .but(format!("--json pick {sha} applied-branch"))
+    env.but("--json pick d3e2ba3")
         .allow_json()
-        .output()
-        .unwrap();
-
-    assert!(result.status.success());
-    let stdout = String::from_utf8_lossy(&result.stdout);
-    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
-
-    assert_eq!(json["picked_commit"], sha);
-    assert_eq!(json["target_branch"], "applied-branch");
-    assert_eq!(json["target_stack_id"], stack_ids[0].to_string());
-}
-
-// === Error cases ===
-
-#[test]
-fn pick_without_applied_stacks_points_to_public_apply_command() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&[]);
-
-    env.but("pick unapplied-branch")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Failed to pick commit. No applied stacks in workspace. Apply a branch first with 'but apply <branch-name>'.
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "commits": [
+    {
+      "sourceCommitId": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
+      "newCommitId": "b40d58bcb23bf959c85cef47249d7d263a2e9b0c",
+      "newChangeId": "1"
+    }
+  ]
+}
 
 "#]]);
 }
 
 #[test]
-fn pick_invalid_source_fails() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
+fn pick_rejects_non_commit_object() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let tree = env.invoke_git("rev-parse 9477ae7^{tree}");
 
-    env.but("pick nonexistent-thing applied-branch")
+    env.but(format!("pick {tree} --branch new-branch"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to pick commit. Source 'nonexistent-thing' is not a valid commit ID, CLI ID, or unapplied branch name.
-Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
+Error: '[..]' is not a commit
 
 "#]]);
 }
 
 #[test]
-fn pick_invalid_target_fails() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
-    env.setup_metadata(&["applied-branch"]);
+fn pick_duplicate_sources_outputs_each_commit_once() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
-    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {sha} nonexistent-branch"))
+    env.but("--json pick 9477ae7 9477ae7 d3e2ba3 --branch new-branch")
+        .allow_json()
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Failed to pick commit. Target branch 'nonexistent-branch' not found among applied stacks.
-Available stacks: applied-branch
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "commits": [
+    {
+      "sourceCommitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
+      "newCommitId": "f033235315bbeb928633d5cad1926d91bf2b9dfb",
+      "newChangeId": "1"
+    },
+    {
+      "sourceCommitId": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
+      "newCommitId": "10d0f0680d5ef69031deb2e94ba05e934d59b7c0",
+      "newChangeId": "1"
+    }
+  ],
+  "branch": "new-branch"
+}
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_to_new_branch_outputs_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply A").assert().success();
+
+    env.but("--json pick 9477ae7 --branch new-branch")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "commits": [
+    {
+      "sourceCommitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
+      "newCommitId": "f033235315bbeb928633d5cad1926d91bf2b9dfb",
+      "newChangeId": "1"
+    }
+  ],
+  "branch": "new-branch"
+}
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_to_default_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto branch 'A' to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
+┊│     add B 
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply A").assert().success();
+
+    env.but("pick 9477ae7 -b new-branch")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked 9477ae7 onto new branch 'new-branch' to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha f033235)
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_above_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --above 9477ae7")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
+┊│     add B 
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_below_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --below 9477ae7")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha c341b3d)
+┊│     add A 
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha 2174f2b)
+┊│     add B 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_above_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --above A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto new branch 'a-branch-1' to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
+┊│     add B 
+┊│
+┊├┄ g0 [A]
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_below_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --below A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto new branch 'a-branch-1' to create 1
+
+"#]]);
+
+    env.but("status -v").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha c341b3d)
+┊│     add A 
+┊│
+┊├┄ br [a-branch-1]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha 2174f2b)
+┊│     add B 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }

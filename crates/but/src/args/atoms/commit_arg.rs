@@ -25,7 +25,12 @@ impl CommitArg {
             return Err(bad_input(format!("'{self}' is not a valid commit")).into());
         };
         match repo.objects.lookup_prefix(prefix, None)? {
-            Some(Ok(commit)) => Ok(commit),
+            Some(Ok(commit)) => {
+                if repo.find_commit(commit).is_err() {
+                    return Err(bad_input(format!("'{self}' is not a commit")).into());
+                }
+                Ok(commit)
+            }
             Some(Err(_)) => Err(bad_input(format!(
                 "Commit prefix '{self}' is ambiguous, matches multiple commits"
             ))

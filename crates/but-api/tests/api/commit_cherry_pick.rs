@@ -222,8 +222,6 @@ fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<(
     };
     let main_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
-    // This is what interactive `but pick` does: several commits off an unapplied branch, handed
-    // over oldest-first and applied in that order.
     let result = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
         vec![outside_first, outside_second],
