@@ -51,6 +51,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import {
 	type ComponentProps,
 	type FC,
+	Fragment,
 	type MouseEvent,
 	useEffect,
 	useId,
@@ -68,6 +69,7 @@ import {
 } from "./Row.tsx";
 import { getRowButtonClassName, treeItemId } from "./Row-utils.ts";
 import { StackCard, StackCardHeader, StackFoldAllButton } from "./StackCard.tsx";
+import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
 import styles from "./BranchesList.module.css";
 
@@ -561,23 +563,17 @@ export const BranchesList: FC<
 							bodyClassName={styles.stackBody}
 						>
 							{stack.branches.map((branch, index) => (
-								<BranchItem
-									key={branch.refName.full}
-									projectId={projectId}
-									branch={branch}
-									isTopBranch={index === 0}
-								/>
-							))}
+								<Fragment key={branch.refName.full}>
+									<BranchItem projectId={projectId} branch={branch} isTopBranch={index === 0} />
 
-							{/* The rail runs past the last row and is clipped, so it reads as
-							    continuing down rather than stopping dead — the same tail the
-							    workspace card gets from its last connector row. */}
-							<Row interactive={false} className={styles.stackTail}>
-								<GraphSegment
-									glyph="parent"
-									status={branchGraphStatus(assert(stack.branches.at(-1)))}
-								/>
-							</Row>
+									{/* Carries the rail down to the next branch, and past the
+									    last one as the card's floor — as the workspace card's
+									    segment connectors do. */}
+									<Row interactive={false} className={stackCardStyles.railConnector}>
+										<GraphSegment glyph="parent" status={branchGraphStatus(branch)} />
+									</Row>
+								</Fragment>
+							))}
 						</StackCard>
 					))}
 				</div>

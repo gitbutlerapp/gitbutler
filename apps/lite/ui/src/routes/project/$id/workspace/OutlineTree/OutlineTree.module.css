@@ -118,9 +118,3 @@
 .segments {
 	--stack-card-body-inset-block-end: 0;
 }
-
-.segmentParentItemRow:last-child {
-	height: 8px;
-	min-height: auto;
-	overflow: hidden;
-}

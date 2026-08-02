@@ -52,6 +52,7 @@ import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panel
 import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { StackCard } from "../StackCard.tsx";
+import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -530,7 +531,7 @@ const StackC: FC<{
 						</div>
 						<Row
 							interactive={false}
-							className={styles.segmentParentItemRow}
+							className={stackCardStyles.railConnector}
 							inert={
 								!navigationIndexIncludes(
 									navigationIndex,

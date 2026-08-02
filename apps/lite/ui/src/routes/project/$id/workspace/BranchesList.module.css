@@ -10,7 +10,9 @@
 	column-gap: 8px;
 	align-items: center;
 	padding-inline: var(--panel-padding-inline);
-	padding-block-start: var(--panel-padding-block);
+	padding-block: var(--panel-padding-block);
+	border-bottom: 1px solid var(--border-3);
+	background-color: var(--bg-1);
 }
 
 .filterInput {
@@ -50,14 +52,6 @@
    of its own block-end inset — the same trade the workspace card makes. */
 .stackBody {
 	--stack-card-body-inset-block-end: 0;
-}
-
-/* Clips the trailing rail to a stub, matching the workspace card's
-   `.segmentParentItemRow:last-child`. */
-.stackTail {
-	height: 8px;
-	min-height: auto;
-	overflow: hidden;
 }
 
 /* The label column and its meta line now live in Row.module.css, shared with

@@ -8,7 +8,7 @@
 
 .header {
 	position: relative;
-	padding-inline: 12px;
+	padding-inline: 10px;
 	padding-block: 2px;
 
 	/* Divider drawn as a pseudo-element so it spans the full card width without
@@ -32,6 +32,7 @@
 /* Stands in for the fold-all button on a single-branch stack, so the header's
    slots keep their positions. */
 .headerGlyph {
+	margin-inline: -4px;
 	color: var(--text-2);
 	pointer-events: none;
 }
@@ -46,4 +47,13 @@
 	   an override class, which would have equal specificity to this rule and so
 	   win only by stylesheet import order. */
 	padding-block-end: var(--stack-card-body-inset-block-end, 6px);
+}
+
+/* Carries the rail on from one branch to the next. The last one has no branch
+   to reach, so it is clipped to a stub that runs past the final row and
+   supplies the card's floor — which is what the body's inset opts out of. */
+.railConnector:last-child {
+	height: 8px;
+	min-height: auto;
+	overflow: hidden;
 }
