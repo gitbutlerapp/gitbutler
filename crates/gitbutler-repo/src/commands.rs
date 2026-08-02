@@ -16,6 +16,7 @@ use tracing::warn;
 use crate::remote::GitRemote;
 
 #[derive(Default, Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 // TODO: turn this whole struct into an enum, it's : everything is an option style tells us that.
 pub struct FileInfo {
@@ -31,6 +32,9 @@ pub struct FileInfo {
     /// inferred mimetype.
     pub mime_type: Option<String>,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FileInfo);
 
 /// Lifecycle
 impl FileInfo {
