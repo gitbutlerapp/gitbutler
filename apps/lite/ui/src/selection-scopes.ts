@@ -5,6 +5,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import { useRef } from "react";
 
 export type SelectionScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
 const allSelectionScopes: Set<string> = new Set([
@@ -98,11 +99,25 @@ export const focusVerticalSelectionScope = (offset: -1 | 1) => {
 	if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
 };
 
-export const autofocusSelectionScope = (el: HTMLElement) => {
-	// Don't steal focus if this component is mounted later on.
-	if (document.activeElement !== document.body) return;
+/**
+ * Returns a ref callback that focuses the scope when its element first attaches.
+ *
+ * Only the first attachment gets a chance to autofocus: `Activity` detaches and re-attaches refs
+ * as it hides and reveals a subtree, and focusing on a reveal would switch the details pane away
+ * from whatever the user had selected before hiding it.
+ */
+export const useAutofocusSelectionScope = () => {
+	const attached = useRef(false);
 
-	el.focus({ focusVisible: false });
+	return (el: HTMLElement | null) => {
+		if (el === null || attached.current) return;
+		attached.current = true;
+
+		// Don't steal focus if this component is mounted later on.
+		if (document.activeElement !== document.body) return;
+
+		el.focus({ focusVisible: false });
+	};
 };
 
 export const useNavigationIndexHotkeys = <T>({

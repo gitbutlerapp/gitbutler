@@ -87,8 +87,8 @@ import styles from "./Details.module.css";
 import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
-	autofocusSelectionScope,
 	type SelectionScope,
+	useAutofocusSelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
@@ -1117,9 +1117,7 @@ const Diff: FC<{
 						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
 						className={styles.diffContentsContainer}
-						ref={useMergedRefs(selectionScopeRef, diffContentsEl, (el) => {
-							if (el) autofocusSelectionScope(el);
-						})}
+						ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
 					>
 						<DiffContents
 							localAnnotationFormId={localAnnotationFormId}
@@ -1254,9 +1252,7 @@ const PullRequestForm: FC<{
 					render={<FieldControlStyles />}
 					className="text-15 text-semibold"
 					data-selection-scope={"pr" satisfies SelectionScope}
-					ref={(el) => {
-						if (el) autofocusSelectionScope(el);
-					}}
+					ref={useAutofocusSelectionScope()}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="Title"
