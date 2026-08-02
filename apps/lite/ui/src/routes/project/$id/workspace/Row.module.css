@@ -82,6 +82,55 @@
 	}
 }
 
+/* The disclosure control sitting on the row's graph rail. Hovering or focusing
+   the row swaps the rail's glyph for a chevron: only the glyph's own segment is
+   swapped, so the rail below it goes on drawing. */
+.foldToggle {
+	display: flex;
+	position: relative;
+	align-self: stretch;
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+
+	.container:hover &,
+	.container:focus-within &,
+	.containerSelected & {
+		--graph-segment-glyph-visibility: hidden;
+	}
+}
+
+.foldChevron {
+	display: none;
+
+	.container:hover &,
+	.container:focus-within &,
+	.containerSelected & {
+		display: flex;
+		position: absolute;
+		align-items: center;
+		justify-content: center;
+		/* Occupies exactly the glyph segment it stands in for. */
+		height: var(--single-line-row-height);
+		inset-block-start: 0;
+		inset-inline: 0;
+		color: var(--text-3);
+	}
+
+	/* Picks up under the cursor so the rail reads as a target and not just an
+	   indicator. Must follow the block above, which it ties on specificity. */
+	.foldToggle:hover &,
+	.foldToggle:focus-visible & {
+		color: var(--text-2);
+	}
+}
+
+.foldGlyph {
+	display: flex;
+}
+
 .rowCheckbox {
 	--checkbox-height: 14px;
 	margin-block-start: calc((var(--single-line-row-height) - var(--checkbox-height)) / 2);
@@ -98,6 +147,42 @@
 
 .labelFooter {
 	padding-block-end: var(--single-line-row-label-padding-block);
+}
+
+/* The label column of a two-line row: heading above, meta below. */
+.labelGroup {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/* A row's second line: small, muted facts about the row's subject. */
+.meta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.metaItem {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	/* Match small button height to prevent layout shift when buttons appear/disappear. */
+	height: 20px;
+	gap: 4px;
+}
+
+/* Item that yields space to its siblings by truncating its text. */
+.metaItemShrinkable {
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.metaItemText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .label {

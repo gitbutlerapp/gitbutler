@@ -14,7 +14,11 @@ import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FieldControlStyles } from "#ui/components/Field.tsx";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import {
+	GraphSegment,
+	type GraphSegmentGlyph,
+	type GraphSegmentStatus,
+} from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
@@ -39,7 +43,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
-import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
+import type { Commit, ListedBranch, ListedStack } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
@@ -53,8 +57,17 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Row, RowLabel, RowLabelContainer, RowLabelFooter, RowToolbar } from "./Row.tsx";
+import {
+	Row,
+	RowFoldToggle,
+	RowLabel,
+	RowLabelContainer,
+	RowLabelGroup,
+	RowMeta,
+	RowToolbar,
+} from "./Row.tsx";
 import { getRowButtonClassName, treeItemId } from "./Row-utils.ts";
+import { StackCard, StackCardHeader, StackFoldAllButton } from "./StackCard.tsx";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
 import styles from "./BranchesList.module.css";
 
@@ -139,7 +152,11 @@ const BranchCommits: FC<{ projectId: string; branch: ListedBranch }> = ({ projec
 	));
 };
 
-const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId, branch }) => {
+const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boolean }> = ({
+	projectId,
+	branch,
+	isTopBranch,
+}) => {
 	const dispatch = useAppDispatch();
 	const branchRef = branch.refName.full;
 	const operand = branchOperand({ branchRef: encodeBytes(branchRef) });
@@ -152,6 +169,12 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 		) && canUnfold;
 	const isSelected = useIsSelected(projectId, operand);
 	const [now] = useState(() => Date.now());
+
+	// Same topology as the workspace outline: nothing above the branch means the
+	// rail turns in from the right, otherwise it joins the branch above it. This
+	// describes where the branch sits in the stack, so it does not change with
+	// fold state.
+	const railGlyph: GraphSegmentGlyph = isTopBranch ? "forkRight" : "joinRight";
 
 	const review = branch.review;
 
@@ -230,43 +253,39 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 				}}
 			>
 				{canUnfold ? (
-					<button
-						type="button"
-						aria-expanded={unfolded}
+					<RowFoldToggle
+						folded={!unfolded}
 						aria-label={unfolded ? "Fold commits" : "Unfold commits"}
-						className={styles.foldToggle}
 						onClick={toggleUnfolded}
-					>
-						<GraphSegment
-							glyph={unfolded ? "parent" : "group"}
-							status={branchGraphStatus(branch)}
-						/>
-					</button>
+						glyph={<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />}
+					/>
 				) : (
-					<GraphSegment glyph="parent" status={branchGraphStatus(branch)} />
+					<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />
 				)}
 
-				<div className={styles.label}>
+				<RowLabelGroup>
 					<RowLabelContainer>
 						<RowLabel heading singleLine title={branch.displayName}>
 							{branch.displayName}
 						</RowLabel>
 					</RowLabelContainer>
 
-					<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
+					<RowMeta>
 						{/* The branch's own commits, matching what unfolding reveals.
 						    commitsAheadOfTarget would also count the branches below it
-						    in a stack, so every row above the bottom would overstate. */}
-						{branch.commitCount !== null && branch.commitCount > 0 && (
-							<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
-								<Icon name="commit" />
+						    in a stack, so every row above the bottom would overstate.
+						    Only while folded: the count stands in for the commits it
+						    hides, so showing it alongside them would just be noise. */}
+						{!unfolded && branch.commitCount !== null && branch.commitCount > 0 && (
+							<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+								<Icon size={14} name="commit" />
 								{branch.commitCount}
 							</span>
 						)}
 
 						{lastTouched !== "" && (
 							<span
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 								title={branch.lastAuthor?.email}
 							>
 								{lastTouched}
@@ -278,17 +297,17 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 								href={review.htmlUrl}
 								title={review.title}
 								onClick={(evt) => void openReviewInBrowser(evt)}
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 							>
-								<Icon name="pr" />
+								<Icon size={14} name="pr" />
 								{review.unitSymbol}
 								{review.number}
 							</a>
 						)}
 
 						{isApplyPending && <Icon name="spinner" />}
-					</RowLabelFooter>
-				</div>
+					</RowMeta>
+				</RowLabelGroup>
 
 				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
 					<Toolbar.Button
@@ -310,6 +329,88 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch }> = ({ projectId
 				</div>
 			)}
 		</div>
+	);
+};
+
+const BranchStackRow: FC<{ projectId: string; stack: ListedStack }> = ({ projectId, stack }) => {
+	const dispatch = useAppDispatch();
+	// A branch with no commits of its own has nothing to unfold, matching the
+	// affordance on the branch rows themselves.
+	const unfoldableRefs = stack.branches
+		.filter((branch) => !branchIsEmpty(branch))
+		.map((branch) => branch.refName.full);
+	// A plain boolean, so this re-renders only when the stack crosses between
+	// fully folded and not — see useIsSelected for the same reasoning.
+	const anyUnfolded = useAppSelector((state) =>
+		unfoldableRefs.some((branchRef) =>
+			projectSlice.selectors.selectBranchUnfolded(state, projectId, branchRef),
+		),
+	);
+
+	const { isPending: isApplyPending, mutate: apply } = useApply();
+
+	const applyStack = () => {
+		apply(
+			// Branches run from the tip down, so applying the tip applies the
+			// whole stack.
+			{ projectId, existingBranch: assert(stack.branches[0]).refName.full },
+			{
+				onSuccess: (response) => {
+					const appliedRef = response.appliedBranches[0];
+					if (!appliedRef) return;
+
+					dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
+					dispatch(
+						projectSlice.actions.selectOutline({
+							projectId,
+							selection: branchOperand({ branchRef: encodeBytes(appliedRef.full) }),
+						}),
+					);
+				},
+			},
+		);
+	};
+
+	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Apply Stack to Workspace",
+			enabled: !isApplyPending,
+			onSelect: applyStack,
+		}),
+	];
+
+	return (
+		<StackCardHeader
+			toolbarLabel="Stack actions"
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
+		>
+			<StackFoldAllButton
+				hasMultipleBranches={stack.branches.length > 1}
+				folded={!anyUnfolded}
+				disabled={unfoldableRefs.length === 0}
+				onToggle={() =>
+					dispatch(
+						projectSlice.actions.setBranchesUnfolded({
+							projectId,
+							branchRefs: unfoldableRefs,
+							unfolded: !anyUnfolded,
+						}),
+					)
+				}
+			/>
+
+			<Toolbar.Button
+				aria-label="Stack menu"
+				onClick={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+				className={getRowButtonClassName({ iconOnly: true })}
+			>
+				<Icon name="kebab" />
+			</Toolbar.Button>
+		</StackCardHeader>
 	);
 };
 
@@ -451,12 +552,33 @@ export const BranchesList: FC<
 					})}
 				>
 					{stacks.map((stack) => (
-						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
-						<div key={assert(stack.branches[0]).refName.full} role="group" className={styles.stack}>
-							{stack.branches.map((branch) => (
-								<BranchItem key={branch.refName.full} projectId={projectId} branch={branch} />
+						<StackCard
+							key={assert(stack.branches[0]).refName.full}
+							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
+							role="group"
+							aria-label="Stack"
+							header={<BranchStackRow projectId={projectId} stack={stack} />}
+							bodyClassName={styles.stackBody}
+						>
+							{stack.branches.map((branch, index) => (
+								<BranchItem
+									key={branch.refName.full}
+									projectId={projectId}
+									branch={branch}
+									isTopBranch={index === 0}
+								/>
 							))}
-						</div>
+
+							{/* The rail runs past the last row and is clipped, so it reads as
+							    continuing down rather than stopping dead — the same tail the
+							    workspace card gets from its last connector row. */}
+							<Row interactive={false} className={styles.stackTail}>
+								<GraphSegment
+									glyph="parent"
+									status={branchGraphStatus(assert(stack.branches.at(-1)))}
+								/>
+							</Row>
+						</StackCard>
 					))}
 				</div>
 			</Scroller>

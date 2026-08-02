@@ -22,6 +22,11 @@
 }
 
 .mainSegment {
+	/* A control sitting on the rail can blank just this glyph and put itself in
+	   its place, leaving the stretch segment below still drawing the rail — see
+	   the fold toggle in Row.module.css. Hidden rather than removed so the box
+	   keeps its size and nothing reflows. */
+	visibility: var(--graph-segment-glyph-visibility, visible);
 	flex-shrink: 0;
 	height: 28px;
 }
