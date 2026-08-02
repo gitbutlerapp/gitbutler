@@ -417,7 +417,7 @@ const registerIpcHandlers = (): void => {
 		branchList(projectId),
 	);
 	senderValidatingHandle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
-		changesInWorktree(projectId, true),
+		changesInWorktree(projectId, { type: "head" }, true),
 	);
 	senderValidatingHandle(liteIpcChannels.clipboardWriteText, (_e, text: string) => {
 		clipboard.writeText(text, "clipboard");

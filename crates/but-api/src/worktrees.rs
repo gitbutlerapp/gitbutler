@@ -102,22 +102,3 @@ pub fn worktree_set_archived(
     let _guard = ctx.shared_worktree_access();
     ctx.set_worktree_archived(BStr::new(name.as_str()), archived)
 }
-
-/// Compute the uncommitted changes in the linked worktree named `name`.
-///
-/// Unlike [`changes_in_worktree`](crate::diff::changes_in_worktree), which operates
-/// on the main worktree, no hunk assignments or dependencies are computed - those
-/// are workspace concepts.
-#[but_api]
-#[instrument(err(Debug))]
-pub fn linked_worktree_changes(
-    ctx: &mut but_ctx::Context,
-    name: String,
-) -> Result<but_core::ui::WorktreeChanges> {
-    ensure_worktree_manipulation_enabled(ctx)?;
-    let _guard = ctx.shared_worktree_access();
-    active_worktree(ctx, &name)?;
-    let repo = ctx.repo.get()?;
-    let wt_repo = open_worktree_repo(&repo, BStr::new(name.as_str()))?;
-    Ok(but_core::diff::worktree_changes(&wt_repo)?.into())
-}

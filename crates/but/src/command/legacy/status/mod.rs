@@ -465,8 +465,12 @@ fn build_status_context<'a>(
     };
     let review_map = review::get_review_map(ctx, Some(cache_config.clone()))?;
 
-    let worktree_changes =
-        but_api::diff::changes_in_worktree_with_perm(ctx, true, perm.read_permission())?;
+    let worktree_changes = but_api::diff::changes_in_worktree_with_perm(
+        ctx,
+        but_api::commit::json::ChangesSource::Head,
+        true,
+        perm.read_permission(),
+    )?;
 
     let mut conflicted_paths: Vec<String> = worktree_changes
         .worktree_changes

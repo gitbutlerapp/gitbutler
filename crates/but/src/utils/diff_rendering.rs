@@ -583,7 +583,8 @@ pub fn render_uncommitted(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("uncommitted");
 
-    let wt_changes = but_api::diff::changes_in_worktree(ctx, true)?;
+    let wt_changes =
+        but_api::diff::changes_in_worktree(ctx, but_api::commit::json::ChangesSource::Head, true)?;
     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
     let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |_| true)?;
 

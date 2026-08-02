@@ -149,11 +149,15 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
 /** See [`changes_in_worktree_with_perm()`]. */
-export declare function changesInWorktree(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
+export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
  * This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
  * the user interface as it is right now. From here, it's always possible to add more information as the need arises.
+ *
+ * `changes_source` selects the checkout to inspect. Reading a linked worktree
+ * requires the `worktreeManipulation` feature flag and an active worktree, see
+ * `worktrees::open_changes_source()`.
  *
  * ### Notable Transformations
  * * There is no notion of an index (`.git/index`) - all changes seem to have happened in the worktree.
@@ -165,12 +169,15 @@ export declare function changesInWorktree(projectId: string, computeDepsAndAssig
  * When dependency and assignment computation is turned off, hunk assignments and dependencies
  * are not computed at all: `assignments` is empty and there are no `dependencies`.
  *
+ * A linked worktree is not part of the workspace, so it has neither - the flag is
+ * ignored for it, and nothing is persisted.
+ *
  * For lower-level implementation details, see
  * [`but_core::diff::worktree_changes()`],
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  */
-export declare function changesInWorktreeWithPerm(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
+export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
  * Archive the comment with the given `id`, hiding it from all future listings.
