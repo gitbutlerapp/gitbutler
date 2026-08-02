@@ -708,7 +708,7 @@ export declare function workspaceIntegrateUpstream(projectId: string, updates: A
  * network requests or diffs, and enrichment failures degrade to unannotated
  * commits.
  */
-export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<Array<TargetCommit>>
+export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -2997,6 +2997,14 @@ export type TargetCommit = {
   review: TargetCommitReview | null;
   /** Whether the commit is already reachable from the workspace. */
   inWorkspace: boolean;
+};
+
+/** A bounded page from the target branch's first-parent history. */
+export type TargetCommitPage = {
+  /** The commits in this page, newest first. */
+  commits: Array<TargetCommit>;
+  /** Whether the relative walk was clipped before its natural bound. */
+  hasMore: boolean;
 };
 
 /**

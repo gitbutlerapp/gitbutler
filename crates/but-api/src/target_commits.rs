@@ -38,32 +38,17 @@ const TARGET_COMMITS_PAGE_SIZE: usize = 50;
 /// the forge reports them; it reads only the local cache and performs no
 /// network requests or diffs, and enrichment failures degrade to unannotated
 /// commits.
-#[but_api(napi, json::TargetCommit)]
+#[but_api(napi, json::TargetCommitPage)]
 #[instrument(err(Debug))]
 pub fn workspace_target_commits(
     ctx: &but_ctx::Context,
     from: Option<HexHash>,
     limit: Option<u32>,
-) -> anyhow::Result<Vec<TargetCommit>> {
-    let project_meta = ctx.project_meta()?;
+) -> anyhow::Result<TargetCommitPage> {
     let (_guard, repo, ws, db) = ctx.workspace_and_db()?;
     let Some(target_ref) = ws.target_ref.as_ref() else {
-        return Ok(Vec::new());
+        return Ok(TargetCommitPage::default());
     };
-    let incoming: HashSet<_> = ws.incoming_target_commit_ids()?.into_iter().collect();
-
-    let mut reviews_by_integration_sha =
-        match merged_reviews_by_integration_sha(&ws, &project_meta, &db) {
-            Ok(reviews) => reviews,
-            Err(err) => {
-                warn!(
-                    ?err,
-                    "failed to read cached forge reviews; listing target commits without them"
-                );
-                HashMap::new()
-            }
-        };
-
     let paging = from.is_some();
     let limit = limit
         .map(|limit| limit as usize)
@@ -83,26 +68,63 @@ pub fn workspace_target_commits(
                 .id,
         ),
     };
+    if limit == 0 {
+        return Ok(TargetCommitPage {
+            commits: Vec::new(),
+            has_more: cursor.is_some(),
+        });
+    }
+
+    let incoming: HashSet<_> = ws.incoming_target_commit_ids()?.into_iter().collect();
+    let project_meta = ctx.project_meta()?;
+    let mut reviews_by_integration_sha =
+        match merged_reviews_by_integration_sha(&ws, &project_meta, &db) {
+            Ok(reviews) => reviews,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    "failed to read cached forge reviews; listing target commits without them"
+                );
+                HashMap::new()
+            }
+        };
+
     let mut commits = Vec::new();
-    while let Some(id) = cursor {
+    while commits.len() < limit
+        && let Some(id) = cursor
+    {
         let in_workspace = !incoming.contains(&id);
         // Without a lower bound there is no shared history to walk into.
         if !paging && in_workspace && ws.lower_bound.is_none() {
+            cursor = None;
             break;
         }
         let commit = repo.find_commit(id)?;
         let commit = commit.decode()?;
+        cursor = commit.parents().next();
         commits.push(TargetCommit {
             commit: upstream_commit(id, &commit)?,
             review: reviews_by_integration_sha.remove(&id),
             in_workspace,
         });
-        if (!paging && ws.lower_bound == Some(id)) || commits.len() >= limit {
+        if !paging && ws.lower_bound == Some(id) {
+            cursor = None;
             break;
         }
-        cursor = commit.parents().next();
     }
-    Ok(commits)
+    Ok(TargetCommitPage {
+        commits,
+        has_more: cursor.is_some(),
+    })
+}
+
+/// One bounded page of target commits and the state needed to continue it.
+#[derive(Debug, Default)]
+pub struct TargetCommitPage {
+    /// The commits in this page, newest first.
+    pub commits: Vec<TargetCommit>,
+    /// Whether the relative walk was clipped before its natural bound.
+    pub has_more: bool,
 }
 
 /// A commit on the target branch's first-parent line, its relation to the
@@ -231,6 +253,29 @@ pub mod json {
                 commit: value.commit,
                 review: value.review.map(Into::into),
                 in_workspace: value.in_workspace,
+            }
+        }
+    }
+
+    /// A bounded page from the target branch's first-parent history.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct TargetCommitPage {
+        /// The commits in this page, newest first.
+        pub commits: Vec<TargetCommit>,
+        /// Whether the relative walk was clipped before its natural bound.
+        pub has_more: bool,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(TargetCommitPage);
+
+    impl From<super::TargetCommitPage> for TargetCommitPage {
+        fn from(value: super::TargetCommitPage) -> Self {
+            Self {
+                commits: value.commits.into_iter().map(Into::into).collect(),
+                has_more: value.has_more,
             }
         }
     }

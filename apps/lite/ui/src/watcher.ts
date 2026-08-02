@@ -13,6 +13,7 @@ export const handleWatcher = (
 				queryKey: ["workspaceFetchStatus" satisfies QueryKey, projectId],
 			});
 			void client.invalidateQueries({ queryKey: ["reviews" satisfies QueryKey, projectId] });
+			void client.invalidateQueries({ queryKey: ["review" satisfies QueryKey, projectId] });
 			// A fetch moves remote-tracking refs, so the branch listing goes stale,
 			// and it can advance a remote branch whose commits or diff are already
 			// cached (unfolded or selected in the Branches tab). This case does not
@@ -22,9 +23,6 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({
 				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
-			});
-			void client.invalidateQueries({
-				queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId],
 			});
 			break;
 		case "gitActivity":
@@ -45,11 +43,6 @@ export const handleWatcher = (
 			void client.invalidateQueries({
 				queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId],
 			});
-			// Older target history (workspaceTargetCommitsOlder) is deliberately
-			// not invalidated here: history below the fork point cannot change
-			// from local activity, and refetching every loaded page on each
-			// workspace mutation is wasteful. A fetch can move it, so the
-			// gitFetch case above does invalidate it.
 			void client.invalidateQueries({
 				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
 			});

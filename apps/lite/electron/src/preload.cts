@@ -32,7 +32,7 @@ import type {
 	ListedStack,
 	IntegrateBranchResult,
 	UnifiedPatch,
-	TargetCommit,
+	TargetCommitPage,
 	WatcherEvent,
 	WorktreeChanges,
 	WorkspaceFetchStatus,
@@ -231,7 +231,7 @@ const api: LiteElectronApi = {
 	workspaceFetchStatus: (projectId) =>
 		ipcRenderer.invoke("workspace:fetch-status", projectId) as Promise<WorkspaceFetchStatus>,
 	workspaceTargetCommits: (params) =>
-		ipcRenderer.invoke("workspace:target-commits", params) as Promise<Array<TargetCommit>>,
+		ipcRenderer.invoke("workspace:target-commits", params) as Promise<TargetCommitPage>,
 	workspaceIntegrateUpstream: (params) =>
 		ipcRenderer.invoke(
 			"workspace:integrate-upstream",

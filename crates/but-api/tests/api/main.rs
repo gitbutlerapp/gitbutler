@@ -15,3 +15,4 @@ mod forge_pr_association;
 mod legacy_workspace;
 mod resolve_ai;
 mod support;
+mod target_commits;

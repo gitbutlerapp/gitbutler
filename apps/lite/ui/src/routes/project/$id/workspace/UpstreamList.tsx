@@ -1,8 +1,6 @@
 import rowStyles from "./Row.module.css";
 import { Scroller } from "#ui/components/Scroller.tsx";
-import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
-import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
+import { forgeInfoOptions } from "#ui/api/queries.ts";
 import { commitTitle } from "#ui/commit.ts";
 import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -25,9 +23,8 @@ import {
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
-import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	type ComponentProps,
 	type FC,
@@ -319,14 +316,26 @@ const OlderCommitsMoreRow: FC<{ projectId: string }> = ({ projectId }) => {
 };
 
 export const UpstreamList: FC<
-	{ projectId: string; outline: UpstreamOutline } & ComponentProps<"div">
-> = ({ projectId, outline, ...restProps }) => {
+	{
+		projectId: string;
+		outline: UpstreamOutline;
+		canUpdateWorkspace: boolean;
+		isUpdatePending: boolean;
+		onUpdateWorkspace: () => void;
+	} & ComponentProps<"div">
+> = ({
+	projectId,
+	outline,
+	canUpdateWorkspace,
+	isUpdatePending,
+	onUpdateWorkspace,
+	...restProps
+}) => {
 	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
 	const { items, targetLabel, incomingCount, hasIntegrated, navigationIndex, isPending, isError } =
 		outline;
-	const client = useQueryClient();
 
 	const selection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUpstream(state, projectId, navigationIndex),
@@ -361,26 +370,8 @@ export const UpstreamList: FC<
 		getKey: operandIdentityKey,
 	});
 
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const { isPending: isIntegratePending, mutate: workspaceIntegrateUpstream } =
-		useWorkspaceIntegrateUpstream();
-	const updateWorkspace = () => {
-		// Reading the cached head info in the callback needs no subscription.
-		const headInfo = client.getQueryData(headInfoQueryOptions(projectId).queryKey);
-		const updates =
-			headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
-				const relativeTo = stackBottomRelativeTo(stack);
-				return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
-			}) ?? [];
-		if (updates.length === 0) return;
-
-		workspaceIntegrateUpstream({ projectId, updates, dryRun: false });
-	};
-
 	const hasIncoming = incomingCount > 0;
-	const canUpdateWorkspace = isDefaultMode && (hasIncoming || hasIntegrated) && !isIntegratePending;
+	const canUpdate = canUpdateWorkspace && (hasIncoming || hasIntegrated);
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
@@ -395,13 +386,13 @@ export const UpstreamList: FC<
 					{hasIncoming && <Badge variant="fillGray">{incomingCount}</Badge>}
 				</h4>
 
-				{items.length === 0 && (
+				{isError && (
+					<p className={classes("text-13", styles.heading)}>Unable to load incoming commits.</p>
+				)}
+
+				{items.length === 0 && !isError && (
 					<p className={classes("text-13", styles.heading)}>
-						{isPending && !isError
-							? "Loading incoming commits…"
-							: isError
-								? "Unable to load incoming commits."
-								: "Your workspace is up to date."}
+						{isPending ? "Loading incoming commits…" : "Your workspace is up to date."}
 					</p>
 				)}
 
@@ -470,10 +461,10 @@ export const UpstreamList: FC<
 				<button
 					type="button"
 					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canUpdateWorkspace}
-					onClick={updateWorkspace}
+					disabled={!canUpdate}
+					onClick={onUpdateWorkspace}
 				>
-					{isIntegratePending ? "Updating…" : "Update workspace"}
+					{isUpdatePending ? "Updating…" : "Update workspace"}
 				</button>
 			</footer>
 		</div>

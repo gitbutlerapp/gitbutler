@@ -181,7 +181,6 @@ export const Outline: FC<{
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.autoFetchFrequency,
 	});
-	const incomingCommitCount = headInfo?.target?.commitsAhead ?? 0;
 	const { data: workspaceFetchStatus } = useQuery(workspaceFetchStatusQueryOptions(projectId));
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
@@ -413,7 +412,9 @@ export const Outline: FC<{
 					>
 						<Icon name="inbox" />
 						<span className={styles.tabLabel}>Upstream</span>
-						{incomingCommitCount > 0 && <Badge variant="fillGray">{incomingCommitCount}</Badge>}
+						{upstreamOutline.incomingCount > 0 && (
+							<Badge variant="fillGray">{upstreamOutline.incomingCount}</Badge>
+						)}
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}
@@ -437,6 +438,9 @@ export const Outline: FC<{
 					className={styles.outlineTree}
 					projectId={projectId}
 					outline={upstreamOutline}
+					canUpdateWorkspace={canUpdateWorkspace}
+					isUpdatePending={isWorkspaceIntegrateUpstreamPending}
+					onUpdateWorkspace={updateWorkspace}
 				/>
 			) : (
 				<OutlineTree

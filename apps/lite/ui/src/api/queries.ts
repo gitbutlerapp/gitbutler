@@ -89,10 +89,43 @@ export const headInfoQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.headInfo(projectId),
 	});
 
+export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
-		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
+		queryFn: async ({ client }) => {
+			// A fetch can turn a reviewed branch into an integrated one. Refresh only
+			// those reviews before reading the cache-backed target annotations; the
+			// review queries stay fresh across local workspace activity and are
+			// invalidated by the fetch watcher.
+			const headInfo = await client.fetchQuery({
+				...headInfoQueryOptions(projectId),
+				staleTime: 0,
+			});
+			const reviewIds = new Set(
+				headInfo.stacks.flatMap((stack) =>
+					stack.segments.flatMap((segment) => {
+						const reviewId = segment.metadata?.review.pullRequest;
+						return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
+					}),
+				),
+			);
+			await Promise.allSettled(
+				[...reviewIds].flatMap((reviewId) => {
+					const options = getReviewQueryOptions({ projectId, reviewId });
+					return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
+						? []
+						: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
+				}),
+			);
+
+			return window.lite.workspaceTargetCommits({ projectId, from: null, limit: null });
+		},
 	});
 
 const olderTargetCommitsPageSize = 25;
@@ -116,9 +149,7 @@ export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: 
 						}),
 		initialPageParam: from ?? "",
 		getNextPageParam: (lastPage) =>
-			lastPage.length < olderTargetCommitsPageSize
-				? undefined
-				: (lastPage.at(-1)?.commit.id ?? undefined),
+			lastPage.hasMore ? (lastPage.commits.at(-1)?.commit.id ?? undefined) : undefined,
 	});
 
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
@@ -155,12 +186,6 @@ export const workspaceFetchQueryOptions = (
 		initialData: null,
 	});
 };
-
-export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
-	queryOptions({
-		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
-		queryFn: () => window.lite.getReview({ projectId, reviewId }),
-	});
 
 export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
 	queryOptions({

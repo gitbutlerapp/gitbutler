@@ -40,7 +40,7 @@ import type {
 	RepoInfo,
 	TreeChange,
 	TreeChanges,
-	TargetCommit,
+	TargetCommitPage,
 	CommitCreateResult,
 	CommitDiscardResult,
 	CommitInsertBlankResult,
@@ -522,7 +522,7 @@ export interface LiteElectronApi {
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
 	workspaceFetchFromRemotes: (params: WorkspaceFetchFromRemotesParams) => Promise<void>;
 	workspaceFetchStatus: (projectId: string) => Promise<WorkspaceFetchStatus>;
-	workspaceTargetCommits: (params: WorkspaceTargetCommitsParams) => Promise<Array<TargetCommit>>;
+	workspaceTargetCommits: (params: WorkspaceTargetCommitsParams) => Promise<TargetCommitPage>;
 	workspaceIntegrateUpstream: (
 		params: WorkspaceIntegrateUpstreamParams,
 	) => Promise<WorkspaceIntegrateUpstreamOutcome>;
