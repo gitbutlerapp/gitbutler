@@ -3,23 +3,27 @@
 use bstr::BString;
 use but_ctx::Context;
 use but_workspace::commit::ChangeSource;
-use nonempty::NonEmpty;
 
-use crate::{CliResult, bad_input, id::ChangeSourceId, id::UncommittedHunkOrFile};
+use crate::{CliResult, bad_input, id::ChangeSourceId};
 
-/// The single checkout that all of `changes` come from.
+/// The single checkout that all of `sources` name.
 ///
 /// An operation reads its changes from one repository and cancels them out in
 /// that same checkout, so a selection spanning several of them could not be
-/// applied in one go. Rejecting it here keeps the error next to the arguments
-/// that caused it.
-pub fn single_source(changes: &NonEmpty<UncommittedHunkOrFile>) -> CliResult<ChangeSourceId> {
-    let source = changes.head.source.clone();
-    if let Some(other) = changes.tail.iter().find(|change| change.source != source) {
+/// applied in one go. An empty selection is the main worktree, which is what
+/// "everything uncommitted" and "nothing at all" both mean.
+pub fn single_source(
+    sources: impl IntoIterator<Item = ChangeSourceId>,
+) -> CliResult<ChangeSourceId> {
+    let mut sources = sources.into_iter();
+    let Some(source) = sources.next() else {
+        return Ok(ChangeSourceId::Head);
+    };
+    if let Some(other) = sources.find(|other| *other != source) {
         return Err(bad_input(format!(
             "Cannot use changes from {} and {} together",
             source.describe(),
-            other.source.describe()
+            other.describe()
         ))
         .hint("An operation can only take changes from one checkout at a time")
         .into());

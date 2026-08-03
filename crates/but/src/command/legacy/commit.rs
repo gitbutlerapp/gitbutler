@@ -193,7 +193,7 @@ fn resolve(
                 .hint("Run `but status` to show applicable targets")
                 .into());
         };
-        change_source::single_source(&changes)?;
+        change_source::single_source(changes.iter().map(|c| c.source.clone()))?;
         (guard, CommitSelection::Changes(Box::new(changes)))
     } else if interactive {
         let Some(mut inout) = out.prepare_for_terminal_input() else {
@@ -225,7 +225,7 @@ fn resolve(
                 .hint("Pick changes by pressing space. Confirm with enter.")
                 .into());
         };
-        change_source::single_source(&changes)?;
+        change_source::single_source(changes.iter().map(|c| c.source.clone()))?;
         (guard, CommitSelection::Changes(Box::new(changes)))
     } else if empty {
         (guard, CommitSelection::Nothing)
