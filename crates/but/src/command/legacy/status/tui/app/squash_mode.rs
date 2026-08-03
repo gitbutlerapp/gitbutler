@@ -496,9 +496,9 @@ impl App {
             | SquashOutcome::Hunks { new_commit, .. } => {
                 SelectAfterReload::Commit(new_commit.commit_id)
             }
-            SquashOutcome::Uncommit { .. } | SquashOutcome::UncommitHunk { .. } => {
-                SelectAfterReload::Uncommitted
-            }
+            SquashOutcome::UncommitCommit { .. }
+            | SquashOutcome::UncommitHunk { .. }
+            | SquashOutcome::UncommitBranch { .. } => SelectAfterReload::Uncommitted,
         };
 
         drop(_suspend_guard);

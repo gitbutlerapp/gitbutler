@@ -223,7 +223,7 @@ where
     // need to map commits after each operation.
     commit_mappings: CommitMappings,
     context_lines: u32,
-    // How to materialize the final rebase ourcome unfortunately depends on which operations we
+    // How to materialize the final rebase outcome unfortunately depends on which operations we
     // perform. Most operations need `materialize` but uncommitting needs
     // `materialize_without_checkout`.
     //

@@ -14,6 +14,7 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 /// - Amend uncommitted changes into a commit
 /// - Uncommit commits
 /// - Uncommit changes in commits
+/// - Uncommit branches
 ///
 /// If no message-related flag is passed when squashing commits or branches, an editor may be
 /// opened where the new message can be composed; other squashes keep the target's message.
@@ -71,7 +72,8 @@ pub struct Platform {
     /// If `<SOURCES>` is one or more commits they will be squashed into the target.
     ///
     /// If `<SOURCES>` is one or more branches all the commits on the branches will be squashed
-    /// into the target and the branches will be removed.
+    /// into the target and the branches will be removed. When the target is the uncommitted area
+    /// (`zz`), all commits on the branches are uncommitted.
     ///
     /// If `TARGET` is omitted and `<SOURCES>` is exactly one branch all commits on the branch will
     /// be squashed.
