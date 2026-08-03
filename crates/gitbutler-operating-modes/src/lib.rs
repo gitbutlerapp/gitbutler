@@ -192,7 +192,7 @@ fn worktree_conflicts_with_workspace(
     }
 
     let (outcome, conflict_kind) =
-        but_workspace::legacy::merge_worktree_with_workspace(ctx, gix_repo)?;
+        but_workspace::legacy::merge_worktree_with_workspace(ctx, gix_repo, &ws)?;
     Ok(outcome
         .conflicts
         .iter()

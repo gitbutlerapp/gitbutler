@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
-use but_ctx::{Context, access::RepoExclusive};
+use but_ctx::{
+    Context,
+    access::{RepoExclusive, RepoShared},
+};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
@@ -10,10 +13,10 @@ use gitbutler_repo::{
     SignaturePurpose, commit_with_signature_gix, commit_without_signature_gix,
     first_parent_commit_ids_until, signature_gix,
 };
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 use tracing::instrument;
 
-use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
+use crate::branch_manager::BranchManagerExt;
 
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
@@ -52,26 +55,29 @@ pub fn update_workspace_commit(
     ctx: &Context,
     checkout_new_worktree: bool,
 ) -> Result<gix::ObjectId> {
-    update_workspace_commit_with_vb_state(&ctx.virtual_branches(), ctx, checkout_new_worktree)
+    let guard = ctx.shared_worktree_access();
+    update_workspace_commit_with_perm(ctx, checkout_new_worktree, guard.read_permission())
 }
 
-/// Update `gitbutler/workspace` using the caller-provided virtual branch state handle.
-///
-/// This variant exists for flows that have just mutated stacks or the default target through an
-/// already-existing `VirtualBranchesHandle`. Passing that handle keeps it obvious that the
-/// workspace commit must be rebuilt from the same state mutation sequence instead of implicitly
-/// reacquiring a fresh handle from `ctx`.
-///
-/// Most callers should use [`update_workspace_commit()`]. Reach for this helper only when the
-/// handle is already part of the operation itself, such as branch creation, base-branch changes,
-/// or rebases that update stack metadata before refreshing the workspace commit.
-#[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
-pub(crate) fn update_workspace_commit_with_vb_state(
-    vb_state: &VirtualBranchesHandle,
+/// Update `gitbutler/workspace` while reusing caller-held repository access.
+#[instrument(level = "debug", skip(ctx, perm), err(Debug))]
+pub fn update_workspace_commit_with_perm(
     ctx: &Context,
     checkout_new_worktree: bool,
+    perm: &RepoShared,
 ) -> Result<gix::ObjectId> {
-    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
+    let ws = ctx.workspace_from_head_uncached(perm)?;
+    update_workspace_commit_from_workspace(ctx, checkout_new_worktree, &ws)
+}
+
+pub(crate) fn update_workspace_commit_from_workspace(
+    ctx: &Context,
+    checkout_new_worktree: bool,
+    ws: &but_graph::Workspace,
+) -> Result<gix::ObjectId> {
+    let target_base_oid = ws
+        .stored_target_commit_id()
+        .context("failed to get target base oid")?;
 
     #[expect(deprecated, reason = "workspace checkout/index boundary")]
     let repo = &*ctx.git2_repo.get()?;
@@ -97,18 +103,14 @@ pub(crate) fn update_workspace_commit_with_vb_state(
     }
     let prev_head_id = head_ref.target();
 
-    // get all virtual branches, we need to try to update them all
-    let virtual_branches: Vec<Stack> = vb_state
-        .list_stacks_in_workspace()
-        .context("failed to list virtual branches")?;
-
-    let workspace_head =
-        gix_repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
+    let workspace_head = gix_repo.find_commit(
+        but_workspace::legacy::remerged_workspace_commit_v2(ctx, &ws)?,
+    )?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
     message.push_str("\n\n");
-    if !virtual_branches.is_empty() {
+    if !ws.stacks.is_empty() {
         message.push_str("This is a merge commit the virtual branches in your workspace.\n\n");
     } else {
         message.push_str("This is placeholder commit and will be replaced by a merge of your ");
@@ -121,17 +123,21 @@ pub(crate) fn update_workspace_commit_with_vb_state(
 
     message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
     message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
-    if !virtual_branches.is_empty() {
+    if !ws.stacks.is_empty() {
         message.push_str("Here are the branches that are currently applied:\n");
-        for branch in &virtual_branches {
+        for stack in &ws.stacks {
+            let Some(ref_name) = stack.ref_name() else {
+                continue;
+            };
             message.push_str(" - ");
-            message.push_str(&branch.name());
-            message.push_str(format!(" ({})", &branch.refname()?).as_str());
+            message.push_str(&ref_name.shorten().to_string());
+            message.push_str(format!(" ({ref_name})").as_str());
             message.push('\n');
 
-            if branch.head_oid(ctx)? != target_base_oid {
+            let head = stack.tip_skip_empty().unwrap_or(target_base_oid);
+            if head != target_base_oid {
                 message.push_str("   branch head: ");
-                message.push_str(&branch.head_oid(ctx)?.to_string());
+                message.push_str(&head.to_string());
                 message.push('\n');
             }
         }
