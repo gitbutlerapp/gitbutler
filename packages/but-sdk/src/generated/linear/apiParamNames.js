@@ -121,7 +121,6 @@ export const apiParamNames = {
 	tearOffBranch: ["projectId", "subjectBranch", "dryRun"],
 	treeChangeDiffs: ["projectId", "change"],
 	unapplyStack: ["projectId", "stackId"],
-	updateBranchName: ["projectId", "stackId", "branchName", "newName"],
 	updateProfileAndPersist: ["params"],
 	updateProjectSettings: ["projectId", "settings"],
 	updateReview: ["projectId", "reviewId", "title", "body", "state", "targetBase"],

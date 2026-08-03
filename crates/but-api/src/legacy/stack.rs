@@ -138,31 +138,6 @@ pub fn remove_branch_with_perm(
     remove_branch_only(ctx, &branch_name, perm)
 }
 
-/// Change the branch name from `branch_name` to `new_name` in the stack
-/// identified by `stack_id`.
-///
-/// This acquires exclusive worktree access from `ctx` before applying the
-/// rename.
-///
-/// See [`update_branch_name_with_perm()`] for the underlying mutation.
-#[but_api(napi)]
-#[instrument(err(Debug))]
-pub fn update_branch_name(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    new_name: String,
-) -> Result<BranchReference> {
-    let mut guard = ctx.exclusive_worktree_access();
-    update_branch_name_with_perm(
-        ctx,
-        stack_id,
-        branch_name,
-        new_name,
-        guard.write_permission(),
-    )
-}
-
 /// Apply the rename from `branch_name` to `new_name` in the stack identified by
 /// `stack_id` while reusing caller-held exclusive access.
 ///

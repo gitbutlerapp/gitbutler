@@ -7,14 +7,13 @@ use but_core::{
     RefMetadata,
     ref_metadata::{ProjectMeta, StackId, StackKind, Workspace},
 };
-use but_ctx::Context;
 use gix::date::parse::TimeBuf;
 use tracing::instrument;
 
 use crate::{
     RefInfo, branch, head_info,
     legacy::{
-        StacksFilter, state_handle,
+        StacksFilter,
         ui::{StackEntry, StackHeadInfo},
     },
     ref_info,
@@ -477,35 +476,4 @@ impl ui::BranchDetails {
                 .collect(),
         })
     }
-}
-
-/// Return the branches that belong to a particular [`Stack`](gitbutler_stack::Stack)
-/// The entries are ordered from newest to oldest.
-pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui::Branch>> {
-    let state = state_handle(&ctx.project_data_dir());
-    let repo = ctx.repo.get()?;
-    let remote = ctx.project_meta()?.push_remote_name(&repo)?;
-
-    let mut stack_branches = vec![];
-    let stack = state.get_stack(stack_id)?;
-    let mut current_base = stack.merge_base(ctx)?;
-    for internal in stack.branches() {
-        let upstream_reference_name = internal.remote_reference(remote.as_str());
-        let upstream_reference = repo
-            .try_find_reference(&upstream_reference_name)?
-            .map(|_| upstream_reference_name);
-        let result = ui::Branch {
-            name: internal.name().to_owned().into(),
-            remote_tracking_branch: upstream_reference.map(Into::into),
-            pr_number: internal.pr_number,
-            review_id: internal.review_id.clone(),
-            archived: internal.archived,
-            tip: internal.head_oid(&repo)?,
-            base_commit: current_base,
-        };
-        current_base = internal.head_oid(&repo)?;
-        stack_branches.push(result);
-    }
-    stack_branches.reverse();
-    Ok(stack_branches)
 }

@@ -1014,17 +1014,6 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
 
 /**
- * Change the branch name from `branch_name` to `new_name` in the stack
- * identified by `stack_id`.
- *
- * This acquires exclusive worktree access from `ctx` before applying the
- * rename.
- *
- * See [`update_branch_name_with_perm()`] for the underlying mutation.
- */
-export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
-
-/**
  * Change the profile on gitbutler.com and keep the stored account in step.
  *
  * The API call alone would leave the local copy stale, so the name shown next to the
