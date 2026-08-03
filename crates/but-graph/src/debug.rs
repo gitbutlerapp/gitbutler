@@ -315,7 +315,7 @@ impl Graph {
 
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
         let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let svg_name = format!("debug-graph-{suffix:02}.svg");
+        let svg_name = dbg!(format!("debug-graph-{suffix:02}.svg"));
         let svg_path = std::env::var_os("CARGO_MANIFEST_DIR")
             .map(std::path::PathBuf::from)
             .unwrap_or_default()
@@ -342,7 +342,7 @@ impl Graph {
         );
 
         assert!(
-            std::process::Command::new("open")
+            std::process::Command::new("xdg-open")
                 .arg(&svg_path)
                 .status()
                 .unwrap()

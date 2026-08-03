@@ -18,15 +18,15 @@ use crate::{
     CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
 };
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
-mod remotes;
+pub(crate) mod remotes;
 
 mod overlay;
 mod post;
@@ -657,6 +657,20 @@ impl Graph {
         };
 
         let mut graph = Self::from_commit_traversal_inner(
+            tip.clone(),
+            maybe_name.clone(),
+            None::<Tip>,
+            meta,
+            project_meta.clone(),
+            worktree_tips.clone(),
+            options.clone(),
+            false,
+        )?;
+        if is_detached {
+            graph.detach_entrypoint_segment()?;
+        }
+        // graph.open_as_svg();
+        let mut graph = Self::from_commit_traversal_inner(
             tip,
             maybe_name,
             None::<Tip>,
@@ -664,10 +678,12 @@ impl Graph {
             project_meta,
             worktree_tips,
             options,
+            true,
         )?;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
+        // graph.open_as_svg();
         Ok(graph)
     }
     /// Produce a minimal but usable representation of the commit-graph reachable from the commit at `tip` such the returned instance
@@ -753,7 +769,7 @@ impl Graph {
             ref_name,
             None::<Tip>,
             meta,
-            project_meta,
+            project_meta.clone(),
             db,
             options,
         )
@@ -792,6 +808,7 @@ impl Graph {
             project_meta,
             worktree_tips,
             options,
+            false,
         )
     }
 
@@ -805,61 +822,74 @@ impl Graph {
         project_meta: ProjectMeta,
         worktree_tips: Vec<WorktreeTip>,
         options: Options,
+        use_new_implementation: bool,
     ) -> anyhow::Result<Self> {
-        let repo = tip.repo;
-        let tip = tip.detach();
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-        let ref_name = ref_name.into();
-        let mut tips = initial_tips_from_workspace_metadata(
-            &overlay_repo,
-            &overlay_meta,
-            tip,
-            ref_name.as_ref(),
-            &project_meta,
-            options.extra_target_commit_id,
-        )?;
-        // The entrypoint tip is intentionally unnamed and receives `ref_name` as
-        // an override, so that name is claimed as well. Workspace stack branch and
-        // target local tips carry their name in the role rather than in `ref_name`.
-        let mut seen_names: BTreeSet<gix::refs::FullName> = tips
-            .iter()
-            .flat_map(|tip| {
-                let role_name = match &tip.role {
-                    TipRole::WorkspaceStackBranch { desired_ref_name } => {
-                        Some(desired_ref_name.clone())
-                    }
-                    TipRole::TargetLocal { local_ref_name } => Some(local_ref_name.clone()),
-                    TipRole::Reachable | TipRole::Workspace | TipRole::TargetRemote => None,
-                };
-                tip.ref_name.clone().into_iter().chain(role_name)
-            })
-            .chain(ref_name.clone())
-            .collect();
-        let mut seen_seeds: BTreeSet<TraversalSeed> = tips.iter().map(tip_traversal_seed).collect();
-        for extra_tip in extra_tips {
-            ensure!(
-                !extra_tip.is_entrypoint,
-                "extra tips cannot be entrypoints - the entrypoint is always the traversal tip"
-            );
-            let name_already_claimed = extra_tip
-                .ref_name
-                .as_ref()
-                .is_some_and(|name| seen_names.contains(name));
-            if name_already_claimed || !seen_seeds.insert(tip_traversal_seed(&extra_tip)) {
-                continue;
+        if use_new_implementation {
+            let repo = tip.repo;
+            let (overlay_repo, overlay_meta, _entrypoint) =
+                Overlay::default().into_parts(repo, meta);
+            let mut heads = vec![tip.detach()];
+            heads.extend(extra_tips.into_iter().map(|tip| tip.id));
+            let graph = crate::nosegment::graph(repo, meta, heads, None)?;
+            graph.to_segment_graph(repo, &overlay_repo, &overlay_meta, project_meta)
+        } else {
+            let repo = tip.repo;
+            let tip = tip.detach();
+            let (overlay_repo, overlay_meta, _entrypoint) =
+                Overlay::default().into_parts(repo, meta);
+            let ref_name = ref_name.into();
+            let mut tips = initial_tips_from_workspace_metadata(
+                &overlay_repo,
+                &overlay_meta,
+                tip,
+                ref_name.as_ref(),
+                &project_meta,
+                options.extra_target_commit_id,
+            )?;
+            // The entrypoint tip is intentionally unnamed and receives `ref_name` as
+            // an override, so that name is claimed as well. Workspace stack branch and
+            // target local tips carry their name in the role rather than in `ref_name`.
+            let mut seen_names: BTreeSet<gix::refs::FullName> = tips
+                .iter()
+                .flat_map(|tip| {
+                    let role_name = match &tip.role {
+                        TipRole::WorkspaceStackBranch { desired_ref_name } => {
+                            Some(desired_ref_name.clone())
+                        }
+                        TipRole::TargetLocal { local_ref_name } => Some(local_ref_name.clone()),
+                        TipRole::Reachable | TipRole::Workspace | TipRole::TargetRemote => None,
+                    };
+                    tip.ref_name.clone().into_iter().chain(role_name)
+                })
+                .chain(ref_name.clone())
+                .collect();
+            let mut seen_seeds: BTreeSet<TraversalSeed> =
+                tips.iter().map(tip_traversal_seed).collect();
+            for extra_tip in extra_tips {
+                ensure!(
+                    !extra_tip.is_entrypoint,
+                    "extra tips cannot be entrypoints - the entrypoint is always the traversal tip"
+                );
+                let name_already_claimed = extra_tip
+                    .ref_name
+                    .as_ref()
+                    .is_some_and(|name| seen_names.contains(name));
+                if name_already_claimed || !seen_seeds.insert(tip_traversal_seed(&extra_tip)) {
+                    continue;
+                }
+                seen_names.extend(extra_tip.ref_name.clone());
+                tips.push(extra_tip);
             }
-            seen_names.extend(extra_tip.ref_name.clone());
-            tips.push(extra_tip);
+            Graph::traverse_tips_with_overlay(
+                &overlay_repo,
+                tips,
+                &overlay_meta,
+                project_meta,
+                options,
+                worktree_tips,
+                ref_name,
+            )
         }
-        Graph::traverse_tips_with_overlay(
-            &overlay_repo,
-            tips,
-            &overlay_meta,
-            project_meta,
-            options,
-            worktree_tips,
-            ref_name,
-        )
     }
 
     /// Produce a graph from already resolved tips and their traversal roles.

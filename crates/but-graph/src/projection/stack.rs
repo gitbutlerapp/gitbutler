@@ -292,6 +292,7 @@ impl std::fmt::Debug for StackSegment {
             .field("commits", &self.commits)
             .field("commits_on_remote", &self.commits_on_remote)
             .field("commits_outside", &self.commits_outside)
+            .field("base", &self.base)
             .finish()
     }
 }

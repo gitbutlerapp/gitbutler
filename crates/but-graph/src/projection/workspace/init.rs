@@ -42,6 +42,7 @@ pub(crate) enum Downgrade {
 /// pruning/enrichment. Reconciliation turns it into
 /// [`WorkspaceReconciliationInput`] by collecting the same raw stack paths but
 /// keeping only the fields needed to reshape graph segments before projection.
+#[derive(Debug)]
 struct WorkspaceFrame {
     /// Workspace classifier derived from the entrypoint or containing workspace segment.
     kind: WorkspaceKind,
@@ -348,6 +349,9 @@ impl Graph {
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(frame.ws_tip_segment_id, Direction::Outgoing)
+                .collect::<Vec<_>>()
+                .into_iter()
+            // .rev()
             {
                 let stack_segment = &self[stack_top_sidx];
                 let has_seen_base = RefCell::new(false);

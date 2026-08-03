@@ -54,10 +54,7 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph
@@ -110,10 +107,7 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let ws = &graph.into_workspace()?;
     // It's notable how the local tracking branch of our target (origin/main) is ignored, it's not part of our workspace,
@@ -216,10 +210,7 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     let ws = &graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
@@ -306,10 +297,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // All non-integrated segments are visible.
     snapbox::assert_data_eq!(
@@ -333,10 +321,7 @@ blank
     )?
     .validated()?;
     // See how tags ARE allowed to name a segment, at least when used as entrypoint.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // Now `HEAD` is outside a workspace, which goes to single-branch mode. But it knows it's in a workspace
     // and shows the surrounding parts, while marking the segment as entrypoint.
     snapbox::assert_data_eq!(
@@ -357,10 +342,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Entrypoint is now unnamed (as no ref-name was provided for traversal)
     snapbox::assert_data_eq!(
@@ -382,10 +364,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Doing this is very much like edit mode, and there is always a segment starting at the entrypoint.
     snapbox::assert_data_eq!(
@@ -406,10 +385,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -462,10 +438,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    graph.open_as_svg();
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // We pickup empty segments.
     snapbox::assert_data_eq!(
@@ -496,10 +470,7 @@ blank
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -523,10 +494,7 @@ blank
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -586,10 +554,7 @@ fn single_stack() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -617,10 +582,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -767,10 +729,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // This a very untypical setup, but it's not forbidden. Code might want to check
     // if the workspace commit is actually managed before proceeding.
@@ -880,10 +839,7 @@ fn minimal_merge() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Without workspace data this becomes a single-branch workspace, with `main` as normal segment.
     snapbox::assert_data_eq!(
@@ -911,10 +867,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -958,10 +911,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let ws = graph.into_workspace()?;
     let entrypoint_stack_segment = ws
@@ -1010,10 +960,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         extra_target_options.clone(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     assert_eq!(
         graph.entrypoint()?.commit().map(|c| c.id),
         extra_target_options.extra_target_commit_id,
@@ -1050,10 +997,7 @@ blank
         extra_target_options.clone(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -1072,10 +1016,7 @@ blank
         extra_target_options,
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -1110,10 +1051,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // There is no workspace as `main` is the base of the workspace, so it's shown directly
     // as a downgraded single-branch view. The target context is preserved, and the fully
@@ -1136,10 +1074,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // However, when the workspace is checked out, it's at least empty.
     snapbox::assert_data_eq!(
@@ -1162,10 +1097,7 @@ blank
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // With empty project metadata, workspace segmentation is retained around the workspace ref.
     snapbox::assert_data_eq!(
@@ -1186,10 +1118,7 @@ blank
     )?
     .validated()?;
     // Now the dependent segments are applied, and so is the separate stack.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -1222,10 +1151,7 @@ blank
     )?
     .validated()?;
     // Show how the lack of post-processing affects the graph - remotes are also not connected.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1639,10 +1565,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     )?
     .validated()?;
     // Without any information it looks quite barren.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // With no workspace at all as the workspace segment isn't split.
     snapbox::assert_data_eq!(
@@ -1664,10 +1587,7 @@ blank
     )?
     .validated()?;
     // The S1 starting position is a split, so there is more.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -1691,10 +1611,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1714,10 +1631,7 @@ blank
     )?
     .validated()?;
     // This should look the same as before, despite the starting position.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -1748,10 +1662,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1773,10 +1684,7 @@ blank
     .validated()?;
     // The entrypoint shouldn't affect the outcome (even though it changes the initial segmentation).
     // However, as the segment it's on is integrated, it's not considered to be part of the workspace.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // We should see the same stacks as we did before, just with a different entrypoint.
     snapbox::assert_data_eq!(
@@ -1815,10 +1723,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Everything in the workspace is integrated, thus it's empty.
     snapbox::assert_data_eq!(
@@ -1840,10 +1745,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // If it's checked out, we must show the branch container, but it's not part of the
     // managed workspace. The target context is preserved and integrated local/base commits
@@ -1888,10 +1790,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // There is no target branch, so nothing is integrated, and `main` shows up.
     // It's not special.
     snapbox::assert_data_eq!(
@@ -1911,10 +1810,7 @@ blank
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // The whole workspace is visible, but it's clear where the entrypoint is.
     // As there is no target ref, `main` shows up.
     snapbox::assert_data_eq!(
@@ -1929,10 +1825,7 @@ blank
     let mut pm = default_project_meta();
     pm.push_remote = Some("push-remote".into());
     let graph = Graph::from_head(&repo, &*meta, pm, &mut db, standard_options())?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1973,10 +1866,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // It's worth noting that we avoid double-listing remote commits that are also
     // directly owned by another remote segment.
     // they have to be considered as something relevant to the branch history.
@@ -1999,10 +1889,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2110,10 +1997,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The main branch is not present, as it's the target.
     snapbox::assert_data_eq!(
@@ -2197,10 +2081,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     assert_eq!(
         graph.partial_segments().count(),
@@ -2226,10 +2107,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // And because `C` is in the workspace data, its data is denoted.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2289,10 +2167,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     )?
     .validated()?;
     assert_eq!(graph.partial_segments().count(), 0);
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // It's true that `A` is fully integrated so it isn't displayed. so from a workspace-perspective
     // it's the right answer.
     snapbox::assert_data_eq!(
@@ -2316,10 +2191,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // `A` is integrated, hence it's not shown.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2339,10 +2211,7 @@ blank
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -2367,10 +2236,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // The entrypoint branch is downgraded to a single-branch view with target context
     // preserved. All commits on this branch are integrated, so the branch container remains
     // but its commit list is pruned.
@@ -2393,10 +2259,7 @@ blank
     .validated()?;
     // It's still getting quite far despite the limit due to other heads searching for their goals,
     // but also ends traversal early.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // Because the branch is integrated, the surrounding workspace isn't shown. The downgraded
     // branch view keeps target context and prunes the integrated commits.
     snapbox::assert_data_eq!(
@@ -2420,10 +2283,7 @@ blank
     .validated()?;
     // It keeps the tip-settings of the workspace it setup by itself, and doesn't override this
     // with the extra-target settings.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2447,10 +2307,7 @@ blank
     // Thanks to the limit-transplant we get to discover more of the workspace.
     // TODO(extra-target): make it work so they limit single branches even, but it's a special case
     //                     as we can't have remotes here.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2506,10 +2363,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // This search discovers the whole workspace, without the integrated one.
     snapbox::assert_data_eq!(
@@ -2549,10 +2403,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The entrypoint isn't contained in the managed workspace anymore, so it's a standalone
     // single-branch view. Target context is preserved, so integrated commits are pruned while
@@ -2671,10 +2522,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     )?
     .validated()?;
     // Main is a normal branch, and its remote is known.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let ws = graph.into_workspace()?;
     // The workspace shows the remote commit, there is nothing special about the target.
@@ -2693,10 +2541,7 @@ blank
     let graph = ws
         .graph
         .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2750,10 +2595,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // The commit in the workspace branch is always ignored and is expected to be the workspace merge commit.
     // So nothing to show here.
     snapbox::assert_data_eq!(
@@ -2777,10 +2619,7 @@ blank
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2818,10 +2657,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // By default, the advanced lane is simply frozen as its remote contains the commit.
     snapbox::assert_data_eq!(
@@ -2849,10 +2685,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // When putting the dependent branch on top as empty segment, the frozen state is retained.
     snapbox::assert_data_eq!(
@@ -2892,10 +2725,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // Workspace is empty as everything is integrated.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -2915,10 +2745,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Empty stack segments on top of integrated portions will show, and nothing integrated shows.
     snapbox::assert_data_eq!(
@@ -3010,10 +2837,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // Entrypoint is outside of the managed workspace, so it is projected as a
     // single-branch view. Target context is preserved and integrated commits below
     // the target trunk are pruned.
@@ -3037,10 +2861,7 @@ blank
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // The limit is visible as well. Target context is preserved in the downgraded
     // branch view, so integrated local/base commits are pruned.
     snapbox::assert_data_eq!(
@@ -3061,10 +2882,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Everything is integrated, nothing to see here.
     snapbox::assert_data_eq!(
@@ -3118,10 +2936,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
     // It's critical that the main branch isn't cut off and the local and remote part find each other,
     // or else the remote part will go on forever create a lot of issues for those who want to display
     // all these incorrectly labeled commits.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -3188,10 +3003,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // `main` is integrated, but it is the entrypoint, so the branch container is shown.
     // With preserved target context, integrated commits below the target trunk are pruned.
     snapbox::assert_data_eq!(
@@ -3212,10 +3024,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let mut ws = graph.into_workspace()?;
     // Everything is integrated.
@@ -3319,10 +3128,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // A is still shown despite it being fully integrated, as it's still enclosed by the
     // workspace tip and the fork-point, at least when we provide the previous known location of the target.
@@ -3392,10 +3198,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Segments can definitely repeat
     snapbox::assert_data_eq!(
@@ -3493,10 +3296,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The dependent branch is empty and on top of the one with the remote
     snapbox::assert_data_eq!(
@@ -3524,10 +3324,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Having done something unusual, which is to put the dependent branch
     // underneath the other already pushed, it creates a different view of ownership.
@@ -3610,10 +3407,7 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -3657,10 +3451,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Since `lane` is connected directly, no segment has to be created.
     // However, as nothing is integrated, it really is another name for `main` now,
@@ -3685,10 +3476,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -3774,10 +3562,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Remote tracking branches we just want to aggregate, just like anonymous segments,
     // but only when another target is provided (the old position, `main`).
@@ -3842,10 +3627,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // This is the default as it includes both the integrated and non-integrated segment.
     // Note how there is no expensive computation to see if remote commits are the same,
@@ -3950,10 +3732,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     let ambiguous_remote_tip = repo.rev_parse_single("origin/A")?.detach();
     for remote_ref in [
@@ -4020,10 +3799,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // We let each remote on the path down own a commit so we only see one remote commit here,
     // the one belonging to the last remaining associated remote tracking branch of D.
@@ -4060,10 +3836,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4082,10 +3855,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Main can be a normal segment if there is no target ref.
     snapbox::assert_data_eq!(
@@ -4123,10 +3893,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4149,10 +3916,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Main can be a normal segment if there is no target ref.
     snapbox::assert_data_eq!(
@@ -4172,10 +3936,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4251,10 +4012,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4274,10 +4032,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4324,10 +4079,7 @@ blank
     //       This is acceptable as graph connections aren't used for this, and ultimately they still
     //       reach the right segment, just through one more indirection. Empty segments are 'looked through'
     //       as well by all algorithms for exactly that reason.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4364,10 +4116,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // TODO: add more stacks.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4387,10 +4136,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4425,10 +4171,7 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // Everything is integrated, so nothing is shown.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4463,10 +4206,7 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // It's notable how hard the workspace ref tries to not own the commit
     // it's under unless it's a managed commit.
@@ -4518,10 +4258,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     )?
     .validated()?;
     // Notably we also pick up 'lane' which sits on the base.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4556,10 +4293,7 @@ blank
     )?
     .validated()?;
     // the order is maintained as provided in the workspace.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4596,10 +4330,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4635,10 +4366,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     )?
     .validated()?;
     // Standard handling after traversal and post-processing.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // But special handling for workspace views.
     snapbox::assert_data_eq!(
@@ -4778,10 +4506,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // If it doesn't know how the workspace should be looking like, i.e. which branches are contained,
     // nothing special happens.
@@ -4808,10 +4533,7 @@ blank
         standard_options_with_extra_target(&repo, ":/init"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The workspace itself contains information about the outside tips.
     // We collect it no matter the location of the tip, e.g.
@@ -4863,10 +4585,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -4883,10 +4602,7 @@ blank
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4904,10 +4620,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -4955,10 +4668,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // We show the original 'native' configuration without pruning anything, even though
     // it contains the workspace commit 619d548.
@@ -4980,10 +4690,7 @@ blank
     )?
     .validated()?;
     // The extra-target as would happen in the typical case would change nothing though.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -5028,10 +4735,7 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Here we'd show what happens if the workspace commit is somewhere in the middle
     // of the segment. This is relevant for code trying to find it, which isn't done here.
@@ -5073,10 +4777,7 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5104,10 +4805,7 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5150,10 +4848,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The base is automatically set to the lowest one that includes both branches, despite the target.
     snapbox::assert_data_eq!(
@@ -5176,10 +4871,7 @@ blank
     )?
     .validated()?;
     // The same is true if stacks are known in workspace metadata.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5197,10 +4889,7 @@ blank
         standard_options_with_extra_target(&repo, ":/M3"),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The base is still adjusted so it matches the actual stacks. With the extra-target
     // resolved as the target commit, the integrated `f52fcec` is at the target and is
@@ -5244,10 +4933,7 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The base is automatically set to the lowest one that includes both branches, despite the target.
     // Interestingly, A now gets to see integrated parts of the target branch.
@@ -5316,10 +5002,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Both stacks will look the same, with the dependent branch inserted at the very bottom.
     let ws = graph.into_workspace()?;
@@ -5502,10 +5185,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // if the branch was never seen, it's not visible as one would expect.
     snapbox::assert_data_eq!(
@@ -5587,10 +5267,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     let debug_graph = graph_tree(&graph);
     let target_segment = graph
         .segment_by_ref_name(target_ref.as_ref())
@@ -5661,10 +5338,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Discovering it adds the branch outside the workspace, leaving workspace,
     // target, and remote computations undisturbed.
@@ -5681,10 +5355,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
         },
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5738,10 +5409,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
     )?
     .validated()?;
     // The extra tip makes the otherwise invisible branch part of the graph.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     assert_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         baseline_workspace,
@@ -5819,10 +5487,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // the main branch is disambiguated by its remote reference.
     snapbox::assert_data_eq!(
@@ -5845,10 +5510,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -5906,10 +5568,7 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
     )?
     .validated()?;
     // notably the target ref and local tracking branch have sibling links setup
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // sibling links between origin/main and main are also set
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -5951,10 +5610,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -5981,10 +5637,7 @@ blank
     )?
     .validated()?;
     // when the graph is built from the B linked worktree repository, the workspace remains visible but the B worktree owns the entrypoint branch
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // workspace projection should keep the linked-worktree ownership marker on the focused stack while leaving the workspace ref itself unowned
     snapbox::assert_data_eq!(
@@ -6024,10 +5677,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Branch should be visible in workspace once.
     let ws = graph.into_workspace()?;
@@ -6099,10 +5749,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // Branch should be visible in workspace once.
     let ws = graph.into_workspace()?;
@@ -6213,10 +5860,7 @@ mod edit_commit {
             standard_options(),
         )?
         .validated()?;
-        snapbox::assert_data_eq!(
-            graph_dag(&graph),
-            snapbox::str!["blank"]
-        );
+        snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
         // special branch names are skipped by default and entirely invisible.
         snapbox::assert_data_eq!(
@@ -6238,10 +5882,7 @@ blank
             standard_options(),
         )?
         .validated()?;
-        snapbox::assert_data_eq!(
-            graph_dag(&graph),
-            snapbox::str!["blank"]
-        );
+        snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
         // …then the segment becomes visible.
         snapbox::assert_data_eq!(
             graph_workspace(&graph.into_workspace()?).to_string(),
@@ -6369,10 +6010,7 @@ fn reproduce_12146() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The sibling ID is not set, and we see only two stacks: B owns 7163661,
     // and both A and B include the shared base commit 81d4e38 (A only has 81d4e38).
@@ -6466,10 +6104,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     // The fork-point approach correctly finds the original divergence point (fafd9d0)
     // instead of the moved merge base (ef56fab), so all 3 branch commits are visible:
@@ -6684,10 +6319,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -6708,10 +6340,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6749,10 +6378,7 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6792,10 +6418,7 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     // this is a weird state as the target is actually disjoint from the workspace - it appears empty now
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -6837,10 +6460,7 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6877,10 +6497,7 @@ fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6903,10 +6520,7 @@ blank
         standard_options(),
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6933,10 +6547,7 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
     db.worktree_meta_mut().mark_adopted()?;
     let graph =
         Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     assert_worktree_ref_is_fork(&graph, "wsref")?;
     // The worktree branch is no longer a stack row - the worktree listing
     // represents it instead.
@@ -6956,10 +6567,7 @@ blank
     db.worktree_meta_mut().mark_adopted()?;
     let graph =
         Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -6999,10 +6607,7 @@ fn worktree_ref_mid_stack() -> anyhow::Result<()> {
         },
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     assert_worktree_ref_is_fork(&graph, "wsref")?;
     // Both commits still belong to `foo`'s stack row.
     snapbox::assert_data_eq!(
@@ -7079,10 +6684,7 @@ fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
         },
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     assert_worktree_ref_is_fork(&graph, "wsref")?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -7116,10 +6718,7 @@ fn worktree_ref_as_entrypoint_keeps_its_lane() -> anyhow::Result<()> {
         },
     )?
     .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     Ok(())
 }
 
@@ -7150,10 +6749,7 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
     assert_worktree_ref_is_fork(&graph, "wsref")?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -7174,10 +6770,7 @@ blank
     let graph =
         Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
     assert_worktree_ref_is_fork(&graph, "wsref")?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -7211,10 +6804,7 @@ fn worktree_ref_beside_entrypoint_branch() -> anyhow::Result<()> {
     )?
     .validated()?;
     assert_worktree_ref_is_fork(&graph, "wsref")?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str!["blank"]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     Ok(())
 }
 
