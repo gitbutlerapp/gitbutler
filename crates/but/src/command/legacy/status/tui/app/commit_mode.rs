@@ -17,9 +17,10 @@ use crate::{
                 App, DetailsLayoutMessage, Message, Mode, ReloadCause, RewordMessage,
                 SelectAfterReload,
                 app::{MoveCursorDiration, mark::hunk_is_child_of},
+                graph_extension::ExtensionDirection,
                 render::{
-                    ModeRender, RenderSingleLineSpans, render_commit_operation_target_marker,
-                    source_span,
+                    ModeRender, OperationExtension, RenderSingleLineSpans,
+                    render_commit_operation_target_marker, source_span,
                 },
             },
         },
@@ -64,6 +65,21 @@ pub enum CommitSource {
 }
 
 impl ModeRender for CommitMode {
+    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
+        let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
+            self.insert_side.into()
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
+            ExtensionDirection::Below
+        } else {
+            return None;
+        };
+
+        Some(OperationExtension::Commit {
+            mode: self,
+            direction,
+        })
+    }
+
     fn render_operation_target_marker(
         &self,
         app: &App,

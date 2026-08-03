@@ -495,7 +495,7 @@ fn render_status_list_item(
     } = tui_line;
 
     let operation_extension = if is_selected {
-        selected_operation_extension(app, data)
+        app.mode.as_mode_render().operation_extension(data)
     } else {
         None
     };
@@ -801,7 +801,7 @@ fn render_status_list_item(
 }
 
 #[derive(Clone, Copy)]
-enum OperationExtension<'a> {
+pub(crate) enum OperationExtension<'a> {
     Commit {
         mode: &'a CommitMode,
         direction: ExtensionDirection,
@@ -817,65 +817,6 @@ impl OperationExtension<'_> {
         match self {
             Self::Commit { direction, .. } | Self::Move { direction, .. } => direction,
         }
-    }
-}
-
-fn selected_operation_extension<'a>(
-    app: &'a App,
-    data: &StatusOutputLineData,
-) -> Option<OperationExtension<'a>> {
-    match &*app.mode {
-        Mode::Commit(mode) => {
-            if matches!(data, StatusOutputLineData::Commit { .. }) {
-                Some(OperationExtension::Commit {
-                    mode,
-                    direction: mode.insert_side.into(),
-                })
-            } else if matches!(data, StatusOutputLineData::Branch { .. }) {
-                Some(OperationExtension::Commit {
-                    mode,
-                    direction: ExtensionDirection::Below,
-                })
-            } else {
-                None
-            }
-        }
-        Mode::Move(mode) => {
-            if let StatusOutputLineData::Commit { cli_id: target, .. } = data
-                && !mode.source.contains(target)
-            {
-                Some(OperationExtension::Move {
-                    mode,
-                    direction: mode.insert_side.into(),
-                })
-            } else if let StatusOutputLineData::Branch { cli_id: target, .. } = data
-                && !mode.source.contains(target)
-            {
-                let source_is_commit = match &*mode.source {
-                    MoveSource::Marks(..) | MoveSource::Commit { .. } => true,
-                    MoveSource::Branch(..) => false,
-                };
-                Some(OperationExtension::Move {
-                    mode,
-                    direction: if source_is_commit {
-                        ExtensionDirection::Below
-                    } else {
-                        ExtensionDirection::Above
-                    },
-                })
-            } else {
-                None
-            }
-        }
-        Mode::Normal(..)
-        | Mode::MoveStack(..)
-        | Mode::PickChanges(..)
-        | Mode::Details(..)
-        | Mode::Squash(..)
-        | Mode::Stack(..)
-        | Mode::InlineReword(..)
-        | Mode::Jump(..)
-        | Mode::Command(..) => None,
     }
 }
 
@@ -1503,7 +1444,15 @@ impl Mode {
     }
 }
 
-pub trait ModeRender {
+pub(crate) trait ModeRender {
+    // ┊│   << target >>
+    // ┊●   982b7d85c5 my commit
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^ configure an operation extension line above or below the selected row
+    #[allow(unused_variables)]
+    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
+        None
+    }
+
     // ┊●   << source >> 982b7d85c5 my commit
     //      ^^^^^^^^^^^^ render source labels
     #[allow(unused_variables)]

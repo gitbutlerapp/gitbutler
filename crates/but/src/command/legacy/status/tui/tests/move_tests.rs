@@ -2,9 +2,8 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{
-    Message, ReloadCause,
-    tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
+use crate::command::legacy::status::tui::tests::utils::{
+    TestTuiOptions, test_status_tui, test_status_tui_with_options,
 };
 
 #[test]
@@ -195,33 +194,18 @@ fn move_branch_to_merge_base_tears_off_branch() {
 
     let mut tui = test_status_tui(env);
 
-    tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
-
-    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊╭┄ h0 [C]"]);
-
-    tui.input('m')
-        .assert_current_line_eq(str!["┊╭┄ << source >> << noop >> h0 [C]"]);
-
-    tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str![
-            "┴ << unstack branch >> 0dc3733 (common base) 2000-01-02 add M"
-        ]);
-
-    tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊╭┄ i0 [C]"]);
-
-    tui = tui.recreate();
-    tui.render_with_messages(
-        None,
-        Vec::from([
-            Message::EnterNormalModeAfterConfirmingOperation,
-            Message::Reload(None, ReloadCause::Mutation),
-        ]),
-    )
-    .assert_rendered_term_svg_eq(file![
-        "snapshots/move_branch_to_merge_base_tears_off_branch_final.svg"
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/move_branch_to_merge_base_tears_off_branch_001.svg"
+    ]);
+    tui.input('j');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/move_branch_to_merge_base_tears_off_branch_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_branch_to_merge_base_tears_off_branch_003.svg"
     ]);
 }
 
