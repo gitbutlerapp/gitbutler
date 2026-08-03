@@ -196,6 +196,7 @@ impl inner::RefInfo {
             is_managed_commit,
             ancestor_workspace_commit: _,
             is_entrypoint,
+            worktrees: _,
         }: crate::RefInfo,
     ) -> anyhow::Result<Self> {
         let stacks: Vec<_> = stacks
