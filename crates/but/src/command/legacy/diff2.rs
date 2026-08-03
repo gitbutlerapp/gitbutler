@@ -118,12 +118,219 @@ impl CliOutputHuman for DiffOutcome<'_> {
 
 impl CliOutput for DiffOutcome<'_> {
     fn on_json(self) -> impl Serialize {
-        // TODO(david)
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Output {
+            changes: Vec<Change>,
+        }
 
         #[derive(Serialize)]
-        struct Output {}
+        #[serde(rename_all = "camelCase")]
+        struct Change {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            id: Option<String>,
+            path: String,
+            status: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            old_path: Option<String>,
+            diff: Diff,
+        }
 
-        Output {}
+        #[derive(Serialize)]
+        #[serde(tag = "type", rename_all = "camelCase")]
+        enum Diff {
+            Binary,
+            TooLarge {
+                size_in_bytes: u64,
+            },
+            Patch {
+                hunks: Vec<Hunk>,
+                #[serde(skip_serializing_if = "std::ops::Not::not")]
+                is_binary_to_text: bool,
+            },
+        }
+
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Hunk {
+            old_start: u32,
+            old_lines: u32,
+            new_start: u32,
+            new_lines: u32,
+            diff: String,
+        }
+
+        fn hunk_to_json_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
+            use bstr::ByteSlice as _;
+
+            Hunk {
+                old_start: hunk.old_start,
+                old_lines: hunk.old_lines,
+                new_start: hunk.new_start,
+                new_lines: hunk.new_lines,
+                diff: hunk.diff.to_str_lossy().into_owned(),
+            }
+        }
+
+        fn hunk_to_change(id: Option<&str>, hunk: &but_core::SingleHunk) -> Change {
+            use bstr::ByteSlice as _;
+
+            let diff = if let (Some(diff), Some(header)) = (&hunk.diff, &hunk.hunk_header) {
+                Diff::Patch {
+                    hunks: vec![hunk_to_json_hunk(&but_core::unified_diff::DiffHunk {
+                        old_start: header.old_start,
+                        old_lines: header.old_lines,
+                        new_start: header.new_start,
+                        new_lines: header.new_lines,
+                        diff: diff.clone(),
+                    })],
+                    is_binary_to_text: false,
+                }
+            } else {
+                Diff::Patch {
+                    hunks: vec![],
+                    is_binary_to_text: false,
+                }
+            };
+
+            Change {
+                id: id.map(str::to_owned),
+                path: hunk.path.to_str_lossy().into_owned(),
+                status: "modified".to_owned(),
+                old_path: None,
+                diff,
+            }
+        }
+
+        fn hunk_changes(mut hunks: Vec<(&str, &but_core::SingleHunk)>) -> Vec<Change> {
+            hunks.sort_by(|(_, a_hunk), (_, b_hunk)| {
+                a_hunk
+                    .path
+                    .cmp(&b_hunk.path)
+                    .then_with(|| a_hunk.hunk_header.cmp(&b_hunk.hunk_header))
+            });
+            hunks
+                .into_iter()
+                .map(|(id, hunk)| hunk_to_change(Some(id), hunk))
+                .collect()
+        }
+
+        fn tree_change_to_change(ctx: &Context, change: but_core::ui::TreeChange) -> Change {
+            use but_core::{UnifiedPatch, ui::TreeStatus};
+
+            let (status, old_path) = match &change.status {
+                TreeStatus::Addition { .. } => ("added", None),
+                TreeStatus::Deletion { .. } => ("deleted", None),
+                TreeStatus::Modification { .. } => ("modified", None),
+                TreeStatus::Rename { previous_path, .. } => {
+                    ("renamed", Some(previous_path.to_string()))
+                }
+            };
+
+            let patch = but_api::diff::tree_change_diffs(ctx, change.clone())
+                .ok()
+                .flatten();
+            let diff = match patch {
+                Some(UnifiedPatch::Binary) => Diff::Binary,
+                Some(UnifiedPatch::TooLarge { size_in_bytes }) => Diff::TooLarge { size_in_bytes },
+                Some(UnifiedPatch::Patch {
+                    hunks,
+                    is_result_of_binary_to_text_conversion,
+                    ..
+                }) => Diff::Patch {
+                    hunks: hunks.iter().map(hunk_to_json_hunk).collect(),
+                    is_binary_to_text: is_result_of_binary_to_text_conversion,
+                },
+                None => Diff::Patch {
+                    hunks: vec![],
+                    is_binary_to_text: false,
+                },
+            };
+
+            Change {
+                id: None,
+                path: change.path_bytes.to_string(),
+                status: status.to_owned(),
+                old_path,
+                diff,
+            }
+        }
+
+        fn commit_changes(
+            ctx: &Context,
+            commit: gix::ObjectId,
+            path: Option<&BString>,
+        ) -> anyhow::Result<Vec<Change>> {
+            let details =
+                but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;
+            Ok(details
+                .diff_with_first_parent
+                .into_iter()
+                .filter(|change| path.is_none_or(|path| path == &change.path))
+                .map(|change| tree_change_to_change(ctx, change.into()))
+                .collect())
+        }
+
+        fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output> {
+            let changes = match target {
+                DiffOperation::Uncommitted => {
+                    let id_map = IdMap::legacy_new_from_context(ctx)?;
+                    hunk_changes(
+                        id_map
+                            .uncommitted_hunks
+                            .iter()
+                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
+                            .collect(),
+                    )
+                }
+                DiffOperation::Commit { commit } => commit_changes(ctx, commit.commit_id, None)?,
+                DiffOperation::Branch { branch } => {
+                    let branch = branch.shorten().to_string();
+                    let branch_diff = but_api::branch::branch_diff(ctx, branch)?;
+                    branch_diff
+                        .changes
+                        .into_iter()
+                        .map(|change| tree_change_to_change(ctx, change))
+                        .collect()
+                }
+                DiffOperation::UncommittedHunkOrFile { hunk } => hunk_changes(
+                    hunk.hunks
+                        .iter()
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .collect(),
+                ),
+                DiffOperation::CommittedFile { commit, path } => {
+                    commit_changes(ctx, commit.commit_id, Some(path))?
+                }
+                DiffOperation::PathPrefix { hunks, .. } => hunk_changes(
+                    hunks
+                        .iter()
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .collect(),
+                ),
+            };
+
+            Ok(Output { changes })
+        }
+
+        struct DeferredOutput<'a> {
+            ctx: &'a Context,
+            target: DiffOperation,
+        }
+
+        impl Serialize for DeferredOutput<'_> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                let output = build_output(self.ctx, &self.target)
+                    .map_err(<S::Error as serde::ser::Error>::custom)?;
+                output.serialize(serializer)
+            }
+        }
+
+        let Self { ctx, target } = self;
+        DeferredOutput { ctx, target }
     }
 }
 

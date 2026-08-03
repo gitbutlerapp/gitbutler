@@ -1,3 +1,5 @@
+use std::fs;
+
 use crate::utils::{CommandExt, Sandbox};
 
 #[test]
@@ -72,4 +74,76 @@ fn path_prefix() {
   ┊ 1 │ +content of d
 
 "#]]);
+}
+
+#[test]
+fn json_uncommitted_targets() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("a/b/c.txt", "content of c\n");
+    env.file("a/b/d.txt", "content of d\n");
+    env.file("a/b.txt", "content of b\n");
+
+    env.but("_diff2 --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file!["snapshots/diff2/json-uncommitted.stdout"].raw());
+    env.but("_diff2 --json a/b/c.txt")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file!["snapshots/diff2/json-uncommitted-file.stdout"].raw());
+    env.but("_diff2 --json a/b/")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file!["snapshots/diff2/json-path-prefix.stdout"].raw());
+}
+
+#[test]
+fn json_committed_targets() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    for target in ["A", "tpm", "tpm:t"] {
+        env.but(format!("_diff2 --json {target}"))
+            .allow_json()
+            .assert()
+            .success()
+            .stderr_eq(snapbox::str![])
+            .stdout_eq(snapbox::file!["snapshots/diff2/json-committed-a.stdout"].raw());
+    }
+}
+
+#[test]
+fn json_tree_change_statuses() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("modified.txt", "before\n");
+    env.file("deleted.txt", "delete me\n");
+    env.file("renamed-before.txt", "rename me\n");
+    env.but("commit -b A -m status-base").assert().success();
+
+    env.file("added.txt", "added\n");
+    env.file("modified.txt", "after\n");
+    fs::remove_file(env.projects_root().join("deleted.txt")).unwrap();
+    fs::rename(
+        env.projects_root().join("renamed-before.txt"),
+        env.projects_root().join("renamed-after.txt"),
+    )
+    .unwrap();
+    env.but("commit -b A -m status-target").assert().success();
+
+    env.but("_diff2 --json 1#0")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file!["snapshots/diff2/json-tree-change-statuses.stdout"].raw());
 }
