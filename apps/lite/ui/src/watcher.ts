@@ -1,4 +1,4 @@
-import type { QueryKey } from "#ui/api/queries.ts";
+import { refreshIntegratedReviews, type QueryKey } from "#ui/api/queries.ts";
 import type { WatcherEvent } from "@gitbutler/but-sdk";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -21,9 +21,17 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["branchList" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDetails" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });
-			void client.invalidateQueries({
-				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
-			});
+			// The target-commit annotations read the backend's review cache, so
+			// refresh newly integrated reviews first and re-read the listing once
+			// they land. The refresh failing (offline, rate-limited) degrades to
+			// unannotated commits and is retried on the next fetch.
+			void refreshIntegratedReviews(client, projectId)
+				.catch(() => undefined)
+				.finally(() => {
+					void client.invalidateQueries({
+						queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
+					});
+				});
 			break;
 		case "gitActivity":
 		case "workspaceActivity": {

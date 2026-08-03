@@ -89,6 +89,10 @@ pub fn workspace_target_commits(
             }
         };
 
+    let natural_end = match (paging, cursor) {
+        (false, Some(tip)) => natural_end_of_line(&repo, &ws, tip)?,
+        _ => None,
+    };
     let mut commits = Vec::new();
     while commits.len() < limit
         && let Some(id) = cursor
@@ -107,7 +111,9 @@ pub fn workspace_target_commits(
             review: reviews_by_integration_sha.remove(&id),
             in_workspace,
         });
-        if !paging && ws.lower_bound == Some(id) {
+        if !paging
+            && (natural_end == Some(id) || (natural_end.is_none() && ws.lower_bound == Some(id)))
+        {
             cursor = None;
             break;
         }
@@ -116,6 +122,63 @@ pub fn workspace_target_commits(
         commits,
         has_more: cursor.is_some(),
     })
+}
+
+/// The first-parent line commit at which the base listing naturally ends: the
+/// deepest fork point among the workspace's stack bases and the lower bound.
+///
+/// The lower bound is usually itself a line commit, but when a still-applied
+/// stack was integrated through a merge commit, the bound (and that stack's
+/// base) is the stack's own commit on the merge's *second* parent, which the
+/// first-parent walk never meets. Such bounds resolve by following their own
+/// first-parent chain down to where it rejoins the line — the stack's true
+/// fork point. Bounds that fail to resolve within [`TARGET_COMMITS_LIMIT`]
+/// are ignored; their stacks have no fork point in the listing either way.
+fn natural_end_of_line(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    target_tip: gix::ObjectId,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    let mut line = Vec::new();
+    let mut position_by_id = HashMap::new();
+    let mut cursor = Some(target_tip);
+    while let Some(id) = cursor
+        && line.len() < TARGET_COMMITS_LIMIT
+    {
+        position_by_id.insert(id, line.len());
+        line.push(id);
+        cursor = repo
+            .find_commit(id)?
+            .parent_ids()
+            .next()
+            .map(|id| id.detach());
+    }
+
+    let mut end: Option<usize> = None;
+    let bounds = ws
+        .stacks
+        .iter()
+        .filter_map(|stack| stack.base())
+        .chain(ws.lower_bound);
+    for bound in bounds {
+        let mut cursor = Some(bound);
+        let mut steps = 0;
+        while let Some(id) = cursor
+            && steps < TARGET_COMMITS_LIMIT
+        {
+            if let Some(&position) = position_by_id.get(&id) {
+                end = Some(end.map_or(position, |deepest| deepest.max(position)));
+                break;
+            }
+            cursor = repo
+                .find_commit(id)?
+                .parent_ids()
+                .next()
+                .map(|id| id.detach());
+            steps += 1;
+        }
+    }
+    Ok(end.map(|position| line[position]))
 }
 
 /// One bounded page of target commits and the state needed to continue it.

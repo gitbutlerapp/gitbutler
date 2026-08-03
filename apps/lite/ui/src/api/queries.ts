@@ -11,7 +11,12 @@ import type {
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
-import { infiniteQueryOptions, queryOptions, skipToken } from "@tanstack/react-query";
+import {
+	infiniteQueryOptions,
+	queryOptions,
+	skipToken,
+	type QueryClient,
+} from "@tanstack/react-query";
 import * as ms from "ms";
 
 export type QueryKey =
@@ -98,35 +103,40 @@ export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) 
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
-		queryFn: async ({ client }) => {
-			// A fetch can turn a reviewed branch into an integrated one. Refresh only
-			// those reviews before reading the cache-backed target annotations; the
-			// review queries stay fresh across local workspace activity and are
-			// invalidated by the fetch watcher.
-			const headInfo = await client.fetchQuery({
-				...headInfoQueryOptions(projectId),
-				staleTime: 0,
-			});
-			const reviewIds = new Set(
-				headInfo.stacks.flatMap((stack) =>
-					stack.segments.flatMap((segment) => {
-						const reviewId = segment.metadata?.review.pullRequest;
-						return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
-					}),
-				),
-			);
-			await Promise.allSettled(
-				[...reviewIds].flatMap((reviewId) => {
-					const options = getReviewQueryOptions({ projectId, reviewId });
-					return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
-						? []
-						: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
-				}),
-			);
-
-			return window.lite.workspaceTargetCommits({ projectId, from: null, limit: null });
-		},
+		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
 	});
+
+/**
+ * A fetch can turn a reviewed branch into an integrated one while the backend
+ * forge cache still holds the pre-merge review, leaving the branch unmatched
+ * to the commit that landed it in the Upstream tab. Refresh those reviews
+ * (repopulating the backend cache) so the target-commit listing can be
+ * re-read afterwards. Runs from the fetch watcher, so a review that never
+ * resolves is retried at most once per fetch, and the listing itself stays a
+ * purely local call. Failures degrade to unannotated commits.
+ */
+export const refreshIntegratedReviews = async (
+	client: QueryClient,
+	projectId: string,
+): Promise<void> => {
+	const headInfo = await client.fetchQuery({ ...headInfoQueryOptions(projectId), staleTime: 0 });
+	const reviewIds = new Set(
+		headInfo.stacks.flatMap((stack) =>
+			stack.segments.flatMap((segment) => {
+				const reviewId = segment.metadata?.review.pullRequest;
+				return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
+			}),
+		),
+	);
+	await Promise.allSettled(
+		[...reviewIds].flatMap((reviewId) => {
+			const options = getReviewQueryOptions({ projectId, reviewId });
+			return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
+				? []
+				: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
+		}),
+	);
+};
 
 const olderTargetCommitsPageSize = 25;
 

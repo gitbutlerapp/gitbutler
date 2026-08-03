@@ -71,6 +71,85 @@ fn reports_clipping_and_accepts_a_zero_limit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A still-applied stack landed upstream through a merge commit: the workspace
+/// lower bound becomes the stack tip, which sits on the merge's *second*
+/// parent and is never met by the first-parent walk. The stack's base bounds
+/// the walk instead of running to the commit cap (or repository root).
+#[test]
+fn merge_integrated_stack_bounds_the_walk_at_its_base() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    git_at_dir(tmp.path()).args(["init"]).run();
+    git_at_dir(tmp.path())
+        .args(["config", "user.name", "GitButler"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["config", "user.email", "gitbutler@example.com"])
+        .run();
+    write_file(tmp.path(), "file.txt", "zero\n")?;
+    git_at_dir(tmp.path()).args(["add", "file.txt"]).run();
+    git_at_dir(tmp.path()).args(["commit", "-m", "zero"]).run();
+    write_file(tmp.path(), "file.txt", "one\n")?;
+    git_at_dir(tmp.path()).args(["commit", "-am", "one"]).run();
+    git_at_dir(tmp.path()).args(["branch", "feature"]).run();
+    write_file(tmp.path(), "file.txt", "two\n")?;
+    git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
+    git_at_dir(tmp.path()).args(["switch", "feature"]).run();
+    write_file(tmp.path(), "feature.txt", "work\n")?;
+    git_at_dir(tmp.path()).args(["add", "feature.txt"]).run();
+    git_at_dir(tmp.path())
+        .args(["commit", "-m", "feature-work"])
+        .run();
+    git_at_dir(tmp.path()).args(["switch", "main"]).run();
+    git_at_dir(tmp.path())
+        .args(["merge", "--no-ff", "feature", "-m", "merge feature"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["config", "remote.origin.url", "../origin"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path()).args(["switch", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["switch", "-c", "gitbutler/workspace"])
+        .run();
+    git_at_dir(tmp.path())
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            "GitButler Workspace Commit",
+        ])
+        .run();
+
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+    let feature_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::apply_only(&mut ctx, feature_ref.as_ref())?;
+
+    let complete = but_api::target_commits::workspace_target_commits(&ctx, None, None)?;
+    let titles: Vec<_> = complete
+        .commits
+        .iter()
+        .map(|entry| {
+            let message = entry.commit.message.to_string();
+            message.lines().next().unwrap_or_default().to_owned()
+        })
+        .collect();
+    assert_eq!(
+        titles,
+        ["merge feature", "two", "one"],
+        "the walk stops at the stack's fork point instead of running past it to the root"
+    );
+    assert!(
+        !complete.has_more,
+        "stopping at the fork point is a natural bound, not a clip"
+    );
+    Ok(())
+}
+
 #[test]
 fn continuation_excludes_its_cursor_and_reports_more_history() -> anyhow::Result<()> {
     let (ctx, _tmp) = incoming_target()?;
