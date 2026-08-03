@@ -246,6 +246,12 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
+        // The refresh re-traverses with the editor's options, so the recorded worktree tips have
+        // to be moved onto what this rebase just checked out. Leaving them at their pre-rebase
+        // commits makes the *next* editor record a stale `initial_head` and reject its own
+        // materialize as a concurrent worktree change.
+        let worktree_tips = self.worktree_tips_after_rebase()?;
+        self.workspace.graph.options.worktree_tips = worktree_tips;
         self.workspace
             .refresh_from_head(&repo, &*self.meta, project_meta)?;
 
@@ -275,6 +281,12 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
+        // The refresh re-traverses with the editor's options, so the recorded worktree tips have
+        // to be moved onto what this rebase just checked out. Leaving them at their pre-rebase
+        // commits makes the *next* editor record a stale `initial_head` and reject its own
+        // materialize as a concurrent worktree change.
+        let worktree_tips = self.worktree_tips_after_rebase()?;
+        self.workspace.graph.options.worktree_tips = worktree_tips;
         self.workspace
             .refresh_from_head(&repo, &*self.meta, project_meta)?;
 
