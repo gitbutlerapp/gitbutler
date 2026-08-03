@@ -138,9 +138,10 @@ is a flag. `zz` is a special ID meaning "the uncommitted area".
 | Uncommitted file | Commit        | Amend the change into a commit    | `but squash a1 -t nn`         |
 | `zz`             | Commit        | Amend everything into a commit    | `but squash zz -t nn`         |
 | Commit           | `zz`          | Uncommit the commit               | `but squash mm -t zz`         |
+| Branch           | `zz`          | Uncommit and remove the branch    | `but squash bu -t zz`         |
 | Committed file   | Commit        | Move the file to another commit   | `but squash nn:a -t mm`       |
 
-**Message flags:** the rows whose sources are commits or branches compose a NEW message, so without
+**Message flags:** commits or branches compose a NEW message unless the target is `zz`, so without
 `-m` they open an editor and block — always pass one. The remaining rows reuse the target's message
 and need no flag, and `-t zz` rejects message flags outright.
 
@@ -151,8 +152,8 @@ which `amend` does not accept.
 The other editing commands are narrower entry points on the same model:
 
 - `but amend -t <commit> <changes>` — amend uncommitted files/hunks into a known commit
-- `but uncommit <commits-or-committed-files>` — move committed work back to uncommitted; committed
-  files in one call must come from one commit
+- `but uncommit <commits-branches-or-committed-files>` — move committed work back to uncommitted;
+  branches are removed, and committed files in one call must come from one commit
 - `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed files, or a
   branch; this is the command with position control
 - `but discard <changes>` — drop work instead of relocating it

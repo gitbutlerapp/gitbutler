@@ -210,6 +210,7 @@ but squash <commit> -t <branch> -m "msg"           # Target a branch: squashes i
 but squash <file-or-hunk-id> -t <commit>           # Amend an uncommitted change (`but amend` does this)
 but squash zz -t <commit>                          # Amend all uncommitted changes into a commit
 but squash <commit> -t zz                          # Uncommit a commit
+but squash <branch> -t zz                          # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
 ```
 
@@ -217,9 +218,9 @@ All sources must be the same kind (all commits, all branches, all uncommitted ch
 committed files) and committed-file sources must come from one commit. If `-t` is omitted, `<SOURCES>`
 must be exactly one branch, which squashes that branch's commits together.
 
-Message flags (mutually exclusive). Commit and branch sources compose a new message, so without a
-flag they open an editor and block — always pass one. Uncommitted and committed-file sources reuse
-the target's message and need no flag:
+Message flags (mutually exclusive). Commit and branch sources compose a new message unless the
+target is `zz`, so without a flag they open an editor and block — always pass one. Uncommitted and
+committed-file sources reuse the target's message and need no flag:
 
 ```bash
 -m "msg"                # New message; repeat -m to append paragraphs
@@ -270,15 +271,17 @@ with no value is equivalent to `--unstack`.
 
 ### `but uncommit <SOURCES>...`
 
-Move commits or committed files back to the uncommitted area.
+Move commits, branches, or committed files back to the uncommitted area.
 
 ```bash
 but uncommit <commit-id>                 # Uncommit an entire commit
+but uncommit <branch>                    # Uncommit all commits and remove the branch
 but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
 ```
 
-Multiple whole commits may be passed together. Multiple committed-file sources must all come from
-the same commit; uncommit files from different commits in separate commands.
+Multiple whole commits or multiple branches may be passed together, but source kinds cannot be
+mixed. Uncommitting a branch also removes an empty branch. Multiple committed-file sources must all
+come from the same commit; uncommit files from different commits in separate commands.
 
 When you need file and hunk IDs to recommit selectively, use
 `but uncommit <id> && but diff` in one shell call.
