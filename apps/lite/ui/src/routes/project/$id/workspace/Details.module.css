@@ -60,7 +60,7 @@
 	align-items: center;
 	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 10px;
-	gap: 10px;
+	gap: 12px;
 	border-bottom: 1px solid var(--border-3);
 
 	/* No files panel to the left, so align with the panel padding. */
