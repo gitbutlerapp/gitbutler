@@ -7,7 +7,7 @@
 .top {
 	container-type: inline-size;
 	display: flex;
-	row-gap: 12px;
+	row-gap: 10px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
@@ -42,17 +42,15 @@
 
 .workspaceName {
 	display: flex;
-	column-gap: 4px;
+	column-gap: 6px;
 	align-items: center;
 	min-width: 0;
+}
 
-	.workspaceNameChevron {
-		color: var(--text-2);
-	}
-
-	&:hover .workspaceNameChevron {
-		color: var(--text-1);
-	}
+/* The folder mark is not square, so opt out of the button's icon sizing. */
+.workspaceNameFolder.workspaceNameFolder {
+	width: 17px;
+	height: 14px;
 }
 
 .workspaceNameLabel {

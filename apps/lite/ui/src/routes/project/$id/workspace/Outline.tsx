@@ -29,6 +29,7 @@ import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx"
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesOutline } from "#ui/routes/project/$id/workspace/useBranchesOutline.ts";
+import { ProjectFolderIcon } from "#ui/routes/project/$id/workspace/ProjectFolderIcon.tsx";
 import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
 import type { UpstreamOutline } from "#ui/routes/project/$id/workspace/useUpstreamOutline.ts";
 import { assert } from "#ui/assert.ts";
@@ -308,11 +309,16 @@ export const Outline: FC<{
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								aria-label={globalHotkeys.selectProject.meta.name}
-								className={classes("text-15", "text-bold", styles.workspaceName)}
+								className={classes(
+									getButtonClassName({ variant: "ghost" }),
+									"text-15",
+									"text-bold",
+									styles.workspaceName,
+								)}
 								onClick={openProjectPicker}
 							>
+								<ProjectFolderIcon className={styles.workspaceNameFolder} />
 								<span className={styles.workspaceNameLabel}>{project.title}</span>
-								<Icon name="chevron-down" className={styles.workspaceNameChevron} />
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
