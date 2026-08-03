@@ -234,7 +234,7 @@ fn resolve(
     } else if empty {
         (guard, CommitSelection::Nothing)
     } else {
-        (guard, CommitSelection::AllChanges)
+        (guard, CommitSelection::AllChanges(ChangeSourceId::Head))
     };
 
     let commit_op = {
@@ -303,7 +303,7 @@ pub fn run(
         let mut builder = DiffSpecBuilder::new(source_repo.repo(&repo), context_lines);
 
         match commit_selection {
-            CommitSelection::AllChanges => {
+            CommitSelection::AllChanges(_) => {
                 builder.push_changes_from_uncommitted_area()?;
             }
             CommitSelection::Changes(selection) => {
@@ -598,7 +598,9 @@ fn route_commit_above_or_below(
 }
 
 pub enum CommitSelection {
-    AllChanges,
+    /// Every uncommitted change of the named checkout, which is what a bare `but commit` and a
+    /// worktree's own uncommitted area both mean.
+    AllChanges(ChangeSourceId),
     Changes(Box<UncommittedSelection>),
     Nothing,
 }
@@ -607,9 +609,9 @@ impl CommitSelection {
     /// The checkout these changes are read from.
     fn source(&self) -> ChangeSourceId {
         match self {
-            // Both mean "the main worktree": bare `but commit` commits its changes,
-            // and an empty commit reads none at all.
-            CommitSelection::AllChanges | CommitSelection::Nothing => ChangeSourceId::Head,
+            CommitSelection::AllChanges(source) => source.clone(),
+            // An empty commit reads no changes at all, so the main worktree stands in.
+            CommitSelection::Nothing => ChangeSourceId::Head,
             CommitSelection::Changes(selection) => selection.source().clone(),
         }
     }

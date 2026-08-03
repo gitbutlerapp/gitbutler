@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -64,6 +65,9 @@ pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
     Uncommitted,
     UncommittedHunk(UncommittedHunkOrFile),
+    /// Every uncommitted change of a linked worktree, the way [`Self::Uncommitted`] means every
+    /// uncommitted change of the main one.
+    Worktree(BString),
 }
 
 impl ModeRender for CommitMode {
@@ -125,6 +129,9 @@ impl CommitSource {
             CommitSource::Uncommitted => {
                 matches!(other, CliId::Uncommitted { .. })
             }
+            CommitSource::Worktree(name) => {
+                matches!(other, CliId::Worktree { name: other, .. } if other == name)
+            }
             CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs || hunk_is_child_of(rhs, lhs)
@@ -141,10 +148,10 @@ impl CommitSource {
                 Some(CommitSource::Uncommitted)
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Worktree { .. }
-            | CliId::Stack { .. } => None,
+            // A worktree heading names that checkout's uncommitted area, so it is a source in
+            // exactly the way `zz` is one for the main worktree.
+            CliId::Worktree { name, .. } => Some(CommitSource::Worktree(name.clone())),
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
         }
     }
 }
@@ -491,7 +498,12 @@ where
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
         )),
-        CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
+        CommitSource::Uncommitted => {
+            commit::CommitSelection::AllChanges(crate::utils::change_source::ChangeSourceId::Head)
+        }
+        CommitSource::Worktree(name) => commit::CommitSelection::AllChanges(
+            crate::utils::change_source::ChangeSourceId::Worktree(name.clone()),
+        ),
         CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(NonEmpty::new(hunk.clone()))
                 .map_err(CliError::into_internal)?,

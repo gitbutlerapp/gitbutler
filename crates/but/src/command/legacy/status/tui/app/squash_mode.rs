@@ -360,6 +360,9 @@ impl App {
                         hunks.clone(),
                     )));
                 }
+                // Squashing a whole linked worktree's changes into a commit has no source to
+                // model, so the mode switch is simply not offered.
+                CommitSource::Worktree(..) => {}
             },
             Mode::Move(move_mode) => match &*move_mode.source {
                 MoveSource::Marks(commits) => {

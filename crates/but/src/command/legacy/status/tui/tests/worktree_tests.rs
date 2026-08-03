@@ -38,22 +38,19 @@ fn worktree_lane_is_navigable() {
         .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
 }
 
-/// GAP: a worktree heading names that checkout's uncommitted area, the way `zz` names the main
-/// worktree's, so `c` on it should offer those changes as a commit source. It currently does
-/// nothing - `CommitSource::try_from_cli_id` has no arm for [`CliId::Worktree`], so the TUI
-/// stays in normal mode.
+/// A worktree heading names that checkout's uncommitted area, the way `zz` names the main
+/// worktree's, so `c` on it offers those changes as a commit source.
 #[test]
-fn commit_from_a_worktree_heading_does_nothing() {
+fn commit_source_from_a_worktree_heading() {
     let mut tui = worktree_tui();
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
 
-    // No `<< source >>` marker appears and the footer still reads `normal`.
     tui.input('c')
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"])
-        .assert_rendered_contains("  normal  ");
+        .assert_current_line_eq(str!["┊┊╭┄ << source >> << noop >> v {wt-branch}"])
+        .assert_rendered_contains("  commit  ");
 }
 
 /// GAP: a worktree's uncommitted file can be picked as a commit source, but the worktree's own
