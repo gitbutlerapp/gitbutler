@@ -872,7 +872,9 @@ pub(crate) fn render_commit_operation_target_marker(
         return;
     };
 
-    if mode.source.contains(target) {
+    // A line that is both the source and a genuine destination - a worktree heading - commits
+    // rather than cancelling, so it must not advertise itself as a no-op.
+    if mode.source.contains(target) && commit_operation_display(data, mode).is_none() {
         line.extend([source_span(app.theme), Span::raw(" ")]);
         line.extend(
             [
@@ -895,6 +897,11 @@ pub(crate) fn render_commit_operation_target_marker(
             ]),
         );
     } else if let Some(display) = commit_operation_display(data, mode) {
+        // A worktree heading is its own destination, so it keeps the source marker it would
+        // otherwise only get from the no-op branch above.
+        if mode.source.contains(target) {
+            line.extend([source_span(app.theme), Span::raw(" ")]);
+        }
         line.extend(
             [
                 Span::raw("<< ").mode_colors(&*app.mode, app.theme),
@@ -1192,6 +1199,14 @@ pub fn commit_operation_display(
                     InsertSide::Below => Some("commit below"),
                 }
             }
+        }
+        // A linked worktree's heading doubles as the top of its lane, which is the only place a
+        // commit made from that checkout can go. Scoping to a stack excludes it, as a worktree
+        // branch is by definition outside the workspace.
+        StatusOutputLineData::UncommittedChanges { cli_id }
+            if matches!(&**cli_id, CliId::Worktree { .. }) =>
+        {
+            scope_to_stack.is_none().then_some("commit to worktree")
         }
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }

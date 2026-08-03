@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use bstr::BString;
+use anyhow::Context as _;
+use bstr::{BStr, BString};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -72,9 +73,14 @@ pub enum CommitSource {
 
 impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
+        let is_worktree_heading = matches!(
+            data,
+            StatusOutputLineData::UncommittedChanges { cli_id } if matches!(&**cli_id, CliId::Worktree { .. })
+        );
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) || is_worktree_heading {
+            // Below the heading is the top of the worktree's lane, which is where the commit goes.
             ExtensionDirection::Below
         } else {
             return None;
@@ -345,7 +351,10 @@ impl App {
             return Ok(());
         };
 
-        if source.contains(data) {
+        // A worktree heading is both the source of its own changes and the top of its lane, which
+        // is where they belong, so confirming on it commits rather than cancelling.
+        let is_own_worktree_lane = matches!(&**data, CliId::Worktree { .. });
+        if source.contains(data) && !is_own_worktree_lane {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         }
@@ -358,11 +367,13 @@ impl App {
                 commit: commit.clone(),
                 side: targeting::Side::from(*insert_side),
             },
+            CliId::Worktree { name, .. } => commit::CommitRelativeToTarget::BranchTip {
+                name: worktree_branch(ctx, name.as_ref())?,
+            },
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
@@ -467,6 +478,19 @@ impl App {
             }
         }
     }
+}
+
+/// The branch checked out in the linked worktree `name`, which is where a commit made from that
+/// checkout goes.
+///
+/// A detached worktree has no branch to move, so it is refused rather than silently committing
+/// somewhere else.
+fn worktree_branch(ctx: &Context, name: &BStr) -> anyhow::Result<gix::refs::FullName> {
+    let repo = ctx.repo.get()?;
+    let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, name)?;
+    worktree_repo.head_name()?.with_context(|| {
+        format!("Worktree {name} has a detached HEAD, so there is no branch to commit to")
+    })
 }
 
 fn commit_with<T>(
