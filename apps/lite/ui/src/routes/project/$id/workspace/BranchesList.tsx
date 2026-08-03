@@ -524,7 +524,7 @@ export const BranchesList: FC<
 			</div>
 
 			<Scroller className={styles.listArea} viewportClassName={styles.list}>
-				<h4 id={headingId} className={classes("text-13", styles.heading)}>
+				<h4 id={headingId} className={classes("text-13", "text-bold", styles.heading)}>
 					Recent branches
 				</h4>
 
