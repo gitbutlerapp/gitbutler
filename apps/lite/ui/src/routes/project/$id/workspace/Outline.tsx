@@ -40,7 +40,10 @@ import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControl
 import { RowToolbar } from "#ui/routes/project/$id/workspace/Row.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 
-const ActivitySpinner: FC = () => {
+const ActivitySpinner: FC<{
+	/** Suppressed while the fetch button shows its own spinner, to avoid two spinners at once. */
+	suppressed: boolean;
+}> = (p) => {
 	const fetchingCount = useIsFetching();
 	const mutatingCount = useIsMutating();
 
@@ -54,7 +57,7 @@ const ActivitySpinner: FC = () => {
 		Match.orElse(() => null),
 	);
 
-	return status !== null && <Icon name="spinner" aria-label={status} />;
+	return !p.suppressed && status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
 const FetchFromRemotesButton: FC<{
@@ -328,7 +331,7 @@ export const Outline: FC<{
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
-						<ActivitySpinner />
+						<ActivitySpinner suppressed={isWorkspaceFetchFromRemotesPending} />
 					</div>
 
 					<div className={styles.workspaceControlsActions}>
