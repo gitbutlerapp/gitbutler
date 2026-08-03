@@ -441,6 +441,11 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             path,
         }),
         ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
+        ResolvedCliIdArg::Worktree(name) => Err(bad_input(format!(
+            "viewing diffs for worktree {name} as a whole is not supported"
+        ))
+        .hint("Pass one of its file or hunk CLI IDs instead")
+        .into()),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }

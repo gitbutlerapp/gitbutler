@@ -34,4 +34,13 @@ impl ChangeSourceId {
             ChangeSourceId::Worktree(name) => format!("worktree {name}"),
         }
     }
+
+    /// The container selector that scopes a path to this checkout, i.e. the
+    /// `X` in `X:<path>`.
+    pub fn selector(&self) -> &BStr {
+        match self {
+            ChangeSourceId::Head => BStr::new(super::UNCOMMITTED),
+            ChangeSourceId::Worktree(name) => name.as_ref(),
+        }
+    }
 }

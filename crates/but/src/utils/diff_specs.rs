@@ -57,6 +57,11 @@ impl<'a> DiffSpecBuilder<'a> {
                 id: _,
             } => self.push_changes_from_commit(*commit_id),
             CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
+            // A worktree is expanded into its files during resolution, so the
+            // builder only ever sees hunks that already come from its own repo.
+            CliId::Worktree { name, .. } => {
+                anyhow::bail!("Cannot compute diff specs for worktree `{name}`")
+            }
             CliId::Stack { .. } => {
                 anyhow::bail!("Cannot compute diff specs for stacks")
             }
