@@ -192,6 +192,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
 
 "#]]
     );
+    panic!("here");
 
     meta.data_mut().branches.clear();
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["below"]);
