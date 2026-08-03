@@ -265,3 +265,171 @@ impl WorkspaceState {
         Self::from_successful_rebase(rebase, repo, dry_run, &prs_by_head)
     }
 }
+
+// Option 1
+
+pub struct FromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M: RefMetadata, PrsByHead> {
+    rebase: SuccessfulRebase<'ws, 'meta, M>,
+    repo: &'repo gix::Repository,
+    dry_run: DryRun,
+    prs_by_head: PrsByHead,
+}
+
+impl<'ws, 'meta, 'repo, M: RefMetadata> FromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M, ()> {
+    pub fn new(
+        rebase: SuccessfulRebase<'ws, 'meta, M>,
+        repo: &'repo gix::Repository,
+        dry_run: DryRun,
+    ) -> Self {
+        Self {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head: (),
+        }
+    }
+
+    pub fn with_db(
+        self,
+        db: &but_db::DbHandle,
+    ) -> anyhow::Result<FromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M, HashMap<String, usize>>>
+    {
+        let prs_by_head = forge_prs_by_head(db)?;
+        let Self {
+            rebase,
+            repo,
+            dry_run,
+            ..
+        } = self;
+        Ok(FromSuccessfulRebaseOptions {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head,
+        })
+        // It's annoying that we cannot write
+        // `FromSuccessfulRebaseOptions { prs_by_head, ..self }`.
+        // I want https://github.com/rust-lang/rust/issues/86555
+        // but looks like it's not going to happen
+        // (https://github.com/rust-lang/rust/issues/101970).
+    }
+
+    pub fn without_pr_associations(
+        self,
+    ) -> FromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M, HashMap<String, usize>> {
+        let Self {
+            rebase,
+            repo,
+            dry_run,
+            ..
+        } = self;
+        FromSuccessfulRebaseOptions {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head: HashMap::new(),
+        }
+    }
+}
+
+impl<'ws, 'meta, 'repo, M: RefMetadata>
+    FromSuccessfulRebaseOptions<'ws, 'meta, 'repo, M, HashMap<String, usize>>
+{
+    pub fn generate(self) -> anyhow::Result<WorkspaceState> {
+        let Self {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head,
+        } = self;
+
+        if dry_run.into() {
+            let mut rebase = rebase;
+            let replaced_commits = rebase.history.commit_mappings();
+            return WorkspaceState::from_rebase_preview(
+                &mut rebase,
+                replaced_commits,
+                &prs_by_head,
+            );
+        }
+
+        let materialized = rebase.materialize()?;
+        WorkspaceState::from_workspace(
+            materialized.workspace,
+            materialized.meta,
+            repo,
+            materialized.history.commit_mappings(),
+            &prs_by_head,
+        )
+    }
+}
+
+// Option 2
+
+pub struct FromSuccessfulRebaseOptions2<'ws, 'meta, 'repo, M: RefMetadata> {
+    rebase: SuccessfulRebase<'ws, 'meta, M>,
+    repo: &'repo gix::Repository,
+    dry_run: DryRun,
+    prs_by_head: Option<HashMap<String, usize>>,
+}
+
+impl<'ws, 'meta, 'repo, M: RefMetadata> FromSuccessfulRebaseOptions2<'ws, 'meta, 'repo, M> {
+    pub fn new(
+        rebase: SuccessfulRebase<'ws, 'meta, M>,
+        repo: &'repo gix::Repository,
+        dry_run: DryRun,
+    ) -> Self {
+        Self {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head: None,
+        }
+    }
+
+    pub fn with_db(self, db: &but_db::DbHandle) -> anyhow::Result<Self> {
+        let prs_by_head = Some(forge_prs_by_head(db)?);
+        Ok(Self {
+            prs_by_head,
+            ..self
+        })
+    }
+
+    pub fn without_pr_associations(self) -> Self {
+        Self {
+            prs_by_head: Some(HashMap::new()),
+            ..self
+        }
+    }
+
+    pub fn generate(self) -> anyhow::Result<WorkspaceState> {
+        let Self {
+            rebase,
+            repo,
+            dry_run,
+            prs_by_head,
+        } = self;
+        let Some(prs_by_head) = prs_by_head else {
+            anyhow::bail!("BUG: must call with_db() or without_pr_associations()");
+        };
+
+        if dry_run.into() {
+            let mut rebase = rebase;
+            let replaced_commits = rebase.history.commit_mappings();
+            return WorkspaceState::from_rebase_preview(
+                &mut rebase,
+                replaced_commits,
+                &prs_by_head,
+            );
+        }
+
+        let materialized = rebase.materialize()?;
+        WorkspaceState::from_workspace(
+            materialized.workspace,
+            materialized.meta,
+            repo,
+            materialized.history.commit_mappings(),
+            &prs_by_head,
+        )
+    }
+}
