@@ -72,7 +72,7 @@ const FetchFromRemotesButton: FC<{
 		>
 			<Tooltip.Trigger
 				aria-label={workspaceHotkeys.fetchFromRemotes.meta.name}
-				className={getButtonClassName({ iconOnly: true })}
+				className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
 				onClick={p.onFetch}
 				// We pass `disabled` here because we want to disable the button, not
 				// the tooltip.
@@ -336,7 +336,7 @@ export const Outline: FC<{
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								aria-label={workspaceHotkeys.settings.meta.name}
-								className={getButtonClassName({ iconOnly: true })}
+								className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
 								onClick={openSettings}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.

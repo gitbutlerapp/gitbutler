@@ -37,7 +37,7 @@
 	display: flex;
 	align-items: center;
 	margin-inline-start: auto;
-	gap: 4px;
+	gap: 2px;
 }
 
 .workspaceName {
