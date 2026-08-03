@@ -9,6 +9,9 @@ use super::BranchManager;
 use crate::VirtualBranchesExt;
 
 impl BranchManager<'_> {
+    #[deprecated(
+        note = "legacy test helper; use but_workspace::branch::create_reference for application code"
+    )]
     #[instrument(level = "debug", skip(self, perm), err(Debug))]
     pub fn create_virtual_branch(
         &self,
