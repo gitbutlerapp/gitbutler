@@ -673,44 +673,6 @@ export class StackService {
 		return this.backendApi.endpoints.stashIntoBranch.mutate;
 	}
 
-	get updateBranchName() {
-		return this.backendApi.endpoints.updateBranchName.useMutation({
-			sideEffect: (_, args) => {
-				// Immediately update the selection and the exclusive action.
-				const laneState = this.uiState.lane(args.laneId);
-				const projectState = this.uiState.project(args.projectId);
-				const exclusiveAction = projectState.exclusiveAction.current;
-				const previousSelection = laneState.selection.current;
-
-				if (previousSelection) {
-					const updatedSelection = replaceBranchInStackSelection(
-						previousSelection,
-						args.branchName,
-						args.newName,
-					);
-					laneState.selection.set(updatedSelection);
-				}
-
-				if (exclusiveAction) {
-					const updatedExclusiveAction = replaceBranchInExclusiveAction(
-						exclusiveAction,
-						args.branchName,
-						args.newName,
-					);
-					projectState.exclusiveAction.set(updatedExclusiveAction);
-				}
-			},
-			onError: (_, args) => {
-				const state = this.uiState.lane(args.laneId);
-				const previewOpen = state.selection.current?.previewOpen ?? false;
-				state.selection.set({
-					branchName: args.branchName,
-					previewOpen,
-				});
-			},
-		});
-	}
-
 	get commitMove() {
 		return this.backendApi.endpoints.commitMove.mutate;
 	}

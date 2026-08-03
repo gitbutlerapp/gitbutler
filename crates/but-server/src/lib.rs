@@ -680,10 +680,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::stack::create_reference_cmd),
         )
         .route("/remove_branch", but_post(legacy::stack::remove_branch_cmd))
-        .route(
-            "/update_branch_name",
-            but_post(legacy::stack::update_branch_name_cmd),
-        )
         // Undo/Snapshot commands
         .route(
             "/list_snapshots",
