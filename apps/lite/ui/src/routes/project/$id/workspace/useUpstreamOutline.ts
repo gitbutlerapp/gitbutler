@@ -23,6 +23,28 @@ const OLDER_SEGMENT_ID = "older";
  */
 export const INCOMING_SEGMENT_ID = "incoming";
 
+// Stable empties for the inactive-tab result, so consumers' identities do not
+// churn while the tab is hidden.
+const noItems: Array<UpstreamListItem> = [];
+const emptyNavigationIndex: NavigationIndex<Operand> = { items: [], indexByKey: new Map() };
+
+/**
+ * Commit items are cached per target commit, so outline rebuilds (expansion
+ * toggles, freshly loaded pages) hand unaffected rows the same item objects
+ * and only genuinely new rows render. The query data objects keying the cache
+ * stay identical until their query refetches, which is exactly when a row's
+ * content may change.
+ */
+const commitItems = new WeakMap<TargetCommit, UpstreamCommitItem>();
+const asItem = (targetCommit: TargetCommit): UpstreamCommitItem => {
+	let item = commitItems.get(targetCommit);
+	if (item === undefined) {
+		item = { type: "commit", ...targetCommit };
+		commitItems.set(targetCommit, item);
+	}
+	return item;
+};
+
 /** A target commit as a list item. */
 export type UpstreamCommitItem = TargetCommit & { type: "commit" };
 
@@ -61,10 +83,17 @@ export type UpstreamOutline = {
 	items: Array<UpstreamListItem>;
 	/** The target's display label, like `origin/main`, or `null` without a target. */
 	targetLabel: string | null;
-	/** How many target commits are ahead of the workspace. */
+	/**
+	 * How many listed commits an update would bring in. Counted from the
+	 * first-parent rows once the listing is loaded so the label always agrees
+	 * with them; before that, the graph's all-commits count approximates it
+	 * for the tab badge.
+	 */
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
 	hasIntegrated: boolean;
+	/** Whether the base listing was clipped before its natural bound. */
+	truncated: boolean;
 	navigationIndex: NavigationIndex<Operand>;
 	/**
 	 * The target-commits query's state, so the tab can tell a genuinely empty
@@ -237,13 +266,6 @@ const buildItems = (
 };
 
 /**
- * The upstream tab's combined listing: the target branch's first-parent line
- * annotated with what each commit integrated, interleaved with the workspace's
- * unintegrated stacks at their fork points, plus the matching navigation
- * index. Both the list rendering and the selection resolution in the
- * workspace page consume it, so the two cannot drift apart.
- */
-/**
  * The pages of target history older than the deepest fork point, continued
  * below the last commit of the base listing with a commit-id cursor. Shared
  * by the outline (which merges the pages into the items) and the show-more
@@ -261,6 +283,13 @@ export const useOlderTargetCommits = (projectId: string, enabled: boolean) => {
 	});
 };
 
+/**
+ * The upstream tab's combined listing: the target branch's first-parent line
+ * annotated with what each commit integrated, interleaved with the workspace's
+ * unintegrated stacks at their fork points, plus the matching navigation
+ * index. Both the list rendering and the selection resolution in the
+ * workspace page consume it, so the two cannot drift apart.
+ */
 export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 	const active = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineTab(state, projectId) === "upstream",
@@ -291,14 +320,35 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			const targetPage = targetResult.data;
 			const targetCommits = targetPage?.commits ?? [];
 			const headInfo = headInfoResult.data;
-			const stacks = workspaceStackBranches(headInfo);
 
-			const asItem = (targetCommit: TargetCommit): UpstreamCommitItem => ({
-				type: "commit",
-				...targetCommit,
-			});
+			const incomingCount = targetPage
+				? targetCommits.filter((commit) => !commit.inWorkspace).length
+				: (headInfo?.target?.commitsAhead ?? 0);
+			const targetLabel = headInfo?.target
+				? `${headInfo.target.remoteTrackingRef.remoteName}/${headInfo.target.remoteTrackingRef.displayName}`
+				: null;
+			const truncated = targetPage?.hasMore === true;
+			const isPending = targetResult.isPending || headInfoResult.isPending;
+			const isError = targetResult.isError || headInfoResult.isError;
+
+			// While another tab is shown, only the tab badge consumes this
+			// outline, but headInfo refetches on every workspace mutation —
+			// skip the item and navigation-index derivation nobody would see.
+			if (!active) {
+				return {
+					items: noItems,
+					targetLabel,
+					incomingCount,
+					hasIntegrated: false,
+					truncated,
+					navigationIndex: emptyNavigationIndex,
+					isPending,
+					isError,
+				};
+			}
+
+			const stacks = workspaceStackBranches(headInfo);
 			const commits = targetCommits.map(asItem);
-			const incomingCount = headInfo?.target?.commitsAhead ?? 0;
 			const items = buildItems(
 				commits,
 				stacks,
@@ -314,9 +364,8 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			const navigationItems = items.flatMap((item): Array<Operand> => {
 				switch (item.type) {
 					case "commit":
-						// The backend synthesizes a change-id when the commit has none,
-						// but the transport type stays nullable; the commit id is the
-						// same fallback identity.
+						// Upstream commits often carry no change-id; the commit id is
+						// the fallback identity.
 						return [
 							commitOperand({
 								commitId: item.commit.id,
@@ -335,17 +384,16 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 
 			return {
 				items,
-				targetLabel: headInfo?.target
-					? `${headInfo.target.remoteTrackingRef.remoteName}/${headInfo.target.remoteTrackingRef.displayName}`
-					: null,
+				targetLabel,
 				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),
+				truncated,
 				navigationIndex: {
 					items: navigationItems,
 					indexByKey: buildIndexByKey(navigationItems, operandIdentityKey),
 				},
-				isPending: targetResult.isPending || headInfoResult.isPending,
-				isError: targetResult.isError || headInfoResult.isError,
+				isPending,
+				isError,
 			};
 		},
 	});

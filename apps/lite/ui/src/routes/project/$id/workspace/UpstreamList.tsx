@@ -7,13 +7,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import {
-	branchOperand,
-	commitOperand,
-	operandEquals,
-	operandIdentityKey,
-	type Operand,
-} from "#ui/operands.ts";
+import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
@@ -35,7 +29,11 @@ import {
 	useState,
 } from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "./Row.tsx";
-import { treeItemId } from "./Row-utils.ts";
+import {
+	selectionOutOfSync,
+	treeItemId,
+	useIsSelected as useIsSelectedInList,
+} from "./Row-utils.ts";
 import {
 	INCOMING_SEGMENT_ID,
 	useOlderTargetCommits,
@@ -46,17 +44,8 @@ import {
 } from "./useUpstreamOutline.ts";
 import styles from "./UpstreamList.module.css";
 
-/**
- * Whether the stored selection is this operand. Rows subscribe to this plain
- * boolean instead of consuming the navigation index, so index rebuilds do not
- * re-render every row. UpstreamList keeps the stored selection normalized to
- * the resolved one.
- */
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useAppSelector((state) => {
-		const stored = projectSlice.selectors.selectPrimaryUpstreamSelection(state, projectId);
-		return stored !== null && operandEquals(stored, operand);
-	});
+	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryUpstreamSelection);
 
 const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 	projectId,
@@ -271,6 +260,10 @@ const SegmentExpanderRow: FC<{
 	return (
 		<button
 			type="button"
+			// The tree's active-descendant navigation skips expanders, but as
+			// direct children of the tree they still need the treeitem role for
+			// the structure to stay valid.
+			role="treeitem"
 			aria-expanded={expanded}
 			className={classes("text-13", rowStyles.fadedText, styles.expanderRow)}
 			title={
@@ -301,16 +294,25 @@ const SegmentExpanderRow: FC<{
 const OlderCommitsMoreRow: FC<{ projectId: string }> = ({ projectId }) => {
 	// Shares the pages the outline hook merges into the list; this instance
 	// only drives fetching. Only rendered while the older segment is expanded.
-	const { fetchNextPage, isFetching } = useOlderTargetCommits(projectId, true);
+	const { fetchNextPage, isFetching, isError } = useOlderTargetCommits(projectId, true);
 
 	return (
 		<button
 			type="button"
+			// Same as the segment expanders: a treeitem in structure, though
+			// active-descendant navigation skips it.
+			role="treeitem"
 			className={classes("text-13", rowStyles.fadedText, styles.expanderRow)}
 			disabled={isFetching}
 			onClick={() => void fetchNextPage()}
 		>
-			{isFetching ? <Icon name="spinner" /> : "⋮ show more…"}
+			{isFetching ? (
+				<Icon name="spinner" />
+			) : isError ? (
+				"⋮ couldn't load older commits — retry"
+			) : (
+				"⋮ show more…"
+			)}
 		</button>
 	);
 };
@@ -344,17 +346,11 @@ export const UpstreamList: FC<
 		projectSlice.selectors.selectPrimaryUpstreamSelection(state, projectId),
 	);
 
-	// Rows highlight by comparing against the stored selection (see
-	// useIsSelected), so whenever resolving against the index lands elsewhere —
-	// entering the tab, or the selected commit arriving in the workspace — store
-	// the resolved selection to keep the two in agreement.
+	const outOfSyncSelection = selectionOutOfSync(selection, storedSelection);
 	useEffect(() => {
-		if (
-			selection !== null &&
-			(storedSelection === null || !operandEquals(storedSelection, selection))
-		)
-			dispatch(projectSlice.actions.selectUpstream({ projectId, selection }));
-	}, [dispatch, projectId, selection, storedSelection]);
+		if (outOfSyncSelection !== null)
+			dispatch(projectSlice.actions.selectUpstream({ projectId, selection: outOfSyncSelection }));
+	}, [dispatch, outOfSyncSelection, projectId]);
 
 	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);
@@ -390,10 +386,18 @@ export const UpstreamList: FC<
 					<p className={classes("text-13", styles.heading)}>Unable to load incoming commits.</p>
 				)}
 
-				{items.length === 0 && !isError && (
+				{!isError && isPending && items.length === 0 && (
+					<p className={classes("text-13", styles.heading)}>Loading incoming commits…</p>
+				)}
+
+				{!isError && !isPending && targetLabel === null && (
 					<p className={classes("text-13", styles.heading)}>
-						{isPending ? "Loading incoming commits…" : "Your workspace is up to date."}
+						No target branch is configured for this project.
 					</p>
+				)}
+
+				{!isError && !isPending && targetLabel !== null && !hasIncoming && (
+					<p className={classes("text-13", styles.heading)}>Your workspace is up to date.</p>
 				)}
 
 				<div
@@ -443,6 +447,11 @@ export const UpstreamList: FC<
 						),
 					)}
 				</div>
+				{outline.truncated && (
+					<p className={classes("text-13", rowStyles.fadedText, styles.heading)}>
+						Only the most recent target history is shown.
+					</p>
+				)}
 			</Scroller>
 
 			<footer className={styles.footer}>

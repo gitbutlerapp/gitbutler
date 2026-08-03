@@ -104,10 +104,12 @@ pub fn workspace_target_commits(
             break;
         }
         let commit = repo.find_commit(id)?;
-        let commit = commit.decode()?;
-        cursor = commit.parents().next();
+        cursor = commit
+            .parent_ids()
+            .next()
+            .map(|parent_id| parent_id.detach());
         commits.push(TargetCommit {
-            commit: upstream_commit(id, &commit)?,
+            commit: commit.try_into()?,
             review: reviews_by_integration_sha.remove(&id),
             in_workspace,
         });
@@ -230,25 +232,6 @@ fn merged_reviews_by_integration_sha(
         }
     }
     Ok(reviews_by_sha)
-}
-
-fn upstream_commit(
-    id: gix::ObjectId,
-    commit: &gix::objs::CommitRef<'_>,
-) -> anyhow::Result<but_workspace::ui::UpstreamCommit> {
-    let headers = but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers());
-    Ok(but_workspace::ui::UpstreamCommit {
-        id,
-        message: commit.message.to_owned(),
-        authored_at: i128::from(commit.author()?.time()?.seconds) * 1000,
-        committed_at: i128::from(commit.time()?.seconds) * 1000,
-        author: commit.author()?.into(),
-        change_id: headers
-            .unwrap_or_default()
-            .ensure_change_id(id)
-            .change_id
-            .map(|change_id| change_id.to_string()),
-    })
 }
 
 /// JSON transport types for the target-commit listing.
