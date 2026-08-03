@@ -239,6 +239,9 @@ struct StatusContext<'a> {
     /// The changed files of every checkout with CLI IDs, main worktree first.
     /// Only needed for the tree status letters, which hunks do not carry.
     changes_by_source: Vec<(ChangeSourceId, Vec<ui::TreeChange>)>,
+    /// The active linked worktrees with the commits they own, empty unless the
+    /// `worktreeManipulation` flag is on.
+    worktrees: Vec<but_workspace::worktrees::WorktreeInfo>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
@@ -426,6 +429,7 @@ fn build_status_context<'a>(
         stacks,
         resolved_target,
         commit_id_to_change_id,
+        worktrees,
     ) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
@@ -442,6 +446,16 @@ fn build_status_context<'a>(
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
         let mut commit_id_to_change_id =
             gix::hashtable::HashMap::<gix::ObjectId, ChangeId>::default();
+        // Commits owned by a linked worktree print like workspace commits, so they need the
+        // same content and change-ID lookups.
+        let worktrees = head_info.worktrees;
+        for worktree in &worktrees {
+            for local_commit in &worktree.commits {
+                commit_id_to_change_id
+                    .insert(local_commit.id, local_commit.change_id().into_owned());
+                local_commits_by_id.insert(local_commit.id, local_commit.clone());
+            }
+        }
         for stack in head_info.stacks {
             for segment in stack.segments {
                 let Segment {
@@ -470,6 +484,7 @@ fn build_status_context<'a>(
             ws.stacks.clone(),
             resolved_target,
             commit_id_to_change_id,
+            worktrees,
         )
     };
 
@@ -512,7 +527,12 @@ fn build_status_context<'a>(
         .iter()
         .map(|source| (source.source.clone(), source.changes.clone()))
         .collect();
-    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id)?;
+    let id_map = IdMap::new(
+        stacks,
+        sources,
+        commit_id_to_change_id,
+        crate::id::worktree_commits_by_name(&worktrees),
+    )?;
 
     let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later
@@ -648,6 +668,7 @@ fn build_status_context<'a>(
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
         changes_by_source,
+        worktrees,
         conflicted_paths,
         common_merge_base_data,
         target_tip_id,

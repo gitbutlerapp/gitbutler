@@ -158,7 +158,7 @@ pub fn list_worktrees(sources: Vec<WorktreeSource>) -> WorktreeListing {
 ///
 /// Each tip is re-resolved through `repo` just like the traversal does, so a ref that vanished
 /// meanwhile is skipped rather than resurrected at its stale commit.
-pub(crate) fn worktree_infos(
+pub fn worktree_infos(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<WorktreeInfo>> {
