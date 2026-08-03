@@ -2,7 +2,6 @@ use anyhow::bail;
 use bstr::BString;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_graph::workspace::Stack;
-use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
 use snapbox::{assert_data_eq, prelude::*};
 
@@ -333,8 +332,8 @@ branches: [ ax, yz ]
 #[test]
 fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("ghij", [id(1)], None, [])])];
-    let hunk_assignments = vec![hunk_assignment("gh", None), hunk_assignment("hi", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("gh"), hunk("hi")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -412,18 +411,18 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("h0", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,2", "+1,2")),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-3,2", "+3,2")),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        hunk_assignment("uncommitted2.txt", None),
+        hunk("uncommitted2.txt"),
     ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     snapbox::assert_data_eq!(
         id_map.debug_state().to_debug(),
         snapbox::str![[r#"
@@ -463,16 +462,12 @@ stacks: [ j0 ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kv",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kv:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted2.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted2.txt",
                         diff: None,
                     },
                 },
@@ -484,16 +479,12 @@ stacks: [ j0 ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kv:q",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kv:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted2.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted2.txt",
                         diff: None,
                     },
                 },
@@ -505,33 +496,25 @@ stacks: [ j0 ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
                 tail: [
                     IdAndHunk {
                         id: "ro:q#1-2",
-                        hunk: WorktreeHunk {
-                            id: None,
+                        hunk: SingleHunk {
                             hunk_header: Some(
                                 HunkHeader("-3,2", "+3,2"),
                             ),
-                            path: "",
-                            path_bytes: "uncommitted1.txt",
-                            line_nums_added: None,
-                            line_nums_removed: None,
+                            path: "uncommitted1.txt",
                             diff: None,
                         },
                     },
@@ -543,18 +526,14 @@ stacks: [ j0 ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:q#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
@@ -566,18 +545,14 @@ stacks: [ j0 ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:q#1-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#1-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-3,2", "+3,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
@@ -596,28 +571,24 @@ stacks: [ j0 ]
 
 #[test]
 fn uncommitted_file_to_id_qualifies_hunk_ids() -> anyhow::Result<()> {
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,2", "+1,2")),
-            ..hunk_assignment("uncommitted.txt", None)
+            ..hunk("uncommitted.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-3,2", "+3,2")),
-            ..hunk_assignment("uncommitted.txt", None)
+            ..hunk("uncommitted.txt")
         },
     ];
-    let id_map = IdMap::new(
-        Vec::new(),
-        hunk_assignments,
-        gix::hashtable::HashMap::default(),
-    )?;
+    let id_map = IdMap::new(Vec::new(), hunks, gix::hashtable::HashMap::default())?;
     let uncommitted_file = id_map
         .uncommitted_files
         .values()
         .next()
         .expect("the map contains the uncommitted file");
     let expected_ids = uncommitted_file
-        .hunk_assignments()
+        .hunks()
         .iter()
         .map(|(hunk_id, _)| format!("{}:{hunk_id}", uncommitted_file.short_id))
         .collect::<Vec<_>>();
@@ -625,9 +596,9 @@ fn uncommitted_file_to_id_qualifies_hunk_ids() -> anyhow::Result<()> {
         panic!("an uncommitted file converts to an uncommitted CLI ID");
     };
     let actual_ids = uncommitted
-        .hunk_assignments
+        .hunks
         .iter()
-        .map(|assignment| assignment.id.clone())
+        .map(|id_and_hunk| id_and_hunk.id.clone())
         .collect::<Vec<_>>();
 
     assert_eq!(
@@ -640,8 +611,8 @@ fn uncommitted_file_to_id_qualifies_hunk_ids() -> anyhow::Result<()> {
 #[test]
 fn ids_are_case_sensitive() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("h0", [id(10)], Some(id(9)), [])])];
-    let hunk_assignments = vec![hunk_assignment("uncommitted.txt", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("uncommitted.txt")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -712,16 +683,12 @@ uncommitted_hunks: [ ln:q ]
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ln",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ln:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted.txt",
                         diff: None,
                     },
                 },
@@ -770,11 +737,8 @@ uncommitted_hunks: [ ln:q ]
 #[test]
 fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![
-        hunk_assignment("foo23", None),
-        hunk_assignment("foo242", None),
-    ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("foo23"), hunk("foo242")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -793,16 +757,12 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kpo",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kpo:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo242",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo242",
                         diff: None,
                     },
                 },
@@ -814,16 +774,12 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kpr",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kpr:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo23",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo23",
                         diff: None,
                     },
                 },
@@ -844,16 +800,12 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kpo",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kpo:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo242",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo242",
                         diff: None,
                     },
                 },
@@ -873,16 +825,12 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kpr",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kpr:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo23",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo23",
                         diff: None,
                     },
                 },
@@ -910,8 +858,8 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
 #[test]
 fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("qsy", [id(1)], None, [])])];
-    let hunk_assignments = vec![hunk_assignment("file", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("file")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -964,16 +912,12 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "qsy",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "qsy:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "file",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "file",
                         diff: None,
                     },
                 },
@@ -993,8 +937,8 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
 #[test]
 fn longer_id_is_ok() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![hunk_assignment("foo23", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("foo23")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1013,16 +957,12 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kp",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kp:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo23",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo23",
                         diff: None,
                     },
                 },
@@ -1042,8 +982,8 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
 #[test]
 fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![hunk_assignment("klmxyz", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("klmxyz")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1062,16 +1002,12 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kl",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "kl:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "klmxyz",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "klmxyz",
                         diff: None,
                     },
                 },
@@ -1091,8 +1027,8 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
 #[test]
 fn branch_and_file_by_name() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![hunk_assignment("foo", None)];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("foo")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1120,16 +1056,12 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "zo",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "zo:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "foo",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "foo",
                         diff: None,
                     },
                 },
@@ -1152,11 +1084,8 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("gggg", [id(2)], None, [])])
     }];
-    let hunk_assignments = vec![
-        hunk_assignment("uncommitted", None),
-        hunk_assignment("assigned", Some(StackId::from_number_for_testing(1))),
-    ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("uncommitted"), hunk("assigned")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1173,16 +1102,12 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "nv",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "nv:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "assigned",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "assigned",
                         diff: None,
                     },
                 },
@@ -1206,16 +1131,12 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "nv",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "nv:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "assigned",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "assigned",
                         diff: None,
                     },
                 },
@@ -1239,16 +1160,12 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "pv",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "pv:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted",
                         diff: None,
                     },
                 },
@@ -1268,12 +1185,8 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 #[test]
 fn uncommitted_path() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![
-        hunk_assignment("prefixx", None),
-        hunk_assignment("prefix/a", None),
-        hunk_assignment("prefix/b", None),
-    ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("prefixx"), hunk("prefix/a"), hunk("prefix/b")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1289,29 +1202,21 @@ fn uncommitted_path() -> anyhow::Result<()> {
 [
     PathPrefix {
         id: "prefix/",
-        hunk_assignments: NonEmpty {
+        hunks: NonEmpty {
             head: IdAndHunk {
                 id: "yz:q",
-                hunk: WorktreeHunk {
-                    id: None,
+                hunk: SingleHunk {
                     hunk_header: None,
-                    path: "",
-                    path_bytes: "prefix/a",
-                    line_nums_added: None,
-                    line_nums_removed: None,
+                    path: "prefix/a",
                     diff: None,
                 },
             },
             tail: [
                 IdAndHunk {
                     id: "uo:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "prefix/b",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "prefix/b",
                         diff: None,
                     },
                 },
@@ -1448,12 +1353,8 @@ fn committed_file_can_be_referenced_by_either_change_id_or_commit_id() {
 #[test]
 fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
-    let hunk_assignments = vec![
-        hunk_assignment("k", None),
-        hunk_assignment("kl", None),
-        hunk_assignment("klm", None),
-    ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let hunks = vec![hunk("k"), hunk("kl"), hunk("klm")];
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1471,16 +1372,12 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ky",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ky:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "k",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "k",
                         diff: None,
                     },
                 },
@@ -1501,16 +1398,12 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "klx",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "klx:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "kl",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "kl",
                         diff: None,
                     },
                 },
@@ -1531,16 +1424,12 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "klml",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "klml:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "klm",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "klm",
                         diff: None,
                     },
                 },
@@ -1562,18 +1451,18 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,2", "+1,2")),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-3,2", "+3,2")),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        hunk_assignment("uncommitted2.txt", None),
+        hunk("uncommitted2.txt"),
     ];
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1589,18 +1478,14 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:q#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
@@ -1623,18 +1508,14 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:q#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
@@ -1657,18 +1538,14 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:q#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:q#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: None,
                     },
                 },
@@ -1691,40 +1568,40 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,6", "+1,7")),
             diff: Some(BString::new(
                 "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
         // Same context lines as first hunk, but different diff
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-23,6", "+24,7")),
             diff: Some(BString::new(
                 "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+there\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
         // Same diff as first hunk, but different context lines
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-60,6", "+62,7")),
             diff: Some(BString::new(
                 "@@ -60,6 +62,7 @@\n 46\n 47\n 48\n+hello\n 49\n 50\n 51\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        hunk_assignment("hunk_without_diff.txt", None),
+        hunk("hunk_without_diff.txt"),
     ];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1738,18 +1615,14 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:3",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:3",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
@@ -1773,18 +1646,14 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:f",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:f",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-23,6", "+24,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+there\n 4\n 5\n 6\n",
                         ),
@@ -1808,18 +1677,14 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:1",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:1",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-60,6", "+62,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -60,6 +62,7 @@\n 46\n 47\n 48\n+hello\n 49\n 50\n 51\n",
                         ),
@@ -1846,16 +1711,12 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "wp:q",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "wp:q",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: None,
-                        path: "",
-                        path_bytes: "hunk_without_diff.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "hunk_without_diff.txt",
                         diff: None,
                     },
                 },
@@ -1878,28 +1739,28 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,6", "+1,7")),
             diff: Some(BString::new(
                 "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-23,6", "+24,7")),
             diff: Some(BString::new(
                 "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
     ];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -1915,18 +1776,14 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:78",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:78",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
@@ -1952,18 +1809,14 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:79",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:79",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-23,6", "+24,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n",
                         ),
@@ -1998,17 +1851,17 @@ fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![HunkAssignment {
+    let hunks = vec![but_core::SingleHunk {
         hunk_header: Some(hunk_header("-1,6", "+1,7")),
         diff: Some(BString::new(
             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
                 .as_bytes()
                 .to_vec(),
         )),
-        ..hunk_assignment("uncommitted1.txt", None)
+        ..hunk("uncommitted1.txt")
     }];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -2024,18 +1877,14 @@ fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:7",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:7",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
@@ -2064,29 +1913,29 @@ fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() ->
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,6", "+1,7")),
             diff: Some(BString::new(
                 "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
         // Same context lines as first hunk, but different diff
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-23,6", "+24,7")),
             diff: Some(BString::new(
                 "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
     ];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -2102,18 +1951,14 @@ fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() ->
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:3#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:3#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
@@ -2139,37 +1984,37 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,6", "+1,7")),
             diff: Some(BString::new(
                 "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-23,6", "+24,7")),
             diff: Some(BString::new(
                 "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-33,6", "+35,7")),
             diff: Some(BString::new(
                 "@@ -33,6 +35,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
     ];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -2184,18 +2029,14 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:78#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:78#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
@@ -2209,18 +2050,14 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:79",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:79",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-23,6", "+24,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n",
                         ),
@@ -2234,18 +2071,14 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:78#1-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:78#1-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-33,6", "+35,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -33,6 +35,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
@@ -2272,18 +2105,14 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:78#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:78#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
@@ -2330,28 +2159,28 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
     }];
-    let hunk_assignments = vec![
-        HunkAssignment {
+    let hunks = vec![
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-1,6", "+1,7")),
             diff: Some(BString::new(
                 "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
-        HunkAssignment {
+        but_core::SingleHunk {
             hunk_header: Some(hunk_header("-23,6", "+24,7")),
             diff: Some(BString::new(
                 "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n"
                     .as_bytes()
                     .to_vec(),
             )),
-            ..hunk_assignment("uncommitted1.txt", None)
+            ..hunk("uncommitted1.txt")
         },
     ];
 
-    let id_map = IdMap::new(stacks, hunk_assignments, gix::hashtable::HashMap::default())?;
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -2367,18 +2196,14 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:3#0-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:3#0-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,6", "+1,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
@@ -2404,18 +2229,14 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "ro:3#1-2",
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: IdAndHunk {
                     id: "ro:3#1-2",
-                    hunk: WorktreeHunk {
-                        id: None,
+                    hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-23,6", "+24,7"),
                         ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        line_nums_added: None,
-                        line_nums_removed: None,
+                        path: "uncommitted1.txt",
                         diff: Some(
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
@@ -2673,7 +2494,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
     // an agent copies from `but diff` before committing.
     let commitless = IdMap::new(
         vec![stack([segment("not-important", [], None, [])])],
-        vec![hunk_assignment("README.md", None)],
+        vec![hunk("README.md")],
         gix::hashtable::HashMap::default(),
     )?;
     let file_id = commitless
@@ -2695,7 +2516,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
         [(id1, colliding_change_id)].into_iter().collect();
     let id_map = IdMap::new(
         vec![stack([segment("not-important", [id1], None, [])])],
-        vec![hunk_assignment("README.md", None)],
+        vec![hunk("README.md")],
         commit_id_to_change_id,
     )?;
 
@@ -2711,7 +2532,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
     match scoped.as_slice() {
         [CliId::UncommittedHunkOrFile(uncommitted)] => {
             assert_eq!(
-                uncommitted.hunk_assignments.first().hunk.path_bytes,
+                uncommitted.hunks.first().hunk.path,
                 "README.md",
                 "the selector resolves to the file it was issued for"
             );
@@ -2733,10 +2554,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
         .expect("selector resolution succeeds")
         .expect("the issued hunk selector still resolves");
     assert_eq!(resolved.len(), 1, "exactly one hunk resolves");
-    assert_eq!(
-        resolved[0].hunk_assignments.first().hunk.path_bytes,
-        "README.md"
-    );
+    assert_eq!(resolved[0].hunks.first().hunk.path, "README.md");
 
     let resolved = CliIdArg(format!("{file_id}:q"))
         .resolve_in_workspace(
@@ -2766,7 +2584,7 @@ fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> 
     };
     let id_map = IdMap::new(
         vec![stack([segment("not-important", [], None, [])])],
-        vec![hunk_assignment("zz", None)],
+        vec![hunk("zz")],
         gix::hashtable::HashMap::default(),
     )?;
 
@@ -2776,7 +2594,7 @@ fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> 
     let scoped = id_map.parse_uncommitted("zz", Box::new(changed_paths_fn))?;
     match scoped.as_slice() {
         [CliId::UncommittedHunkOrFile(uncommitted)] => {
-            assert_eq!(uncommitted.hunk_assignments.first().hunk.path_bytes, "zz");
+            assert_eq!(uncommitted.hunks.first().hunk.path, "zz");
         }
         other => panic!("expected exactly the file named zz, got {other:?}"),
     }
@@ -2795,7 +2613,7 @@ fn uncommitted_scope_does_not_prefix_match_a_branch_short_id() -> anyhow::Result
     // prefix of the file's ID (branches win in the full namespace).
     let id_map = IdMap::new(
         vec![stack([segment("kp", [id(1)], None, [])])],
-        vec![hunk_assignment("foo242", None)],
+        vec![hunk("foo242")],
         gix::hashtable::HashMap::default(),
     )?;
 
@@ -2948,9 +2766,7 @@ mod util {
 
     use anyhow::bail;
     use bstr::BString;
-    use but_core::ref_metadata::StackId;
     use but_graph::workspace::{Stack, StackCommit, StackSegment};
-    use but_hunk_assignment::HunkAssignment;
     use itertools::Itertools;
 
     use crate::{CliId, IdMap};
@@ -3013,16 +2829,10 @@ mod util {
         }
     }
 
-    pub fn hunk_assignment(path: &str, stack_id: Option<StackId>) -> HunkAssignment {
-        HunkAssignment {
-            id: None,
+    pub fn hunk(path: &str) -> but_core::SingleHunk {
+        but_core::SingleHunk {
             hunk_header: None,
-            path: String::new(),
-            path_bytes: BString::from(path),
-            stack_id,
-            branch_ref_bytes: None,
-            line_nums_added: None,
-            line_nums_removed: None,
+            path: BString::from(path),
             diff: None,
         }
     }
@@ -3165,4 +2975,4 @@ mod util {
         a.to_short_string().cmp(&b.to_short_string())
     }
 }
-use util::{hunk_assignment, id, segment, stack, tree_change_addition};
+use util::{hunk, id, segment, stack, tree_change_addition};

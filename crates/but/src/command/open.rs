@@ -46,19 +46,18 @@ impl Openable {
         repo: &gix::Repository,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<Self> {
-        let hunk = &uncommitted.hunk_assignments.first().hunk;
+        let hunk = &uncommitted.hunks.first().hunk;
 
         let path = repo
-            .workdir_path(hunk.path_bytes.as_bstr())
+            .workdir_path(hunk.path.as_bstr())
             .ok_or_else(|| anyhow::anyhow!("Failed to resolve path to hunk"))?;
 
         let openable = match (
             uncommitted.is_entire_file,
             &hunk.hunk_header,
-            &hunk.line_nums_added,
-            &hunk.line_nums_removed,
+            hunk.line_nums(),
         ) {
-            (false, Some(hunk_header), Some(line_nums_added), Some(line_nums_removed)) => {
+            (false, Some(hunk_header), Some((line_nums_added, line_nums_removed))) => {
                 Openable::Hunk(Hunk {
                     // Truncate line numbers - the probability of exceeding a u32 is infinitesimally small.
                     line_nums_added: line_nums_added
@@ -109,7 +108,7 @@ pub(crate) fn open(
     program_id: Option<String>,
 ) -> CliResult<()> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
 
     let to_open = match sources.as_slice() {

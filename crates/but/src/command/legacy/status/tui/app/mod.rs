@@ -1058,10 +1058,10 @@ impl App {
                         CliId::UncommittedHunkOrFile(hunk) => {
                             let details_selection_changed =
                                 changed_paths.iter().any(|changed_path| {
-                                    hunk.hunk_assignments
+                                    hunk.hunks
                                         .head
                                         .hunk
-                                        .path_bytes
+                                        .path
                                         .to_path()
                                         .is_ok_and(|path| path == changed_path)
                                 });
@@ -1080,7 +1080,7 @@ impl App {
                                     StatusOutputLineData::UncommittedFile { cli_id } => {
                                         match &**cli_id {
                                             CliId::UncommittedHunkOrFile(uncommitted) => {
-                                                Some(&uncommitted.hunk_assignments)
+                                                Some(&uncommitted.hunks)
                                             }
                                             CliId::PathPrefix { .. }
                                             | CliId::CommittedFile { .. }
@@ -1107,8 +1107,8 @@ impl App {
                                     | StatusOutputLineData::Hint
                                     | StatusOutputLineData::NoAssignmentsUnstaged => None,
                                 })
-                                .flat_map(|assignments| assignments.iter())
-                                .map(|assignment| assignment.hunk.path_bytes.as_ref());
+                                .flat_map(|hunks| hunks.iter())
+                                .map(|id_and_hunk| id_and_hunk.hunk.path.as_ref());
                             let current_uncommitted_paths = changes
                                 .worktree_changes
                                 .changes
@@ -1487,7 +1487,7 @@ impl App {
                 id: _,
             } => path.to_str_lossy(),
             CliId::UncommittedHunkOrFile(uncommitted) => {
-                Cow::Borrowed(&*uncommitted.hunk_assignments.first().hunk.path)
+                uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
             CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
@@ -1585,7 +1585,7 @@ impl App {
                 ctx,
                 std::iter::once(head)
                     .chain(tail)
-                    .map(|hunk| hunk.hunk_assignments.head.hunk.path_bytes.as_bstr()),
+                    .map(|hunk| hunk.hunks.head.hunk.path.as_bstr()),
             ),
             mark::MarksRef::CommittedFiles { head, tail } => openable_from_paths(
                 ctx,

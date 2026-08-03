@@ -72,8 +72,32 @@ pub struct HunkAssignment {
 but_schemars::register_sdk_type!(HunkAssignment);
 
 impl HunkAssignment {
+    /// Split `change` into hunks and mint a new assignment id for each one.
+    ///
+    /// The result is unassigned; assignments are adopted later by reconciling against the
+    /// persisted state.
     pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
-        diff_to_assignments(patch, change.path.clone())
+        but_core::SingleHunk::from_tree_change(change, patch)
+            .into_iter()
+            .map(|hunk| {
+                let (line_nums_added, line_nums_removed) = match hunk.line_nums() {
+                    Some((added, removed)) => (Some(added), Some(removed)),
+                    None => (None, None),
+                };
+                let path = hunk.path.to_str_lossy().into_owned();
+                HunkAssignment {
+                    id: Some(Uuid::new_v4()),
+                    hunk_header: hunk.hunk_header,
+                    path,
+                    path_bytes: hunk.path,
+                    stack_id: None,
+                    branch_ref_bytes: None,
+                    line_nums_added,
+                    line_nums_removed,
+                    diff: hunk.diff,
+                }
+            })
+            .collect()
     }
 }
 
@@ -160,8 +184,10 @@ pub enum AbsorptionTarget {
     Branch {
         branch_name: String,
     },
-    HunkAssignments {
-        assignments: Vec<HunkAssignment>,
+    /// Absorb these hunks, routing each purely by its dependency lock and otherwise to the
+    /// default stack. There is no assignment state to route by.
+    Hunks {
+        hunks: Vec<but_core::SingleHunk>,
     },
     TreeChanges {
         changes: Vec<but_core::ui::TreeChange>,
@@ -202,18 +228,6 @@ impl AbsorptionReason {
     }
 }
 
-/// Information about a file being absorbed
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-pub struct FileAbsorption {
-    pub path: String,
-    pub assignment: HunkAssignment,
-}
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(FileAbsorption);
-
 /// Information about absorptions grouped by commit
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -225,7 +239,7 @@ pub struct CommitAbsorption {
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     pub commit_summary: String,
-    pub files: Vec<FileAbsorption>,
+    pub hunks: Vec<but_core::SingleHunk>,
     pub reason: AbsorptionReason,
 }
 
@@ -592,131 +606,6 @@ fn derive_stack_ids(assignments: &mut [HunkAssignment], workspace: &but_graph::W
     }
 }
 
-/// This also generates a UUID for the assignment
-fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAssignment> {
-    let path_str = path.to_str_lossy();
-    if let Some(diff) = diff {
-        match diff {
-            but_core::UnifiedPatch::Binary => vec![HunkAssignment {
-                id: Some(Uuid::new_v4()),
-                hunk_header: None,
-                path: path_str.into(),
-                path_bytes: path,
-                stack_id: None,
-                branch_ref_bytes: None,
-                line_nums_added: None,
-                line_nums_removed: None,
-                diff: None,
-            }],
-            but_core::UnifiedPatch::TooLarge { .. } => vec![HunkAssignment {
-                id: Some(Uuid::new_v4()),
-                hunk_header: None,
-                path: path_str.into(),
-                path_bytes: path,
-                stack_id: None,
-                branch_ref_bytes: None,
-                line_nums_added: None,
-                line_nums_removed: None,
-                diff: None,
-            }],
-            but_core::UnifiedPatch::Patch {
-                hunks,
-                is_result_of_binary_to_text_conversion,
-                ..
-            } => {
-                // If there are no hunks, then the assignment is for the whole file
-                if is_result_of_binary_to_text_conversion || hunks.is_empty() {
-                    vec![HunkAssignment {
-                        id: Some(Uuid::new_v4()),
-                        hunk_header: None,
-                        path: path_str.into(),
-                        path_bytes: path,
-                        stack_id: None,
-                        branch_ref_bytes: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    }]
-                } else {
-                    hunks
-                        .iter()
-                        .map(|hunk| {
-                            let (line_nums_added_new, line_nums_removed_old) =
-                                line_nums_from_hunk(&hunk.diff, hunk.old_start, hunk.new_start);
-                            HunkAssignment {
-                                id: Some(Uuid::new_v4()),
-                                hunk_header: Some(hunk.into()),
-                                path: path_str.clone().into(),
-                                path_bytes: path.clone(),
-                                stack_id: None,
-                                branch_ref_bytes: None,
-                                line_nums_added: Some(line_nums_added_new),
-                                line_nums_removed: Some(line_nums_removed_old),
-                                diff: Some(hunk.diff.clone()),
-                            }
-                        })
-                        .collect()
-                }
-            }
-        }
-    } else {
-        vec![HunkAssignment {
-            id: Some(Uuid::new_v4()),
-            hunk_header: None,
-            path: path_str.into(),
-            path_bytes: path.clone(),
-            stack_id: None,
-            branch_ref_bytes: None,
-            line_nums_added: None,
-            line_nums_removed: None,
-            diff: None,
-        }]
-    }
-}
-
-/// Given a diff, it extracts the line numbers that were added and removed in the hunk (in a old and new format)
-/// The line numbers are relative to the start of the hunk (old_start and new_start respectively). The start is inclusive.
-fn line_nums_from_hunk(diff: &BString, old_start: u32, new_start: u32) -> (Vec<usize>, Vec<usize>) {
-    let mut line_nums_removed_old = vec![];
-    let mut line_nums_added_new = vec![];
-    let mut old_line_num = old_start as usize;
-    let mut new_line_num = new_start as usize;
-    // Split the diff into lines
-    let lines = diff.lines();
-    for line in lines {
-        let Some(first_char) = line.first() else {
-            continue;
-        };
-        match *first_char {
-            b'+' => {
-                // Line added in new version
-                line_nums_added_new.push(new_line_num);
-                new_line_num += 1;
-            }
-            b'-' => {
-                // Line removed from old version
-                line_nums_removed_old.push(old_line_num);
-                old_line_num += 1;
-            }
-            b' ' => {
-                // Context line (unchanged)
-                old_line_num += 1;
-                new_line_num += 1;
-            }
-            b'@' => {
-                // Header line, skip
-                continue;
-            }
-            _ => {
-                // Other lines (context or other), treat as context
-                old_line_num += 1;
-                new_line_num += 1;
-            }
-        }
-    }
-    (line_nums_added_new, line_nums_removed_old)
-}
-
 fn requests_to_assignments(
     request: Vec<HunkAssignmentRequest>,
     workspace: &but_graph::Workspace,
@@ -790,78 +679,27 @@ pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssi
         .collect()
 }
 
-/// Convert a hunk assignment to a diff spec and populate metadata from matching worktree changes.
-pub fn diff_spec_from_assignment_with_changes(
-    assignment: HunkAssignment,
-    changes: &[but_core::ui::TreeChange],
-) -> DiffSpec {
-    let path_bytes = assignment.path_bytes.clone();
-    let mut spec = DiffSpec::from(assignment);
-    for change in changes {
-        if change.path_bytes != path_bytes {
-            continue;
-        }
-        match &change.status {
-            but_core::ui::TreeStatus::Rename {
-                previous_path_bytes,
-                ..
-            } => {
-                spec.previous_path = Some(previous_path_bytes.clone());
-            }
-            but_core::ui::TreeStatus::Addition { .. }
-            | but_core::ui::TreeStatus::Deletion { .. } => {
-                spec.hunk_headers.clear();
-            }
-            but_core::ui::TreeStatus::Modification { .. } => {}
-        }
-        break;
-    }
-    spec
-}
-
-/// Convert hunk assignments to diff specs and populate rename metadata from matching worktree changes.
-pub fn diff_specs_from_assignments_with_changes(
-    assignments: impl IntoIterator<Item = HunkAssignment>,
-    changes: &[but_core::ui::TreeChange],
-) -> Vec<DiffSpec> {
-    assignments
-        .into_iter()
-        .map(|assignment| diff_spec_from_assignment_with_changes(assignment, changes))
-        .collect()
-}
-
-/// Convert HunkAssignments to DiffSpecs
-pub fn convert_assignments_to_diff_specs(
-    assignments: &[HunkAssignment],
+/// Convert hunks to DiffSpecs, one per file path.
+pub fn convert_hunks_to_diff_specs(
+    hunks: &[but_core::SingleHunk],
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    let mut specs_by_path: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
+    let mut headers_by_path: BTreeMap<BString, Vec<HunkHeader>> = BTreeMap::new();
 
-    // Group assignments by file path
-    for assignment in assignments {
-        specs_by_path
-            .entry(assignment.path_bytes.clone())
-            .or_default()
-            .push(assignment.clone());
-    }
-
-    // Convert to DiffSpecs
-    let mut diff_specs = Vec::new();
-    for (path, hunks) in specs_by_path {
-        let mut hunk_headers = Vec::new();
-        for hunk in hunks {
-            if let Some(header) = hunk.hunk_header {
-                hunk_headers.push(header);
-            }
+    for hunk in hunks {
+        let headers = headers_by_path.entry(hunk.path.clone()).or_default();
+        if let Some(header) = hunk.hunk_header {
+            headers.push(header);
         }
-
-        diff_specs.push(DiffSpec {
-            previous_path: None, // TODO: Handle renames
-            path: path.clone(),
-            hunk_headers,
-        });
     }
 
-    Ok(diff_specs)
+    Ok(headers_by_path
+        .into_iter()
+        .map(|(path, hunk_headers)| DiffSpec {
+            previous_path: None, // TODO: Handle renames
+            path,
+            hunk_headers,
+        })
+        .collect())
 }
 
 /// Tracks mappings between old and new commit IDs during rebase operations
@@ -886,10 +724,45 @@ impl CommitMap {
     }
 }
 
+/// A hunk to absorb, along with the routing information the absorb planner needs.
+///
+/// Depending on the [`AbsorptionTarget`] the hunk came from, the stack and branch may be
+/// unknown, in which case the planner falls back to dependency locks and the default stack.
+#[derive(Debug, Clone)]
+pub struct AbsorbCandidate {
+    pub hunk: but_core::SingleHunk,
+    pub stack_id: Option<StackId>,
+    pub branch_ref: Option<gix::refs::FullName>,
+}
+
+impl From<HunkAssignment> for AbsorbCandidate {
+    fn from(value: HunkAssignment) -> Self {
+        AbsorbCandidate {
+            stack_id: value.stack_id,
+            branch_ref: value.branch_ref_bytes,
+            hunk: but_core::SingleHunk {
+                hunk_header: value.hunk_header,
+                path: value.path_bytes,
+                diff: value.diff,
+            },
+        }
+    }
+}
+
+impl From<but_core::SingleHunk> for AbsorbCandidate {
+    fn from(hunk: but_core::SingleHunk) -> Self {
+        AbsorbCandidate {
+            hunk,
+            stack_id: None,
+            branch_ref: None,
+        }
+    }
+}
+
 /// Type alias for grouped changes by commit
 pub type GroupedChanges = BTreeMap<
     (but_core::ref_metadata::StackId, gix::ObjectId),
-    (Vec<HunkAssignment>, AbsorptionReason),
+    (Vec<AbsorbCandidate>, AbsorptionReason),
 >;
 
 #[cfg(test)]

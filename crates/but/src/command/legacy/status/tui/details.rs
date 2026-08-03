@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::Context as _;
+use bstr::ByteSlice as _;
 use but_ctx::{Context, OnDemand};
 use gix::ObjectId;
 use itertools::{Itertools as _, Position};
@@ -1254,7 +1255,7 @@ impl Details {
             if let CliId::UncommittedHunkOrFile(hunk) = &*section_cli_id {
                 (
                     Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
-                    Span::raw(hunk.hunk_assignments.head.hunk.path.clone()),
+                    Span::raw(hunk.hunks.head.hunk.path.to_str_lossy().into_owned()),
                     DiscardOperation::Uncommitted(UncommittedSelection::changes(NonEmpty::new(
                         hunk.clone(),
                     ))),
@@ -1442,9 +1443,7 @@ impl Details {
                 };
                 // the detail view can contain hunks from multiple files, for example if viewing
                 // the uncommitted area, so only check hunks from the marked file
-                if section_hunk.hunk_assignments.head.hunk.path_bytes
-                    != hunk.hunk_assignments.head.hunk.path_bytes
-                {
+                if section_hunk.hunks.head.hunk.path != hunk.hunks.head.hunk.path {
                     return None;
                 }
                 Some(section_hunk)
@@ -1457,7 +1456,7 @@ impl Details {
             let parent_hunk = synthetic_parent_hunk(
                 &sections_for_file_cli_ids.head.id,
                 0,
-                sections_for_file_cli_ids.flat_map(|hunk| hunk.hunk_assignments.clone()),
+                sections_for_file_cli_ids.flat_map(|hunk| hunk.hunks.clone()),
             );
             if all_sections_marked {
                 marks.insert_mark(parent_hunk)?;

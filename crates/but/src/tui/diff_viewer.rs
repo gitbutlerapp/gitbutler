@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bstr::{BString, ByteSlice};
 use but_core::unified_diff::DiffHunk;
@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 use crate::{
-    id::{IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{IdAndHunk, UncommittedHunkOrFile},
     theme,
     tui::TerminalGuard as _,
 };
@@ -54,17 +54,17 @@ impl DiffFileEntry {
         filter: Option<&WorktreeFilter>,
     ) -> Vec<DiffFileEntry> {
         // Group hunks by path, applying filter
-        let mut by_path: BTreeMap<String, Vec<&WorktreeHunk>> = BTreeMap::new();
+        let mut by_path: BTreeMap<BString, Vec<&but_core::SingleHunk>> = BTreeMap::new();
         for uncommitted_hunk in id_map.uncommitted_hunks.values() {
-            let a = &uncommitted_hunk.hunk_assignment;
+            let a = &uncommitted_hunk.hunk;
             let include = match filter {
                 None => true,
                 Some(WorktreeFilter::UncommittedArea) => true,
                 Some(WorktreeFilter::Uncommitted(id)) => {
                     if id.is_entire_file {
-                        a.path_bytes == id.hunk_assignments.first().hunk.path_bytes
+                        a.path == id.hunks.first().hunk.path
                     } else {
-                        a.eq(&id.hunk_assignments.first().hunk)
+                        a.identifies_same_hunk(&id.hunks.first().hunk)
                     }
                 }
             };
@@ -73,35 +73,33 @@ impl DiffFileEntry {
             }
         }
 
-        Self::from_hunk_assignments_by_path(by_path)
+        Self::from_hunks_by_path(by_path)
     }
 
-    pub fn from_hunk_assignments<'a>(
-        hunk_assignments: impl IntoIterator<Item = &'a IdAndHunk>,
-    ) -> Vec<DiffFileEntry> {
-        let mut by_path: BTreeMap<String, Vec<&WorktreeHunk>> = BTreeMap::new();
-        for id_and_hunk in hunk_assignments {
+    pub fn from_hunks<'a>(hunks: impl IntoIterator<Item = &'a IdAndHunk>) -> Vec<DiffFileEntry> {
+        let mut by_path: BTreeMap<BString, Vec<&but_core::SingleHunk>> = BTreeMap::new();
+        for id_and_hunk in hunks {
             by_path
                 .entry(id_and_hunk.hunk.path.clone())
                 .or_default()
                 .push(&id_and_hunk.hunk);
         }
 
-        Self::from_hunk_assignments_by_path(by_path)
+        Self::from_hunks_by_path(by_path)
     }
 
-    fn from_hunk_assignments_by_path(
-        by_path: BTreeMap<String, Vec<&WorktreeHunk>>,
+    fn from_hunks_by_path(
+        by_path: BTreeMap<BString, Vec<&but_core::SingleHunk>>,
     ) -> Vec<DiffFileEntry> {
         by_path
             .into_iter()
-            .map(|(path, assignments)| {
+            .map(|(path, hunks)| {
                 let mut diff_lines = Vec::new();
-                for assignment in &assignments {
-                    diff_lines.extend(parse_hunk_assignment_to_lines(assignment));
+                for hunk in &hunks {
+                    diff_lines.extend(parse_single_hunk_to_lines(hunk));
                 }
                 DiffFileEntry {
-                    path,
+                    path: path.to_str_lossy().into_owned(),
                     status: 'M',
                     diff_lines,
                 }
@@ -211,14 +209,14 @@ fn parse_unified_patch(patch: &but_core::UnifiedPatch) -> Vec<DiffLine> {
     }
 }
 
-pub(crate) fn parse_hunk_assignment_to_lines(assignment: &WorktreeHunk) -> Vec<DiffLine> {
-    if let (Some(diff), Some(header)) = (&assignment.diff, &assignment.hunk_header) {
+pub(crate) fn parse_single_hunk_to_lines(hunk: &but_core::SingleHunk) -> Vec<DiffLine> {
+    if let (Some(diff), Some(header)) = (&hunk.diff, &hunk.hunk_header) {
         let hunk = DiffHunk {
             old_start: header.old_start,
             old_lines: header.old_lines,
             new_start: header.new_start,
             new_lines: header.new_lines,
-            diff: Arc::unwrap_or_clone(Arc::clone(diff)),
+            diff: diff.clone(),
         };
         parse_hunk_to_lines(&hunk)
     } else {

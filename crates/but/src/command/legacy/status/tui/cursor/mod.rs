@@ -391,8 +391,8 @@ impl Cursor {
             if let Some(CliId::UncommittedHunkOrFile(uncommitted)) =
                 line.data.cli_id().map(|id| &**id)
             {
-                let assignment = uncommitted.hunk_assignments.first();
-                &**assignment.hunk.path_bytes == path
+                let hunk = uncommitted.hunks.first();
+                hunk.hunk.path == path
             } else {
                 false
             }
@@ -753,26 +753,19 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 return false;
             }
             if previous.is_entire_file {
-                let previous = previous.hunk_assignments.first();
-                let current = current.hunk_assignments.first();
-                previous.hunk.path_bytes == current.hunk.path_bytes
+                let previous = previous.hunks.first();
+                let current = current.hunks.first();
+                previous.hunk.path == current.hunk.path
             } else {
                 previous == current
             }
         }
         (
             CliId::PathPrefix {
-                hunk_assignments: previous,
-                ..
+                hunks: previous, ..
             },
-            CliId::PathPrefix {
-                hunk_assignments: current,
-                ..
-            },
-        ) => previous
-            .iter()
-            .map(|id_and_hunk| &id_and_hunk.hunk)
-            .eq(current.iter().map(|id_and_hunk| &id_and_hunk.hunk)),
+            CliId::PathPrefix { hunks: current, .. },
+        ) => previous == current,
         (
             CliId::CommittedFile {
                 committed_file:

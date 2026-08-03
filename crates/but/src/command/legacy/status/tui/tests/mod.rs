@@ -930,13 +930,7 @@ fn pick_changes_mode() {
                 panic!("expected hunk, got {id:#?}")
             }
         })
-        .map(|hunk| {
-            (
-                hunk.id,
-                hunk.hunk_assignments.head.hunk.path,
-                hunk.is_entire_file,
-            )
-        })
+        .map(|hunk| (hunk.id, hunk.hunks.head.hunk.path, hunk.is_entire_file))
         .collect::<Vec<_>>();
     snapbox::assert_data_eq!(
         actual.to_debug(),
@@ -1021,13 +1015,7 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
                 panic!("expected hunk, got {id:#?}")
             }
         })
-        .map(|hunk| {
-            (
-                hunk.id,
-                hunk.hunk_assignments.head.hunk.path,
-                hunk.is_entire_file,
-            )
-        })
+        .map(|hunk| (hunk.id, hunk.hunks.head.hunk.path, hunk.is_entire_file))
         .collect::<Vec<_>>();
     snapbox::assert_data_eq!(
         actual.to_debug(),

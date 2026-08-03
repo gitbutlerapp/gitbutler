@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
+use bstr::ByteSlice as _;
 use but_core::{UnifiedPatch, ui, unified_diff::DiffHunk};
 use colored::ColoredString;
 
 use crate::command::legacy::status::status_letter_ui;
-use crate::id::WorktreeHunk;
 use crate::theme::Paint as _;
 
 fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
@@ -196,13 +194,14 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
     output
 }
 
-impl DiffDisplay for WorktreeHunk {
+impl DiffDisplay for but_core::SingleHunk {
     fn print_diff(&self, short_id: Option<&str>) -> String {
         let t = crate::theme::get();
         let mut output = String::new();
+        let path = self.path.to_str_lossy();
 
         // Calculate the width needed for the box (id + space + filename)
-        let content_width = short_id.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
+        let content_width = short_id.as_ref().map_or(0, |s| s.len() + 1) + path.len();
 
         // Render box-style header:
         // ─────────╮
@@ -213,10 +212,10 @@ impl DiffDisplay for WorktreeHunk {
             output.push_str(&format!(
                 "{} {}│\n",
                 t.cli_id.paint(id),
-                t.important.paint(&self.path)
+                t.important.paint(&path)
             ));
         } else {
-            output.push_str(&format!("{}│\n", t.important.paint(&self.path)));
+            output.push_str(&format!("{}│\n", t.important.paint(&path)));
         }
         output.push_str(&format!("{}╯\n", t.hint.paint("─".repeat(content_width))));
 
@@ -228,7 +227,7 @@ impl DiffDisplay for WorktreeHunk {
                 old_lines: header.old_lines,
                 new_start: header.new_start,
                 new_lines: header.new_lines,
-                diff: Arc::unwrap_or_clone(Arc::clone(diff)),
+                diff: diff.clone(),
             };
             output.push_str(&fmt_hunk(&hunk));
         } else if self.hunk_header.is_none() {

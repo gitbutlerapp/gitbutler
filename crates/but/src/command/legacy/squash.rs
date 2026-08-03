@@ -7,7 +7,10 @@ use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
-use but_workspace::{RefInfo, commit::squash_commits::MessageCombinationStrategy};
+use but_workspace::{
+    RefInfo,
+    commit::{ChangeSource, squash_commits::MessageCombinationStrategy},
+};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
@@ -138,7 +141,7 @@ pub fn squash(
 ) -> CliResult<SquashOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
@@ -1118,8 +1121,8 @@ pub fn run(
             reword,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for source in &sources {
                 match source {
                     UncommittedSquashSource::HunkOrFile(source) => {
@@ -1145,8 +1148,8 @@ pub fn run(
         }
         SquashOperation::Uncommitted { target, reword } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
             let changes = builder.into_diff_specs();
 
@@ -1167,8 +1170,8 @@ pub fn run(
             reword,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for path in source_paths {
                 builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }
@@ -1191,8 +1194,8 @@ pub fn run(
             source_paths,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             for path in source_paths {
                 builder.push_changes_from_committed_file(source.commit_id, path.as_ref())?;
             }
@@ -1490,7 +1493,7 @@ impl AmendUncommittedDiffSpecsOperation {
         let IntermediateCommitCreateResult {
             new_commit,
             rejected_specs,
-        } = tx.amend_commit(target.commit_id, changes)?;
+        } = tx.amend_commit(target.commit_id, changes, ChangeSource::Head)?;
 
         if !rejected_specs.is_empty() {
             return Err(rejection::RejectedChanges(rejected_specs).into());

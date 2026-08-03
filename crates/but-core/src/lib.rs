@@ -65,7 +65,10 @@ mod diff_types;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
 mod hunks;
-pub use hunks::{HunkRange, apply_hunks};
+pub use hunks::{
+    HunkRange, SingleHunk, apply_hunks, diff_spec_with_changes, diff_specs_with_changes,
+    hunks_from_changes, worktree_hunks,
+};
 
 /// Commit related utility types.
 pub mod commit;

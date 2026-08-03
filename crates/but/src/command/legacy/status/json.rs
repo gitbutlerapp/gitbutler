@@ -510,17 +510,21 @@ pub(crate) fn gix_time_to_rfc3339(time: &gix::date::Time) -> String {
         .unwrap_or_default()
 }
 
-/// Convert file assignments to JSON FileChange objects
-fn convert_file_assignments(
-    assignments: &[super::assignment::FileAssignment],
+/// Convert uncommitted files to JSON FileChange objects
+fn convert_uncommitted_files(
+    files: &[super::uncommitted_file::UncommittedFileWithId],
     worktree_changes: &[but_core::ui::TreeChange],
 ) -> Vec<FileChange> {
-    assignments
+    files
         .iter()
-        .filter_map(|fa| {
-            let cli_id = fa.assignments[0].cli_id.to_string();
-            let change = worktree_changes.iter().find(|c| c.path_bytes == fa.path)?;
-            Some(FileChange::from_tree_change(cli_id, change.clone()))
+        .filter_map(|file| {
+            let change = worktree_changes
+                .iter()
+                .find(|c| c.path_bytes == file.path)?;
+            Some(FileChange::from_tree_change(
+                file.short_id.clone(),
+                change.clone(),
+            ))
         })
         .collect()
 }
@@ -583,10 +587,10 @@ pub(super) fn build_workspace_status_json(
     let mut json_stacks = Vec::new();
     let mut json_uncommitted_changes = Vec::new();
 
-    for (stack_id, (stack_with_id, assignments)) in &status_ctx.stack_details {
+    for (stack_id, (stack_with_id, files)) in &status_ctx.stack_details {
         if stack_id.is_none() {
             json_uncommitted_changes =
-                convert_file_assignments(assignments, &status_ctx.worktree_changes);
+                convert_uncommitted_files(files, &status_ctx.worktree_changes);
         } else if let (Some(stack_id), Some(stack_with_id)) = (stack_id, stack_with_id) {
             let stack_cli_id = status_ctx
                 .id_map
@@ -595,7 +599,7 @@ pub(super) fn build_workspace_status_json(
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes =
-                convert_file_assignments(assignments, &status_ctx.worktree_changes);
+                convert_uncommitted_files(files, &status_ctx.worktree_changes);
 
             let json_branches = stack_with_id
                 .segments

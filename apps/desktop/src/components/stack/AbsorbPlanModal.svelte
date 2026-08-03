@@ -14,7 +14,7 @@
 		chipToasts,
 	} from "@gitbutler/ui";
 	import { tick } from "svelte";
-	import type { CommitAbsorption, FileAbsorption, TreeChange } from "@gitbutler/but-sdk";
+	import type { CommitAbsorption, SingleHunk, TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -49,10 +49,12 @@
 		modal?.show(null);
 	}
 
-	function uniquePaths(files: FileAbsorption[]): string[] {
+	const textDecoder = new TextDecoder();
+
+	function uniquePaths(hunks: SingleHunk[]): string[] {
 		const pathSet = new Set<string>();
-		for (const file of files) {
-			pathSet.add(file.path);
+		for (const hunk of hunks) {
+			pathSet.add(textDecoder.decode(Uint8Array.from(hunk.pathBytes)));
 		}
 		return Array.from(pathSet);
 	}
@@ -84,7 +86,7 @@
 			</p>
 			<div class="commit-absorptions">
 				{#each absorbPlan as commitAbsorption}
-					{@const uniqueFilePaths = uniquePaths(commitAbsorption.files)}
+					{@const uniqueFilePaths = uniquePaths(commitAbsorption.hunks)}
 					<div class="commit-absorption" data-testid={TestId.AbsorbModal_CommitAbsorption}>
 						{#if commitAbsorption.reason !== "default_stack"}
 							<div class="absorption__reason text-12 text-body clr-text-2">
