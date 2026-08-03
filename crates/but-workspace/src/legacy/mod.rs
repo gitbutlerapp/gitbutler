@@ -1,8 +1,3 @@
-#![expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-
 use but_ctx::Context;
 use serde::{Deserialize, Serialize};
 

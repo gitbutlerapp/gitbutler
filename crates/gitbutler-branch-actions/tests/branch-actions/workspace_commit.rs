@@ -18,17 +18,10 @@ fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
     driverless::writable_context("workspace-commit.sh", name)
 }
 
-/// When two applied stacks have trees that conflict on the same file,
-/// `remerged_workspace_tree_v2` (called by `update_workspace_commit`) detects the
-/// gix merge conflict and marks the later stack as `in_workspace = false`.
-/// With the fix in `remerged_workspace_commit_v2`, that evicted stack's head must
-/// be excluded from the workspace commit's parent list.
-///
-/// Without the fix, the workspace commit tree would not contain the evicted stack's
-/// changes but its head would still be a parent — causing phantom uncommitted changes
-/// when diffing the workspace commit against its parents.
+/// Rebuilding the workspace commit must not silently change durable legacy metadata,
+/// even when the legacy stacks conflict.
 #[test]
-fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
+fn conflicting_stacks_do_not_rewrite_legacy_metadata() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("conflicting-stacks")?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -39,42 +32,49 @@ fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
         "precondition: 2 stacks in workspace"
     );
 
-    // Rebuild the workspace commit through the legacy path.
-    // remerged_workspace_tree_v2 iterates both stacks and merges each tree:
-    //   - The first stack merges cleanly onto the target tree
-    //   - The second stack conflicts (same file, different content) → in_workspace = false
-    // remerged_workspace_commit_v2 (with our fix) then excludes the evicted stack
-    // from the workspace commit's parent list.
     gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
-    // Exactly one of the two conflicting stacks should have been evicted.
     let stacks_after = vb_state.list_stacks_in_workspace()?;
     assert_eq!(
         stacks_after.len(),
-        1,
-        "Only the non-conflicting stack should remain in workspace"
+        2,
+        "workspace commit generation must not mutate legacy metadata"
     );
-    let surviving_stack = &stacks_after[0];
 
-    // The workspace commit must have exactly 1 parent: the surviving stack's head.
+    Ok(())
+}
+
+#[test]
+fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let deleted_head = {
+        let repo = ctx.repo.get()?;
+        let mut reference = repo.find_reference("refs/heads/stack_b")?;
+        let deleted_head = reference.peel_to_commit()?.id;
+        reference.delete()?;
+        deleted_head
+    };
+
+    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+
     let repo = ctx.repo.get()?;
-    let ws_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
-    let ws_commit = ws_ref.into_fully_peeled_id()?.object()?.try_into_commit()?;
-    let parent_ids: Vec<_> = ws_commit.parent_ids().collect();
-
-    assert_eq!(
-        parent_ids.len(),
-        1,
-        "Workspace commit should have only the surviving stack as parent"
+    assert!(
+        repo.try_find_reference("refs/heads/stack_b")?.is_none(),
+        "projecting the workspace must not recreate a deleted ref"
     );
-
-    let surviving_head = surviving_stack.head_oid(&ctx)?;
-    assert_eq!(
-        parent_ids[0].detach(),
-        surviving_head,
-        "The only parent should be the surviving stack's head"
+    let parent_ids = repo
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .into_fully_peeled_id()?
+        .object()?
+        .try_into_commit()?
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect::<Vec<_>>();
+    assert!(
+        !parent_ids.contains(&deleted_head),
+        "the deleted ref's stored legacy head must not become a parent"
     );
 
     Ok(())

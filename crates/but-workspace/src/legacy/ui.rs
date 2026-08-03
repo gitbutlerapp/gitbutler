@@ -31,7 +31,7 @@ pub struct StackHeadInfo {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(StackHeadInfo);
 
-/// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
+/// Represents a lightweight version of a legacy stack for listing.
 /// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]

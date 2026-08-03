@@ -1776,7 +1776,6 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-reference",
  "gitbutler-repo",
- "gitbutler-stack",
  "gix",
  "indexmap 2.14.0",
  "itertools",

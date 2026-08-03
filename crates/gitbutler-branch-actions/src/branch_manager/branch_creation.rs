@@ -50,7 +50,11 @@ impl BranchManager<'_> {
         vb_state.set_stack(branch.clone())?;
         ensure_stack_reference(self.ctx, &branch)?;
 
-        crate::integration::update_workspace_commit_with_vb_state(&vb_state, self.ctx, false)?;
+        crate::integration::update_workspace_commit_with_perm(
+            self.ctx,
+            false,
+            perm.read_permission(),
+        )?;
 
         Ok(branch)
     }
