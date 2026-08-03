@@ -946,17 +946,27 @@ impl App {
     }
 
     fn handle_files_toggle_global_files_list(&mut self, messages: &mut Vec<Message>) {
-        self.flags.show_files = match self.flags.show_files {
+        match self.flags.show_files {
             FilesStatusFlag::None => {
+                self.flags.show_files = FilesStatusFlag::All;
                 self.backstack.push_show_file_list();
-                FilesStatusFlag::All
             }
-            FilesStatusFlag::All | FilesStatusFlag::Commit(_) => {
-                self.backstack.remove_show_file_list();
-                FilesStatusFlag::None
-            }
-        };
+            FilesStatusFlag::All | FilesStatusFlag::Commit(_) => self.close_file_list(),
+        }
         messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+    }
+
+    fn close_file_list(&mut self) {
+        let should_clear_marks = matches!(
+            self.marks_ref(),
+            mark::MarksRef::CommittedFiles { head: _, tail: _ }
+        );
+
+        self.flags.show_files = FilesStatusFlag::None;
+        self.backstack.remove_show_file_list();
+        if should_clear_marks {
+            self.handle_clear_marks();
+        }
     }
 
     fn handle_files_toggle_files_for_selected_commit(
@@ -973,8 +983,7 @@ impl App {
                 }
                 FilesStatusFlag::Commit(_) => {}
                 FilesStatusFlag::All => {
-                    self.flags.show_files = FilesStatusFlag::None;
-                    self.backstack.remove_show_file_list();
+                    self.close_file_list();
                     messages.push(Message::Reload(None, ReloadCause::ViewOnly));
                     return Ok(());
                 }
@@ -988,24 +997,23 @@ impl App {
                 id: _,
             } = &**cli_id
         {
-            if !operations::commit_is_empty(ctx, *commit_id)? {
+            let commit_id = *commit_id;
+            if !operations::commit_is_empty(ctx, commit_id)? {
                 let select_after_reload = match self.flags.show_files {
                     FilesStatusFlag::None => {
-                        self.flags.show_files = FilesStatusFlag::Commit(*commit_id);
+                        self.flags.show_files = FilesStatusFlag::Commit(commit_id);
                         self.backstack.push_show_file_list();
-                        Some(SelectAfterReload::FirstFileInCommit(*commit_id))
+                        Some(SelectAfterReload::FirstFileInCommit(commit_id))
                     }
                     FilesStatusFlag::All | FilesStatusFlag::Commit(_) => {
-                        self.flags.show_files = FilesStatusFlag::None;
-                        self.backstack.remove_show_file_list();
-                        Some(SelectAfterReload::Commit(*commit_id))
+                        self.close_file_list();
+                        Some(SelectAfterReload::Commit(commit_id))
                     }
                 };
                 messages.push(Message::Reload(select_after_reload, ReloadCause::ViewOnly));
             }
         } else {
-            self.flags.show_files = FilesStatusFlag::None;
-            self.backstack.remove_show_file_list();
+            self.close_file_list();
             messages.push(Message::Reload(None, ReloadCause::ViewOnly));
         };
 
