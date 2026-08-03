@@ -1,4 +1,4 @@
-import type { QueryKey } from "#ui/api/queries.ts";
+import { refreshIntegratedReviews, type QueryKey } from "#ui/api/queries.ts";
 import type { WatcherEvent } from "@gitbutler/but-sdk";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -13,6 +13,7 @@ export const handleWatcher = (
 				queryKey: ["workspaceFetchStatus" satisfies QueryKey, projectId],
 			});
 			void client.invalidateQueries({ queryKey: ["reviews" satisfies QueryKey, projectId] });
+			void client.invalidateQueries({ queryKey: ["review" satisfies QueryKey, projectId] });
 			// A fetch moves remote-tracking refs, so the branch listing goes stale,
 			// and it can advance a remote branch whose commits or diff are already
 			// cached (unfolded or selected in the Branches tab). This case does not
@@ -20,6 +21,17 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["branchList" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDetails" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({ queryKey: ["branchDiff" satisfies QueryKey, projectId] });
+			// The target-commit annotations read the backend's review cache, so
+			// refresh newly integrated reviews first and re-read the listing once
+			// they land. The refresh failing (offline, rate-limited) degrades to
+			// unannotated commits and is retried on the next fetch.
+			void refreshIntegratedReviews(client, projectId)
+				.catch(() => undefined)
+				.finally(() => {
+					void client.invalidateQueries({
+						queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
+					});
+				});
 			break;
 		case "gitActivity":
 		case "workspaceActivity": {
@@ -38,6 +50,9 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: ["headInfo" satisfies QueryKey, projectId] });
 			void client.invalidateQueries({
 				queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId],
+			});
+			void client.invalidateQueries({
+				queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
 			});
 			break;
 		}

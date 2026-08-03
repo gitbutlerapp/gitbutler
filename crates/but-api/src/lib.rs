@@ -32,6 +32,9 @@ pub mod branch;
 /// Functions that operate on the workspace.
 pub mod workspace;
 
+/// Listing target-branch history relative to the workspace.
+pub mod target_commits;
+
 /// Land a branch directly onto the target ref (the "avoid pull requests" workflow).
 ///
 /// Gated behind `legacy` for now because the real-remote push relies on the legacy `gitbutler-git`

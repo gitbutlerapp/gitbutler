@@ -11,7 +11,12 @@ import type {
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
-import { queryOptions } from "@tanstack/react-query";
+import {
+	infiniteQueryOptions,
+	queryOptions,
+	skipToken,
+	type QueryClient,
+} from "@tanstack/react-query";
 import * as ms from "ms";
 
 export type QueryKey =
@@ -34,7 +39,9 @@ export type QueryKey =
 	| "dryRun"
 	| "guiSettings"
 	| "workspaceFetch"
-	| "workspaceFetchStatus";
+	| "workspaceFetchStatus"
+	| "workspaceTargetCommits"
+	| "workspaceTargetCommitsOlder";
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
 	queryOptions({
@@ -87,6 +94,74 @@ export const headInfoQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.headInfo(projectId),
 	});
 
+export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
+export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["workspaceTargetCommits" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
+	});
+
+/**
+ * A fetch can turn a reviewed branch into an integrated one while the backend
+ * forge cache still holds the pre-merge review, leaving the branch unmatched
+ * to the commit that landed it in the Upstream tab. Refresh those reviews
+ * (repopulating the backend cache) so the target-commit listing can be
+ * re-read afterwards. Runs from the fetch watcher, so a review that never
+ * resolves is retried at most once per fetch, and the listing itself stays a
+ * purely local call. Failures degrade to unannotated commits.
+ */
+export const refreshIntegratedReviews = async (
+	client: QueryClient,
+	projectId: string,
+): Promise<void> => {
+	const headInfo = await client.fetchQuery({ ...headInfoQueryOptions(projectId), staleTime: 0 });
+	const reviewIds = new Set(
+		headInfo.stacks.flatMap((stack) =>
+			stack.segments.flatMap((segment) => {
+				const reviewId = segment.metadata?.review.pullRequest;
+				return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
+			}),
+		),
+	);
+	await Promise.allSettled(
+		[...reviewIds].flatMap((reviewId) => {
+			const options = getReviewQueryOptions({ projectId, reviewId });
+			return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
+				? []
+				: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
+		}),
+	);
+};
+
+const olderTargetCommitsPageSize = 25;
+
+/**
+ * Pages of target history older than the workspace's fork point, continued
+ * below `from` with a commit-id cursor. A `null` cursor means the base
+ * listing has not arrived yet, so there is nothing to continue from.
+ */
+export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string | null) =>
+	infiniteQueryOptions({
+		queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId, from],
+		queryFn:
+			from === null
+				? skipToken
+				: ({ pageParam }) =>
+						window.lite.workspaceTargetCommits({
+							projectId,
+							from: pageParam,
+							limit: olderTargetCommitsPageSize,
+						}),
+		initialPageParam: from ?? "",
+		getNextPageParam: (lastPage) =>
+			lastPage.hasMore ? (lastPage.commits.at(-1)?.commit.id ?? undefined) : undefined,
+	});
+
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["workspaceFetchStatus" satisfies QueryKey, projectId],
@@ -121,12 +196,6 @@ export const workspaceFetchQueryOptions = (
 		initialData: null,
 	});
 };
-
-export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
-	queryOptions({
-		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
-		queryFn: () => window.lite.getReview({ projectId, reviewId }),
-	});
 
 export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
 	queryOptions({

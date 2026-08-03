@@ -684,6 +684,31 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
+
+/**
+ * List the target branch's first-parent commits from its tip down to the
+ * workspace lower bound, ordered from newest to oldest.
+ *
+ * Commits flagged as in the workspace are already reachable from it; the
+ * remaining prefix is what an upstream integration would bring in. The
+ * in-workspace tail runs to the fork point shared by all workspace stacks,
+ * so clients can position each stack against the target history. The
+ * first-parent walk shows a merge as a single commit rather than everything
+ * it merged. The list is empty when the workspace has no target reference.
+ *
+ * With `from`, the walk instead continues past the end of a previous
+ * response: it starts below the given commit and returns up to `limit`
+ * commits, allowing clients to page through target history older than the
+ * workspace's fork point.
+ *
+ * Each commit is enriched with the cached merged review (PR/MR) it landed,
+ * when the forge cache recorded that commit as the review's integration
+ * commit. This covers merge, squash, and rebase integrations to the extent
+ * the forge reports them; it reads only the local cache and performs no
+ * network requests or diffs, and enrichment failures degrade to unannotated
+ * commits.
+ */
+export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -2962,6 +2987,49 @@ export type Target = {
   remoteTrackingRef: RemoteTrackingReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
+};
+
+/** JSON transport type for a commit on the target branch's first-parent line. */
+export type TargetCommit = {
+  /** The commit itself. */
+  commit: UpstreamCommit;
+  /** The merged review this commit integrated, if the forge cache knows it. */
+  review: TargetCommitReview | null;
+  /** Whether the commit is already reachable from the workspace. */
+  inWorkspace: boolean;
+};
+
+/** A bounded page from the target branch's first-parent history. */
+export type TargetCommitPage = {
+  /** The commits in this page, newest first. */
+  commits: Array<TargetCommit>;
+  /** Whether the relative walk was clipped before its natural bound. */
+  hasMore: boolean;
+};
+
+/**
+ * JSON transport type for the cached merged review attached to a
+ * target commit.
+ *
+ * Only what the target-commit listing displays; the full review is
+ * available from the per-review APIs. `sourceBranch` is included so
+ * clients can match workspace branches to the commit that landed them.
+ */
+export type TargetCommitReview = {
+  /** The number identifying the review within its repository, e.g. `123`. */
+  number: number;
+  /** The title of the review. */
+  title: string;
+  /** The URL to view the review in a web browser. */
+  htmlUrl: string;
+  /**
+   * The forge's symbol for this review type, e.g. `#` for GitHub pull
+   * requests and `!` for GitLab merge requests. Precedes `number` when
+   * displayed.
+   */
+  unitSymbol: string;
+  /** The short name of the branch the review proposed, e.g. `feature-branch`. */
+  sourceBranch: string;
 };
 
 export type TelemetrySettings = {

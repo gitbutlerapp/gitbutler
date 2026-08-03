@@ -59,6 +59,7 @@ import {
 	type PeelRestoreSnapshotParams,
 	type WorkspaceFetchFromRemotesParams,
 	type WorkspaceIntegrateUpstreamParams,
+	type WorkspaceTargetCommitsParams,
 	type UpdateReviewFootersParams,
 } from "./ipc.js";
 import {
@@ -131,6 +132,7 @@ import {
 	warmCiChecksCache,
 	workspaceFetchFromRemotes,
 	workspaceFetchStatus,
+	workspaceTargetCommits,
 	workspaceIntegrateUpstream,
 	askpassInit,
 	askpassSubmitPromptResponse,
@@ -741,6 +743,11 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(liteIpcChannels.workspaceFetchStatus, (_e, projectId: string) =>
 		workspaceFetchStatus(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.workspaceTargetCommits,
+		(_e, { projectId, from, limit }: WorkspaceTargetCommitsParams) =>
+			workspaceTargetCommits(projectId, from, limit),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.workspaceIntegrateUpstream,
