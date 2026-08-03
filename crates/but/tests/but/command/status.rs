@@ -1468,3 +1468,113 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+/// A linked worktree resting on a workspace commit is drawn as a lane off that commit, one
+/// resting below the workspace stands on its own, and every ID printed resolves.
+#[test]
+fn worktree_lanes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    // The first read with the flag on archives every worktree already on disk, so the ones
+    // under test have to be created after it.
+    env.but("status").assert().success();
+
+    // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q -b wt-inside "{wt}/wt-inside" A
+        (cd "{wt}/wt-inside" && git commit -q --allow-empty -m "worktree work" && echo dirty >note.txt)
+        git worktree add -q --detach "{wt}/wt-at" B
+        git worktree add -q -b wt-outside "{wt}/wt-outside" main
+        (cd "{wt}/wt-outside" && git commit -q --allow-empty -m "off the target")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ po {wt-inside}
+┊┊┊   wx A note.txt
+┊┊●   pwn worktree work (no changes)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊┊
+┊┊╭┄ zn {wt-at} (no changes)
+┊├╯
+┊●   lrm add B
+├╯
+┊
+┊╭┄ o {wt-outside} (no changes)
+┊●   zum off the target (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // The IDs printed above have to be usable, or the lanes are decoration.
+    env.but("show pwn").assert().success().stdout_eq(
+        snapbox::str![[r#"
+Commit:    fb0cf2a5252830e6d4697a7c19cd86dd36e323c5
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+worktree work
+
+
+"#]]
+        .raw(),
+    );
+    env.but("show zum").assert().success().stdout_eq(
+        snapbox::str![[r#"
+Commit:    ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+off the target
+
+
+"#]]
+        .raw(),
+    );
+    env.but("diff wx").assert().success().stdout_eq(
+        snapbox::str![[r#"
+─────────────╮
+wx:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+        .raw(),
+    );
+}
+
+/// Turn on the experimental `worktreeManipulation` feature flag, which has no CLI toggle.
+fn enable_worktree_manipulation(env: &Sandbox) {
+    let path = env.app_data_dir().join("gitbutler/settings.json");
+    let mut settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("settings were written"))
+            .expect("settings are valid JSON");
+    settings["featureFlags"]["worktreeManipulation"] = true.into();
+    std::fs::write(&path, settings.to_string()).expect("settings are writable");
+}
