@@ -229,6 +229,37 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 }
 
 #[test]
+fn materialize_without_checkout_resets_the_index_to_the_new_head() -> Result<()> {
+    // Uncommitting rewrites refs while deliberately keeping the worktree, so the index
+    // has to follow `HEAD`. Otherwise its entries still point at the blobs of the commit
+    // that was just dropped, and Git reports those paths as staged even though the user
+    // never staged them - and nothing in the normal flow clears that residue.
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+
+    let graph =
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop the 'c' commit, which is what uncommitting it amounts to.
+    let c = repo.rev_parse_single("HEAD")?;
+    let c_sel = editor.select_commit(c.detach())?;
+    editor.replace(c_sel, Step::None)?;
+    editor.rebase()?.materialize_without_checkout()?;
+
+    // 'c' stays in the worktree, but as an untracked file rather than a staged addition.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+?? c
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn both_methods_update_references_identically() -> Result<()> {
     // Test with materialize
     let (ref_after_materialize, overlayed_materialize) = {

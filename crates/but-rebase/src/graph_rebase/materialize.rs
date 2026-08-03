@@ -6,6 +6,7 @@ use but_core::{
 };
 use gix::{
     bstr::{BString, ByteSlice as _},
+    prelude::ObjectIdExt as _,
     refs::{
         Target,
         transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -274,6 +275,13 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         )?);
         repo.edit_references(ref_edits)?;
 
+        // Skipping the checkout leaves the worktree alone on purpose, but `HEAD` still
+        // moved. The index has to follow it, or its entries keep pointing at blobs from
+        // the commits that were just rewritten, and Git reports those paths as staged
+        // even though the worktree matches `HEAD`. These are `git reset --mixed`
+        // semantics: move the ref and reset the index, but keep the worktree.
+        reset_index_to_head(&repo)?;
+
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
             .refresh_from_head(&repo, &*self.meta, project_meta)?;
@@ -285,4 +293,26 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             meta: self.meta,
         })
     }
+}
+
+/// Reset `.git/index` to `HEAD^{tree}`, leaving the working tree untouched.
+///
+/// GitButler tracks the worktree rather than the staging area, so the index is only
+/// ever a cache of `HEAD`. Letting it drift makes Git report paths as staged that the
+/// user never staged, and nothing in the normal flow clears that residue.
+fn reset_index_to_head(repo: &gix::Repository) -> Result<()> {
+    let tree_id = match repo.head_id() {
+        // A rewrite can leave `HEAD` on a conflicted commit, whose own tree holds the
+        // conflict sidecars rather than a checkout-able state, so resolve it the same
+        // way anything reading such a commit does.
+        Ok(head_id) => but_core::Commit::from_id(head_id)?
+            .tree_id_or_auto_resolution()?
+            .detach(),
+        // An unborn `HEAD` has no tree, and the empty tree yields the empty index
+        // that matches it.
+        Err(_) => gix::ObjectId::empty_tree(repo.object_hash()),
+    };
+    let mut index = repo.index_from_tree(&tree_id.attach(repo))?;
+    index.write(Default::default())?;
+    Ok(())
 }
