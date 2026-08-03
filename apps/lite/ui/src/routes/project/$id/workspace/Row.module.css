@@ -129,6 +129,29 @@
 
 .foldGlyph {
 	display: flex;
+
+	/* The indicator takes over the rail from the second line down and draws its
+	   own line around the rings, so this one has to stop at the glyph rather
+	   than run through them. */
+	.foldToggle:has(.foldIndicator) & {
+		--graph-segment-rail-visibility: hidden;
+	}
+}
+
+/* Owns the rail from one line below the glyph downwards, so it survives the
+   hover swap above it and reports the folded state whether or not the row is
+   hovered. */
+.foldIndicator {
+	/* The swap hides the glyph through an inherited property, and this is a
+	   glyph segment too — opt back in, or the indicator vanishes on hover
+	   along with the glyph it is meant to outlast. */
+	--graph-segment-glyph-visibility: visible;
+
+	display: flex;
+	position: absolute;
+	inset-block: var(--single-line-row-height) 0;
+	inset-inline: 0;
+	pointer-events: none;
 }
 
 .rowCheckbox {

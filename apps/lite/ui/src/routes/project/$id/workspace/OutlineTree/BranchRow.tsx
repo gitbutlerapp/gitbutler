@@ -400,6 +400,7 @@ export const BranchRow: FC<
 						// does not change with fold state.
 						<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
 					}
+					foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
 				/>
 			) : (
 				<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />

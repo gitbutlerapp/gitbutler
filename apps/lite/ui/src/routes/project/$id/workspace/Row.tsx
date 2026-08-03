@@ -94,10 +94,15 @@ export const RowCheckbox: FC<ComponentProps<typeof Checkbox>> = (props) => (
  * (see `.foldToggle`), which blanks just the glyph's own segment so the rail
  * below it keeps drawing. The chevron direction reports the state the way a
  * disclosure triangle does.
+ *
+ * `foldedIndicator` marks the rail for as long as the row is folded. The
+ * chevron only appears on hover, so it cannot carry that on its own, and
+ * `glyph` is busy describing the row's position in the graph. It takes the
+ * second line, leaving the first to the glyph and the chevron.
  */
 export const RowFoldToggle: FC<
-	{ folded: boolean; glyph: ReactNode } & ComponentProps<"button">
-> = ({ folded, glyph, ...props }) => (
+	{ folded: boolean; glyph: ReactNode; foldedIndicator?: ReactNode } & ComponentProps<"button">
+> = ({ folded, glyph, foldedIndicator, ...props }) => (
 	<button
 		type="button"
 		{...props}
@@ -105,6 +110,11 @@ export const RowFoldToggle: FC<
 		className={classes(props.className, styles.foldToggle)}
 	>
 		<span className={styles.foldGlyph}>{glyph}</span>
+
+		{folded && foldedIndicator !== undefined && (
+			<span className={styles.foldIndicator}>{foldedIndicator}</span>
+		)}
+
 		<span className={styles.foldChevron}>
 			<Icon size={14} name={folded ? "chevron-right" : "chevron-down"} />
 		</span>

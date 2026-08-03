@@ -260,6 +260,7 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boo
 						aria-label={unfolded ? "Fold commits" : "Unfold commits"}
 						onClick={toggleUnfolded}
 						glyph={<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />}
+						foldedIndicator={<GraphSegment glyph="group" status={branchGraphStatus(branch)} />}
 					/>
 				) : (
 					<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />
