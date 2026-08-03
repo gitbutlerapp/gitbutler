@@ -311,7 +311,7 @@ export const Outline: FC<{
 					<div className={styles.workspaceControlsLeft}>
 						<Tooltip.Root>
 							<Tooltip.Trigger
-								aria-label={globalHotkeys.selectProject.meta.name}
+								aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${project.title})`}
 								className={classes(
 									getButtonClassName({ variant: "ghost" }),
 									"text-15",
