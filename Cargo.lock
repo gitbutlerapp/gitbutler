@@ -4251,7 +4251,6 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-ctx",
- "but-meta",
  "but-oxidize",
  "git2",
  "gitbutler-cherry-pick",
