@@ -20,6 +20,13 @@
 	}
 }
 
+/* Too narrow for the project name, keep only the folder mark. */
+@container (max-width: 275px) {
+	.workspaceNameLabel {
+		display: none;
+	}
+}
+
 .workspaceControls {
 	display: flex;
 	column-gap: 12px;
@@ -41,8 +48,9 @@
 }
 
 .workspaceName {
+	--button-gap: 6px;
+	--button-padding-inline: 10px;
 	display: flex;
-	column-gap: 6px;
 	align-items: center;
 	min-width: 0;
 }

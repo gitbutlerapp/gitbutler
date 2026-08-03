@@ -1,7 +1,13 @@
 .button {
 	display: inline-flex;
+
+	/* The size classes below only provide defaults for these, at zero
+	   specificity, so consumers can override them from their own class. */
+	column-gap: var(--button-gap);
 	align-items: center;
 	justify-content: center;
+	height: var(--button-height);
+	padding-inline: var(--button-padding-inline);
 	border: var(--button-border);
 	border-radius: var(--radius-button);
 	background-color: var(--button-bg);
@@ -47,27 +53,31 @@
 	}
 }
 
-.small {
-	column-gap: 4px;
-	height: 20px;
-	padding-inline: 6px;
+:where(.iconOnly) {
+	width: var(--button-width);
+}
+
+:where(.small) {
+	--button-gap: 4px;
+	--button-height: 20px;
+	--button-padding-inline: 6px;
 	--icon-size: 14px;
 
 	&:where(.iconOnly) {
-		width: 22px;
-		padding-inline: 3px;
+		--button-width: 22px;
+		--button-padding-inline: 3px;
 	}
 }
 
-.regular {
-	column-gap: 6px;
-	height: 28px;
-	padding-inline: 8px;
+:where(.regular) {
+	--button-gap: 6px;
+	--button-height: 28px;
+	--button-padding-inline: 8px;
 	--icon-size: 16px;
 
 	&:where(.iconOnly) {
-		width: 28px;
-		padding-inline: 8px;
+		--button-width: 28px;
+		--button-padding-inline: 8px;
 	}
 }
 
