@@ -1,9 +1,3 @@
-.section {
-	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-card);
-}
-
 .tree {
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
@@ -119,21 +113,8 @@
 	padding-bottom: var(--panel-padding-block);
 }
 
+/* The last segment's connector row is clipped to a stub below, which already
+   supplies the card's floor. */
 .segments {
-	display: flex;
-	flex-direction: column;
-	padding-inline: 6px;
-	padding-block-start: 6px;
-}
-
-.segmentParentItemRow:last-child {
-	height: 8px;
-	min-height: auto;
-	overflow: hidden;
-}
-
-.stack {
-	display: flex;
-	flex-direction: column;
-	padding-block-end: 0;
+	--stack-card-body-inset-block-end: 0;
 }

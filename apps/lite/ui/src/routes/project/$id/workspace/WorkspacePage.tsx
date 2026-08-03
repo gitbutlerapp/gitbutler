@@ -7,6 +7,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	focusHorizontalSelectionScope,
 	focusSelectionScope,
@@ -243,26 +244,32 @@ const buildOutlineNavigationIndex = ({
 	headInfo,
 	outlineMode,
 	absorptionTargetCommitIds,
+	foldedSegments,
 }: {
 	headInfo: RefInfo | undefined;
 	outlineMode: OutlineMode;
 	absorptionTargetCommitIds: ReadonlySet<string>;
+	foldedSegments: Record<string, true>;
 }): NavigationIndex<Operand> => {
 	const allItems = (): Array<Operand> =>
-		headInfo?.stacks
-			.toReversed()
-			.flatMap((stack) =>
-				stack.segments.flatMap(
-					(segment): Array<Operand> => [
-						...(segment.refName
-							? [branchOperand({ branchRef: segment.refName.fullNameBytes })]
-							: []),
-						...segment.commits.map((commit) =>
-							commitOperand({ commitId: commit.id, changeId: commit.changeId }),
-						),
-					],
-				),
-			) ?? [];
+		headInfo?.stacks.toReversed().flatMap((stack) =>
+			stack.segments.flatMap((segment): Array<Operand> => {
+				// Matches what OutlineTree renders: a folded segment shows a stub
+				// in place of its commits, so they are not navigable.
+				const folded =
+					segment.refName !== null &&
+					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
+
+				return [
+					...(segment.refName ? [branchOperand({ branchRef: segment.refName.fullNameBytes })] : []),
+					...(folded
+						? []
+						: segment.commits.map((commit) =>
+								commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+							)),
+				];
+			}),
+		) ?? [];
 
 	const filteredItems = Match.value(outlineMode).pipe(
 		Match.tagsExhaustive({
@@ -468,10 +475,14 @@ const WorkspacePage: FC = () => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
+	const foldedSegments = useAppSelector((state) =>
+		projectSlice.selectors.selectFoldedSegments(state, projectId),
+	);
 	const outlineNavigationIndex = buildOutlineNavigationIndex({
 		headInfo,
 		outlineMode,
 		absorptionTargetCommitIds,
+		foldedSegments,
 	});
 
 	const outlineTab = useAppSelector((state) =>

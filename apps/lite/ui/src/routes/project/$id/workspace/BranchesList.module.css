@@ -10,7 +10,9 @@
 	column-gap: 8px;
 	align-items: center;
 	padding-inline: var(--panel-padding-inline);
-	padding-block-start: var(--panel-padding-block);
+	padding-block: var(--panel-padding-block);
+	border-bottom: 1px solid var(--border-3);
+	background-color: var(--bg-1);
 }
 
 .filterInput {
@@ -23,7 +25,7 @@
 
 .list {
 	display: flex;
-	row-gap: 8px;
+	row-gap: 14px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
@@ -46,40 +48,11 @@
 	color: var(--text-2);
 }
 
-.stack {
-	display: flex;
-	flex-direction: column;
-	padding: 6px;
-	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-card);
+/* The trailing rail stub below supplies the card's floor, so the body opts out
+   of its own block-end inset — the same trade the workspace card makes. */
+.stackBody {
+	--stack-card-body-inset-block-end: 0;
 }
 
-.foldToggle {
-	display: flex;
-	align-self: stretch;
-	padding: 0;
-	border: none;
-	background: none;
-	color: inherit;
-	cursor: pointer;
-}
-
-.label {
-	display: flex;
-	flex-grow: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.labelMeta {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.labelMetaItem {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
+/* The label column and its meta line now live in Row.module.css, shared with
+   the workspace outline's branch rows. */

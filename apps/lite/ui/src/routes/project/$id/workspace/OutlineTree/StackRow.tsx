@@ -1,6 +1,5 @@
 import { useUnapplyStack, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
@@ -11,13 +10,14 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import { Tooltip, Toolbar } from "@base-ui/react";
+import { decodeBytes } from "#ui/api/bytes.ts";
+import { Toolbar } from "@base-ui/react";
 import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import type { ComponentProps, FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { Row, RowToolbar } from "../Row.tsx";
+import { StackCardHeader, StackFoldAllButton } from "../StackCard.tsx";
 import styles from "./StackRow.module.css";
 
 export const StackRow: FC<
@@ -32,6 +32,23 @@ export const StackRow: FC<
 		: null;
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	);
+
+	const dispatch = useAppDispatch();
+	const branchCount = stack.segments.filter((segment) => segment.refName !== null).length;
+	// Only a segment with a branch reference and commits to hide can be folded;
+	// fold state is keyed by that reference.
+	const foldableRefs = stack.segments.flatMap((segment) =>
+		segment.refName !== null && segment.commits.length > 0
+			? [decodeBytes(segment.refName.fullNameBytes)]
+			: [],
+	);
+	// A plain boolean, so this re-renders only when the stack crosses between
+	// fully unfolded and not.
+	const anyFolded = useAppSelector((state) =>
+		foldableRefs.some((branchRef) =>
+			projectSlice.selectors.selectSegmentFolded(state, projectId, branchRef),
+		),
 	);
 
 	const { isPending: isUnapplyStackPending, mutate: unapplyStack } = useUnapplyStack();
@@ -71,52 +88,46 @@ export const StackRow: FC<
 	];
 
 	return (
-		<Row
+		<StackCardHeader
 			{...restProps}
-			interactive={false}
-			className={classes(styles.header, restProps.className)}
+			toolbarLabel="Stack actions"
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<Toolbar.Root
-				aria-label="Stack actions"
-				render={<RowToolbar forceVisible className={styles.toolbar} />}
+			<StackFoldAllButton
+				hasMultipleBranches={branchCount > 1}
+				folded={anyFolded}
+				disabled={foldableRefs.length === 0}
+				onToggle={() =>
+					dispatch(
+						projectSlice.actions.setSegmentsFolded({
+							projectId,
+							branchRefs: foldableRefs,
+							folded: !anyFolded,
+						}),
+					)
+				}
+			/>
+
+			<span
+				aria-hidden
+				data-disabled={!isDefaultMode || undefined}
+				className={classes(getRowButtonClassName({ iconOnly: true }), styles.moveIndicator)}
 			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						aria-label="Collapse stack branches"
-						className={getRowButtonClassName({ iconOnly: true })}
-						render={<Toolbar.Button focusableWhenDisabled disabled />}
-					>
-						<Icon name="collapse-vertical" />
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup />}>Collapse stack branches</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				<Icon name="drag-square" />
+			</span>
 
-				<span
-					aria-hidden
-					data-disabled={!isDefaultMode || undefined}
-					className={classes(getRowButtonClassName({ iconOnly: true }), styles.moveIndicator)}
-				>
-					<Icon name="drag-square" />
-				</span>
-
-				<Toolbar.Button
-					aria-label="Stack menu"
-					disabled={!isDefaultMode}
-					onClick={(event) => {
-						void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-					}}
-					className={getRowButtonClassName({ iconOnly: true })}
-				>
-					<Icon name="kebab" />
-				</Toolbar.Button>
-			</Toolbar.Root>
-		</Row>
+			<Toolbar.Button
+				aria-label="Stack menu"
+				disabled={!isDefaultMode}
+				onClick={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+				className={getRowButtonClassName({ iconOnly: true })}
+			>
+				<Icon name="kebab" />
+			</Toolbar.Button>
+		</StackCardHeader>
 	);
 };

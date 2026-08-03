@@ -1,0 +1,59 @@
+.card {
+	display: flex;
+	flex-direction: column;
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-card);
+}
+
+.header {
+	position: relative;
+	padding-inline: 10px;
+	padding-block: 2px;
+
+	/* Divider drawn as a pseudo-element so it spans the full card width without
+	   the header having to opt out of the body's inset. */
+	&::after {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
+	}
+}
+
+.headerToolbar {
+	flex-grow: 1;
+	justify-content: space-between;
+}
+
+/* Stands in for the fold-all button on a single-branch stack, so the header's
+   slots keep their positions. */
+.headerGlyph {
+	margin-inline: -4px;
+	color: var(--text-2);
+	pointer-events: none;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	padding-inline: 6px;
+	padding-block-start: 6px;
+	/* The workspace card ends in a clipped connector stub that already supplies
+	   a floor, so the block-end inset is opt-out. A custom property rather than
+	   an override class, which would have equal specificity to this rule and so
+	   win only by stylesheet import order. */
+	padding-block-end: var(--stack-card-body-inset-block-end, 6px);
+}
+
+/* Carries the rail on from one branch to the next. The last one has no branch
+   to reach, so it is clipped to a stub that runs past the final row and
+   supplies the card's floor — which is what the body's inset opts out of. */
+.railConnector:last-child {
+	height: 8px;
+	min-height: auto;
+	overflow: hidden;
+}

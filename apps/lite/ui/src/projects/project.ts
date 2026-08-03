@@ -66,6 +66,14 @@ export type BranchTab = "diff" | "pr";
 type WorkspaceState = {
 	checkedOperands: Record<string, CheckableOperand>;
 	detailsSelectionScope: DetailsSelectionScope | null;
+	/**
+	 * Branch segments whose commits are hidden, keyed by full ref name.
+	 *
+	 * Folded rather than unfolded, the inverse of the branches tab: the
+	 * workspace is the working view, so its commits show by default and it is
+	 * hiding them that is the exception worth recording.
+	 */
+	foldedSegments: Record<string, true>;
 	highlightedCommitIds: Array<string>;
 	mode: OutlineMode;
 	selectedBranchTabs: Record<string, BranchTab>;
@@ -82,6 +90,7 @@ const createInitialSelectionState = (): SelectionState => ({
 const createInitialWorkspaceState = (): WorkspaceState => ({
 	checkedOperands: {},
 	detailsSelectionScope: null,
+	foldedSegments: {},
 	highlightedCommitIds: [],
 	mode: defaultOutlineMode,
 	selectedBranchTabs: {},
@@ -426,8 +435,32 @@ export const projectReducers = {
 		// showing.
 		if (tab !== "workspace") state.workspace.detailsSelectionScope = "outline";
 	},
+	toggleSegmentFolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
+		if (state.workspace.foldedSegments[branchRef]) delete state.workspace.foldedSegments[branchRef];
+		else state.workspace.foldedSegments[branchRef] = true;
+	},
+	/**
+	 * Folds or unfolds several segments at once, for acting on a whole stack.
+	 * Toggling each of them instead would invert a partly folded stack rather
+	 * than bring it to one state.
+	 */
+	setSegmentsFolded: (
+		state: ProjectState,
+		{ branchRefs, folded }: { branchRefs: Array<string>; folded: boolean },
+	) => {
+		for (const branchRef of branchRefs) {
+			if (folded) state.workspace.foldedSegments[branchRef] = true;
+			else delete state.workspace.foldedSegments[branchRef];
+		}
+	},
 	toggleBranchUnfolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
 		branchesReducers.toggleUnfolded(state.branches, { branchRef });
+	},
+	setBranchesUnfolded: (
+		state: ProjectState,
+		{ branchRefs, unfolded }: { branchRefs: Array<string>; unfolded: boolean },
+	) => {
+		branchesReducers.setUnfolded(state.branches, { branchRefs, unfolded });
 	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string }) => {
 		branchesReducers.setSearch(state.branches, { search });
@@ -568,6 +601,9 @@ export const projectSelectors = {
 			hunkOperandIdentityKey,
 		),
 	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
+	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
+	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
+		state.workspace.foldedSegments[branchRef] === true,
 	selectHighlightedCommitIds: (state: ProjectState) => state.workspace.highlightedCommitIds,
 	selectOperandChecked: (state: ProjectState, operand: CheckableOperand) =>
 		state.workspace.checkedOperands[operandIdentityKey(operand)] !== undefined,

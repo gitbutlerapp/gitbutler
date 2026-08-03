@@ -22,11 +22,27 @@
 }
 
 .mainSegment {
+	/* A control sitting on the rail can blank just this glyph and put itself in
+	   its place, leaving the stretch segment below still drawing the rail — see
+	   the fold toggle in Row.module.css. Hidden rather than removed so the box
+	   keeps its size and nothing reflows. */
+	visibility: var(--graph-segment-glyph-visibility, visible);
 	flex-shrink: 0;
 	height: 28px;
 }
 
+/* The group glyph is drawn on a shorter canvas so its bottom tail ends sooner;
+   the stretch segment below picks the rail straight back up, so the line stays
+   unbroken. */
+.groupSegment {
+	height: 26px;
+}
+
 .stretchSegment {
+	/* Companion to the glyph property above: a segment layered further down the
+	   rail draws its own line, so the one it covers has to stop drawing rather
+	   than run through it. */
+	visibility: var(--graph-segment-rail-visibility, visible);
 	flex-grow: 1;
 	flex-basis: 0;
 }

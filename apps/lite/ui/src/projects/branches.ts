@@ -68,6 +68,22 @@ const branchesSlice = createSlice({
 			if (state.unfolded[branchRef]) delete state.unfolded[branchRef];
 			else state.unfolded[branchRef] = true;
 		},
+		/**
+		 * Unfolds or folds several branches at once, for acting on a whole stack.
+		 * Toggling each of them instead would invert a partly unfolded stack rather
+		 * than bring it to one state.
+		 */
+		setUnfolded: (
+			state,
+			{
+				payload: { branchRefs, unfolded },
+			}: PayloadAction<{ branchRefs: Array<string>; unfolded: boolean }>,
+		) => {
+			for (const branchRef of branchRefs) {
+				if (unfolded) state.unfolded[branchRef] = true;
+				else delete state.unfolded[branchRef];
+			}
+		},
 		setSearch: (state, { payload: { search } }: PayloadAction<{ search: string }>) => {
 			if (state.search === search) return;
 
@@ -115,6 +131,12 @@ export const branchesReducers = {
 	},
 	toggleUnfolded: (state: BranchesState, payload: { branchRef: string }) => {
 		branchesSlice.caseReducers.toggleUnfolded(state, branchesSlice.actions.toggleUnfolded(payload));
+	},
+	setUnfolded: (
+		state: BranchesState,
+		payload: { branchRefs: Array<string>; unfolded: boolean },
+	) => {
+		branchesSlice.caseReducers.setUnfolded(state, branchesSlice.actions.setUnfolded(payload));
 	},
 	setSearch: (state: BranchesState, payload: { search: string }) => {
 		branchesSlice.caseReducers.setSearch(state, branchesSlice.actions.setSearch(payload));

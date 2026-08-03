@@ -37,12 +37,18 @@ import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
-import { RowLabel, RowLabelContainer, RowLabelFooter, RowToolbar } from "../Row.tsx";
+import {
+	RowFoldToggle,
+	RowLabel,
+	RowLabelContainer,
+	RowLabelGroup,
+	RowMeta,
+	RowToolbar,
+} from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
-import styles from "./BranchRow.module.css";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
 
@@ -105,6 +111,7 @@ export const BranchRow: FC<
 		graphStatus: GraphSegmentStatus;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
+		commitCount: number;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -116,6 +123,7 @@ export const BranchRow: FC<
 	graphStatus,
 	bottomRelativeTo,
 	isTopSegment,
+	commitCount,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -142,6 +150,12 @@ export const BranchRow: FC<
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
+	const branchRef = decodeBytes(refName.fullNameBytes);
+	// A plain boolean, so this re-renders only when this branch's own fold state
+	// changes rather than on every fold anywhere.
+	const isFolded = useAppSelector((state) =>
+		projectSlice.selectors.selectSegmentFolded(state, projectId, branchRef),
+	);
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -374,7 +388,23 @@ export const BranchRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
+			{commitCount > 0 ? (
+				<RowFoldToggle
+					folded={isFolded}
+					aria-label={isFolded ? "Unfold commits" : "Fold commits"}
+					onClick={() =>
+						dispatch(projectSlice.actions.toggleSegmentFolded({ projectId, branchRef }))
+					}
+					glyph={
+						// The glyph describes where the branch sits in the stack, so it
+						// does not change with fold state.
+						<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
+					}
+					foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
+				/>
+			) : (
+				<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
+			)}
 
 			{isRenaming ? (
 				<InlineEditor
@@ -389,22 +419,31 @@ export const BranchRow: FC<
 					onExit={endEditing}
 				/>
 			) : (
-				<div className={styles.label}>
+				<RowLabelGroup>
 					<RowLabelContainer>
 						<RowLabel heading singleLine title={optimisticBranchDisplayName}>
 							{optimisticBranchDisplayName}
 						</RowLabel>
 					</RowLabelContainer>
 
-					<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
+					<RowMeta>
+						{/* Only while folded: the count stands in for the commits it hides,
+						    so showing it alongside them would just be noise. */}
+						{isFolded && (
+							<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+								<Icon size={14} name="commit" />
+								{commitCount}
+							</span>
+						)}
+
 						<span
 							className={classes(
 								rowStyles.fadedText,
-								styles.labelMetaItem,
-								styles.labelMetaItemShrinkable,
+								rowStyles.metaItem,
+								rowStyles.metaItemShrinkable,
 							)}
 						>
-							<span className={styles.labelMetaItemText}>
+							<span className={rowStyles.metaItemText}>
 								{Match.value(pushStatus).pipe(
 									Match.when("nothingToPush", () => "Nothing to push"),
 									Match.when("unpushedCommits", () => "Some unpushed"),
@@ -420,9 +459,9 @@ export const BranchRow: FC<
 							<a
 								href={mforgeUrl}
 								onClick={(evt) => void openPRInBrowser(evt)}
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 							>
-								<Icon name="pr" size={14} />
+								<Icon size={14} name="pr" />
 								PR
 							</a>
 						)}
@@ -495,8 +534,8 @@ export const BranchRow: FC<
 									</Tooltip.Root>
 								);
 							})()}
-					</RowLabelFooter>
-				</div>
+					</RowMeta>
+				</RowLabelGroup>
 			)}
 
 			{isDefaultMode && (

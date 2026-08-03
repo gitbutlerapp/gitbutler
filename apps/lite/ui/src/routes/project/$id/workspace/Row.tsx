@@ -1,5 +1,6 @@
 import { classes } from "#ui/components/classes.ts";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import {
 	type ComponentProps,
@@ -87,12 +88,59 @@ export const RowCheckbox: FC<ComponentProps<typeof Checkbox>> = (props) => (
 	/>
 );
 
+/**
+ * The fold control on a row's graph rail: `glyph` at rest, a chevron once the
+ * row is hovered or focused. Both are always rendered and the swap is CSS-only
+ * (see `.foldToggle`), which blanks just the glyph's own segment so the rail
+ * below it keeps drawing. The chevron direction reports the state the way a
+ * disclosure triangle does.
+ *
+ * `foldedIndicator` marks the rail for as long as the row is folded. The
+ * chevron only appears on hover, so it cannot carry that on its own, and
+ * `glyph` is busy describing the row's position in the graph. It takes the
+ * second line, leaving the first to the glyph and the chevron.
+ */
+export const RowFoldToggle: FC<
+	{ folded: boolean; glyph: ReactNode; foldedIndicator?: ReactNode } & ComponentProps<"button">
+> = ({ folded, glyph, foldedIndicator, ...props }) => (
+	<button
+		type="button"
+		{...props}
+		aria-expanded={!folded}
+		className={classes(props.className, styles.foldToggle)}
+	>
+		<span className={styles.foldGlyph}>{glyph}</span>
+
+		{folded && foldedIndicator !== undefined && (
+			<span className={styles.foldIndicator}>{foldedIndicator}</span>
+		)}
+
+		<span className={styles.foldChevron}>
+			<Icon size={14} name={folded ? "chevron-right" : "chevron-down"} />
+		</span>
+	</button>
+);
+
 export const RowLabelContainer: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, styles.labelContainer)} />
 );
 
 export const RowLabelFooter: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, styles.labelFooter)} />
+);
+
+/** The label column of a two-line row: heading above, {@link RowMeta} below. */
+export const RowLabelGroup: FC<ComponentProps<"div">> = (props) => (
+	<div {...props} className={classes(props.className, styles.labelGroup)} />
+);
+
+/**
+ * A row's second line: small, muted facts about its subject. Items go in with
+ * `Row.module.css`'s `metaItem`, which any element can take — several are
+ * links.
+ */
+export const RowMeta: FC<ComponentProps<"div">> = (props) => (
+	<RowLabelFooter {...props} className={classes(props.className, "text-13", styles.meta)} />
 );
 
 export const RowLabel: FC<

@@ -2,6 +2,7 @@ import rowStyles from "../Row.module.css";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	branchOperand,
@@ -50,6 +51,8 @@ import {
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
+import { StackCard } from "../StackCard.tsx";
+import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -362,6 +365,7 @@ const BranchSegment: FC<{
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
+				commitCount={segment.commits.length}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
@@ -412,7 +416,22 @@ const SegmentContent: FC<{
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 }> = ({ projectId, segment, checkCommit, onAmendCommit, canAmendCommit }) => {
+	// A plain boolean, so this re-renders only when this segment's own fold
+	// state changes rather than on every fold anywhere.
+	const isFolded = useAppSelector(
+		(state) =>
+			segment.refName !== null &&
+			projectSlice.selectors.selectSegmentFolded(
+				state,
+				projectId,
+				decodeBytes(segment.refName.fullNameBytes),
+			),
+	);
+
 	if (segment.commits.length === 0) return <EmptySegmentContent segment={segment} />;
+	// The branch row stands in for a folded segment: it takes the group glyph
+	// and shows the count of the commits hidden here.
+	if (isFolded) return null;
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
 	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
@@ -468,83 +487,79 @@ const StackC: FC<{
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
-		<div
+		<StackCard
 			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
 			role="group"
 			aria-label="Stack"
-			className={classes(styles.section, styles.stack)}
+			header={<StackRow projectId={projectId} stack={stack} />}
+			bodyClassName={styles.segments}
 		>
-			<StackRow projectId={projectId} stack={stack} />
+			{stack.segments.map((segment, index) => {
+				const downstackPushStatus = assert(downstackPushStatuses[index]);
 
-			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
-			<div role="group" className={styles.segments}>
-				{stack.segments.map((segment, index) => {
-					const downstackPushStatus = assert(downstackPushStatuses[index]);
+				const key = segment.refName
+					? JSON.stringify(segment.refName.fullNameBytes)
+					: // A segment should always either have a branch reference or at
+						// least one commit.
+						assert(segment.commits[0]).id;
 
-					const key = segment.refName
-						? JSON.stringify(segment.refName.fullNameBytes)
-						: // A segment should always either have a branch reference or at
-							// least one commit.
-							assert(segment.commits[0]).id;
-
-					return (
-						<Fragment key={key}>
-							<div className={styles.segment}>
-								{segment.refName ? (
-									<BranchSegment
-										projectId={projectId}
-										segment={segment}
-										refName={segment.refName}
-										canTearOffBranch={canTearOffBranch}
-										canRemoveBranch={canRemoveBranchReference(stack, index)}
-										downstackPushStatus={downstackPushStatus}
-										isTopSegment={index === 0}
-										checkCommit={checkCommit}
-										onAmendCommit={onAmendCommit}
-										canAmendCommit={canAmendCommit}
-									/>
-								) : (
-									<SegmentContent
-										projectId={projectId}
-										segment={segment}
-										checkCommit={checkCommit}
-										onAmendCommit={onAmendCommit}
-										canAmendCommit={canAmendCommit}
-									/>
-								)}
-							</div>
-							<Row
-								interactive={false}
-								className={styles.segmentParentItemRow}
-								inert={
-									!navigationIndexIncludes(
-										navigationIndex,
-										segment.commits.length === 0
-											? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-											: commitOperand({
-													commitId: assert(segment.commits.at(-1)).id,
-													changeId: assert(segment.commits.at(-1)).changeId,
-												}),
-										operandIdentityKey,
-									)
-								}
-							>
-								<GraphSegment
-									glyph="parent"
-									status={
-										segment.commits.length === 0
-											? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
-											: commitIsDiverged(assert(segment.commits.at(-1)))
-												? "Diverged"
-												: assert(segment.commits.at(-1)).state.type
-									}
+				return (
+					<Fragment key={key}>
+						<div>
+							{segment.refName ? (
+								<BranchSegment
+									projectId={projectId}
+									segment={segment}
+									refName={segment.refName}
+									canTearOffBranch={canTearOffBranch}
+									canRemoveBranch={canRemoveBranchReference(stack, index)}
+									downstackPushStatus={downstackPushStatus}
+									isTopSegment={index === 0}
+									checkCommit={checkCommit}
+									onAmendCommit={onAmendCommit}
+									canAmendCommit={canAmendCommit}
 								/>
-							</Row>
-						</Fragment>
-					);
-				})}
-			</div>
-		</div>
+							) : (
+								<SegmentContent
+									projectId={projectId}
+									segment={segment}
+									checkCommit={checkCommit}
+									onAmendCommit={onAmendCommit}
+									canAmendCommit={canAmendCommit}
+								/>
+							)}
+						</div>
+						<Row
+							interactive={false}
+							className={stackCardStyles.railConnector}
+							inert={
+								!navigationIndexIncludes(
+									navigationIndex,
+									segment.commits.length === 0
+										? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
+										: commitOperand({
+												commitId: assert(segment.commits.at(-1)).id,
+												changeId: assert(segment.commits.at(-1)).changeId,
+											}),
+									operandIdentityKey,
+								)
+							}
+						>
+							<GraphSegment
+								glyph="parent"
+								status={
+									segment.commits.length === 0
+										? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
+										: commitIsDiverged(assert(segment.commits.at(-1)))
+											? "Diverged"
+											: assert(segment.commits.at(-1)).state.type
+								}
+							/>
+						</Row>
+					</Fragment>
+				);
+			})}
+		</StackCard>
 	);
 };
 
