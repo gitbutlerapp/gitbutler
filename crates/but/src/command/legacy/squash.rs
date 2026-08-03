@@ -12,8 +12,11 @@ use but_workspace::{
     commit::{ChangeSource, squash_commits::MessageCombinationStrategy},
 };
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::refs::{FullName, FullNameRef};
-use itertools::Itertools;
+use gix::{
+    ObjectId,
+    refs::{FullName, FullNameRef},
+};
+use itertools::{Either, Itertools};
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -47,11 +50,14 @@ pub enum SquashOutcome {
         target: CommitId,
         new_commit: CommitId,
     },
-    Uncommit {
+    UncommitCommit {
         sources: Vec<CommitId>,
     },
     UncommitHunk {
         source: CommitId,
+    },
+    UncommitBranch {
+        branch_names: NonEmpty<FullName>,
     },
 }
 
@@ -99,12 +105,16 @@ impl CliOutputHuman for SquashOutcome {
             } => {
                 writeln!(out, "Amended {}", theme::Commit(target),)?;
             }
-            SquashOutcome::Uncommit { sources } => {
+            SquashOutcome::UncommitCommit { sources } => {
                 let commits = sources.into_iter().map(theme::Commit).join(", ");
                 writeln!(out, "Uncommitted {commits}")?;
             }
             SquashOutcome::UncommitHunk { source } => {
                 writeln!(out, "Uncommitted from {}", theme::Commit(source))?;
+            }
+            SquashOutcome::UncommitBranch { branch_names } => {
+                let branches = branch_names.into_iter().map(theme::Branch).join(", ");
+                writeln!(out, "Uncommitted {branches}")?;
             }
         };
 
@@ -129,7 +139,9 @@ impl CliOutput for SquashOutcome {
                 new_commit_id: new_commit.commit_id.into(),
                 new_commit_change_id: new_commit.change_id.map(Into::into),
             }),
-            SquashOutcome::Uncommit { .. } | SquashOutcome::UncommitHunk { .. } => None,
+            SquashOutcome::UncommitCommit { .. }
+            | SquashOutcome::UncommitHunk { .. }
+            | SquashOutcome::UncommitBranch { .. } => None,
         }
     }
 }
@@ -425,8 +437,7 @@ pub fn resolve<'a>(
             };
 
             ResolvedSquash::Branches {
-                target,
-                reword,
+                target: BranchSquashTarget::Commit { target, reword },
                 source_commits: sources,
                 source_branches: NonEmpty::new(source_branch_name),
                 branches_to_remove: Vec::new(),
@@ -444,21 +455,33 @@ pub fn resolve<'a>(
                 target,
                 reword,
             }),
-            SquashTarget::Uncommitted => SquashOperation::Uncommit(UncommitOperation { sources }),
+            SquashTarget::Uncommitted => {
+                SquashOperation::Uncommit(UncommitOperation::Commits { sources })
+            }
         },
         ResolvedSquash::Branches {
             target,
-            reword,
             source_commits,
             source_branches,
             branches_to_remove,
-        } => SquashOperation::Branch(SquashBranchOperation {
-            sources: source_commits,
-            target,
-            reword,
-            source_branches,
-            branches_to_remove,
-        }),
+        } => match target {
+            BranchSquashTarget::Commit { target, reword } => {
+                SquashOperation::Branch(SquashBranchOperation {
+                    sources: source_commits,
+                    target,
+                    reword,
+                    source_branches,
+                    branches_to_remove,
+                })
+            }
+            BranchSquashTarget::Uncommitted => {
+                SquashOperation::Uncommit(UncommitOperation::Branches {
+                    source_commits,
+                    source_branches,
+                    branches_to_remove,
+                })
+            }
+        },
         ResolvedSquash::UncommittedHunk(amend_hunks) => {
             SquashOperation::UncommittedHunks(amend_hunks)
         }
@@ -527,11 +550,25 @@ fn ensure_not_touching_merged_upstream(
             merged.ensure_commit_not_merged(target.commit_id)?;
             merged.ensure_commit_not_merged(source.commit_id)?;
         }
-        SquashOperation::Uncommit(UncommitOperation { sources }) => {
-            for source in sources {
-                merged.ensure_commit_not_merged(source.commit_id)?;
+        SquashOperation::Uncommit(op) => match op {
+            UncommitOperation::Commits { sources } => {
+                for commit in sources {
+                    merged.ensure_commit_not_merged(commit.commit_id)?;
+                }
             }
-        }
+            UncommitOperation::Branches {
+                source_commits,
+                branches_to_remove,
+                source_branches: _,
+            } => {
+                for commit in source_commits {
+                    merged.ensure_commit_not_merged(commit.commit_id)?;
+                }
+                for branch in branches_to_remove {
+                    merged.ensure_branch_not_merged(branch.as_ref())?;
+                }
+            }
+        },
         SquashOperation::UncommitCommittedFiles(UncommitCommittedFilesOperation {
             source, ..
         }) => {
@@ -651,11 +688,7 @@ pub enum ResolvedSquash<'a> {
         sources: NonEmpty<CommitId>,
     },
     Branches {
-        // Branches can only be squashed into commits and not uncommitted. This is because we dont
-        // currently have a transaction based API to uncommit. We need this because we also need to
-        // remove the reference which should happen in a transaction.
-        target: CommitId,
-        reword: HowToRewordTarget,
+        target: BranchSquashTarget,
         source_commits: Vec<CommitId>,
         /// The branches that we're squashing.
         ///
@@ -674,6 +707,15 @@ pub enum ResolvedSquash<'a> {
         source: CommitId,
         source_paths: Vec<BString>,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum BranchSquashTarget {
+    Commit {
+        target: CommitId,
+        reword: HowToRewordTarget,
+    },
+    Uncommitted,
 }
 
 #[derive(Clone, Debug)]
@@ -830,14 +872,12 @@ pub fn resolve_squash_branch(
     repo: &gix::Repository,
     ws: &Workspace,
 ) -> CliResult<ResolvedSquash<'static>> {
-    let (target, reword) = match target {
-        SquashTarget::Commit { commit, reword } => (commit, reword),
-        SquashTarget::Uncommitted => {
-            let err = bad_input("Cannot uncommit branches")
-                .hint("When squashing a branch --target must be a commit or a branch")
-                .into();
-            return Err(err);
-        }
+    let target = match target {
+        SquashTarget::Commit { commit, reword } => BranchSquashTarget::Commit {
+            target: commit,
+            reword,
+        },
+        SquashTarget::Uncommitted => BranchSquashTarget::Uncommitted,
     };
 
     let mut source_branches = Vec::<FullName>::new();
@@ -847,19 +887,27 @@ pub fn resolve_squash_branch(
         let (source_branch_name, mut commits_on_branch) =
             resolve_commits_on_branch(&branch_name, repo, ws)?;
 
-        let mut target_commit_exists_on_branch = false;
-        commits_on_branch.retain(|commit| {
-            if *commit == target {
-                target_commit_exists_on_branch = true;
-                false
-            } else {
-                true
-            }
-        });
-        commits_on_branch_sources.append(&mut commits_on_branch);
+        match &target {
+            BranchSquashTarget::Commit { target, reword: _ } => {
+                let mut target_commit_exists_on_branch = false;
+                commits_on_branch.retain(|commit| {
+                    if *commit == *target {
+                        target_commit_exists_on_branch = true;
+                        false
+                    } else {
+                        true
+                    }
+                });
+                commits_on_branch_sources.append(&mut commits_on_branch);
 
-        if !target_commit_exists_on_branch {
-            branches_to_remove.push(source_branch_name.clone());
+                if !target_commit_exists_on_branch {
+                    branches_to_remove.push(source_branch_name.clone());
+                }
+            }
+            BranchSquashTarget::Uncommitted => {
+                branches_to_remove.push(source_branch_name.clone());
+                commits_on_branch_sources.append(&mut commits_on_branch);
+            }
         }
         source_branches.push(source_branch_name);
     }
@@ -872,7 +920,6 @@ pub fn resolve_squash_branch(
         source_commits: commits_on_branch_sources,
         source_branches,
         branches_to_remove,
-        reword,
     })
 }
 
@@ -1185,10 +1232,31 @@ pub fn run(
                 }),
             )
         }
-        SquashOperation::Uncommit(UncommitOperation { mut sources }) => {
-            sources = non_empty_dedup_maintain_sort(sources);
-            ExecutableSquashOperation::Uncommit(UncommitOperation { sources })
-        }
+        SquashOperation::Uncommit(op) => match op {
+            UncommitOperation::Commits { mut sources } => {
+                sources = non_empty_dedup_maintain_sort(sources);
+                ExecutableSquashOperation::Uncommit(UncommitOperation::Commits { sources })
+            }
+            UncommitOperation::Branches {
+                mut source_commits,
+                mut source_branches,
+                mut branches_to_remove,
+            } => {
+                source_commits.sort();
+                source_commits.dedup();
+
+                branches_to_remove.sort();
+                branches_to_remove.dedup();
+
+                source_branches = non_empty_dedup_maintain_sort(source_branches);
+
+                ExecutableSquashOperation::Uncommit(UncommitOperation::Branches {
+                    source_commits,
+                    source_branches,
+                    branches_to_remove,
+                })
+            }
+        },
         SquashOperation::UncommitCommittedFiles(UncommitCommittedFilesOperation {
             source,
             source_paths,
@@ -1268,15 +1336,13 @@ pub fn run(
             }
         }
         ExecutableSquashOperation::Uncommit(op) => {
-            let UncommitOperation { sources } = op;
-
-            {
+            if op.has_commit_sources() {
                 let but_api::commit::types::UncommitResult {
                     workspace,
                     uncommitted_ids: _,
                 } = but_api::commit::uncommit::commit_uncommit_only_with_perm(
                     ctx,
-                    sources.iter().map(|c| c.commit_id).collect(),
+                    op.commit_sources().collect(),
                     None,
                     DryRun::Yes,
                     perm,
@@ -1288,24 +1354,50 @@ pub fn run(
                 );
             }
 
-            let but_api::commit::types::UncommitResult {
-                uncommitted_ids,
-                workspace: _,
-            } = but_api::commit::uncommit::commit_uncommit_with_perm(
+            let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
+            let _ws = but_transaction::with_transaction_with_perm(
                 ctx,
-                sources.iter().map(|c| c.commit_id).collect(),
-                None,
-                DryRun::No,
+                meta,
                 perm,
+                snapshot_details,
+                DryRun::No,
+                |mut tx| {
+                    match &op {
+                        UncommitOperation::Commits { sources } => {
+                            if !sources.is_empty() {
+                                tx.uncommit_commits(sources.iter().map(|c| c.commit_id))?;
+                            }
+                        }
+                        UncommitOperation::Branches {
+                            source_commits,
+                            branches_to_remove,
+                            source_branches: _,
+                        } => {
+                            if !source_commits.is_empty() {
+                                tx.uncommit_commits(source_commits.iter().map(|c| c.commit_id))?;
+                            }
+                            for branch_name in branches_to_remove {
+                                tx.remove_reference(branch_name.as_ref())?;
+                            }
+                        }
+                    }
+
+                    Ok(())
+                },
             )?;
 
-            let repo = ctx.repo.get()?;
-            let sources = uncommitted_ids
-                .into_iter()
-                .map(|id| CommitId::try_from_commit_id(id, &repo))
-                .collect::<anyhow::Result<Vec<_>>>()?;
-
-            Ok(SquashOutcome::Uncommit { sources })
+            match op {
+                UncommitOperation::Commits { sources } => Ok(SquashOutcome::UncommitCommit {
+                    sources: sources.into_iter().collect(),
+                }),
+                UncommitOperation::Branches {
+                    source_branches,
+                    source_commits: _,
+                    branches_to_remove: _,
+                } => Ok(SquashOutcome::UncommitBranch {
+                    branch_names: source_branches,
+                }),
+            }
         }
         ExecutableSquashOperation::UncommitHunks { source, changes } => {
             {
@@ -1403,8 +1495,7 @@ impl SquashOperation<'_> {
 #[derive(Clone)]
 enum ExecutableSquashOperation {
     TransactionCompatible(TransactionCompatibleOperation),
-    // Unfortunately uncommitting is currently not supported by but-transaction and thus requires
-    // special handling
+    // Uncommitting requires special transaction handling
     Uncommit(UncommitOperation),
     UncommitHunks {
         source: CommitId,
@@ -1530,8 +1621,35 @@ impl MoveCommittedFilesOperation {
 }
 
 #[derive(Clone)]
-pub struct UncommitOperation {
-    pub sources: NonEmpty<CommitId>,
+pub enum UncommitOperation {
+    Commits {
+        sources: NonEmpty<CommitId>,
+    },
+    Branches {
+        source_commits: Vec<CommitId>,
+        source_branches: NonEmpty<FullName>,
+        branches_to_remove: Vec<FullName>,
+    },
+}
+
+impl UncommitOperation {
+    fn has_commit_sources(&self) -> bool {
+        match self {
+            UncommitOperation::Commits { sources } => !sources.is_empty(),
+            UncommitOperation::Branches { source_commits, .. } => !source_commits.is_empty(),
+        }
+    }
+
+    fn commit_sources(&self) -> impl Iterator<Item = ObjectId> {
+        match self {
+            UncommitOperation::Commits { sources } => {
+                Either::Right(sources.iter().map(|c| c.commit_id))
+            }
+            UncommitOperation::Branches { source_commits, .. } => {
+                Either::Left(source_commits.iter().map(|c| c.commit_id))
+            }
+        }
+    }
 }
 
 #[derive(Clone)]

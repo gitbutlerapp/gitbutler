@@ -9,41 +9,6 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
-fn uncommitted_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
-    status["uncommittedChanges"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|change| change["filePath"].as_str().unwrap() == file_path)
-}
-
-fn uncommitted_cli_id_for_file(status: &serde_json::Value, file_path: &str) -> Option<String> {
-    status["uncommittedChanges"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find_map(|change| {
-            (change["filePath"].as_str().unwrap() == file_path)
-                .then(|| change["cliId"].as_str().unwrap().to_string())
-        })
-}
-
-fn branch_commits_contain_file(
-    status: &serde_json::Value,
-    branch_name: &str,
-    file_path: &str,
-) -> bool {
-    status["stacks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
-        .filter(|branch| branch["name"].as_str().unwrap() == branch_name)
-        .flat_map(|branch| branch["commits"].as_array().unwrap().iter())
-        .flat_map(|commit| commit["changes"].as_array().unwrap().iter())
-        .any(|change| change["filePath"].as_str().unwrap() == file_path)
-}
-
 fn one_branch_three_commits() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -1813,15 +1778,25 @@ fn uncommitted_hunk_to_commit_smoke() {
     .assert()
     .success();
 
-    let after = status_json(&env);
-    assert!(
-        !uncommitted_contains_file(&after, "uncommitted-to-commit.txt"),
-        "file should no longer be uncommitted"
-    );
-    assert!(
-        branch_commits_contain_file(&after, "A", "uncommitted-to-commit.txt"),
-        "file should appear in commits on branch A"
-    );
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+┊│     tpm:s A uncommitted-to-commit.txt
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
@@ -1880,15 +1855,25 @@ fn uncommitted_area_to_commit_smoke() {
         .assert()
         .success();
 
-    let after = status_json(&env);
-    assert!(
-        !uncommitted_contains_file(&after, "zz-to-commit.txt"),
-        "file should no longer be uncommitted"
-    );
-    assert!(
-        branch_commits_contain_file(&after, "A", "zz-to-commit.txt"),
-        "file should appear in commits on branch A"
-    );
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+┊│     tpm:n A zz-to-commit.txt
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
@@ -1923,11 +1908,26 @@ fn uncommitted_to_commit_consumes_renames() {
         .assert()
         .success();
 
-    let after = status_json(&env);
-    assert!(
-        !uncommitted_contains_file(&after, "rename-target.txt"),
-        "renamed file should no longer be uncommitted"
-    );
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 seed rename source
+┊│     1:q A rename-target.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
     assert_eq!(
         env.invoke_git("status --porcelain"),
         "",
@@ -1961,7 +1961,12 @@ fn uncommitted_file_to_commit_consumes_renames() {
     );
 
     let before = status_json(&env);
-    let source_file_cli_id = uncommitted_cli_id_for_file(&before, "rename-target-single.txt")
+    let source_file_cli_id = before["uncommittedChanges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|change| change["filePath"].as_str() == Some("rename-target-single.txt"))
+        .and_then(|change| change["cliId"].as_str())
         .expect("renamed uncommitted file should be present in status");
     let target_cli_id = branch_commit_cli_ids(&before, "A")[0].clone();
 
@@ -1969,11 +1974,26 @@ fn uncommitted_file_to_commit_consumes_renames() {
         .assert()
         .success();
 
-    let after = status_json(&env);
-    assert!(
-        !uncommitted_contains_file(&after, "rename-target-single.txt"),
-        "renamed file should no longer be uncommitted"
-    );
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 seed rename source single
+┊│     1:x A rename-target-single.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 
     let remaining = env.invoke_git("status --porcelain");
     assert_eq!(
@@ -1998,27 +2018,44 @@ fn uncommitted_deleted_file_to_commit_keeps_unrelated_deleted_file() {
     std::fs::remove_file(env.projects_root().join("b.txt")).unwrap();
 
     let before = status_json(&env);
-    let source_file_cli_id = uncommitted_cli_id_for_file(&before, "a.txt")
+    let source_file_cli_id = before["uncommittedChanges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|change| change["filePath"].as_str() == Some("a.txt"))
+        .and_then(|change| change["cliId"].as_str())
         .expect("a.txt deletion should be present in the uncommitted area");
     let target_cli_id = branch_commit_cli_ids(&before, "A")[0].clone();
-    assert!(
-        uncommitted_contains_file(&before, "b.txt"),
-        "b.txt deletion should start in the uncommitted area"
-    );
 
     env.but(format!("squash {source_file_cli_id} -t {target_cli_id} -u"))
         .assert()
         .success();
 
-    let after = status_json(&env);
-    assert!(
-        !uncommitted_contains_file(&after, "a.txt"),
-        "selected a.txt deletion should be amended into the target commit"
-    );
-    assert!(
-        uncommitted_contains_file(&after, "b.txt"),
-        "unrelated b.txt deletion should remain uncommitted"
-    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted]
+┊   pn D b.txt
+┊
+┊╭┄ g0 [A]
+┊●   1 Add a.txt, b.txt, and c.txt
+┊│     1:p A b.txt
+┊│     1:k A c.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
     assert!(
         !env.projects_root().join("a.txt").exists(),
         "selected a.txt deletion should stay applied to the worktree"
@@ -2061,10 +2098,29 @@ fn commit_to_uncommitted_smoke() {
         "source commit should no longer be present after uncommit"
     );
 
-    assert!(
-        uncommitted_contains_file(&after, "a.txt") && uncommitted_contains_file(&after, "b.txt"),
-        "uncommitting a commit should move its changes into uncommitted"
-    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted]
+┊   nk A a.txt
+┊   pn A b.txt
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
 }
 
 #[test]
@@ -2603,6 +2659,134 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_uncommit_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [C]
+┊●   xwn add C
+┊│     xwn:w A C
+┊│
+┊├┄ i0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("squash A B C -t zz")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Uncommitted 'A', 'B', 'C'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   tm A A
+┊   pl A B
+┊   wx A C
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [C]
+┊●   xwn add C
+┊│     xwn:w A C
+┊│
+┊├┄ i0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_uncommit_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("squash br -t zz")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Uncommitted 'a-branch-1'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }
