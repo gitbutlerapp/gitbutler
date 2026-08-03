@@ -51,7 +51,8 @@ mod error;
 pub(crate) use error::{CliError, CliResult, CliResultExt, bad_input};
 
 mod id;
-pub use id::{ChangeSourceId, CliId, IdMap};
+pub use id::{CliId, IdMap};
+pub use utils::change_source::ChangeSourceId;
 
 pub use utils::binary_path::is_executed_as_but;
 

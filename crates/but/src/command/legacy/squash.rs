@@ -21,17 +21,14 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliResult, CliResultExt, IdMap,
+    ChangeSourceId, CliError, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg, ResolvedCliIdArgRef},
         squash::Platform,
     },
     bad_input,
     command::legacy::reword2::RewordCommitOperation,
-    id::{
-        ChangeSourceId, CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED,
-        UncommittedHunkOrFile,
-    },
+    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -384,11 +381,9 @@ pub fn resolve<'a>(
                             return Err(cannot_uncommit_uncommitted_changes_error());
                         }
                     };
-                    ResolvedSquash::UncommittedHunk(AmendUncommittedHunks {
-                        target,
-                        sources,
-                        reword,
-                    })
+                    ResolvedSquash::UncommittedHunk(AmendUncommittedHunks::new(
+                        target, sources, reword,
+                    )?)
                 }
                 ClassifiedSquashables::Uncommitted => {
                     let (target, reword) = match target {
@@ -729,6 +724,30 @@ pub struct AmendUncommittedHunks<'a> {
     pub target: CommitId,
     pub sources: NonEmpty<UncommittedSquashSource<'a>>,
     pub reword: HowToRewordTargetNoSource,
+    /// The checkout every source was read from, established by [`Self::new`] so
+    /// nothing downstream needs to re-derive or re-validate it.
+    source: ChangeSourceId,
+}
+
+impl<'a> AmendUncommittedHunks<'a> {
+    /// Errors when `sources` span several checkouts.
+    pub fn new(
+        target: CommitId,
+        sources: NonEmpty<UncommittedSquashSource<'a>>,
+        reword: HowToRewordTargetNoSource,
+    ) -> CliResult<Self> {
+        let source = change_source::single_source(sources.iter().map(|source| match source {
+            UncommittedSquashSource::HunkOrFile(source) => source.source.clone(),
+            // A path prefix only ever covers the main worktree.
+            UncommittedSquashSource::PathPrefix(_) => ChangeSourceId::Head,
+        }))?;
+        Ok(Self {
+            target,
+            sources,
+            reword,
+            source,
+        })
+    }
 }
 
 impl AmendUncommittedHunks<'_> {
@@ -737,6 +756,7 @@ impl AmendUncommittedHunks<'_> {
             target: self.target,
             sources: self.sources.map(UncommittedSquashSource::into_owned),
             reword: self.reword,
+            source: self.source,
         }
     }
 }
@@ -1126,18 +1146,11 @@ impl<'a> ClassifiedSquashables<'a> {
 impl SquashOperation<'_> {
     /// The checkout the uncommitted changes are read from, which is the main
     /// worktree for every operation that sources from commits instead.
-    ///
-    /// Errors when the selection spans several checkouts, see
-    /// [`change_source::single_source`].
-    fn change_source(&self) -> CliResult<ChangeSourceId> {
-        let SquashOperation::UncommittedHunks(AmendUncommittedHunks { sources, .. }) = self else {
-            return Ok(ChangeSourceId::Head);
-        };
-        change_source::single_source(sources.iter().map(|source| match source {
-            UncommittedSquashSource::HunkOrFile(source) => source.source.clone(),
-            // A path prefix only ever covers the main worktree.
-            UncommittedSquashSource::PathPrefix(_) => ChangeSourceId::Head,
-        }))
+    fn change_source(&self) -> ChangeSourceId {
+        match self {
+            SquashOperation::UncommittedHunks(op) => op.source.clone(),
+            _ => ChangeSourceId::Head,
+        }
     }
 }
 
@@ -1150,12 +1163,7 @@ pub fn run(
     // Owned for the whole operation: the `ChangeSource` handed to the transaction
     // below borrows from it. Opened before the workspace handle, as reading worktree
     // state must not happen while a database handle is borrowed.
-    // `CliError` renders its hint through `Display`, so the message survives the
-    // trip through `anyhow` that this function's signature requires.
-    let source = squash_op
-        .change_source()
-        .map_err(|err| anyhow::anyhow!("{err}"))?;
-    let source_repo = ChangeSourceRepo::open(ctx, &source)?;
+    let source_repo = ChangeSourceRepo::open(ctx, &squash_op.change_source())?;
     let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
@@ -1201,6 +1209,8 @@ pub fn run(
             target,
             sources,
             reword,
+            // Already opened as `source_repo` above.
+            source: _,
         }) => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;

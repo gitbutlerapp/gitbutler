@@ -4,7 +4,7 @@ use nonempty::NonEmpty;
 use strum::VariantArray;
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::status::{
         StatusOutputLine,
         output::StatusOutputLineData,
@@ -17,8 +17,8 @@ use crate::{
         },
     },
     id::{
-        BranchId, BranchIdRef, ChangeSourceId, CommitId, CommitIdRef, CommittedFileId,
-        CommittedFileIdRef, IdAndHunk, UncommittedHunkOrFile,
+        BranchId, BranchIdRef, CommitId, CommitIdRef, CommittedFileId, CommittedFileIdRef,
+        IdAndHunk, UncommittedHunkOrFile,
     },
 };
 

@@ -15,7 +15,7 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, CliResultExt, IdMap,
+    ChangeSourceId, CliError, CliId, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         commit::Platform,
@@ -26,11 +26,11 @@ use crate::{
         status::{Selectable, TuiOutcome, TuiRunOptions, tui_with_options},
     },
     error::BadInput,
-    id::{ChangeSourceId, CommitId, UncommittedHunkOrFile},
+    id::{CommitId, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{self, ChangeSourceRepo},
+        change_source::{ChangeSourceRepo, UncommittedSelection},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         rejection,
@@ -183,8 +183,10 @@ fn resolve(
                 .hint("Run `but status` to show applicable targets")
                 .into());
         };
-        change_source::single_source(changes.iter().map(|c| c.source.clone()))?;
-        (guard, CommitSelection::Changes(Box::new(changes)))
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
     } else if interactive {
         let Some(mut inout) = out.prepare_for_terminal_input() else {
             return Err(bad_input("Terminal doesn't support interactivity").into());
@@ -215,8 +217,10 @@ fn resolve(
                 .hint("Pick changes by pressing space. Confirm with enter.")
                 .into());
         };
-        change_source::single_source(changes.iter().map(|c| c.source.clone()))?;
-        (guard, CommitSelection::Changes(Box::new(changes)))
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
     } else if empty {
         (guard, CommitSelection::Nothing)
     } else {
@@ -289,8 +293,8 @@ pub fn run(
             CommitSelection::AllChanges => {
                 builder.push_changes_from_uncommitted_area()?;
             }
-            CommitSelection::Changes(changes) => {
-                for change in *changes {
+            CommitSelection::Changes(selection) => {
+                for change in selection.into_changes() {
                     builder.push_changes_from_uncommitted(&change)?;
                 }
 
@@ -568,19 +572,18 @@ fn route_commit_above_or_below(
 
 pub enum CommitSelection {
     AllChanges,
-    Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
+    Changes(Box<UncommittedSelection>),
     Nothing,
 }
 
 impl CommitSelection {
-    /// The checkout these changes are read from. Selections are validated to come
-    /// from a single one, see [`change_source::single_source`].
+    /// The checkout these changes are read from.
     fn source(&self) -> ChangeSourceId {
         match self {
             // Both mean "the main worktree": bare `but commit` commits its changes,
             // and an empty commit reads none at all.
             CommitSelection::AllChanges | CommitSelection::Nothing => ChangeSourceId::Head,
-            CommitSelection::Changes(changes) => changes.head.source.clone(),
+            CommitSelection::Changes(selection) => selection.source().clone(),
         }
     }
 }

@@ -6,9 +6,9 @@ use but_testsupport::{hex_to_id, hunk_header};
 use snapbox::{assert_data_eq, prelude::*};
 
 use crate::{
-    CliId, IdMap,
+    ChangeSourceId, CliId, IdMap,
     args::atoms::CliIdArg,
-    id::{BranchId, ChangeSourceId, CommitId, id_usage::UintId},
+    id::{BranchId, CommitId, id_usage::UintId},
 };
 
 #[test]
@@ -335,7 +335,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
     let hunks = vec![hunk("gh"), hunk("hi")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -428,7 +428,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     ];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     snapbox::assert_data_eq!(
@@ -596,7 +596,7 @@ fn uncommitted_file_to_id_qualifies_hunk_ids() -> anyhow::Result<()> {
     ];
     let id_map = IdMap::new(
         Vec::new(),
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let uncommitted_file = id_map
@@ -631,7 +631,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     let hunks = vec![hunk("uncommitted.txt")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -762,7 +762,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     let hunks = vec![hunk("foo23"), hunk("foo242")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -887,9 +887,9 @@ fn same_path_in_several_sources_gets_distinct_ids() -> anyhow::Result<()> {
     let id_map = IdMap::new(
         Vec::new(),
         vec![
-            (ChangeSourceId::Head, vec![hunk("file")]),
-            (ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
-            (ChangeSourceId::Worktree("wt-b".into()), vec![hunk("file")]),
+            source_changes(ChangeSourceId::Head, vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-b".into()), vec![hunk("file")]),
         ],
         gix::hashtable::HashMap::default(),
     )?;
@@ -937,10 +937,10 @@ fn worktree_container_id() -> anyhow::Result<()> {
     let id_map = IdMap::new(
         Vec::new(),
         vec![
-            (ChangeSourceId::Head, vec![hunk("file")]),
-            (ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
+            source_changes(ChangeSourceId::Head, vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
             // A worktree without changes still gets an ID, so it can be listed.
-            (ChangeSourceId::Worktree("wt-b".into()), Vec::new()),
+            source_changes(ChangeSourceId::Worktree("wt-b".into()), Vec::new()),
         ],
         gix::hashtable::HashMap::default(),
     )?;
@@ -998,8 +998,8 @@ fn zz_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
     let id_map = IdMap::new(
         Vec::new(),
         vec![
-            (ChangeSourceId::Head, vec![hunk("file")]),
-            (ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
+            source_changes(ChangeSourceId::Head, vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
         ],
         gix::hashtable::HashMap::default(),
     )?;
@@ -1042,7 +1042,7 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
     let hunks = vec![hunk("file")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1126,7 +1126,7 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
     let hunks = vec![hunk("foo23")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1176,7 +1176,7 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
     let hunks = vec![hunk("klmxyz")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1226,7 +1226,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
     let hunks = vec![hunk("foo")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1288,7 +1288,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     let hunks = vec![hunk("uncommitted"), hunk("assigned")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1396,7 +1396,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
     let hunks = vec![hunk("prefixx"), hunk("prefix/a"), hunk("prefix/b")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1569,7 +1569,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
     let hunks = vec![hunk("k"), hunk("kl"), hunk("klm")];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1684,7 +1684,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     ];
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1830,7 +1830,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1997,7 +1997,7 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -2104,7 +2104,7 @@ fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -2183,7 +2183,7 @@ fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() ->
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -2267,7 +2267,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -2441,7 +2441,7 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
 
     let id_map = IdMap::new(
         stacks,
-        vec![(ChangeSourceId::Head, hunks)],
+        vec![source_changes(ChangeSourceId::Head, hunks)],
         gix::hashtable::HashMap::default(),
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -2759,7 +2759,10 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
     // an agent copies from `but diff` before committing.
     let commitless = IdMap::new(
         vec![stack([segment("not-important", [], None, [])])],
-        vec![(ChangeSourceId::Head, vec![hunk("README.md")])],
+        vec![source_changes(
+            ChangeSourceId::Head,
+            vec![hunk("README.md")],
+        )],
         gix::hashtable::HashMap::default(),
     )?;
     let file_id = commitless
@@ -2781,7 +2784,10 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
         [(id1, colliding_change_id)].into_iter().collect();
     let id_map = IdMap::new(
         vec![stack([segment("not-important", [id1], None, [])])],
-        vec![(ChangeSourceId::Head, vec![hunk("README.md")])],
+        vec![source_changes(
+            ChangeSourceId::Head,
+            vec![hunk("README.md")],
+        )],
         commit_id_to_change_id,
     )?;
 
@@ -2849,7 +2855,7 @@ fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> 
     };
     let id_map = IdMap::new(
         vec![stack([segment("not-important", [], None, [])])],
-        vec![(ChangeSourceId::Head, vec![hunk("zz")])],
+        vec![source_changes(ChangeSourceId::Head, vec![hunk("zz")])],
         gix::hashtable::HashMap::default(),
     )?;
 
@@ -2878,7 +2884,7 @@ fn uncommitted_scope_does_not_prefix_match_a_branch_short_id() -> anyhow::Result
     // prefix of the file's ID (branches win in the full namespace).
     let id_map = IdMap::new(
         vec![stack([segment("kp", [id(1)], None, [])])],
-        vec![(ChangeSourceId::Head, vec![hunk("foo242")])],
+        vec![source_changes(ChangeSourceId::Head, vec![hunk("foo242")])],
         gix::hashtable::HashMap::default(),
     )?;
 
@@ -3094,6 +3100,19 @@ mod util {
         }
     }
 
+    /// A source whose `changes` are left empty: [`IdMap`] reads only `hunks`, as
+    /// tree statuses are a status-rendering concern.
+    pub fn source_changes(
+        source: crate::ChangeSourceId,
+        hunks: Vec<but_core::SingleHunk>,
+    ) -> crate::utils::change_source::SourceChanges {
+        crate::utils::change_source::SourceChanges {
+            source,
+            changes: Vec::new(),
+            hunks,
+        }
+    }
+
     pub fn hunk(path: &str) -> but_core::SingleHunk {
         but_core::SingleHunk {
             hunk_header: None,
@@ -3250,4 +3269,4 @@ mod util {
         a.to_short_string().cmp(&b.to_short_string())
     }
 }
-use util::{hunk, id, segment, stack, tree_change_addition};
+use util::{hunk, id, segment, source_changes, stack, tree_change_addition};

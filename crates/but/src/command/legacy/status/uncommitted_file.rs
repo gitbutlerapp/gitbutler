@@ -1,9 +1,6 @@
 use bstr::BString;
 
-use crate::{
-    IdMap,
-    id::{ChangeSourceId, ShortId},
-};
+use crate::{ChangeSourceId, IdMap, id::ShortId};
 
 /// An uncommitted file with the short ID that addresses it.
 #[derive(Debug, Clone)]

@@ -3,7 +3,10 @@ use std::collections::{BTreeMap, HashSet, btree_map::Entry};
 use bstr::BString;
 use nonempty::NonEmpty;
 
-use crate::id::{ChangeSourceId, id_usage::UintId};
+use crate::{
+    id::id_usage::UintId,
+    utils::change_source::{ChangeSourceId, SourceChanges},
+};
 
 /// Information about uncommitted files.
 pub(crate) struct UncommittedInfo {
@@ -18,14 +21,12 @@ pub(crate) struct UncommittedInfo {
 }
 
 impl UncommittedInfo {
-    /// Partitions hunks by source and filename.
-    pub(crate) fn from_hunks(
-        hunks_by_source: Vec<(ChangeSourceId, Vec<but_core::SingleHunk>)>,
-    ) -> anyhow::Result<Self> {
+    /// Partitions the hunks of every source by source and filename.
+    pub(crate) fn from_sources(sources: Vec<SourceChanges>) -> anyhow::Result<Self> {
         let mut uncommitted_hunks: BTreeMap<(ChangeSourceId, BString), NonEmpty<_>> =
             BTreeMap::new();
         let mut uncommitted_short_filenames = HashSet::new();
-        for (source, hunks) in hunks_by_source {
+        for SourceChanges { source, hunks, .. } in sources {
             for hunk in hunks {
                 if hunk.path.len() <= UintId::LENGTH_LIMIT
                     && !uncommitted_short_filenames.contains(&hunk.path)

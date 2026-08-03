@@ -4,12 +4,10 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap,
+    ChangeSourceId, CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{
-        ChangeSourceId, CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile,
-    },
+    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme,
 };
 
