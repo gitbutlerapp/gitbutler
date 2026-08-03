@@ -12,7 +12,7 @@ use crate::{
     command::legacy::status::tui::{
         Col, FuzzyPicker, FuzzyPickerItem, Message, SearchableToken, ToastKind,
     },
-    id::{ShortId, UncommittedHunkOrFile, WorktreeHunk},
+    id::{ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -51,7 +51,7 @@ pub fn uncommitted_hunk_picker(
     hunk: UncommittedHunkOrFile,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
-    let path = hunk.hunk_assignments.head.hunk.path.clone();
+    let path = hunk.hunks.head.hunk.path.to_str_lossy().into_owned();
     picker(
         NonEmpty::from_slice(&[
             CopySelectionItem::ShortId(hunk.id.clone()),
@@ -252,21 +252,24 @@ fn uncommitted_hunk_or_file_to_diff(
     uncommitted: &UncommittedHunkOrFile,
 ) -> anyhow::Result<String> {
     let repo = ctx.repo.get()?;
-    let worktree_changes = but_api::diff::changes_in_worktree(ctx, true)?;
-    let assignments: Vec<_> = worktree_changes
-        .assignments
-        .into_iter()
-        .map(WorktreeHunk::from)
-        .filter(|assignment| uncommitted_hunk_matches_selection(assignment, uncommitted))
-        .collect();
+    let worktree_changes =
+        but_api::diff::changes_in_worktree(ctx, but_api::commit::json::ChangesSource::Head, false)?;
+    let hunks: Vec<_> = but_core::hunks_from_changes(
+        &repo,
+        worktree_changes.worktree_changes.changes.clone(),
+        ctx.settings.context_lines,
+    )
+    .into_iter()
+    .filter(|hunk| uncommitted_hunk_matches_selection(hunk, uncommitted))
+    .collect();
 
     let mut diff = String::new();
     let mut whole_file_diff_paths = BTreeSet::new();
-    for assignment in assignments {
-        if assignment.hunk_header.is_some() {
-            diff.push_str(&hunk_assignment_to_diff(&assignment));
+    for hunk in hunks {
+        if hunk.hunk_header.is_some() {
+            diff.push_str(&hunk_to_diff(&hunk));
         } else {
-            whole_file_diff_paths.insert(assignment.path_bytes);
+            whole_file_diff_paths.insert(hunk.path);
         }
     }
 
@@ -287,22 +290,22 @@ fn uncommitted_hunk_or_file_to_diff(
 }
 
 fn uncommitted_hunk_matches_selection(
-    hunk_assignment: &WorktreeHunk,
+    hunk: &but_core::SingleHunk,
     uncommitted: &UncommittedHunkOrFile,
 ) -> bool {
-    let selected_hunk = uncommitted.hunk_assignments.first();
+    let selected_hunk = uncommitted.hunks.first();
 
     if uncommitted.is_entire_file {
-        hunk_assignment.path_bytes == selected_hunk.hunk.path_bytes
+        hunk.path == selected_hunk.hunk.path
     } else {
-        hunk_assignment == &selected_hunk.hunk
+        hunk.identifies_same_hunk(&selected_hunk.hunk)
     }
 }
 
-fn hunk_assignment_to_diff(assignment: &WorktreeHunk) -> String {
-    let path = assignment.path_bytes.to_str_lossy();
+fn hunk_to_diff(hunk: &but_core::SingleHunk) -> String {
+    let path = hunk.path.to_str_lossy();
     let mut diff = format!("diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n");
-    if let Some(hunk_diff) = &assignment.diff {
+    if let Some(hunk_diff) = &hunk.diff {
         diff.push_str(&hunk_diff.to_str_lossy());
         if !diff.ends_with('\n') {
             diff.push('\n');

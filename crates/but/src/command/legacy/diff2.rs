@@ -196,7 +196,7 @@ pub fn diff<'a>(
     args: Platform,
 ) -> CliResult<DiffOutcome<'a>> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let op = resolve(ctx, &id_map, args)?;
     Ok(run(ctx, op)?)

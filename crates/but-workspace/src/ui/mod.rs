@@ -198,6 +198,29 @@ impl std::fmt::Debug for UpstreamCommit {
     }
 }
 
+impl TryFrom<gix::Commit<'_>> for UpstreamCommit {
+    type Error = anyhow::Error;
+    /// Like the other commit conversions here, the message is stripped of
+    /// conflict markers; the change-id is the stored one only, `None` when the
+    /// commit has no GitButler headers — nothing is synthesized, as upstream
+    /// commits typically originate outside GitButler.
+    fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
+        let id = commit.id;
+        let commit = commit.decode()?;
+        let change_id = commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+            .and_then(|headers| headers.change_id.map(|change_id| change_id.to_string()));
+        let author = commit.author()?;
+        Ok(UpstreamCommit {
+            id,
+            message: but_core::commit::strip_conflict_markers(commit.message),
+            authored_at: i128::from(author.time()?.seconds) * 1000,
+            committed_at: i128::from(commit.time()?.seconds) * 1000,
+            author: author.into(),
+            change_id,
+        })
+    }
+}
+
 // `PushStatus` now lives in `but-core` so the rebase Editor's workspace
 // projection can produce it without depending on `but-workspace`. Re-exported
 // here to keep `but_workspace::ui::PushStatus` (and the SDK schema) stable.

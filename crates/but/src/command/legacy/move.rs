@@ -220,7 +220,7 @@ pub fn r#move(
 ) -> CliResult<MoveOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let allow_merged = args.allow_merged;
     let move_op = resolve(ctx, guard.write_permission(), args, &id_map)?;
@@ -521,9 +521,9 @@ fn resolve(
     } = args;
 
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
-    let resolved_sources = resolve_sources(&repo, &ws, &mut db, context_lines, id_map, sources)?;
+    let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
 
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
@@ -754,8 +754,6 @@ enum ResolvedSources {
 
 fn resolve_sources(
     repo: &gix::Repository,
-    ws: &but_graph::Workspace,
-    db: &mut but_db::DbHandle,
     context_lines: u32,
     id_map: &IdMap,
     sources: impl IntoIterator<Item = CliIdArg>,
@@ -815,7 +813,7 @@ fn resolve_sources(
             })
         }
         (None, Some(files), None) => {
-            let mut builder = DiffSpecBuilder::new(db, repo, ws, context_lines);
+            let mut builder = DiffSpecBuilder::new(repo, context_lines);
             let source_commit = files.head.0.clone();
             for (commit, path) in files {
                 if commit.as_ref() != source_commit.as_ref() {

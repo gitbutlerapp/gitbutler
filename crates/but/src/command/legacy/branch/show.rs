@@ -23,7 +23,7 @@ pub fn show(
 ) -> CliResult<()> {
     let (branch_arg, id_map) = {
         let guard = ctx.exclusive_worktree_access();
-        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
         let repo = ctx.repo.get()?;
         let branch_arg = branch_arg
             .try_resolve_branch(&repo, &id_map)?
@@ -355,7 +355,11 @@ fn get_uncommitted_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::R
         && let Some(stack_id) = stack.id
     {
         // Get worktree changes and assignments
-        let worktree_changes = but_api::diff::changes_in_worktree(ctx, true)?;
+        let worktree_changes = but_api::diff::changes_in_worktree(
+            ctx,
+            but_api::commit::json::ChangesSource::Head,
+            true,
+        )?;
 
         let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
         for assignment in worktree_changes.assignments {

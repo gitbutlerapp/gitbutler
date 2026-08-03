@@ -14,8 +14,7 @@ mod show;
 pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result<()> {
     use crate::tui::diff_viewer::{DiffFileEntry, WorktreeFilter};
 
-    let wt_changes = but_api::diff::changes_in_worktree(ctx, true)?;
-    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
 
     let files = if let Some(entity) = target_str {
         let id = id_map
@@ -29,9 +28,7 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
                 let filter = WorktreeFilter::Uncommitted(Box::new(uncommitted_id.clone()));
                 DiffFileEntry::from_worktree(&id_map, Some(&filter))
             }
-            CliId::PathPrefix {
-                hunk_assignments, ..
-            } => DiffFileEntry::from_hunk_assignments(&hunk_assignments),
+            CliId::PathPrefix { hunks, .. } => DiffFileEntry::from_hunks(&hunks),
             CliId::Uncommitted { .. } => {
                 DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::UncommittedArea))
             }
@@ -67,8 +64,7 @@ pub fn handle(
     out: &mut OutputChannel,
     target_str: Option<&str>,
 ) -> anyhow::Result<()> {
-    let wt_changes = but_api::diff::changes_in_worktree(ctx, true)?;
-    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
 
     if let Some(entity) = target_str {
         let id = id_map
@@ -81,9 +77,7 @@ pub fn handle(
             CliId::UncommittedHunkOrFile(id) => {
                 show::worktree(id_map, out, Some(Filter::Uncommitted(id)))
             }
-            CliId::PathPrefix {
-                hunk_assignments, ..
-            } => show::hunk_assignments(&hunk_assignments, out),
+            CliId::PathPrefix { hunks, .. } => show::hunks(&hunks, out),
             CliId::Uncommitted { .. } => show::worktree(id_map, out, Some(Filter::UncommittedArea)),
             CliId::CommittedFile {
                 committed_file:

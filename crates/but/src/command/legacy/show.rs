@@ -20,7 +20,7 @@ pub(crate) fn show_commit(
     verbose: bool,
 ) -> Result<()> {
     let t = theme::get();
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
 
     // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;

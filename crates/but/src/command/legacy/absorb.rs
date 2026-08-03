@@ -2,11 +2,11 @@ use crate::{
     id::{CommitId, CommitIdRef},
     theme::{self, Paint},
 };
+use bstr::ByteSlice as _;
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
-    AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
-    JsonFileAbsorption,
+    AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
 };
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_oplog::{
@@ -42,7 +42,7 @@ pub(crate) fn handle(
     allow_merged: crate::args::atoms::AllowMergedArg,
 ) -> anyhow::Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let source: Option<CliId> = source
         .map(|s| -> anyhow::Result<CliId> {
             // Uncommitted selectors resolve in the uncommitted namespace first
@@ -74,14 +74,10 @@ pub(crate) fn handle(
 
     let target = if let Some(source) = source {
         match source {
-            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                hunk_assignments, ..
-            }) => {
+            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { hunks, .. }) => {
                 // Absorb this particular file
-                AbsorptionTarget::HunkAssignments {
-                    assignments: hunk_assignments
-                        .map(|hunk| hunk.hunk.into_hunk_assignment_ignoring_stack_assignments())
-                        .into(),
+                AbsorptionTarget::Hunks {
+                    hunks: hunks.map(|id_and_hunk| id_and_hunk.hunk).into(),
                 }
             }
             CliId::Branch(branch) => {
@@ -221,8 +217,8 @@ fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
 }
 
 /// Get all hunk ranges for a file
-fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
-    if let Some(hunk_header) = &assignment.hunk_header {
+fn get_hunk_ranges(hunk: &but_core::SingleHunk) -> Vec<String> {
+    if let Some(hunk_header) = &hunk.hunk_header {
         vec![format_hunk_range(hunk_header)]
     } else {
         // Binary file or file too large - no hunk information
@@ -244,7 +240,7 @@ fn display_absorption_plan(
     // Count total files
     let total_files: usize = commit_absorptions
         .iter()
-        .flat_map(|c| c.files.iter().map(|f| &f.path))
+        .flat_map(|c| c.hunks.iter().map(|h| &h.path))
         .unique()
         .count();
 
@@ -267,15 +263,11 @@ fn display_absorption_plan(
         .iter()
         .map(|absorption| {
             let files: Vec<JsonFileAbsorption> = absorption
-                .files
+                .hunks
                 .iter()
-                .map(|file| {
-                    let hunks = get_hunk_ranges(&file.assignment);
-
-                    JsonFileAbsorption {
-                        path: file.path.clone(),
-                        hunks,
-                    }
+                .map(|hunk| JsonFileAbsorption {
+                    path: hunk.path.to_str_lossy().into_owned(),
+                    hunks: get_hunk_ranges(hunk),
                 })
                 .collect();
 
@@ -322,11 +314,11 @@ fn display_absorption_plan(
             )?;
             writeln!(out, "  ({})", t.hint.paint(absorption.reason.description()))?;
 
-            for file in &absorption.files {
-                let hunks = get_hunk_ranges(&file.assignment);
-                let hunk_display = hunks.join(", ");
+            for hunk in &absorption.hunks {
+                let ranges = get_hunk_ranges(hunk);
+                let hunk_display = ranges.join(", ");
 
-                writeln!(out, "    {} {}", file.path, t.hint.paint(&hunk_display))?;
+                writeln!(out, "    {} {}", hunk.path, t.hint.paint(&hunk_display))?;
             }
             writeln!(out)?;
         }

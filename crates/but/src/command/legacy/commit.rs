@@ -8,7 +8,7 @@ use but_core::{
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
-use but_workspace::{RefInfo, branch::create_reference::Anchor};
+use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -117,7 +117,7 @@ pub fn commit(
 ) -> CliResult<CommitOutcome> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -271,8 +271,8 @@ pub fn run(
 ) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let mut builder = DiffSpecBuilder::new(&repo, context_lines);
 
         match commit_selection {
             CommitSelection::AllChanges => {
@@ -625,6 +625,7 @@ impl CommitToNewBranchOperation {
             InsertSide::Below,
             changes,
             String::new(),
+            ChangeSource::Head,
         )?;
 
         Ok((
@@ -646,8 +647,13 @@ impl CommitAtOperation {
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = self.create_target(tx)?;
 
-        let commit_create_result =
-            tx.create_commit(relative_to.clone(), side, changes, String::new())?;
+        let commit_create_result = tx.create_commit(
+            relative_to.clone(),
+            side,
+            changes,
+            String::new(),
+            ChangeSource::Head,
+        )?;
 
         Ok((commit_create_result, branch_name_target))
     }

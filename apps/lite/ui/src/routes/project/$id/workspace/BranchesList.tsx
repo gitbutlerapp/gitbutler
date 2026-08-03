@@ -28,13 +28,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import {
-	branchOperand,
-	commitOperand,
-	operandEquals,
-	operandIdentityKey,
-	type Operand,
-} from "#ui/operands.ts";
+import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
 	autofocusSelectionScope,
@@ -67,7 +61,12 @@ import {
 	RowMeta,
 	RowToolbar,
 } from "./Row.tsx";
-import { getRowButtonClassName, treeItemId } from "./Row-utils.ts";
+import {
+	getRowButtonClassName,
+	selectionOutOfSync,
+	treeItemId,
+	useIsSelected as useIsSelectedInList,
+} from "./Row-utils.ts";
 import { StackCard, StackCardHeader, StackFoldAllButton } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
@@ -88,17 +87,8 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 const branchGraphStatus = (branch: ListedBranch): GraphSegmentStatus =>
 	branch.remoteRefs.length > 0 ? "LocalAndRemote" : "LocalOnly";
 
-/**
- * Whether the stored selection is this operand. Rows subscribe to this plain
- * boolean instead of consuming the navigation index, so index rebuilds (fold,
- * filter, data refresh) do not re-render every row. BranchesList keeps the
- * stored selection normalized to the resolved one.
- */
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useAppSelector((state) => {
-		const stored = projectSlice.selectors.selectPrimaryBranchesSelection(state, projectId);
-		return stored !== null && operandEquals(stored, operand);
-	});
+	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryBranchesSelection);
 
 const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }) => (
 	<Row interactive={false} role="treeitem" aria-label={label}>
@@ -438,17 +428,11 @@ export const BranchesList: FC<
 		projectSlice.selectors.selectPrimaryBranchesSelection(state, projectId),
 	);
 
-	// Rows highlight by comparing against the stored selection (see
-	// useIsSelected), so whenever resolving against the index lands elsewhere —
-	// entering the tab, or the selected item folding or filtering away — store
-	// the resolved selection to keep the two in agreement.
+	const outOfSyncSelection = selectionOutOfSync(selection, storedSelection);
 	useEffect(() => {
-		if (
-			selection !== null &&
-			(storedSelection === null || !operandEquals(storedSelection, selection))
-		)
-			dispatch(projectSlice.actions.selectBranches({ projectId, selection }));
-	}, [dispatch, projectId, selection, storedSelection]);
+		if (outOfSyncSelection !== null)
+			dispatch(projectSlice.actions.selectBranches({ projectId, selection: outOfSyncSelection }));
+	}, [dispatch, outOfSyncSelection, projectId]);
 
 	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);

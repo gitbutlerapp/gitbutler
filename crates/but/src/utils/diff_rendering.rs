@@ -30,7 +30,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile, WorktreeHunk},
+    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -583,21 +583,18 @@ pub fn render_uncommitted(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("uncommitted");
 
-    let wt_changes = but_api::diff::changes_in_worktree(ctx, true)?;
-    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
     let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |_| true)?;
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
-            uncommitted_hunks
-                .iter()
-                .map(|(_, _, hunk)| &hunk.hunk_assignment),
+            uncommitted_hunks.iter().map(|(_, _, hunk)| &hunk.hunk),
         ));
         out.write_selectable_text(id_gen.new_id("line_stats"), None, line_stats)?;
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk_assignment })) in
+    for (pos, (raw_id, cli_id, UncommittedHunk { hunk })) in
         uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
@@ -605,13 +602,13 @@ pub fn render_uncommitted(
         render_hunk_path_header(
             id,
             Some(Arc::clone(&cli_id)),
-            hunk_assignment.path_bytes.as_ref(),
+            hunk.path.as_ref(),
             Some(ShortIdOrTreeStatus::ShortId(raw_id)),
             out,
             theme,
         )?;
 
-        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        render_hunk(id, Some(Arc::clone(&cli_id)), hunk, theme, out)?;
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -631,7 +628,7 @@ pub fn render_uncommitted_hunk(
     let mut id_gen = id_gen.scoped("hunk");
     let mut id_gen = id_gen.scoped(&hunk.id);
     render_id_and_hunks(
-        hunk.hunk_assignments.into_iter().collect(),
+        hunk.hunks.into_iter().collect(),
         theme,
         &mut id_gen,
         options,
@@ -668,12 +665,12 @@ fn render_id_and_hunks(
 ) -> anyhow::Result<()> {
     hunks.sort_by(|a, b| {
         (
-            &a.hunk.path_bytes,
+            &a.hunk.path,
             a.hunk.hunk_header.as_ref().map(|header| header.old_start),
             &a.id,
         )
             .cmp(&(
-                &b.hunk.path_bytes,
+                &b.hunk.path,
                 b.hunk.hunk_header.as_ref().map(|header| header.old_start),
                 &b.id,
             ))
@@ -692,20 +689,20 @@ fn render_id_and_hunks(
         let id = id_gen.new_id(raw_id);
         let cli_id = Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
             id: raw_id.clone(),
-            hunk_assignments: NonEmpty::new(id_and_hunk.clone()),
+            hunks: NonEmpty::new(id_and_hunk.clone()),
             is_entire_file: false,
         }));
 
         render_hunk_path_header(
             id,
             Some(Arc::clone(&cli_id)),
-            id_and_hunk.hunk.path_bytes.as_ref(),
+            id_and_hunk.hunk.path.as_ref(),
             Some(ShortIdOrTreeStatus::ShortId(raw_id)),
             out,
             theme,
         )?;
 
-        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), &id_and_hunk.hunk, theme, out)?;
+        render_hunk(id, Some(Arc::clone(&cli_id)), &id_and_hunk.hunk, theme, out)?;
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -769,32 +766,32 @@ fn tree_changes_with_patches(
         .collect::<Vec<_>>()
 }
 
-fn render_hunk_assignment(
+fn render_hunk(
     id: SectionId,
     cli_id: Option<Arc<CliId>>,
-    hunk_assignment: &WorktreeHunk,
+    hunk: &but_core::SingleHunk,
     theme: &'static Theme,
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
-    if let Some(hunk_header) = hunk_assignment.hunk_header {
-        if let Some(diff) = hunk_assignment.diff.clone() {
-            let hunk = DiffHunk {
+    if let Some(hunk_header) = hunk.hunk_header {
+        if let Some(diff) = hunk.diff.clone() {
+            let diff_hunk = DiffHunk {
                 old_start: hunk_header.old_start,
                 old_lines: hunk_header.old_lines,
                 new_start: hunk_header.new_start,
                 new_lines: hunk_header.new_lines,
-                diff: Arc::unwrap_or_clone(diff),
+                diff,
             };
 
             let is_result_of_binary_to_text_conversion = false;
 
-            let path = Arc::new(hunk_assignment.path_bytes.clone());
+            let path = Arc::new(hunk.path.clone());
 
             render_unified_patch(
                 id,
                 cli_id.as_ref().map(Arc::clone),
                 &path,
-                hunk,
+                diff_hunk,
                 is_result_of_binary_to_text_conversion,
                 theme,
                 out,
@@ -1122,20 +1119,16 @@ fn render_unified_patch(
 }
 
 fn compute_line_stats_from_uncommitted_hunks<'a>(
-    uncommitted_hunks: impl IntoIterator<Item = &'a WorktreeHunk>,
+    uncommitted_hunks: impl IntoIterator<Item = &'a but_core::SingleHunk>,
 ) -> LineStats {
     let mut line_stats = LineStats::default();
     let mut unique_paths = HashSet::new();
     for hunk in uncommitted_hunks {
-        unique_paths.insert(&hunk.path_bytes);
-        line_stats.lines_added += hunk
-            .line_nums_added
-            .as_ref()
-            .map_or(0, |lines| lines.len() as u64);
-        line_stats.lines_removed += hunk
-            .line_nums_removed
-            .as_ref()
-            .map_or(0, |lines| lines.len() as u64);
+        unique_paths.insert(&hunk.path);
+        if let Some((added, removed)) = hunk.line_nums() {
+            line_stats.lines_added += added.len() as u64;
+            line_stats.lines_removed += removed.len() as u64;
+        }
     }
     line_stats.files_changed = unique_paths.len() as u64;
     line_stats
@@ -1147,12 +1140,12 @@ fn filter_uncommitted_hunks<'a, F>(
     mut filter: F,
 ) -> anyhow::Result<Vec<(&'a str, Arc<CliId>, &'a UncommittedHunk)>>
 where
-    F: FnMut(&WorktreeHunk) -> bool,
+    F: FnMut(&but_core::SingleHunk) -> bool,
 {
     let mut uncommitted_hunks = id_map
         .uncommitted_hunks
         .iter()
-        .filter(move |(_, hunk)| filter(&hunk.hunk_assignment))
+        .filter(move |(_, hunk)| filter(&hunk.hunk))
         .map(|(raw_id, hunk)| {
             let mut cli_ids = id_map.parse_using_context(raw_id, ctx)?;
             if cli_ids.len() == 1 {
@@ -1170,18 +1163,18 @@ where
 
     uncommitted_hunks.sort_by(|(id_a, _, hunk_a), (id_b, _, hunk_b)| {
         (
-            &hunk_a.hunk_assignment.path_bytes,
+            &hunk_a.hunk.path,
             hunk_a
-                .hunk_assignment
+                .hunk
                 .hunk_header
                 .as_ref()
                 .map(|header| header.old_start),
             id_a,
         )
             .cmp(&(
-                &hunk_b.hunk_assignment.path_bytes,
+                &hunk_b.hunk.path,
                 hunk_b
-                    .hunk_assignment
+                    .hunk
                     .hunk_header
                     .as_ref()
                     .map(|header| header.old_start),
@@ -1252,6 +1245,7 @@ pub fn load_syntax_set() -> SyntaxSet {
 #[cfg(test)]
 mod tests {
     use bstr::BString;
+    use but_core::HunkHeader;
     use nonempty::NonEmpty;
     use ratatui::text::Span;
 
@@ -1261,7 +1255,7 @@ mod tests {
     };
     use crate::{
         CliId,
-        id::{IdAndHunk, UncommittedHunkOrFile, WorktreeHunk},
+        id::{IdAndHunk, UncommittedHunkOrFile},
         utils::string_interning::Strings,
     };
 
@@ -1280,13 +1274,9 @@ mod tests {
     fn id_and_hunk(id: &str, path: &str) -> IdAndHunk {
         IdAndHunk {
             id: id.to_owned(),
-            hunk: WorktreeHunk {
-                id: None,
+            hunk: but_core::SingleHunk {
                 hunk_header: None,
-                path: path.to_owned(),
-                path_bytes: BString::from(path),
-                line_nums_added: None,
-                line_nums_removed: None,
+                path: BString::from(path),
                 diff: None,
             },
         }
@@ -1296,7 +1286,7 @@ mod tests {
     fn renders_the_hunks_stored_in_the_selection() -> anyhow::Result<()> {
         let selection = UncommittedHunkOrFile {
             id: "fi".to_owned(),
-            hunk_assignments: NonEmpty {
+            hunks: NonEmpty {
                 head: id_and_hunk("fi:b", "file.txt"),
                 tail: vec![id_and_hunk("fi:a", "file.txt")],
             },
@@ -1351,10 +1341,21 @@ mod tests {
     #[test]
     fn computes_stats_from_the_supplied_hunks() {
         let mut first = id_and_hunk("fi:a", "first.txt").hunk;
-        first.line_nums_added = Some(vec![1, 2]);
-        first.line_nums_removed = Some(vec![3]);
+        first.hunk_header = Some(HunkHeader {
+            old_start: 1,
+            old_lines: 1,
+            new_start: 1,
+            new_lines: 2,
+        });
+        first.diff = Some(BString::from("@@ -1,1 +1,2 @@\n-x\n+a\n+b\n"));
         let mut second = id_and_hunk("se:a", "second.txt").hunk;
-        second.line_nums_added = Some(vec![1]);
+        second.hunk_header = Some(HunkHeader {
+            old_start: 1,
+            old_lines: 0,
+            new_start: 1,
+            new_lines: 1,
+        });
+        second.diff = Some(BString::from("@@ -1,0 +1,1 @@\n+a\n"));
 
         let stats = compute_line_stats_from_uncommitted_hunks([&first, &second]);
 

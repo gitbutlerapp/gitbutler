@@ -88,13 +88,7 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
-            CliId::PathPrefix {
-                id,
-                hunk_assignments,
-            } => ResolvedCliIdArg::PathPrefix {
-                id,
-                hunks: hunk_assignments,
-            },
+            CliId::PathPrefix { id, hunks } => ResolvedCliIdArg::PathPrefix { id, hunks },
             CliId::CommittedFile { committed_file, .. } => {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
@@ -200,17 +194,14 @@ impl CliIdArg {
         };
         match target {
             CliId::UncommittedHunkOrFile(uncommitted) => Ok(Some(vec![uncommitted])),
-            CliId::PathPrefix {
-                id: _,
-                hunk_assignments,
-            } => Ok(Some(
-                hunk_assignments
+            CliId::PathPrefix { id: _, hunks } => Ok(Some(
+                hunks
                     .into_iter()
                     .map(|id_and_hunk| UncommittedHunkOrFile {
                         id: id_and_hunk.id.clone(),
-                        hunk_assignments: NonEmpty::new(id_and_hunk),
-                        // In a world without staging, all these hunk assignments should be turned
-                        // into "entire file" assignments for every file under the given PathPrefix.
+                        hunks: NonEmpty::new(id_and_hunk),
+                        // In a world without staging, all these hunks should be turned
+                        // into "entire file" IDs for every file under the given PathPrefix.
                         // However, currently, already assigned changes are not resolved by
                         // PathPrefix. This should all be fixed at the level of resolving the
                         // PathPrefix rather than here, though.
@@ -509,7 +500,7 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
             } => {
                 if let CliId::PathPrefix {
                     id: rhs_id,
-                    hunk_assignments: rhs_hunks,
+                    hunks: rhs_hunks,
                 } = other
                 {
                     return lhs_id == rhs_id && lhs_hunks == rhs_hunks;

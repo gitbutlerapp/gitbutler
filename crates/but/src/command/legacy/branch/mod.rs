@@ -23,7 +23,7 @@ pub fn delete(
 
     let branch_arg = {
         let guard = ctx.exclusive_worktree_access();
-        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
         let repo = ctx.repo.get()?;
         branch_arg.resolve_branch_in_workspace(&repo, &id_map)?
     };
@@ -71,7 +71,7 @@ pub fn new(
         but_api::legacy::workspace::canned_branch_name(ctx)?
     };
 
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let resolved_anchor = {
         let repo = ctx.repo.get()?;

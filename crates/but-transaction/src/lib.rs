@@ -17,7 +17,8 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::commit::{
-    MoveChangesOutcome, SquashCommitsOutcome, squash_commits::MessageCombinationStrategy,
+    ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
+    squash_commits::MessageCombinationStrategy,
 };
 use gix::{
     ObjectId,
@@ -577,12 +578,18 @@ where
         })
     }
 
+    /// `source` selects the checkout `changes` were read from, and hence the one whose
+    /// merge base is overridden so it doesn't reintroduce them as uncommitted changes.
+    /// A [`ChangeSource::Worktree`] source reads `HEAD^{tree}` from that checkout on disk,
+    /// so it must describe the pre-commit state - in practice, run this before any other
+    /// operation that could change what the worktree is based on.
     pub fn create_commit(
         &mut self,
         relative_to: RelativeTo,
         side: InsertSide,
         changes: Vec<DiffSpec>,
         message: String,
+        source: ChangeSource<'_>,
     ) -> anyhow::Result<IntermediateCommitCreateResult> {
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings, _| {
@@ -602,7 +609,7 @@ where
                 side,
                 &message,
                 context_lines,
-                but_workspace::commit::ChangeSource::Head,
+                source,
             )?;
 
             let new_commit = commit_selector
@@ -695,10 +702,14 @@ where
         })
     }
 
+    /// `source` selects the checkout `changes` were read from, see [`Self::create_commit()`].
+    /// With a [`ChangeSource::Worktree`] source, `target` may live anywhere in the editor
+    /// graph, but that checkout must still describe the pre-amend state.
     pub fn amend_commit(
         &mut self,
         target: ObjectId,
         changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
     ) -> anyhow::Result<IntermediateCommitCreateResult> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings, _| {
@@ -711,7 +722,7 @@ where
                 commit_mappings.map(target),
                 changes,
                 context_lines,
-                but_workspace::commit::ChangeSource::Head,
+                source,
             )?;
 
             let new_commit = commit_selector

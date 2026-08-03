@@ -10,7 +10,8 @@ export type BadgeVariant =
 	| "warn"
 	| "danger"
 	| "purple"
-	| "blue";
+	| "blue"
+	| "integrated";
 
 export const Badge: FC<{ variant: BadgeVariant } & ComponentProps<"span">> = ({
 	variant,
@@ -31,6 +32,7 @@ export const Badge: FC<{ variant: BadgeVariant } & ComponentProps<"span">> = ({
 				Match.when("danger", () => styles.danger),
 				Match.when("purple", () => styles.purple),
 				Match.when("blue", () => styles.blue),
+				Match.when("integrated", () => styles.integrated),
 				Match.exhaustive,
 			),
 		)}

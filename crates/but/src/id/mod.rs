@@ -8,19 +8,15 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
-use std::sync::Arc;
 
 use bstr::{BStr, BString, ByteSlice};
-use but_core::HunkHeader;
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment};
-use but_hunk_assignment::HunkAssignment;
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
-use uuid::Uuid;
 
 use crate::id::{
     file_info::FileInfo, id_usage::UintId, stacks_info::StacksInfo,
@@ -536,12 +532,12 @@ impl<'a> Node<'a> for &'a StackWithId {
             return Ok(id_map.parse_uncommitted_path_prefix(element));
         }
         for uncommitted_file in id_map.uncommitted_files.values() {
-            let hunk_assignments = uncommitted_file.hunk_assignments();
-            let hunk_assignment = hunk_assignments.first();
+            let hunks = uncommitted_file.hunks();
+            let hunk = hunks.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk_assignment.1.path_bytes == element.as_bytes() {
+            if hunk.1.path == element.as_bytes() {
                 return Ok(vec![Box::new(uncommitted_file)]);
             }
         }
@@ -577,76 +573,6 @@ self_cell!(
     }
 );
 
-// The CLI treats every worktree change as uncommitted, regardless of backend assignments. This
-// type enforces that. Its like `HunkAssignment` but without assignment related fields.
-#[derive(Debug, Clone)]
-pub struct WorktreeHunk {
-    pub id: Option<Uuid>,
-    pub hunk_header: Option<HunkHeader>,
-    pub path: String,
-    pub path_bytes: BString,
-    pub line_nums_added: Option<Vec<usize>>,
-    pub line_nums_removed: Option<Vec<usize>>,
-    pub diff: Option<Arc<BString>>,
-}
-
-impl From<HunkAssignment> for WorktreeHunk {
-    fn from(value: HunkAssignment) -> Self {
-        let HunkAssignment {
-            id,
-            hunk_header,
-            path,
-            path_bytes,
-            line_nums_added,
-            line_nums_removed,
-            diff,
-            stack_id: _,
-            branch_ref_bytes: _,
-        } = value;
-        Self {
-            id,
-            hunk_header,
-            path,
-            path_bytes,
-            line_nums_added,
-            line_nums_removed,
-            diff: diff.map(Arc::new),
-        }
-    }
-}
-
-impl WorktreeHunk {
-    pub fn into_hunk_assignment_ignoring_stack_assignments(self) -> HunkAssignment {
-        let Self {
-            id,
-            hunk_header,
-            path,
-            path_bytes,
-            line_nums_added,
-            line_nums_removed,
-            diff,
-        } = self;
-        HunkAssignment {
-            id,
-            hunk_header,
-            path,
-            path_bytes,
-            line_nums_added,
-            line_nums_removed,
-            diff: diff.map(Arc::unwrap_or_clone),
-            stack_id: None,
-            branch_ref_bytes: None,
-        }
-    }
-}
-
-// matching `impl PartialEq for HunkAssignment`
-impl PartialEq for WorktreeHunk {
-    fn eq(&self, other: &Self) -> bool {
-        self.hunk_header == other.hunk_header && self.path_bytes == other.path_bytes
-    }
-}
-
 /// A mapping from user-friendly CLI IDs to GitButler entities.
 pub struct IdMap {
     /// Stacks with indexes into various fields.
@@ -672,18 +598,13 @@ impl IdMap {
     /// files/hunks.
     pub fn new(
         stacks: Vec<Stack>,
-        hunk_assignments: Vec<HunkAssignment>,
+        hunks: Vec<but_core::SingleHunk>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
     ) -> anyhow::Result<Self> {
-        let hunk_assignments = hunk_assignments
-            .into_iter()
-            .map(WorktreeHunk::from)
-            .collect::<Vec<_>>();
-
         let UncommittedInfo {
             partitioned_hunks,
             uncommitted_short_filenames,
-        } = UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
+        } = UncommittedInfo::from_hunks(hunks)?;
         let StacksInfo {
             mut stacks,
             mut id_usage,
@@ -695,9 +616,9 @@ impl IdMap {
         )?;
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
-        for hunk_assignments in partitioned_hunks {
-            let WorktreeHunk { path_bytes, .. } = hunk_assignments.first();
-            let reverse_hex = create_reverse_hex_id(path_bytes)?;
+        for hunks in partitioned_hunks {
+            let but_core::SingleHunk { path, .. } = hunks.first();
+            let reverse_hex = create_reverse_hex_id(path)?;
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
@@ -709,8 +630,7 @@ impl IdMap {
                 reverse_hex,
                 UncommittedFile {
                     short_id: ShortId::default(),
-                    short_id_hunk_assignments: hunk_assignments
-                        .map(|hunk_assignment| (UnqualifiedHunkId::default(), hunk_assignment)),
+                    short_id_hunks: hunks.map(|hunk| (UnqualifiedHunkId::default(), hunk)),
                 },
             );
             // Skip an ID for stability of other IDs below with respect to older
@@ -777,17 +697,13 @@ impl IdMap {
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut() {
             {
-                Self::assign_content_based_hunk_ids(
-                    uncommitted_file.short_id_hunk_assignments.iter_mut(),
-                )?;
+                Self::assign_content_based_hunk_ids(uncommitted_file.short_id_hunks.iter_mut())?;
             }
 
-            for (hunk_id, hunk_assignment) in &uncommitted_file.short_id_hunk_assignments {
+            for (hunk_id, hunk) in &uncommitted_file.short_id_hunks {
                 uncommitted_hunks.insert(
                     format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
-                    UncommittedHunk {
-                        hunk_assignment: hunk_assignment.clone(),
-                    },
+                    UncommittedHunk { hunk: hunk.clone() },
                 );
             }
         }
@@ -842,12 +758,12 @@ impl IdMap {
     ///
     /// Note that hunks that lack a diff follow the same rules, only that `<prefix>="q"` always.
     fn assign_content_based_hunk_ids<'a>(
-        short_ids_and_hunks: impl Iterator<Item = &'a mut (UnqualifiedHunkId, WorktreeHunk)>,
+        short_ids_and_hunks: impl Iterator<Item = &'a mut (UnqualifiedHunkId, but_core::SingleHunk)>,
     ) -> anyhow::Result<()> {
         let mut content_hash_to_short_ids: BTreeMap<String, Vec<&'a mut UnqualifiedHunkId>> =
             BTreeMap::new();
-        for (hunk_id, hunk_assignment) in short_ids_and_hunks {
-            let content_hash = match hunk_assignment.diff.as_ref() {
+        for (hunk_id, hunk) in short_ids_and_hunks {
+            let content_hash = match hunk.diff.as_ref() {
                 Some(diff) => {
                     let mut content_hasher = hasher(gix::hash::Kind::Sha1);
                     for line in diff
@@ -907,12 +823,9 @@ impl IdMap {
     // TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
     // Use `new_from_context` instead - it takes `perm`, and forces you to think about repository locks
     // in the light of mutations.
-    pub fn legacy_new_from_context(
-        ctx: &Context,
-        assignments: Option<Vec<HunkAssignment>>,
-    ) -> anyhow::Result<Self> {
+    pub fn legacy_new_from_context(ctx: &Context) -> anyhow::Result<Self> {
         let guard = ctx.shared_worktree_access();
-        Self::new_from_context(ctx, assignments, guard.read_permission())
+        Self::new_from_context(ctx, guard.read_permission())
     }
 
     ///
@@ -921,28 +834,14 @@ impl IdMap {
     ///
     /// # NOTE: claims a read-only workspace lock!
     /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
-    pub fn new_from_context(
-        ctx: &Context,
-        assignments: Option<Vec<HunkAssignment>>,
-        perm: &RepoShared,
-    ) -> anyhow::Result<Self> {
+    pub fn new_from_context(ctx: &Context, perm: &RepoShared) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+        // The database handle is bound to `_` so that it is dropped right away: hunks are
+        // derived from the diff alone, and holding it would block `Context` accessors that
+        // need the cache.
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-        let hunk_assignments = match assignments {
-            Some(assignments) => assignments,
-            None => {
-                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-                let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-                    db.hunk_assignments_mut()?,
-                    &repo,
-                    &ws,
-                    Some(changes),
-                    context_lines,
-                )?;
-                assignments
-            }
-        };
+        let hunks = but_core::worktree_hunks(&repo, context_lines)?;
 
         let commit_ids = ws
             .stacks
@@ -972,7 +871,7 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), hunk_assignments, commit_id_to_change_id)
+        Self::new(ws.stacks.clone(), hunks, commit_id_to_change_id)
     }
 }
 
@@ -982,12 +881,12 @@ impl IdMap {
     fn parse_uncommitted_filename<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
-            let hunk_assignments = uncommitted_file.hunk_assignments();
-            let hunk_assignment = hunk_assignments.first();
+            let hunks = uncommitted_file.hunks();
+            let hunk = hunks.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk_assignment.1.path_bytes == element.as_bytes() {
+            if hunk.1.path == element.as_bytes() {
                 matches.push(Box::new(uncommitted_file));
             }
         }
@@ -995,24 +894,24 @@ impl IdMap {
     }
 
     fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
-        let mut hunk_assignments = Vec::new();
+        let mut hunks = Vec::new();
         for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
-            let hunk_assignment = &uncommitted_hunk.hunk_assignment;
-            if hunk_assignment.path_bytes.starts_with(element.as_bytes()) {
-                hunk_assignments.push(IdAndHunk {
+            let hunk = &uncommitted_hunk.hunk;
+            if hunk.path.starts_with(element.as_bytes()) {
+                hunks.push(IdAndHunk {
                     id: short_id.to_owned(),
-                    hunk: hunk_assignment.to_owned(),
+                    hunk: hunk.to_owned(),
                 });
             }
         }
-        hunk_assignments.sort_by(|a, b| a.hunk.path_bytes.cmp(&b.hunk.path_bytes));
-        let Some(hunk_assignments) = NonEmpty::from_vec(hunk_assignments) else {
+        hunks.sort_by(|a, b| a.hunk.path.cmp(&b.hunk.path));
+        let Some(hunks) = NonEmpty::from_vec(hunks) else {
             return vec![];
         };
         vec![Box::new(Leaf {
             cli_id: CliId::PathPrefix {
                 id: element.to_string(),
-                hunk_assignments,
+                hunks,
             },
         })]
     }
@@ -1455,13 +1354,13 @@ pub struct IdAndHunk {
     /// The full CLI selector, including both the file and hunk IDs.
     pub id: ShortId,
     /// The worktree hunk identified by `id`.
-    pub hunk: WorktreeHunk,
+    pub hunk: but_core::SingleHunk,
 }
 
 impl PartialEq for IdAndHunk {
     fn eq(&self, other: &Self) -> bool {
         let Self { id: _, hunk } = self;
-        hunk == &other.hunk
+        hunk.identifies_same_hunk(&other.hunk)
     }
 }
 
@@ -1470,8 +1369,8 @@ impl PartialEq for IdAndHunk {
 pub struct UncommittedHunkOrFile {
     /// The short CLI ID for this file (typically 2 characters)
     pub id: ShortId,
-    /// The hunk assignments
-    pub hunk_assignments: NonEmpty<IdAndHunk>,
+    /// The hunks
+    pub hunks: NonEmpty<IdAndHunk>,
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
@@ -1480,15 +1379,15 @@ pub struct UncommittedHunkOrFile {
 impl PartialEq for UncommittedHunkOrFile {
     fn eq(&self, other: &Self) -> bool {
         let Self {
-            hunk_assignments,
+            hunks,
             is_entire_file,
-            // Intentionally dont compare the short id since it depends on what other hunks exist
+            // Intentionally don't compare the short id since it depends on what other hunks exist
             // and thus doesn't change the identity of this hunk specifically.
             //
             // `fn synthetic_hunk` relies on this.
             id: _,
         } = self;
-        hunk_assignments == &other.hunk_assignments && *is_entire_file == other.is_entire_file
+        *is_entire_file == other.is_entire_file && hunks == &other.hunks
     }
 }
 
@@ -1496,7 +1395,7 @@ impl UncommittedHunkOrFile {
     /// Describes self.
     pub fn describe(&self) -> String {
         let hunk_cardinality = if self.is_entire_file {
-            if self.hunk_assignments.len() == 1 {
+            if self.hunks.len() == 1 {
                 "the only hunk"
             } else {
                 "all hunks"
@@ -1504,10 +1403,9 @@ impl UncommittedHunkOrFile {
         } else {
             "a hunk"
         };
-        let assignment = "the uncommitted area";
         format!(
-            "{hunk_cardinality} in {} in {assignment}",
-            self.hunk_assignments.first().hunk.path_bytes,
+            "{hunk_cardinality} in {} in the uncommitted area",
+            self.hunks.first().hunk.path,
         )
     }
 }
@@ -1528,7 +1426,7 @@ pub enum CliId {
         /// The ID as given by the user
         id: ShortId,
         /// The hunk assignments with their associated short IDs
-        hunk_assignments: NonEmpty<IdAndHunk>,
+        hunks: NonEmpty<IdAndHunk>,
     },
     /// A file that exists in a commit.
     CommittedFile {
@@ -1643,36 +1541,34 @@ impl CliId {
 pub struct UncommittedFile {
     /// The shortest ID that can be used to unambiguously refer to this file.
     pub short_id: ShortId,
-    /// Every element has the same [`HunkAssignment::path_bytes`] so the first assignment can be used
+    /// Every element has the same [`but_core::SingleHunk::path`] so the first hunk can be used
     /// to obtain it.
-    short_id_hunk_assignments: NonEmpty<(UnqualifiedHunkId, WorktreeHunk)>,
+    short_id_hunks: NonEmpty<(UnqualifiedHunkId, but_core::SingleHunk)>,
 }
 
 impl UncommittedFile {
     /// The path of the uncommitted file.
     pub fn path(&self) -> &BStr {
-        self.hunk_assignments().first().1.path_bytes.as_ref()
+        self.hunks().first().1.path.as_ref()
     }
 
     /// Turn this instance into a [CliId].
     pub fn to_id(&self) -> CliId {
         CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-            hunk_assignments: self
-                .hunk_assignments()
-                .map(|(hunk_id, hunk_assignment)| IdAndHunk {
-                    id: format!("{}:{hunk_id}", self.short_id),
-                    hunk: hunk_assignment.to_owned(),
-                }),
+            hunks: self.hunks().map(|(hunk_id, hunk)| IdAndHunk {
+                id: format!("{}:{hunk_id}", self.short_id),
+                hunk: hunk.to_owned(),
+            }),
             id: self.short_id.clone(),
             is_entire_file: true,
         })
     }
 
-    /// Hunk assignments paired with hunk IDs that are not qualified by the file ID.
-    pub fn hunk_assignments(&self) -> NonEmpty<(String, &WorktreeHunk)> {
-        self.short_id_hunk_assignments
+    /// The hunks of this file, paired with hunk IDs that are not qualified by the file ID.
+    pub fn hunks(&self) -> NonEmpty<(String, &but_core::SingleHunk)> {
+        self.short_id_hunks
             .as_ref()
-            .map(|(short_id, hunk_assignment)| (short_id.short_id(), hunk_assignment))
+            .map(|(short_id, hunk)| (short_id.short_id(), hunk))
     }
 }
 
@@ -1685,14 +1581,13 @@ impl<'a> Node<'a> for &'a UncommittedFile {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         match element.strip_prefix(INDEX_SEPARATOR) {
             Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
-                if let Some((hunk_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
-                {
+                if let Some((hunk_id, hunk)) = self.short_id_hunks.get(index) {
                     let id = format!("{}:{}", self.short_id, hunk_id.short_id());
                     let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
                         id: id.clone(),
-                        hunk_assignments: NonEmpty::new(IdAndHunk {
+                        hunks: NonEmpty::new(IdAndHunk {
                             id,
-                            hunk: hunk_assignment.to_owned(),
+                            hunk: hunk.to_owned(),
                         }),
                         is_entire_file: false,
                     });
@@ -1703,16 +1598,16 @@ impl<'a> Node<'a> for &'a UncommittedFile {
             }
             _ => {
                 let matches = self
-                    .short_id_hunk_assignments
+                    .short_id_hunks
                     .iter()
                     .filter(|(hunk_id, _)| hunk_id.matches_prefix(element))
-                    .map(|(hunk_id, hunk_assignment)| {
+                    .map(|(hunk_id, hunk)| {
                         let id = format!("{}:{}", self.short_id, hunk_id.short_id());
                         let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
                             id: id.clone(),
-                            hunk_assignments: NonEmpty::new(IdAndHunk {
+                            hunks: NonEmpty::new(IdAndHunk {
                                 id: id.clone(),
-                                hunk: hunk_assignment.to_owned(),
+                                hunk: hunk.to_owned(),
                             }),
                             is_entire_file: false,
                         });
@@ -1737,7 +1632,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
 #[derive(Debug)]
 pub struct UncommittedHunk {
     /// The hunk assignment.
-    pub hunk_assignment: WorktreeHunk,
+    pub hunk: but_core::SingleHunk,
 }
 
 impl<'a> Node<'a> for &'a UncommittedHunk {
@@ -1757,9 +1652,9 @@ impl<'a> Node<'a> for &'a UncommittedHunk {
     ) -> anyhow::Result<Option<CliId>> {
         Ok(Some(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
             id: short_id.to_owned(),
-            hunk_assignments: NonEmpty::new(IdAndHunk {
+            hunks: NonEmpty::new(IdAndHunk {
                 id: short_id.to_owned(),
-                hunk: self.hunk_assignment.clone(),
+                hunk: self.hunk.clone(),
             }),
             is_entire_file: false,
         })))

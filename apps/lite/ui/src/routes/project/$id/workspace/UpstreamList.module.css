@@ -1,0 +1,112 @@
+.container {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	background-color: var(--bg-2);
+}
+
+.listArea {
+	flex-grow: 1;
+}
+
+.list {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
+}
+
+.heading {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	color: var(--text-2);
+}
+
+/* The tree holds only the commit group, so the heading and empty-state message
+   above it stay out of the ARIA tree. */
+.tree {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+
+	&:focus {
+		/* The focus state is displayed on the item row instead. */
+		outline: none;
+	}
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	padding: 6px;
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-card);
+}
+
+.label {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.labelMeta {
+	display: flex;
+	align-items: center;
+	/* Keeps an empty footer holding its line, so rows stay equal height. */
+	min-height: 20px;
+	gap: 8px;
+}
+
+.labelMetaItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Target history flows bare on the panel background; the inset keeps its
+   rows aligned with the contents of the branch cards. */
+.commitRun {
+	display: flex;
+	flex-direction: column;
+	padding-inline: 6px;
+}
+
+.expanderRow {
+	padding-inline-start: 12px;
+	padding-block: 2px;
+	border: none;
+	background: none;
+	color: inherit;
+	text-align: start;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
+
+	&:disabled {
+		cursor: default;
+	}
+}
+
+.statePill {
+	flex-shrink: 0;
+	align-self: center;
+	white-space: nowrap;
+}
+
+.footer {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
+}
+
+.footerText {
+	color: var(--text-2);
+}

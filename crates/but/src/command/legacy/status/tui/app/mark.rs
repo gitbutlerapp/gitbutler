@@ -170,6 +170,17 @@ impl<'a> MarksRef<'a> {
         matches!(self, Self::Empty)
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn len(self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::Hunks { head: _, tail } => 1 + tail.len(),
+            Self::Commits { head: _, tail } => 1 + tail.len(),
+            Self::CommittedFiles { head: _, tail } => 1 + tail.len(),
+            Self::Branches { head: _, tail } => 1 + tail.len(),
+        }
+    }
+
     pub fn contains_cli_id(self, cli_id: &CliId) -> bool {
         match self {
             MarksRef::Empty => false,
@@ -290,11 +301,11 @@ impl<'a> MarksRef<'a> {
 pub fn hunk_is_child_of(parent: &UncommittedHunkOrFile, child: &UncommittedHunkOrFile) -> bool {
     parent.is_entire_file
         && !child.is_entire_file
-        && child.hunk_assignments.iter().any(|child_assignment| {
+        && child.hunks.iter().any(|child_hunk| {
             parent
-                .hunk_assignments
+                .hunks
                 .iter()
-                .any(|parent_assignment| parent_assignment == child_assignment)
+                .any(|parent_hunk| parent_hunk.hunk.identifies_same_hunk(&child_hunk.hunk))
         })
 }
 
@@ -779,7 +790,7 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
 // insert those into the mark store, when marking the parent. The detail view does the inverse when
 // marking a child hunk.
 //
-// This relies on the fact that `UncommittedHunkOrFile::eq` just uses `hunk_assignments` and
+// This relies on the fact that `UncommittedHunkOrFile::eq` just uses `hunks` and
 // `is_entire_file` and _not_ `id`. So we're free to invent a fake id for our synthetic hunk and
 // it'll still match the real hunk and which will then appear marked. This check is made by the
 // rendering when deciding to show the checkmark or not.
@@ -789,12 +800,12 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
 fn synthetic_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<IdAndHunk>,
+    hunks: NonEmpty<IdAndHunk>,
     is_entire_file: bool,
 ) -> UncommittedHunkOrFile {
     UncommittedHunkOrFile {
         id: format!("{base_id}:synthetic-id-{idx}"),
-        hunk_assignments,
+        hunks,
         is_entire_file,
     }
 }
@@ -802,17 +813,17 @@ fn synthetic_hunk(
 pub fn synthetic_parent_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<IdAndHunk>,
+    hunks: NonEmpty<IdAndHunk>,
 ) -> UncommittedHunkOrFile {
-    synthetic_hunk(base_id, idx, hunk_assignments, true)
+    synthetic_hunk(base_id, idx, hunks, true)
 }
 
 pub fn synthetic_child_hunk(
     base_id: &str,
     idx: usize,
-    hunk_assignments: NonEmpty<IdAndHunk>,
+    hunks: NonEmpty<IdAndHunk>,
 ) -> UncommittedHunkOrFile {
-    synthetic_hunk(base_id, idx, hunk_assignments, false)
+    synthetic_hunk(base_id, idx, hunks, false)
 }
 
 fn handle_mark_uncommitted(
@@ -910,9 +921,8 @@ fn propagate_marks_from_parent_to_children(
             continue;
         }
 
-        for (idx, hunk_assignment) in hunk.hunk_assignments.iter().enumerate() {
-            let child_hunk =
-                synthetic_child_hunk(&hunk.id, idx, NonEmpty::new(hunk_assignment.clone()));
+        for (idx, child) in hunk.hunks.iter().enumerate() {
+            let child_hunk = synthetic_child_hunk(&hunk.id, idx, NonEmpty::new(child.clone()));
             match outcome {
                 ToggleMarkablesOutcome::Marked => marks.insert_mark(child_hunk)?,
                 ToggleMarkablesOutcome::Unmarked => marks.remove_mark(&child_hunk),

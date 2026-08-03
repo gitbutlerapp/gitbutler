@@ -17,9 +17,10 @@ use crate::{
             output::StatusOutputLineData,
             tui::{
                 App, Message, Mode, ReloadCause, SelectAfterReload,
+                graph_extension::ExtensionDirection,
                 render::{
-                    ModeRender, RenderSingleLineSpans, render_move_operation_target_marker,
-                    source_span,
+                    ModeRender, OperationExtension, RenderSingleLineSpans,
+                    render_move_operation_target_marker, source_span,
                 },
             },
         },
@@ -51,6 +52,39 @@ enum MoveTarget<'a> {
 }
 
 impl ModeRender for MoveMode {
+    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
+        if let StatusOutputLineData::Commit { cli_id: target, .. } = data
+            && !self.source.contains(target)
+        {
+            Some(OperationExtension::Move {
+                mode: self,
+                direction: self.insert_side.into(),
+            })
+        } else if let StatusOutputLineData::Branch { cli_id: target, .. } = data
+            && !self.source.contains(target)
+        {
+            let source_is_commit = match &*self.source {
+                MoveSource::Marks(..) | MoveSource::Commit { .. } => true,
+                MoveSource::Branch(..) => false,
+            };
+            Some(OperationExtension::Move {
+                mode: self,
+                direction: if source_is_commit {
+                    ExtensionDirection::Below
+                } else {
+                    ExtensionDirection::Above
+                },
+            })
+        } else if let StatusOutputLineData::MergeBase = data {
+            Some(OperationExtension::Move {
+                mode: self,
+                direction: ExtensionDirection::Above,
+            })
+        } else {
+            None
+        }
+    }
+
     fn render_operation_target_marker(
         &self,
         app: &App,
@@ -60,7 +94,6 @@ impl ModeRender for MoveMode {
         if data
             .cli_id()
             .is_some_and(|target| self.source.contains(target))
-            || matches!(data, StatusOutputLineData::MergeBase)
         {
             render_move_operation_target_marker(app, data, self, line);
         }

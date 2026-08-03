@@ -149,11 +149,15 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
 /** See [`changes_in_worktree_with_perm()`]. */
-export declare function changesInWorktree(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
+export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
  * This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
  * the user interface as it is right now. From here, it's always possible to add more information as the need arises.
+ *
+ * `changes_source` selects the checkout to inspect. Reading a linked worktree
+ * requires the `worktreeManipulation` feature flag and an active worktree, see
+ * `worktrees::open_changes_source()`.
  *
  * ### Notable Transformations
  * * There is no notion of an index (`.git/index`) - all changes seem to have happened in the worktree.
@@ -165,12 +169,15 @@ export declare function changesInWorktree(projectId: string, computeDepsAndAssig
  * When dependency and assignment computation is turned off, hunk assignments and dependencies
  * are not computed at all: `assignments` is empty and there are no `dependencies`.
  *
+ * A linked worktree is not part of the workspace, so it has neither - the flag is
+ * ignored for it, and nothing is persisted.
+ *
  * For lower-level implementation details, see
  * [`but_core::diff::worktree_changes()`],
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  */
-export declare function changesInWorktreeWithPerm(projectId: string, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
+export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
  * Archive the comment with the given `id`, hiding it from all future listings.
@@ -677,6 +684,31 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
+
+/**
+ * List the target branch's first-parent commits from its tip down to the
+ * workspace lower bound, ordered from newest to oldest.
+ *
+ * Commits flagged as in the workspace are already reachable from it; the
+ * remaining prefix is what an upstream integration would bring in. The
+ * in-workspace tail runs to the fork point shared by all workspace stacks,
+ * so clients can position each stack against the target history. The
+ * first-parent walk shows a merge as a single commit rather than everything
+ * it merged. The list is empty when the workspace has no target reference.
+ *
+ * With `from`, the walk instead continues past the end of a previous
+ * response: it starts below the given commit and returns up to `limit`
+ * commits, allowing clients to page through target history older than the
+ * workspace's fork point.
+ *
+ * Each commit is enriched with the cached merged review (PR/MR) it landed,
+ * when the forge cache recorded that commit as the review's integration
+ * commit. This covers merge, squash, and rebase integrations to the extent
+ * the forge reports them; it reads only the local cache and performs no
+ * network requests or diffs, and enrichment failures degrade to unannotated
+ * commits.
+ */
+export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -821,9 +853,9 @@ export type AbsorptionTarget = {
     branchName: string;
   };
 } | {
-  type: "hunkAssignments";
+  type: "hunks";
   subject: {
-    assignments: Array<HunkAssignment>;
+    hunks: Array<SingleHunk>;
   };
 } | {
   type: "treeChanges";
@@ -1365,7 +1397,7 @@ export type CommitAbsorption = {
   stackId: string;
   commitId: string;
   commitSummary: string;
-  files: Array<FileAbsorption>;
+  hunks: Array<SingleHunk>;
   reason: AbsorptionReason;
 };
 
@@ -1697,12 +1729,6 @@ export type Fetch = {
 /** Update request for [`crate::app_settings::Fetch`]. */
 export type FetchUpdate = {
   autoFetchIntervalMinutes?: number | null;
-};
-
-/** Information about a file being absorbed */
-export type FileAbsorption = {
-  path: string;
-  assignment: HunkAssignment;
 };
 
 export type ForgeCapabilities = {
@@ -2819,6 +2845,24 @@ export type SerdeError = {
   source: any | null;
 };
 
+/**
+ * A single hunk of an uncommitted change, identified by its `path` and `hunk_header`.
+ *
+ * Unlike `but_hunk_assignment::HunkAssignment` this carries no assignment state. It is a
+ * pure function of the diff, so it needs no database and is meaningful in any checkout.
+ */
+export type SingleHunk = {
+  /**
+   * The hunk within `path`.
+   *
+   * `None` for binary files, files too large to diff, and whole-file changes, where
+   * `path` is the only identity.
+   */
+  hunkHeader: HunkHeader | null;
+  /** The worktree-relative path of the file this hunk belongs to. */
+  pathBytes: Array<number>;
+};
+
 export type Snapshot = {
   commitId: string;
   createdAt: number;
@@ -2943,6 +2987,49 @@ export type Target = {
   remoteTrackingRef: RemoteTrackingReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
+};
+
+/** JSON transport type for a commit on the target branch's first-parent line. */
+export type TargetCommit = {
+  /** The commit itself. */
+  commit: UpstreamCommit;
+  /** The merged review this commit integrated, if the forge cache knows it. */
+  review: TargetCommitReview | null;
+  /** Whether the commit is already reachable from the workspace. */
+  inWorkspace: boolean;
+};
+
+/** A bounded page from the target branch's first-parent history. */
+export type TargetCommitPage = {
+  /** The commits in this page, newest first. */
+  commits: Array<TargetCommit>;
+  /** Whether the relative walk was clipped before its natural bound. */
+  hasMore: boolean;
+};
+
+/**
+ * JSON transport type for the cached merged review attached to a
+ * target commit.
+ *
+ * Only what the target-commit listing displays; the full review is
+ * available from the per-review APIs. `sourceBranch` is included so
+ * clients can match workspace branches to the commit that landed them.
+ */
+export type TargetCommitReview = {
+  /** The number identifying the review within its repository, e.g. `123`. */
+  number: number;
+  /** The title of the review. */
+  title: string;
+  /** The URL to view the review in a web browser. */
+  htmlUrl: string;
+  /**
+   * The forge's symbol for this review type, e.g. `#` for GitHub pull
+   * requests and `!` for GitLab merge requests. Precedes `number` when
+   * displayed.
+   */
+  unitSymbol: string;
+  /** The short name of the branch the review proposed, e.g. `feature-branch`. */
+  sourceBranch: string;
 };
 
 export type TelemetrySettings = {

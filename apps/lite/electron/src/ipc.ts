@@ -40,6 +40,7 @@ import type {
 	RepoInfo,
 	TreeChange,
 	TreeChanges,
+	TargetCommitPage,
 	CommitCreateResult,
 	CommitDiscardResult,
 	CommitInsertBlankResult,
@@ -371,6 +372,13 @@ export interface WorkspaceIntegrateUpstreamParams {
 	dryRun: boolean;
 }
 
+export interface WorkspaceTargetCommitsParams {
+	projectId: string;
+	/** Continue the listing below this commit; `null` starts from the target tip. */
+	from: string | null;
+	limit: number | null;
+}
+
 export interface WorkspaceFetchFromRemotesParams {
 	projectId: string;
 	action: string | null;
@@ -514,6 +522,7 @@ export interface LiteElectronApi {
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
 	workspaceFetchFromRemotes: (params: WorkspaceFetchFromRemotesParams) => Promise<void>;
 	workspaceFetchStatus: (projectId: string) => Promise<WorkspaceFetchStatus>;
+	workspaceTargetCommits: (params: WorkspaceTargetCommitsParams) => Promise<TargetCommitPage>;
 	workspaceIntegrateUpstream: (
 		params: WorkspaceIntegrateUpstreamParams,
 	) => Promise<WorkspaceIntegrateUpstreamOutcome>;
@@ -604,6 +613,7 @@ export const liteIpcChannels = {
 	unapplyStack: "workspace:unapply-stack",
 	workspaceFetchFromRemotes: "workspace:fetch-from-remotes",
 	workspaceFetchStatus: "workspace:fetch-status",
+	workspaceTargetCommits: "workspace:target-commits",
 	workspaceIntegrateUpstream: "workspace:integrate-upstream",
 	updateReviewFooters: "workspace:update-review-footers",
 	warmCiChecksCache: "workspace:warm-ci-checks-cache",

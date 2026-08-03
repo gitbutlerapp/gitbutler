@@ -61,3 +61,13 @@
 	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-blue);
 }
+
+/* Matches the graph's integrated commit color, so the pill and the glyphs
+   telling the same story share a hue. */
+.integrated {
+	background-color: var(
+		--badge-integrated-bg,
+		color-mix(in srgb, var(--commit-integrated) 18%, var(--bg-1))
+	);
+	color: var(--badge-integrated-fg, var(--commit-integrated));
+}

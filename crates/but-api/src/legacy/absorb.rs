@@ -5,8 +5,8 @@ use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
-    AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap, FileAbsorption,
-    GroupedChanges, HunkAssignment, convert_assignments_to_diff_specs,
+    AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap,
+    GroupedChanges, convert_hunks_to_diff_specs,
 };
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
@@ -73,13 +73,7 @@ pub fn absorb_with_perm(
     let context_lines = ctx.settings.context_lines;
 
     for absorption in absorption_plan {
-        let diff_specs = convert_assignments_to_diff_specs(
-            &absorption
-                .files
-                .iter()
-                .map(|f| f.assignment.clone())
-                .collect::<Vec<_>>(),
-        )?;
+        let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
         let outcome = commit_amend_only_impl(
             ctx,
@@ -126,13 +120,17 @@ pub fn absorption_plan_with_perm(
     target: AbsorptionTarget,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
-    let (assignments, dependencies) = match target {
+    let (candidates, dependencies) = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes =
-                crate::diff::changes_in_worktree_with_perm(ctx, true, perm.read_permission())?;
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
+                ctx,
+                ChangesSource::Head,
+                true,
+                perm.read_permission(),
+            )?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -152,66 +150,81 @@ pub fn absorption_plan_with_perm(
             let stack_id = stack.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?;
 
             // Filter assignments to just this stack
-            let stack_assignments: Vec<_> = all_assignments
-                .iter()
+            let candidates: Vec<AbsorbCandidate> = all_assignments
+                .into_iter()
                 .filter(|a| a.stack_id == Some(stack_id))
-                .cloned()
+                .map(Into::into)
                 .collect();
 
-            if stack_assignments.is_empty() {
+            if candidates.is_empty() {
                 anyhow::bail!("No uncommitted changes assigned to branch: {branch_name}");
             }
 
-            (stack_assignments, dependencies)
+            (candidates, dependencies)
         }
         AbsorptionTarget::TreeChanges {
             changes,
             assigned_stack_id,
         } => {
             // Get all worktree changes, assignments, and dependencies
-            let worktree_changes =
-                crate::diff::changes_in_worktree_with_perm(ctx, true, perm.read_permission())?;
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
+                ctx,
+                ChangesSource::Head,
+                true,
+                perm.read_permission(),
+            )?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
             // Include hunks that are unassigned or assigned to the acting stack,
             // so that dependency locks can route unassigned hunks correctly.
-            let stack_assignments: Vec<_> = all_assignments
-                .iter()
+            let candidates: Vec<AbsorbCandidate> = all_assignments
+                .into_iter()
                 .filter(|a| {
                     changes.iter().any(|c| c.path_bytes == a.path_bytes)
                         && (a.stack_id.is_none() || a.stack_id == assigned_stack_id)
                 })
-                .cloned()
+                .map(Into::into)
                 .collect();
 
-            if stack_assignments.is_empty() {
+            if candidates.is_empty() {
                 anyhow::bail!("No uncommitted changes found for the selected files");
             }
 
-            (stack_assignments, dependencies)
+            (candidates, dependencies)
         }
-        AbsorptionTarget::HunkAssignments { assignments } => {
+        AbsorptionTarget::Hunks { hunks } => {
             // Compute hunk dependencies only for this target since changes_in_worktree isn't called
             let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
             let dependencies =
                 hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, None).ok();
             drop((repo, ws, _db));
-            (assignments, dependencies)
+            (hunks.into_iter().map(Into::into).collect(), dependencies)
         }
         AbsorptionTarget::All => {
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes =
-                crate::diff::changes_in_worktree_with_perm(ctx, true, perm.read_permission())?;
-            (worktree_changes.assignments, worktree_changes.dependencies)
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
+                ctx,
+                ChangesSource::Head,
+                true,
+                perm.read_permission(),
+            )?;
+            (
+                worktree_changes
+                    .assignments
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                worktree_changes.dependencies,
+            )
         }
     };
 
     // Group all changes by their target commit
     let changes_by_commit =
-        group_changes_by_target_commit(ctx, &assignments, dependencies.as_ref(), perm)?;
+        group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref(), perm)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
@@ -222,7 +235,7 @@ pub fn absorption_plan_with_perm(
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
     ctx: &mut Context,
-    assignments: &[HunkAssignment],
+    candidates: &[AbsorbCandidate],
     dependencies: Option<&HunkDependencies>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<GroupedChanges> {
@@ -230,19 +243,19 @@ fn group_changes_by_target_commit(
 
     let mut stack_details_cache = HashMap::<StackId, StackDetails>::new();
 
-    // Build an index for O(1) lock lookups per assignment
+    // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
 
-    // Process each assignment
-    for assignment in assignments {
-        // Determine the target commit for this assignment
+    // Process each candidate
+    for candidate in candidates {
+        // Determine the target commit for this candidate
         let locks = lock_index
             .as_ref()
-            .map(|idx| locks_for_assignment(idx, assignment))
+            .map(|idx| locks_for_candidate(idx, candidate))
             .filter(|l| !l.is_empty());
         let (stack_id, commit_id, reason) = ensure_target_commit(
             ctx,
-            assignment,
+            candidate,
             locks.as_deref(),
             &mut stack_details_cache,
             perm,
@@ -252,7 +265,7 @@ fn group_changes_by_target_commit(
             .entry((stack_id, commit_id))
             .or_insert_with(|| (Vec::new(), reason.clone()));
 
-        entry.0.push(assignment.clone());
+        entry.0.push(candidate.clone());
         // If we have any hunk dependencies, that takes precedence as the reason for this commit group
         if reason == AbsorptionReason::HunkDependency {
             entry.1 = reason;
@@ -291,21 +304,23 @@ fn ranges_overlap(start_a: u32, lines_a: u32, start_b: u32, lines_b: u32) -> boo
     start_a < end_b && start_b < end_a
 }
 
-/// Look up the dependency locks for an assignment by finding dependency hunks
-/// whose ranges overlap with the assignment's hunk header.
+/// Look up the dependency locks for a candidate by finding dependency hunks
+/// whose ranges overlap with the candidate's hunk header.
 ///
-/// When the assignment has no hunk header (binary/too-large diffs), all locks
+/// When the candidate has no hunk header (binary/too-large diffs), all locks
 /// for the file are returned as a fallback.
-fn locks_for_assignment(index: &LockIndex, assignment: &HunkAssignment) -> Vec<HunkLock> {
-    let Some(file_entries) = index.get(&assignment.path) else {
+fn locks_for_candidate(index: &LockIndex, candidate: &AbsorbCandidate) -> Vec<HunkLock> {
+    // `HunkDependencies` keys its diffs by a lossily-decoded path, so match on the same
+    // lossy form. This borrows for the UTF-8 paths that make up practically all lookups.
+    let Some(file_entries) = index.get(candidate.hunk.path.to_str_lossy().as_ref()) else {
         return Vec::new();
     };
 
-    match assignment.hunk_header {
+    match candidate.hunk.hunk_header {
         Some(hunk_header) => {
             let mut locks = Vec::new();
             for (dep_hunk, dep_locks) in file_entries {
-                // Match on the new-file side: assignment hunks describe worktree
+                // Match on the new-file side: candidate hunks describe worktree
                 // state (new), and dependency hunks record which committed ranges
                 // they depend on.
                 if ranges_overlap(
@@ -380,11 +395,11 @@ fn find_target_branch<'a>(
         .or_else(|| stack_details.branch_details.first())
 }
 
-/// Determine the target commit for an assignment based on dependencies and assignments
+/// Determine the target commit for a candidate based on dependencies and assignments
 /// Create a blank one if needed.
 fn ensure_target_commit(
     ctx: &mut Context,
-    assignment: &HunkAssignment,
+    candidate: &AbsorbCandidate,
     locks: Option<&[HunkLock]>,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
     perm: &mut RepoExclusive,
@@ -402,14 +417,14 @@ fn ensure_target_commit(
         } else {
             anyhow::bail!(
                 "Failed to determine target commit for hunk absorption due to ambiguous dependencies in path: {}",
-                assignment.path
+                candidate.hunk.path
             );
         }
     }
 
-    // Priority 2: Use the assignment's stack ID if available
-    if let Some(stack_id) = assignment.stack_id {
-        let branch_ref = assignment.branch_ref_bytes.as_ref();
+    // Priority 2: Use the candidate's stack ID if available
+    if let Some(stack_id) = candidate.stack_id {
+        let branch_ref = candidate.branch_ref.as_ref();
 
         let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
         if let Some(branch) = find_target_branch(&stack_details, branch_ref)
@@ -478,7 +493,7 @@ fn ensure_target_commit(
 
     anyhow::bail!(
         "Unable to determine target commit for unassigned change: {}",
-        assignment.path
+        candidate.hunk.path
     );
 }
 
@@ -511,19 +526,16 @@ fn prepare_commit_absorptions(
             for branch in stack_details.branch_details.iter().rev() {
                 for commit in branch.commits.iter().rev() {
                     let key = (stack_id, commit.id);
-                    if let Some((assignments, reason)) = changes_by_commit.get(&key) {
-                        let mut files = Vec::new();
-                        for assignment in assignments {
-                            files.push(FileAbsorption {
-                                path: assignment.path.clone(),
-                                assignment: assignment.clone(),
-                            });
-                        }
+                    if let Some((candidates, reason)) = changes_by_commit.get(&key) {
+                        let hunks = candidates
+                            .iter()
+                            .map(|candidate| candidate.hunk.clone())
+                            .collect();
                         commit_absorptions.push(CommitAbsorption {
                             stack_id,
                             commit_id: commit.id,
                             commit_summary: get_commit_summary(&*ctx.repo.get()?, commit.id)?,
-                            files,
+                            hunks,
                             reason: reason.clone(),
                         });
                     }

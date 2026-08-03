@@ -344,3 +344,50 @@ fn marking_branches_shows_checkmark_in_the_right_place() {
     tui.input('j').assert_current_line_eq(str![["┊╭┄ g0 [A]"]]);
     tui.input(' ').assert_current_line_eq(str![["┊✔︎  g0 [A]"]]);
 }
+
+#[test]
+fn marks_cleared_when_closing_commit_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ')
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::ShowFileList])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_cleared_when_closing_commit_file_list_001.svg"
+        ]);
+    tui.input('f')
+        .assert_marks_count_eq(0)
+        .assert_backstack_eq([])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_cleared_when_closing_commit_file_list_002.svg"
+        ]);
+}
+
+#[test]
+fn marks_cleared_when_closing_global_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input(Shift('f'));
+    tui.input('j');
+    tui.input(' ')
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::ShowFileList])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_cleared_when_closing_global_file_list_001.svg"
+        ]);
+    tui.input('f')
+        .assert_marks_count_eq(0)
+        .assert_backstack_eq([])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_cleared_when_closing_global_file_list_002.svg"
+        ]);
+}
