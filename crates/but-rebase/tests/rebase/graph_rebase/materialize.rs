@@ -6,6 +6,7 @@ use but_testsupport::{
     StackState, git_status, graph_tree, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git,
 };
+use gix::prelude::ObjectIdExt;
 use snapbox::IntoData;
 
 use crate::{
@@ -761,6 +762,44 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
         linked_repo(&repo, "wt-detached")?.head_id()?.detach(),
         elsewhere,
         "the worktree keeps what someone else put there"
+    );
+    Ok(())
+}
+
+/// A second edit against the workspace a materialize left behind must not be rejected as a
+/// concurrent worktree change: nothing moved the worktree except the first edit itself.
+#[test]
+fn a_second_edit_reuses_the_workspace_a_materialize_refreshed() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        options_with_worktrees(&repo, &["wt", "wt-detached"])?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+
+    for message in ["middle rewritten once", "middle rewritten twice"] {
+        let old_middle = repo.rev_parse_single("middle")?.detach();
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut replacement = but_core::Commit::from_id(old_middle.attach(&repo))?;
+        replacement.message = message.into();
+        let replacement = repo.write_object(replacement.inner)?.detach();
+        let selector = editor.select_commit(old_middle)?;
+        editor.replace(selector, Step::new_pick(replacement))?;
+        editor
+            .rebase()?
+            .materialize(Default::default())
+            .with_context(|| format!("materializing {message:?}"))?;
+    }
+
+    let attached = linked_repo(&repo, "wt")?;
+    assert_eq!(
+        attached.head_id()?.detach(),
+        repo.rev_parse_single("middle")?.detach(),
+        "the worktree followed both rewrites"
     );
     Ok(())
 }
