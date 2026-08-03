@@ -88,7 +88,9 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
-            CliId::PathPrefix { id, hunks } => ResolvedCliIdArg::PathPrefix { id, hunks },
+            // The source is dropped because a path prefix is always the main
+            // worktree's, see `IdMap::parse_uncommitted_path_prefix`.
+            CliId::PathPrefix { id, hunks, .. } => ResolvedCliIdArg::PathPrefix { id, hunks },
             CliId::CommittedFile { committed_file, .. } => {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
@@ -194,7 +196,11 @@ impl CliIdArg {
         };
         match target {
             CliId::UncommittedHunkOrFile(uncommitted) => Ok(Some(vec![uncommitted])),
-            CliId::PathPrefix { id: _, hunks } => Ok(Some(
+            CliId::PathPrefix {
+                id: _,
+                hunks,
+                source,
+            } => Ok(Some(
                 hunks
                     .into_iter()
                     .map(|id_and_hunk| UncommittedHunkOrFile {
@@ -206,6 +212,7 @@ impl CliIdArg {
                         // PathPrefix. This should all be fixed at the level of resolving the
                         // PathPrefix rather than here, though.
                         is_entire_file: false,
+                        source: source.clone(),
                     })
                     .collect(),
             )),
@@ -501,6 +508,7 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                 if let CliId::PathPrefix {
                     id: rhs_id,
                     hunks: rhs_hunks,
+                    source: _,
                 } = other
                 {
                     return lhs_id == rhs_id && lhs_hunks == rhs_hunks;

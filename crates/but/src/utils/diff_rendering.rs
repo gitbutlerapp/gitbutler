@@ -30,7 +30,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
+    id::{ChangeSourceId, IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -594,7 +594,7 @@ pub fn render_uncommitted(
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk })) in
+    for (pos, (raw_id, cli_id, UncommittedHunk { hunk, source: _ })) in
         uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
@@ -627,8 +627,10 @@ pub fn render_uncommitted_hunk(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("hunk");
     let mut id_gen = id_gen.scoped(&hunk.id);
+    let source = hunk.source.clone();
     render_id_and_hunks(
         hunk.hunks.into_iter().collect(),
+        source,
         theme,
         &mut id_gen,
         options,
@@ -649,6 +651,8 @@ pub fn render_path_prefix(
     let mut id_gen = id_gen.scoped(id);
     render_id_and_hunks(
         hunks.into_iter().collect(),
+        // A path prefix only ever covers the main worktree.
+        ChangeSourceId::Head,
         theme,
         &mut id_gen,
         options,
@@ -658,6 +662,7 @@ pub fn render_path_prefix(
 
 fn render_id_and_hunks(
     mut hunks: Vec<IdAndHunk>,
+    source: ChangeSourceId,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
     options: Options,
@@ -691,6 +696,7 @@ fn render_id_and_hunks(
             id: raw_id.clone(),
             hunks: NonEmpty::new(id_and_hunk.clone()),
             is_entire_file: false,
+            source: source.clone(),
         }));
 
         render_hunk_path_header(
@@ -1255,7 +1261,7 @@ mod tests {
     };
     use crate::{
         CliId,
-        id::{IdAndHunk, UncommittedHunkOrFile},
+        id::{ChangeSourceId, IdAndHunk, UncommittedHunkOrFile},
         utils::string_interning::Strings,
     };
 
@@ -1291,6 +1297,7 @@ mod tests {
                 tail: vec![id_and_hunk("fi:a", "file.txt")],
             },
             is_entire_file: true,
+            source: ChangeSourceId::Head,
         };
         let mut id_gen = IdGen::new(Strings::default());
         let mut writer = CollectingWriter::default();
