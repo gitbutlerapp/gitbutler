@@ -1341,7 +1341,7 @@ export type Claude = {
  */
 export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
-/** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
+/** Commit that is part of a legacy stack branch and contains state derived in relation to it. */
 export type Commit = {
   /** The OID of the commit. */
   id: string;
@@ -2897,7 +2897,7 @@ export type StackDetails = {
 };
 
 /**
- * Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
+ * Represents a lightweight version of a legacy stack for listing.
  * NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
  */
 export type StackEntry = {
@@ -3297,3 +3297,4 @@ export type WorktreeChanges = {
   dependencies: HunkDependencies | null;
   dependenciesError: SerdeError | null;
 };
+
