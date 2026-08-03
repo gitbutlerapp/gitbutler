@@ -135,28 +135,18 @@ fn common_nybble_len(a: &[u8], b: &[u8]) -> usize {
     byte_len * 2 + extra_nybble
 }
 
-fn populate_commit_short_ids(stacks: &mut [StackWithId]) {
+/// Append the shortest unambiguous hash prefix to every short ID in `commits`.
+///
+/// All commits sharing a CLI ID namespace must come in one call - the prefix length is derived
+/// from each commit's neighbours in hash order, so one left out could later print a prefix that
+/// is no longer unique.
+pub(crate) fn populate_commit_short_ids(commits: Vec<(gix::ObjectId, &mut ShortId)>) {
     let mut commit_id_to_short_ids = BTreeMap::<gix::ObjectId, Vec<&mut ShortId>>::new();
-    for stack in stacks.iter_mut() {
-        for segment in stack.segments.iter_mut() {
-            let SegmentWithId {
-                workspace_commits,
-                remote_commits,
-                ..
-            } = segment;
-            for workspace_commit in workspace_commits.iter_mut() {
-                commit_id_to_short_ids
-                    .entry(workspace_commit.commit_id())
-                    .or_default()
-                    .push(&mut workspace_commit.short_id);
-            }
-            for remote_commit in remote_commits.iter_mut() {
-                commit_id_to_short_ids
-                    .entry(remote_commit.commit_id())
-                    .or_default()
-                    .push(&mut remote_commit.short_id);
-            }
-        }
+    for (commit_id, short_id) in commits {
+        commit_id_to_short_ids
+            .entry(commit_id)
+            .or_default()
+            .push(short_id);
     }
     // Ideally we would use BTreeMap cursors, but those are still experimental,
     // so convert to a Vec for now.
@@ -204,7 +194,8 @@ impl StacksInfo {
             &mut stacks_info.non_hex_used_short_ids,
             uncommitted_short_filenames,
         )?;
-        populate_commit_short_ids(&mut stacks_info.stacks);
+        // Commit short IDs are assigned by the caller, which also knows the linked worktrees'
+        // commits that share the same namespace.
         Ok(stacks_info)
     }
 }
