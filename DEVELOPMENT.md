@@ -94,8 +94,6 @@ Useful locations in the source tree:
     [Building on Windows](#building-on-windows) below for details (including
     `perl` for `openssl-sys`). If you already completed the desktop
     prerequisites in [The Basics](#the-basics), you already have the stricter setup.
-    If you already completed the desktop prerequisites in [The Basics](#the-basics) below,
-    you already have the stricter setup.
 
 ## The Basics
 
