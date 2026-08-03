@@ -12,10 +12,10 @@
   <rect x="10" y="352" width="80" height="18" fill="#0000AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
-    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;opacity:0.75;">zz</text>
-    <text x="58" y="24" style="fill:#CCCCCC;opacity:0.75;">[</text>
-    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;opacity:0.75;">uncommitted</text>
-    <text x="154" y="24" style="fill:#CCCCCC;opacity:0.75;">]</text>
+    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
+    <text x="58" y="24" style="fill:#CCCCCC;">[</text>
+    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;">uncommitted</text>
+    <text x="154" y="24" style="fill:#CCCCCC;">]</text>
     <text x="170 178 186" y="24" style="fill:#CCCCCC;opacity:0.75;">(no</text>
     <text x="202 210 218 226 234 242 250 258" y="24" style="fill:#CCCCCC;opacity:0.75;">changes)</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>

@@ -512,3 +512,41 @@ fn from_squash_mode_to_mode_mode() {
     tui.input('r')
         .assert_rendered_term_svg_eq(file!["snapshots/from_squash_mode_to_mode_mode_004.svg"]);
 }
+
+#[test]
+fn squash_branch_into_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('r')
+        .assert_rendered_term_svg_eq(file!["snapshots/squash_branch_into_uncommitted_001.svg"]);
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/squash_branch_into_uncommitted_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/squash_branch_into_uncommitted_003.svg"]);
+}
+
+#[test]
+fn squash_branch_into_uncommitted_ignores_use_target_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_branch_into_uncommitted_ignores_use_target_message_001.svg"
+    ]);
+    tui.input('u').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_branch_into_uncommitted_ignores_use_target_message_002.svg"
+    ]);
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/squash_branch_into_uncommitted_ignores_use_target_message_003.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squash_branch_into_uncommitted_ignores_use_target_message_004.svg"
+    ]);
+}
