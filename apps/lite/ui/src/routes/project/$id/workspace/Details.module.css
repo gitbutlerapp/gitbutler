@@ -11,7 +11,7 @@
 
 .headerWrap {
 	display: flex;
-	row-gap: 8px;
+	row-gap: 10px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline) 10px;
 	padding-block-start: var(--panel-padding-block);
