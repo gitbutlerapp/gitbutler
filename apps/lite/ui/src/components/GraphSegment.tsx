@@ -34,9 +34,9 @@ const commitGlyph = (
 
 const groupGlyph = (
 	<>
-		<path opacity="0.4" d="M8 0V7M8 21L8 28" stroke="currentColor" strokeWidth="1.5" />
+		<path opacity="0.4" d="M8 0V2.78571M8 17.0038V26" stroke="currentColor" strokeWidth="1.5" />
 		<path
-			d="M11.0862 12.1524C11.3502 11.6602 11.5 11.0976 11.5 10.5C11.5 8.567 9.933 7 8 7C6.067 7 4.5 8.567 4.5 10.5C4.5 11.0976 4.64977 11.6602 4.91382 12.1524M5 15.8038C4.68259 15.277 4.5 14.6598 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14C11.5 14.6598 11.3174 15.277 11 15.8038M11.5 17.5C11.5 19.433 9.933 21 8 21C6.067 21 4.5 19.433 4.5 17.5C4.5 15.567 6.067 14 8 14C9.933 14 11.5 15.567 11.5 17.5Z"
+			d="M11.0862 8.1524C11.3502 7.6602 11.5 7.0976 11.5 6.5C11.5 4.567 9.933 3 8 3C6.067 3 4.5 4.567 4.5 6.5C4.5 7.0976 4.64977 7.6602 4.91382 8.1524M5 11.8038C4.68259 11.277 4.5 10.6598 4.5 10C4.5 8.067 6.067 6.5 8 6.5C9.933 6.5 11.5 8.067 11.5 10C11.5 10.6598 11.3174 11.277 11 11.8038M11.5 13.5C11.5 15.433 9.933 17 8 17C6.067 17 4.5 15.433 4.5 13.5C4.5 11.567 6.067 10 8 10C9.933 10 11.5 11.567 11.5 13.5Z"
 			stroke="currentColor"
 			strokeWidth="1.5"
 		/>
@@ -68,8 +68,8 @@ interface GraphSegmentProps extends ComponentProps<"div"> {
 export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
 	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
-			className={styles.mainSegment}
-			viewBox="0 0 16 28"
+			className={classes(styles.mainSegment, glyph === "group" && styles.groupSegment)}
+			viewBox={glyph === "group" ? "0 0 16 26" : "0 0 16 28"}
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
