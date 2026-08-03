@@ -12,8 +12,9 @@ import styles from "./StackCard.module.css";
  * branches tab: a rounded, shadowed container holding an optional full-bleed
  * header above an inset body.
  *
- * The body is the ARIA group the tree items live in, so callers pass the outer
- * group's role and label as props and render only the items as children.
+ * The card itself is the ARIA group the tree items live in: callers pass its
+ * role and label as props and render only the items as children. The body is a
+ * plain layout wrapper, so that the group is not nested inside itself.
  */
 export const StackCard: FC<
 	{
@@ -28,10 +29,7 @@ export const StackCard: FC<
 	<div {...props} className={classes(props.className, styles.card)}>
 		{header}
 
-		{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
-		<div role="group" className={classes(bodyClassName, styles.body)}>
-			{children}
-		</div>
+		<div className={classes(bodyClassName, styles.body)}>{children}</div>
 	</div>
 );
 
