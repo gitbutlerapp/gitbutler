@@ -170,6 +170,17 @@ impl<'a> MarksRef<'a> {
         matches!(self, Self::Empty)
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn len(self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::Hunks { head: _, tail } => 1 + tail.len(),
+            Self::Commits { head: _, tail } => 1 + tail.len(),
+            Self::CommittedFiles { head: _, tail } => 1 + tail.len(),
+            Self::Branches { head: _, tail } => 1 + tail.len(),
+        }
+    }
+
     pub fn contains_cli_id(self, cli_id: &CliId) -> bool {
         match self {
             MarksRef::Empty => false,

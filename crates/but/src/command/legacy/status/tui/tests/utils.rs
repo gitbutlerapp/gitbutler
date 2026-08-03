@@ -229,4 +229,9 @@ impl TestTuiInputThenRenderResult<'_, App> {
         }
         self
     }
+
+    pub fn assert_marks_count_eq(self, count: usize) -> Self {
+        assert_eq!(self.app().marks_ref().len(), count);
+        self
+    }
 }
