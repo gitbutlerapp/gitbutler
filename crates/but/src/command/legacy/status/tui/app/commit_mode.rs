@@ -8,7 +8,7 @@ use nonempty::NonEmpty;
 use ratatui::{backend::Backend, prelude::Span};
 
 use crate::{
-    CliId,
+    CliError, CliId,
     command::legacy::{
         commit, reword2,
         status::{
@@ -27,6 +27,7 @@ use crate::{
     },
     id::UncommittedHunkOrFile,
     tui::TerminalGuard,
+    utils::change_source::UncommittedSelection,
     utils::targeting,
 };
 
@@ -139,7 +140,10 @@ impl CommitSource {
                 Some(CommitSource::Uncommitted)
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Worktree { .. }
+            | CliId::Stack { .. } => None,
         }
     }
 }
@@ -350,6 +354,7 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
@@ -397,6 +402,7 @@ impl App {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -472,11 +478,15 @@ where
     );
 
     let commit_selection = match &**source {
-        CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(hunks.clone())),
+        // Marks can span checkouts, so this is where that gets rejected.
+        CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
+            UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
+        )),
         CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
-        CommitSource::UncommittedHunk(hunk) => {
-            commit::CommitSelection::Changes(Box::new(NonEmpty::new(hunk.clone())))
-        }
+        CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
+            UncommittedSelection::new(NonEmpty::new(hunk.clone()))
+                .map_err(CliError::into_internal)?,
+        )),
     };
 
     let mut guard = ctx.exclusive_worktree_access();

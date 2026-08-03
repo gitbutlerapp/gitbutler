@@ -68,6 +68,7 @@ impl FileBrowser {
             | CliId::CommittedFile { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 

@@ -228,7 +228,9 @@ impl App {
                         },
                     )
                 }
-                CliId::Stack { .. } | CliId::PathPrefix { .. } => return Ok(()),
+                CliId::Stack { .. } | CliId::PathPrefix { .. } | CliId::Worktree { .. } => {
+                    return Ok(());
+                }
             },
         });
 

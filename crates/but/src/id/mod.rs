@@ -23,6 +23,7 @@ use crate::id::{
     uncommitted_info::UncommittedInfo,
 };
 use crate::theme;
+use crate::utils::change_source::{self, ChangeSourceId, SourceChanges};
 use crate::utils::get_change_id_for_commit;
 
 mod file_info;
@@ -113,16 +114,42 @@ impl UnqualifiedHunkId {
     }
 }
 
-/// Create a CLI ID for the given file.
-fn create_reverse_hex_id(path_bytes: &[u8]) -> anyhow::Result<ChangeId> {
+/// Create a CLI ID for the given file, as it exists in `source`.
+///
+/// Uncommitted IDs live in one flat namespace across every checkout, so the
+/// source has to be mixed in: the same path dirty in two linked worktrees must
+/// not hash to the same ID, or one of the two would shadow the other.
+///
+/// [`ChangeSourceId::Head`] contributes nothing to the hash, which keeps
+/// main-worktree IDs byte-identical to what they were before linked worktrees
+/// were given IDs at all.
+fn create_reverse_hex_id(source: &ChangeSourceId, path_bytes: &[u8]) -> anyhow::Result<ChangeId> {
     let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+    if let Some(worktree_name) = source.worktree_name() {
+        // The separator keeps worktree `ab` + path `c` distinct from `a` + `bc`.
+        hasher.update(worktree_name);
+        hasher.update(b"\0");
+    }
     hasher.update(path_bytes);
     let object_id = hasher.try_finalize()?;
     let mut change_id = ChangeId::from_bytes(object_id.as_bytes());
+    // Deliberately keyed off the path alone, so a file keeps its recognizable
+    // name-derived ID in every checkout; the hash tail still separates them.
     if path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
         change_id = change_id.prefixed_with(path_bytes.iter().copied());
     }
     Ok(change_id)
+}
+
+/// Create a CLI ID for the linked worktree named `name`.
+///
+/// Hashed in its own domain so a worktree never collides with a file that happens
+/// to be named after it.
+fn create_worktree_reverse_hex_id(name: &BStr) -> anyhow::Result<ChangeId> {
+    let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+    hasher.update(b"worktree\0");
+    hasher.update(name);
+    Ok(ChangeId::from_bytes(hasher.try_finalize()?.as_bytes()))
 }
 
 /// Assign short IDs to each `Some` entry such that they are unambiguous with respect to every other
@@ -195,7 +222,13 @@ fn short_ids_from_tree_changes(
     let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
     let mut short_ids: Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)> = Vec::new();
     for (path, changes) in changes {
-        short_ids.push((changes, create_reverse_hex_id(&path)?, ShortId::default()));
+        // Committed files are namespaced under their commit's ID, so they never
+        // compete with the uncommitted namespace and need no source of their own.
+        short_ids.push((
+            changes,
+            create_reverse_hex_id(&ChangeSourceId::Head, &path)?,
+            ShortId::default(),
+        ));
     }
     let mut reverse_hex_short_ids = BTreeMap::<ChangeId, Vec<_>>::new();
 
@@ -531,17 +564,9 @@ impl<'a> Node<'a> for &'a StackWithId {
         if element.ends_with('/') {
             return Ok(id_map.parse_uncommitted_path_prefix(element));
         }
-        for uncommitted_file in id_map.uncommitted_files.values() {
-            let hunks = uncommitted_file.hunks();
-            let hunk = hunks.first();
-            // TODO once the set of allowed CLI IDs is determined and the
-            // access patterns of `uncommitted_files` are known, change its data
-            // structure to be more efficient than the current linear search.
-            if hunk.1.path == element.as_bytes() {
-                return Ok(vec![Box::new(uncommitted_file)]);
-            }
-        }
-        Ok(Vec::new())
+        // A stack lives in the workspace, so only the main worktree's files are
+        // reachable through it.
+        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
     }
 
     fn to_cli_id(
@@ -586,6 +611,26 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
+    /// Maps full reverse hex IDs to the linked worktrees that have CLI IDs.
+    pub worktrees: BTreeMap<ChangeId, WorktreeWithId>,
+}
+
+/// A linked worktree with its short ID, naming that checkout's uncommitted area
+/// the way `zz` names the main worktree's.
+#[derive(Debug, Clone)]
+pub struct WorktreeWithId {
+    /// The short CLI ID for this worktree (typically 2 characters).
+    pub short_id: ShortId,
+    /// The stable worktree name, i.e. the directory name under
+    /// `$GIT_COMMON_DIR/worktrees/`.
+    pub name: BString,
+}
+
+impl WorktreeWithId {
+    /// The changes in this worktree, as a change source.
+    pub fn source(&self) -> ChangeSourceId {
+        ChangeSourceId::Worktree(self.name.clone())
+    }
 }
 
 fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
@@ -598,13 +643,19 @@ impl IdMap {
     /// files/hunks.
     pub fn new(
         stacks: Vec<Stack>,
-        hunks: Vec<but_core::SingleHunk>,
+        sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
     ) -> anyhow::Result<Self> {
+        // Taken before partitioning, which drops sources without changes: a clean
+        // worktree still gets an ID, so `but status` can list it and name it.
+        let worktree_names: Vec<BString> = sources
+            .iter()
+            .filter_map(|source| source.source.worktree_name().map(ToOwned::to_owned))
+            .collect();
         let UncommittedInfo {
             partitioned_hunks,
             uncommitted_short_filenames,
-        } = UncommittedInfo::from_hunks(hunks)?;
+        } = UncommittedInfo::from_sources(sources)?;
         let StacksInfo {
             mut stacks,
             mut id_usage,
@@ -616,9 +667,9 @@ impl IdMap {
         )?;
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
-        for hunks in partitioned_hunks {
+        for (source, hunks) in partitioned_hunks {
             let but_core::SingleHunk { path, .. } = hunks.first();
-            let reverse_hex = create_reverse_hex_id(path)?;
+            let reverse_hex = create_reverse_hex_id(&source, path)?;
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
@@ -629,6 +680,7 @@ impl IdMap {
             uncommitted_files.insert(
                 reverse_hex,
                 UncommittedFile {
+                    source,
                     short_id: ShortId::default(),
                     short_id_hunks: hunks.map(|hunk| (UnqualifiedHunkId::default(), hunk)),
                 },
@@ -637,6 +689,26 @@ impl IdMap {
             // versions of the GitButler CLI.
             id_usage.next_available()?;
         }
+
+        let mut worktrees: BTreeMap<ChangeId, WorktreeWithId> = BTreeMap::new();
+        for name in worktree_names {
+            let reverse_hex = create_worktree_reverse_hex_id(name.as_ref())?;
+            // Ensure that worktrees do not collide with CLI IDs generated after
+            if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
+                id_usage.mark_used(uint_id);
+            }
+            if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
+                id_usage.mark_used(uint_id);
+            }
+            worktrees.insert(
+                reverse_hex,
+                WorktreeWithId {
+                    short_id: ShortId::default(),
+                    name,
+                },
+            );
+        }
+
         let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = uncommitted_files
             .iter_mut()
             .flat_map(|(reverse_hex, uncommitted_file)| {
@@ -671,6 +743,12 @@ impl IdMap {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }
 
+        // Worktrees share the uncommitted namespace, so they disambiguate against
+        // files and commit change IDs like everything else in it.
+        for (reverse_hex, worktree) in worktrees.iter_mut() {
+            reverse_hex_short_ids.push((reverse_hex.clone(), Some(&mut worktree.short_id)));
+        }
+
         for change_id in stacks
             .iter_mut()
             .flat_map(|stack| stack.segments.iter_mut())
@@ -703,7 +781,10 @@ impl IdMap {
             for (hunk_id, hunk) in &uncommitted_file.short_id_hunks {
                 uncommitted_hunks.insert(
                     format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
-                    UncommittedHunk { hunk: hunk.clone() },
+                    UncommittedHunk {
+                        source: uncommitted_file.source.clone(),
+                        hunk: hunk.clone(),
+                    },
                 );
             }
         }
@@ -730,6 +811,7 @@ impl IdMap {
             },
             uncommitted_files,
             uncommitted_hunks,
+            worktrees,
         })
     }
 
@@ -836,12 +918,17 @@ impl IdMap {
     /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
     pub fn new_from_context(ctx: &Context, perm: &RepoShared) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
+        // Worktree state reconciles archived rows and thus needs the database, so it must
+        // be read before the handle below is borrowed.
+        let worktree_names = change_source::active_worktree_sources(ctx)?;
         // The database handle is bound to `_` so that it is dropped right away: hunks are
         // derived from the diff alone, and holding it would block `Context` accessors that
         // need the cache.
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-        let hunks = but_core::worktree_hunks(&repo, context_lines)?;
+        let head_changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+        let sources =
+            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
 
         let commit_ids = ws
             .stacks
@@ -871,14 +958,23 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), hunks, commit_id_to_change_id)
+        Self::new(ws.stacks.clone(), sources, commit_id_to_change_id)
     }
 }
 
 /// Private methods to individually parse what can appear on both side of a
 /// colon. (Some of them can also appear alone.)
 impl IdMap {
-    fn parse_uncommitted_filename<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+    /// The uncommitted files named `element`, restricted to `source` when given.
+    ///
+    /// Without a `source` this matches every checkout, so a path dirty in more
+    /// than one of them is reported as ambiguous rather than silently resolving
+    /// to whichever came first.
+    fn parse_uncommitted_filename<'a>(
+        &'a self,
+        element: &str,
+        source: Option<&ChangeSourceId>,
+    ) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
             let hunks = uncommitted_file.hunks();
@@ -886,18 +982,27 @@ impl IdMap {
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk.1.path == element.as_bytes() {
+            if hunk.1.path == element.as_bytes()
+                && source.is_none_or(|source| *source == uncommitted_file.source)
+            {
                 matches.push(Box::new(uncommitted_file));
             }
         }
         matches
     }
 
+    /// The main worktree's uncommitted hunks under the path prefix `element`.
+    ///
+    /// Deliberately restricted to [`ChangeSourceId::Head`], mirroring `zz`: a
+    /// prefix spanning several checkouts could never be committed in one go, as
+    /// an operation only ever reads changes from a single source.
     fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut hunks = Vec::new();
         for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
             let hunk = &uncommitted_hunk.hunk;
-            if hunk.path.starts_with(element.as_bytes()) {
+            if hunk.path.starts_with(element.as_bytes())
+                && uncommitted_hunk.source == ChangeSourceId::Head
+            {
                 hunks.push(IdAndHunk {
                     id: short_id.to_owned(),
                     hunk: hunk.to_owned(),
@@ -912,6 +1017,7 @@ impl IdMap {
             cli_id: CliId::PathPrefix {
                 id: element.to_string(),
                 hunks,
+                source: ChangeSourceId::Head,
             },
         })]
     }
@@ -931,6 +1037,25 @@ impl IdMap {
                 .stack_ids
                 .values()
                 .any(|id| matches!(id, CliId::Stack { id, .. } if id == element))
+    }
+
+    /// The linked worktree named exactly `element`, if any.
+    fn parse_worktree_name<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+        self.worktrees
+            .values()
+            .filter(|worktree| worktree.name == element)
+            .map(|worktree| Box::new(worktree) as Box<dyn Node<'a> + 'a>)
+            .collect()
+    }
+
+    /// All linked worktrees whose full reverse-hex ID starts with `element`.
+    fn worktree_id_prefix_matches<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+        let element_bstring = BString::from(element);
+        self.worktrees
+            .range(ChangeId::from(element_bstring.clone())..)
+            .take_while(|(reverse_hex, _)| reverse_hex.starts_with(&element_bstring))
+            .map(|(_, worktree)| Box::new(worktree) as Box<dyn Node<'a> + 'a>)
+            .collect()
     }
 
     /// All uncommitted files whose full reverse-hex ID starts with `element`.
@@ -996,7 +1121,12 @@ impl IdMap {
                 }
             }
         }
-        matches.extend(self.parse_uncommitted_filename(element));
+        // Unscoped: a path dirty in several checkouts matches all of them, and the
+        // caller reports the ambiguity so it can be resolved with a file ID.
+        matches.extend(self.parse_uncommitted_filename(element, None));
+        // A worktree names its own uncommitted area, so like `zz` it resolves in
+        // both scopes rather than only the full one.
+        matches.extend(self.parse_worktree_name(element));
 
         // The following match only if there have been no matches so far.
         if !matches.is_empty() {
@@ -1025,6 +1155,7 @@ impl IdMap {
                 return Ok(vec![]);
             }
             matches = self.uncommitted_file_id_prefix_matches(element);
+            matches.extend(self.worktree_id_prefix_matches(element));
         }
 
         Ok(matches)
@@ -1122,6 +1253,30 @@ impl IdMap {
     }
 }
 
+impl<'a> Node<'a> for &'a WorktreeWithId {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        // `<worktree>:<path>` is how a path that is dirty in several checkouts is
+        // narrowed down to one, mirroring `zz:<path>` for the main worktree.
+        Ok(id_map.parse_uncommitted_filename(element, Some(&self.source())))
+    }
+
+    fn to_cli_id(
+        self: Box<Self>,
+        _short_id: &str,
+        _id_map: &IdMap,
+    ) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Worktree {
+            id: self.short_id.clone(),
+            name: self.name.clone(),
+        }))
+    }
+}
+
 /// The `zz` uncommitted-area sentinel as a parse node: children are unstaged
 /// filenames, and by itself it resolves to [`CliId::Uncommitted`]. Shared by
 /// the full and the uncommitted-scoped element parsers so the sentinel cannot
@@ -1136,7 +1291,9 @@ impl<'a> Node<'a> for Unstaged {
         id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(id_map.parse_uncommitted_filename(element))
+        // `zz` means the main worktree, so `zz:<path>` must never reach into a
+        // linked worktree that happens to have the same path dirty.
+        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
     }
 
     fn to_cli_id(
@@ -1281,6 +1438,21 @@ impl IdMap {
         self.stack_ids.get(&stack_id)
     }
 
+    /// Every uncommitted file of `source`, as whole-file IDs.
+    ///
+    /// This is what a container selector expands to, so `but commit <worktree>`
+    /// means the same as naming each of that checkout's files.
+    pub fn uncommitted_files_in(&self, source: &ChangeSourceId) -> Vec<UncommittedHunkOrFile> {
+        self.uncommitted_files
+            .values()
+            .filter(|file| file.source == *source)
+            .filter_map(|file| match file.to_id() {
+                CliId::UncommittedHunkOrFile(uncommitted) => Some(uncommitted),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Returns the [`CliId::Uncommitted`] for the uncommitted area, which is useful as an
     /// ID for a destination of operations.
     ///
@@ -1344,6 +1516,7 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
             },
         ) => lhs_stack_id == rhs_stack_id,
         (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
+        (CliId::Worktree { name: l, .. }, CliId::Worktree { name: r, .. }) => l == r,
         _ => false,
     }
 }
@@ -1374,6 +1547,8 @@ pub struct UncommittedHunkOrFile {
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
+    /// The checkout these hunks were read from.
+    pub source: ChangeSourceId,
 }
 
 impl PartialEq for UncommittedHunkOrFile {
@@ -1381,13 +1556,17 @@ impl PartialEq for UncommittedHunkOrFile {
         let Self {
             hunks,
             is_entire_file,
+            // The source is part of the identity: the same hunk in two checkouts
+            // is two distinct changes, and treating them as one would let a
+            // selection silently span sources.
+            source,
             // Intentionally don't compare the short id since it depends on what other hunks exist
             // and thus doesn't change the identity of this hunk specifically.
             //
             // `fn synthetic_hunk` relies on this.
             id: _,
         } = self;
-        *is_entire_file == other.is_entire_file && hunks == &other.hunks
+        *is_entire_file == other.is_entire_file && hunks == &other.hunks && *source == other.source
     }
 }
 
@@ -1404,8 +1583,9 @@ impl UncommittedHunkOrFile {
             "a hunk"
         };
         format!(
-            "{hunk_cardinality} in {} in the uncommitted area",
+            "{hunk_cardinality} in {} in {}",
             self.hunks.first().hunk.path,
+            self.source.describe(),
         )
     }
 }
@@ -1427,6 +1607,11 @@ pub enum CliId {
         id: ShortId,
         /// The hunk assignments with their associated short IDs
         hunks: NonEmpty<IdAndHunk>,
+        /// The checkout these hunks were read from, always
+        /// [`ChangeSourceId::Head`]: a prefix spanning several checkouts could
+        /// never be committed in one go, so `IdMap` only ever matches one for
+        /// the main worktree.
+        source: ChangeSourceId,
     },
     /// A file that exists in a commit.
     CommittedFile {
@@ -1450,6 +1635,15 @@ pub enum CliId {
     Uncommitted {
         /// The CLI ID for the uncommitted area.
         id: ShortId,
+    },
+    /// A linked worktree, naming that checkout's uncommitted area the way
+    /// [`Self::Uncommitted`] names the main worktree's.
+    Worktree {
+        /// The short CLI ID for this worktree (typically 2 characters).
+        id: ShortId,
+        /// The stable worktree name, i.e. the directory name under
+        /// `$GIT_COMMON_DIR/worktrees/`.
+        name: BString,
     },
     /// A stack in the workspace.
     Stack {
@@ -1478,6 +1672,7 @@ impl PartialEq for CliId {
             (Self::Commit { commit: l, id: _ }, Self::Commit { commit: r, id: _ }) => l == r,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
+            (Self::Worktree { name: l, .. }, Self::Worktree { name: r, .. }) => l == r,
             _ => false,
         }
     }
@@ -1496,6 +1691,7 @@ impl CliId {
             CliId::Branch(..) => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
+            CliId::Worktree { .. } => "a worktree",
             CliId::Stack { .. } => "a stack",
         }
     }
@@ -1509,6 +1705,7 @@ impl CliId {
             | CliId::Branch(BranchId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
+            | CliId::Worktree { id, .. }
             | CliId::Uncommitted { id, .. } => id.clone(),
         }
     }
@@ -1522,6 +1719,7 @@ impl CliId {
             | CliId::UncommittedHunkOrFile(..)
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Uncommitted { .. } => None,
         }
     }
@@ -1541,6 +1739,8 @@ impl CliId {
 pub struct UncommittedFile {
     /// The shortest ID that can be used to unambiguously refer to this file.
     pub short_id: ShortId,
+    /// The checkout this file was read from.
+    pub source: ChangeSourceId,
     /// Every element has the same [`but_core::SingleHunk::path`] so the first hunk can be used
     /// to obtain it.
     short_id_hunks: NonEmpty<(UnqualifiedHunkId, but_core::SingleHunk)>,
@@ -1561,6 +1761,7 @@ impl UncommittedFile {
             }),
             id: self.short_id.clone(),
             is_entire_file: true,
+            source: self.source.clone(),
         })
     }
 
@@ -1590,6 +1791,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                             hunk: hunk.to_owned(),
                         }),
                         is_entire_file: false,
+                        source: self.source.clone(),
                     });
                     Ok(vec![Box::new(Leaf { cli_id })])
                 } else {
@@ -1610,6 +1812,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                                 hunk: hunk.to_owned(),
                             }),
                             is_entire_file: false,
+                            source: self.source.clone(),
                         });
                         Box::new(Leaf { cli_id }) as Box<dyn Node<'a> + 'a>
                     });
@@ -1633,6 +1836,8 @@ impl<'a> Node<'a> for &'a UncommittedFile {
 pub struct UncommittedHunk {
     /// The hunk assignment.
     pub hunk: but_core::SingleHunk,
+    /// The checkout this hunk was read from.
+    pub source: ChangeSourceId,
 }
 
 impl<'a> Node<'a> for &'a UncommittedHunk {
@@ -1657,6 +1862,7 @@ impl<'a> Node<'a> for &'a UncommittedHunk {
                 hunk: self.hunk.clone(),
             }),
             is_entire_file: false,
+            source: self.source.clone(),
         })))
     }
 }

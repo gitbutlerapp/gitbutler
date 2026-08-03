@@ -15,7 +15,7 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, CliResultExt, IdMap,
+    ChangeSourceId, CliError, CliId, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         commit::Platform,
@@ -30,7 +30,11 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, rejection, targeting::Side,
+        change_source::{ChangeSourceRepo, UncommittedSelection},
+        diff_specs::DiffSpecBuilder,
+        merged_upstream::MergedUpstream,
+        rejection,
+        targeting::Side,
     },
 };
 
@@ -179,7 +183,10 @@ fn resolve(
                 .hint("Run `but status` to show applicable targets")
                 .into());
         };
-        (guard, CommitSelection::Changes(Box::new(changes)))
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
     } else if interactive {
         let Some(mut inout) = out.prepare_for_terminal_input() else {
             return Err(bad_input("Terminal doesn't support interactivity").into());
@@ -210,7 +217,10 @@ fn resolve(
                 .hint("Pick changes by pressing space. Confirm with enter.")
                 .into());
         };
-        (guard, CommitSelection::Changes(Box::new(changes)))
+        (
+            guard,
+            CommitSelection::Changes(Box::new(UncommittedSelection::new(changes)?)),
+        )
     } else if empty {
         (guard, CommitSelection::Nothing)
     } else {
@@ -269,17 +279,22 @@ pub fn run(
     commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
 ) -> anyhow::Result<CommitOutcome> {
+    // Owned for the whole operation: the `ChangeSource` handed to the transaction
+    // below borrows from it.
+    let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+        // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
+        // from seeing a spec whose path is not among that checkout's changes.
+        let mut builder = DiffSpecBuilder::new(source_repo.repo(&repo), context_lines);
 
         match commit_selection {
             CommitSelection::AllChanges => {
                 builder.push_changes_from_uncommitted_area()?;
             }
-            CommitSelection::Changes(changes) => {
-                for change in *changes {
+            CommitSelection::Changes(selection) => {
+                for change in selection.into_changes() {
                     builder.push_changes_from_uncommitted(&change)?;
                 }
 
@@ -305,7 +320,7 @@ pub fn run(
                     rejected_specs,
                 },
                 branch_name,
-            ) = commit_op.execute(&mut tx, changes)?;
+            ) = commit_op.execute(&mut tx, changes, source_repo.as_change_source())?;
 
             if !rejected_specs.is_empty() {
                 return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -557,8 +572,20 @@ fn route_commit_above_or_below(
 
 pub enum CommitSelection {
     AllChanges,
-    Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
+    Changes(Box<UncommittedSelection>),
     Nothing,
+}
+
+impl CommitSelection {
+    /// The checkout these changes are read from.
+    fn source(&self) -> ChangeSourceId {
+        match self {
+            // Both mean "the main worktree": bare `but commit` commits its changes,
+            // and an empty commit reads none at all.
+            CommitSelection::AllChanges | CommitSelection::Nothing => ChangeSourceId::Head,
+            CommitSelection::Changes(selection) => selection.source().clone(),
+        }
+    }
 }
 
 pub enum CommitOperation {
@@ -592,10 +619,11 @@ impl CommitOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes),
-            CommitOperation::CommitAt(op) => op.execute(tx, changes),
+            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, source),
+            CommitOperation::CommitAt(op) => op.execute(tx, changes, source),
         }
     }
 }
@@ -609,6 +637,7 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let Self { branch_name } = self;
 
@@ -625,7 +654,7 @@ impl CommitToNewBranchOperation {
             InsertSide::Below,
             changes,
             String::new(),
-            ChangeSource::Head,
+            source,
         )?;
 
         Ok((
@@ -644,16 +673,12 @@ impl CommitAtOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = self.create_target(tx)?;
 
-        let commit_create_result = tx.create_commit(
-            relative_to.clone(),
-            side,
-            changes,
-            String::new(),
-            ChangeSource::Head,
-        )?;
+        let commit_create_result =
+            tx.create_commit(relative_to.clone(), side, changes, String::new(), source)?;
 
         Ok((commit_create_result, branch_name_target))
     }
