@@ -5,7 +5,6 @@ use but_api_macros::but_api;
 use but_core::{DryRun, branch, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_workspace::ui::ref_info::BranchReference;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_oplog::SnapshotExt;
 use gix::refs::Category;
@@ -279,29 +278,4 @@ pub fn remove_branch_with_perm(
     ctx.snapshot_remove_dependent_branch(&branch_name, perm)
         .ok();
     remove_branch_only(ctx, &branch_name, perm)
-}
-
-/// Apply the rename from `branch_name` to `new_name` in the stack identified by
-/// `stack_id` while reusing caller-held exclusive access.
-///
-/// This delegates to
-/// [`gitbutler_branch_actions::stack::update_branch_name_with_perm()`].
-pub fn update_branch_name_with_perm(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    new_name: String,
-    perm: &mut RepoExclusive,
-) -> Result<BranchReference> {
-    let normalized_name = gitbutler_branch_actions::stack::update_branch_name_with_perm(
-        ctx,
-        stack_id,
-        branch_name,
-        new_name,
-        perm,
-    )?;
-    let full_name = Category::LocalBranch
-        .to_full_name(normalized_name.as_str())
-        .map_err(anyhow::Error::from)?;
-    Ok(full_name.into())
 }

@@ -1,24 +1,12 @@
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result, anyhow};
-use but_ctx::{
-    Context,
-    access::{RepoExclusive, RepoShared},
-};
-use but_error::Marker;
+use anyhow::{Context as _, Result};
+use but_ctx::{Context, access::RepoShared};
 use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_operating_modes::is_well_known_workspace_ref;
-use gitbutler_repo::{
-    SignaturePurpose, commit_with_signature_gix, commit_without_signature_gix,
-    first_parent_commit_ids_until, signature_gix,
-};
-use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use tracing::instrument;
 
-use crate::branch_manager::BranchManagerExt;
-
-const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 // Before switching the user to our gitbutler workspace branch we save
@@ -217,142 +205,4 @@ pub(crate) fn update_workspace_commit_from_workspace(
     ctx.invalidate_workspace_cache()?;
 
     Ok(final_commit)
-}
-
-pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
-    verify_current_branch_name(ctx)
-        .and_then(verify_head_is_set)
-        .and_then(|()| verify_head_is_clean(ctx, perm))
-        .context(Marker::VerificationFailure)?;
-    Ok(())
-}
-
-fn verify_head_is_set(ctx: &Context) -> Result<()> {
-    match ctx
-        .repo
-        .get()?
-        .head()
-        .context("failed to get head")?
-        .referent_name()
-    {
-        Some(refname) => {
-            if is_well_known_workspace_ref(refname) {
-                Ok(())
-            } else {
-                Err(invalid_head_err(refname))
-            }
-        }
-        None => Err(anyhow!(
-            "project in detached head state. Please checkout {} to continue",
-            GITBUTLER_WORKSPACE_REFERENCE.branch()
-        )),
-    }
-}
-
-// Returns an error if repo head is not pointing to the workspace branch.
-fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
-    match ctx.repo.get()?.head()?.referent_name() {
-        Some(head) => {
-            if !is_well_known_workspace_ref(head) {
-                return Err(invalid_head_err(head));
-            }
-            Ok(ctx)
-        }
-        None => Err(anyhow!("Repo HEAD is unavailable")),
-    }
-}
-
-// TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
-    #[expect(deprecated, reason = "soft reset/index boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?.clone();
-    let head_commit_id = gix_repo.head_id()?.detach();
-
-    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
-
-    let commit_ids = first_parent_commit_ids_until(&gix_repo, head_commit_id, target_base_oid)
-        .context("failed to get log")?;
-    let workspace_index = commit_ids
-        .iter()
-        .position(|commit_id| {
-            gix_repo
-                .find_commit(*commit_id)
-                .ok()
-                .and_then(|commit| {
-                    commit.message_raw().ok().map(|message| {
-                        message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE.as_bytes())
-                            || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE.as_bytes())
-                    })
-                })
-                .unwrap_or(false)
-        })
-        .context("GitButler workspace commit not found")?;
-    let workspace_commit = git2_repo.find_commit(commit_ids[workspace_index].to_git2())?;
-    let mut extra_commit_ids = commit_ids[..workspace_index].to_vec();
-    extra_commit_ids.reverse();
-
-    if extra_commit_ids.is_empty() {
-        // no extra commits found, so we're good
-        return Ok(());
-    }
-
-    git2_repo
-        .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
-        .context("failed to reset to workspace commit")?;
-
-    let mut vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let branch_manager = ctx.branch_manager();
-    let mut new_branch = branch_manager
-        .create_virtual_branch(
-            &BranchCreateRequest {
-                name: extra_commit_ids
-                    .last()
-                    .map(|commit_id| {
-                        gix_repo
-                            .find_commit(*commit_id)?
-                            .message_raw()
-                            .map(|message| message.to_string())
-                            .with_context(|| format!("failed to read extra commit {commit_id}"))
-                    })
-                    .transpose()?,
-                ..Default::default()
-            },
-            perm,
-        )
-        .context("failed to create virtual branch")?;
-
-    // rebasing the extra commits onto the new branch
-    let mut head = new_branch.head_oid(ctx)?;
-    for commit_id in extra_commit_ids {
-        let commit = gix_repo
-            .find_commit(commit_id)
-            .with_context(|| format!("failed to find extra commit {commit_id}"))?;
-        let commit = commit.decode()?;
-        let rebased_commit_oid = commit_with_signature_gix(
-            &gix_repo,
-            None,
-            commit.author()?.into(),
-            commit.committer()?.into(),
-            commit.message,
-            commit.tree(),
-            &[head],
-            None,
-        )
-        .context(format!(
-            "failed to rebase commit {commit_id} onto new branch"
-        ))?;
-
-        head = rebased_commit_oid;
-        new_branch.set_stack_head(&mut vb_handle, &gix_repo, head)?;
-    }
-    Ok(())
-}
-
-fn invalid_head_err(head_name: &gix::refs::FullNameRef) -> anyhow::Error {
-    anyhow!(
-        "project is on {head_name}. Please checkout {} to continue",
-        GITBUTLER_WORKSPACE_REFERENCE.branch(),
-        head_name = head_name.shorten(),
-    )
 }
