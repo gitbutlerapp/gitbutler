@@ -92,7 +92,7 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let prev_head_id = head_ref.target();
 
     let workspace_head = gix_repo.find_commit(
-        but_workspace::legacy::remerged_workspace_commit_v2(ctx, &ws)?,
+        but_workspace::legacy::remerged_workspace_commit_v2(ctx, ws)?,
     )?;
 
     // message that says how to get back to where they were
