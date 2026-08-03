@@ -28,11 +28,17 @@ use crate::{
     },
     bad_input,
     command::legacy::reword2::RewordCommitOperation,
-    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED, UncommittedHunkOrFile},
+    id::{
+        ChangeSourceId, CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED,
+        UncommittedHunkOrFile,
+    },
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, rejection,
+        change_source::{self, ChangeSourceRepo},
+        diff_specs::DiffSpecBuilder,
+        merged_upstream::MergedUpstream,
+        rejection,
     },
 };
 
@@ -1117,12 +1123,39 @@ impl<'a> ClassifiedSquashables<'a> {
     }
 }
 
+impl SquashOperation<'_> {
+    /// The checkout the uncommitted changes are read from, which is the main
+    /// worktree for every operation that sources from commits instead.
+    ///
+    /// Errors when the selection spans several checkouts, see
+    /// [`change_source::single_source`].
+    fn change_source(&self) -> CliResult<ChangeSourceId> {
+        let SquashOperation::UncommittedHunks(AmendUncommittedHunks { sources, .. }) = self else {
+            return Ok(ChangeSourceId::Head);
+        };
+        change_source::single_source(sources.iter().map(|source| match source {
+            UncommittedSquashSource::HunkOrFile(source) => source.source.clone(),
+            // A path prefix only ever covers the main worktree.
+            UncommittedSquashSource::PathPrefix(_) => ChangeSourceId::Head,
+        }))
+    }
+}
+
 pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
 ) -> anyhow::Result<SquashOutcome> {
+    // Owned for the whole operation: the `ChangeSource` handed to the transaction
+    // below borrows from it. Opened before the workspace handle, as reading worktree
+    // state must not happen while a database handle is borrowed.
+    // `CliError` renders its hint through `Display`, so the message survives the
+    // trip through `anyhow` that this function's signature requires.
+    let source = squash_op
+        .change_source()
+        .map_err(|err| anyhow::anyhow!("{err}"))?;
+    let source_repo = ChangeSourceRepo::open(ctx, &source)?;
     let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
@@ -1171,7 +1204,7 @@ pub fn run(
         }) => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let mut builder = DiffSpecBuilder::new(source_repo.repo(&repo), context_lines);
             for source in &sources {
                 match source {
                     UncommittedSquashSource::HunkOrFile(source) => {
@@ -1289,7 +1322,7 @@ pub fn run(
                         TransactionCompatibleOperation::Commits(op) => op.execute(&mut tx)?,
                         TransactionCompatibleOperation::Branch(op) => op.execute(&mut tx)?,
                         TransactionCompatibleOperation::UncommittedHunks(op) => {
-                            op.execute(&mut tx)?
+                            op.execute(&mut tx, source_repo.as_change_source())?
                         }
                         TransactionCompatibleOperation::MoveCommittedFiles(op) => {
                             op.execute(&mut tx)?
@@ -1576,7 +1609,11 @@ struct AmendUncommittedDiffSpecsOperation {
 }
 
 impl AmendUncommittedDiffSpecsOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        source: ChangeSource<'_>,
+    ) -> anyhow::Result<CommitId> {
         let Self {
             target,
             changes,
@@ -1586,7 +1623,7 @@ impl AmendUncommittedDiffSpecsOperation {
         let IntermediateCommitCreateResult {
             new_commit,
             rejected_specs,
-        } = tx.amend_commit(target.commit_id, changes, ChangeSource::Head)?;
+        } = tx.amend_commit(target.commit_id, changes, source)?;
 
         if !rejected_specs.is_empty() {
             return Err(rejection::RejectedChanges(rejected_specs).into());
