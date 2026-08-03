@@ -624,6 +624,9 @@ pub struct WorktreeWithId {
     /// The stable worktree name, i.e. the directory name under
     /// `$GIT_COMMON_DIR/worktrees/`.
     pub name: BString,
+    /// The commits this worktree owns exclusively, newest first, sharing the commit
+    /// ID namespace with the workspace stacks.
+    pub commits: Vec<WorkspaceCommitWithId>,
 }
 
 impl WorktreeWithId {
@@ -645,6 +648,7 @@ impl IdMap {
         stacks: Vec<Stack>,
         sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+        mut worktree_commits: BTreeMap<BString, Vec<StackCommit>>,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
         // worktree still gets an ID, so `but status` can list it and name it.
@@ -712,11 +716,25 @@ impl IdMap {
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
                 id_usage.mark_used(uint_id);
             }
+            let commits = worktree_commits
+                .remove(&name)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|commit| WorkspaceCommitWithId {
+                    short_id: ShortId::default(),
+                    change_id: commit_id_to_change_id
+                        .get(&commit.id)
+                        .cloned()
+                        .map(Into::into),
+                    inner: commit,
+                })
+                .collect();
             worktrees.insert(
                 reverse_hex,
                 WorktreeWithId {
                     short_id: ShortId::default(),
                     name,
+                    commits,
                 },
             );
         }
@@ -756,9 +774,18 @@ impl IdMap {
         }
 
         // Worktrees share the uncommitted namespace, so they disambiguate against
-        // files and commit change IDs like everything else in it.
+        // files and commit change IDs like everything else in it. Their commits share the
+        // change ID namespace with workspace commits, so both are disambiguated together.
         for (reverse_hex, worktree) in worktrees.iter_mut() {
             reverse_hex_short_ids.push((reverse_hex.clone(), Some(&mut worktree.short_id)));
+            for change_id in worktree
+                .commits
+                .iter_mut()
+                .filter_map(|c| c.change_id.as_mut())
+            {
+                reverse_hex_short_ids
+                    .push((change_id.change_id.clone(), Some(&mut change_id.short_id)));
+            }
         }
 
         for change_id in stacks
@@ -783,6 +810,33 @@ impl IdMap {
                 .push(short_id);
         }
         assign_short_ids(mapped_reverse_hex_short_ids)?;
+
+        // Commit short IDs are hash prefixes, so worktree commits have to be disambiguated
+        // against the workspace commits in the same pass or two commits could print the same one.
+        stacks_info::populate_commit_short_ids(
+            stacks
+                .iter_mut()
+                .flat_map(|stack| stack.segments.iter_mut())
+                .flat_map(|segment| {
+                    segment
+                        .workspace_commits
+                        .iter_mut()
+                        .map(|c| (c.inner.id, &mut c.short_id))
+                        .chain(
+                            segment
+                                .remote_commits
+                                .iter_mut()
+                                .map(|c| (c.inner.id, &mut c.short_id)),
+                        )
+                })
+                .chain(
+                    worktrees
+                        .values_mut()
+                        .flat_map(|worktree| worktree.commits.iter_mut())
+                        .map(|c| (c.inner.id, &mut c.short_id)),
+                )
+                .collect(),
+        );
 
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut() {
@@ -970,8 +1024,38 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), sources, commit_id_to_change_id)
+        Self::new(
+            ws.stacks.clone(),
+            sources,
+            commit_id_to_change_id,
+            worktree_commits_by_name(&but_workspace::worktrees::worktree_infos(&ws, &repo)?),
+        )
     }
+}
+
+/// Reshape the commits owned by each linked worktree into what [`IdMap::new`] takes.
+///
+/// The result is empty unless the traversal behind `worktrees` was seeded with worktree tips,
+/// i.e. unless the `worktreeManipulation` flag is on.
+pub(crate) fn worktree_commits_by_name(
+    worktrees: &[but_workspace::worktrees::WorktreeInfo],
+) -> BTreeMap<BString, Vec<StackCommit>> {
+    worktrees
+        .iter()
+        .map(|worktree| {
+            let commits = worktree
+                .commits
+                .iter()
+                .map(|commit| StackCommit {
+                    id: commit.id,
+                    parent_ids: commit.parent_ids.clone(),
+                    flags: commit.flags,
+                    refs: commit.refs.clone(),
+                })
+                .collect();
+            (worktree.name.clone(), commits)
+        })
+        .collect()
 }
 
 /// Private methods to individually parse what can appear on both side of a
@@ -1242,6 +1326,19 @@ impl IdMap {
                     ) {
                         matches.push(Box::new(remote_commit_with_id))
                     }
+                }
+            }
+        }
+
+        // Commits owned by a linked worktree resolve exactly like workspace commits - they
+        // just live outside the stacks.
+        for worktree in self.worktrees.values() {
+            for commit_with_id in worktree.commits.iter() {
+                if element_matches_commit(
+                    commit_with_id.commit_id(),
+                    commit_with_id.change_id.as_ref(),
+                ) {
+                    matches.push(Box::new(commit_with_id))
                 }
             }
         }
