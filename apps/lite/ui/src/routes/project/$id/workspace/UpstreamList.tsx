@@ -11,7 +11,7 @@ import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "
 import { prForgeUrl } from "#ui/pr.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
-	autofocusSelectionScope,
+	useAutofocusSelectionScope,
 	useNavigationIndexHotkeys,
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
@@ -410,9 +410,7 @@ export const UpstreamList: FC<
 					onFocus={() =>
 						dispatch(projectSlice.actions.setDetailsSelectionScope({ projectId, scope: "outline" }))
 					}
-					ref={useMergedRefs(hotkeysRef, (el) => {
-						if (el) autofocusSelectionScope(el);
-					})}
+					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 				>
 					{groupItems(items).map((group) =>
 						group.branches !== undefined ? (

@@ -31,7 +31,7 @@ import {
 import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
-	autofocusSelectionScope,
+	useAutofocusSelectionScope,
 	useNavigationIndexHotkeys,
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
@@ -534,9 +534,7 @@ export const BranchesList: FC<
 					onFocus={() =>
 						dispatch(projectSlice.actions.setDetailsSelectionScope({ projectId, scope: "outline" }))
 					}
-					ref={useMergedRefs(hotkeysRef, (el) => {
-						if (el) autofocusSelectionScope(el);
-					})}
+					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 				>
 					{stacks.map((stack) => (
 						<StackCard

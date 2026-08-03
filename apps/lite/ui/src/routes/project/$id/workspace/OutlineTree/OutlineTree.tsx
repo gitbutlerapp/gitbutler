@@ -72,7 +72,7 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { autofocusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
+import { useAutofocusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -286,9 +286,7 @@ const UncommittedChanges: FC<{
 					navigationIndex={navigationIndex}
 					onFileSelection={onActiveFileSelection}
 					projectId={projectId}
-					ref={(el) => {
-						if (el) autofocusSelectionScope(el);
-					}}
+					ref={useAutofocusSelectionScope()}
 					selection={fileSelection}
 				/>
 			</Scroller>
