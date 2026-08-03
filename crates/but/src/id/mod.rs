@@ -996,12 +996,22 @@ impl IdMap {
         let sources =
             change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
 
+        let worktrees = but_workspace::worktrees::worktree_infos(&ws, &repo)?;
+        // Worktree commits are addressed by change ID just like workspace commits, so both
+        // feed the same map - otherwise `but status` would print change IDs for them that no
+        // other command could resolve.
         let commit_ids = ws
             .stacks
             .iter()
             .flat_map(|stack| &stack.segments)
             .flat_map(|segment| segment.commits.iter())
-            .map(|c| c.id);
+            .map(|c| c.id)
+            .chain(
+                worktrees
+                    .iter()
+                    .flat_map(|worktree| worktree.commits.iter())
+                    .map(|c| c.id),
+            );
 
         let commit_id_to_change_id = commit_ids
             .filter_map(|commit_id| {
@@ -1028,7 +1038,7 @@ impl IdMap {
             ws.stacks.clone(),
             sources,
             commit_id_to_change_id,
-            worktree_commits_by_name(&but_workspace::worktrees::worktree_infos(&ws, &repo)?),
+            worktree_commits_by_name(&worktrees),
         )
     }
 }
