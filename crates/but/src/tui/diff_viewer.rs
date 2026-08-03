@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 use crate::{
-    id::{IdAndHunk, UncommittedHunkOrFile},
+    id::{ChangeSourceId, IdAndHunk, UncommittedHunkOrFile},
     theme,
     tui::TerminalGuard as _,
 };
@@ -44,7 +44,8 @@ pub(crate) enum DiffLine {
 
 /// Filter for worktree diffs, mirroring the non-TUI filter logic.
 pub(crate) enum WorktreeFilter {
-    UncommittedArea,
+    /// Every uncommitted change of one checkout.
+    Source(ChangeSourceId),
     Uncommitted(Box<UncommittedHunkOrFile>),
 }
 
@@ -58,14 +59,17 @@ impl DiffFileEntry {
         for uncommitted_hunk in id_map.uncommitted_hunks.values() {
             let a = &uncommitted_hunk.hunk;
             let include = match filter {
-                None => true,
-                Some(WorktreeFilter::UncommittedArea) => true,
+                // Unfiltered means the main worktree, not every checkout: a
+                // linked worktree is only ever shown when asked for by name.
+                None => uncommitted_hunk.source == ChangeSourceId::Head,
+                Some(WorktreeFilter::Source(source)) => uncommitted_hunk.source == *source,
                 Some(WorktreeFilter::Uncommitted(id)) => {
-                    if id.is_entire_file {
-                        a.path == id.hunks.first().hunk.path
-                    } else {
-                        a.identifies_same_hunk(&id.hunks.first().hunk)
-                    }
+                    uncommitted_hunk.source == id.source
+                        && if id.is_entire_file {
+                            a.path == id.hunks.first().hunk.path
+                        } else {
+                            a.identifies_same_hunk(&id.hunks.first().hunk)
+                        }
                 }
             };
             if include {

@@ -88,6 +88,7 @@ impl Cursor {
         match &target {
             ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
+            | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::Uncommitted => {}
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
                 // https://linear.app/gitbutler/issue/GB-1798/support-opening-the-tui-on-committed-files-or-hunks
@@ -458,6 +459,7 @@ impl Cursor {
                 | Some(CliId::Branch(..))
                 | Some(CliId::Commit { .. })
                 | Some(CliId::Uncommitted { .. })
+                | Some(CliId::Worktree { .. })
                 | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
                 None => false,
             };
@@ -847,6 +849,7 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
+        | CliId::Worktree { .. }
         | CliId::Stack { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
     }
 }
@@ -1094,6 +1097,7 @@ pub fn is_selectable_in_mode(
                     | CliId::CommittedFile { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
+                    | CliId::Worktree { .. }
                     | CliId::Stack { .. } => false,
                 }
             } else {

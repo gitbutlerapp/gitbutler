@@ -391,7 +391,7 @@ impl App {
             } => {
                 self.start_with_source(SquashSource::CommittedFile(committed_file.clone()));
             }
-            CliId::PathPrefix { .. } | CliId::Stack { .. } => {}
+            CliId::PathPrefix { .. } | CliId::Stack { .. } | CliId::Worktree { .. } => {}
         }
     }
 

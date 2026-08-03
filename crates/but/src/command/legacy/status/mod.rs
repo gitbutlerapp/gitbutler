@@ -236,6 +236,10 @@ struct StatusContext<'a> {
     flags: StatusFlags,
     stack_details: Vec<StackEntry>,
     worktree_changes: Vec<ui::TreeChange>,
+    /// The changes of each linked worktree that has CLI IDs, parallel to
+    /// [`IdMap::worktrees`]. Only needed for the tree status letters, which
+    /// hunks do not carry.
+    worktree_changes_by_source: Vec<crate::id::SourceChanges>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
@@ -256,6 +260,21 @@ struct StatusContext<'a> {
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
     base_branch: Option<gitbutler_branch_actions::BaseBranch>,
     mode: &'a gitbutler_operating_modes::OperatingMode,
+}
+
+impl StatusContext<'_> {
+    /// The changes of `source`, which carry the tree status letters that hunks
+    /// do not. Empty for a checkout this status was not built from.
+    fn changes_in_source(&self, source: &crate::id::ChangeSourceId) -> &[ui::TreeChange] {
+        if *source == crate::id::ChangeSourceId::Head {
+            return &self.worktree_changes;
+        }
+        self.worktree_changes_by_source
+            .iter()
+            .find(|changes| changes.source == *source)
+            .map(|changes| changes.changes.as_slice())
+            .unwrap_or_default()
+    }
 }
 
 fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
@@ -483,20 +502,29 @@ fn build_status_context<'a>(
 
     // Worktree state needs the database, so it is read before the repo handle below.
     let worktree_names = crate::id::active_worktree_sources(ctx)?;
-    let hunks_by_source = {
+    let (head_hunks, worktree_changes_by_source) = {
         let repo = ctx.repo.get()?;
         let head_hunks = but_core::hunks_from_changes(
             &repo,
             worktree_changes.worktree_changes.changes.clone(),
             ctx.settings.context_lines,
         );
-        crate::id::hunks_by_source(
+        let by_source = crate::id::worktree_changes_by_source(
             &repo,
             ctx.settings.context_lines,
             worktree_names,
-            head_hunks,
-        )?
+        )?;
+        (head_hunks, by_source)
     };
+    // The same source set the ID map is built from, or `but status` would print
+    // IDs that later commands cannot resolve.
+    let hunks_by_source = std::iter::once((crate::id::ChangeSourceId::Head, head_hunks))
+        .chain(
+            worktree_changes_by_source
+                .iter()
+                .map(|source| (source.source.clone(), source.hunks.clone())),
+        )
+        .collect();
     let id_map = IdMap::new(stacks, hunks_by_source, commit_id_to_change_id)?;
 
     let stacks = id_map.stacks();
@@ -505,7 +533,13 @@ fn build_status_context<'a>(
 
     let mut stack_details: Vec<StackEntry> = Vec::new();
 
-    stack_details.push((None, (None, UncommittedFileWithId::all_by_path(&id_map))));
+    stack_details.push((
+        None,
+        (
+            None,
+            UncommittedFileWithId::in_source(&id_map, &crate::id::ChangeSourceId::Head),
+        ),
+    ));
 
     for stack in stacks {
         stack_details.push((stack.id, (Some(stack.clone()), Vec::new())));
@@ -626,6 +660,7 @@ fn build_status_context<'a>(
     Ok(StatusContext {
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
+        worktree_changes_by_source,
         conflicted_paths,
         common_merge_base_data,
         target_tip_id,
@@ -1116,6 +1151,8 @@ fn print_worktree_status(
                 *stack_id,
                 branch_name,
                 files,
+                // Stack-assigned files are always the main worktree's.
+                &status_ctx.worktree_changes,
                 false,
                 output,
             )?;
@@ -1166,12 +1203,14 @@ fn ci_map(
     Ok(ci_map)
 }
 
+#[expect(clippy::too_many_arguments)]
 fn print_files(
     repo: &gix::Repository,
     status_ctx: &StatusContext<'_>,
     stack: Option<StackId>,
     branch_name: Option<&BStr>,
     files: &[UncommittedFileWithId],
+    changes: &[ui::TreeChange],
     unstaged: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -1226,7 +1265,7 @@ fn print_files(
         .unwrap_or(0);
 
     for file in files {
-        let state = status_from_changes(&status_ctx.worktree_changes, file.path.clone());
+        let state = status_from_changes(changes, file.path.clone());
         let path = match &state {
             Some(state) => path_with_color_ui(state, file.path.to_string()),
             None => Span::raw(file.path.to_string()),
@@ -1508,31 +1547,36 @@ fn print_group(
             }
         }
     } else {
-        let cli_id = status_ctx.id_map.uncommitted();
-        let line = UncommittedLineContent {
-            id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
-            decoration_start: Vec::from([Span::raw(" [")]),
-            label: Vec::from([Span::styled("uncommitted", t.info)]),
-            decoration_end: Vec::from([Span::raw("]")]),
-            suffix: if files.is_empty() && status_ctx.conflicted_paths.is_empty() {
-                Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
-            } else {
-                Vec::new()
-            },
-        };
-        output.unstaged_changes(Vec::from([Span::raw("╭┄ ")]), line, cli_id.clone())?;
-        if !files.is_empty() {
-            print_files(&repo, status_ctx, None, None, files, true, output)?;
-        }
-        for path in &status_ctx.conflicted_paths {
-            output.no_assignments_unstaged(
-                Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
-                Vec::from([
-                    Span::raw(" "),
-                    Span::raw(path.clone()),
-                    Span::raw(" "),
-                    Span::styled("{conflicted}", t.error),
-                ]),
+        // The main worktree first, then one heading per linked worktree, so every
+        // uncommitted ID the user can pass to a command is shown under the checkout
+        // it lives in.
+        print_uncommitted_group(
+            &repo,
+            status_ctx,
+            status_ctx.id_map.uncommitted().clone(),
+            "uncommitted",
+            files,
+            &status_ctx.worktree_changes,
+            &status_ctx.conflicted_paths,
+            output,
+        )?;
+        for worktree in status_ctx.id_map.worktrees.values() {
+            output.between_stacks(Vec::from([Span::raw("┊")]))?;
+            let source = worktree.source();
+            let files = UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
+            print_uncommitted_group(
+                &repo,
+                status_ctx,
+                CliId::Worktree {
+                    id: worktree.short_id.clone(),
+                    name: worktree.name.clone(),
+                },
+                &format!("worktree {}", worktree.name),
+                &files,
+                status_ctx.changes_in_source(&source),
+                // Conflicted paths are read from the main worktree only.
+                &[],
+                output,
             )?;
         }
     }
@@ -1541,6 +1585,51 @@ fn print_group(
     }
     output.between_stacks(Vec::from([Span::raw("┊")]))?;
     Ok(has_merged_upstream_branch)
+}
+
+/// Print one uncommitted-changes heading and the files below it.
+///
+/// `changes` supplies the tree status letters and must come from the same
+/// checkout as `files`, or every file renders without one.
+#[expect(clippy::too_many_arguments)]
+fn print_uncommitted_group(
+    repo: &gix::Repository,
+    status_ctx: &StatusContext<'_>,
+    cli_id: CliId,
+    label: &str,
+    files: &[UncommittedFileWithId],
+    changes: &[ui::TreeChange],
+    conflicted_paths: &[String],
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    let t = crate::theme::get();
+    let line = UncommittedLineContent {
+        id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+        decoration_start: Vec::from([Span::raw(" [")]),
+        label: Vec::from([Span::styled(label.to_owned(), t.info)]),
+        decoration_end: Vec::from([Span::raw("]")]),
+        suffix: if files.is_empty() && conflicted_paths.is_empty() {
+            Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
+        } else {
+            Vec::new()
+        },
+    };
+    output.unstaged_changes(Vec::from([Span::raw("╭┄ ")]), line, cli_id)?;
+    if !files.is_empty() {
+        print_files(repo, status_ctx, None, None, files, changes, true, output)?;
+    }
+    for path in conflicted_paths {
+        output.no_assignments_unstaged(
+            Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+            Vec::from([
+                Span::raw(" "),
+                Span::raw(path.clone()),
+                Span::raw(" "),
+                Span::styled("{conflicted}", t.error),
+            ]),
+        )?;
+    }
+    Ok(())
 }
 
 fn lookup_cli_id_for_short_id(

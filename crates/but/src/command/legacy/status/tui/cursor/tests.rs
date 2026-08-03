@@ -141,6 +141,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::CommittedFile { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
+            | CliId::Worktree { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
     } else {

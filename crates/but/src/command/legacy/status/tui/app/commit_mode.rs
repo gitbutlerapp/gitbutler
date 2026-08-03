@@ -139,7 +139,10 @@ impl CommitSource {
                 Some(CommitSource::Uncommitted)
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Worktree { .. }
+            | CliId::Stack { .. } => None,
         }
     }
 }
@@ -350,6 +353,7 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
@@ -397,6 +401,7 @@ impl App {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 

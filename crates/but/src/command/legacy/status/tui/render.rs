@@ -424,6 +424,7 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 CliId::Branch(..)
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
+                | CliId::Worktree { .. }
                 | CliId::Stack { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
@@ -469,6 +470,7 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Commit { .. }
+        | CliId::Worktree { .. }
         | CliId::Uncommitted { .. } => None,
     }
 }
