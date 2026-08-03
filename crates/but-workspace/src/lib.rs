@@ -133,6 +133,9 @@ pub struct RefInfo {
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
     /// The workspace represents what `HEAD` is pointing to.
     pub is_entrypoint: bool,
+    /// The active linked worktrees along with the commits they own, or empty if the traversal
+    /// wasn't seeded with worktree tips (i.e. the `worktreeManipulation` flag is off).
+    pub worktrees: Vec<worktrees::WorktreeInfo>,
 }
 
 impl RefInfo {

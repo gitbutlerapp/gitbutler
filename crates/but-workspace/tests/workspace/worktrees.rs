@@ -1,6 +1,7 @@
 use anyhow::Result;
-use bstr::BString;
-use but_workspace::worktrees::{WorktreeSource, list_worktrees};
+use bstr::{BString, ByteSlice};
+use but_graph::Graph;
+use but_workspace::worktrees::{WorktreeBase, WorktreeSource, list_worktrees};
 
 use crate::utils::writable_scenario_slow;
 
@@ -128,6 +129,126 @@ fn list_worktrees_splits_by_archived_state() -> Result<()> {
             .collect::<Vec<_>>(),
         ["wt-a", "wt-b", "wt-detached", "wt-gone"],
         "unarchiving brings the worktree back into the active listing"
+    );
+    Ok(())
+}
+
+/// Seed every linked worktree of `repo` as a traversal tip, the way `but-ctx` does when the
+/// `worktreeManipulation` flag is on, and project the result.
+fn ref_info_with_worktree_tips(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+) -> Result<but_workspace::RefInfo> {
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
+        push_remote: None,
+    };
+    let mut options = but_graph::init::Options::limited();
+    for proxy in repo.worktrees()? {
+        let name: BString = proxy.id().to_owned();
+        let wt_repo = proxy.into_repo()?;
+        let mut head = wt_repo.head()?;
+        options.worktree_tips.push(but_graph::init::WorktreeTip {
+            name,
+            ref_name: head.referent_name().map(ToOwned::to_owned),
+            id: head.peel_to_commit()?.id,
+        });
+    }
+    options.worktree_tips.sort_by(|a, b| a.name.cmp(&b.name));
+    let graph = Graph::from_head(repo, meta, project_meta, options)?.validated()?;
+    but_workspace::graph_to_ref_info(
+        &graph.into_workspace()?,
+        repo,
+        but_workspace::ref_info::Options {
+            expensive_commit_info: true,
+            ..Default::default()
+        },
+    )
+}
+
+#[test]
+fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
+    crate::ref_info::with_workspace_commit::utils::add_stack(
+        &mut meta,
+        1,
+        "A",
+        crate::ref_info::with_workspace_commit::utils::StackState::InWorkspace,
+    );
+    crate::ref_info::with_workspace_commit::utils::add_stack(
+        &mut meta,
+        2,
+        "B",
+        crate::ref_info::with_workspace_commit::utils::StackState::InWorkspace,
+    );
+
+    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let summary: Vec<_> = info
+        .worktrees
+        .iter()
+        .map(|wt| {
+            (
+                wt.name.to_string(),
+                wt.commits
+                    .iter()
+                    .map(|c| c.message.trim().as_bstr().to_string())
+                    .collect::<Vec<_>>(),
+                wt.base,
+            )
+        })
+        .collect();
+
+    let a1 = repo.rev_parse_single("A~1")?.detach();
+    let a2 = repo.rev_parse_single("A")?.detach();
+    let m1 = repo.rev_parse_single("main")?.detach();
+    assert_eq!(
+        summary,
+        [
+            (
+                "wt-at".to_string(),
+                Vec::new(),
+                // Its `HEAD` *is* a workspace commit, so it owns nothing and rests right there.
+                Some(WorktreeBase::InWorkspace(a2))
+            ),
+            (
+                "wt-inside".to_string(),
+                vec!["W1".to_string()],
+                // Its commit branches off a commit that stack A owns.
+                Some(WorktreeBase::InWorkspace(a1))
+            ),
+            (
+                "wt-outside".to_string(),
+                vec!["O1".to_string()],
+                // The target commit stops the walk before it can reach the workspace.
+                Some(WorktreeBase::Outside(m1))
+            ),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    let graph = Graph::from_head(
+        &repo,
+        &meta,
+        Default::default(),
+        but_graph::init::Options::limited(),
+    )?;
+    let info =
+        but_workspace::graph_to_ref_info(&graph.into_workspace()?, &repo, Default::default())?;
+    assert!(
+        info.worktrees.is_empty(),
+        "worktrees are only projected when the traversal was seeded with their tips"
     );
     Ok(())
 }
