@@ -32,6 +32,8 @@
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
+		/** The branch this commit will land on, used for `%{branch_name}` in AI prompts. */
+		branchName?: string;
 		title: string;
 		floatingBoxHeader?: string;
 		description: string;
@@ -51,6 +53,7 @@
 		description,
 		floatingBoxHeader = "Create commit",
 		existingCommitId,
+		branchName,
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -63,9 +66,6 @@
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-
-	const laneState = $derived(stackId ? uiState.lane(stackId) : undefined);
-	const stackSelection = $derived(laneState?.selection);
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();
@@ -120,7 +120,7 @@
 			let firstToken = true;
 
 			const output = await aiMacros.generateCommitMessage({
-				branchName: stackSelection?.current?.branchName,
+				branchName,
 				onToken: (t) => {
 					if (firstToken) {
 						beginGeneration();
