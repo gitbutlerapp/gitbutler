@@ -23,16 +23,14 @@ use crate::id::{
     uncommitted_info::UncommittedInfo,
 };
 use crate::theme;
+use crate::utils::change_source::{self, ChangeSourceId, SourceChanges};
 use crate::utils::get_change_id_for_commit;
 
-mod change_source;
 mod file_info;
 mod id_usage;
 pub mod parser;
 mod stacks_info;
 mod uncommitted_info;
-
-pub use change_source::ChangeSourceId;
 
 #[cfg(test)]
 mod tests;
@@ -645,19 +643,19 @@ impl IdMap {
     /// files/hunks.
     pub fn new(
         stacks: Vec<Stack>,
-        hunks_by_source: Vec<(ChangeSourceId, Vec<but_core::SingleHunk>)>,
+        sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
         // worktree still gets an ID, so `but status` can list it and name it.
-        let worktree_names: Vec<BString> = hunks_by_source
+        let worktree_names: Vec<BString> = sources
             .iter()
-            .filter_map(|(source, _)| source.worktree_name().map(ToOwned::to_owned))
+            .filter_map(|source| source.source.worktree_name().map(ToOwned::to_owned))
             .collect();
         let UncommittedInfo {
             partitioned_hunks,
             uncommitted_short_filenames,
-        } = UncommittedInfo::from_hunks(hunks_by_source)?;
+        } = UncommittedInfo::from_sources(sources)?;
         let StacksInfo {
             mut stacks,
             mut id_usage,
@@ -934,14 +932,15 @@ impl IdMap {
         let context_lines = ctx.settings.context_lines;
         // Worktree state reconciles archived rows and thus needs the database, so it must
         // be read before the handle below is borrowed.
-        let worktree_names = active_worktree_sources(ctx)?;
+        let worktree_names = change_source::active_worktree_sources(ctx)?;
         // The database handle is bound to `_` so that it is dropped right away: hunks are
         // derived from the diff alone, and holding it would block `Context` accessors that
         // need the cache.
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-        let head_hunks = but_core::worktree_hunks(&repo, context_lines)?;
-        let hunks_by_source = hunks_by_source(&repo, context_lines, worktree_names, head_hunks)?;
+        let head_changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+        let sources =
+            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
 
         let commit_ids = ws
             .stacks
@@ -971,90 +970,8 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), hunks_by_source, commit_id_to_change_id)
+        Self::new(ws.stacks.clone(), sources, commit_id_to_change_id)
     }
-}
-
-/// The names of the linked worktrees whose uncommitted changes get CLI IDs.
-///
-/// Empty unless the `worktreeManipulation` feature flag is on, and empty when the
-/// context repository is itself a linked worktree: such a context keeps its own
-/// database, so [`Context::active_worktrees()`] refuses to read worktree state
-/// from it. IDs are built by nearly every command, so that case degrades to the
-/// main worktree rather than taking the whole CLI down.
-///
-/// Must not be called while a database handle is borrowed, see
-/// [`Context::worktrees_with_state()`].
-pub fn active_worktree_sources(ctx: &Context) -> anyhow::Result<Vec<BString>> {
-    if !ctx.settings.feature_flags.worktree_manipulation {
-        return Ok(Vec::new());
-    }
-    let in_linked_worktree = {
-        let repo = ctx.repo.get()?;
-        repo.git_dir() != repo.common_dir()
-    };
-    if in_linked_worktree {
-        return Ok(Vec::new());
-    }
-    Ok(ctx
-        .active_worktrees()?
-        .into_iter()
-        .map(|worktree| worktree.name)
-        .collect())
-}
-
-/// The uncommitted changes of one checkout.
-pub struct SourceChanges {
-    /// The checkout these changes were read from.
-    pub source: ChangeSourceId,
-    /// The changed files, which carry the tree status that hunks do not.
-    pub changes: Vec<but_core::ui::TreeChange>,
-    /// The hunks those changes split into.
-    pub hunks: Vec<but_core::SingleHunk>,
-}
-
-/// The uncommitted changes of every linked worktree in `worktree_names`, diffed
-/// against each worktree's own `HEAD` - a linked worktree is not part of the
-/// workspace.
-///
-/// Every caller that builds an [`IdMap`] must pass the same set of sources:
-/// short IDs are disambiguated against the whole namespace, so a map built from
-/// fewer sources can hand out IDs that the next command cannot resolve.
-pub fn worktree_changes_by_source(
-    repo: &gix::Repository,
-    context_lines: u32,
-    worktree_names: Vec<BString>,
-) -> anyhow::Result<Vec<SourceChanges>> {
-    let mut out = Vec::with_capacity(worktree_names.len());
-    for name in worktree_names {
-        // Shares `repo`'s object database, so it can read everything the editor can.
-        let wt_repo = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())?;
-        let changes = but_core::diff::ui::worktree_changes(&wt_repo)?.changes;
-        let hunks = but_core::hunks_from_changes(&wt_repo, changes.clone(), context_lines);
-        out.push(SourceChanges {
-            source: ChangeSourceId::Worktree(name),
-            changes,
-            hunks,
-        });
-    }
-    Ok(out)
-}
-
-/// [`worktree_changes_by_source()`] reduced to what [`IdMap::new`] takes, with
-/// the main worktree's `head_hunks` first.
-pub fn hunks_by_source(
-    repo: &gix::Repository,
-    context_lines: u32,
-    worktree_names: Vec<BString>,
-    head_hunks: Vec<but_core::SingleHunk>,
-) -> anyhow::Result<Vec<(ChangeSourceId, Vec<but_core::SingleHunk>)>> {
-    let mut out = vec![(ChangeSourceId::Head, head_hunks)];
-    out.extend(
-        worktree_changes_by_source(repo, context_lines, worktree_names)?
-            .into_iter()
-            .map(|source| (source.source, source.hunks)),
-    );
-    Ok(out)
 }
 
 /// Private methods to individually parse what can appear on both side of a

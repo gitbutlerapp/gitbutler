@@ -29,8 +29,8 @@ use syntect::{
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
-    CliId, IdMap,
-    id::{ChangeSourceId, IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
+    ChangeSourceId, CliId, IdMap,
+    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -1260,8 +1260,8 @@ mod tests {
         expand_tabs_for_display, format_with_dot_thousands, render_uncommitted_hunk,
     };
     use crate::{
-        CliId,
-        id::{ChangeSourceId, IdAndHunk, UncommittedHunkOrFile},
+        ChangeSourceId, CliId,
+        id::{IdAndHunk, UncommittedHunkOrFile},
         utils::string_interning::Strings,
     };
 

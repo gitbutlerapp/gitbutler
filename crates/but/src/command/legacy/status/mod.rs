@@ -22,7 +22,7 @@ use ratatui::{style::Modifier, text::Span};
 use serde::Serialize;
 
 use crate::{
-    CLI_DATE, CliId, CliResult, IdMap,
+    CLI_DATE, ChangeSourceId, CliId, CliResult, IdMap,
     args::{
         self, OutputFormat,
         atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
@@ -43,7 +43,7 @@ use crate::{
     },
     tui::text::truncate_text,
     utils::{
-        InputOutputChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
+        InputOutputChannel, OutputChannel, WriteWithUtils, change_source, shorten_hex_object_id,
         shorten_object_id, time::format_relative_time_verbose,
     },
 };
@@ -238,10 +238,9 @@ struct StatusContext<'a> {
     flags: StatusFlags,
     stack_details: Vec<StackEntry>,
     worktree_changes: Vec<ui::TreeChange>,
-    /// The changes of each linked worktree that has CLI IDs, parallel to
-    /// [`IdMap::worktrees`]. Only needed for the tree status letters, which
-    /// hunks do not carry.
-    worktree_changes_by_source: Vec<crate::id::SourceChanges>,
+    /// The changed files of every checkout with CLI IDs, main worktree first.
+    /// Only needed for the tree status letters, which hunks do not carry.
+    changes_by_source: Vec<(ChangeSourceId, Vec<ui::TreeChange>)>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
@@ -265,16 +264,13 @@ struct StatusContext<'a> {
 }
 
 impl StatusContext<'_> {
-    /// The changes of `source`, which carry the tree status letters that hunks
-    /// do not. Empty for a checkout this status was not built from.
-    fn changes_in_source(&self, source: &crate::id::ChangeSourceId) -> &[ui::TreeChange] {
-        if *source == crate::id::ChangeSourceId::Head {
-            return &self.worktree_changes;
-        }
-        self.worktree_changes_by_source
+    /// The changed files of `source`, which carry the tree status letters that
+    /// hunks do not. Empty for a checkout this status was not built from.
+    fn changes_in_source(&self, source: &ChangeSourceId) -> &[ui::TreeChange] {
+        self.changes_by_source
             .iter()
-            .find(|changes| changes.source == *source)
-            .map(|changes| changes.changes.as_slice())
+            .find(|(candidate, _)| candidate == source)
+            .map(|(_, changes)| changes.as_slice())
             .unwrap_or_default()
     }
 }
@@ -532,31 +528,22 @@ fn build_status_context<'a>(
     conflicted_paths.sort();
 
     // Worktree state needs the database, so it is read before the repo handle below.
-    let worktree_names = crate::id::active_worktree_sources(ctx)?;
-    let (head_hunks, worktree_changes_by_source) = {
+    let worktree_names = change_source::active_worktree_sources(ctx)?;
+    let sources = {
         let repo = ctx.repo.get()?;
-        let head_hunks = but_core::hunks_from_changes(
-            &repo,
-            worktree_changes.worktree_changes.changes.clone(),
-            ctx.settings.context_lines,
-        );
-        let by_source = crate::id::worktree_changes_by_source(
+        change_source::changes_by_source(
             &repo,
             ctx.settings.context_lines,
             worktree_names,
-        )?;
-        (head_hunks, by_source)
+            worktree_changes.worktree_changes.changes.clone(),
+        )?
     };
-    // The same source set the ID map is built from, or `but status` would print
-    // IDs that later commands cannot resolve.
-    let hunks_by_source = std::iter::once((crate::id::ChangeSourceId::Head, head_hunks))
-        .chain(
-            worktree_changes_by_source
-                .iter()
-                .map(|source| (source.source.clone(), source.hunks.clone())),
-        )
+    // Kept for the tree status letters; the hunks move into the ID map.
+    let changes_by_source = sources
+        .iter()
+        .map(|source| (source.source.clone(), source.changes.clone()))
         .collect();
-    let id_map = IdMap::new(stacks, hunks_by_source, commit_id_to_change_id)?;
+    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id)?;
 
     let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later
@@ -568,7 +555,7 @@ fn build_status_context<'a>(
         None,
         (
             None,
-            UncommittedFileWithId::in_source(&id_map, &crate::id::ChangeSourceId::Head),
+            UncommittedFileWithId::in_source(&id_map, &ChangeSourceId::Head),
         ),
     ));
 
@@ -691,7 +678,7 @@ fn build_status_context<'a>(
     Ok(StatusContext {
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
-        worktree_changes_by_source,
+        changes_by_source,
         conflicted_paths,
         common_merge_base_data,
         target_tip_id,

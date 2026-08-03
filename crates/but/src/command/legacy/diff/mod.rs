@@ -2,9 +2,9 @@ use but_ctx::Context;
 use serde::Serialize;
 
 use crate::{
-    CliId, IdMap,
+    ChangeSourceId, CliId, IdMap,
     command::legacy::diff::show::Filter,
-    id::{ChangeSourceId, CommitId, CommittedFileId},
+    id::{CommitId, CommittedFileId},
     utils::OutputChannel,
 };
 

@@ -119,7 +119,7 @@ fn uncommitted_cli_id_with_old_start(path: &str, id: &str, old_start: u32) -> Ar
             hunk: hunk(path, old_start),
         }),
         is_entire_file: true,
-        source: crate::id::ChangeSourceId::Head,
+        source: crate::ChangeSourceId::Head,
     }))
 }
 

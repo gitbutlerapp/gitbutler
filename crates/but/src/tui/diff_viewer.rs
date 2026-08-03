@@ -11,7 +11,8 @@ use ratatui::{
 };
 
 use crate::{
-    id::{ChangeSourceId, IdAndHunk, UncommittedHunkOrFile},
+    ChangeSourceId,
+    id::{IdAndHunk, UncommittedHunkOrFile},
     theme,
     tui::TerminalGuard as _,
 };

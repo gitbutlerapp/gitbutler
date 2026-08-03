@@ -8,8 +8,8 @@ use super::{
     display::{DiffDisplay, TreeChangeWithPatch},
 };
 use crate::{
-    IdMap,
-    id::{ChangeSourceId, IdAndHunk, UncommittedHunkOrFile},
+    ChangeSourceId, IdMap,
+    id::{IdAndHunk, UncommittedHunkOrFile},
     utils::OutputChannel,
 };
 
