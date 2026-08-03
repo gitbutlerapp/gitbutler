@@ -31,7 +31,11 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 self.push_changes_from_uncommitted(uncommitted)
             }
-            CliId::PathPrefix { id: _, hunks } => self.push_changes_from_path_prefix(hunks),
+            CliId::PathPrefix {
+                id: _,
+                hunks,
+                source: _,
+            } => self.push_changes_from_path_prefix(hunks),
             CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {

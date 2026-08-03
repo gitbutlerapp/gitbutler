@@ -17,8 +17,8 @@ use crate::{
         },
     },
     id::{
-        BranchId, BranchIdRef, CommitId, CommitIdRef, CommittedFileId, CommittedFileIdRef,
-        IdAndHunk, UncommittedHunkOrFile,
+        BranchId, BranchIdRef, ChangeSourceId, CommitId, CommitIdRef, CommittedFileId,
+        CommittedFileIdRef, IdAndHunk, UncommittedHunkOrFile,
     },
 };
 
@@ -805,11 +805,15 @@ fn synthetic_hunk(
     idx: usize,
     hunks: NonEmpty<IdAndHunk>,
     is_entire_file: bool,
+    source: ChangeSourceId,
 ) -> UncommittedHunkOrFile {
     UncommittedHunkOrFile {
         id: format!("{base_id}:synthetic-id-{idx}"),
         hunks,
         is_entire_file,
+        // Inherited from the hunk this was derived from, so equality against the
+        // real hunk - which does compare the source - still holds.
+        source,
     }
 }
 
@@ -817,16 +821,18 @@ pub fn synthetic_parent_hunk(
     base_id: &str,
     idx: usize,
     hunks: NonEmpty<IdAndHunk>,
+    source: ChangeSourceId,
 ) -> UncommittedHunkOrFile {
-    synthetic_hunk(base_id, idx, hunks, true)
+    synthetic_hunk(base_id, idx, hunks, true, source)
 }
 
 pub fn synthetic_child_hunk(
     base_id: &str,
     idx: usize,
     hunks: NonEmpty<IdAndHunk>,
+    source: ChangeSourceId,
 ) -> UncommittedHunkOrFile {
-    synthetic_hunk(base_id, idx, hunks, false)
+    synthetic_hunk(base_id, idx, hunks, false, source)
 }
 
 fn handle_mark_uncommitted(
@@ -925,7 +931,12 @@ fn propagate_marks_from_parent_to_children(
         }
 
         for (idx, child) in hunk.hunks.iter().enumerate() {
-            let child_hunk = synthetic_child_hunk(&hunk.id, idx, NonEmpty::new(child.clone()));
+            let child_hunk = synthetic_child_hunk(
+                &hunk.id,
+                idx,
+                NonEmpty::new(child.clone()),
+                hunk.source.clone(),
+            );
             match outcome {
                 ToggleMarkablesOutcome::Marked => marks.insert_mark(child_hunk)?,
                 ToggleMarkablesOutcome::Unmarked => marks.remove_mark(&child_hunk),
