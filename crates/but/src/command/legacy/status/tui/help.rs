@@ -47,18 +47,8 @@ impl Help {
 
         for key_binds in key_binds {
             for mode in ModeDiscriminant::iter() {
-                match mode {
-                    ModeDiscriminant::PickChanges => continue,
-                    ModeDiscriminant::Normal
-                    | ModeDiscriminant::Squash
-                    | ModeDiscriminant::InlineReword
-                    | ModeDiscriminant::Command
-                    | ModeDiscriminant::Commit
-                    | ModeDiscriminant::Move
-                    | ModeDiscriminant::Details
-                    | ModeDiscriminant::MoveStack
-                    | ModeDiscriminant::Jump
-                    | ModeDiscriminant::Stack => {}
+                if mode == ModeDiscriminant::PickChanges {
+                    continue;
                 }
 
                 let section = mode_to_sections.entry(mode).or_insert_with(|| HelpSection {

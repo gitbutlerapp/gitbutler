@@ -19,9 +19,9 @@ use crate::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
             tui::{
                 app::{
-                    CommandMessage, CommandModeKind, CommitMessage, JumpMessage, MoveMessage,
-                    NormalMode, PickChangesMode, RewordMessage, SquashMessage, StackMessage,
-                    UpdateContext,
+                    CherryPickMessage, CommandMessage, CommandModeKind, CommitMessage, JumpMessage,
+                    MoveMessage, NormalMode, PickChangesMode, RewordMessage, SquashMessage,
+                    StackMessage, UpdateContext,
                 },
                 backstack::{Backstack, BackstackEntry},
                 confirm::ConfirmMessage,
@@ -262,6 +262,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         | Mode::Stack(..)
                         | Mode::PickChanges(..)
                         | Mode::MoveStack(..)
+                        | Mode::CherryPick(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -297,6 +298,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                 | Mode::Stack(..)
                 | Mode::PickChanges(..)
                 | Mode::MoveStack(..)
+                | Mode::CherryPick(..)
                 | Mode::Move(..) => {
                     messages.push(Message::JustRender);
                 }
@@ -434,6 +436,7 @@ pub enum Message {
     FuzzyPicker(FuzzyPickerMessage),
     Help(HelpMessage),
     Jump(JumpMessage),
+    CherryPick(CherryPickMessage),
     NewBranch,
     ToggleHelp,
     Mark,
@@ -620,6 +623,10 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             Message::Move(message) => match message {
                 MoveMessage::Confirm => true,
                 MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
+            },
+            Message::CherryPick(message) => match message {
+                CherryPickMessage::Confirm | CherryPickMessage::CherryPickToNewBranch => true,
+                CherryPickMessage::Start | CherryPickMessage::ToggleInsertSide => false,
             },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,

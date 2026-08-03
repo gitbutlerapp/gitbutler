@@ -94,6 +94,7 @@ impl App {
                 | Mode::Move(..)
                 | Mode::MoveStack(..)
                 | Mode::Jump(..)
+                | Mode::CherryPick(..)
                 | Mode::Stack(..) => {}
             }
         }
@@ -147,6 +148,7 @@ impl App {
                     | Mode::Move(..)
                     | Mode::MoveStack(..)
                     | Mode::Jump(..)
+                    | Mode::CherryPick(..)
                     | Mode::Stack(..) => DetailsReturnMode::Normal(NormalMode::default()),
                 };
                 *mode = Mode::Details(DetailsMode {
@@ -196,6 +198,7 @@ impl App {
             | Mode::Stack(..)
             | Mode::MoveStack(..)
             | Mode::Jump(..)
+            | Mode::CherryPick(..)
             | Mode::Move(..) => {}
         }
     }

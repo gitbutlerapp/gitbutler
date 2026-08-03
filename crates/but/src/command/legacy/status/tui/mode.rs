@@ -4,8 +4,9 @@ use crate::{
     command::legacy::status::tui::{
         InlineRewordMode,
         app::{
-            CommandMode, CommandReturnMode, CommitMode, CommitSource, JumpMode, MoveMode,
-            MoveSource, MoveStackMode, NormalMode, PickChangesMode, SquashMode, StackMode,
+            CherryPickMode, CommandMode, CommandReturnMode, CommitMode, CommitSource, JumpMode,
+            MoveMode, MoveSource, MoveStackMode, NormalMode, PickChangesMode, SquashMode,
+            StackMode,
             mark::{Marks, MarksRef},
         },
         render::ModeRender,
@@ -13,7 +14,7 @@ use crate::{
     theme::Theme,
 };
 
-use super::app::SquashSource;
+use super::app::{CherryPickSource, SquashSource};
 
 #[derive(Debug, Clone, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(strum::EnumIter, Hash))]
@@ -30,6 +31,7 @@ pub enum Mode {
     MoveStack(MoveStackMode),
     PickChanges(PickChangesMode),
     Jump(JumpMode),
+    CherryPick(CherryPickMode),
 }
 
 impl Default for Mode {
@@ -66,6 +68,7 @@ impl Mode {
             Mode::MoveStack(inner) => ModeRef::MoveStack(inner),
             Mode::PickChanges(inner) => ModeRef::PickChanges(inner),
             Mode::Jump(inner) => ModeRef::Jump(inner),
+            Mode::CherryPick(inner) => ModeRef::CherryPick(inner),
         }
     }
 }
@@ -80,7 +83,9 @@ impl ModeDiscriminant {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
             }
             Self::Command => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
-            Self::Move | Self::MoveStack => theme.tui_mode_move.bg.unwrap_or(Color::Cyan),
+            Self::Move | Self::MoveStack | Self::CherryPick => {
+                theme.tui_mode_move.bg.unwrap_or(Color::Cyan)
+            }
             Self::Details => theme
                 .tui_mode_details
                 .bg
@@ -97,7 +102,9 @@ impl ModeDiscriminant {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
             }
             Self::Command => theme.tui_mode_command.fg.unwrap_or(Color::Black),
-            Self::Move | Self::MoveStack => theme.tui_mode_move.fg.unwrap_or(Color::Black),
+            Self::Move | Self::MoveStack | Self::CherryPick => {
+                theme.tui_mode_move.fg.unwrap_or(Color::Black)
+            }
             Self::Details => theme.tui_mode_details.fg.unwrap_or(Color::Black),
         }
     }
@@ -115,6 +122,7 @@ impl ModeDiscriminant {
             Self::Stack => "  stack  ",
             Self::MoveStack => "  move stack  ",
             Self::Jump => "  jump  ",
+            Self::CherryPick => "  pick  ",
         }
     }
 }
@@ -133,6 +141,7 @@ pub enum ModeRef<'a> {
     MoveStack(&'a MoveStackMode),
     PickChanges(&'a PickChangesMode),
     Jump(&'a JumpMode),
+    CherryPick(&'a CherryPickMode),
 }
 
 impl<'a> ModeRef<'a> {
@@ -160,6 +169,10 @@ impl<'a> ModeRef<'a> {
             ModeRef::Move(move_mode) => match &*move_mode.source {
                 MoveSource::Marks(commits) => MarksRef::from_commits(commits),
                 MoveSource::Commit { .. } | MoveSource::Branch(..) => MarksRef::Empty,
+            },
+            ModeRef::CherryPick(cherry_pick_mode) => match &cherry_pick_mode.source {
+                CherryPickSource::Marks(marks) => marks.as_ref(),
+                CherryPickSource::Commit(..) => MarksRef::Empty,
             },
             ModeRef::InlineReword(..)
             | ModeRef::Stack(..)
