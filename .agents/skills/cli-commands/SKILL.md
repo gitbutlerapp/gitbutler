@@ -224,6 +224,11 @@ TUI to call `run` directly.
 User input such as pickers and prompts are created via `InputOutputChannel`
 accessed through `IntermediateChannel::prepare_for_terminal_input`.
 
+The JSON output includes both commit ids and change ids.
+
+Use `AllowMergedArg` and `MergedUpstream` to verify we don't mutate merged
+commits and branches.
+
 Printing of commits, branches, change ids, etc. use newtypes from `theme` such
 as `theme::Branch` and `theme::Commit`. This ensures consistent coloring.
 
