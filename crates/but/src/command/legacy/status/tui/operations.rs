@@ -5,10 +5,8 @@
 //! All functions that use legacy APIs must be postfixed with `_legacy`.
 
 use anyhow::Context as _;
-use but_api::{commit::types::CommitInsertBlankResult, legacy::oplog::RestoreKind};
-use but_core::DryRun;
+use but_api::legacy::oplog::RestoreKind;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::Snapshot;
 use gix::prelude::ObjectIdExt;
@@ -69,35 +67,6 @@ pub fn reload_legacy(
     )?;
 
     Ok(new_lines)
-}
-
-pub fn create_empty_commit_relative_to_branch(
-    ctx: &mut Context,
-    branch_name: &str,
-) -> anyhow::Result<CommitInsertBlankResult> {
-    let full_name = {
-        let repo = ctx.repo.get()?;
-        let reference = repo.find_reference(branch_name)?;
-        reference.name().to_owned()
-    };
-    but_api::commit::insert_blank::commit_insert_blank(
-        ctx,
-        RelativeTo::Reference(full_name),
-        InsertSide::Below,
-        DryRun::No,
-    )
-}
-
-pub fn create_empty_commit_relative_to_commit(
-    ctx: &mut Context,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<CommitInsertBlankResult> {
-    but_api::commit::insert_blank::commit_insert_blank(
-        ctx,
-        RelativeTo::Commit(commit_id),
-        InsertSide::Above,
-        DryRun::No,
-    )
 }
 
 pub fn current_commit_message(
