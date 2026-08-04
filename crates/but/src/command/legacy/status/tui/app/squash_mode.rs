@@ -541,7 +541,9 @@ fn resolve_squash_operation<'a>(
     };
 
     let reword = match reword {
-        SquashReword::Infer => HowToRewordTarget::Reword(CommitMessageSource::Editor),
+        SquashReword::Infer => {
+            HowToRewordTarget::Reword(CommitMessageSource::Editor { initial: None })
+        }
         SquashReword::UseTarget => HowToRewordTarget::UseTargetMessage,
     };
 

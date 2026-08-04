@@ -841,7 +841,7 @@ pub fn resolve_target(
                     CommitMessageSource::Provided(_) => {
                         return Err(ResolveTargetError::MessageUnavailable);
                     }
-                    CommitMessageSource::Editor => {}
+                    CommitMessageSource::Editor { .. } => {}
                 },
             }
 

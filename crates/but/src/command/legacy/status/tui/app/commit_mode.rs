@@ -10,7 +10,8 @@ use ratatui::{backend::Backend, prelude::Span};
 use crate::{
     CliId,
     command::legacy::{
-        commit, reword2,
+        commit,
+        reword2::CommitMessageSource,
         status::{
             output::StatusOutputLineData,
             tui::{
@@ -483,12 +484,12 @@ where
     let mut meta = ctx.meta()?;
 
     let (reword_op, reword_msg) = match message_composer {
-        CommitMessageComposer::Editor => (reword2::CommitMessageSource::Editor, None),
+        CommitMessageComposer::Editor => (CommitMessageSource::Editor { initial: None }, None),
         CommitMessageComposer::Inline => (
-            reword2::CommitMessageSource::Empty,
+            CommitMessageSource::Empty,
             Some(Message::Reword(RewordMessage::InlineStart)),
         ),
-        CommitMessageComposer::Empty => (reword2::CommitMessageSource::Empty, None),
+        CommitMessageComposer::Empty => (CommitMessageSource::Empty, None),
     };
 
     let _suspend_guard = reword_op

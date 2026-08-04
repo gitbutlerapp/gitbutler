@@ -19,16 +19,22 @@ use crate::{
     CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     command::{
-        legacy::status::{
-            FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
-            TuiRunOptions,
-            output::StatusOutputLineData,
-            tui::{
-                Selectable, Tui, count_allocations, dedup_mutation_messages,
-                details::Details,
-                event_to_messages,
-                remember_selection::{self, save_selection_to_disk},
-                render::render_app,
+        legacy::{
+            commit::{
+                self, CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitSelection,
+            },
+            reword2::CommitMessageSource,
+            status::{
+                FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
+                TuiRunOptions,
+                output::StatusOutputLineData,
+                tui::{
+                    Selectable, Tui, count_allocations, dedup_mutation_messages,
+                    details::Details,
+                    event_to_messages,
+                    remember_selection::{self, save_selection_to_disk},
+                    render::render_app,
+                },
             },
         },
         open::{self, Openable},
@@ -36,6 +42,7 @@ use crate::{
     id::{CommitId, CommittedFileId},
     theme::Theme,
     tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
+    utils::targeting::Side,
 };
 
 use super::{
@@ -1419,28 +1426,51 @@ impl App {
                     return Ok(());
                 };
 
-                let commit_result =
-                    operations::create_empty_commit_relative_to_branch(ctx, &branch.name)?;
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let outcome = commit::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::BranchTip {
+                            name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                        },
+                    }),
+                    CommitSelection::Nothing,
+                    CommitMessageSource::Empty,
+                )?;
 
                 messages.push(Message::Reload(
-                    Some(SelectAfterReload::Commit(commit_result.new_commit)),
+                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
                     ReloadCause::Mutation,
                 ));
             }
             StatusOutputLineData::Commit { cli_id, .. } => {
-                let CliId::Commit {
-                    commit: CommitId { commit_id, .. },
-                    id: _,
-                } = &**cli_id
-                else {
+                let CliId::Commit { commit, id: _ } = &**cli_id else {
                     return Ok(());
                 };
 
-                let commit_result =
-                    operations::create_empty_commit_relative_to_commit(ctx, *commit_id)?;
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let outcome = commit::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::Commit {
+                            commit: commit.clone(),
+                            side: Side::Above,
+                        },
+                    }),
+                    CommitSelection::Nothing,
+                    CommitMessageSource::Empty,
+                )?;
 
                 messages.push(Message::Reload(
-                    Some(SelectAfterReload::Commit(commit_result.new_commit)),
+                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
                     ReloadCause::Mutation,
                 ));
             }
@@ -1715,22 +1745,18 @@ impl App {
     }
 
     /// Returns the currently selected commit id when the selected line is a commit.
-    fn selected_commit_id(&self) -> Option<gix::ObjectId> {
+    fn selected_commit_id(&self) -> Option<CommitId> {
         let selection = self.cursor.selected_line(&self.status_lines)?;
 
         let StatusOutputLineData::Commit { cli_id, .. } = &selection.data else {
             return None;
         };
 
-        let CliId::Commit {
-            commit: CommitId { commit_id, .. },
-            id: _,
-        } = &**cli_id
-        else {
+        let CliId::Commit { commit, id: _ } = &**cli_id else {
             return None;
         };
 
-        Some(*commit_id)
+        Some(commit.clone())
     }
 
     fn handle_pick_and_goto_branch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {

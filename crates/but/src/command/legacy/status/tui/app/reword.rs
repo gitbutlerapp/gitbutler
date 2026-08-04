@@ -1,14 +1,13 @@
-use but_api::diff::ComputeLineStats;
-use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use gix::refs::{Category, FullName};
 use ratatui::backend::Backend;
 use ratatui_textarea::{CursorMove, TextArea};
 
 use crate::{
-    CliId,
+    CliId, CliResultExt,
     command::legacy::{
-        reword::get_branch_name_from_editor,
+        reword2::{self, BranchNameSource, CommitMessageSource, RewordOperation, RewordOutcome},
         status::tui::{
             App, Message, Mode, ReloadCause, SelectAfterReload, operations, render::ModeRender,
         },
@@ -20,12 +19,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum InlineRewordMode {
     Commit {
-        commit_id: gix::ObjectId,
+        commit_id: CommitId,
         textarea: Box<TextArea<'static>>,
     },
     Branch {
-        name: String,
-        stack_id: StackId,
+        name: FullName,
         textarea: Box<TextArea<'static>>,
     },
 }
@@ -95,21 +93,31 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let Some(commit_id) = self.selected_commit_id() else {
+        let Some(target) = self.selected_commit_id() else {
             return Ok(());
         };
 
         let _suspend_guard = terminal_guard.suspend()?;
 
-        let Some(reword_result) = operations::reword_commit_with_editor_legacy(ctx, commit_id)?
-        else {
+        let mut guard = ctx.exclusive_worktree_access();
+        let mut meta = ctx.meta()?;
+        let outcome = reword2::run(
+            ctx,
+            &mut meta,
+            guard.write_permission(),
+            RewordOperation::Commit {
+                target: target.clone(),
+                new_message: CommitMessageSource::Editor { initial: None },
+            },
+        )
+        .into_internal_error()?;
+
+        let Some(what_to_select) = reword_outcome_to_selection(outcome) else {
+            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         };
 
-        messages.push(Message::Reload(
-            Some(SelectAfterReload::Commit(reword_result.new_commit)),
-            ReloadCause::Mutation,
-        ));
+        messages.push(Message::Reload(Some(what_to_select), ReloadCause::Mutation));
 
         Ok(())
     }
@@ -128,24 +136,17 @@ impl App {
 
         let inline_reword_mode = match &**cli_id {
             CliId::Branch(branch) => {
-                let Some(stack_id) = branch.stack_id else {
-                    return Ok(());
-                };
                 let mut textarea = TextArea::from([branch.name.as_str()]);
                 textarea.set_cursor_line_style(self.theme.local_branch);
                 textarea.move_cursor(CursorMove::End);
 
                 InlineRewordMode::Branch {
-                    name: branch.name.to_owned(),
-                    stack_id,
+                    name: Category::LocalBranch.to_full_name(&*branch.name)?,
                     textarea: Box::new(textarea),
                 }
             }
-            CliId::Commit {
-                commit: CommitId { commit_id, .. },
-                id: _,
-            } => {
-                let current_message = operations::current_commit_message(ctx, *commit_id)?;
+            CliId::Commit { commit, .. } => {
+                let current_message = operations::current_commit_message(ctx, commit.commit_id)?;
 
                 if operations::commit_message_has_multiple_lines_legacy(&current_message) {
                     messages.push(Message::Reword(RewordMessage::WithEditor));
@@ -158,7 +159,7 @@ impl App {
                 textarea.move_cursor(CursorMove::End);
 
                 InlineRewordMode::Commit {
-                    commit_id: *commit_id,
+                    commit_id: commit.clone(),
                     textarea: Box::new(textarea),
                 }
             }
@@ -226,37 +227,54 @@ impl App {
             .map(std::string::String::as_str)
             .unwrap_or("");
 
+        let mut guard = ctx.exclusive_worktree_access();
+        let mut meta = ctx.meta()?;
+
         match inline_reword_mode {
-            InlineRewordMode::Commit { commit_id, .. } => {
-                let Some(reword_result) =
-                    operations::reword_commit_legacy(ctx, *commit_id, first_line)?
-                else {
+            InlineRewordMode::Commit {
+                commit_id: target, ..
+            } => {
+                let outcome = reword2::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    RewordOperation::Commit {
+                        target: target.clone(),
+                        new_message: CommitMessageSource::Provided(first_line.to_owned()),
+                    },
+                )
+                .into_internal_error()?;
+
+                let Some(what_to_select) = reword_outcome_to_selection(outcome) else {
                     messages.push(Message::EnterNormalModeAfterConfirmingOperation);
                     return Ok(());
                 };
 
                 messages.extend([
                     Message::EnterNormalModeAfterConfirmingOperation,
-                    Message::Reload(
-                        Some(SelectAfterReload::Commit(reword_result.new_commit)),
-                        ReloadCause::Mutation,
-                    ),
+                    Message::Reload(Some(what_to_select), ReloadCause::Mutation),
                 ]);
             }
-            InlineRewordMode::Branch { name, stack_id, .. } => {
-                let new_name = operations::reword_branch_legacy(
+            InlineRewordMode::Branch { name: target, .. } => {
+                let outcome = reword2::run(
                     ctx,
-                    *stack_id,
-                    name.to_owned(),
-                    first_line.to_owned(),
-                )?;
+                    &mut meta,
+                    guard.write_permission(),
+                    RewordOperation::Branch {
+                        target: target.clone(),
+                        new_name: BranchNameSource::Provided(first_line.to_owned()),
+                    },
+                )
+                .into_internal_error()?;
+
+                let Some(what_to_select) = reword_outcome_to_selection(outcome) else {
+                    messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+                    return Ok(());
+                };
 
                 messages.extend([
                     Message::EnterNormalModeAfterConfirmingOperation,
-                    Message::Reload(
-                        Some(SelectAfterReload::Branch(new_name)),
-                        ReloadCause::Mutation,
-                    ),
+                    Message::Reload(Some(what_to_select), ReloadCause::Mutation),
                 ]);
             }
         }
@@ -283,31 +301,44 @@ impl App {
             return Ok(());
         };
 
+        let mut guard = ctx.exclusive_worktree_access();
+        let mut meta = ctx.meta()?;
+
         let _suspend_guard = terminal_guard.suspend()?;
-        let what_to_select = match inline_reword_mode {
-            InlineRewordMode::Commit { commit_id, .. } => {
-                let commit_details =
-                    but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
-                if let Some(reword_result) =
-                    operations::reword_commit_with_editor_with_message_legacy(
-                        ctx,
-                        commit_details,
-                        line.to_owned(),
-                    )?
-                {
-                    SelectAfterReload::Commit(reword_result.new_commit)
-                } else {
-                    SelectAfterReload::Commit(*commit_id)
-                }
-            }
-            InlineRewordMode::Branch { name, stack_id, .. } => {
-                let new_name = get_branch_name_from_editor(line)?;
-                let normalized_name =
-                    operations::reword_branch_legacy(ctx, *stack_id, name.clone(), new_name)?;
-                SelectAfterReload::Branch(normalized_name)
-            }
+        let outcome = match inline_reword_mode {
+            InlineRewordMode::Commit {
+                commit_id: target, ..
+            } => reword2::run(
+                ctx,
+                &mut meta,
+                guard.write_permission(),
+                RewordOperation::Commit {
+                    target: target.clone(),
+                    new_message: CommitMessageSource::Editor {
+                        initial: Some(line.to_owned()),
+                    },
+                },
+            )
+            .into_internal_error()?,
+            InlineRewordMode::Branch { name: target, .. } => reword2::run(
+                ctx,
+                &mut meta,
+                guard.write_permission(),
+                RewordOperation::Branch {
+                    target: target.clone(),
+                    new_name: BranchNameSource::Editor {
+                        initial: Some(line.to_owned()),
+                    },
+                },
+            )
+            .into_internal_error()?,
         };
         drop(_suspend_guard);
+
+        let Some(what_to_select) = reword_outcome_to_selection(outcome) else {
+            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+            return Ok(());
+        };
 
         messages.extend([
             Message::EnterNormalModeAfterConfirmingOperation,
@@ -315,5 +346,15 @@ impl App {
         ]);
 
         Ok(())
+    }
+}
+
+fn reword_outcome_to_selection(outcome: RewordOutcome) -> Option<SelectAfterReload> {
+    match outcome {
+        RewordOutcome::CommitUpdated {
+            new_commit: commit, ..
+        } => Some(SelectAfterReload::Commit(commit.commit_id)),
+        RewordOutcome::BranchRenamed { new_name, .. } => Some(SelectAfterReload::Branch(new_name)),
+        RewordOutcome::CommitUnchanged { .. } | RewordOutcome::BranchUnchanged { .. } => None,
     }
 }

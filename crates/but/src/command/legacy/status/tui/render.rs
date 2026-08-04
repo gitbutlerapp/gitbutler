@@ -681,7 +681,7 @@ fn render_status_list_item(
                         textarea,
                         commit_id: source,
                     }) = &*app.mode
-                    && commit_id == source
+                    && *commit_id == source.commit_id
                 {
                     line.render(Span::raw(" "));
                     line.render_textarea(textarea);
@@ -717,7 +717,7 @@ fn render_status_list_item(
                         name: source,
                         ..
                     }) = &*app.mode
-                    && branch.name == *source
+                    && branch.name == source.shorten()
                 {
                     line.render_textarea(textarea);
                 } else {
