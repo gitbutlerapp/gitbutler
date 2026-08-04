@@ -188,7 +188,11 @@ impl CliOutputHuman for DiscardOutcome {
 impl CliOutput for DiscardOutcome {
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
-        #[serde(untagged, rename_all_fields = "camelCase")]
+        #[serde(
+            tag = "type",
+            rename_all = "camelCase",
+            rename_all_fields = "camelCase"
+        )]
         enum Output {
             Branches {
                 branches: Vec<String>,

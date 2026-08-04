@@ -122,7 +122,11 @@ fn write_comment(
 impl CliOutput for CommentOutcome {
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
-        #[serde(untagged, rename_all_fields = "camelCase")]
+        #[serde(
+            tag = "type",
+            rename_all = "camelCase",
+            rename_all_fields = "camelCase"
+        )]
         enum Output {
             Listed { comments: Vec<DiffComment> },
             Archived { archived: String },
