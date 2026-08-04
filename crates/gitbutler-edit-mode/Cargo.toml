@@ -37,6 +37,7 @@ git-meta-lib.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
+but-hunk-assignment.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 snapbox.workspace = true
 
