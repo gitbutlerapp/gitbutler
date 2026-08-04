@@ -12,7 +12,9 @@ use super::{
 use crate::{
     CliResult, IdMap,
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
-    bad_input, tui,
+    bad_input,
+    command::legacy::reword2::get_branch_name_from_editor,
+    tui,
     utils::{OutputChannel, get_change_id_for_commit, merged_upstream::MergedUpstream},
 };
 
@@ -304,27 +306,6 @@ fn actually_get_commit_message_from_editor(
     .to_string();
 
     Ok(lossy_message)
-}
-
-pub(crate) fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
-    let mut template = String::new();
-    template.push_str(current_name);
-    if !current_name.is_empty() && !current_name.ends_with('\n') {
-        template.push('\n');
-    }
-    template.push_str("\n# Please enter the new branch name. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty name aborts the operation.\n");
-    template.push_str("#\n");
-
-    let branch_name_lossy =
-        tui::get_text::from_editor_no_comments("branch_name", &template)?.to_string();
-    let branch_name = branch_name_lossy.trim();
-
-    if branch_name.is_empty() {
-        bail!("Aborting due to empty branch name");
-    }
-
-    Ok(branch_name.to_string())
 }
 
 #[cfg(test)]

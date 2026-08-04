@@ -179,7 +179,7 @@ fn resolve(
                 },
                 (false, None) => RewordOperation::Commit {
                     target,
-                    new_message: CommitMessageSource::Editor,
+                    new_message: CommitMessageSource::Editor { initial: None },
                 },
                 (true, Some(_)) => {
                     return Err(bad_input(
@@ -200,10 +200,10 @@ fn resolve(
             merged.ensure_branch_not_merged(ref_name.as_ref())?;
             let new_name = match message {
                 Some(message) => BranchNameSource::Provided(message),
-                None => BranchNameSource::Editor,
+                None => BranchNameSource::Editor { initial: None },
             };
             RewordOperation::Branch {
-                old_name: ref_name,
+                target: ref_name,
                 new_name,
             }
         }
@@ -212,7 +212,7 @@ fn resolve(
     Ok(operation)
 }
 
-fn get_branch_name_from_editor(current_name: &str) -> anyhow::Result<String> {
+pub(crate) fn get_branch_name_from_editor(current_name: &str) -> anyhow::Result<String> {
     let mut template = String::new();
     template.push_str(current_name);
     if !current_name.is_empty() && !current_name.ends_with('\n') {
@@ -231,7 +231,7 @@ fn get_branch_name_from_editor(current_name: &str) -> anyhow::Result<String> {
     Ok(branch_name.to_owned())
 }
 
-fn run(
+pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
@@ -255,12 +255,13 @@ fn run(
                 CommitMessageSource::Provided(message) => {
                     Some(normalize_commit_message(&message).to_owned())
                 }
-                CommitMessageSource::Editor => {
+                CommitMessageSource::Editor { initial: current } => {
                     let repo = ctx.repo.get()?;
                     edit_commit_message(
                         &repo,
                         ctx.settings.context_lines,
                         commit_details,
+                        current.as_deref().unwrap_or(&current_message),
                         &current_message,
                     )?
                 }
@@ -295,14 +296,15 @@ fn run(
                 new_message,
             )?)
         }
-        RewordOperation::Branch { old_name, new_name } => {
-            match reword_branch(ctx, old_name.clone(), new_name, perm)? {
-                BranchRename::Unchanged => Ok(RewordOutcome::BranchUnchanged { name: old_name }),
-                BranchRename::Renamed(new_name) => {
-                    Ok(RewordOutcome::BranchRenamed { old_name, new_name })
-                }
+        RewordOperation::Branch {
+            target: old_name,
+            new_name,
+        } => match reword_branch(ctx, old_name.clone(), new_name, perm)? {
+            BranchRename::Unchanged => Ok(RewordOutcome::BranchUnchanged { name: old_name }),
+            BranchRename::Renamed(new_name) => {
+                Ok(RewordOutcome::BranchRenamed { old_name, new_name })
             }
-        }
+        },
     }
 }
 
@@ -310,14 +312,15 @@ fn edit_commit_message(
     repo: &gix::Repository,
     context_lines: u32,
     commit_details: CommitDetails,
-    current_message: &str,
+    editor_initial_message: &str,
+    current_message_for_comparison: &str,
 ) -> anyhow::Result<Option<String>> {
     get_commit_message_from_editor_legacy(
         repo,
         context_lines,
         commit_details,
-        current_message.to_owned(),
-        current_message,
+        editor_initial_message.to_owned(),
+        current_message_for_comparison,
         ShowDiffInEditor::Unspecified,
     )
     .map_err(|err| {
@@ -329,7 +332,7 @@ fn edit_commit_message(
     })
 }
 
-enum RewordOperation {
+pub enum RewordOperation {
     Commit {
         target: CommitId,
         new_message: CommitMessageSource,
@@ -338,7 +341,7 @@ enum RewordOperation {
         target: CommitId,
     },
     Branch {
-        old_name: FullName,
+        target: FullName,
         new_name: BranchNameSource,
     },
 }
@@ -347,12 +350,22 @@ enum RewordOperation {
 pub enum CommitMessageSource {
     Empty,
     Provided(String),
-    Editor,
+    Editor {
+        /// Override the initial text shown in the editor.
+        ///
+        /// If `None` the target's current message will be shown.
+        initial: Option<String>,
+    },
 }
 
-enum BranchNameSource {
+pub enum BranchNameSource {
     Provided(String),
-    Editor,
+    Editor {
+        /// Override the initial text shown in the editor.
+        ///
+        /// If `None` the target's current name will be shown.
+        initial: Option<String>,
+    },
 }
 
 impl RewordOperation {
@@ -370,7 +383,7 @@ impl BranchNameSource {
     fn will_open_editor(&self) -> bool {
         match self {
             BranchNameSource::Provided(_) => false,
-            BranchNameSource::Editor => true,
+            BranchNameSource::Editor { .. } => true,
         }
     }
 }
@@ -381,7 +394,7 @@ impl CommitMessageSource {
     /// Used by the TUI to suspend itself.
     pub fn will_open_editor(&self) -> bool {
         match self {
-            CommitMessageSource::Editor => true,
+            CommitMessageSource::Editor { .. } => true,
             CommitMessageSource::Empty | CommitMessageSource::Provided(_) => false,
         }
     }
@@ -390,7 +403,7 @@ impl CommitMessageSource {
     pub fn from_args(no_message: bool, message: Option<Vec<String>>) -> CliResult<Self> {
         match (no_message, message) {
             (true, None) => Ok(Self::Empty),
-            (false, None) => Ok(Self::Editor),
+            (false, None) => Ok(Self::Editor { initial: None }),
             (false, Some(message)) => Ok(Self::Provided(message.join("\n\n"))),
             (true, Some(_)) => {
                 Err(bad_input("--no-message and --message cannot be used at the same time").into())
@@ -406,7 +419,7 @@ impl CommitMessageSource {
         let message = match self {
             CommitMessageSource::Empty => Some(String::new()),
             CommitMessageSource::Provided(message) => Some(message),
-            CommitMessageSource::Editor => {
+            CommitMessageSource::Editor { initial: current } => {
                 let repo = tx.repo();
                 let commit_details = CommitDetails::from_commit_id(
                     new_commit.commit_id.attach(repo),
@@ -419,6 +432,7 @@ impl CommitMessageSource {
                     tx.repo(),
                     tx.context_lines(),
                     commit_details,
+                    current.as_deref().unwrap_or(&current_message),
                     &current_message,
                 )?
             }
@@ -484,7 +498,9 @@ fn reword_branch(
             }
             name.to_owned()
         }
-        BranchNameSource::Editor => get_branch_name_from_editor(&current_name)?,
+        BranchNameSource::Editor { initial: current } => {
+            get_branch_name_from_editor(current.as_deref().unwrap_or(&current_name))?
+        }
     };
     let new_name = validate_branch_name(new_name)?;
 

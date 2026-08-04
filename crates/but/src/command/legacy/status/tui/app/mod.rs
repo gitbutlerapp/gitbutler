@@ -1715,22 +1715,18 @@ impl App {
     }
 
     /// Returns the currently selected commit id when the selected line is a commit.
-    fn selected_commit_id(&self) -> Option<gix::ObjectId> {
+    fn selected_commit_id(&self) -> Option<CommitId> {
         let selection = self.cursor.selected_line(&self.status_lines)?;
 
         let StatusOutputLineData::Commit { cli_id, .. } = &selection.data else {
             return None;
         };
 
-        let CliId::Commit {
-            commit: CommitId { commit_id, .. },
-            id: _,
-        } = &**cli_id
-        else {
+        let CliId::Commit { commit, id: _ } = &**cli_id else {
             return None;
         };
 
-        Some(*commit_id)
+        Some(commit.clone())
     }
 
     fn handle_pick_and_goto_branch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
