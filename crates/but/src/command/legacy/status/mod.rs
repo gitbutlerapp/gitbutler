@@ -138,12 +138,13 @@ impl TuiLaunchOptions {
             remember_selection,
             target,
             dev_flags,
+            diff,
         } = args;
 
         let mut args = Self {
             remember_selection,
             target,
-            show_diff: false,
+            show_diff: diff,
             debug: false,
             quit_after: None,
             headless: false,
@@ -162,13 +163,11 @@ impl TuiLaunchOptions {
             quit_after,
             headless,
             skip_status_after,
-            diff,
         } = flags;
         self.debug = debug;
         self.quit_after = quit_after;
         self.headless = headless;
         self.skip_status_after = skip_status_after;
-        self.show_diff = diff;
     }
 
     #[cfg(not(feature = "tui-profiling"))]
