@@ -152,7 +152,9 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Absorb => Group::EditingCommits,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Reword => Group::EditingCommits,
+                SubcommandDiscriminant::Reword | SubcommandDiscriminant::_Reword2 => {
+                    Group::EditingCommits
+                }
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Uncommit => Group::EditingCommits,
                 #[cfg(feature = "legacy")]

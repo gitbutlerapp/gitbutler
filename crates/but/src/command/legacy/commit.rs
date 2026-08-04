@@ -22,7 +22,7 @@ use crate::{
     },
     bad_input,
     command::legacy::{
-        reword2::RewordCommitOperation,
+        reword2::CommitMessageSource,
         status::{Selectable, TuiOutcome, TuiRunOptions, tui_with_options},
     },
     error::BadInput,
@@ -144,7 +144,7 @@ fn resolve(
     RepoExclusiveGuard,
     CommitOperation,
     CommitSelection,
-    RewordCommitOperation,
+    CommitMessageSource,
 )> {
     let Platform {
         no_message,
@@ -234,7 +234,7 @@ fn resolve(
         )?
     };
 
-    let reword_op = RewordCommitOperation::resolve(no_message, message);
+    let reword_op = CommitMessageSource::from_args(no_message, message)?;
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }
@@ -267,7 +267,7 @@ pub fn run(
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
-    reword_op: RewordCommitOperation,
+    reword_op: CommitMessageSource,
 ) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;

@@ -10,7 +10,7 @@ use crate::{
     CliId, CliResultExt,
     args::atoms::{AllowMergedArg, BranchArg, ResolvedCliIdArgRef},
     command::legacy::{
-        reword2::RewordCommitOperation,
+        reword2::CommitMessageSource,
         squash::{
             self, HowToRewordTarget, ResolvedSquashArgsRef, SquashOperation, SquashOutcome,
             SquashTarget, resolve_target,
@@ -541,7 +541,7 @@ fn resolve_squash_operation<'a>(
     };
 
     let reword = match reword {
-        SquashReword::Infer => HowToRewordTarget::Reword(RewordCommitOperation::UseEditor),
+        SquashReword::Infer => HowToRewordTarget::Reword(CommitMessageSource::Editor),
         SquashReword::UseTarget => HowToRewordTarget::UseTargetMessage,
     };
 
