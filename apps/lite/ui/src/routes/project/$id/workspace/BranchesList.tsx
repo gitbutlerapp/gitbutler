@@ -13,7 +13,7 @@ import {
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles } from "#ui/components/Field.tsx";
+import { FieldControlWithIcon, FieldRootStyles } from "#ui/components/Field.tsx";
 import {
 	GraphSegment,
 	type GraphSegmentGlyph,
@@ -38,7 +38,7 @@ import {
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import type { Commit, ListedBranch, ListedStack } from "@gitbutler/but-sdk";
-import { Toolbar } from "@base-ui/react";
+import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -494,17 +494,23 @@ export const BranchesList: FC<
 					<Icon name="filter" />
 				</button>
 
-				<FieldControlStyles
-					className={styles.filterInput}
-					aria-label="Filter branches"
-					placeholder="Filter branches…"
-					value={search}
-					onChange={(evt) =>
-						dispatch(
-							projectSlice.actions.setBranchSearch({ projectId, search: evt.currentTarget.value }),
-						)
-					}
-				/>
+				<Field.Root render={<FieldRootStyles />} className={styles.filterField}>
+					<FieldControlWithIcon
+						className="text-13"
+						icon={<Icon name="search" />}
+						aria-label="Filter branches"
+						placeholder="Filter branches…"
+						value={search}
+						onChange={(evt) =>
+							dispatch(
+								projectSlice.actions.setBranchSearch({
+									projectId,
+									search: evt.currentTarget.value,
+								}),
+							)
+						}
+					/>
+				</Field.Root>
 			</div>
 
 			<Scroller className={styles.listArea} viewportClassName={styles.list}>

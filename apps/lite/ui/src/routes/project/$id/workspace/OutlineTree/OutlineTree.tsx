@@ -27,6 +27,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import type {
 	BranchReference,
@@ -64,7 +65,9 @@ import { BranchRow } from "./BranchRow.tsx";
 import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
-import { getChangesFileRowItems } from "../file-row.ts";
+import { FileFilterRow } from "../FileFilterRow.tsx";
+import { useFileFilter } from "../useFileFilter.ts";
+import { getChangesFileRowItems, pathMatchesFilter } from "../file-row.ts";
 import {
 	canRemoveBranchReference,
 	downstackPushStatusesFromSegments,
@@ -255,15 +258,43 @@ const UncommittedChanges: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 
-	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
+	const filter = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
+	);
+	const fileRowItems = (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter(
+		(item) => pathMatchesFilter(item.path, filter),
+	);
 
 	const fileSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUncommittedFiles(state, projectId, navigationIndex),
 	);
 
+	const panelRef = useRef<HTMLDivElement>(null);
+	const fileListRef = useRef<HTMLDivElement>(null);
+	const fileFilter = useFileFilter({
+		filter,
+		setFilter: (filter) =>
+			dispatch(projectSlice.actions.setUncommittedFilesFilter({ projectId, filter })),
+		inputId: "uncommitted-files-filter-input",
+		scope: "uncommitted-files",
+		selection: fileSelection,
+		firstPath: fileRowItems[0]?.path,
+		onEnterList: onActiveFileSelection,
+		panelRef,
+		listRef: fileListRef,
+	});
+
 	return (
-		<div className={styles.uncommittedChanges}>
-			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
+		<div className={styles.uncommittedChanges} ref={panelRef}>
+			{fileFilter.rowProps === null ? (
+				<UncommittedChangesRow
+					changes={worktreeChanges?.changes ?? []}
+					projectId={projectId}
+					onOpenFilter={fileFilter.open}
+				/>
+			) : (
+				<FileFilterRow {...fileFilter.rowProps} />
+			)}
 
 			<Scroller
 				withSeparator
@@ -280,13 +311,17 @@ const UncommittedChanges: FC<{
 							}),
 						)
 					}
-					emptyLabel="Nothing to commit"
+					emptyLabel={
+						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
+							? "No matching files."
+							: "Nothing to commit"
+					}
 					fileParent={uncommittedChangesFileParent}
 					items={fileRowItems}
 					navigationIndex={navigationIndex}
 					onFileSelection={onActiveFileSelection}
 					projectId={projectId}
-					ref={useAutofocusSelectionScope()}
+					ref={useMergedRefs(fileListRef, useAutofocusSelectionScope())}
 					selection={fileSelection}
 				/>
 			</Scroller>

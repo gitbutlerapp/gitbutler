@@ -13,6 +13,7 @@
 	padding-inline: 8px;
 	border-radius: var(--radius-button);
 	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
 	background-color: var(--bg-1);
 	color: var(--text-1);
 	transition: outline-color var(--transition-fast);
@@ -27,6 +28,7 @@
 
 	&:focus {
 		outline: var(--focus-ring);
+		outline-offset: -1.5px;
 	}
 
 	&:disabled,
@@ -68,7 +70,7 @@
 		}
 
 		& .fieldControl {
-			padding-inline-start: 26px;
+			padding-inline-start: 32px;
 		}
 	}
 

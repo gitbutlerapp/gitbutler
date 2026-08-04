@@ -257,6 +257,10 @@ export const changesFileHotkeys = {
 		hotkey: "Mod+Backspace",
 		meta: { group: "File", name: "Discard changes" },
 	},
+	filter: {
+		hotkey: "Mod+F",
+		meta: { group: "File", name: "Filter files" },
+	},
 	openInEditor: {
 		hotkey: "E",
 		meta: { group: "File", name: "Open in editor" },

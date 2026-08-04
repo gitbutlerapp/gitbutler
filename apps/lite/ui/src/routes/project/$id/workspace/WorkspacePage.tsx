@@ -47,6 +47,7 @@ import {
 } from "#ui/operands.ts";
 import { Details, type DiffViewerHandle } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
+import { pathMatchesFilter } from "./file-row.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -233,10 +234,15 @@ const hasAnyOperation = (sources: Array<Operand>, target: Operand) => {
 
 const buildUncommittedFilesNavigationIndex = ({
 	worktreeChanges,
+	filter,
 }: {
 	worktreeChanges: WorktreeChanges | undefined;
+	filter: string | null;
 }): NavigationIndex<string> => {
-	const items = worktreeChanges?.changes.map((change) => change.path) ?? [];
+	const items =
+		worktreeChanges?.changes.flatMap((change) =>
+			pathMatchesFilter(change.path, filter) ? change.path : [],
+		) ?? [];
 	return { items, indexByKey: buildIndexByKey(items, (path) => path) };
 };
 
@@ -510,7 +516,13 @@ const WorkspacePage: FC = () => {
 	);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-	const uncommittedFilesNavigationIndex = buildUncommittedFilesNavigationIndex({ worktreeChanges });
+	const uncommittedFilesFilter = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
+	);
+	const uncommittedFilesNavigationIndex = buildUncommittedFilesNavigationIndex({
+		worktreeChanges,
+		filter: uncommittedFilesFilter,
+	});
 	const uncommittedTreeChangeDiffs = useQueries({
 		queries:
 			worktreeChanges?.changes.map((change) =>
@@ -524,9 +536,11 @@ const WorkspacePage: FC = () => {
 	});
 
 	const onActiveUncommittedFileSelection = (selection: string) => {
-		const index = uncommittedFilesNavigationIndex.indexByKey.get(selection);
-		const change = index !== undefined ? worktreeChanges?.changes[index] : undefined;
-		const treeChangeDiff = index !== undefined ? uncommittedTreeChangeDiffs?.[index] : undefined;
+		// Indexed against the worktree changes rather than the navigation index,
+		// which the file filter can narrow out from under them.
+		const index = worktreeChanges?.changes.findIndex((change) => change.path === selection) ?? -1;
+		const change = index === -1 ? undefined : worktreeChanges?.changes[index];
+		const treeChangeDiff = index === -1 ? undefined : uncommittedTreeChangeDiffs?.[index];
 		const navigation =
 			change && treeChangeDiff !== undefined
 				? getDiffFileNavigation({

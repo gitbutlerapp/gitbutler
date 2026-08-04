@@ -25,7 +25,8 @@ import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-}> = ({ changes, projectId }) => {
+	onOpenFilter: () => void;
+}> = ({ changes, projectId, onOpenFilter }) => {
 	const lineStats = useQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => getLineStats(results.map((result) => result.data)),
@@ -94,6 +95,14 @@ export const UncommittedChangesRow: FC<{
 						aria-label="Uncommitted changes actions"
 						render={<RowToolbar forceVisible />}
 					>
+						<Toolbar.Button
+							aria-label="Filter files"
+							onClick={onOpenFilter}
+							className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+						>
+							<Icon name="search" />
+						</Toolbar.Button>
+
 						<Toolbar.Button
 							aria-label="Uncommitted changes menu"
 							onClick={(event) => {

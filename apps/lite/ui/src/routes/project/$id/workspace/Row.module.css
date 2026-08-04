@@ -23,6 +23,13 @@
 	padding-block: calc(var(--panel-padding-block) - 2px);
 }
 
+/* A section header whose contents are boxes rather than text — a filter input,
+   say. It drops the label's extra inset so its contents line up with the
+   backgrounds of the rows in the section below. */
+.sectionHeaderFlush {
+	padding-inline: var(--panel-padding-inline);
+}
+
 .containerInteractive {
 	border-radius: var(--radius-button);
 
@@ -71,7 +78,7 @@
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
-		column-gap: 8px;
+		column-gap: 10px;
 		align-items: center;
 		/* Center buttons of any height within the first row line. */
 		height: var(--single-line-row-height);

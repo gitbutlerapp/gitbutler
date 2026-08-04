@@ -7,7 +7,7 @@
 
 .toolbar {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 6px;
 	align-items: center;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: 10px;
@@ -15,8 +15,9 @@
 	background-color: var(--bg-1);
 }
 
-.filterInput {
+.filterField {
 	flex-grow: 1;
+	min-width: 0;
 }
 
 .listArea {
