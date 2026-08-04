@@ -27,7 +27,7 @@ use crate::{
         squash::Platform,
     },
     bad_input,
-    command::legacy::reword2::RewordCommitOperation,
+    command::legacy::reword2::CommitMessageSource,
     id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
@@ -186,7 +186,7 @@ fn resolve_args(
         allow_merged: _,
     } = args;
 
-    let reword = resolve_reword(message, no_message, use_target_message, use_source_message);
+    let reword = resolve_reword(message, no_message, use_target_message, use_source_message)?;
 
     if let Some(target) = target {
         let resolved_sources = if sources.is_empty() {
@@ -647,7 +647,7 @@ fn fix_up_unnecessary_reword_via_editor(
                 .map(|c| c.as_ref())
                 .chain([op.target.as_ref()]);
             if let Some(msg) = obvious_final_message(commits, repo)? {
-                op.reword = HowToRewordTarget::Reword(RewordCommitOperation::Message(msg));
+                op.reword = HowToRewordTarget::Reword(CommitMessageSource::Provided(msg));
             }
         }
         SquashOperation::Branch(op) => {
@@ -657,22 +657,22 @@ fn fix_up_unnecessary_reword_via_editor(
                 .map(|c| c.as_ref())
                 .chain([op.target.as_ref()]);
             if let Some(msg) = obvious_final_message(commits, repo)? {
-                op.reword = HowToRewordTarget::Reword(RewordCommitOperation::Message(msg));
+                op.reword = HowToRewordTarget::Reword(CommitMessageSource::Provided(msg));
             }
         }
         SquashOperation::UncommittedHunks(op) => {
             if let Some(msg) = obvious_final_message([op.target.as_ref()], repo)? {
-                op.reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
+                op.reword = HowToRewordTargetNoSource::Reword(CommitMessageSource::Provided(msg));
             }
         }
         SquashOperation::Uncommitted { target, reword, .. } => {
             if let Some(msg) = obvious_final_message([target.as_ref()], repo)? {
-                *reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
+                *reword = HowToRewordTargetNoSource::Reword(CommitMessageSource::Provided(msg));
             }
         }
         SquashOperation::MoveCommittedFiles { target, reword, .. } => {
             if let Some(msg) = obvious_final_message([target.as_ref()], repo)? {
-                *reword = HowToRewordTargetNoSource::Reword(RewordCommitOperation::Message(msg));
+                *reword = HowToRewordTargetNoSource::Reword(CommitMessageSource::Provided(msg));
             }
         }
         SquashOperation::Uncommit(..) | SquashOperation::UncommitCommittedFiles(..) => {}
@@ -835,13 +835,13 @@ pub fn resolve_target(
                     return Err(ResolveTargetError::UseSourceMessageUnavailable);
                 }
                 HowToRewordTarget::Reword(reword_op) => match reword_op {
-                    RewordCommitOperation::NoMessage => {
+                    CommitMessageSource::Empty => {
                         return Err(ResolveTargetError::NoMessageUnavailable);
                     }
-                    RewordCommitOperation::Message(_) => {
+                    CommitMessageSource::Provided(_) => {
                         return Err(ResolveTargetError::MessageUnavailable);
                     }
-                    RewordCommitOperation::UseEditor => {}
+                    CommitMessageSource::Editor => {}
                 },
             }
 
@@ -928,13 +928,15 @@ fn resolve_reword(
     no_message: bool,
     use_target_message: bool,
     use_source_message: bool,
-) -> HowToRewordTarget {
+) -> CliResult<HowToRewordTarget> {
     if use_target_message {
-        HowToRewordTarget::UseTargetMessage
+        Ok(HowToRewordTarget::UseTargetMessage)
     } else if use_source_message {
-        HowToRewordTarget::UseSourceMessage
+        Ok(HowToRewordTarget::UseSourceMessage)
     } else {
-        HowToRewordTarget::Reword(RewordCommitOperation::resolve(no_message, message))
+        Ok(HowToRewordTarget::Reword(CommitMessageSource::from_args(
+            no_message, message,
+        )?))
     }
 }
 
@@ -942,7 +944,7 @@ fn resolve_reword(
 pub enum HowToRewordTarget {
     UseTargetMessage,
     UseSourceMessage,
-    Reword(RewordCommitOperation),
+    Reword(CommitMessageSource),
 }
 
 impl HowToRewordTarget {
@@ -968,7 +970,7 @@ impl HowToRewordTarget {
     ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage | Self::UseSourceMessage => Ok(commit),
-            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
+            Self::Reword(message) => message.execute(commit, tx),
         }
     }
 
@@ -1001,7 +1003,7 @@ impl HowToRewordTarget {
 #[derive(Debug, Clone)]
 pub enum HowToRewordTargetNoSource {
     UseTargetMessage,
-    Reword(RewordCommitOperation),
+    Reword(CommitMessageSource),
 }
 
 impl HowToRewordTargetNoSource {
@@ -1019,7 +1021,7 @@ impl HowToRewordTargetNoSource {
     ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage => Ok(commit),
-            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
+            Self::Reword(message) => message.execute(commit, tx),
         }
     }
 }

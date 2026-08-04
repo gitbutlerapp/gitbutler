@@ -309,6 +309,11 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_diff2")]
     _Diff2(diff2::Platform),
 
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_reword2")]
+    _Reword2(reword2::Platform),
+
     /// Debug command for expanding a CLI ID into any matching resources.
     ///
     /// This is not considered a feature of the CLI and should not be relied upon. It is only for
@@ -1133,6 +1138,8 @@ pub mod mcp;
 pub mod r#move;
 #[cfg(feature = "legacy")]
 pub mod pick;
+#[cfg(feature = "legacy")]
+pub mod reword2;
 pub mod skill;
 #[cfg(feature = "legacy")]
 pub mod squash;

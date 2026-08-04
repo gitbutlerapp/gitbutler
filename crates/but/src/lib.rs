@@ -1227,6 +1227,31 @@ async fn match_subcommand(
                 .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::_Reword2(reword_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            out.begin_status_after(status_after);
+
+            let outcome = command::legacy::reword2::reword(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                reword_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Reword {
             target,
             message,

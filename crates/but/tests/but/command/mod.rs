@@ -49,6 +49,8 @@ mod resolve;
 #[cfg(feature = "legacy")]
 mod reword;
 #[cfg(feature = "legacy")]
+mod reword2;
+#[cfg(feature = "legacy")]
 mod setup;
 mod skill;
 #[cfg(feature = "legacy")]

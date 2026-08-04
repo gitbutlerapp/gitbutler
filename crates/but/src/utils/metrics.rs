@@ -149,7 +149,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
             #[cfg(feature = "legacy")]
-            Subcommands::Reword { .. } => Reword,
+            Subcommands::Reword { .. } | Subcommands::_Reword2(..) => Reword,
             #[cfg(feature = "legacy")]
             Subcommands::Oplog(crate::args::oplog::Platform { cmd }) => match cmd {
                 None => OplogList,

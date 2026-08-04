@@ -483,12 +483,12 @@ where
     let mut meta = ctx.meta()?;
 
     let (reword_op, reword_msg) = match message_composer {
-        CommitMessageComposer::Editor => (reword2::RewordCommitOperation::UseEditor, None),
+        CommitMessageComposer::Editor => (reword2::CommitMessageSource::Editor, None),
         CommitMessageComposer::Inline => (
-            reword2::RewordCommitOperation::NoMessage,
+            reword2::CommitMessageSource::Empty,
             Some(Message::Reword(RewordMessage::InlineStart)),
         ),
-        CommitMessageComposer::Empty => (reword2::RewordCommitOperation::NoMessage, None),
+        CommitMessageComposer::Empty => (reword2::CommitMessageSource::Empty, None),
     };
 
     let _suspend_guard = reword_op
