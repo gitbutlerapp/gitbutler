@@ -116,7 +116,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // After materialize, file 'c' should be GONE from worktree
@@ -245,7 +245,7 @@ fn both_methods_update_references_identically() -> Result<()> {
 
         let outcome = editor.rebase()?;
         let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
-        let outcome = outcome.materialize()?;
+        let outcome = outcome.materialize(Default::default())?;
         assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
         (
@@ -339,7 +339,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
         "overlay preview should not repoint HEAD before materialization"
     );
 
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
     assert_eq!(
         repo.head_name()?,
@@ -428,7 +428,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
     editor.replace(stack_tip_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -469,7 +469,7 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     editor.replace(main_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     assert_eq!(repo.rev_parse_single("main")?.detach(), main_before);
 
@@ -521,7 +521,7 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
     let replacement = repo.write_object(replacement.inner)?.detach();
     let old_middle_selector = editor.select_commit(old_middle)?;
     editor.replace(old_middle_selector, Step::new_pick(replacement))?;
-    editor.rebase()?.materialize()?;
+    editor.rebase()?.materialize(Default::default())?;
 
     let new_middle = repo.rev_parse_single("middle")?.detach();
     assert_ne!(new_middle, old_middle);
@@ -593,7 +593,7 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
         let selector = editor.select_reference(refname.try_into()?)?;
         editor.replace(selector, Step::None)?;
     }
-    editor.rebase()?.materialize()?;
+    editor.rebase()?.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("middle")?.is_some(),
@@ -637,7 +637,7 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
     let middle_selector = editor.select_commit(middle)?;
     editor.replace(middle_selector, Step::new_pick(amended))?;
     editor.set_worktree_merge_base_override(gix::bstr::BStr::new("wt"), consumed_tree)?;
-    editor.rebase()?.materialize()?;
+    editor.rebase()?.materialize(Default::default())?;
 
     assert_eq!(repo.rev_parse_single("middle")?.detach(), amended);
     assert_eq!(

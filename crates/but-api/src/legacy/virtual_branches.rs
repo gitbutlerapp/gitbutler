@@ -675,7 +675,7 @@ fn commit_assigned_diffspec(
         );
     }
     if outcome.commit_selector.is_some() {
-        outcome.rebase.materialize()?;
+        outcome.rebase.materialize(Default::default())?;
         drop((repo, ws));
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }

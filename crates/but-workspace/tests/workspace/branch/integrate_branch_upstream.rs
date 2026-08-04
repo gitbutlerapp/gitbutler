@@ -1167,7 +1167,7 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1251,7 +1251,7 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1325,7 +1325,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1423,7 +1423,7 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1498,7 +1498,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1607,7 +1607,7 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1684,7 +1684,7 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1752,7 +1752,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1822,7 +1822,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1892,7 +1892,7 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -1975,7 +1975,7 @@ pick remote-commit
         &mut meta,
         &repo,
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
@@ -2046,7 +2046,7 @@ pick remote-commit
         &mut meta,
         &repo,
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
@@ -2137,7 +2137,7 @@ pick local-commit-3
         &mut meta,
         &repo,
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
@@ -2206,7 +2206,7 @@ pick local-tip
         &mut meta,
         &repo,
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
@@ -2264,7 +2264,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -2324,7 +2324,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -2385,7 +2385,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -2445,7 +2445,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -2537,7 +2537,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
@@ -2692,7 +2692,7 @@ fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> R
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     let mut current_commit_id = repo.rev_parse_single("A")?.detach();
     let squashed_commit_id = loop {
@@ -2980,7 +2980,7 @@ fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Resu
         &repo,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     let c_prime = repo.rev_parse_single("A")?.detach();
     let d_prime = repo.rev_parse_single("A~1")?.detach();
     assert_ne!(

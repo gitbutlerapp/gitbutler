@@ -99,7 +99,7 @@ fn insert_single_node_segment_above() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -199,7 +199,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -303,7 +303,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -406,7 +406,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -518,7 +518,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -636,7 +636,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
     assert_eq!(
         parent_subjects(&repo, "B")?,
@@ -713,7 +713,7 @@ fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()>
         mutate::ParentReparentingOrder::Append,
     )?;
 
-    editor.rebase()?.materialize()?;
+    editor.rebase()?.materialize(Default::default())?;
     assert_eq!(
         parent_subjects(&repo, "B")?,
         [

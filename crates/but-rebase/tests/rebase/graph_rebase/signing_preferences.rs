@@ -58,7 +58,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -111,7 +111,7 @@ fn commits_are_signed_by_default() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -208,7 +208,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -285,7 +285,7 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     editor.replace(top_commit_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize()?;
+    let materialize_outcome = outcome.materialize(Default::default())?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -370,7 +370,7 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     editor.replace(mid_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize()?;
+    let materialize_outcome = outcome.materialize(Default::default())?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -471,7 +471,7 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     editor.replace(mid_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize()?;
+    let materialize_outcome = outcome.materialize(Default::default())?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -567,7 +567,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     editor.replace(mid_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize()?;
+    let materialize_outcome = outcome.materialize(Default::default())?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -650,7 +650,7 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     editor.replace(base_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize()?;
+    let materialize_outcome = outcome.materialize(Default::default())?;
 
     let commit_mappings = materialize_outcome.history.commit_mappings();
     let new_base_commit_id = commit_mappings

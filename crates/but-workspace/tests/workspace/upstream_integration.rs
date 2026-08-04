@@ -82,7 +82,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -169,7 +169,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -269,7 +269,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -346,7 +346,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -438,7 +438,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -504,7 +504,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
             selector: RelativeTo::Commit(integrated_bottom_commit),
         }],
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("B")?.is_none(),
@@ -587,7 +587,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -668,7 +668,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1007,7 +1007,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         1,
         "non-bottom update selectors should not mark integrated stacks as selected for pruning"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_some(),
@@ -1175,7 +1175,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     );
     drop(preview);
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -1262,7 +1262,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     );
     drop(preview);
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -2078,7 +2078,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         ws_meta.stacks.is_empty(),
         "workspace metadata should no longer expose the integrated empty branch"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
     let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2283,7 +2283,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         vec!["top"],
         "workspace metadata should retain only the unmerged empty top branch"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
     let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2442,7 +2442,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -2526,7 +2526,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
 
     let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
     let workspace = graph.into_workspace()?;
@@ -2633,7 +2633,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
     let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2829,7 +2829,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             head_commit_at_merge: review_head,
         }],
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
@@ -2919,7 +2919,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_some(),
@@ -2953,7 +2953,7 @@ fn integrate_and_materialize<M: RefMetadata>(
         ws_meta,
         project_meta,
     } = integrate_upstream(workspace, meta, current_project_meta, repo, updates)?;
-    let materialized = rebase.materialize()?;
+    let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
@@ -2995,7 +2995,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         updates,
         review_hints,
     )?;
-    let materialized = rebase.materialize()?;
+    let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {

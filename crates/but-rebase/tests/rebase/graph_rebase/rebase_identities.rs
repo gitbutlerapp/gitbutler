@@ -49,7 +49,7 @@ fn four_commits() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -119,7 +119,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -184,7 +184,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -257,7 +257,7 @@ fn three_branches_merged() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);

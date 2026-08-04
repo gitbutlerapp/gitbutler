@@ -60,7 +60,7 @@ fn amend_commit_smoke_test() -> Result<()> {
 
     assert!(outcome.rejected_specs.is_empty());
     let selector = outcome.commit_selector.expect("selector exists");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let rewritten_id = materialized.lookup_pick(selector)?;
 
     let rewritten_commit = repo.find_commit(rewritten_id)?;
@@ -116,7 +116,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 
     assert!(outcome.rejected_specs.is_empty());
     let _selector = outcome.commit_selector.expect("amend selector exists");
-    let _materialized = outcome.rebase.materialize()?;
+    let _materialized = outcome.rebase.materialize(Default::default())?;
 
     // No uncommitted changes should remain: the change was amended into
     // "save 1", so it must not persist as an uncommitted worktree change.
@@ -186,7 +186,7 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let _materialized = outcome.rebase.materialize()?;
+    let _materialized = outcome.rebase.materialize(Default::default())?;
 
     // After amend: a-file.txt should no longer be modified (it was amended)
     // but b-file.txt should STILL be deleted (uncommitted deletion preserved)
@@ -314,7 +314,7 @@ mod from_worktree {
             outcome.rejected_specs
         );
         let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize()?;
+        let materialized = outcome.rebase.materialize(Default::default())?;
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(
@@ -379,7 +379,7 @@ mod from_worktree {
             },
         )?;
         let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize()?;
+        let materialized = outcome.rebase.materialize(Default::default())?;
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(
@@ -453,7 +453,7 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        outcome.rebase.materialize()?;
+        outcome.rebase.materialize(Default::default())?;
 
         snapbox::assert_data_eq!(
             git_status_at_dir(repo.workdir().unwrap())?,
@@ -576,7 +576,7 @@ mod from_worktree {
             outcome.rejected_specs
         );
         let selector = outcome.commit_selector.expect("a commit was created");
-        let materialized = outcome.rebase.materialize()?;
+        let materialized = outcome.rebase.materialize(Default::default())?;
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(

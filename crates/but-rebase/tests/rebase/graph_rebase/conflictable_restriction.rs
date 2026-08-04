@@ -56,7 +56,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // We expect to see conflicted headers
@@ -205,7 +205,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // The rebase is successful because `c` remained unconflicted

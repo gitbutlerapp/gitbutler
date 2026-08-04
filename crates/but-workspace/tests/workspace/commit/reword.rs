@@ -25,7 +25,7 @@ fn reword_head_commit() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -62,7 +62,7 @@ fn reword_middle_commit() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -101,7 +101,7 @@ fn reword_base_commit() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(Default::default())?;
 
     // We end up with two divergent histories here. This is to be expected if we
     // rewrite the very bottom commit in a repository.

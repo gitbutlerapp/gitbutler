@@ -33,7 +33,7 @@ fn insert_below_commit() -> Result<()> {
         RelativeToRef::Commit(id.detach()),
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -78,7 +78,7 @@ fn insert_above_commit() -> Result<()> {
         RelativeToRef::Commit(id.detach()),
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -121,7 +121,7 @@ fn insert_below_reference() -> Result<()> {
         RelativeToRef::Reference(reference.name()),
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -164,7 +164,7 @@ fn insert_above_reference() -> Result<()> {
         RelativeToRef::Reference(reference.name()),
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

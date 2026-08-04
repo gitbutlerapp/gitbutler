@@ -43,7 +43,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
         move_changes_between_commits(editor, commit_id, commit_id, Vec::<DiffSpec>::new(), 0)?;
 
     // Materialize should succeed
-    outcome.rebase.materialize()?;
+    outcome.rebase.materialize(Default::default())?;
 
     // Graph should be unchanged
     snapbox::assert_data_eq!(
@@ -113,7 +113,7 @@ aac5238
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
         materialized.history.commit_mappings().to_debug(),
         snapbox::str![[r#"
@@ -201,7 +201,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
         materialized.history.commit_mappings().to_debug(),
         snapbox::str![[r#"
@@ -287,7 +287,7 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
         materialized.history.commit_mappings().to_debug(),
         snapbox::str![[r#"

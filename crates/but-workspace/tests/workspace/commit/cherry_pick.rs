@@ -35,7 +35,7 @@ fn insert_below_commit() -> anyhow::Result<()> {
         InsertSide::Below,
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -79,7 +79,7 @@ fn insert_above_commit() -> anyhow::Result<()> {
         InsertSide::Above,
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -121,7 +121,7 @@ fn insert_below_reference() -> anyhow::Result<()> {
         InsertSide::Below,
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -168,7 +168,7 @@ fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
         RelativeTo::Reference(a_ref),
         InsertSide::Below,
     )?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -226,7 +226,7 @@ fn sources_are_deduped() -> anyhow::Result<()> {
         1,
         "duplicate B should produce only one copy"
     );
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -263,7 +263,7 @@ fn copies_get_new_change_ids() -> anyhow::Result<()> {
         InsertSide::Below,
     )?;
     let copy = rebase.lookup_pick(inserted_selectors[0])?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     assert_ne!(
         Commit::from_id(source.attach(&repo))?.change_id(),
@@ -290,7 +290,7 @@ fn copies_commit_contents() -> anyhow::Result<()> {
         InsertSide::Below,
     )?;
     let copy = rebase.lookup_pick(inserted_selectors[0])?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     assert_eq!(
         repo.find_commit(copy)?.message_raw()?,
@@ -331,7 +331,7 @@ fn rebased_children_keep_contents() -> anyhow::Result<()> {
         InsertSide::Below,
     )?
     .0
-    .materialize()?;
+    .materialize(Default::default())?;
 
     let rebased_target = repo.rev_parse_single("A")?.detach();
     assert_eq!(

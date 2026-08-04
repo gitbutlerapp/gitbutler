@@ -45,7 +45,7 @@ pub fn commit(
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, input.commit_id, message.as_bytes().as_bstr())?;
     let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
 
     Ok((new_commit_id, message))
 }

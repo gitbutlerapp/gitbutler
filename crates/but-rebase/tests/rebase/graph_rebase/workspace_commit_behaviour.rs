@@ -75,7 +75,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         "Workspace step should match workspace pick defaults after first rebase"
     );
 
-    let mat_outcome = outcome.materialize()?;
+    let mat_outcome = outcome.materialize(Default::default())?;
     assert_eq!(
         overlayed,
         graph_tree(&mat_outcome.workspace.graph).to_string()
@@ -140,7 +140,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -261,7 +261,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
         "Step should match regular pick defaults after rebase"
     );
 
-    let mat_outcome = outcome.materialize()?;
+    let mat_outcome = outcome.materialize(Default::default())?;
     assert_eq!(
         overlayed,
         graph_tree(&mat_outcome.workspace.graph).to_string()
@@ -409,7 +409,7 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
     // The rebase should succeed even though the workspace commit has a
     // parent that no longer has a corresponding Reference node.
     let outcome = editor.rebase()?;
-    let _materialized = outcome.materialize()?;
+    let _materialized = outcome.materialize(Default::default())?;
 
     Ok(())
 }

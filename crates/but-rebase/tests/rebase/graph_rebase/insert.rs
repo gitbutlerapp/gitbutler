@@ -75,7 +75,7 @@ fn insert_below_merge_commit() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -181,7 +181,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -282,7 +282,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(

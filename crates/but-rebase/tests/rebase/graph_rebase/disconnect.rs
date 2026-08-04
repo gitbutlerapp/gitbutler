@@ -67,7 +67,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -145,7 +145,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     snapbox::assert_data_eq!(
@@ -227,7 +227,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let a_now = repo.rev_parse_single("A")?.detach();
@@ -328,7 +328,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
@@ -473,7 +473,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
@@ -608,7 +608,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
@@ -761,7 +761,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
@@ -843,7 +843,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
@@ -925,7 +925,7 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
 
 "#]]
     );
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;

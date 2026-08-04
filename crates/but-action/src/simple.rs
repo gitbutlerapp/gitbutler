@@ -137,7 +137,7 @@ pub(crate) fn handle_changes(
             .map(|selector| outcome.rebase.lookup_pick(selector))
             .transpose()?
         {
-            outcome.rebase.materialize()?;
+            outcome.rebase.materialize(Default::default())?;
             updated_branches.push(crate::UpdatedBranch {
                 stack_id,
                 branch_name: stack_branch_name,

@@ -226,7 +226,7 @@ impl WorkspaceState {
             return Self::from_rebase_preview(&mut rebase, replaced_commits, prs_by_head);
         }
 
-        let materialized = rebase.materialize()?;
+        let materialized = rebase.materialize(Default::default())?;
         Self::from_workspace(
             materialized.workspace,
             materialized.meta,
