@@ -9,6 +9,7 @@ use ratatui_textarea::TextArea;
 use super::{Cursor, is_selectable_in_mode};
 use crate::{
     CliId,
+    args::atoms::ResolvedCliIdArg,
     command::legacy::status::{
         CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
@@ -171,6 +172,76 @@ where
         }
     }
     marks
+}
+
+#[test]
+fn select_resolved_target_selects_committed_file() {
+    let commit_id = commit_id("0123456789012345678901234567890123456789");
+    let committed_file = CommittedFileId {
+        commit_id,
+        path: "file.txt".into(),
+        change_id: None,
+    };
+    let lines = vec![line(StatusOutputLineData::File {
+        cli_id: committed_file_cli_id(
+            "0123456789012345678901234567890123456789",
+            "file.txt",
+            "a:b",
+        ),
+    })];
+
+    let cursor =
+        Cursor::select_resolved_target(ResolvedCliIdArg::CommittedFile(committed_file), &lines)
+            .expect("committed file target should be supported");
+
+    assert_eq!(
+        cursor,
+        Some(Cursor(0)),
+        "the committed file row is selected"
+    );
+}
+
+#[test]
+fn select_resolved_target_selects_parent_file_for_hunk() {
+    let first_hunk = IdAndHunk {
+        id: "fi:a".into(),
+        hunk: hunk("file.txt", 1),
+    };
+    let second_hunk = IdAndHunk {
+        id: "fi:b".into(),
+        hunk: hunk("file.txt", 20),
+    };
+    let file = UncommittedHunkOrFile {
+        id: "fi".into(),
+        hunks: NonEmpty {
+            head: first_hunk,
+            tail: vec![second_hunk.clone()],
+        },
+        is_entire_file: true,
+    };
+    let selected_hunk = UncommittedHunkOrFile {
+        id: second_hunk.id.clone(),
+        hunks: NonEmpty::new(second_hunk),
+        is_entire_file: false,
+    };
+    let lines = vec![
+        uncommitted_file_line("other.txt", "ot"),
+        line(StatusOutputLineData::UncommittedFile {
+            cli_id: Arc::new(CliId::UncommittedHunkOrFile(file)),
+        }),
+    ];
+
+    let cursor = Cursor::select_resolved_target(
+        ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(selected_hunk)),
+        &lines,
+    )
+    .expect("individual hunk target should be supported");
+
+    assert_eq!(
+        cursor,
+        Some(Cursor(1)),
+        "the row containing the selected hunk is selected"
+    );
 }
 
 fn markable(cli_id: &Arc<CliId>) -> MarkableRef<'_> {

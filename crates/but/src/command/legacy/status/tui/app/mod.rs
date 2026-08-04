@@ -16,8 +16,8 @@ use nonempty::NonEmpty;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult, IdMap,
-    args::atoms::Purpose,
+    CliId, CliResult,
+    args::atoms::ResolvedCliIdArg,
     command::{
         legacy::status::{
             FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
@@ -54,7 +54,7 @@ use super::{
         KeyBinds, confirm_key_binds, default_key_binds, fuzzy_picker_key_binds, help_key_binds,
         normal_with_marks_key_binds,
     },
-    mode::{DetailsReturnMode, Mode},
+    mode::{DetailsMode, DetailsReturnMode, Mode},
     operations,
     toast::{ToastKind, Toasts},
 };
@@ -308,10 +308,10 @@ impl Tui for App {
 impl App {
     pub fn new(
         ctx: &Context,
-        id_map: &IdMap,
         status_lines: Vec<StatusOutputLine>,
         flags: StatusFlags,
         launch_options: TuiLaunchOptions,
+        initial_target: Option<ResolvedCliIdArg>,
         run_options: TuiRunOptions,
         show_file_browser: bool,
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
@@ -319,9 +319,24 @@ impl App {
         clipboard: Clipboard,
         operating_mode: OperatingMode,
     ) -> CliResult<Self> {
-        let cursor = if let Some(target) = launch_options.target.clone() {
-            let repo = ctx.repo.get()?;
-            let target = target.resolve_in_workspace(&repo, id_map, Purpose::Target, None)?;
+        let initial_hunk = initial_target.as_ref().and_then(|target| match target {
+            ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
+                Some(CliId::UncommittedHunkOrFile((**hunk).clone()))
+            }
+            ResolvedCliIdArg::Commit(..)
+            | ResolvedCliIdArg::Branch(..)
+            | ResolvedCliIdArg::UncommittedHunkOrFile(..)
+            | ResolvedCliIdArg::CommittedFile(..)
+            | ResolvedCliIdArg::Uncommitted
+            | ResolvedCliIdArg::PathPrefix { .. }
+            | ResolvedCliIdArg::Stack => None,
+        });
+        let initial_committed_file = matches!(
+            initial_target.as_ref(),
+            Some(ResolvedCliIdArg::CommittedFile(..))
+        );
+
+        let cursor = if let Some(target) = initial_target {
             Cursor::select_resolved_target(target, &status_lines)?
                 .unwrap_or_else(|| Cursor::new(&status_lines))
         } else if launch_options.remember_selection
@@ -337,8 +352,11 @@ impl App {
         let (details_tx, details_rx) = std::sync::mpsc::channel::<Message>();
         incoming_out_of_band_messages.push(details_rx);
 
-        let details = Details::new(theme, details_tx, clipboard.clone());
-        let is_details_visible = launch_options.show_diff;
+        let mut details = Details::new(theme, details_tx, clipboard.clone());
+        if let Some(hunk) = initial_hunk.clone() {
+            details.select_cli_id_when_available(hunk);
+        }
+        let is_details_visible = launch_options.show_diff || initial_hunk.is_some();
 
         let app_key_binds = AppKeyBinds {
             key_binds: default_key_binds(),
@@ -346,10 +364,29 @@ impl App {
             confirm_key_binds: confirm_key_binds(),
         };
 
-        let mode = RememberToUpdateBackstack::new(match run_options {
-            TuiRunOptions::Normal => Mode::default(),
-            TuiRunOptions::PickChanges => Mode::PickChanges(Default::default()),
+        let mode = RememberToUpdateBackstack::new(match (run_options, initial_hunk.is_some()) {
+            (TuiRunOptions::Normal, false) => Mode::default(),
+            (TuiRunOptions::Normal, true) => Mode::Details(DetailsMode {
+                full_screen: false,
+                return_mode: DetailsReturnMode::Normal(Default::default()),
+            }),
+            (TuiRunOptions::PickChanges, false) => Mode::PickChanges(Default::default()),
+            (TuiRunOptions::PickChanges, true) => Mode::Details(DetailsMode {
+                full_screen: false,
+                return_mode: DetailsReturnMode::PickChanges(Default::default()),
+            }),
         });
+
+        let mut backstack = Backstack::default();
+        if initial_committed_file {
+            backstack.push_show_file_list();
+        }
+        if initial_hunk.is_some() {
+            if !launch_options.show_diff {
+                backstack.push_open_details_view(false);
+            }
+            backstack.push_leave_normal_mode();
+        }
 
         let file_browser = show_file_browser.then(FileBrowser::default);
 
@@ -370,7 +407,7 @@ impl App {
             incoming_out_of_band_messages,
             to_be_discarded: Default::default(),
             modal: Default::default(),
-            backstack: Default::default(),
+            backstack,
             fps: FpsCounter::new(),
             details,
             is_details_visible,

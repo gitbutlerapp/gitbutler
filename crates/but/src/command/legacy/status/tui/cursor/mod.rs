@@ -13,7 +13,7 @@ use crate::{
             Mode, NormalMode, PickChangesMode, SelectAfterReload,
             app::{
                 CommitSource, SquashMode,
-                mark::{MarkableRef, Marks},
+                mark::{MarkableRef, Marks, hunk_is_child_of},
                 prefix_match,
             },
             mode::ModeRef,
@@ -84,25 +84,13 @@ impl Cursor {
         target: ResolvedCliIdArg,
         lines: &[StatusOutputLine],
     ) -> CliResult<Option<Self>> {
-        let hint = "`TARGET` can be a commit, branch, or uncommitted file";
+        let hint = "`TARGET` can be a commit, branch, committed file, uncommitted file, or uncommitted hunk";
         match &target {
             ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
-            | ResolvedCliIdArg::Uncommitted => {}
-            ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
-                // https://linear.app/gitbutler/issue/GB-1798/support-opening-the-tui-on-committed-files-or-hunks
-                if !hunk.is_entire_file {
-                    return Err(bad_input("Selecting hunks is not supported")
-                        .hint(hint)
-                        .into());
-                }
-            }
-            ResolvedCliIdArg::CommittedFile(..) => {
-                // https://linear.app/gitbutler/issue/GB-1798/support-opening-the-tui-on-committed-files-or-hunks
-                return Err(bad_input("Selecting committed files is not supported")
-                    .hint(hint)
-                    .into());
-            }
+            | ResolvedCliIdArg::Uncommitted
+            | ResolvedCliIdArg::UncommittedHunkOrFile(..)
+            | ResolvedCliIdArg::CommittedFile(..) => {}
             ResolvedCliIdArg::PathPrefix { .. } => {
                 return Err(bad_input("Selecting path prefixes is not supported")
                     .hint(hint)
@@ -115,10 +103,28 @@ impl Cursor {
             }
         }
 
-        let Some(idx) = lines
-            .iter()
-            .position(|line| line.data.cli_id().is_some_and(|cli_id| target == **cli_id))
-        else {
+        let Some(idx) = lines.iter().position(|line| {
+            line.data.cli_id().is_some_and(|cli_id| match &target {
+                ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
+                    match &**cli_id {
+                        CliId::UncommittedHunkOrFile(file) => hunk_is_child_of(file, hunk),
+                        CliId::PathPrefix { .. }
+                        | CliId::CommittedFile { .. }
+                        | CliId::Branch(..)
+                        | CliId::Commit { .. }
+                        | CliId::Uncommitted { .. }
+                        | CliId::Stack { .. } => false,
+                    }
+                }
+                ResolvedCliIdArg::Commit(..)
+                | ResolvedCliIdArg::Branch(..)
+                | ResolvedCliIdArg::UncommittedHunkOrFile(..)
+                | ResolvedCliIdArg::CommittedFile(..)
+                | ResolvedCliIdArg::Uncommitted
+                | ResolvedCliIdArg::PathPrefix { .. }
+                | ResolvedCliIdArg::Stack => target == **cli_id,
+            })
+        }) else {
             return Ok(None);
         };
         if !lines[idx].is_selectable() {

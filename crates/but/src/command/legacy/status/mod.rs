@@ -23,7 +23,10 @@ use serde::Serialize;
 
 use crate::{
     CLI_DATE, CliId, CliResult, IdMap,
-    args::{self, OutputFormat, atoms::CliIdArg},
+    args::{
+        self, OutputFormat,
+        atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
+    },
     command::legacy::status::uncommitted_file::UncommittedFileWithId,
     command::legacy::{
         forge::review,
@@ -276,7 +279,7 @@ pub(crate) fn worktree(
         return show_edit_mode_status(ctx, out).map_err(Into::into);
     }
 
-    let status_ctx = {
+    let mut status_ctx = {
         let mut guard = ctx.exclusive_worktree_access();
         let format = out.format();
         build_status_context(
@@ -311,6 +314,11 @@ pub(crate) fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui(launch_options) => {
+            let initial_target =
+                resolve_tui_target(&*ctx.repo.get()?, &status_ctx.id_map, &launch_options)?;
+            status_ctx.flags =
+                status_flags_for_tui_target(status_ctx.flags, initial_target.as_ref());
+
             let mut inout = out
                 .prepare_for_terminal_input()
                 .context("input required, run this in a terminal")?;
@@ -322,12 +330,12 @@ pub(crate) fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
             let (final_lines, _outcome) = tui::render_tui(
                 ctx,
-                &status_ctx.id_map,
                 &mut inout,
-                mode,
-                flags,
+                mode.clone(),
+                status_ctx.flags,
                 lines,
                 launch_options.clone(),
+                initial_target,
                 run_options,
             )?;
 
@@ -381,18 +389,42 @@ pub(crate) fn tui_with_options(
     build_status_output(ctx, &status_ctx, &mut output)?;
     let (_final_lines, outcome) = tui::render_tui(
         ctx,
-        &status_ctx.id_map,
         out,
         operating_mode,
         flags,
         lines,
         launch_options,
+        None,
         run_options,
     )?;
 
     let guard = ctx.exclusive_worktree_access();
 
     Ok((guard, outcome))
+}
+
+pub(crate) fn resolve_tui_target(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    launch_options: &TuiLaunchOptions,
+) -> CliResult<Option<ResolvedCliIdArg>> {
+    let Some(target) = &launch_options.target else {
+        return Ok(None);
+    };
+
+    target
+        .resolve_in_workspace(repo, id_map, Purpose::Target, None)
+        .map(Some)
+}
+
+pub(crate) fn status_flags_for_tui_target(
+    mut flags: StatusFlags,
+    target: Option<&ResolvedCliIdArg>,
+) -> StatusFlags {
+    if let Some(ResolvedCliIdArg::CommittedFile(committed_file)) = target {
+        flags.show_files = FilesStatusFlag::Commit(committed_file.commit_id);
+    }
+    flags
 }
 
 fn build_status_context<'a>(
