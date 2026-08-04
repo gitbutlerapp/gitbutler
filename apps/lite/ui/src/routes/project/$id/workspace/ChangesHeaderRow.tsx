@@ -28,7 +28,8 @@ export const ChangesHeaderRow: FC<{
 	changes: Array<TreeChange>;
 	lineStats: LineStats;
 	className?: string;
-}> = ({ projectId, fileParent, changes, lineStats, className }) => {
+	onOpenFilter: () => void;
+}> = ({ projectId, fileParent, changes, lineStats, className, onOpenFilter }) => {
 	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
 		useCommitUncommitChanges();
 	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
@@ -101,6 +102,14 @@ export const ChangesHeaderRow: FC<{
 			}}
 			actions={
 				<Toolbar.Root aria-label="Changes actions" render={<RowToolbar forceVisible />}>
+					<Toolbar.Button
+						aria-label="Filter files"
+						onClick={onOpenFilter}
+						className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+					>
+						<Icon name="search" />
+					</Toolbar.Button>
+
 					<Toolbar.Button
 						aria-label="Changes menu"
 						onClick={(event) => {

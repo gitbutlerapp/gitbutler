@@ -239,10 +239,6 @@ export const changesHotkeys = {
 		hotkey: "Mod+Enter",
 		meta: { group: "Uncommitted changes", name: "Commit" },
 	},
-	filterFiles: {
-		hotkey: "Mod+F",
-		meta: { group: "Uncommitted changes", name: "Filter files" },
-	},
 	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
 	},
@@ -260,6 +256,10 @@ export const changesFileHotkeys = {
 	discard: {
 		hotkey: "Mod+Backspace",
 		meta: { group: "File", name: "Discard changes" },
+	},
+	filter: {
+		hotkey: "Mod+F",
+		meta: { group: "File", name: "Filter files" },
 	},
 	openInEditor: {
 		hotkey: "E",

@@ -100,8 +100,11 @@ import {
 	changeFileRowItem,
 	conflictFileRowItem,
 	getChangesFileRowItems,
+	pathMatchesFilter,
 	type FileRowItem,
 } from "./file-row.ts";
+import { FileFilterRow } from "./FileFilterRow.tsx";
+import { useFileFilter } from "./useFileFilter.ts";
 import { contiguousSelectionByLine } from "#ui/hunk.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -887,6 +890,7 @@ const Diff: FC<{
 }) => {
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
+	const dispatch = useAppDispatch();
 
 	const { data: renderAllFiles } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
@@ -903,7 +907,13 @@ const Diff: FC<{
 	// whichever of those owns them is hidden, so they never disappear entirely.
 	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
 
-	const files = filesItems.map((item) => item.path);
+	const filesFilter = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesFilter(state, projectId),
+	);
+	// The filter narrows the file list only; the diff itself keeps every file, so
+	// the list stays a way of reaching a file rather than a way of hiding one.
+	const filteredFilesItems = filesItems.filter((item) => pathMatchesFilter(item.path, filesFilter));
+	const files = filteredFilesItems.map((item) => item.path);
 	const filesNavigationIndex: NavigationIndex<string> = {
 		items: files,
 		indexByKey: buildIndexByKey(files, (path) => path),
@@ -965,6 +975,21 @@ const Diff: FC<{
 
 		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
 	};
+
+	const filesPanelRef = useRef<HTMLDivElement>(null);
+	const filesTreeRef = useRef<HTMLDivElement>(null);
+	const fileFilter = useFileFilter({
+		filter: filesFilter,
+		setFilter: (filter) => dispatch(projectSlice.actions.setFilesFilter({ projectId, filter })),
+		inputId: "files-filter-input",
+		scope: "files",
+		selection: filesSelection,
+		firstPath: filteredFilesItems[0]?.path,
+		onEnterList: activateFile,
+		panelRef: filesPanelRef,
+		listRef: filesTreeRef,
+		enabled: filesVisible,
+	});
 
 	const { data: diffSettings } = useQuery({
 		...guiSettingsQueryOptions,
@@ -1038,13 +1063,18 @@ const Diff: FC<{
 							minSize={180}
 							groupResizeBehavior="preserve-pixel-size"
 						>
-							<div className={styles.filesPanelContent}>
-								<ChangesHeaderRow
-									projectId={projectId}
-									fileParent={fileParent}
-									changes={changes}
-									lineStats={lineStats}
-								/>
+							<div className={styles.filesPanelContent} ref={filesPanelRef}>
+								{fileFilter.rowProps === null ? (
+									<ChangesHeaderRow
+										projectId={projectId}
+										fileParent={fileParent}
+										changes={changes}
+										lineStats={lineStats}
+										onOpenFilter={fileFilter.open}
+									/>
+								) : (
+									<FileFilterRow {...fileFilter.rowProps} />
+								)}
 								<Scroller
 									withSeparator
 									className={styles.filesScrollerArea}
@@ -1054,10 +1084,16 @@ const Diff: FC<{
 										data-selection-scope={"files" satisfies SelectionScope}
 										onFileSelection={activateFile}
 										projectId={projectId}
-										items={filesItems}
+										items={filteredFilesItems}
 										selection={filesSelection}
 										navigationIndex={filesNavigationIndex}
 										fileParent={fileParent}
+										emptyLabel={
+											filesFilter !== null && filesItems.length > 0
+												? "No matching files."
+												: undefined
+										}
+										ref={filesTreeRef}
 									/>
 								</Scroller>
 							</div>
