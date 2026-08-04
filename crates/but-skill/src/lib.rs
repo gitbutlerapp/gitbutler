@@ -13,6 +13,7 @@ pub mod files;
 pub mod format;
 #[cfg(test)]
 mod format_tests;
+pub mod framework;
 pub mod freshness;
 pub mod install;
 pub mod plan;
