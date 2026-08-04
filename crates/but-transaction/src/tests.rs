@@ -390,7 +390,7 @@ fn cherry_pick_then_reword_copied_commit() {
         DryRun::No,
         |mut tx| {
             let copied =
-                tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
+                tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above, false)?;
             let reworded = tx.reword_commit(copied[0].id, "copied commit".into())?;
 
             Ok(DynamicOutcome::<_, ()>::Commit(reworded))

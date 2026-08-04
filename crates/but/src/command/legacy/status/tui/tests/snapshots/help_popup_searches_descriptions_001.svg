@@ -46,29 +46,29 @@
     <text x="170 178 186 194" y="204" style="fill:#CCCCCC;">down</text>
     <text x="802" y="204" style="fill:#555555;">║</text>
     <text x="10" y="222" style="fill:#555555;">│</text>
-    <text x="114" y="222" style="fill:#0000AA;">r</text>
-    <text x="130 138 146 154 162 170" y="222" style="fill:#CCCCCC;">squash</text>
-    <text x="314 322 330 338 346 354 362" y="222" style="fill:#CCCCCC;opacity:0.75;">Squash,</text>
-    <text x="378 386 394 402 410 418" y="222" style="fill:#CCCCCC;opacity:0.75;">amend,</text>
-    <text x="434 442" y="222" style="fill:#CCCCCC;opacity:0.75;">or</text>
-    <text x="458 466 474 482" y="222" style="fill:#CCCCCC;opacity:0.75;">undo</text>
-    <text x="498 506 514 522 530 538 546" y="222" style="fill:#CCCCCC;opacity:0.75;">commits</text>
+    <text x="114" y="222" style="fill:#0000AA;">c</text>
+    <text x="130 138 146 154 162 170" y="222" style="fill:#CCCCCC;">commit</text>
+    <text x="314 322 330 338 346 354" y="222" style="fill:#CCCCCC;opacity:0.75;">Create</text>
+    <text x="370" y="222" style="fill:#CCCCCC;opacity:0.75;">a</text>
+    <text x="386 394 402" y="222" style="fill:#CCCCCC;opacity:0.75;">new</text>
+    <text x="418 426 434 442 450 458" y="222" style="fill:#CCCCCC;opacity:0.75;">commit</text>
     <text x="802" y="222" style="fill:#555555;">║</text>
     <text x="10" y="240" style="fill:#555555;">│</text>
-    <text x="66 74 82 90 98 106 114" y="240" style="fill:#0000AA;">shift+r</text>
-    <text x="130 138 146 154 162 170 178" y="240" style="fill:#CCCCCC;">reverse</text>
-    <text x="194 202 210 218 226 234" y="240" style="fill:#CCCCCC;">squash</text>
-    <text x="314 322 330 338 346 354" y="240" style="fill:#CCCCCC;opacity:0.75;">Squash</text>
-    <text x="370 378 386 394" y="240" style="fill:#CCCCCC;opacity:0.75;">into</text>
-    <text x="410 418 426 434 442 450 458 466 474" y="240" style="fill:#CCCCCC;opacity:0.75;">selection</text>
+    <text x="114" y="240" style="fill:#0000AA;">r</text>
+    <text x="130 138 146 154 162 170" y="240" style="fill:#CCCCCC;">squash</text>
+    <text x="314 322 330 338 346 354 362" y="240" style="fill:#CCCCCC;opacity:0.75;">Squash,</text>
+    <text x="378 386 394 402 410 418" y="240" style="fill:#CCCCCC;opacity:0.75;">amend,</text>
+    <text x="434 442" y="240" style="fill:#CCCCCC;opacity:0.75;">or</text>
+    <text x="458 466 474 482" y="240" style="fill:#CCCCCC;opacity:0.75;">undo</text>
+    <text x="498 506 514 522 530 538 546" y="240" style="fill:#CCCCCC;opacity:0.75;">commits</text>
     <text x="802" y="240" style="fill:#555555;">║</text>
     <text x="10" y="258" style="fill:#555555;">│</text>
-    <text x="114" y="258" style="fill:#0000AA;">c</text>
-    <text x="130 138 146 154 162 170" y="258" style="fill:#CCCCCC;">commit</text>
-    <text x="314 322 330 338 346 354" y="258" style="fill:#CCCCCC;opacity:0.75;">Create</text>
-    <text x="370" y="258" style="fill:#CCCCCC;opacity:0.75;">a</text>
-    <text x="386 394 402" y="258" style="fill:#CCCCCC;opacity:0.75;">new</text>
-    <text x="418 426 434 442 450 458" y="258" style="fill:#CCCCCC;opacity:0.75;">commit</text>
+    <text x="66 74 82 90 98 106 114" y="258" style="fill:#0000AA;">shift+r</text>
+    <text x="130 138 146 154 162 170 178" y="258" style="fill:#CCCCCC;">reverse</text>
+    <text x="194 202 210 218 226 234" y="258" style="fill:#CCCCCC;">squash</text>
+    <text x="314 322 330 338 346 354" y="258" style="fill:#CCCCCC;opacity:0.75;">Squash</text>
+    <text x="370 378 386 394" y="258" style="fill:#CCCCCC;opacity:0.75;">into</text>
+    <text x="410 418 426 434 442 450 458 466 474" y="258" style="fill:#CCCCCC;opacity:0.75;">selection</text>
     <text x="802" y="258" style="fill:#555555;">║</text>
     <text x="10" y="276" style="fill:#555555;">│</text>
     <text x="114" y="276" style="fill:#0000AA;">n</text>

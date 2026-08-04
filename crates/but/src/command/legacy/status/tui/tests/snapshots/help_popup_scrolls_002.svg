@@ -23,7 +23,7 @@
     <text x="314 322 330 338 346 354" y="78" style="fill:#CCCCCC;opacity:0.75;">Insert</text>
     <text x="370 378 386 394 402" y="78" style="fill:#CCCCCC;opacity:0.75;">empty</text>
     <text x="418 426 434 442 450 458" y="78" style="fill:#CCCCCC;opacity:0.75;">commit</text>
-    <text x="802" y="78" style="fill:#555555;">║</text>
+    <text x="802" y="78" style="fill:#555555;">█</text>
     <text x="10" y="96" style="fill:#555555;">│</text>
     <text x="114" y="96" style="fill:#0000AA;">m</text>
     <text x="130 138 146 154" y="96" style="fill:#CCCCCC;">move</text>
@@ -31,7 +31,7 @@
     <text x="354 362 370 378 386 394 402 410 418" y="96" style="fill:#CCCCCC;opacity:0.75;">selection</text>
     <text x="434 442 450 458 466 474 482 490 498" y="96" style="fill:#CCCCCC;opacity:0.75;">somewhere</text>
     <text x="514 522 530 538" y="96" style="fill:#CCCCCC;opacity:0.75;">else</text>
-    <text x="802" y="96" style="fill:#555555;">█</text>
+    <text x="802" y="96" style="fill:#555555;">║</text>
     <text x="10" y="114" style="fill:#555555;">│</text>
     <text x="114" y="114" style="fill:#0000AA;">b</text>
     <text x="130 138 146 154 162 170" y="114" style="fill:#CCCCCC;">branch</text>
@@ -48,12 +48,9 @@
     <text x="410 418 426 434" y="132" style="fill:#CCCCCC;opacity:0.75;">mode</text>
     <text x="802" y="132" style="fill:#555555;">║</text>
     <text x="10" y="150" style="fill:#555555;">│</text>
-    <text x="114" y="150" style="fill:#0000AA;">d</text>
-    <text x="130 138 146 154 162 170 178" y="150" style="fill:#CCCCCC;">details</text>
-    <text x="314 322 330 338 346 354" y="150" style="fill:#CCCCCC;opacity:0.75;">Toggle</text>
-    <text x="370 378 386" y="150" style="fill:#CCCCCC;opacity:0.75;">the</text>
-    <text x="402 410 418 426 434 442 450" y="150" style="fill:#CCCCCC;opacity:0.75;">details</text>
-    <text x="466 474 482 490" y="150" style="fill:#CCCCCC;opacity:0.75;">view</text>
+    <text x="114" y="150" style="fill:#0000AA;">p</text>
+    <text x="130 138 146 154 162 170" y="150" style="fill:#CCCCCC;">cherry</text>
+    <text x="186 194 202 210" y="150" style="fill:#CCCCCC;">pick</text>
     <text x="802" y="150" style="fill:#555555;">║</text>
     <text x="10 18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274 282 290 298 306 314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794 802" y="168" style="fill:#555555;">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
     <text x="26 34 42 50 58 66" y="186" style="fill:#FFFFFF;">normal</text>

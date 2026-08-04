@@ -65,6 +65,9 @@ pub(super) use discard::run_discard;
 pub mod mark;
 mod undo_redo;
 
+mod cherry_pick_mode;
+pub use cherry_pick_mode::*;
+
 mod command_mode;
 pub use command_mode::*;
 
@@ -571,6 +574,9 @@ impl App {
                 self.handle_command(command_message, ctx, terminal_guard, out, messages)?
             }
             Message::Move(move_message) => self.handle_move(move_message, ctx, messages)?,
+            Message::CherryPick(cherry_pick_message) => {
+                self.handle_cherry_pick(cherry_pick_message, ctx, messages)?
+            }
             Message::NewBranch => {
                 self.handle_new_branch(ctx, messages)?;
             }
@@ -755,6 +761,7 @@ impl App {
                 | Mode::Move(..)
                 | Mode::Stack(..)
                 | Mode::Jump(..)
+                | Mode::CherryPick(..)
                 | Mode::MoveStack(..) => return,
                 Mode::Details(details_mode) => match &details_mode.return_mode {
                     DetailsReturnMode::PickChanges(PickChangesMode { marks }) => {
@@ -864,6 +871,7 @@ impl App {
                 | Mode::Move(..)
                 | Mode::Stack(..)
                 | Mode::MoveStack(..)
+                | Mode::CherryPick(..)
                 | Mode::Jump(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {

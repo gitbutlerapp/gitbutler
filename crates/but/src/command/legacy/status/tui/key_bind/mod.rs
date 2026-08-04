@@ -8,7 +8,7 @@ use crate::{
     command::legacy::status::tui::{
         CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage,
         Message, StackMessage,
-        app::{CommitMessageComposer, RewordMessage, SquashMessage},
+        app::{CherryPickMessage, CommitMessageComposer, RewordMessage, SquashMessage},
         details::DetailsMessage,
         help::HelpMessage,
         mode::{Mode, ModeDiscriminant},
@@ -82,6 +82,12 @@ pub fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::MoveStack => {
                 builder.reorder_confirm().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::CherryPick => {
+                builder.cherry_pick_confirm().register();
+                builder.cherry_pick_toggle_insert_side().register();
+                builder.cherry_pick_to_new_branch().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -946,6 +952,35 @@ impl KeyBindsBuilder<'_> {
         })
     }
 
+    fn cherry_pick(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("cherry pick", press().code(KeyCode::Char('p')), || {
+            Message::CherryPick(CherryPickMessage::Start)
+        })
+        .hide_from_hotbar()
+    }
+
+    fn cherry_pick_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("confirm", press().code(KeyCode::Enter), || {
+            Message::CherryPick(CherryPickMessage::Confirm)
+        })
+    }
+
+    fn cherry_pick_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::CherryPick(CherryPickMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle picking above or below")
+    }
+
+    fn cherry_pick_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "pick to new branch",
+            press().code(KeyCode::Char('b')),
+            || Message::CherryPick(CherryPickMessage::CherryPickToNewBranch),
+        )
+        .long_description("Create a new branch, then pick to it")
+    }
+
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "next hunk",
@@ -1057,13 +1092,13 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.jump_up().register();
     builder.jump_down().register();
 
+    builder.commit().register();
+
     builder.squash().register();
 
     if without_marks {
         builder.reverse_squash().register();
     }
-
-    builder.commit().register();
 
     if without_marks {
         builder.new_commit().register();
@@ -1075,6 +1110,8 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
         builder.branch().register();
         builder.stack().register();
     }
+
+    builder.cherry_pick().register();
 
     builder.toggle_details().register();
     builder.toggle_full_screen_details().register();
