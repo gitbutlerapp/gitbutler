@@ -142,10 +142,9 @@ fn agent_skill_installations(
 fn agent_skill_not_installed_notice() -> String {
     let t = theme::get();
     format!(
-        "{} AGENT ACTION REQUIRED: Install the GitButler skill before continuing.\n\
-         Run now: but skill install\n\
+        "{} AGENT ACTION REQUIRED: The GitButler skill is not installed for this agent.\n\
+         To work effectively with but, run: but skill install\n\
          Then read the installed SKILL.md path printed by that command and continue.\n\
-         Do not merely tell the user to run it.\n\
          This notice repeats until the skill is installed. If it still appears \
          after installing, report it instead of retrying.",
         t.sym().warning,
@@ -203,7 +202,7 @@ mod tests {
             "repetition is expected behavior, so the notice must say so instead \
              of letting the agent read a repeat as a malfunction"
         );
-        assert!(notice.contains("Run now: but skill install"));
+        assert!(notice.contains("run: but skill install"));
         assert!(!notice.contains("but agent setup"));
     }
 
