@@ -23,6 +23,10 @@ pub struct Platform {
     #[clap(long, default_value_t = false)]
     pub remember_selection: bool,
 
+    /// Automatically show the diff when opening the TUI.
+    #[clap(long)]
+    pub diff: bool,
+
     /// The commit, branch, committed file, or uncommitted file or hunk to select.
     #[clap(conflicts_with = "remember_selection")]
     pub target: Option<CliIdArg>,
@@ -64,11 +68,4 @@ pub struct DevFlags {
     #[cfg(feature = "tui-profiling")]
     #[clap(long)]
     pub skip_status_after: bool,
-
-    /// Automatically show the diff when opening the TUI.
-    ///
-    /// Requires `tui-profiling` feature.
-    #[cfg(feature = "tui-profiling")]
-    #[clap(long)]
-    pub diff: bool,
 }
