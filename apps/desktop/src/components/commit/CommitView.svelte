@@ -232,6 +232,7 @@
 					{stackId}
 					action={({ title, description }) => saveCommitMessage(title, description)}
 					actionLabel="Save changes"
+					{branchName}
 					onCancel={cancelEdit}
 					floatingBoxHeader="Reword commit"
 					loading={messageUpdateQuery.current.isLoading}
