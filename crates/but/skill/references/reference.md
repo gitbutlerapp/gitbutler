@@ -366,10 +366,10 @@ but resolve cancel --force
 
 ### `but push <branch>`
 
-Push a branch to remote. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals and pushes ALL branches with unpushed commits otherwise. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
+Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals and pushes ALL branches with unpushed commits otherwise. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
-but push <branch-name>             # Push specific branch
+but push <branch-name>             # Push the selected branch and its ancestors
 but push <branch-name> --dry-run   # Preview what would be pushed
 but push <branch-name> -s          # Skip force push protection checks
 but push <branch-name> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
@@ -412,7 +412,7 @@ but pr set-draft <selector>   # Mark review as draft
 but pr set-ready <selector>   # Mark review as ready
 ```
 
-**Key behavior:** `but pr new` automatically pushes the branch to remote before creating the PR. No need to run `but push` first. Force push and pre-push hooks run by default.
+**Key behavior:** `but pr new` automatically pushes the selected branch and its ancestors before creating the PR. No need to run `but push` first. Force push and pre-push hooks run by default.
 Use `--no-hooks` to bypass pre-push hooks when needed.
 Review creation remains successful if the follow-up stack synchronization fails, and reports that
 partial success as a warning.
