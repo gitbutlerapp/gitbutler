@@ -333,6 +333,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "uncommittedChanges",
   "paths": [
     "first-uncommitted.txt",
     "second-uncommitted.txt"
@@ -470,6 +471,7 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "committedFiles",
   "sourceCommitId": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
   "sourceChangeId": "1",
   "paths": [
@@ -711,6 +713,7 @@ fn discard_that_conflicts_warns_on_stderr_in_json_mode() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "commits",
   "commits": [
     {
       "commitId": "5f55e3a5b4a9441ce84d6a0858f7c0a970576d50",

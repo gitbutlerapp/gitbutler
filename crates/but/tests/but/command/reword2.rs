@@ -96,6 +96,7 @@ No changes to commit message
         .success()
         .stdout_eq(str![[r#"
 {
+  "type": "commitUnchanged",
   "changed": false,
   "commitId": "d19a16a700b2eb611f0ef4235413b1cadf53fd1e",
   "changeId": "tpmktkqkknswxzyszlkxlrzoqorvpmur"
@@ -114,6 +115,7 @@ fn emits_json_for_commit_reword() {
         .success()
         .stdout_eq(str![[r#"
 {
+  "type": "commitUpdated",
   "changed": true,
   "sourceCommitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
   "sourceChangeId": "tpmktkqkknswxzyszlkxlrzoqorvpmur",

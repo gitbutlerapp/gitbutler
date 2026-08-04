@@ -17,6 +17,7 @@ fn move_commits_outputs_json() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "commits",
   "commits": [
     {
       "sourceCommitId": "fe12bcd55e12fe5d43e54f44550d4c201f0ec770",
@@ -41,6 +42,7 @@ fn move_committed_changes_outputs_json() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "changes",
   "sourceCommitId": "9ac4652535fde457cb4cb3b36f0d9a64135de4c8",
   "sourceChangeId": "ywxsopnrxtuqozktnmnmwxmwlpxsokpn",
   "numChanges": 1,
@@ -63,6 +65,7 @@ fn stack_branch_outputs_json() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "stackBranch",
   "sourceBranch": "B",
   "targetBranch": "A"
 }
@@ -83,6 +86,7 @@ fn unstack_branch_outputs_json() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
+  "type": "unstackBranch",
   "sourceBranch": "C"
 }
 
