@@ -1181,10 +1181,9 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-⚠ AGENT ACTION REQUIRED: Install the GitButler skill before continuing.
-Run now: but skill install
+⚠ AGENT ACTION REQUIRED: The GitButler skill is not installed for this agent.
+To work effectively with but, run: but skill install
 Then read the installed SKILL.md path printed by that command and continue.
-Do not merely tell the user to run it.
 This notice repeats until the skill is installed. If it still appears after installing, report it instead of retrying.
 
 ╭┄ zz [uncommitted] (no changes)

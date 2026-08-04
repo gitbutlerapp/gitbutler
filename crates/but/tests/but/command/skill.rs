@@ -197,7 +197,7 @@ fn agent_skill_notice_is_scoped_to_the_driving_agents_format() {
     let stdout = String::from_utf8_lossy(&claude.stdout);
     assert!(
         stdout.contains("AGENT ACTION REQUIRED")
-            && stdout.contains("Install the GitButler skill before continuing"),
+            && stdout.contains("The GitButler skill is not installed for this agent"),
         "another agent's install must not silence Claude Code, got: {stdout}"
     );
 
@@ -428,7 +428,7 @@ fn unrelated_update_failure_does_not_hide_missing_skill_hint() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(
-        stdout.contains("Install the GitButler skill before continuing")
+        stdout.contains("The GitButler skill is not installed for this agent")
             && !stdout.contains("auto-update failed"),
         "another agent's update failure must not hide the caller's missing skill hint, got: {stdout}"
     );
