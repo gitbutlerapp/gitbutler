@@ -685,19 +685,36 @@ where
     /// Source and target commit IDs are automatically mapped through changes made earlier in the
     /// transaction. The returned identifiers refer to the newly created commits and can be passed
     /// to subsequent transaction operations.
+    ///
+    /// If `order_commits_by_parentage` is true then all commits must be in the workspace.
     pub fn cherry_pick_commits(
         &mut self,
         source_commit_ids: impl IntoIterator<Item = ObjectId>,
         relative_to: RelativeTo,
         side: InsertSide,
+        order_commits_by_parentage: bool,
     ) -> anyhow::Result<Vec<CommitIdentifiers>> {
         self.rebase(|editor, commit_mappings, _| {
             let source_commit_ids = source_commit_ids
                 .into_iter()
-                .map(|commit| commit_mappings.map(commit));
+                .map(|commit| commit_mappings.map(commit))
+                .collect::<Vec<_>>();
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let source_commit_ids = if order_commits_by_parentage {
+                editor
+                    .order_commit_selectors_by_parentage(source_commit_ids)?
+                    .into_iter()
+                    .map(|selector| -> anyhow::Result<_> {
+                        let (_, commit) = editor.find_selectable_commit(selector)?;
+                        Ok(commit.id)
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?
+            } else {
+                source_commit_ids
             };
 
             let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
