@@ -491,6 +491,17 @@ fn print_err_infallible<T: std::fmt::Display>(err: T) {
     let _ = write!(std::io::stderr(), "{err}");
 }
 
+fn print_deprecation_warning(message: impl AsRef<str>) {
+    use std::io::Write;
+    let t = theme::get();
+    let _ = writeln!(
+        std::io::stderr(),
+        "{} {}",
+        t.sym().warning,
+        t.hint.paint(message.as_ref())
+    );
+}
+
 fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
     print_err_infallible(format!("{}{err}", theme::get().error.paint("Error: ")));
     std::process::exit(1)
@@ -1076,6 +1087,11 @@ async fn match_subcommand(
                     .unwrap_or(false)
             };
             if use_tui {
+                print_deprecation_warning(
+                    "`--tui` and `but.ui.tui` are deprecated and will be removed in a future release. \
+                        Use `but tui --diff ID` instead",
+                );
+
                 command::legacy::diff::handle_tui(&mut ctx, target.as_deref())
                     .emit_metrics(metrics_ctx)
                     .show_root_cause_error_then_exit_without_destructors(output)
