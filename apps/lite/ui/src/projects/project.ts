@@ -476,11 +476,17 @@ export const projectReducers = {
 	},
 	/** Pass `null` to close the filter, which also clears the query. */
 	setUncommittedFilesFilter: (state: ProjectState, { filter }: { filter: string | null }) => {
-		state.workspace.uncommittedFilesFilter = filter;
+		const workspaceState = state.workspace;
+		if (workspaceState.uncommittedFilesFilter === filter) return;
+
+		workspaceState.uncommittedFilesFilter = filter;
 	},
 	/** Pass `null` to close the filter, which also clears the query. */
 	setFilesFilter: (state: ProjectState, { filter }: { filter: string | null }) => {
-		state.workspace.filesFilter = filter;
+		const workspaceState = state.workspace;
+		if (workspaceState.filesFilter === filter) return;
+
+		workspaceState.filesFilter = filter;
 	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string }) => {
 		branchesReducers.setSearch(state.branches, { search });
