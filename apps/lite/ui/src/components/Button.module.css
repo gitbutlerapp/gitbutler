@@ -12,7 +12,7 @@
 	border-radius: var(--radius-button);
 	background-color: var(--button-bg);
 	color: var(--button-fg);
-	line-height: 1;
+	line-height: 1.1;
 	white-space: nowrap;
 
 	&:not(.disableTransition) {
