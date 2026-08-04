@@ -23,7 +23,7 @@ pub struct Platform {
     #[clap(long, default_value_t = false)]
     pub remember_selection: bool,
 
-    /// The target to select.
+    /// The commit, branch, committed file, or uncommitted file or hunk to select.
     #[clap(conflicts_with = "remember_selection")]
     pub target: Option<CliIdArg>,
 

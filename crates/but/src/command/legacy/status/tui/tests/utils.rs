@@ -5,7 +5,7 @@ use crate::{
     args::OutputFormat,
     command::legacy::status::{
         StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
-        build_status_context, build_status_output,
+        build_status_context, build_status_output, resolve_tui_target, status_flags_for_tui_target,
         tui::{App, BackstackEntry, Message, ReloadCause, app::UpdateContext},
     },
     tui::{
@@ -63,7 +63,7 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     let mut guard = ctx.exclusive_worktree_access();
 
     let format = out.format();
-    let status_ctx = build_status_context(
+    let mut status_ctx = build_status_context(
         &mut ctx,
         guard.write_permission(),
         &mut out,
@@ -73,6 +73,13 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         StatusRenderMode::Tui(launch_options.clone()),
     )
     .expect("failed to build status context");
+    let initial_target = resolve_tui_target(
+        &ctx.repo.get().unwrap(),
+        &status_ctx.id_map,
+        &launch_options,
+    )
+    .expect("failed to resolve TUI target");
+    status_ctx.flags = status_flags_for_tui_target(status_ctx.flags, initial_target.as_ref());
     let mut lines = Vec::new();
     let mut status_output = StatusOutput::Buffer { lines: &mut lines };
     build_status_output(&ctx, &status_ctx, &mut status_output)
@@ -85,10 +92,10 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
 
     let app = App::new(
         &ctx,
-        &status_ctx.id_map,
         lines,
-        flags,
+        status_ctx.flags,
         launch_options,
+        initial_target,
         run_options,
         show_file_browser,
         incoming_out_of_band_messages,

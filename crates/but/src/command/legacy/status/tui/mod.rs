@@ -13,7 +13,8 @@ use gix::refs::FullName;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult, IdMap,
+    CliId, CliResult,
+    args::atoms::ResolvedCliIdArg,
     command::{
         legacy::status::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
@@ -84,12 +85,12 @@ const DETAILS_MAX_SIZE_PERCENTAGE: u16 = 90;
 
 pub fn render_tui(
     ctx: &mut Context,
-    id_map: &IdMap,
     out: &mut InputOutputChannel<'_>,
     operating_mode: OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     launch_options: TuiLaunchOptions,
+    initial_target: Option<ResolvedCliIdArg>,
     run_options: TuiRunOptions,
 ) -> CliResult<(Vec<StatusOutputLine>, TuiOutcome)> {
     let (watcher_tx, watcher_rx) = std::sync::mpsc::channel();
@@ -97,10 +98,10 @@ pub fn render_tui(
     let head_sha = operations::head_sha(ctx)?;
     let mut app = App::new(
         ctx,
-        id_map,
         status_lines,
         flags,
         launch_options,
+        initial_target,
         run_options,
         ctx.settings.feature_flags.tui_file_browser,
         Vec::from([watcher_rx]),

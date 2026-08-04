@@ -15,6 +15,7 @@ use crate::command::legacy::status::tui::tests::utils::{
 use crate::command::legacy::status::tui::{BackstackEntry, Message, ReloadCause};
 use crate::command::legacy::status::{Selectable, TuiLaunchOptions, TuiOutcome, TuiRunOptions};
 use crate::tui::test_utils::TestTui;
+use crate::{CliId, IdMap};
 
 mod branch_picker_tests;
 mod branch_tests;
@@ -1269,4 +1270,80 @@ fn opening_on_different_targets() {
     open_tui_at("zz")
         .reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+}
+
+#[test]
+fn opening_on_committed_file_shows_its_commit_files() {
+    open_tui_at("tpm:A")
+        .reload()
+        .assert_current_line_eq(str!["┊│     t:t A A"])
+        .assert_backstack_eq([BackstackEntry::ShowFileList]);
+}
+
+#[test]
+fn opening_on_uncommitted_hunk_focuses_that_hunk() {
+    let mut tui = open_tui_on_uncommitted_hunk(false);
+
+    tui.reload()
+        .assert_backstack_eq([
+            BackstackEntry::LeaveNormalMode,
+            BackstackEntry::OpenSplitDetailsView,
+        ])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/opening_on_uncommitted_hunk_focuses_that_hunk_001.svg"
+        ]);
+}
+
+#[test]
+fn opening_on_uncommitted_hunk_with_diff_preserves_initial_layout() {
+    let mut tui = open_tui_on_uncommitted_hunk(true);
+
+    tui.reload()
+        .assert_backstack_eq([BackstackEntry::LeaveNormalMode]);
+    tui.input(KeyCode::Esc).assert_backstack_eq([]);
+    let after_second_escape = tui.input(KeyCode::Esc);
+    assert!(
+        after_second_escape.app().is_details_visible,
+        "the second escape keeps the details pane from the initial layout visible"
+    );
+}
+
+fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("target.txt", "target line\n");
+
+    let target = {
+        let ctx = env.context();
+        let id_map = IdMap::legacy_new_from_context(&ctx).expect("failed to build CLI IDs");
+        let cli_ids = id_map
+            .parse_using_context("target.txt", &ctx)
+            .expect("failed to resolve uncommitted file");
+        let file = cli_ids
+            .into_iter()
+            .find_map(|cli_id| match cli_id {
+                CliId::UncommittedHunkOrFile(file) if file.is_entire_file => Some(file),
+                CliId::UncommittedHunkOrFile(..)
+                | CliId::PathPrefix { .. }
+                | CliId::CommittedFile { .. }
+                | CliId::Branch(..)
+                | CliId::Commit { .. }
+                | CliId::Uncommitted { .. }
+                | CliId::Stack { .. } => None,
+            })
+            .expect("target file should have a CLI ID");
+        file.hunks.first().id.clone()
+    };
+
+    test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            launch_options: TuiLaunchOptions {
+                show_diff,
+                target: Some(CliIdArg(target)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
 }
