@@ -1092,13 +1092,13 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.jump_up().register();
     builder.jump_down().register();
 
+    builder.commit().register();
+
     builder.squash().register();
 
     if without_marks {
         builder.reverse_squash().register();
     }
-
-    builder.commit().register();
 
     if without_marks {
         builder.new_commit().register();
