@@ -64,7 +64,8 @@ import { BranchRow } from "./BranchRow.tsx";
 import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
-import { getChangesFileRowItems } from "../file-row.ts";
+import { UncommittedChangesFilterRow } from "./UncommittedChangesFilterRow.tsx";
+import { getChangesFileRowItems, pathMatchesFilter } from "../file-row.ts";
 import {
 	canRemoveBranchReference,
 	downstackPushStatusesFromSegments,
@@ -255,7 +256,12 @@ const UncommittedChanges: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 
-	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
+	const filter = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
+	);
+	const fileRowItems = (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter(
+		(item) => pathMatchesFilter(item.path, filter),
+	);
 
 	const fileSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUncommittedFiles(state, projectId, navigationIndex),
@@ -263,7 +269,11 @@ const UncommittedChanges: FC<{
 
 	return (
 		<div className={styles.uncommittedChanges}>
-			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
+			{filter === null ? (
+				<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
+			) : (
+				<UncommittedChangesFilterRow filter={filter} projectId={projectId} />
+			)}
 
 			<Scroller
 				withSeparator
@@ -280,7 +290,11 @@ const UncommittedChanges: FC<{
 							}),
 						)
 					}
-					emptyLabel="Nothing to commit"
+					emptyLabel={
+						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
+							? "No matching files."
+							: "Nothing to commit"
+					}
 					fileParent={uncommittedChangesFileParent}
 					items={fileRowItems}
 					navigationIndex={navigationIndex}

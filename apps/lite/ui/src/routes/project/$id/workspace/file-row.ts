@@ -46,6 +46,16 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 	});
 };
 
+/**
+ * Case-insensitive substring match over the whole path, so a directory narrows
+ * the list just as a file name does. A blank query — including a filter that is
+ * open but not yet typed into — matches everything.
+ */
+export const pathMatchesFilter = (path: string, filter: string | null): boolean => {
+	const query = filter?.trim().toLowerCase() ?? "";
+	return query === "" || path.toLowerCase().includes(query);
+};
+
 export type FileRowItem =
 	| ({ _tag: "Change" } & ChangeFileRowItem)
 	| ({ _tag: "Conflict" } & ConflictFileRowItem);

@@ -78,6 +78,12 @@ type WorkspaceState = {
 	mode: OutlineMode;
 	selectedBranchTabs: Record<string, BranchTab>;
 	selection: SelectionState;
+	/**
+	 * The uncommitted files filter query, or `null` while the filter is closed.
+	 * An open but empty filter is not the same as a closed one: it keeps the
+	 * input in place and the list unnarrowed.
+	 */
+	uncommittedFilesFilter: string | null;
 };
 
 const createInitialSelectionState = (): SelectionState => ({
@@ -95,6 +101,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	mode: defaultOutlineMode,
 	selectedBranchTabs: {},
 	selection: createInitialSelectionState(),
+	uncommittedFilesFilter: null,
 });
 
 export type OutlineTab = "workspace" | "upstream" | "branches";
@@ -462,6 +469,10 @@ export const projectReducers = {
 	) => {
 		branchesReducers.setUnfolded(state.branches, { branchRefs, unfolded });
 	},
+	/** Pass `null` to close the filter, which also clears the query. */
+	setUncommittedFilesFilter: (state: ProjectState, { filter }: { filter: string | null }) => {
+		state.workspace.uncommittedFilesFilter = filter;
+	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string }) => {
 		branchesReducers.setSearch(state.branches, { search });
 	},
@@ -559,6 +570,7 @@ export const projectSelectors = {
 	selectCanShowFiles: (state: ProjectState) =>
 		state.workspace.detailsSelectionScope !== "uncommitted-files",
 	selectDetailsSelectionScope: (state: ProjectState) => state.workspace.detailsSelectionScope,
+	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectSelectionUncommittedFiles: (
 		state: ProjectState,
 		navigationIndex: NavigationIndex<string>,

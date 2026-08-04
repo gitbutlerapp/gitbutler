@@ -64,6 +64,10 @@ export const UncommittedChangesRow: FC<{
 		});
 	};
 
+	const openFilter = () => {
+		dispatch(projectSlice.actions.setUncommittedFilesFilter({ projectId, filter: "" }));
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Cut Changes",
@@ -94,6 +98,14 @@ export const UncommittedChangesRow: FC<{
 						aria-label="Uncommitted changes actions"
 						render={<RowToolbar forceVisible />}
 					>
+						<Toolbar.Button
+							aria-label="Filter files"
+							onClick={openFilter}
+							className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+						>
+							<Icon name="search" />
+						</Toolbar.Button>
+
 						<Toolbar.Button
 							aria-label="Uncommitted changes menu"
 							onClick={(event) => {

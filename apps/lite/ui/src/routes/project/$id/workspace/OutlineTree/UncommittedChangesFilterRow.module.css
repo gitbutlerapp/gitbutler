@@ -1,0 +1,10 @@
+/* Keeps the section header's own insets, so the input and the close button line
+   up with the label and the actions they stand in for. */
+.filterRow {
+	align-items: center;
+}
+
+.filterField {
+	flex-grow: 1;
+	min-width: 0;
+}
