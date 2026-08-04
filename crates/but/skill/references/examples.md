@@ -64,7 +64,7 @@ but branch new user-profile -a bu
 but status -fv
 but commit -b bv -m "Add user profile page" <file-ids>
 
-# 6. Create stacked pull requests through GitButler (auto-pushes the stack)
+# 6. Create stacked pull requests from the top branch once (auto-pushes its ancestors)
 but pr new bv -t
 ```
 
