@@ -239,6 +239,10 @@ export const changesHotkeys = {
 		hotkey: "Mod+Enter",
 		meta: { group: "Uncommitted changes", name: "Commit" },
 	},
+	filterFiles: {
+		hotkey: "Mod+F",
+		meta: { group: "Uncommitted changes", name: "Filter files" },
+	},
 	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
 	},

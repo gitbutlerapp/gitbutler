@@ -27,6 +27,9 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { changesHotkeys } from "#ui/hotkeys.ts";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import type {
 	BranchReference,
@@ -73,7 +76,11 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { useAutofocusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
+import {
+	focusSelectionScope,
+	useAutofocusSelectionScope,
+	type SelectionScope,
+} from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -235,6 +242,22 @@ const OperandC: FC<
 	});
 };
 
+const filterInputId = "uncommitted-files-filter-input";
+
+/**
+ * Focused by id rather than by ref because the input is only mounted while the
+ * filter is open, so a ref would still be null where the hotkeys are bound.
+ */
+const focusFilterInput = () => {
+	const input = document.getElementById(filterInputId);
+	if (!(input instanceof HTMLInputElement)) return;
+
+	input.focus();
+	// Land the caret after the query, so returning to it extends the search
+	// rather than overwriting it.
+	input.setSelectionRange(input.value.length, input.value.length);
+};
+
 const UncommittedChanges: FC<{
 	navigationIndex: NavigationIndex<string>;
 	commitTarget: CommitTargetComboboxItem | null;
@@ -267,12 +290,51 @@ const UncommittedChanges: FC<{
 		projectSlice.selectors.selectSelectionUncommittedFiles(state, projectId, navigationIndex),
 	);
 
+	const enterFileList = () => {
+		// The resolved selection falls back to the first row of the filtered list,
+		// so this previews a match even when the filter narrowed away whatever was
+		// selected before. Selecting it stores that resolution, keeping the row
+		// highlight and the details pane in step.
+		if (fileSelection !== null) onActiveFileSelection(fileSelection);
+		focusSelectionScope("uncommitted-files");
+	};
+
+	const openFilter = () => {
+		// The input takes focus itself when it mounts.
+		if (filter === null)
+			dispatch(projectSlice.actions.setUncommittedFilesFilter({ projectId, filter: "" }));
+		else focusFilterInput();
+	};
+
+	const panelRef = useRef<HTMLDivElement>(null);
+	const fileListRef = useRef<HTMLDivElement>(null);
+
+	useHotkey(changesHotkeys.filterFiles.hotkey, openFilter, {
+		conflictBehavior: "allow",
+		meta: changesHotkeys.filterFiles.meta,
+		target: panelRef,
+	});
+
+	// The way out of the list is the way in, reversed: up from the top row lands
+	// back in the query. Only bound while filtering, so it does not swallow the
+	// stop at the top of an unfiltered list.
+	useHotkey("ArrowUp", focusFilterInput, {
+		conflictBehavior: "allow",
+		enabled: filter !== null && (fileSelection === null || fileSelection === fileRowItems[0]?.path),
+		target: fileListRef,
+	});
+
 	return (
-		<div className={styles.uncommittedChanges}>
+		<div className={styles.uncommittedChanges} ref={panelRef}>
 			{filter === null ? (
 				<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 			) : (
-				<UncommittedChangesFilterRow filter={filter} projectId={projectId} />
+				<UncommittedChangesFilterRow
+					filter={filter}
+					inputId={filterInputId}
+					projectId={projectId}
+					onEnterList={enterFileList}
+				/>
 			)}
 
 			<Scroller
@@ -300,7 +362,7 @@ const UncommittedChanges: FC<{
 					navigationIndex={navigationIndex}
 					onFileSelection={onActiveFileSelection}
 					projectId={projectId}
-					ref={useAutofocusSelectionScope()}
+					ref={useMergedRefs(fileListRef, useAutofocusSelectionScope())}
 					selection={fileSelection}
 				/>
 			</Scroller>

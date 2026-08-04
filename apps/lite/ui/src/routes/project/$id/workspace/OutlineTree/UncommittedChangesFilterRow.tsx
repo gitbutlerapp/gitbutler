@@ -18,8 +18,11 @@ import styles from "./UncommittedChangesFilterRow.module.css";
  */
 export const UncommittedChangesFilterRow: FC<{
 	filter: string;
+	inputId: string;
 	projectId: string;
-}> = ({ filter, projectId }) => {
+	/** Moves focus down into the filtered list, so a match can be previewed without the mouse. */
+	onEnterList: () => void;
+}> = ({ filter, inputId, projectId, onEnterList }) => {
 	const dispatch = useAppDispatch();
 
 	const setFilter = (value: string | null) => {
@@ -37,18 +40,29 @@ export const UncommittedChangesFilterRow: FC<{
 		<Row
 			interactive={false}
 			className={classes(rowStyles.sectionHeader, styles.filterRow)}
-			// Escape closes the filter rather than reaching the outline's cancel
-			// shortcut, which has nothing to cancel while the input holds focus.
 			onKeyDown={(event) => {
-				if (event.key !== "Escape") return;
+				// Escape closes the filter rather than reaching the outline's cancel
+				// shortcut, which has nothing to cancel while the input holds focus.
+				if (event.key === "Escape") {
+					event.preventDefault();
+					event.stopPropagation();
+					closeFilter();
+					return;
+				}
 
-				event.preventDefault();
-				event.stopPropagation();
-				closeFilter();
+				// Down leaves the input for the list it filters, the way it would
+				// step between rows there. The filter stays open and keeps its
+				// query, so the list can be walked and narrowed in turn.
+				if (event.key === "ArrowDown") {
+					event.preventDefault();
+					event.stopPropagation();
+					onEnterList();
+				}
 			}}
 		>
 			<Field.Root render={<FieldRootStyles />} className={styles.filterField}>
 				<FieldControlWithIcon
+					id={inputId}
 					className="text-13"
 					icon={<Icon name="search" />}
 					aria-label="Filter files"
