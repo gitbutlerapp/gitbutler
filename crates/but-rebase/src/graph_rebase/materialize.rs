@@ -117,6 +117,17 @@ fn open_linked_checkout_repos(
         .collect()
 }
 
+/// Options for [SuccessfulRebase::materialize].
+#[derive(Default)]
+pub struct MaterializeOptions {
+    /// Materializes a rebase without checking out the editor's own worktree.
+    ///
+    /// Linked worktrees aren't checked out either, but their `HEAD`s still follow the
+    /// rewrite, so what they had checked out surfaces as uncommitted changes there -
+    /// exactly like the editor's own worktree.
+    pub without_checkout: bool,
+}
+
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// The linked worktrees this edit has to move, with where the rewrite put each
     /// one, validated against the shape recorded at editor creation.
@@ -184,7 +195,10 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     }
 
     /// Materializes a history rewrite.
-    pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize(
+        mut self,
+        materialize_options: MaterializeOptions,
+    ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
@@ -192,35 +206,43 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         let specs = self.linked_checkout_specs()?;
         let detached_head_edits = detached_worktree_head_edits(&specs)?;
-        let linked_repos = open_linked_checkout_repos(&repo, specs)?;
-        for linked_repo in linked_repos {
-            safe_checkout_from_head(
-                linked_repo.target,
-                &linked_repo.repo,
-                Options {
-                    skip_head_update: true,
-                    merge_base_override: linked_repo.merge_base_override,
-                    allow_conflicted_commit_checkout: false,
-                },
-            )?;
-        }
 
-        let head = self.head_checkout()?;
-        if let Some(head) = &head {
-            safe_checkout_from_head(
-                head.target,
-                &repo,
-                Options {
-                    skip_head_update: true,
-                    merge_base_override: head.merge_base_override,
-                    allow_conflicted_commit_checkout: true,
-                },
-            )?;
-        }
+        let head = if !materialize_options.without_checkout {
+            let linked_repos = open_linked_checkout_repos(&repo, specs)?;
+            for linked_repo in linked_repos {
+                safe_checkout_from_head(
+                    linked_repo.target,
+                    &linked_repo.repo,
+                    Options {
+                        skip_head_update: true,
+                        merge_base_override: linked_repo.merge_base_override,
+                        allow_conflicted_commit_checkout: false,
+                    },
+                )?;
+            }
+
+            let head = self.head_checkout()?;
+            if let Some(head) = &head {
+                safe_checkout_from_head(
+                    head.target,
+                    &repo,
+                    Options {
+                        skip_head_update: true,
+                        merge_base_override: head.merge_base_override,
+                        allow_conflicted_commit_checkout: true,
+                    },
+                )?;
+            }
+            head
+        } else {
+            None
+        };
 
         let mut ref_edits = self.ref_edits.clone();
         ref_edits.extend(detached_head_edits);
-        if let Some(refname) = head.and_then(|head| head.ref_name)
+
+        if !materialize_options.without_checkout
+            && let Some(refname) = head.and_then(|head| head.ref_name)
             && repo.head_name()?.as_ref() != Some(&refname)
         {
             let ref_short_name = refname.shorten().to_owned();
@@ -257,32 +279,11 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         })
     }
 
-    /// Materializes a rebase without checking out the editor's own worktree.
-    ///
-    /// Linked worktrees aren't checked out either, but their `HEAD`s still follow the
-    /// rewrite, so what they had checked out surfaces as uncommitted changes there -
-    /// exactly like the editor's own worktree.
-    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
-        let repo = self.repo.clone();
-        if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(&self.repo)?;
-        }
-
-        let mut ref_edits = self.ref_edits.clone();
-        ref_edits.extend(detached_worktree_head_edits(
-            &self.linked_checkout_specs()?,
-        )?);
-        repo.edit_references(ref_edits)?;
-
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
-
-        Ok(MaterializeOutcome {
-            graph: self.graph,
-            history: self.history,
-            workspace: self.workspace,
-            meta: self.meta,
+    /// Convenience for [Self::materialize] with
+    /// [MaterializeOptions::without_checkout] set.
+    pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        self.materialize(MaterializeOptions {
+            without_checkout: true,
         })
     }
 }

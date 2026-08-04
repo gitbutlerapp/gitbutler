@@ -2001,7 +2001,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         );
     }
 
-    let materialized = rebase.materialize()?;
+    let materialized = rebase.materialize(Default::default())?;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
         let project_meta = materialized.workspace.graph.project_meta.clone();

@@ -38,7 +38,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -105,7 +105,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepTarget,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -145,7 +145,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepSubject,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -187,7 +187,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -233,7 +233,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
     let squashed_commit = repo.find_commit(squashed_id)?;
 
@@ -346,7 +346,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -392,7 +392,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -511,7 +511,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -597,7 +597,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -668,7 +668,7 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let file_a = repo
@@ -742,7 +742,7 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
@@ -921,7 +921,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let new_file_blob = repo

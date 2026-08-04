@@ -63,7 +63,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -189,7 +189,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -281,7 +281,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -369,7 +369,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -461,7 +461,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -541,7 +541,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -615,7 +615,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -689,7 +689,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         "refs/heads/B".try_into()?,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -755,7 +755,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
         "refs/heads/B".try_into()?,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -839,7 +839,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
         .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::Applied))
         .unwrap_or_default();
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
 
     // before refreshing `ws` the pure-virtual change isn't visible (should be fixed once meta is in db!)
@@ -951,7 +951,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
         .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::AppliedAndUnapplied))
         .unwrap_or_default();
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -1038,7 +1038,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
         "refs/heads/A".try_into()?,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -1125,7 +1125,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
         "refs/heads/A".try_into()?,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -1207,7 +1207,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
         "refs/heads/B".try_into()?,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -1364,7 +1364,7 @@ mod single_branch_mode {
             ws_meta.is_none(),
             "ad-hoc reorder lives in branch_order, not workspace metadata"
         );
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
         persist_order(meta, &branch_stack_order)?;
         if let Some(new_tip) = new_tip {
             invoke_bash(&format!("git checkout {}\n", new_tip.shorten()), repo);
@@ -1491,7 +1491,7 @@ mod single_branch_mode {
             branch_stack_order,
             ..
         } = but_workspace::branch::move_branch(editor, r("refs/heads/empty-bottom"), main_ref)?;
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
 
         // The subject is reported as the new tip so the caller can check it out.
         assert_eq!(
@@ -1530,7 +1530,7 @@ mod single_branch_mode {
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
         )?;
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
 
         assert_eq!(
             new_tip, None,
@@ -1596,7 +1596,7 @@ mod single_branch_mode {
             ws_meta.is_none(),
             "ad-hoc reorder lives in branch_order, not workspace metadata"
         );
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
         // A real (non-dry-run) caller persists the returned order.
         persist_order(&mut meta, &branch_stack_order)?;
 
@@ -1872,7 +1872,7 @@ mod single_branch_mode {
             r("refs/heads/empty-top"),
             r("refs/heads/base"),
         )?;
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
 
         assert_eq!(new_tip, None, "base isn't the checked-out tip");
         // `empty-top` is placed directly above `base`; the rest of the order is preserved.
@@ -1967,7 +1967,7 @@ mod single_branch_mode {
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
         )?;
-        rebase.materialize()?;
+        rebase.materialize(Default::default())?;
 
         // A reorder is computed and returned...
         assert!(branch_stack_order.is_some());

@@ -31,7 +31,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     let tip_of_two = repo.rev_parse_single("two")?;
     assert_eq!(tip_of_two, one, "The tip of two should now point to one");
@@ -119,7 +119,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [c.detach()])?;
 
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
@@ -204,7 +204,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [b.detach()])?;
 
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
@@ -272,7 +272,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -310,7 +310,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     let tip_of_two = repo.rev_parse_single("two")?;
     assert_eq!(tip_of_two, one, "two should now point to one");
@@ -382,7 +382,7 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(Default::default())?;
 
     let tip_of_b = repo.rev_parse_single("B")?;
     assert_eq!(tip_of_b, main, "B should now point to main");

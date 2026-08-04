@@ -575,7 +575,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize()?;
+        let materialized = rebase.materialize(Default::default())?;
         project_meta.persist(&repo)?;
 
         if let Some(ref_name) = materialized.workspace.ref_name()

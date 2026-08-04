@@ -1293,7 +1293,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     let materialized = if materialize_without_checkout {
         rebase.materialize_without_checkout()?
     } else {
-        rebase.materialize()?
+        rebase.materialize(Default::default())?
     };
     for branch in pending_created_independent_refs {
         if materialized

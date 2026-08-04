@@ -87,7 +87,7 @@ pub fn worktree_integrate<M: RefMetadata>(
     // checkout. Uncommitted changes that would conflict abort the operation
     // before any ref is touched.
     rebase
-        .materialize()
+        .materialize(Default::default())
         .context("Failed to integrate worktree into the workspace")?;
 
     git_worktree_remove(repo.common_dir(), id, true)?;

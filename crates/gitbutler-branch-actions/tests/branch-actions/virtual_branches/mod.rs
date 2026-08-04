@@ -361,7 +361,7 @@ pub fn create_commit(
         )
         .and_then(|outcome| {
             let selector = outcome.commit_selector;
-            let materialized = outcome.rebase.materialize()?;
+            let materialized = outcome.rebase.materialize(Default::default())?;
             selector
                 .map(|selector| materialized.lookup_pick(selector))
                 .transpose()

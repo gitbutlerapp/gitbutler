@@ -43,7 +43,7 @@ fn commit_above_commit() -> Result<()> {
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
@@ -91,7 +91,7 @@ fn commit_below_commit() -> Result<()> {
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
@@ -133,7 +133,7 @@ fn commit_above_reference() -> Result<()> {
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
@@ -186,7 +186,7 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
     let selector = outcome
         .commit_selector
         .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(selector)?;
 
     let new_commit = repo.find_commit(new_commit_id)?;

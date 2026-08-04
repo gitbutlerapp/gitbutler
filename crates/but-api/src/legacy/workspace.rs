@@ -361,7 +361,7 @@ pub fn stash_into_branch(
             .map(|selector| rebase.lookup_pick(selector))
             .transpose()?;
         let rebase_output = if let Some(new_commit) = new_commit {
-            let materialized = rebase.materialize()?;
+            let materialized = rebase.materialize(Default::default())?;
             let commit_mapping: Vec<_> = materialized
                 .history
                 .commit_mappings()

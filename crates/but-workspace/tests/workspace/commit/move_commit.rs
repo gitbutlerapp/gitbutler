@@ -77,7 +77,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -187,7 +187,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -299,7 +299,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -409,7 +409,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -520,7 +520,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -624,7 +624,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -726,7 +726,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
@@ -809,7 +809,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
@@ -903,7 +903,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
         InsertSide::Above,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
@@ -987,7 +987,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
         InsertSide::Below,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
@@ -1064,7 +1064,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
+    let materialization = rebase.materialize(Default::default())?;
     let commit_mappings = materialization.history.commit_mappings();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -1161,7 +1161,7 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
         RelativeTo::Reference("refs/heads/other".try_into()?),
         InsertSide::Below,
     )?
-    .materialize()?;
+    .materialize(Default::default())?;
 
     // Both moved commits land on `other` and `main` falls back onto `stack-base`. The
     // placeholder left where `feat`'s commit sat keeps `feat` directly above `other`, so

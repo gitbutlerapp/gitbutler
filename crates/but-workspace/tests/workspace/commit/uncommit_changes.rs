@@ -141,7 +141,7 @@ e0495e9
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained (commit hash will change)
@@ -205,7 +205,7 @@ aac5238
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, two_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
@@ -283,7 +283,7 @@ fn uncommit_file_from_root_commit() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, one_id, vec![diff_spec_for_file("one.txt")], 0)?;
 
-    let materialized = outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize(Default::default())?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
@@ -362,7 +362,7 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, Vec::<DiffSpec>::new(), 0)?;
 
-    outcome.rebase.materialize()?;
+    outcome.rebase.materialize(Default::default())?;
 
     // Graph should be unchanged
     snapbox::assert_data_eq!(

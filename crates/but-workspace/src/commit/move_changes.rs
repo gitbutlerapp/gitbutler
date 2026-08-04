@@ -37,7 +37,7 @@ pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
 ///
 /// Returns the rebase outcome along with selectors pointing to both the
 /// modified source and destination commits. The caller should call
-/// `outcome.rebase.materialize()` to persist the changes.
+/// `outcome.rebase.materialize(Default::default())` to persist the changes.
 pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     source_commit: impl ToCommitSelector,
