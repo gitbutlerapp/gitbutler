@@ -47,6 +47,7 @@ members = [
     # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
     "crates/but-path", # 📄Provide paths interesting to the application, with global redirects for testing.
     # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
+    "crates/but-skill", # 📄Agent skill formats, framework detection, steering policy blocks, and the `but` CLI symlink.
     "crates/but-serde", # 📄Serde attributes for serialisation and deserialisation of custom datatypes.
     # 👉Lacks tests. Centralized simple utility schema generation modules.
     "crates/but-schemars", # 📄`schemars` json schema generation utilities.
@@ -156,6 +157,7 @@ but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-worktrees = { path = "crates/but-worktrees" }
 but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
+but-skill = { path = "crates/but-skill" }
 but-graph = { path = "crates/but-graph" }
 but-meta = { path = "crates/but-meta" }
 but-action = { path = "crates/but-action" }

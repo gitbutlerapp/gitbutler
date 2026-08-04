@@ -5,16 +5,23 @@ use but_ctx::Context;
 // Test-override-aware (`E2E_TEST_APP_DATA_DIR`), so skill discovery and
 // installation never touch the real home directory under test.
 use but_path::home_dir;
-use serde::Serialize;
+
+use but_skill::{
+    format::{SKILL_FILES, SKILL_FORMATS, SkillFormat},
+    freshness::agent_default_install_path,
+    install::write_skill_files,
+    status::{
+        SCOPE_GLOBAL, SCOPE_LOCAL, SkillCheckResult, check_skill_status, find_all_installations,
+    },
+};
 
 use crate::{
     args::skill,
     theme::{self, Paint},
-    utils::{OutputChannel, detect_agent::Agent},
+    utils::OutputChannel,
 };
 
 mod freshness;
-use freshness::agent_default_install_path;
 pub(crate) use freshness::{agent_skill_notice, agent_skill_update_notice};
 
 /// Error type for user-initiated cancellation
@@ -28,277 +35,6 @@ impl std::fmt::Display for UserCancelled {
 }
 
 impl std::error::Error for UserCancelled {}
-
-// Embedded skill files
-const SKILL_MD: &[u8] = include_bytes!("../../../skill/SKILL.md");
-const CONCEPTS_MD: &[u8] = include_bytes!("../../../skill/references/concepts.md");
-const EXAMPLES_MD: &[u8] = include_bytes!("../../../skill/references/examples.md");
-const REFERENCE_MD: &[u8] = include_bytes!("../../../skill/references/reference.md");
-
-/// Metadata for a skill file to be installed
-struct SkillFile {
-    /// Relative path components from install directory.
-    path_components: &'static [&'static str],
-    /// Embedded content
-    content: &'static [u8],
-    /// Display name for output
-    display_name: &'static str,
-}
-
-impl SkillFile {
-    /// Get the actual installation path given a base directory.
-    fn get_install_path(&self, base_dir: &std::path::Path) -> PathBuf {
-        join_relative_path(base_dir, self.path_components)
-    }
-
-    /// Format the relative path for output and JSON.
-    fn display_path(&self) -> String {
-        self.path_components.join("/")
-    }
-
-    /// True if this is the main SKILL.md entry point.
-    fn is_main_skill_file(&self) -> bool {
-        self.path_components == ["SKILL.md"]
-    }
-}
-
-/// All skill files to be installed
-const SKILL_FILES: &[SkillFile] = &[
-    SkillFile {
-        path_components: &["SKILL.md"],
-        content: SKILL_MD,
-        display_name: "SKILL.md",
-    },
-    SkillFile {
-        path_components: &["references", "concepts.md"],
-        content: CONCEPTS_MD,
-        display_name: "concepts.md",
-    },
-    SkillFile {
-        path_components: &["references", "examples.md"],
-        content: EXAMPLES_MD,
-        display_name: "examples.md",
-    },
-    SkillFile {
-        path_components: &["references", "reference.md"],
-        content: REFERENCE_MD,
-        display_name: "reference.md",
-    },
-];
-
-fn skill_files_in_write_order() -> impl Iterator<Item = &'static SkillFile> {
-    SKILL_FILES
-        .iter()
-        .filter(|file| !file.is_main_skill_file())
-        .chain(SKILL_FILES.iter().filter(|file| file.is_main_skill_file()))
-}
-
-/// Represents a skill installation location format
-#[derive(Debug, Clone)]
-struct SkillFormat {
-    /// Display name of the format
-    name: &'static str,
-    /// Description of where this format is used
-    description: &'static str,
-    /// Whether this format should be offered for local and/or global installs.
-    availability: SkillFormatAvailability,
-    /// Relative path components from repository root or home directory.
-    path_components: &'static [&'static str],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SkillFormatAvailability {
-    LocalAndGlobal,
-    LocalOnly,
-    GlobalOnly,
-}
-
-impl SkillFormat {
-    const fn global(name: &'static str, path_components: &'static [&'static str]) -> Self {
-        Self {
-            name,
-            description: "Agent-specific global skill format",
-            availability: SkillFormatAvailability::GlobalOnly,
-            path_components,
-        }
-    }
-
-    /// Get the actual installation path given a base directory
-    fn get_install_path(&self, base_dir: &std::path::Path) -> PathBuf {
-        join_relative_path(base_dir, self.path_components)
-    }
-
-    /// The skills directory that holds this format's installation folder.
-    fn skills_parent_dir(&self, base_dir: &std::path::Path) -> PathBuf {
-        let (_, parent) = self
-            .path_components
-            .split_last()
-            .expect("skill format path components are never empty");
-        join_relative_path(base_dir, parent)
-    }
-
-    fn is_available_for(&self, global: bool) -> bool {
-        matches!(
-            (global, self.availability),
-            (_, SkillFormatAvailability::LocalAndGlobal)
-                | (false, SkillFormatAvailability::LocalOnly)
-                | (true, SkillFormatAvailability::GlobalOnly)
-        )
-    }
-}
-
-/// Install-path components (relative to a base directory) for a skill format,
-/// selected by its display name and whether the install is global. This keeps
-/// callers outside `but skill` — e.g. the `agent setup` wizard — installing to
-/// the same locations that `but skill check`/install/update discover, instead of
-/// duplicating (and drifting from) these paths.
-pub(crate) fn path_components_for(name: &str, global: bool) -> Option<&'static [&'static str]> {
-    skill_format_for_name(name, global).map(|format| format.path_components)
-}
-
-fn skill_format_for_name(name: &str, global: bool) -> Option<&'static SkillFormat> {
-    SKILL_FORMATS
-        .iter()
-        .find(|format| format.name == name && format.is_available_for(global))
-}
-
-/// Join a relative path from components using platform-native separators.
-fn join_relative_path(base_dir: &std::path::Path, components: &[&str]) -> PathBuf {
-    components
-        .iter()
-        .fold(base_dir.to_path_buf(), |path, component| {
-            path.join(component)
-        })
-}
-
-// Common skill folder formats
-const SKILL_FORMATS: &[SkillFormat] = &[
-    SkillFormat {
-        name: "Agent Skills",
-        description: "Shared .agents/skills format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".agents", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "Claude Code",
-        description: "Claude Code CLI skill format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".claude", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "OpenCode",
-        description: "OpenCode local skill format",
-        availability: SkillFormatAvailability::LocalOnly,
-        path_components: &[".opencode", "skills", "gitbutler"],
-    },
-    SkillFormat::global("OpenCode", &[".config", "opencode", "skills", "gitbutler"]),
-    SkillFormat {
-        name: "Codex",
-        description: "Codex skill format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".codex", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "GitHub Copilot",
-        description: "GitHub Copilot local (repo) skill format",
-        availability: SkillFormatAvailability::LocalOnly,
-        path_components: &[".github", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "GitHub Copilot",
-        description: "GitHub Copilot global skill format",
-        availability: SkillFormatAvailability::GlobalOnly,
-        path_components: &[".copilot", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "Cursor",
-        description: "Cursor AI skill format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".cursor", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "Kiro",
-        description: "Kiro skill format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".kiro", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "Junie",
-        description: "Junie skill format",
-        availability: SkillFormatAvailability::LocalAndGlobal,
-        path_components: &[".junie", "skills", "gitbutler"],
-    },
-    SkillFormat {
-        name: "Windsurf",
-        description: "Windsurf local skill format",
-        availability: SkillFormatAvailability::LocalOnly,
-        path_components: &[".windsurf", "skills", "gitbutler"],
-    },
-    SkillFormat::global("Windsurf", &[".codeium", "windsurf", "skills", "gitbutler"]),
-    SkillFormat {
-        name: "Poolside",
-        description: "Poolside local skill format",
-        availability: SkillFormatAvailability::LocalOnly,
-        path_components: &[".poolside", "skills", "but"],
-    },
-    SkillFormat::global("Poolside", &[".config", "poolside", "skills", "but"]),
-    SkillFormat::global("Gemini CLI", &[".gemini", "skills", "gitbutler"]),
-    SkillFormat::global("Augment", &[".augment", "skills", "gitbutler"]),
-    SkillFormat::global(
-        "Antigravity",
-        &[".gemini", "antigravity", "skills", "gitbutler"],
-    ),
-    SkillFormat::global(
-        "Universal Agents",
-        &[".config", "agents", "skills", "gitbutler"],
-    ),
-    SkillFormat::global("Crush", &[".config", "crush", "skills", "gitbutler"]),
-    SkillFormat::global("Goose", &[".config", "goose", "skills", "gitbutler"]),
-    SkillFormat::global("Roo Code", &[".roo", "skills", "gitbutler"]),
-    SkillFormat::global("Trae", &[".trae", "skills", "gitbutler"]),
-    SkillFormat::global("Tabnine CLI", &[".tabnine", "agent", "skills", "gitbutler"]),
-    SkillFormat::global("Pi", &[".pi", "agent", "skills", "gitbutler"]),
-    SkillFormat::global("Devin", &[".config", "devin", "skills", "gitbutler"]),
-];
-
-fn skill_format_for_agent(agent: Agent, global: bool) -> Option<&'static SkillFormat> {
-    let name = match agent {
-        Agent::Codex => "Codex",
-        Agent::ClaudeCode | Agent::ClaudeCodeCowork => "Claude Code",
-        Agent::Cursor | Agent::CursorCli => "Cursor",
-        Agent::GitHubCopilot => "GitHub Copilot",
-        Agent::OpenCode => "OpenCode",
-        Agent::Poolside => "Poolside",
-        Agent::GeminiCli => "Gemini CLI",
-        Agent::Augment => "Augment",
-        Agent::Antigravity => "Antigravity",
-        Agent::Replit | Agent::Amp => "Universal Agents",
-        Agent::Crush => "Crush",
-        Agent::Goose => "Goose",
-        Agent::Cline | Agent::Dirac => "Agent Skills",
-        Agent::RooCode => "Roo Code",
-        Agent::Trae => "Trae",
-        Agent::TabnineCli => "Tabnine CLI",
-        Agent::Pi => "Pi",
-        Agent::Devin => "Devin",
-        Agent::KiroCli => "Kiro",
-        Agent::Junie => "Junie",
-        Agent::QwenCode
-        | Agent::GitLabDuoCli
-        | Agent::KiloCode
-        | Agent::Hermes
-        | Agent::V0
-        | Agent::PulumiNeo
-        | Agent::AmazonQ
-        | Agent::CodeBuddy
-        | Agent::GrokBuild
-        | Agent::Warp
-        | Agent::OpenHands
-        | Agent::OpenClaw
-        | Agent::Unknown => return None,
-    };
-    skill_format_for_name(name, global)
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InstallScope {
@@ -346,30 +82,15 @@ impl From<InstallScopeOption> for String {
     }
 }
 
-/// Status of an installed skill
-#[derive(Debug, Clone, Serialize)]
-pub struct SkillStatus {
-    /// Path to the skill installation directory
-    pub path: PathBuf,
-    /// The format name (e.g., "Claude Code", "Cursor")
-    pub format_name: String,
-    /// Scope of the installation ("local" or "global")
-    pub scope: String,
-    /// Version found in the installed SKILL.md
-    pub installed_version: String,
-    /// Whether the skill is up to date with the CLI
-    pub up_to_date: bool,
-}
-
-/// Result of checking all skills
-#[derive(Debug, Serialize)]
-pub struct SkillCheckResult {
-    /// Current CLI version
-    pub cli_version: String,
-    /// List of all found skill installations with their status
-    pub skills: Vec<SkillStatus>,
-    /// Number of outdated skills
-    pub outdated_count: usize,
+/// The repository worktree a `Context` points at, if any.
+///
+/// Skill discovery only ever needed the worktree path, so `but-skill` takes a
+/// plain path and this adapts the CLI's `Context` at the call site — which is
+/// what keeps `but-skill` free of a `but-ctx` dependency.
+fn workdir_of(ctx: Option<&mut Context>) -> Option<PathBuf> {
+    let ctx = ctx?;
+    let repo = ctx.repo.get().ok()?;
+    repo.workdir().map(std::path::Path::to_path_buf)
 }
 
 /// Handle skill subcommands
@@ -424,26 +145,6 @@ fn get_base_dir(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     }
 }
 
-/// Replace version in SKILL.md content
-fn inject_version(content: &str, version: &str) -> String {
-    // Handle different line endings (Unix \n, Windows \r\n, or old Mac \r)
-    let frontmatter_end = content
-        .find("---\n\n")
-        .or_else(|| content.find("---\r\n\r\n"))
-        .or_else(|| content.find("---\r\r"));
-
-    if let Some(end_pos) = frontmatter_end {
-        let frontmatter = &content[..end_pos];
-        let rest = &content[end_pos..];
-        let updated_frontmatter =
-            frontmatter.replace("version: 0.0.0", &format!("version: {version}"));
-        format!("{updated_frontmatter}{rest}")
-    } else {
-        // Fallback if frontmatter format is unexpected
-        content.replace("version: 0.0.0", &format!("version: {version}"))
-    }
-}
-
 /// Resolve custom path with tilde expansion and relative path handling
 fn resolve_custom_path(custom: &str, ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     let path = std::path::Path::new(custom);
@@ -458,206 +159,6 @@ fn resolve_custom_path(custom: &str, ctx: Option<&mut Context>, global: bool) ->
         let base_dir = get_base_dir(ctx, global)?;
         Ok(base_dir.join(expanded_path))
     }
-}
-
-/// Validate that a SKILL.md file is actually a GitButler skill by requiring
-/// `name: but` in its YAML frontmatter.
-///
-/// The check is deliberately strict: discovery scans every entry inside an
-/// agent's `skills` directory, so a looser match (the string `name: but`
-/// appearing in prose, or a `# GitButler CLI Skill` header in another skill's
-/// docs) could misclassify an unrelated skill and let `--detect`/`--update`
-/// overwrite it.
-fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
-    std::fs::read_to_string(skill_md_path)
-        .ok()
-        .and_then(|content| frontmatter_value(&content, "name:"))
-        .as_deref()
-        == Some("but")
-}
-
-/// Extract the version from an installed SKILL.md file's YAML frontmatter.
-/// Returns None if the file doesn't exist, isn't readable, or has no valid version.
-fn extract_installed_version(skill_md_path: &std::path::Path) -> Option<String> {
-    let content = std::fs::read_to_string(skill_md_path).ok()?;
-    extract_installed_version_from_content(&content)
-}
-
-/// Extract the version from YAML frontmatter content.
-/// Returns None if the content has no frontmatter or no version entry.
-fn extract_installed_version_from_content(content: &str) -> Option<String> {
-    frontmatter_value(content, "version:")
-}
-
-/// Read a top-level `key` (e.g. `"name:"`, `"version:"`) from the leading YAML
-/// frontmatter and return its parsed value. None if the content has no
-/// frontmatter or the key is absent.
-fn frontmatter_value(content: &str, key: &str) -> Option<String> {
-    let mut lines = content.lines();
-
-    // Frontmatter must open on the very first line.
-    if lines.next()? != "---" {
-        return None;
-    }
-
-    for line in lines {
-        if line == "---" {
-            break;
-        }
-        if let Some(value) = line.strip_prefix(key) {
-            return Some(parse_yaml_value(value));
-        }
-    }
-
-    None
-}
-
-/// Parse a simple YAML value, handling common cases:
-/// - Whitespace trimming
-/// - Quoted strings (single or double quotes)
-/// - Inline comments
-fn parse_yaml_value(value: &str) -> String {
-    let value = value.trim();
-
-    // Handle quoted strings
-    if value.starts_with('"') || value.starts_with('\'') {
-        let quote_char = value.chars().next().unwrap();
-        // Find the closing quote
-        if let Some(end) = value[1..].find(quote_char) {
-            return value[1..1 + end].to_string();
-        }
-    }
-
-    // Handle inline comments (but not inside quotes, which we already handled)
-    let value = if let Some(comment_pos) = value.find(" #") {
-        &value[..comment_pos]
-    } else {
-        value
-    };
-
-    value.trim().to_string()
-}
-
-/// Find GitButler skill installations for one format under `base_dir`.
-///
-/// Scans the format's skills directory and accepts any folder name, so custom
-/// installs like `.claude/skills/but` are found too - identity comes from the
-/// SKILL.md contents, not the folder name.
-fn find_format_installations(format: &SkillFormat, base_dir: &std::path::Path) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(format.skills_parent_dir(base_dir)) else {
-        return Vec::new();
-    };
-    let mut found: Vec<PathBuf> = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| is_gitbutler_skill(&path.join("SKILL.md")))
-        .collect();
-    found.sort();
-    found
-}
-
-fn is_complete_skill_installation(path: &std::path::Path) -> bool {
-    is_gitbutler_skill(&path.join("SKILL.md"))
-        && SKILL_FILES
-            .iter()
-            .all(|file| file.get_install_path(path).is_file())
-}
-
-fn is_current_skill_installation(path: &std::path::Path, version: &str) -> bool {
-    is_complete_skill_installation(path)
-        && extract_installed_version(&path.join("SKILL.md")).as_deref() == Some(version)
-}
-
-/// Scope labels for a skill installation. Single-sourced here because
-/// [`detect_install_paths`] selects installations by scope.
-const SCOPE_GLOBAL: &str = "global";
-const SCOPE_LOCAL: &str = "local";
-
-/// Find all GitButler skill installations.
-///
-/// Returns a list of (install_path, format_name, scope) tuples.
-fn find_all_installations(
-    ctx: Option<&mut Context>,
-    check_global: bool,
-    check_local: bool,
-) -> Result<Vec<(PathBuf, &'static str, &'static str)>> {
-    let mut installations = Vec::new();
-
-    // Determine which base directories to check
-    let mut base_dirs: Vec<(PathBuf, &str)> = Vec::new();
-
-    if check_global && let Some(home) = home_dir() {
-        base_dirs.push((home, SCOPE_GLOBAL));
-    }
-
-    if check_local
-        && let Some(ctx) = ctx
-        && let Ok(repo) = ctx.repo.get()
-        && let Some(workdir) = repo.workdir()
-    {
-        // A repository discovered from a relative working directory reports a
-        // relative workdir. Absolutize it so discovered installation paths can
-        // be handed to context-free operations (`check --update` reinstalls
-        // each outdated path without a repository context).
-        let workdir = std::path::absolute(workdir)
-            .with_context(|| format!("Could not absolutize repository workdir {workdir:?}"))?;
-        base_dirs.push((workdir, SCOPE_LOCAL));
-    }
-
-    // Scan each base directory for the formats valid in its scope, so a
-    // scope-specific location (e.g. `.github/skills` locally, `.copilot/skills`
-    // globally) isn't discovered under the wrong scope.
-    for (base_dir, scope) in base_dirs {
-        let is_global = scope == SCOPE_GLOBAL;
-        for format in SKILL_FORMATS {
-            if !format.is_available_for(is_global) {
-                continue;
-            }
-            for path in find_format_installations(format, &base_dir) {
-                installations.push((path, format.name, scope));
-            }
-        }
-    }
-
-    Ok(installations)
-}
-
-/// Check the status of all installed skills.
-pub fn check_skill_status(
-    ctx: Option<&mut Context>,
-    check_global: bool,
-    check_local: bool,
-) -> Result<SkillCheckResult> {
-    let cli_version = option_env!("VERSION").unwrap_or("dev").to_string();
-    let installations = find_all_installations(ctx, check_global, check_local)?;
-
-    let mut skills = Vec::new();
-    let mut outdated_count = 0;
-
-    for (path, format_name, scope) in installations {
-        let skill_md_path = path.join("SKILL.md");
-        let installed_version =
-            extract_installed_version(&skill_md_path).unwrap_or_else(|| "unknown".to_string());
-
-        let up_to_date = is_current_skill_installation(&path, &cli_version);
-        if !up_to_date {
-            outdated_count += 1;
-        }
-
-        skills.push(SkillStatus {
-            path,
-            format_name: format_name.to_string(),
-            scope: scope.to_string(),
-            installed_version,
-            up_to_date,
-        });
-    }
-
-    Ok(SkillCheckResult {
-        cli_version,
-        skills,
-        outdated_count,
-    })
 }
 
 /// Check if installed skills are up to date
@@ -686,7 +187,11 @@ fn check_skills(
     }
 
     // First check to find outdated skills (reborrow ctx so we can use it again later)
-    let initial_result = check_skill_status(ctx.as_deref_mut(), check_global, check_local)?;
+    let initial_result = check_skill_status(
+        workdir_of(ctx.as_deref_mut()).as_deref(),
+        check_global,
+        check_local,
+    )?;
 
     // Collect paths of outdated skills (needed for auto-update)
     let outdated_paths: Vec<String> = initial_result
@@ -714,7 +219,7 @@ fn check_skills(
 
     // Re-check status after updates (or use initial result if no updates)
     let result = if auto_update && !outdated_paths.is_empty() {
-        check_skill_status(ctx, check_global, check_local)?
+        check_skill_status(workdir_of(ctx).as_deref(), check_global, check_local)?
     } else {
         initial_result
     };
@@ -816,7 +321,7 @@ fn print_human_check_output(
 /// choice between them. Filtering to a single scope keeps a repo-local `--detect`
 /// from reaching into global installs.
 fn detect_install_paths(ctx: Option<&mut Context>, global: bool) -> Result<Vec<PathBuf>> {
-    let installations = find_all_installations(ctx, true, !global)?;
+    let installations = find_all_installations(workdir_of(ctx).as_deref(), true, !global)?;
 
     for scope in [SCOPE_LOCAL, SCOPE_GLOBAL] {
         let paths: Vec<PathBuf> = installations
@@ -963,66 +468,6 @@ fn prompt_for_install_path(
         .ok_or(UserCancelled)?;
 
     Ok(selected_format.get_install_path(&base_dir))
-}
-
-/// Prepare SKILL.md content with version injection and validate all files
-fn prepare_skill_content(version: &str) -> Result<String> {
-    // Validate all embedded files are valid UTF-8
-    let skill_content = std::str::from_utf8(SKILL_MD).context("SKILL.md is not valid UTF-8")?;
-    std::str::from_utf8(CONCEPTS_MD).context("concepts.md is not valid UTF-8")?;
-    std::str::from_utf8(EXAMPLES_MD).context("examples.md is not valid UTF-8")?;
-    std::str::from_utf8(REFERENCE_MD).context("reference.md is not valid UTF-8")?;
-
-    // Inject version into SKILL.md
-    Ok(inject_version(skill_content, version))
-}
-
-/// Write the bundled skill files into `install_path`, creating the directory
-/// structure as needed and injecting the CLI version into SKILL.md. Returns the
-/// version that was written.
-pub(crate) fn write_skill_files(install_path: &std::path::Path) -> Result<&'static str> {
-    if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
-        anyhow::bail!(
-            "Skill files were not properly embedded at build time. Please report this as a bug."
-        );
-    }
-
-    // Prepare all content before writing (validate UTF-8 and inject version)
-    let version = option_env!("VERSION").unwrap_or("dev");
-    let skill_md_content = prepare_skill_content(version)?;
-
-    let references_dir = install_path.join("references");
-    std::fs::create_dir_all(&references_dir).with_context(|| {
-        format!(
-            "Failed to create skill directory at {}. Check that you have write permissions for this location.",
-            install_path.display()
-        )
-    })?;
-
-    for file in skill_files_in_write_order() {
-        let file_path = file.get_install_path(install_path);
-        let content = if file.is_main_skill_file() {
-            // Use the version-injected content for SKILL.md
-            skill_md_content.as_bytes()
-        } else {
-            file.content
-        };
-        write_skill_file(&file_path, content, file.display_name)?;
-    }
-    Ok(version)
-}
-
-/// Write a skill file with proper error context
-fn write_skill_file(path: &std::path::Path, content: &[u8], name: &str) -> Result<()> {
-    std::fs::write(path, content).with_context(|| {
-        format!(
-            "Failed to write {} to {}. Check write permissions.",
-            name,
-            path.parent()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| path.display().to_string())
-        )
-    })
 }
 
 /// Install the skill files
@@ -1200,6 +645,8 @@ fn install_skill(
 
 #[cfg(test)]
 mod tests {
+    use but_skill::status::SkillStatus;
+
     use super::*;
 
     #[test]
@@ -1238,135 +685,6 @@ mod tests {
     }
 
     #[test]
-    fn inject_version_replaces_in_frontmatter() {
-        let content = "---\nname: Test\nversion: 0.0.0\n---\n\nContent here with version: 0.0.0";
-        let result = inject_version(content, "1.2.3");
-
-        // Should replace the first occurrence in frontmatter
-        assert!(result.contains("version: 1.2.3"));
-        // The second occurrence should NOT be replaced
-        assert!(result.contains("Content here with version: 0.0.0"));
-    }
-
-    #[test]
-    fn inject_version_handles_windows_line_endings() {
-        let content = "---\r\nname: Test\r\nversion: 0.0.0\r\n---\r\n\r\nContent here";
-        let result = inject_version(content, "1.2.3");
-
-        assert!(result.contains("version: 1.2.3"));
-    }
-
-    #[test]
-    fn inject_version_handles_old_mac_line_endings() {
-        let content = "---\rname: Test\rversion: 0.0.0\r---\r\rContent here";
-        let result = inject_version(content, "1.2.3");
-
-        assert!(result.contains("version: 1.2.3"));
-    }
-
-    #[test]
-    fn inject_version_fallback_without_frontmatter() {
-        let content = "Just some content with version: 0.0.0 in it";
-        let result = inject_version(content, "2.0.0");
-
-        assert!(result.contains("version: 2.0.0"));
-        assert!(!result.contains("version: 0.0.0"));
-    }
-
-    #[test]
-    fn inject_version_handles_missing_version_field() {
-        let content = "---\nname: Test\n---\n\nContent";
-        let result = inject_version(content, "1.0.0");
-
-        // Should not crash, and content should be unchanged
-        assert_eq!(content, result);
-    }
-
-    #[test]
-    fn prepare_skill_content_validates_utf8() {
-        // This tests that the function checks UTF-8 validity
-        // The actual embedded files should be valid, so this should succeed
-        let result = prepare_skill_content("1.0.0");
-        assert!(result.is_ok());
-        assert!(!result.unwrap().is_empty());
-    }
-
-    #[test]
-    fn prepare_skill_content_injects_version() {
-        let result = prepare_skill_content("9.9.9").unwrap();
-        assert!(result.contains("version: 9.9.9"));
-    }
-
-    #[test]
-    fn skill_formats_are_valid() {
-        // Validate that all SKILL_FORMATS have non-empty fields
-        assert!(!SKILL_FORMATS.is_empty(), "Must have at least one format");
-
-        for format in SKILL_FORMATS {
-            assert!(!format.name.is_empty(), "Format name cannot be empty");
-            assert!(
-                !format.description.is_empty(),
-                "Format description cannot be empty"
-            );
-            assert!(
-                !format.path_components.is_empty(),
-                "Format path components cannot be empty"
-            );
-            assert!(
-                format
-                    .path_components
-                    .iter()
-                    .all(|component| !component.is_empty()),
-                "Format path components must not be empty"
-            );
-            assert!(
-                format
-                    .path_components
-                    .iter()
-                    .all(|component| !component.contains('/') && !component.contains('\\')),
-                "Format path components must not contain path separators"
-            );
-        }
-    }
-
-    #[test]
-    fn skill_format_get_install_path_joins_correctly() {
-        let format = SkillFormat {
-            name: "Test",
-            description: "Test format",
-            availability: SkillFormatAvailability::LocalAndGlobal,
-            path_components: &[".test", "skills", "foo"],
-        };
-
-        let base = PathBuf::from("home").join("user");
-        let result = format.get_install_path(&base);
-
-        assert_eq!(result, base.join(".test").join("skills").join("foo"));
-    }
-
-    #[test]
-    fn skill_files_are_valid() {
-        for file in SKILL_FILES {
-            assert!(
-                !file.path_components.is_empty(),
-                "SkillFile path components cannot be empty"
-            );
-            assert!(
-                file.path_components
-                    .iter()
-                    .all(|component| !component.is_empty()),
-                "SkillFile path components must not be empty"
-            );
-            assert!(
-                file.path_components
-                    .iter()
-                    .all(|component| !component.contains('/') && !component.contains('\\')),
-                "SkillFile path components must not contain path separators"
-            );
-        }
-    }
-
-    #[test]
     fn determine_install_scope_resolution_explicit_global_is_fixed_global() {
         let resolution = determine_install_scope_resolution(true, true);
         assert_eq!(
@@ -1388,36 +706,6 @@ mod tests {
             resolution,
             InstallScopeResolution::Fixed(InstallScope::Global)
         );
-    }
-
-    #[test]
-    fn embedded_files_are_not_empty() {
-        // This catches build issues where files aren't properly embedded
-        for file in SKILL_FILES {
-            assert!(
-                !file.content.is_empty(),
-                "{} should be embedded",
-                file.display_path()
-            );
-        }
-    }
-
-    #[test]
-    fn embedded_files_are_valid_utf8() {
-        // Ensure all embedded files are valid UTF-8
-        for file in SKILL_FILES {
-            assert!(
-                std::str::from_utf8(file.content).is_ok(),
-                "{} should be valid UTF-8",
-                file.display_path()
-            );
-        }
-    }
-
-    #[test]
-    fn skill_file_display_path_is_derived_from_components() {
-        assert_eq!(SKILL_FILES[0].display_path(), "SKILL.md");
-        assert_eq!(SKILL_FILES[1].display_path(), "references/concepts.md");
     }
 
     #[test]
@@ -1443,107 +731,6 @@ mod tests {
         assert!(result.is_ok());
         let dir = result.unwrap();
         assert!(dir.is_absolute());
-    }
-
-    #[test]
-    fn get_base_dir_local_without_context_fails() {
-        let result = get_base_dir(None, false);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Not in a git repository")
-        );
-    }
-
-    // NOTE: detect_install_paths is difficult to test in isolation because it depends on
-    // the user home directory and git repository context. It's tested indirectly through
-    // integration tests and manual testing. The core logic (is_gitbutler_skill validation
-    // and per-format discovery) is tested separately.
-
-    #[test]
-    fn is_gitbutler_skill_requires_name_but_in_frontmatter() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        // Identity comes from `name: but` in the YAML frontmatter.
-        fs::write(
-            &skill_path,
-            "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill",
-        )
-        .unwrap();
-        assert!(
-            is_gitbutler_skill(&skill_path),
-            "frontmatter name: but is the identity marker"
-        );
-
-        // Another skill that only mentions GitButler in its header or body must not
-        // be misclassified - discovery would otherwise overwrite it in place.
-        fs::write(
-            &skill_path,
-            "---\nname: other-skill\n---\n# GitButler CLI Skill\n\nExample: `name: but`",
-        )
-        .unwrap();
-        assert!(
-            !is_gitbutler_skill(&skill_path),
-            "a sibling skill's declared name wins over body mentions of GitButler"
-        );
-
-        // The header alone, with no frontmatter, is not a reliable marker.
-        fs::write(&skill_path, "# GitButler CLI Skill\n\nContent here").unwrap();
-        assert!(!is_gitbutler_skill(&skill_path));
-
-        // Prose that merely contains the marker string.
-        fs::write(
-            &skill_path,
-            "I was reading about the GitButler CLI and the name: but that's not right",
-        )
-        .unwrap();
-        assert!(!is_gitbutler_skill(&skill_path));
-
-        // Nonexistent file.
-        assert!(!is_gitbutler_skill(&temp_dir.path().join("nonexistent.md")));
-    }
-
-    #[test]
-    fn extract_installed_version_parses_frontmatter() {
-        let version = extract_installed_version_from_content(
-            "---\nname: but\nversion: 1.2.3\n---\n# Content",
-        );
-        assert_eq!(version, Some("1.2.3".to_string()));
-    }
-
-    #[test]
-    fn extract_installed_version_handles_different_order() {
-        // version is not the first field
-        let version = extract_installed_version_from_content(
-            "---\nname: but\nauthor: Test\nversion: 2.0.0\n---\n# Content",
-        );
-        assert_eq!(version, Some("2.0.0".to_string()));
-    }
-
-    #[test]
-    fn extract_installed_version_returns_none_for_missing_version() {
-        let version = extract_installed_version_from_content("---\nname: but\n---\n# Content");
-        assert_eq!(version, None);
-    }
-
-    #[test]
-    fn extract_installed_version_returns_none_for_no_frontmatter() {
-        let version = extract_installed_version_from_content("# Just a regular markdown file");
-        assert_eq!(version, None);
-    }
-
-    #[test]
-    fn extract_installed_version_returns_none_for_nonexistent_file() {
-        let nonexistent = PathBuf::from("/nonexistent/path/SKILL.md");
-        let version = extract_installed_version(&nonexistent);
-        assert_eq!(version, None);
     }
 
     #[test]
@@ -1602,136 +789,6 @@ mod tests {
                 .exists(),
             "reference files are written alongside SKILL.md"
         );
-    }
-
-    #[test]
-    fn skill_entrypoint_is_written_last() {
-        assert!(
-            skill_files_in_write_order()
-                .last()
-                .is_some_and(SkillFile::is_main_skill_file),
-            "a partial bundle must not look installed"
-        );
-    }
-
-    #[test]
-    fn extract_installed_version_trims_whitespace() {
-        // Version with extra whitespace
-        let version =
-            extract_installed_version_from_content("---\nversion:   1.0.0   \n---\n# Content");
-        assert_eq!(version, Some("1.0.0".to_string()));
-    }
-
-    #[test]
-    fn extract_installed_version_handles_empty_version() {
-        // Empty version value
-        let version = extract_installed_version_from_content("---\nversion:\n---\n# Content");
-        assert_eq!(version, Some("".to_string()));
-    }
-
-    #[test]
-    fn find_all_installations_discovers_skills_in_temp_dir() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create a Claude Code skill installation
-        let claude_skill_dir = temp_dir
-            .path()
-            .join(".claude")
-            .join("skills")
-            .join("gitbutler");
-        fs::create_dir_all(&claude_skill_dir).unwrap();
-        let claude_skill_content = "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill";
-        fs::write(claude_skill_dir.join("SKILL.md"), claude_skill_content).unwrap();
-
-        // Create a Cursor skill installation
-        let cursor_skill_dir = temp_dir
-            .path()
-            .join(".cursor")
-            .join("skills")
-            .join("gitbutler");
-        fs::create_dir_all(&cursor_skill_dir).unwrap();
-        let cursor_skill_content = "---\nname: but\nversion: 0.9.0\n---\n# GitButler CLI Skill";
-        fs::write(cursor_skill_dir.join("SKILL.md"), cursor_skill_content).unwrap();
-
-        // Create a non-GitButler skill (should be ignored)
-        let other_skill_dir = temp_dir
-            .path()
-            .join(".opencode")
-            .join("skills")
-            .join("gitbutler");
-        fs::create_dir_all(&other_skill_dir).unwrap();
-        fs::write(other_skill_dir.join("SKILL.md"), "# Some other skill").unwrap();
-
-        // We can't easily test find_all_installations directly since it uses the user home.
-        // But we can test the components it uses
-
-        // Verify is_gitbutler_skill correctly identifies our test files
-        assert!(is_gitbutler_skill(&claude_skill_dir.join("SKILL.md")));
-        assert!(is_gitbutler_skill(&cursor_skill_dir.join("SKILL.md")));
-        assert!(!is_gitbutler_skill(&other_skill_dir.join("SKILL.md")));
-
-        // Verify extract_installed_version parsing works on our test content
-        assert_eq!(
-            extract_installed_version_from_content(claude_skill_content),
-            Some("1.0.0".to_string())
-        );
-        assert_eq!(
-            extract_installed_version_from_content(cursor_skill_content),
-            Some("0.9.0".to_string())
-        );
-    }
-
-    #[test]
-    fn find_format_installations_accepts_any_folder_name() {
-        use std::fs;
-
-        let temp_dir = tempfile::TempDir::new().unwrap();
-        let skills_dir = temp_dir.path().join(".claude").join("skills");
-
-        // A GitButler skill under a custom folder name, plus one under the
-        // canonical name - both are real installations.
-        let gitbutler_skill = "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill";
-        for folder in ["but", "gitbutler"] {
-            fs::create_dir_all(skills_dir.join(folder)).unwrap();
-            fs::write(skills_dir.join(folder).join("SKILL.md"), gitbutler_skill).unwrap();
-        }
-        // Another agent's skill is ignored
-        fs::create_dir_all(skills_dir.join("other")).unwrap();
-        fs::write(
-            skills_dir.join("other").join("SKILL.md"),
-            "# Some other skill",
-        )
-        .unwrap();
-
-        let format = SKILL_FORMATS
-            .iter()
-            .find(|f| f.name == "Claude Code")
-            .unwrap();
-
-        assert_eq!(
-            find_format_installations(format, temp_dir.path()),
-            vec![skills_dir.join("but"), skills_dir.join("gitbutler")],
-            "every GitButler skill is found by SKILL.md contents, not folder name, in sorted order"
-        );
-
-        let format_without_dir = SKILL_FORMATS.iter().find(|f| f.name == "Cursor").unwrap();
-        assert!(
-            find_format_installations(format_without_dir, temp_dir.path()).is_empty(),
-            "a missing skills directory yields no installations"
-        );
-    }
-
-    #[test]
-    fn skill_installation_requires_every_embedded_file() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        write_skill_files(temp_dir.path()).unwrap();
-        std::fs::remove_file(temp_dir.path().join("references/concepts.md")).unwrap();
-
-        assert!(!is_complete_skill_installation(temp_dir.path()));
     }
 
     #[test]
@@ -1830,71 +887,19 @@ mod tests {
     }
 
     #[test]
-    fn extract_installed_version_stops_at_frontmatter_end() {
-        // Version appears both in frontmatter and body - should only get frontmatter version
-        let version = extract_installed_version_from_content(
-            "---\nversion: 1.0.0\n---\n\nversion: 2.0.0 in the body",
-        );
-        assert_eq!(version, Some("1.0.0".to_string()));
-    }
-
-    #[test]
-    fn frontmatter_value_handles_crlf_line_endings() {
-        // Windows checkouts use CRLF. `str::lines()` strips the `\r\n` terminator,
-        // so the `---` delimiters and keys still match without special handling.
-        let content = "---\r\nname: but\r\nversion: 1.2.3\r\n---\r\n# GitButler CLI Skill";
-        assert_eq!(frontmatter_value(content, "name:").as_deref(), Some("but"));
-        assert_eq!(
-            frontmatter_value(content, "version:").as_deref(),
-            Some("1.2.3")
+    fn get_base_dir_local_without_context_fails() {
+        let result = get_base_dir(None, false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Not in a git repository")
         );
     }
 
-    #[test]
-    fn parse_yaml_value_handles_plain_values() {
-        assert_eq!(parse_yaml_value("1.0.0"), "1.0.0");
-        assert_eq!(parse_yaml_value("  1.0.0  "), "1.0.0");
-    }
-
-    #[test]
-    fn parse_yaml_value_handles_double_quoted_strings() {
-        assert_eq!(parse_yaml_value("\"1.0.0\""), "1.0.0");
-        assert_eq!(parse_yaml_value("  \"1.0.0\"  "), "1.0.0");
-    }
-
-    #[test]
-    fn parse_yaml_value_handles_single_quoted_strings() {
-        assert_eq!(parse_yaml_value("'1.0.0'"), "1.0.0");
-        assert_eq!(parse_yaml_value("  '1.0.0'  "), "1.0.0");
-    }
-
-    #[test]
-    fn parse_yaml_value_handles_inline_comments() {
-        assert_eq!(parse_yaml_value("1.0.0 # this is a comment"), "1.0.0");
-        assert_eq!(
-            parse_yaml_value("1.0.0  # comment with extra space"),
-            "1.0.0"
-        );
-    }
-
-    #[test]
-    fn parse_yaml_value_handles_quoted_with_comment() {
-        // Comment after quoted value
-        assert_eq!(parse_yaml_value("\"1.0.0\" # comment"), "1.0.0");
-    }
-
-    #[test]
-    fn extract_installed_version_handles_quoted_version() {
-        let version =
-            extract_installed_version_from_content("---\nversion: \"1.2.3\"\n---\n# Content");
-        assert_eq!(version, Some("1.2.3".to_string()));
-    }
-
-    #[test]
-    fn extract_installed_version_handles_version_with_comment() {
-        let version = extract_installed_version_from_content(
-            "---\nversion: 1.2.3 # installed version\n---\n# Content",
-        );
-        assert_eq!(version, Some("1.2.3".to_string()));
-    }
+    // NOTE: detect_install_paths is difficult to test in isolation because it depends on
+    // the user home directory and git repository context. It's tested indirectly through
+    // integration tests and manual testing. The core logic (is_gitbutler_skill validation
+    // and per-format discovery) is tested separately.
 }

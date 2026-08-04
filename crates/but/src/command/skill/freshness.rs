@@ -2,15 +2,11 @@
 //! agent can load a GitButler skill, nudge it to install one,
 //! and keep existing installs current.
 
-use std::path::PathBuf;
-
-use super::{
-    check_skill_status, find_format_installations, home_dir, is_current_skill_installation,
-    skill_format_for_agent, skill_format_for_name, write_skill_files,
-};
-use crate::{
-    theme,
-    utils::detect_agent::{self, Agent},
+use crate::{theme, utils::detect_agent};
+use but_skill::{
+    freshness::agent_skill_installations,
+    install::write_skill_files,
+    status::{check_skill_status, is_current_skill_installation},
 };
 
 pub(crate) enum AgentSkillNotice {
@@ -118,27 +114,6 @@ fn agent_skill_install_hint(current_dir: &std::path::Path) -> Option<AgentSkillN
     }
 }
 
-fn agent_skill_installations(
-    agent: Agent,
-    workdir: Option<&std::path::Path>,
-) -> Option<Vec<PathBuf>> {
-    let global = skill_format_for_agent(agent, true)?;
-    let mut installations = home_dir()
-        .map(|home| find_format_installations(global, &home))
-        .unwrap_or_default();
-    if let Some(workdir) = workdir {
-        if let Some(format) = skill_format_for_agent(agent, false) {
-            installations.extend(find_format_installations(format, workdir));
-        }
-        if matches!(agent, Agent::OpenCode | Agent::Devin)
-            && let Some(format) = skill_format_for_name("Agent Skills", false)
-        {
-            installations.extend(find_format_installations(format, workdir));
-        }
-    }
-    Some(installations)
-}
-
 fn agent_skill_not_installed_notice() -> String {
     let t = theme::get();
     format!(
@@ -159,14 +134,6 @@ fn agent_skill_outdated_notice() -> String {
          Then reload/use the updated skill.",
         t.sym().warning,
     )
-}
-
-/// The default install location for a bare `but skill install` when a detected
-/// agent runs it without a terminal to answer the wizard: the agent's own
-/// global skill directory, the same location the freshness check considers
-/// loadable. The caller decides whether this is an agent-driven invocation.
-pub(super) fn agent_default_install_path(agent: Agent) -> Option<PathBuf> {
-    Some(skill_format_for_agent(agent, true)?.get_install_path(&home_dir()?))
 }
 
 fn agent_skill_updated_message(version: &str) -> String {
@@ -191,6 +158,8 @@ fn agent_skill_update_failed_notice(err: &anyhow::Error) -> String {
 
 #[cfg(test)]
 mod tests {
+    use but_skill::{detect::Agent, format::skill_format_for_agent};
+
     use super::*;
 
     // Full notice/hint wording is pinned by the status snapshot test.

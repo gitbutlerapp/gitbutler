@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod action;
-pub mod cli;
 pub mod commit_format;
 mod generate;
 pub mod reword;

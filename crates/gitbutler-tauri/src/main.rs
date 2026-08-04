@@ -129,7 +129,7 @@ fn main() -> anyhow::Result<()> {
 
                 logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
 
-                but_action::cli::auto_fix_broken_but_cli_symlink();
+                but_skill::cli_link::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
                 migrate_projects().ok();
 
