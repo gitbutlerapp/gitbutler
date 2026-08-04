@@ -15,8 +15,9 @@
 	background-color: var(--bg-1);
 }
 
-.filterInput {
+.filterField {
 	flex-grow: 1;
+	min-width: 0;
 }
 
 .listArea {
