@@ -141,21 +141,6 @@ pub enum Subcommands {
         _args: Vec<String>,
     },
 
-    /// Apply a branch to the workspace (non-legacy path)
-    ///
-    /// If you want to apply an unapplied branch to your workspace so you
-    /// can work on it, you can run `but branch apply <branch-name>`.
-    ///
-    /// This will apply the changes in that branch into your working directory
-    /// as a parallel applied branch.
-    ///
-    #[cfg(not(feature = "legacy"))]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Apply {
-        /// Name of the branch to apply
-        branch_name: String,
-    },
-
     /// Update your local branch with the content of its remote counterpart.
     ///
     /// This allows you to resolve the divergence between your local branch and its

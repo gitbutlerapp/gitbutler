@@ -11,7 +11,9 @@ use ratatui::prelude::{Line, Span, Style, Text};
 
 use crate::{
     CliId,
+    args::atoms::BranchArg,
     command::legacy::{
+        apply::{self, ApplyOperation, ApplyOutcome},
         status::{
             FilesStatusFlag, StatusOutputLine,
             output::StatusOutputLineData,
@@ -32,7 +34,6 @@ use crate::{
         unapply::{self, UnapplyOperation},
     },
     id::{BranchId, CommitId, CommittedFileId},
-    resolve_legacy_top_level_apply_branch_name,
     theme::Theme,
     utils::time::format_relative_time,
 };
@@ -390,29 +391,17 @@ impl App {
             return Ok(());
         };
         let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
-            let reference = {
+            let branch = {
                 let repo = ctx.repo.get()?;
-                let name = resolve_legacy_top_level_apply_branch_name(&repo, &item.name)
-                    .with_context(|| format!("Failed to resolve branch '{}'", item.name))?;
-                repo.find_reference(&name)
-                    .with_context(|| format!("Failed to find branch '{name}'"))?
-                    .detach()
+                BranchArg(item.name.clone()).resolve_legacy_top_level_apply_branch_name(&repo)?
             };
 
-            let outcome = but_api::branch::apply(ctx, reference.name.as_ref())
-                .with_context(|| format!("Failed to apply '{}'", reference.name.shorten()))?;
-
-            if !outcome.conflicting_stacks.is_empty() {
-                let conflicting_stack_names = outcome
-                    .conflicting_stacks
-                    .iter()
-                    .map(|stack| stack.ref_name.shorten().to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                anyhow::bail!(
-                    "'{}' conflicts with existing stack in the workspace: {conflicting_stack_names}",
-                    reference.name.shorten(),
-                );
+            let mut guard = ctx.exclusive_worktree_access();
+            match apply::run(ctx, guard.write_permission(), ApplyOperation { branch })? {
+                ApplyOutcome::ConflictAborted(outcome) => {
+                    anyhow::bail!("Failed to apply branch: {outcome}")
+                }
+                ApplyOutcome::AlreadyApplied { .. } | ApplyOutcome::Applied { .. } => {}
             }
 
             messages.extend([

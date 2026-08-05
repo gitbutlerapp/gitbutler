@@ -179,6 +179,40 @@ impl BranchArg {
 
         Ok(stack.cloned())
     }
+
+    /// Resolve a legacy top-level `but apply` branch name to the narrowest directly applicable ref.
+    ///
+    /// This preserves exact-name behavior while restoring the removed alias that lets a bare branch
+    /// name map to a unique remote-tracking branch. When multiple remotes provide the same branch
+    /// identity, the original input is preserved so the shared apply command keeps its current error.
+    #[cfg(feature = "legacy")]
+    pub fn resolve_legacy_top_level_apply_branch_name(
+        &self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<String> {
+        if repo.try_find_reference(&self.0)?.is_some() {
+            return Ok(self.0.to_owned());
+        }
+
+        let mut remote_matches = repo
+            .remote_names()
+            .iter()
+            .filter_map(|remote_name| {
+                let full_name = format!("refs/remotes/{remote_name}/{}", self.0);
+                repo.try_find_reference(&full_name)
+                    .transpose()
+                    .map(|reference| reference.map(|_| full_name))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if remote_matches.len() == 1 {
+            return Ok(remote_matches
+                .pop()
+                .expect("exactly one remote match exists"));
+        }
+
+        Ok(self.0.to_owned())
+    }
 }
 
 impl AsRef<str> for BranchArg {
