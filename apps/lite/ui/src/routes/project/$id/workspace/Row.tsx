@@ -25,9 +25,24 @@ export const Row: FC<
 		onSelect?: () => void;
 		/** @default false */
 		isHighlighted?: boolean;
+		/**
+		 * Whether the row's checkbox is checked. The row needs this on the
+		 * container — rather than reading it off the checkbox with `:has()` — so
+		 * that a row can also style itself against a *neighbouring* row's checked
+		 * state, which would otherwise require nesting `:has()` inside `:has()`.
+		 */
+		isChecked?: boolean;
 		interactive?: boolean;
 	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ isSelected, onSelect, isHighlighted, interactive = true, ref: refProp, ...props }) => {
+> = ({
+	isSelected,
+	onSelect,
+	isHighlighted,
+	isChecked,
+	interactive = true,
+	ref: refProp,
+	...props
+}) => {
 	const rowRef = useRef<HTMLDivElement | null>(null);
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
@@ -48,6 +63,7 @@ export const Row: FC<
 			className={classes(
 				props.className,
 				styles.container,
+				isChecked && styles.containerChecked,
 				isSelected && styles.containerSelected,
 				isHighlighted && styles.containerHighlighted,
 				interactive && styles.containerInteractive,

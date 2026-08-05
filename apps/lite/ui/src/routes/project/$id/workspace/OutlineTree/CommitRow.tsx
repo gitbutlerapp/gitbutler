@@ -341,6 +341,7 @@ export const CommitRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
+			isChecked={isChecked}
 			isHighlighted={isHighlighted}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
