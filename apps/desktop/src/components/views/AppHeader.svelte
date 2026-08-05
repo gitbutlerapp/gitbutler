@@ -105,6 +105,32 @@
 
 	let newProjectLoading = $state(false);
 	let projectSelectorOpen = $state(false);
+	let metaKeyHeld = $state(false);
+
+	// Only listen while the dropdown is open, so items can hint that ⌘-click opens a new window.
+	$effect(() => {
+		if (!projectSelectorOpen) {
+			metaKeyHeld = false;
+			return;
+		}
+
+		function updateMetaKey(e: KeyboardEvent) {
+			metaKeyHeld = e.metaKey;
+		}
+		function clearMetaKey() {
+			metaKeyHeld = false;
+		}
+
+		window.addEventListener("keydown", updateMetaKey);
+		window.addEventListener("keyup", updateMetaKey);
+		window.addEventListener("blur", clearMetaKey);
+
+		return () => {
+			window.removeEventListener("keydown", updateMetaKey);
+			window.removeEventListener("keyup", updateMetaKey);
+			window.removeEventListener("blur", clearMetaKey);
+		};
+	});
 
 	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
@@ -194,7 +220,11 @@
 				{/snippet}
 
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === projectId} {highlighted}>
+					<SelectItem
+						selected={item.value === projectId}
+						{highlighted}
+						hoverIcon={metaKeyHeld ? "open-in-folder" : undefined}
+					>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -233,6 +263,11 @@
 						Clone repository
 					</SelectItem>
 				</OptionsGroup>
+
+				<div class="text-11 new-window-hint">
+					<Icon name="open-in-folder" color="var(--text-3)" size={14} />
+					<span>Hold ⌘ to open in a new window</span>
+				</div>
 			</Select>
 			{#if singleBranchMode}
 				<Tooltip text="Current branch">
@@ -363,6 +398,16 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.new-window-hint {
+		display: flex;
+		align-items: center;
+		padding-block: 10px;
+		padding-inline: 12px;
+		gap: 8px;
+		background-color: var(--bg-2);
+		color: var(--text-2);
 	}
 
 	/** Mac padding added here to not affect header flex-box sizing, only applied when using custom title bar. */
