@@ -35,6 +35,7 @@ pub mod status;
 pub mod teardown;
 pub mod unapply;
 pub mod uncommit;
+pub mod undo_redo;
 pub(crate) mod upstream;
 pub(crate) mod workspace_target;
 pub mod worktree;

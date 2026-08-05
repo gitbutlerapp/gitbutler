@@ -156,9 +156,9 @@ impl Subcommands {
                 Some(crate::args::oplog::Subcommands::Restore { .. }) => Restore,
             },
             #[cfg(feature = "legacy")]
-            Subcommands::Undo => Undo,
+            Subcommands::Undo(..) => Undo,
             #[cfg(feature = "legacy")]
-            Subcommands::Redo => Redo,
+            Subcommands::Redo(..) => Redo,
             #[cfg(feature = "legacy")]
             Subcommands::Absorb { .. } => Absorb,
             #[cfg(feature = "legacy")]

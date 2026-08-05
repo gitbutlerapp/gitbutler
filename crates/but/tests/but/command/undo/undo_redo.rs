@@ -32,10 +32,7 @@ fn undo(
     expected_status: &std::process::Output,
 ) {
     env.but("undo").assert().success().stdout_eq(format!(
-        r#"Undoing operation...
-  Reverting to: {} (2000-01-02 00:00:00)
-✓ Undo completed successfully! Restored to snapshot: {snapshot_restored_to}
-"#,
+        "Undid {snapshot_restored_to} (2000-01-02 00:00:00): {}\n",
         operation_reverted_to.title()
     ));
 
@@ -54,10 +51,7 @@ fn redo(
     expected_status: &std::process::Output,
 ) {
     env.but("redo").assert().success().stdout_eq(format!(
-        r#"Redoing operation...
-  Reverting to: {} (2000-01-02 00:00:00)
-✓ Redo completed successfully! Restored to snapshot: {snapshot_restored_to}
-"#,
+        "Redid {snapshot_restored_to} (2000-01-02 00:00:00): {}\n",
         operation_reverted_to.title()
     ));
 
@@ -86,6 +80,51 @@ Workspace has been restored to the selected snapshot.
         .success()
         .stdout_eq(expected_status.stdout.clone())
         .stderr_eq(expected_status.stderr.clone());
+}
+
+#[test]
+fn undo_and_redo_have_structured_json_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+    let (_status, _new_commit) = reword(&env, "9ac4652", "one");
+
+    env.but("undo")
+        .arg("--json")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "action": "undo",
+  "changed": true,
+  "snapshotId": "0a8d5dd3d17a15fd88d4857d2421f41ff1a1c2a8"
+}
+
+"#]]);
+
+    env.but("redo")
+        .arg("--json")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "action": "redo",
+  "changed": true,
+  "snapshotId": "0a8d5dd3d17a15fd88d4857d2421f41ff1a1c2a8"
+}
+
+"#]]);
+
+    env.but("redo")
+        .arg("--json")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "action": "redo",
+  "changed": false
+}
+
+"#]]);
 }
 
 #[test]
@@ -225,8 +264,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     undo(
         &env,
-        OperationKind::RestoreFromSnapshot,
-        "0516392",
+        OperationKind::UpdateCommitMessage,
+        "dfe9b0e",
         &status_four,
     );
 
@@ -444,8 +483,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     redo(
         &env,
-        OperationKind::RestoreFromSnapshotViaUndo,
-        "f1a5105",
+        OperationKind::UpdateCommitMessage,
+        "f82096e",
         &status_four,
     );
 
@@ -526,8 +565,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     redo(
         &env,
-        OperationKind::RestoreFromSnapshotViaUndo,
-        "d3636ab",
+        OperationKind::UpdateCommitMessage,
+        "dfe9b0e",
         &status_three,
     );
 
@@ -550,8 +589,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     undo(
         &env,
-        OperationKind::RestoreFromSnapshotViaRedo,
-        "3cc6dfe",
+        OperationKind::UpdateCommitMessage,
+        "dfe9b0e",
         &status_two,
     );
 
@@ -601,8 +640,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     redo(
         &env,
-        OperationKind::RestoreFromSnapshotViaUndo,
-        "798926a",
+        OperationKind::UpdateCommitMessage,
+        "9d45564",
         &status_two,
     );
 
@@ -628,8 +667,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     redo(
         &env,
-        OperationKind::RestoreFromSnapshotViaUndo,
-        "84c7fb7",
+        OperationKind::UpdateCommitMessage,
+        "dfe9b0e",
         &status_three,
     );
 
@@ -656,8 +695,8 @@ dfe9b0e 2000-01-02 00:00:00 [REWORD] Updated commit message
 
     redo(
         &env,
-        OperationKind::RestoreFromSnapshotViaUndo,
-        "f1a5105",
+        OperationKind::UpdateCommitMessage,
+        "f82096e",
         &status_four,
     );
 

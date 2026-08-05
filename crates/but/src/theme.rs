@@ -684,6 +684,12 @@ fn fmt_commit_id_or_change_id(
 
 pub struct Commit<T>(pub T);
 
+impl Display for Commit<ObjectId> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_commit_id(self.0, f)
+    }
+}
+
 impl Display for Commit<ChangeId> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fmt_change_id(&self.0, f)

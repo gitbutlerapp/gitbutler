@@ -18,6 +18,7 @@
 //!
 use anyhow::Result;
 use but_api_macros::but_api;
+use but_core::sync::RepoExclusive;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, Snapshot, SnapshotDetails},
@@ -328,7 +329,18 @@ pub fn restore_snapshot_with_kind(
     sha: gix::ObjectId,
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(sha, restore_kind, guard.write_permission())?;
+    restore_snapshot_with_kind_with_perm(ctx, restore_kind, sha, guard.write_permission())
+}
+
+/// Restores the project to a specific snapshot using caller-held exclusive repository access.
+/// This operation also creates a new snapshot in the oplog.
+pub fn restore_snapshot_with_kind_with_perm(
+    ctx: &mut but_ctx::Context,
+    restore_kind: RestoreKind,
+    sha: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    ctx.restore_snapshot(sha, restore_kind, perm)?;
     Ok(())
 }
 
