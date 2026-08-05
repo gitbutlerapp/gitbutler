@@ -13,11 +13,12 @@ export type GeneralSettingsPageId =
 	| "lanes-and-branches"
 	| "git"
 	| "integrations"
+	| "agents"
 	| "ai"
 	| "telemetry"
 	| "experimental"
 	| "organizations";
-export type ProjectSettingsPageId = "project" | "git" | "ai" | "experimental";
+export type ProjectSettingsPageId = "project" | "git" | "agents" | "ai" | "experimental";
 export type RejectionReason =
 	| "workspaceMergeConflict"
 	| "workspaceMergeConflictOfUnrelatedFile"

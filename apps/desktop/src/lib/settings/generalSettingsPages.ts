@@ -34,6 +34,11 @@ export const generalSettingsPages = [
 		icon: "puzzle",
 	},
 	{
+		id: "agents",
+		label: "Agents & CLI",
+		icon: "robot",
+	},
+	{
 		id: "ai",
 		label: "AI Options",
 		icon: "ai",

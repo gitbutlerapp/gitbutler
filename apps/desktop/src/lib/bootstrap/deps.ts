@@ -1,3 +1,4 @@
+import { AGENTS_SERVICE, AgentsService } from "$lib/agents/agentsService";
 import {
 	PromptService as AIPromptService,
 	PROMPT_SERVICE as AI_PROMPT_SERVICE,
@@ -261,6 +262,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const cliManager = new CLIManager(clientState.backendApi);
+	const agentsService = new AgentsService(clientState.backendApi);
 	const dataSharingService = new DataSharingService(clientState.backendApi);
 	const promptService = new PromptService(backend);
 	const updaterService = new UpdaterService(
@@ -295,6 +297,7 @@ export function initDependencies(args: {
 		[CLIENT_STATE, clientState],
 		[CLIPBOARD_SERVICE, clipboardService],
 		[CLI_MANAGER, cliManager],
+		[AGENTS_SERVICE, agentsService],
 		[CLOUD_USER_SERVICE, cloudUserService],
 		[COMMIT_ANALYTICS, commitAnalytics],
 		[DATA_SHARING_SERVICE, dataSharingService],
