@@ -105,30 +105,42 @@
 
 	let newProjectLoading = $state(false);
 	let projectSelectorOpen = $state(false);
-	let metaKeyHeld = $state(false);
+	let newWindowModifierHeld = $state(false);
 
-	// Only listen while the dropdown is open, so items can hint that ⌘-click opens a new window.
+	const isMac = $derived(backend.platformName === "macos");
+	// ⌘-click is the new-window gesture on macOS; elsewhere that role belongs to Ctrl.
+	const newWindowModifierLabel = $derived(isMac ? "⌘" : "Ctrl");
+
+	function hasNewWindowModifier(e: KeyboardEvent | MouseEvent) {
+		return isMac ? e.metaKey : e.ctrlKey;
+	}
+
+	// Only listen while the dropdown is open, so rows can hint that the modifier opens a new window.
 	$effect(() => {
 		if (!projectSelectorOpen) {
-			metaKeyHeld = false;
+			newWindowModifierHeld = false;
 			return;
 		}
 
-		function updateMetaKey(e: KeyboardEvent) {
-			metaKeyHeld = e.metaKey;
+		function update(e: KeyboardEvent | MouseEvent) {
+			newWindowModifierHeld = hasNewWindowModifier(e);
 		}
-		function clearMetaKey() {
-			metaKeyHeld = false;
+		function clear() {
+			newWindowModifierHeld = false;
 		}
 
-		window.addEventListener("keydown", updateMetaKey);
-		window.addEventListener("keyup", updateMetaKey);
-		window.addEventListener("blur", clearMetaKey);
+		window.addEventListener("keydown", update);
+		window.addEventListener("keyup", update);
+		// Mouse events carry the modifier state too, so a modifier already held when the
+		// dropdown opened is picked up as soon as the pointer moves over the list.
+		window.addEventListener("mousemove", update);
+		window.addEventListener("blur", clear);
 
 		return () => {
-			window.removeEventListener("keydown", updateMetaKey);
-			window.removeEventListener("keyup", updateMetaKey);
-			window.removeEventListener("blur", clearMetaKey);
+			window.removeEventListener("keydown", update);
+			window.removeEventListener("keyup", update);
+			window.removeEventListener("mousemove", update);
+			window.removeEventListener("blur", clear);
 		};
 	});
 
@@ -152,7 +164,7 @@
 
 <div
 	class="chrome-header"
-	class:mac={backend.platformName === "macos"}
+	class:mac={isMac}
 	data-tauri-drag-region={useCustomTitleBar}
 	class:single-branch={singleBranchMode}
 	use:focusable
@@ -190,7 +202,7 @@
 				loading={newProjectLoading}
 				disabled={newProjectLoading}
 				onselect={(value: string, modifiers?) => {
-					if (modifiers?.meta) {
+					if (isMac ? modifiers?.meta : modifiers?.ctrl) {
 						projectsService.openProjectInNewWindow(value);
 					} else {
 						goto(projectPath(value));
@@ -223,7 +235,7 @@
 					<SelectItem
 						selected={item.value === projectId}
 						{highlighted}
-						hoverIcon={metaKeyHeld ? "open-in-folder" : undefined}
+						hoverIcon={newWindowModifierHeld ? "open-in-folder" : undefined}
 					>
 						{item.label}
 					</SelectItem>
@@ -266,7 +278,7 @@
 
 				<div class="text-11 new-window-hint">
 					<Icon name="open-in-folder" color="var(--text-3)" size={14} />
-					<span>Hold ⌘ to open in a new window</span>
+					<span>Hold {newWindowModifierLabel} to open in a new window</span>
 				</div>
 			</Select>
 			{#if singleBranchMode}
@@ -403,8 +415,8 @@
 	.new-window-hint {
 		display: flex;
 		align-items: center;
-		padding-block: 10px;
 		padding-inline: 12px;
+		padding-block: 10px;
 		gap: 8px;
 		background-color: var(--bg-2);
 		color: var(--text-2);
