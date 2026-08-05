@@ -73,6 +73,14 @@ pub async fn update_feature_flags(
     apply_update(update, AppSettingsWithDiskSync::update_feature_flags)
 }
 
+/// Update agent settings; unset fields are left unchanged.
+#[napi]
+pub async fn update_agents(
+    #[napi(ts_arg_type = "AgentsUpdate")] update: serde_json::Value,
+) -> napi::Result<()> {
+    apply_update(update, AppSettingsWithDiskSync::update_agents)
+}
+
 /// Update review settings; unset fields are left unchanged.
 #[napi]
 pub async fn update_reviews(

@@ -57,6 +57,10 @@ export class SettingsService {
 		await this.invokeAndRefresh("update_reviews", { update });
 	}
 
+	async updateAgents(update: Partial<AppSettings["agents"]>) {
+		await this.invokeAndRefresh("update_agents", { update });
+	}
+
 	async updateFetch(update: Partial<AppSettings["fetch"]>) {
 		await this.invokeAndRefresh("update_fetch", { update });
 	}

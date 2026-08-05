@@ -474,13 +474,17 @@ impl Sandbox {
         use but_settings::{
             AppSettings,
             app_settings::{
-                Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews,
+                Agents, Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews,
                 TelemetrySettings, UiSettings,
             },
         };
         let settings = AppSettings {
             context_lines: 3,
             onboarding_complete: true,
+            // Tests never see the agent-skills prompt.
+            agents: Agents {
+                skills_prompt_dismissed: true,
+            },
             telemetry: TelemetrySettings {
                 app_metrics_enabled: false,
                 app_error_reporting_enabled: false,

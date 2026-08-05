@@ -799,6 +799,9 @@ export const RIGHT_MERGE_ANCESTOR: number
 /** The child of this cell is linked to parents on the right. */
 export const RIGHT_MERGE_PARENT: number
 
+/** Update agent settings; unset fields are left unchanged. */
+export declare function updateAgents(update: AgentsUpdate): Promise<void>
+
 /** Update feature flags; unset fields are left unchanged. */
 export declare function updateFeatureFlags(update: FeatureFlagsUpdate): Promise<void>
 
@@ -886,6 +889,15 @@ export type AgentFramework = {
   scopes: Array<FrameworkScopeState>;
 };
 
+export type Agents = {
+  /**
+   * Whether the user dismissed the prompt offering to set up agent skills.
+   * Set when they decline, and when they complete setup, so the nudge is
+   * shown at most once per user.
+   */
+  skillsPromptDismissed: boolean;
+};
+
 /** Everything the settings screen needs to render the agent list. */
 export type AgentsStatus = {
   /** The CLI version installed skills are compared against. */
@@ -896,6 +908,11 @@ export type AgentsStatus = {
   repoRoot: string | null;
   /** Every known framework, detected ones first. */
   frameworks: Array<AgentFramework>;
+};
+
+/** Update request for [`crate::app_settings::Agents`]. */
+export type AgentsUpdate = {
+  skillsPromptDismissed?: boolean | null;
 };
 
 /** JSON transport type for the outcome of an AI conflict resolution. */
@@ -949,6 +966,7 @@ export type AppSettings = {
   /** Settings related to code reviews and pull requests. */
   reviews: Reviews;
   /** UI settings. */
+  agents: Agents;
   ui: UiSettings;
   /**
    * The duration between application update checks in seconds. If `0`, no update checks will be performed.

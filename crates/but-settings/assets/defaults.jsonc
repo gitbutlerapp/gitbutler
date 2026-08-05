@@ -64,6 +64,11 @@
 		"autoFillPrDescriptionFromCommit": true
 	},
 	// UI settings.
+	// Coding-agent skills and the `but` CLI.
+	"agents": {
+		// Whether the user dismissed the prompt offering to set up agent skills.
+		"skillsPromptDismissed": false
+	},
 	"ui": {
 		// Whether to use the native system title bar.
 		"useNativeTitleBar": false,

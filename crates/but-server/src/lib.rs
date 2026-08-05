@@ -997,6 +997,14 @@ async fn handle_command(
         "update_reviews" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
+        "update_agents" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_agents(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        // Registered in Tauri since it was added, but never here, so any
+        // non-Tauri caller silently fell through to the catch-all.
+        "update_ui" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_ui(&app_settings_sync, params).map(|r| json!(r))
+        }),
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {

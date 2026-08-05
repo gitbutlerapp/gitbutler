@@ -101,6 +101,16 @@ but_schemars::register_sdk_type!(Reviews);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct Agents {
+    /// Whether the user dismissed the prompt offering to set up agent skills.
+    /// Set when they decline, and when they complete setup, so the nudge is
+    /// shown at most once per user.
+    pub skills_prompt_dismissed: bool,
+}
+but_schemars::register_sdk_type!(Agents);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,

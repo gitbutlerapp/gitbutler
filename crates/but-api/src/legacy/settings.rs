@@ -2,7 +2,9 @@
 use anyhow::Result;
 use but_settings::{
     AppSettingsWithDiskSync,
-    api::{FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate},
+    api::{
+        AgentsUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+    },
 };
 use serde::Deserialize;
 
@@ -56,6 +58,19 @@ pub fn update_feature_flags(
     params: UpdateFeatureFlagsParams,
 ) -> Result<()> {
     app_settings_sync.update_feature_flags(params.update)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAgentsParams {
+    pub update: AgentsUpdate,
+}
+
+pub fn update_agents(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateAgentsParams,
+) -> Result<()> {
+    app_settings_sync.update_agents(params.update)
 }
 
 #[derive(Deserialize)]

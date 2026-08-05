@@ -370,6 +370,7 @@ fn main() -> anyhow::Result<()> {
                 settings::update_feature_flags,
                 settings::update_telemetry_distinct_id,
                 settings::update_fetch,
+                settings::update_agents,
                 settings::update_reviews,
                 settings::update_ui,
                 // Debug-only - not for production!
