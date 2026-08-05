@@ -3,7 +3,7 @@ name: cli-commands
 description: Use when adding or modifying CLI command (`but` commands) under `crates/but/src`.
 ---
 
-Imagine we're implementing a new `commit3` command. The high level structure
+Imagine we're implementing a new `commit3` command. The high-level structure
 for that must be as follows.
 
 ## Arguments
@@ -39,18 +39,18 @@ In `crates/but/src/args/mod.rs`:
 ```rust
 #[cfg(feature = "legacy")]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-#[clap(hide = true, name = "_commit2")]
+#[clap(hide = true, name = "_commit3")]
 Commit3(commit3::Platform),
 ```
 
 Things to note:
 
-Arguments that refer to git objects (such as commits, branches, files, hunks,
-etc.) use some type from `crates/but/src/args/atoms/` and not `String` or other
+Arguments that refer to Git objects (such as commits, branches, files, hunks,
+etc.) use some type from `crates/but/src/args/atoms/` and not `String` or another
 loose type.
 
-Use `CliIdArg` for arguments that reference existing git objects such as
-branches, commits, files, etc. This allows the user to use short ids or fully
+Use `CliIdArg` for arguments that reference existing Git objects such as
+branches, commits, files, etc. This allows the user to use short IDs or fully
 qualified names.
 
 `String` should only be used for truly loose text input such as commit
@@ -70,7 +70,7 @@ include `-m` where omitting it would open an editor).
 
 ## Handling the command
 
-Add match arm to `crates/but/src/lib.rs` to handle the command:
+Add a match arm to `crates/but/src/lib.rs` to handle the command:
 
 ```rust
 match cmd {
@@ -111,7 +111,7 @@ Use `IntermediateChannel`. Do not pass `OutputChannel` to commands.
 
 Use `OutputChannel::print_cli_output` to print the final output from the
 command. This ensures we handle all supported formats. If only human format is
-supported use `OutputChannel::print_cli_output_human`.
+supported, use `OutputChannel::print_cli_output_human`.
 
 ## Implementing the command
 
@@ -126,11 +126,11 @@ pub fn commit(
     // get whatever dependencies we need from `Context` such as
     // `RepoExclusiveGuard`, `IdMap`, `RefInfo`, etc.
 
-    // resolve the arguments a `CommitOperation`
+    // resolve the arguments into a `CommitOperation`
     let commit_operation = resolve(ctx, args)?;
 
     // Run the operation
-    let outcome = run(ctx, commit_op)?;
+    let outcome = run(ctx, commit_operation)?;
 
     // Return the outcome which will be printed by the caller
     Ok(outcome)
@@ -193,7 +193,7 @@ Things to note:
 Commands follow a `resolve` then `run` structure.
 
 `run` doesn't print its final output. It returns something that implements
-`CliOutput` / `CliOutputHuman` which the caller can then call.
+`CliOutput` / `CliOutputHuman` which the caller can then print.
 
 `resolve` returns `CliResult` because it needs to reject bad user input.
 
@@ -221,15 +221,15 @@ The operation does not contain diff specs (usually in the form
 `Vec<DiffSpec>` using `DiffSpecBuilder`. This makes it easier for the status
 TUI to call `run` directly.
 
-User input such as pickers and prompts are created via `InputOutputChannel`
+User-input pickers and prompts are created via `InputOutputChannel`
 accessed through `IntermediateChannel::prepare_for_terminal_input`.
 
-The JSON output includes both commit ids and change ids.
+The JSON output includes both commit IDs and change IDs.
 
 Use `AllowMergedArg` and `MergedUpstream` to verify we don't mutate merged
 commits and branches.
 
-Printing of commits, branches, change ids, etc. use newtypes from `theme` such
+Printing of commits, branches, change IDs, etc. uses newtypes from `theme` such
 as `theme::Branch` and `theme::Commit`. This ensures consistent coloring.
 
 Bad user input errors use `bad_input(...)`, optionally with `.arg_name()`,
