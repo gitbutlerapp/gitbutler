@@ -22,6 +22,7 @@ pub struct AppSettings {
     /// Settings related to code reviews and pull requests.
     pub reviews: app_settings::Reviews,
     /// UI settings.
+    pub agents: app_settings::Agents,
     pub ui: app_settings::UiSettings,
     /// The duration between application update checks in seconds. If `0`, no update checks will be performed.
     /// This setting controls background update checks for both the CLI and GUI.

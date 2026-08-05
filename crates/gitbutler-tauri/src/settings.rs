@@ -1,7 +1,9 @@
 use but_api::{json::Error, legacy::settings};
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,
-    api::{FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate},
+    api::{
+        AgentsUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+    },
 };
 use tauri::State;
 use tracing::instrument;
@@ -65,6 +67,16 @@ pub fn update_fetch(
     update: FetchUpdate,
 ) -> Result<(), Error> {
     settings::update_fetch(&app_settings_sync, settings::UpdateFetchParams { update })
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app_settings_sync), err(Debug))]
+pub fn update_agents(
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: AgentsUpdate,
+) -> Result<(), Error> {
+    settings::update_agents(&app_settings_sync, settings::UpdateAgentsParams { update })
         .map_err(Into::into)
 }
 

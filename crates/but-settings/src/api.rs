@@ -44,6 +44,17 @@ but_schemars::register_sdk_type!(ReviewsUpdate);
 )]
 #[serde(rename_all = "camelCase", default)]
 #[schemars(extend("x-input" = true))]
+/// Update request for [`crate::app_settings::Agents`].
+pub struct AgentsUpdate {
+    pub skills_prompt_dismissed: Option<bool>,
+}
+but_schemars::register_sdk_type!(AgentsUpdate);
+
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::Fetch`].
 pub struct FetchUpdate {
     pub auto_fetch_interval_minutes: Option<isize>,
@@ -105,6 +116,14 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(worktree_manipulation) = worktree_manipulation {
             settings.feature_flags.worktree_manipulation = worktree_manipulation;
+        }
+        settings.save()
+    }
+
+    pub fn update_agents(&self, update: AgentsUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(skills_prompt_dismissed) = update.skills_prompt_dismissed {
+            settings.agents.skills_prompt_dismissed = skills_prompt_dismissed;
         }
         settings.save()
     }

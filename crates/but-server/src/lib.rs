@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, open, platform, workspace};
+use but_api::{agents, commit, diff, github, gitlab, json, legacy, open, platform, workspace};
 use but_ctx::ProjectHandleOrLegacyProjectId;
 
 mod broadcaster;
@@ -745,6 +745,22 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         )
         .route("/install_cli", but_post(legacy::cli::install_cli_cmd))
         .route("/cli_path", but_post(legacy::cli::cli_path_cmd))
+        .route(
+            "/cli_install_state",
+            but_post(agents::cli_install_state_cmd),
+        )
+        .route("/uninstall_cli", but_post(agents::uninstall_cli_cmd))
+        .route("/agents_status", but_post(agents::agents_status_cmd))
+        .route(
+            "/agent_skill_install",
+            but_post(agents::agent_skill_install_cmd),
+        )
+        .route(
+            "/agent_skill_uninstall",
+            but_post(agents::agent_skill_uninstall_cmd),
+        )
+        .route("/agent_policy_get", but_post(agents::agent_policy_get_cmd))
+        .route("/agent_policy_set", but_post(agents::agent_policy_set_cmd))
         .route("/open_url", but_post(open::open_url_cmd))
         .route("/open_in_terminal", but_post(open::open_in_terminal_cmd))
         .route("/show_in_finder", but_post(open::show_in_finder_cmd))
@@ -980,6 +996,14 @@ async fn handle_command(
         }),
         "update_reviews" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        "update_agents" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_agents(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        // Registered in Tauri since it was added, but never here, so any
+        // non-Tauri caller silently fell through to the catch-all.
+        "update_ui" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_ui(&app_settings_sync, params).map(|r| json!(r))
         }),
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
