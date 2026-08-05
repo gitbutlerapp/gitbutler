@@ -17,6 +17,7 @@
 	// One mutation hook per row, so only the row being changed shows a spinner.
 	const [installSkill, installing] = agentsService.installSkill;
 	const [uninstallSkill, uninstalling] = agentsService.uninstallSkill;
+	const [updateSkills, updating] = agentsService.updateSkills;
 
 	const scopeState = $derived(
 		framework.scopes.find((entry: FrameworkScopeState) => entry.scope === scope),
@@ -46,39 +47,78 @@
 
 		{#snippet caption()}
 			{#if scopeState.installed}
-				<code class="code-string">{scopeState.installed.path}</code>
+				<code class="code-string skill-path">{scopeState.installed.path}</code>
 			{:else}
 				{framework.description}
 			{/if}
 		{/snippet}
 
 		{#snippet actions()}
-			{#if scopeState.installed}
-				{#if scopeState.instructionPath}
-					<Button kind="outline" icon="settings" onclick={() => policyModal?.show()}>
-						Customize
+			<!--
+				The shared actions column neither adds a gap nor stops itself
+				shrinking, so three labelled buttons overflow the card. Only the
+				action worth reading stays labelled; the rest are icon-only with
+				tooltips.
+			-->
+			<div class="row-actions">
+				{#if scopeState.installed}
+					{#if !scopeState.installed.upToDate}
+						<Button
+							style="pop"
+							icon="refresh"
+							loading={updating.current.isLoading}
+							onclick={() => updateSkills({ frameworkId: framework.id, scope, projectId })}
+						>
+							Update
+						</Button>
+					{/if}
+					{#if scopeState.instructionPath}
+						<Tooltip text="Customize workflow preferences">
+							<Button kind="outline" icon="settings" onclick={() => policyModal?.show()} />
+						</Tooltip>
+					{/if}
+					<Tooltip text="Uninstall this skill">
+						<Button
+							kind="outline"
+							style="danger"
+							icon="bin"
+							loading={uninstalling.current.isLoading}
+							onclick={() => uninstallSkill({ frameworkId: framework.id, scope, projectId })}
+						/>
+					</Tooltip>
+				{:else}
+					<Button
+						style="pop"
+						icon="plus"
+						loading={installing.current.isLoading}
+						onclick={() => installSkill({ frameworkId: framework.id, scope, projectId })}
+					>
+						Install
 					</Button>
 				{/if}
-				<Button
-					kind="outline"
-					style="danger"
-					loading={uninstalling.current.isLoading}
-					onclick={() => uninstallSkill({ frameworkId: framework.id, scope, projectId })}
-				>
-					Uninstall
-				</Button>
-			{:else}
-				<Button
-					style="pop"
-					icon="plus"
-					loading={installing.current.isLoading}
-					onclick={() => installSkill({ frameworkId: framework.id, scope, projectId })}
-				>
-					Install
-				</Button>
-			{/if}
+			</div>
 		{/snippet}
 	</CardGroup.Item>
 
 	<AgentWorkflowPolicyModal bind:this={policyModal} {scope} {projectId} />
 {/if}
+
+<style lang="postcss">
+	.row-actions {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 6px;
+	}
+
+	/* A long path would otherwise set the content column's min width and
+	   squeeze the actions off the card. */
+	.skill-path {
+		display: inline-block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		vertical-align: bottom;
+		white-space: nowrap;
+	}
+</style>

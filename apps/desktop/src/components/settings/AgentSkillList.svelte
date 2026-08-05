@@ -15,6 +15,8 @@
 	const agentsService = inject(AGENTS_SERVICE);
 	const status = $derived(agentsService.status({ projectId }));
 
+	const [updateSkills, updatingAll] = agentsService.updateSkills;
+
 	let showAll = $state(false);
 
 	/** Only frameworks that can install at this scope; some agents are global-only. */
@@ -49,7 +51,37 @@
 		available.filter((framework: AgentFramework) => !alwaysShown.includes(framework)),
 	);
 	const shown = $derived(showAll ? [...alwaysShown, ...rest] : alwaysShown);
+
+	/**
+	 * Counted across every framework, not just the visible ones, so a skill
+	 * hidden behind "Show all" is still covered by "Update all".
+	 */
+	const outdatedCount = $derived(
+		available.filter((framework: AgentFramework) =>
+			framework.scopes.some(
+				(entry: FrameworkScopeState) =>
+					entry.scope === scope && entry.installed && !entry.installed.upToDate,
+			),
+		).length,
+	);
 </script>
+
+{#if outdatedCount > 0}
+	<div class="update-all">
+		<span class="text-12 clr-text-2">
+			{outdatedCount}
+			{outdatedCount === 1 ? "skill is" : "skills are"} out of date.
+		</span>
+		<Button
+			style="pop"
+			icon="refresh"
+			loading={updatingAll.current.isLoading}
+			onclick={() => updateSkills({ scope, projectId })}
+		>
+			Update all
+		</Button>
+	</div>
+{/if}
 
 <CardGroup>
 	{#if status.response && alwaysShown.length === 0 && !showAll}
@@ -74,3 +106,17 @@
 		</Button>
 	</div>
 {/if}
+
+<style lang="postcss">
+	.update-all {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 12px;
+		padding: 10px 12px;
+		gap: 12px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+	}
+</style>

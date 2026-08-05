@@ -50,6 +50,10 @@ export class AgentsService {
 		return this.api.endpoints.agentSkillUninstall.useMutation();
 	}
 
+	get updateSkills() {
+		return this.api.endpoints.agentSkillsUpdate.useMutation();
+	}
+
 	get setPolicy() {
 		return this.api.endpoints.agentPolicySet.useMutation();
 	}
@@ -81,6 +85,14 @@ function injectEndpoints(backendApi: BackendApi) {
 				FrameworkArgs & { removeInstructions?: boolean }
 			>({
 				extraOptions: { command: "agent_skill_uninstall" },
+				query: (args) => args,
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.AgentsStatus),
+					invalidatesList(ReduxTag.AgentPolicy),
+				],
+			}),
+			agentSkillsUpdate: build.mutation<AgentsStatus, ScopedArgs & { frameworkId?: string }>({
+				extraOptions: { command: "agent_skills_update" },
 				query: (args) => args,
 				invalidatesTags: () => [
 					invalidatesList(ReduxTag.AgentsStatus),

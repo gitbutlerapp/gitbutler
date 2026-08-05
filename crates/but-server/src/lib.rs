@@ -759,6 +759,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/agent_skill_uninstall",
             but_post(agents::agent_skill_uninstall_cmd),
         )
+        .route(
+            "/agent_skills_update",
+            but_post(agents::agent_skills_update_cmd),
+        )
         .route("/agent_policy_get", but_post(agents::agent_policy_get_cmd))
         .route("/agent_policy_set", but_post(agents::agent_policy_set_cmd))
         .route("/open_url", but_post(open::open_url_cmd))

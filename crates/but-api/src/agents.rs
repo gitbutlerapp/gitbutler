@@ -495,6 +495,46 @@ pub fn agent_skill_install(
     agents_status(project_id)
 }
 
+/// Rewrite outdated GitButler skills in place, bringing them up to the
+/// running version.
+///
+/// `framework_id` limits this to one agent; `None` refreshes every outdated
+/// installation at `scope`.
+///
+/// Updates the path each skill was *discovered* at rather than the canonical
+/// install path. Those differ when a skill was installed into a custom folder
+/// name, and writing to the canonical path would leave the outdated copy in
+/// place and add a second one beside it.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn agent_skills_update(
+    scope: SkillScope,
+    project_id: Option<ProjectHandleOrLegacyProjectId>,
+    framework_id: Option<String>,
+) -> Result<AgentsStatus> {
+    let scope: Scope = scope.into();
+    let root = repo_root(project_id.clone())?;
+    let base = base_dir(scope, but_path::home_dir().as_deref(), root.as_deref())?;
+    let version = but_skill::cli_version();
+
+    for framework in FRAMEWORKS {
+        if framework_id.as_deref().is_some_and(|id| id != framework.id) {
+            continue;
+        }
+        let Some(format) = framework.format(matches!(scope, Scope::Global)) else {
+            continue;
+        };
+        for path in but_skill::status::find_format_installations(format, &base) {
+            if but_skill::status::is_current_skill_installation(&path, version) {
+                continue;
+            }
+            but_skill::install::write_skill_files(&path)?;
+        }
+    }
+
+    agents_status(project_id)
+}
+
 /// Remove the GitButler skill for one framework at one scope.
 ///
 /// `remove_instructions` additionally strips the managed policy block from
