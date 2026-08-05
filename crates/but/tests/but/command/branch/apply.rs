@@ -2,8 +2,11 @@ use bstr::ByteSlice;
 use snapbox::IntoData;
 use snapbox::str;
 
+use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
 use crate::command::util;
 use crate::utils::{CommandExt, Sandbox};
+
+use utils::create_local_branch_with_commit;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -100,10 +103,6 @@ Applied remote branch 'origin/B' to workspace
     );
 }
 
-use utils::create_local_branch_with_commit;
-
-use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
-
 #[test]
 fn local_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
@@ -196,36 +195,7 @@ fn local_branch_with_json_output() {
   "status": "applied",
   "workspaceChanged": true,
   "appliedBranches": [
-    {
-      "full": "refs/heads/feature-branch",
-      "full_bytes": [
-        114,
-        101,
-        102,
-        115,
-        47,
-        104,
-        101,
-        97,
-        100,
-        115,
-        47,
-        102,
-        101,
-        97,
-        116,
-        117,
-        114,
-        101,
-        45,
-        98,
-        114,
-        97,
-        110,
-        99,
-        104
-      ]
-    }
+    "refs/heads/feature-branch"
   ],
   "workspaceRefCreated": false,
   "conflictingStacks": []
@@ -247,34 +217,6 @@ fn local_branch_with_json_output() {
 "#]]
         .raw()
     );
-}
-
-#[test]
-fn local_branch_with_shell_output() {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
-    snapbox::assert_data_eq!(
-        env.git_log(),
-        snapbox::str![[r#"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-
-"#]]
-    );
-
-    env.setup_metadata(&["A"]);
-
-    create_local_branch_with_commit(&env, "feature-branch");
-
-    env.but("apply feature-branch")
-        .allow_json()
-        .assert()
-        .success()
-        .stdout_eq(str![[r#"
-Applied branch 'feature-branch' to workspace
-
-"#]])
-        .stderr_eq(str![]);
 }
 
 #[test]
@@ -410,7 +352,10 @@ fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. The reference 'remote-feature' did not exist
+Error: Failed to apply branch
+
+Caused by:
+    The reference 'remote-feature' did not exist
 
 "#]])
         .stdout_eq(str![""]);
@@ -482,7 +427,10 @@ fn nonexistent_branch() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. The reference 'nonexistent-branch' did not exist
+Error: Failed to apply branch
+
+Caused by:
+    The reference 'nonexistent-branch' did not exist
 
 "#]])
         .stdout_eq(str![""]);
@@ -498,7 +446,10 @@ fn nonexistent_branch_with_json() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. The reference 'nonexistent-branch' did not exist
+Error: Failed to apply branch
+
+Caused by:
+    The reference 'nonexistent-branch' did not exist
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
@@ -594,7 +545,7 @@ fn apply_branch_conflicting_with_workspace_reports_error() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. 'conflicting-branch' conflicts with existing stack in the workspace: A
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
 
 "#]])
         .stdout_eq(str![""]);
@@ -604,10 +555,55 @@ Failed to apply branch. 'conflicting-branch' conflicts with existing stack in th
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. 'conflicting-branch' conflicts with existing stack in the workspace: A
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
 
 "#]])
         .stdout_eq(str![""]);
+}
+
+#[test]
+fn apply_branch_conflicting_with_workspace_reports_json_error() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.setup_metadata(&["A"]);
+
+    env.invoke_bash(
+        r#"
+    git checkout main -b conflicting-branch;
+    echo 'conflicting-A-content' > A;
+    git add A;
+    git commit -m 'Add conflicting A';
+    git checkout gitbutler/workspace;
+    "#,
+    );
+
+    env.but("apply conflicting-branch --json")
+        .assert()
+        .failure()
+        // intentionally prints to stdout since that makes it easier for tools to consume the JSON
+        // output
+        .stdout_eq(str![[r#"
+{
+  "status": "conflictAborted",
+  "workspaceChanged": true,
+  "appliedBranches": [],
+  "workspaceRefCreated": false,
+  "conflictingStacks": [
+    "refs/heads/A"
+  ]
+}
+
+"#]])
+        .stderr_eq(str![""]);
 }
 
 mod utils {

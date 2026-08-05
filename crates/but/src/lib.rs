@@ -366,6 +366,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     match result {
         Err(CliError::Internal(err)) => Err(err),
+        Err(CliError::CommandRejection) => std::process::exit(1),
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
         Err(CliError::ExternalCommandNotFound(command_name)) => {
             // Commands removed by the revamp (`rub`) land here as unknown
@@ -842,11 +843,6 @@ async fn match_subcommand(
                         out,
                     )?;
                     command::legacy::branch::delete(&mut ctx, out, branch_name)
-                }
-                #[cfg(not(feature = "legacy"))]
-                Some(branch::Subcommands::Apply { branch_name }) => {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::apply(ctx, &branch_name, out).map_err(CliError::from)
                 }
                 Some(branch::Subcommands::Update {
                     branch,
@@ -1721,8 +1717,11 @@ async fn match_subcommand(
             Ok(())
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Apply { branch_name } => {
-            let ctx = setup::init_ctx(
+        Subcommands::Apply(apply_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
                     background_sync: BackgroundSync::Enabled { silent: false },
@@ -1730,14 +1729,14 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            let branch_name = {
-                let repo = ctx.repo.get()?;
-                resolve_legacy_top_level_apply_branch_name(&repo, &branch_name)?
-            };
-            command::branch::apply(ctx, &branch_name, out)
-                .context("Failed to apply branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            out.begin_status_after(status_after);
+
+            let outcome =
+                command::legacy::apply::apply(&mut ctx, IntermediateChannel::new(out), apply_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         Subcommands::AgentLog { .. } => {
             unreachable!("agentlog command is handled before metrics setup")
@@ -1779,40 +1778,6 @@ fn run_agentlog_command(
         json_out.write_value(&report)?;
     }
     Ok(())
-}
-
-/// Resolve a legacy top-level `but apply` branch name to the narrowest directly applicable ref.
-///
-/// This preserves exact-name behavior while restoring the removed alias that lets a bare branch
-/// name map to a unique remote-tracking branch. When multiple remotes provide the same branch
-/// identity, the original input is preserved so the shared apply command keeps its current error.
-#[cfg(feature = "legacy")]
-fn resolve_legacy_top_level_apply_branch_name(
-    repo: &gix::Repository,
-    branch_name: &str,
-) -> Result<String> {
-    if repo.try_find_reference(branch_name)?.is_some() {
-        return Ok(branch_name.to_owned());
-    }
-
-    let mut remote_matches = repo
-        .remote_names()
-        .iter()
-        .filter_map(|remote_name| {
-            let full_name = format!("refs/remotes/{remote_name}/{branch_name}");
-            repo.try_find_reference(&full_name)
-                .transpose()
-                .map(|reference| reference.map(|_| full_name))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    if remote_matches.len() == 1 {
-        return Ok(remote_matches
-            .pop()
-            .expect("exactly one remote match exists"));
-    }
-
-    Ok(branch_name.to_owned())
 }
 
 fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {

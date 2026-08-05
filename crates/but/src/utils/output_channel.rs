@@ -5,6 +5,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use nonempty::NonEmpty;
 
 use crate::{
+    CliError, CliResult,
     args::OutputFormat,
     theme::Theme,
     tui::{self, PickerOptions},
@@ -165,6 +166,33 @@ impl<'out> WriteWithUtils for IntermediateChannel<'out> {
     }
 }
 
+pub struct StderrChannel(std::io::Stderr);
+
+impl StderrChannel {
+    pub fn new() -> Self {
+        let stderr = std::io::stderr();
+        Self(stderr)
+    }
+}
+
+impl std::fmt::Write for StderrChannel {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.0
+            .write_all(s.as_bytes())
+            .or_else(ignore_broken_pipe_for_fmt)
+    }
+}
+
+impl WriteWithUtils for StderrChannel {
+    fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
+        tui::text::truncate_text(text, max_width).into_owned()
+    }
+
+    fn is_paged(&self) -> bool {
+        false
+    }
+}
+
 impl<'out> IntermediateChannel<'out> {
     pub fn new(out: &'out mut OutputChannel) -> Self {
         Self { out }
@@ -182,6 +210,21 @@ pub trait CliOutputHuman {
         agent: bool,
         theme: &'static Theme,
     ) -> anyhow::Result<()>;
+
+    /// Whether the output should be treated as an error but still be printed.
+    ///
+    /// Some commands (such as `but apply`) need to print their regular human/json output but exit
+    /// non-zero in some cases. In the case of `but apply` we do this if the stack cannot be
+    /// applied without conflicts.
+    ///
+    /// JSON output is printed on stdout because that most useful for tools. Human output is
+    /// printed on stderr.
+    ///
+    /// We cannot return a regular `CliError` because that'd require knowing the output format
+    /// (which we want to avoid coupling commands to.)
+    fn is_rejection(&self) -> bool {
+        false
+    }
 }
 
 pub trait CliOutput: CliOutputHuman {
@@ -792,26 +835,30 @@ impl OutputChannel {
         self.format.is_json()
     }
 
-    pub fn print_cli_output(&mut self, output: impl CliOutput) -> anyhow::Result<()> {
+    pub fn print_cli_output(&mut self, output: impl CliOutput) -> CliResult<()> {
         match self.format {
-            OutputFormat::Human { agent } => output.on_human(self, agent, crate::theme::get()),
-            OutputFormat::Json => {
-                let value = output.on_json();
-                Ok(self.write_value(value)?)
+            OutputFormat::Human { agent } => {
+                if output.is_rejection() {
+                    let mut stderr_channel = StderrChannel::new();
+                    output.on_human(&mut stderr_channel, agent, crate::theme::get())?;
+                    Err(CliError::CommandRejection)
+                } else {
+                    output.on_human(self, agent, crate::theme::get())?;
+                    Ok(())
+                }
             }
-        }
-    }
+            OutputFormat::Json => {
+                let is_rejection = output.is_rejection();
 
-    #[expect(dead_code)]
-    pub fn print_cli_output_human(&mut self, output: impl CliOutputHuman) -> anyhow::Result<()> {
-        let is_agent = self.format.is_agent();
-        if let Some(for_human) = self.for_human() {
-            output.on_human(for_human, is_agent, crate::theme::get())
-        } else {
-            anyhow::bail!(
-                "BUG: attempted to write human output when requested format is {:?}",
-                self.format
-            )
+                let value = output.on_json();
+                self.write_value(value)?;
+
+                if is_rejection {
+                    Err(CliError::CommandRejection)
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }

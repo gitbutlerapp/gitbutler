@@ -132,8 +132,6 @@ impl Subcommands {
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
                 Some(branch::Subcommands::Update { .. }) => BranchUpdate,
                 Some(branch::Subcommands::Move { .. }) => BranchMove,
-                #[cfg(not(feature = "legacy"))]
-                Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Unapply { .. } => BranchUnapply,
@@ -352,6 +350,10 @@ impl Props {
                     props.insert("badInputArgName", arg_name);
                 }
                 props.insert("badInputHasHint", bad_input.has_hint());
+            }
+            CliError::CommandRejection => {
+                props.insert("error", "Command rejection");
+                props.insert("errorKind", "commandRejection");
             }
             CliError::ExternalCommandNotFound(command_name) => {
                 props.insert("error", "Unrecognized subcommand");

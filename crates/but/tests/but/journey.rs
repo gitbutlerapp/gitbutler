@@ -1,24 +1,9 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
+#[cfg(feature = "legacy")]
 use snapbox::str;
 
+#[cfg(feature = "legacy")]
 use crate::utils::Sandbox;
-
-#[cfg(not(feature = "legacy"))]
-#[test]
-fn from_unborn() {
-    let env = Sandbox::open_with_default_settings("unborn");
-    snapbox::assert_data_eq!(env.git_log(), snapbox::str![r""]);
-
-    env.but("branch apply main")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: The reference 'main' did not exist
-
-"#]]);
-
-    // TODO: we should be able to use the CLI to create a commit
-}
 
 // TODO: maybe this should be a non-legacy journey only as we start out without workspace?
 #[cfg(feature = "legacy")]

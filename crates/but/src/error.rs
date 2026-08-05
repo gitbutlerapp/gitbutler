@@ -111,6 +111,8 @@ pub enum CliError {
     ExternalCommandNotFound(OsString),
     /// Something went wrong internally.
     Internal(anyhow::Error),
+    /// The CLI output was a "rejection". See [`CliOutputHuman::is_rejection`] for more details.
+    CommandRejection,
 }
 
 impl From<BadInput> for CliError {
@@ -139,6 +141,7 @@ impl CliError {
             Self::ExternalCommandNotFound(command_name) => {
                 Self::ExternalCommandNotFound(command_name)
             }
+            Self::CommandRejection => Self::CommandRejection,
             Self::Internal(value) => Self::Internal(value.context(context)),
         }
     }
@@ -151,6 +154,7 @@ impl CliError {
                 Self::ExternalCommandNotFound(command_name)
             }
             Self::Internal(value) => Self::Internal(value),
+            Self::CommandRejection => Self::CommandRejection,
         }
     }
 
@@ -162,15 +166,16 @@ impl CliError {
                 Self::ExternalCommandNotFound(command_name)
             }
             Self::Internal(value) => Self::Internal(value),
+            Self::CommandRejection => Self::CommandRejection,
         }
     }
 
     pub fn into_internal(self) -> anyhow::Error {
         match self {
-            CliError::BadInput(..) | CliError::ExternalCommandNotFound(..) => {
+            Self::BadInput(..) | Self::ExternalCommandNotFound(..) | Self::CommandRejection => {
                 anyhow::anyhow!("{self}")
             }
-            CliError::Internal(error) => error,
+            Self::Internal(error) => error,
         }
     }
 }
@@ -187,6 +192,10 @@ impl Display for CliError {
                 )
             }
             Self::Internal(value) => value.fmt(f),
+            Self::CommandRejection => {
+                // The output is printed elsewhere such as by [`OutputChannel::print_cli_output`].
+                f.write_str("Command rejected")
+            }
         }
     }
 }

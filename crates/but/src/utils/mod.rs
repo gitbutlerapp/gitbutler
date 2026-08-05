@@ -68,10 +68,17 @@ pub trait ResultMetricsExt<T, E> {
 fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
+    json_pretty_to(value, &mut stdout)
+}
+
+fn json_pretty_to(
+    value: &impl serde::Serialize,
+    out: &mut dyn std::io::Write,
+) -> std::io::Result<()> {
     let value = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     if value != "null" {
-        stdout.write_all(value.as_bytes())?;
-        stdout.write_all(b"\n").ok();
+        out.write_all(value.as_bytes())?;
+        out.write_all(b"\n").ok();
     }
     Ok(())
 }

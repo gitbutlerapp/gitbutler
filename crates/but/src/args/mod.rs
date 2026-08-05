@@ -436,63 +436,13 @@ pub enum Subcommands {
         ai: bool,
     },
 
-    /// Unapply a branch from the workspace.
-    ///
-    /// If you want to unapply an applied branch from your workspace
-    /// (effectively stashing it) so you can work on other branches,
-    /// you can run `but unapply <branch-name>`.
-    ///
-    /// This will remove the changes in that branch from your working
-    /// directory and you can re-apply it later when needed. You will then
-    /// see the branch as unapplied in `but branch list`.
-    ///
-    /// The identifier can be:
-    /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
-    /// - A branch name
-    ///
-    /// If a branch name (or an identifier pointing to a branch) is provided,
-    /// the entire stack containing that branch will be unapplied.
-    ///
-    /// ## Examples
-    ///
-    /// Unapply by branch name:
-    ///
-    /// ```text
-    /// but unapply my-feature-branch
-    /// ```
-    ///
-    /// Unapply by CLI ID:
-    ///
-    /// ```text
-    /// but unapply bu
-    /// ```
-    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Unapply(unapply::Platform),
 
-    /// Apply a branch to the workspace.
-    ///
-    /// If you want to apply an unapplied branch to your workspace so you
-    /// can work on it, you can run `but apply <branch-name>`.
-    ///
-    /// This will apply the changes in that branch into your working directory
-    /// as a parallel applied branch.
-    ///
-    /// ## Examples
-    ///
-    /// Apply by branch name:
-    ///
-    /// ```text
-    /// but apply my-feature-branch
-    /// ```
-    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Apply {
-        /// Name of the branch to apply
-        branch_name: String,
-    },
+    Apply(apply::Platform),
 
     /// Push changes in a branch to remote.
     ///
@@ -1122,6 +1072,8 @@ pub mod agent;
 pub mod alias;
 #[cfg(feature = "legacy")]
 pub mod amend;
+#[cfg(feature = "legacy")]
+pub mod apply;
 pub mod comment;
 #[cfg(feature = "legacy")]
 pub mod commit;
