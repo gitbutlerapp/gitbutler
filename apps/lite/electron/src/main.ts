@@ -281,8 +281,9 @@ const configureAskpass = (): void => {
 	}
 };
 
-// Dev-only runtime icons path (packaged builds rely on electron-builder icons).
-const iconsPath = path.join(currentDirPath, "../../resources/icons");
+// Dev-only runtime icons path. Packaged builds rely on electron-builder, which uses the release
+// icons under `resources/icons`, so dev gets a visually distinct set of its own.
+const iconsPath = path.join(currentDirPath, "../../resources/icons-dev");
 
 function getWindowIcon(): string | undefined {
 	if (app.isPackaged) return undefined;
