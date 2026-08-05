@@ -27,7 +27,8 @@ apps/lite/ui/src/routeTree.gen.ts
 # Auto-generated icon names union type
 apps/lite/ui/src/components/iconNames.ts
 
-# Apple Icon Composer generated file
-apps/lite/resources/icons/macos/icon.icon/icon.json
+# Icon assets, including Apple Icon Composer generated files
+apps/lite/resources/icons/
+apps/lite/resources/icons-dev/
 
 apps/lite/release
