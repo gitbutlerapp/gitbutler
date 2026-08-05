@@ -5,10 +5,8 @@
 //! All functions that use legacy APIs must be postfixed with `_legacy`.
 
 use anyhow::Context as _;
-use but_api::legacy::oplog::RestoreKind;
 use but_ctx::Context;
 use gitbutler_operating_modes::OperatingMode;
-use gitbutler_oplog::entry::Snapshot;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -123,27 +121,4 @@ pub fn commit_is_empty(ctx: &mut Context, commit_id: gix::ObjectId) -> anyhow::R
     let first_parent = but_core::Commit::from_id(first_parent_id.attach(&repo))?;
     let first_parent_tree_id = first_parent.tree_id_or_auto_resolution()?.detach();
     Ok(commit_tree_id == first_parent_tree_id)
-}
-
-pub fn get_undo_target_snapshot_legacy(ctx: &Context) -> anyhow::Result<Option<Snapshot>> {
-    but_api::legacy::oplog::get_undo_target_snapshot(ctx)
-}
-
-pub fn get_redo_target_snapshot_legacy(ctx: &Context) -> anyhow::Result<Option<Snapshot>> {
-    but_api::legacy::oplog::get_redo_target_snapshot(ctx)
-}
-
-pub fn peel_restore_snapshot_legacy(
-    ctx: &Context,
-    sha: gix::ObjectId,
-) -> anyhow::Result<Option<Snapshot>> {
-    but_api::legacy::oplog::peel_restore_snapshot(ctx, sha)
-}
-
-pub fn restore_snapshot_with_kind_legacy(
-    ctx: &mut Context,
-    restore_kind: RestoreKind,
-    sha: gix::ObjectId,
-) -> anyhow::Result<()> {
-    but_api::legacy::oplog::restore_snapshot_with_kind(ctx, restore_kind, sha)
 }

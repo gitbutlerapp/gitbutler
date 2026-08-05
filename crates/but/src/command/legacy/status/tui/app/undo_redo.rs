@@ -1,11 +1,9 @@
-use std::borrow::Cow;
-
-use but_api::legacy::oplog::RestoreKind;
 use but_ctx::Context;
 use ratatui::prelude::{Line, Span};
 
-use crate::command::legacy::status::tui::{
-    Message, ReloadCause, app::App, operations, toast::ToastKind,
+use crate::command::legacy::{
+    status::tui::{Message, ReloadCause, app::App, toast::ToastKind},
+    undo_redo::{self, Direction, Operation, UndoRedoOutcome},
 };
 
 impl App {
@@ -14,7 +12,7 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx, messages)
+        self.restore_to_target_snapshot(Operation::Undo, ctx, messages)
     }
 
     pub fn handle_redo(
@@ -22,69 +20,44 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx, messages)
+        self.restore_to_target_snapshot(Operation::Redo, ctx, messages)
     }
 
     fn restore_to_target_snapshot(
         &mut self,
-        kind: UndoOrRedo,
+        operation: Operation,
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let target_snapshot = match kind {
-            UndoOrRedo::Undo => operations::get_undo_target_snapshot_legacy(ctx)?,
-            UndoOrRedo::Redo => operations::get_redo_target_snapshot_legacy(ctx)?,
+        let outcome = {
+            let mut guard = ctx.exclusive_worktree_access();
+            undo_redo::run(ctx, guard.write_permission(), operation)?
         };
-        let Some(target_snapshot) = target_snapshot else {
+
+        let UndoRedoOutcome::Restored {
+            direction,
+            snapshot_id,
+            target_operation,
+            target_time,
+        } = outcome
+        else {
             return Ok(());
         };
 
-        let text = {
-            let restore_from = if let Ok(Some(snapshot)) =
-                operations::peel_restore_snapshot_legacy(ctx, target_snapshot.commit_id)
-                && snapshot.commit_id != target_snapshot.commit_id
-                && snapshot.details.is_some()
-            {
-                Cow::Owned(snapshot)
-            } else {
-                Cow::Borrowed(&target_snapshot)
-            };
+        let time = target_time.format_or_unix(gix::date::time::format::DEFAULT);
+        let commit = snapshot_id.to_hex_with_len(7);
+        let text = Line::from_iter([
+            Span::raw(match direction {
+                Direction::Undo => "Undid ",
+                Direction::Redo => "Redid ",
+            }),
+            Span::raw(commit.to_string()).style(self.theme.cli_id),
+            Span::raw(" "),
+            Span::raw(time).style(self.theme.time),
+            Span::raw(" "),
+            Span::raw(target_operation.title()).style(self.theme.attention),
+        ]);
 
-            let time = restore_from
-                .created_at
-                .format_or_unix(gix::date::time::format::DEFAULT);
-
-            let commit = restore_from.commit_id.to_hex_with_len(7);
-
-            Line::from_iter(
-                [
-                    Span::raw(match kind {
-                        UndoOrRedo::Undo => "Undid ",
-                        UndoOrRedo::Redo => "Redid ",
-                    }),
-                    Span::raw(commit.to_string()).style(self.theme.cli_id),
-                ]
-                .into_iter()
-                .chain([Span::raw(" "), Span::raw(time).style(self.theme.time)])
-                .chain(restore_from.details.iter().flat_map(|details| {
-                    [
-                        Span::raw(" "),
-                        Span::raw(details.operation.title()).style(self.theme.attention),
-                    ]
-                })),
-            )
-        };
-
-        let commit = target_snapshot.commit_id;
-
-        operations::restore_snapshot_with_kind_legacy(
-            ctx,
-            match kind {
-                UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
-                UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
-            },
-            commit,
-        )?;
         messages.extend([
             Message::Reload(None, ReloadCause::Mutation),
             Message::ShowToast {
@@ -95,10 +68,4 @@ impl App {
 
         Ok(())
     }
-}
-
-#[derive(Copy, Clone)]
-enum UndoOrRedo {
-    Undo,
-    Redo,
 }

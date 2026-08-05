@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum Direction {
+pub enum Direction {
     Undo,
     Redo,
 }
@@ -43,13 +43,13 @@ impl Direction {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum Operation {
+pub enum Operation {
     Undo,
     Redo,
 }
 
 #[must_use]
-pub(crate) enum Outcome {
+pub enum UndoRedoOutcome {
     Restored {
         direction: Direction,
         snapshot_id: gix::ObjectId,
@@ -61,7 +61,7 @@ pub(crate) enum Outcome {
     },
 }
 
-impl CliOutputHuman for Outcome {
+impl CliOutputHuman for UndoRedoOutcome {
     fn on_human(
         self,
         out: &mut dyn WriteWithUtils,
@@ -69,7 +69,7 @@ impl CliOutputHuman for Outcome {
         _theme: &'static Theme,
     ) -> anyhow::Result<()> {
         match self {
-            Outcome::Restored {
+            UndoRedoOutcome::Restored {
                 direction,
                 snapshot_id,
                 target_operation,
@@ -84,7 +84,7 @@ impl CliOutputHuman for Outcome {
                     target_operation.title(),
                 )?;
             }
-            Outcome::NothingToRestore { direction } => {
+            UndoRedoOutcome::NothingToRestore { direction } => {
                 writeln!(out, "{}", direction.nothing_to_restore_message())?;
             }
         }
@@ -93,7 +93,7 @@ impl CliOutputHuman for Outcome {
     }
 }
 
-impl CliOutput for Outcome {
+impl CliOutput for UndoRedoOutcome {
     fn on_json(self) -> impl Serialize {
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -105,7 +105,7 @@ impl CliOutput for Outcome {
         }
 
         match self {
-            Outcome::Restored {
+            UndoRedoOutcome::Restored {
                 direction,
                 snapshot_id,
                 target_operation: _,
@@ -115,7 +115,7 @@ impl CliOutput for Outcome {
                 changed: true,
                 snapshot_id: Some(snapshot_id.into()),
             },
-            Outcome::NothingToRestore { direction } => Output {
+            UndoRedoOutcome::NothingToRestore { direction } => Output {
                 action: direction.action(),
                 changed: false,
                 snapshot_id: None,
@@ -124,21 +124,21 @@ impl CliOutput for Outcome {
     }
 }
 
-pub(crate) fn undo(
+pub fn undo(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: undo::Platform,
-) -> CliResult<Outcome> {
+) -> CliResult<UndoRedoOutcome> {
     let operation = resolve_undo(args)?;
     let mut guard = ctx.exclusive_worktree_access();
     Ok(run(ctx, guard.write_permission(), operation)?)
 }
 
-pub(crate) fn redo(
+pub fn redo(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: redo::Platform,
-) -> CliResult<Outcome> {
+) -> CliResult<UndoRedoOutcome> {
     let operation = resolve_redo(args)?;
     let mut guard = ctx.exclusive_worktree_access();
     Ok(run(ctx, guard.write_permission(), operation)?)
@@ -152,11 +152,11 @@ fn resolve_redo(redo::Platform {}: redo::Platform) -> CliResult<Operation> {
     Ok(Operation::Redo)
 }
 
-pub(crate) fn run(
+pub fn run(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
     operation: Operation,
-) -> anyhow::Result<Outcome> {
+) -> anyhow::Result<UndoRedoOutcome> {
     let (direction, target_snapshot, restore_kind) = match operation {
         Operation::Undo => (
             Direction::Undo,
@@ -171,7 +171,7 @@ pub(crate) fn run(
     };
 
     let Some(target_snapshot) = target_snapshot else {
-        return Ok(Outcome::NothingToRestore { direction });
+        return Ok(UndoRedoOutcome::NothingToRestore { direction });
     };
 
     let restore_snapshot_id = target_snapshot.commit_id;
@@ -193,7 +193,7 @@ pub(crate) fn run(
         perm,
     )?;
 
-    Ok(Outcome::Restored {
+    Ok(UndoRedoOutcome::Restored {
         direction,
         snapshot_id,
         target_operation,
