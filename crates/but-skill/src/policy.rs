@@ -5,6 +5,33 @@ use std::fmt::Write as _;
 
 use crate::files::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
 
+/// A topic heading the preferences UI groups options under.
+///
+/// Ordered as the UI should present them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkflowGroup {
+    /// How commits get made and shaped.
+    Committing,
+    /// How branches and pull requests are organised.
+    Branches,
+    /// What the agent is allowed to do on its own.
+    Automation,
+}
+
+impl WorkflowGroup {
+    /// Every group, in presentation order.
+    pub const ALL: [Self; 3] = [Self::Committing, Self::Branches, Self::Automation];
+
+    /// Heading shown above the group.
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Committing => "Committing",
+            Self::Branches => "Branches & pull requests",
+            Self::Automation => "Automation",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkflowOption {
     FoldFixes,
@@ -96,6 +123,24 @@ impl WorkflowOption {
     /// user's global config.
     pub fn repo_local_only(self) -> bool {
         matches!(self, Self::PushToTarget)
+    }
+
+    /// Which topic this option belongs to.
+    ///
+    /// Purely a presentation grouping — it does not affect what is rendered.
+    /// Kept here rather than in the UI so the catalogue stays single-sourced,
+    /// for the same reason labels and help text are.
+    pub fn group(self) -> WorkflowGroup {
+        match self {
+            Self::FoldFixes
+            | Self::SuggestSplits
+            | Self::CommitConvention
+            | Self::CommitAfterTurn => WorkflowGroup::Committing,
+            Self::StackedBranches | Self::DraftPrs | Self::PushToTarget | Self::BranchPattern => {
+                WorkflowGroup::Branches
+            }
+            Self::AutoUpdate | Self::PublishPhrase => WorkflowGroup::Automation,
+        }
     }
 
     /// The `###` heading this option renders as inside the managed block.
@@ -556,5 +601,43 @@ mod tests {
         let parsed = parse_managed_policy_block(&render_managed_policy_block(&answers(&[])));
         assert!(parsed.selected.is_empty(), "got {:?}", parsed.selected);
         assert_eq!(parsed.publish_phrase, default_publish_phrase());
+    }
+}
+
+#[cfg(test)]
+mod group_tests {
+    use super::*;
+
+    /// Grouping is presentation only: every option must land in exactly one
+    /// group, and no group may be empty, or the settings UI would silently
+    /// drop an option or render an empty heading.
+    #[test]
+    fn every_option_belongs_to_exactly_one_non_empty_group() {
+        for group in WorkflowGroup::ALL {
+            let members: Vec<_> = WorkflowOption::ALL
+                .into_iter()
+                .filter(|option| option.group() == group)
+                .collect();
+            assert!(
+                !members.is_empty(),
+                "{} would render as an empty heading",
+                group.title()
+            );
+        }
+
+        let grouped: usize = WorkflowGroup::ALL
+            .into_iter()
+            .map(|group| {
+                WorkflowOption::ALL
+                    .into_iter()
+                    .filter(|option| option.group() == group)
+                    .count()
+            })
+            .sum();
+        assert_eq!(
+            grouped,
+            WorkflowOption::ALL.len(),
+            "every option should appear under exactly one group"
+        );
     }
 }

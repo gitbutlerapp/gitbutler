@@ -222,6 +222,30 @@ pub mod json {
         }
     }
 
+    /// Topic a workflow option is grouped under in the preferences UI.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub enum WorkflowGroupId {
+        /// How commits get made and shaped.
+        Committing,
+        /// How branches and pull requests are organised.
+        Branches,
+        /// What the agent is allowed to do on its own.
+        Automation,
+    }
+
+    impl From<but_skill::policy::WorkflowGroup> for WorkflowGroupId {
+        fn from(value: but_skill::policy::WorkflowGroup) -> Self {
+            use but_skill::policy::WorkflowGroup as G;
+            match value {
+                G::Committing => Self::Committing,
+                G::Branches => Self::Branches,
+                G::Automation => Self::Automation,
+            }
+        }
+    }
+
     /// Static description of a workflow option, so the UI never hardcodes the
     /// wording.
     #[derive(Debug, Serialize)]
@@ -230,6 +254,10 @@ pub mod json {
     pub struct WorkflowOptionInfo {
         /// Which option this describes.
         pub id: WorkflowOptionId,
+        /// Topic to group this option under.
+        pub group: WorkflowGroupId,
+        /// Heading for that group.
+        pub group_title: String,
         /// Checkbox label.
         pub label: String,
         /// Explanatory help text.
@@ -303,6 +331,7 @@ pub mod json {
         but_schemars::register_sdk_type!(super::InstalledSkill);
         but_schemars::register_sdk_type!(super::CliInstallState);
         but_schemars::register_sdk_type!(super::WorkflowOptionId);
+        but_schemars::register_sdk_type!(super::WorkflowGroupId);
         but_schemars::register_sdk_type!(super::WorkflowOptionInfo);
         but_schemars::register_sdk_type!(super::PolicyOptions);
         but_schemars::register_sdk_type!(super::PolicySource);
@@ -639,10 +668,22 @@ pub fn agent_policy_get(
     }
 
     Ok(PolicyState {
-        available: WorkflowOption::ALL
+        // Emitted grouped, one group at a time. `WorkflowOption::ALL` is in the
+        // order the CLI wizard prompts, which interleaves groups; a consumer
+        // rendering a heading whenever the group changes between neighbours
+        // would repeat every heading. Sorting here rather than reordering ALL
+        // keeps the wizard's prompt order untouched.
+        available: but_skill::policy::WorkflowGroup::ALL
             .into_iter()
+            .flat_map(|group| {
+                WorkflowOption::ALL
+                    .into_iter()
+                    .filter(move |option| option.group() == group)
+            })
             .map(|option| WorkflowOptionInfo {
                 id: option.into(),
+                group: option.group().into(),
+                group_title: option.group().title().to_string(),
                 label: option.label().to_string(),
                 help: option.help().to_string(),
                 default_selected: option.default_selected(),
@@ -707,4 +748,46 @@ pub fn cli_install_state() -> Result<CliInstallState> {
 #[instrument(err(Debug))]
 pub fn uninstall_cli() -> Result<CliInstallState> {
     Ok(but_skill::cli_link::uninstall_cli()?.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The policy catalogue must arrive with each group contiguous.
+    ///
+    /// `WorkflowOption::ALL` interleaves groups because it is ordered for the
+    /// CLI wizard's prompts, so a UI that renders a heading whenever the group
+    /// changes between neighbours would repeat every heading. Sorting happens
+    /// in `agent_policy_get`; this pins it.
+    #[test]
+    fn the_option_catalogue_is_emitted_with_groups_contiguous() {
+        let ordered: Vec<_> = but_skill::policy::WorkflowGroup::ALL
+            .into_iter()
+            .flat_map(|group| {
+                WorkflowOption::ALL
+                    .into_iter()
+                    .filter(move |option| option.group() == group)
+            })
+            .collect();
+
+        assert_eq!(
+            ordered.len(),
+            WorkflowOption::ALL.len(),
+            "every option should survive the grouping"
+        );
+
+        let mut seen = Vec::new();
+        for option in &ordered {
+            let group = option.group();
+            if seen.last() != Some(&group) {
+                assert!(
+                    !seen.contains(&group),
+                    "group {} appears more than once, so its heading would repeat",
+                    group.title()
+                );
+                seen.push(group);
+            }
+        }
+    }
 }
