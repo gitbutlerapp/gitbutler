@@ -339,6 +339,8 @@ pub struct ForgeReview {
     pub head_repo_is_fork: bool,
     /// Users who have been requested to review or have reviewed this code.
     pub reviewers: Vec<ForgeReviewUser>,
+    /// Whether auto-merge (merge once the forge's requirements pass) is enabled.
+    pub auto_merge_enabled: bool,
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
     /// The timestamp when this review was last fetched from the forge.
@@ -366,7 +368,7 @@ impl ForgeReview {
 
     /// The struct version for persistence compatibility purposes
     pub fn struct_version() -> i32 {
-        3
+        4
     }
 }
 
@@ -415,6 +417,7 @@ impl From<but_github::PullRequest> for ForgeReview {
                 .into_iter()
                 .map(ForgeReviewUser::from)
                 .collect(),
+            auto_merge_enabled: pr.auto_merge_enabled,
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
@@ -448,6 +451,7 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
                 .into_iter()
                 .map(ForgeReviewUser::from)
                 .collect(),
+            auto_merge_enabled: mr.auto_merge_enabled,
             unit_symbol: "!".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
@@ -485,6 +489,8 @@ impl From<but_bitbucket::BitbucketPullRequest> for ForgeReview {
                 .into_iter()
                 .map(ForgeReviewUser::from)
                 .collect(),
+            // Bitbucket Cloud has no auto-merge.
+            auto_merge_enabled: false,
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
@@ -1013,6 +1019,744 @@ pub struct ReviewMergeStatus {
     /// Forge-normalized: whether merging is allowed. Drives the merge
     /// button without forcing the UI to know per-forge state strings.
     pub is_mergeable: bool,
+}
+
+/// A top-level comment on a review's conversation thread. Fetched fresh
+/// from the forge; not cached. Diff-anchored review comments are not
+/// part of this type.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewComment {
+    /// Forge-assigned identifier of the comment.
+    pub id: i64,
+    /// The comment text, as forge-flavored markdown.
+    pub body: String,
+    /// The comment's author.
+    pub author: Option<ForgeReviewUser>,
+    /// ISO 8601 timestamp of when the comment was created.
+    pub created_at: Option<String>,
+    /// ISO 8601 timestamp of the comment's last edit.
+    pub modified_at: Option<String>,
+    /// The URL to view this comment in a web browser.
+    pub html_url: String,
+    /// Reaction tallies on this comment, nonzero kinds only.
+    pub reactions: Vec<ForgeReviewReactionCount>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewComment);
+
+/// One reaction kind's tally. `kind` is the forge's native reaction name
+/// (GitHub: `+1`, `laugh`, …) — an open set, since forges like GitLab
+/// allow arbitrary award emoji.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewReactionCount {
+    pub kind: String,
+    pub count: i64,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewReactionCount);
+
+fn github_reaction_counts(
+    reactions: but_github::CommentReactions,
+) -> Vec<ForgeReviewReactionCount> {
+    [
+        ("+1", reactions.plus_one),
+        ("-1", reactions.minus_one),
+        ("laugh", reactions.laugh),
+        ("confused", reactions.confused),
+        ("heart", reactions.heart),
+        ("hooray", reactions.hooray),
+        ("rocket", reactions.rocket),
+        ("eyes", reactions.eyes),
+    ]
+    .into_iter()
+    .filter(|(_, count)| *count > 0)
+    .map(|(kind, count)| ForgeReviewReactionCount {
+        kind: kind.to_owned(),
+        count,
+    })
+    .collect()
+}
+
+impl From<but_github::PullRequestComment> for ForgeReviewComment {
+    fn from(comment: but_github::PullRequestComment) -> Self {
+        ForgeReviewComment {
+            id: comment.id,
+            body: comment.body,
+            author: comment.author.map(ForgeReviewUser::from),
+            created_at: comment.created_at,
+            modified_at: comment.modified_at,
+            html_url: comment.html_url,
+            reactions: github_reaction_counts(comment.reactions),
+        }
+    }
+}
+
+/// List the labels defined on the repository backing a review.
+pub async fn list_repo_labels(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewLabel>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let labels =
+                but_github::pr::list_repo_labels(preferred_account, owner, repo, storage).await?;
+            Ok(labels.into_iter().map(Into::into).collect())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Repository labels for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Add labels to a review; returns the resulting label set.
+pub async fn add_review_labels(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    labels: &[String],
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewLabel>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let labels = but_github::pr::add_labels(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                labels,
+                storage,
+            )
+            .await?;
+            Ok(labels.into_iter().map(Into::into).collect())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review labels for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Remove one label from a review.
+pub async fn remove_review_label(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    label: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::remove_label(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                label,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review labels for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// List users who can be requested to review on the repository.
+pub async fn list_reviewer_candidates(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewUser>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let users =
+                but_github::pr::list_reviewer_candidates(preferred_account, owner, repo, storage)
+                    .await?;
+            Ok(users.into_iter().map(Into::into).collect())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reviewer candidates for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Request reviews from the given users on a review.
+pub async fn request_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    logins: &[String],
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::request_reviewers(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                logins,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review requests for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Withdraw review requests for the given users on a review.
+pub async fn withdraw_review_request(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    logins: &[String],
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::remove_requested_reviewers(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                logins,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review requests for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// The verdict a submitted review carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum ForgeReviewSubmissionState {
+    Approved,
+    ChangesRequested,
+    Commented,
+    Dismissed,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewSubmissionState);
+
+/// A submitted review (approval, change request, or review comment) on a
+/// review. Fetched fresh from the forge; not cached. The caller's own
+/// unsubmitted (pending) drafts are excluded.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewSubmission {
+    /// Forge-assigned identifier of the submission.
+    pub id: i64,
+    /// Who submitted the review.
+    pub author: Option<ForgeReviewUser>,
+    /// The verdict of this submission.
+    pub state: ForgeReviewSubmissionState,
+    /// The summary text accompanying the submission, if any.
+    pub body: Option<String>,
+    /// ISO 8601 timestamp of when the review was submitted.
+    pub submitted_at: Option<String>,
+    /// The URL to view this submission in a web browser.
+    pub html_url: String,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewSubmission);
+
+/// Edit a top-level conversation comment. The forge enforces permissions;
+/// the UI additionally only offers this on the caller's own comments.
+pub async fn update_review_comment(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    comment_id: i64,
+    body: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReviewComment> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let comment = but_github::pr::update_comment(
+                preferred_account,
+                owner,
+                repo,
+                comment_id,
+                body,
+                storage,
+            )
+            .await?;
+            Ok(comment.into())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review comments for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Delete a top-level conversation comment.
+pub async fn delete_review_comment(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    comment_id: i64,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::delete_comment(preferred_account, owner, repo, comment_id, storage)
+                .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review comments for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Map GitHub's review-state string to the forge-agnostic verdict.
+/// `PENDING` (the caller's own unsubmitted draft) and unknown future states
+/// map to `None` and are omitted from listings.
+fn github_submission_state(raw: &str) -> Option<ForgeReviewSubmissionState> {
+    match raw {
+        "APPROVED" => Some(ForgeReviewSubmissionState::Approved),
+        "CHANGES_REQUESTED" => Some(ForgeReviewSubmissionState::ChangesRequested),
+        "COMMENTED" => Some(ForgeReviewSubmissionState::Commented),
+        "DISMISSED" => Some(ForgeReviewSubmissionState::Dismissed),
+        _ => None,
+    }
+}
+
+/// List the submitted reviews on a review, oldest first. Each call hits
+/// the forge fresh (no DB cache).
+pub async fn list_review_submissions(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewSubmission>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reviews = but_github::pr::list_pr_reviews(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(reviews
+                .into_iter()
+                .filter_map(|review| {
+                    let state = github_submission_state(&review.state)?;
+                    Some(ForgeReviewSubmission {
+                        id: review.id,
+                        author: review.author.map(ForgeReviewUser::from),
+                        state,
+                        body: review.body.filter(|body| !body.trim().is_empty()),
+                        submitted_at: review.submitted_at,
+                        html_url: review.html_url,
+                    })
+                })
+                .collect())
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// List the top-level conversation comments on a review, oldest first.
+/// Each call hits the forge fresh (no DB cache).
+pub async fn list_review_comments(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewComment>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let comments = but_github::pr::list_comments(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(comments.into_iter().map(Into::into).collect())
+        }
+        // Read as empty rather than erroring: the UI polls this for every
+        // open review, and a forge without comment support shouldn't turn
+        // that into a permanent failure loop.
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// One individual reaction, with who left it and the forge id that
+/// addresses its removal. `kind` is the forge's native reaction name — an
+/// open set; unknown kinds pass through rather than being dropped.
+/// Fetched fresh; not cached.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewReaction {
+    pub id: i64,
+    pub kind: String,
+    pub user: Option<ForgeReviewUser>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewReaction);
+
+fn github_reactions(reactions: Vec<but_github::Reaction>) -> Vec<ForgeReviewReaction> {
+    reactions.into_iter().map(github_reaction).collect()
+}
+
+fn github_reaction(reaction: but_github::Reaction) -> ForgeReviewReaction {
+    ForgeReviewReaction {
+        id: reaction.id,
+        kind: reaction.content,
+        user: reaction.user.map(ForgeReviewUser::from),
+    }
+}
+
+/// List the individual reactions on the review itself.
+pub async fn list_review_reactions(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewReaction>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reactions = but_github::pr::list_review_reactions(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(github_reactions(reactions))
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// List the individual reactions on one conversation comment.
+pub async fn list_comment_reactions(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    comment_id: i64,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewReaction>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reactions = but_github::pr::list_comment_reactions(
+                preferred_account,
+                owner,
+                repo,
+                comment_id,
+                storage,
+            )
+            .await?;
+            Ok(github_reactions(reactions))
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// Add the caller's reaction to the review itself. Idempotent per kind;
+/// the forge rejects kinds it doesn't support.
+pub async fn add_review_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    kind: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReviewReaction> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reaction = but_github::pr::add_review_reaction(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                kind,
+                storage,
+            )
+            .await?;
+            Ok(github_reaction(reaction))
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Remove one of the caller's reactions from the review itself.
+pub async fn remove_review_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    reaction_id: i64,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::remove_review_reaction(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                reaction_id,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Add the caller's reaction to one conversation comment.
+pub async fn add_comment_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    comment_id: i64,
+    kind: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReviewReaction> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reaction = but_github::pr::add_comment_reaction(
+                preferred_account,
+                owner,
+                repo,
+                comment_id,
+                kind,
+                storage,
+            )
+            .await?;
+            Ok(github_reaction(reaction))
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Remove one of the caller's reactions from one conversation comment.
+pub async fn remove_comment_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    comment_id: i64,
+    reaction_id: i64,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::remove_comment_reaction(
+                preferred_account,
+                owner,
+                repo,
+                comment_id,
+                reaction_id,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// What a non-comment timeline row represents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum ForgeReviewTimelineEventKind {
+    Committed,
+    ReviewRequested,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewTimelineEventKind);
+
+/// A non-comment row of a review's conversation timeline: a pushed commit
+/// or a review request. Fetched fresh from the forge; not cached. Commit
+/// rows carry the git author name (not a forge user); review requests
+/// carry the requesting and requested users.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewTimelineEvent {
+    pub kind: ForgeReviewTimelineEventKind,
+    pub actor: Option<ForgeReviewUser>,
+    pub requested_reviewer: Option<ForgeReviewUser>,
+    pub commit_sha: Option<String>,
+    pub commit_summary: Option<String>,
+    pub commit_author_name: Option<String>,
+    /// ISO 8601 timestamp of the event.
+    pub created_at: Option<String>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewTimelineEvent);
+
+/// List the pushed commits and review requests on a review's conversation
+/// timeline, oldest first. Each call hits the forge fresh (no DB cache).
+pub async fn list_review_timeline_events(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewTimelineEvent>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let events = but_github::pr::list_timeline_events(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(events
+                .into_iter()
+                .map(|event| ForgeReviewTimelineEvent {
+                    kind: match event.kind {
+                        but_github::PullRequestTimelineEventKind::Committed => {
+                            ForgeReviewTimelineEventKind::Committed
+                        }
+                        but_github::PullRequestTimelineEventKind::ReviewRequested => {
+                            ForgeReviewTimelineEventKind::ReviewRequested
+                        }
+                    },
+                    actor: event.actor.map(ForgeReviewUser::from),
+                    requested_reviewer: event.requested_reviewer.map(ForgeReviewUser::from),
+                    commit_sha: event.commit_sha,
+                    commit_summary: event.commit_summary,
+                    commit_author_name: event.commit_author_name,
+                    created_at: event.created_at,
+                })
+                .collect())
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// Post a top-level conversation comment on a review.
+pub async fn create_review_comment(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    body: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReviewComment> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let comment = but_github::pr::create_comment(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                body,
+                storage,
+            )
+            .await?;
+            Ok(comment.into())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Review comments for forge {forge:?} are not implemented yet."
+        )),
+    }
 }
 
 #[cfg(feature = "export-schema")]
@@ -2455,6 +3199,21 @@ mod tests {
         Path::new(path)
     }
 
+    #[test]
+    fn github_submission_states_map_and_unknowns_drop() {
+        use ForgeReviewSubmissionState as S;
+        assert_eq!(github_submission_state("APPROVED"), Some(S::Approved));
+        assert_eq!(
+            github_submission_state("CHANGES_REQUESTED"),
+            Some(S::ChangesRequested)
+        );
+        assert_eq!(github_submission_state("COMMENTED"), Some(S::Commented));
+        assert_eq!(github_submission_state("DISMISSED"), Some(S::Dismissed));
+        // The caller's own draft, and any state GitHub adds later, are omitted.
+        assert_eq!(github_submission_state("PENDING"), None);
+        assert_eq!(github_submission_state("APPROVED_WITH_COMMENTS"), None);
+    }
+
     fn repo_info(owner: &str, repo: &str) -> crate::forge::ForgeRepoInfo {
         crate::forge::ForgeRepoInfo {
             forge: crate::forge::ForgeName::GitHub,
@@ -2525,6 +3284,7 @@ mod tests {
             source_project_is_fork: true,
             assignees: vec![],
             reviewers: vec![],
+            auto_merge_enabled: false,
         });
 
         assert_eq!(

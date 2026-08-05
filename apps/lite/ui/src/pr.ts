@@ -1,9 +1,26 @@
-import type { ForgeInfo } from "@gitbutler/but-sdk";
+import type { ForgeInfo, ReviewMergeMethod } from "@gitbutler/but-sdk";
 import { type QueryClient, queryOptions, useMutation } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
 
 export const prForgeUrl = (prNo: number, forge: ForgeInfo): string =>
 	`${forge.baseUrl}${forge.prUrlPath}${prNo}`;
+
+const mergeMethodKey = (projectId: string): string => `pr_merge_method:v1:${projectId}`;
+
+export const mergeMethodQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["prMergeMethod", projectId],
+		queryFn: async () =>
+			(await idb.get<ReviewMergeMethod>(mergeMethodKey(projectId))) ?? ("merge" as const),
+	});
+
+export const usePersistMergeMethod = () =>
+	useMutation({
+		mutationFn: ({ projectId, method }: { projectId: string; method: ReviewMergeMethod }) =>
+			idb.set(mergeMethodKey(projectId), method),
+		onSuccess: (_data, input, _res, ctx) =>
+			ctx.client.setQueryData(mergeMethodQueryOptions(input.projectId).queryKey, input.method),
+	});
 
 type DraftPR = {
 	title?: string;

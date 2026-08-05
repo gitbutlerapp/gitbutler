@@ -1363,6 +1363,7 @@ mod tests {
             repository_https_url: None,
             repo_owner: None,
             head_repo_is_fork: false,
+            auto_merge_enabled: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),

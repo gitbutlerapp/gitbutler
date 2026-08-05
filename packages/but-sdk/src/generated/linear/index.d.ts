@@ -18,6 +18,15 @@ export declare function absorb(projectId: string, absorptionPlan: Array<CommitAb
  */
 export declare function absorptionPlan(projectId: string, target: AbsorptionTarget): Promise<Array<CommitAbsorption>>
 
+/** Add the caller's reaction to one comment. */
+export declare function addCommentReaction(projectId: string, commentId: number, kind: string): Promise<ForgeReviewReaction>
+
+/** Add labels to a review; returns the resulting label set. */
+export declare function addReviewLabels(projectId: string, reviewId: number, labels: Array<string>): Promise<Array<ForgeReviewLabel>>
+
+/** Add the caller's reaction to a review itself. */
+export declare function addReviewReaction(projectId: string, reviewId: number, kind: string): Promise<ForgeReviewReaction>
+
 /**
  * Applies `existing_branch` using the behavior described by
  * [`apply_with_perm()`].
@@ -352,6 +361,18 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
  */
 export declare function commitUncommitChangesFromCommits(projectId: string, sources: Array<UncommitChangesSource>, assignTo: string | null, dryRun: boolean): Promise<UncommitChangesFromCommitsResult>
 
+/** Post a top-level conversation comment on a review. */
+export declare function createReviewComment(projectId: string, reviewId: number, body: string): Promise<ForgeReviewComment>
+
+/**
+ * The login this project's forge calls authenticate as, if any account is
+ * configured. Resolved from stored accounts; no network.
+ */
+export declare function currentForgeLogin(projectId: string): Promise<string | null>
+
+/** Delete a top-level conversation comment on a review. */
+export declare function deleteReviewComment(projectId: string, commentId: number): Promise<void>
+
 /**
  * Discard all worktree changes that match the specs in `worktree_changes`.
  *
@@ -442,6 +463,9 @@ export declare function listBranches(projectId: string, filter: BranchListingFil
 
 export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
+/** List the individual reactions (with who reacted) on one comment. */
+export declare function listCommentReactions(projectId: string, commentId: number): Promise<Array<ForgeReviewReaction>>
+
 /** List all editors that can be opened from a GUI client. */
 export declare function listEditors(): Promise<Array<Editor>>
 
@@ -450,9 +474,27 @@ export declare function listPrograms(): Promise<Array<Program>>
 
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
+/** List the labels defined on the repository backing this project's reviews. */
+export declare function listRepoLabels(projectId: string): Promise<Array<ForgeReviewLabel>>
+
+/** List the top-level conversation comments on a review, oldest first. */
+export declare function listReviewComments(projectId: string, reviewId: number): Promise<Array<ForgeReviewComment>>
+
+/** List users who can be requested to review on this project's repository. */
+export declare function listReviewerCandidates(projectId: string): Promise<Array<ForgeReviewUser>>
+
+/** List the individual reactions (with who reacted) on a review itself. */
+export declare function listReviewReactions(projectId: string, reviewId: number): Promise<Array<ForgeReviewReaction>>
+
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
+
+/** List the submitted reviews (approvals, change requests) on a review. */
+export declare function listReviewSubmissions(projectId: string, reviewId: number): Promise<Array<ForgeReviewSubmission>>
+
+/** List the pushed commits and review requests on a review's timeline. */
+export declare function listReviewTimelineEvents(projectId: string, reviewId: number): Promise<Array<ForgeReviewTimelineEvent>>
 
 /** Merge a review on the forge. */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
@@ -529,6 +571,18 @@ export declare function publishReview(projectId: string, params: PublishReviewIn
  * or on a branch that's empty.
  */
 export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
+
+/** Remove one of the caller's reactions from one comment. */
+export declare function removeCommentReaction(projectId: string, commentId: number, reactionId: number): Promise<void>
+
+/** Remove one label from a review. */
+export declare function removeReviewLabel(projectId: string, reviewId: number, label: string): Promise<void>
+
+/** Remove one of the caller's reactions from a review itself. */
+export declare function removeReviewReaction(projectId: string, reviewId: number, reactionId: number): Promise<void>
+
+/** Request reviews from the given users on a review. */
+export declare function requestReview(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
 
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
@@ -631,6 +685,9 @@ export declare function updateBranchName(projectId: string, stackId: string, bra
  */
 export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
+/** Edit a top-level conversation comment on a review. */
+export declare function updateReviewComment(projectId: string, commentId: number, body: string): Promise<ForgeReviewComment>
+
 /** Update stacked reviews: description footers and, optionally, target branches. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
 
@@ -642,6 +699,9 @@ export declare function updateReviewFooters(projectId: string, reviews: Array<Fo
  * part of any applied stack.
  */
 export declare function warmCiChecksCache(projectId: string): Promise<void>
+
+/** Withdraw review requests for the given users on a review. */
+export declare function withdrawReviewRequest(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
 
 /** Push a branch and any parent references that lie within the current workspace projection. */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
@@ -1736,6 +1796,10 @@ export type ForgeCapabilities = {
   repoInfo: boolean;
   prService: boolean;
   listService: boolean;
+  /** Conversation comments and review submissions can be read and written. */
+  reviewComments: boolean;
+  /** Labels and review requests can be listed and changed. */
+  reviewManagement: boolean;
 };
 
 /**
@@ -1825,10 +1889,34 @@ export type ForgeReview = {
   headRepoIsFork: boolean;
   /** Users who have been requested to review or have reviewed this code. */
   reviewers: Array<ForgeReviewUser>;
+  /** Whether auto-merge (merge once the forge's requirements pass) is enabled. */
+  autoMergeEnabled: boolean;
   /** The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs). */
   unitSymbol: string;
   /** The timestamp when this review was last fetched from the forge. */
   lastSyncAt: string;
+};
+
+/**
+ * A top-level comment on a review's conversation thread. Fetched fresh
+ * from the forge; not cached. Diff-anchored review comments are not
+ * part of this type.
+ */
+export type ForgeReviewComment = {
+  /** Forge-assigned identifier of the comment. */
+  id: number;
+  /** The comment text, as forge-flavored markdown. */
+  body: string;
+  /** The comment's author. */
+  author: ForgeReviewUser | null;
+  /** ISO 8601 timestamp of when the comment was created. */
+  createdAt: string | null;
+  /** ISO 8601 timestamp of the comment's last edit. */
+  modifiedAt: string | null;
+  /** The URL to view this comment in a web browser. */
+  htmlUrl: string;
+  /** Reaction tallies on this comment, nonzero kinds only. */
+  reactions: Array<ForgeReviewReactionCount>;
 };
 
 export type ForgeReviewFilter = "today" | "thisWeek" | "thisMonth" | "all";
@@ -1838,6 +1926,71 @@ export type ForgeReviewLabel = {
   description: string | null;
   color: string | null;
 };
+
+/**
+ * One individual reaction, with who left it and the forge id that
+ * addresses its removal. `kind` is the forge's native reaction name — an
+ * open set; unknown kinds pass through rather than being dropped.
+ * Fetched fresh; not cached.
+ */
+export type ForgeReviewReaction = {
+  id: number;
+  kind: string;
+  user: ForgeReviewUser | null;
+};
+
+/**
+ * One reaction kind's tally. `kind` is the forge's native reaction name
+ * (GitHub: `+1`, `laugh`, …) — an open set, since forges like GitLab
+ * allow arbitrary award emoji.
+ */
+export type ForgeReviewReactionCount = {
+  kind: string;
+  count: number;
+};
+
+/**
+ * A submitted review (approval, change request, or review comment) on a
+ * review. Fetched fresh from the forge; not cached. The caller's own
+ * unsubmitted (pending) drafts are excluded.
+ */
+export type ForgeReviewSubmission = {
+  /** Forge-assigned identifier of the submission. */
+  id: number;
+  /** Who submitted the review. */
+  author: ForgeReviewUser | null;
+  /** The verdict of this submission. */
+  state: ForgeReviewSubmissionState;
+  /** The summary text accompanying the submission, if any. */
+  body: string | null;
+  /** ISO 8601 timestamp of when the review was submitted. */
+  submittedAt: string | null;
+  /** The URL to view this submission in a web browser. */
+  htmlUrl: string;
+};
+
+/** The verdict a submitted review carries. */
+export type ForgeReviewSubmissionState = "approved" | "changesRequested" | "commented" | "dismissed";
+
+/**
+ * A non-comment row of a review's conversation timeline: a pushed commit
+ * or a review request. Fetched fresh from the forge; not cached. Commit
+ * rows carry the git author name (not a forge user); review requests
+ * carry the requesting and requested users.
+ */
+export type ForgeReviewTimelineEvent = {
+  kind: ForgeReviewTimelineEventKind;
+  actor: ForgeReviewUser | null;
+  requestedReviewer: ForgeReviewUser | null;
+  commitSha: string | null;
+  commitSummary: string | null;
+  commitAuthorName: string | null;
+  /** ISO 8601 timestamp of the event. */
+  createdAt: string | null;
+};
+
+/** What a non-comment timeline row represents. */
+export type ForgeReviewTimelineEventKind = "committed" | "reviewRequested";
 
 export type ForgeReviewUpdate = {
   /** The unique identifier number for this review within its repository. This can be a PR or MR number. */

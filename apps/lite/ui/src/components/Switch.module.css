@@ -1,0 +1,40 @@
+.switch {
+	--disabled-opacity: 50%;
+
+	display: inline-flex;
+	position: relative;
+	flex-shrink: 0;
+	width: 26px;
+	height: 16px;
+	padding: 0;
+	border: none;
+	border-radius: 100px;
+	background-color: var(--border-2);
+	cursor: pointer;
+	transition: background-color 120ms ease;
+
+	&[data-checked] {
+		background-color: var(--fill-pop-bg);
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		cursor: default;
+		opacity: var(--disabled-opacity);
+	}
+}
+
+.thumb {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background-color: var(--bg-1);
+	transition: left 120ms ease;
+
+	&[data-checked] {
+		left: 12px;
+	}
+}

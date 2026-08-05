@@ -1,0 +1,78 @@
+.reactions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.reactionChip {
+	padding: 2px 8px;
+	border: 1px solid var(--border-3);
+	border-radius: 100px;
+	background: none;
+	color: var(--text-2);
+}
+
+.reactionChipButton {
+	cursor: pointer;
+
+	&:hover:not(:disabled) {
+		border-color: var(--border-2);
+	}
+}
+
+.reactionChipMine {
+	border-color: var(--text-blue);
+	color: var(--text-blue);
+}
+
+.addReaction {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
+
+/* Horizontal emoji row, with the same chrome as the tooltip popup. */
+.reactionPicker {
+	display: flex;
+	padding: 4px;
+	gap: 2px;
+	/* Grow out of the anchored corner, same curve as the picker dialog. */
+	transform-origin: var(--transform-origin);
+	border-radius: var(--radius-button);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-tooltip);
+	transition:
+		transform 150ms cubic-bezier(0.45, 1.005, 0, 1.005),
+		opacity 150ms;
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+}
+
+.pickerItem {
+	padding: 4px 6px;
+	border: none;
+	border-radius: var(--radius-button);
+	background: none;
+	font-size: 14px;
+	cursor: pointer;
+
+	&:hover {
+		background-color: var(--fill-gray-bg);
+	}
+}
+
+.pickerItemMine {
+	background-color: color-mix(in srgb, var(--text-blue) 15%, transparent);
+}

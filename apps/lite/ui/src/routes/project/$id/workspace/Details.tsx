@@ -1,14 +1,6 @@
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
-import {
-	useMergeReview,
-	useOpenInProgram,
-	usePublishReview,
-	useSaveGUISettings,
-	useSetReviewAutoMerge,
-	useSetReviewDraftiness,
-	useUpdateReview,
-} from "#ui/api/mutations.ts";
+import { useOpenInProgram, useSaveGUISettings } from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -16,9 +8,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	forgeInfoOptions,
 	guiSettingsQueryOptions,
-	getReviewMergeStatusQueryOptions,
 	headInfoQueryOptions,
-	listCIChecksQueryOptions,
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -47,16 +37,17 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
+import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
+import { PullRequestPanel } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
+import {
+	PullRequestDescription,
+	PullRequestForm,
+	PullRequestPrimaryAction,
+} from "#ui/routes/project/$id/workspace/PullRequestTab.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import {
-	FieldControlStyles,
-	FieldLabelStyles,
-	FieldRootStyles,
-	FieldTextareaStyles,
-} from "#ui/components/Field.tsx";
-import { Field, Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
-import type { CiCheck, CommitDetails, TreeChange } from "@gitbutler/but-sdk";
+import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import type { CommitDetails, TreeChange } from "@gitbutler/but-sdk";
 import type {
 	CodeViewDiffItem,
 	CodeView as CodeViewClass,
@@ -71,10 +62,8 @@ import { Match } from "effect";
 import {
 	type ComponentProps,
 	type FC,
-	type MouseEvent,
 	type ReactNode,
 	type RefObject,
-	type SubmitEventHandler,
 	Suspense,
 	useId,
 	useLayoutEffect,
@@ -84,8 +73,8 @@ import {
 } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./Details.module.css";
-import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
+import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	type SelectionScope,
 	useAutofocusSelectionScope,
@@ -111,12 +100,9 @@ import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-men
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import type { AggregateCIChecks } from "#ui/ci.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
-import { draftPRQueryOptions, useDeleteDraftPR, usePersistDraftPR } from "#ui/pr.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { assert } from "#ui/assert.ts";
 import {
@@ -1176,340 +1162,6 @@ const Diff: FC<{
 	);
 };
 
-const PullRequestForm: FC<{
-	projectId: string;
-	sourceBranch: string;
-	reviewId: number | null;
-	title: string | null;
-	body: string | null;
-	canSubmit: boolean;
-}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit }) => {
-	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
-	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
-	const formRef = useRef<HTMLFormElement | null>(null);
-
-	const remoteOrEmptyDocument = {
-		title: title ?? "",
-		body: body ?? "",
-	};
-	const { data: persistedDocument } = useSuspenseQuery(
-		draftPRQueryOptions({ projectId, branchName: sourceBranch }),
-	);
-	const [localDocument, setLocalDocument] = useState({
-		title: persistedDocument?.title ?? title ?? "",
-		body: persistedDocument?.body ?? body ?? "",
-		isDraft: persistedDocument?.isDraft ?? false,
-	});
-	const { mutate: persistDraftPR } = usePersistDraftPR();
-	const { mutate: deleteDraftPR } = useDeleteDraftPR();
-
-	const isNew = reviewId === null;
-	const isAnyPending = isPublishReviewPending || isUpdateReviewPending;
-	const hasChanges =
-		localDocument.title !== remoteOrEmptyDocument.title ||
-		localDocument.body !== remoteOrEmptyDocument.body ||
-		(isNew && localDocument.isDraft);
-
-	// Reset to latest remote data if we haven't locally diverged yet.
-	const [prevRemote, setPrevRemote] = useState(remoteOrEmptyDocument);
-	const remoteHasUpdated =
-		prevRemote.title !== remoteOrEmptyDocument.title ||
-		prevRemote.body !== remoteOrEmptyDocument.body;
-	if (remoteHasUpdated) {
-		setPrevRemote(remoteOrEmptyDocument);
-
-		const localHasDiverged =
-			localDocument.title !== prevRemote.title || localDocument.body !== prevRemote.body;
-		if (!localHasDiverged) {
-			setLocalDocument((prev) => ({
-				...prev,
-				...remoteOrEmptyDocument,
-			}));
-		}
-	}
-
-	const handleBlur = () => {
-		if (hasChanges) {
-			persistDraftPR({
-				projectId,
-				branchName: sourceBranch,
-				draft: localDocument,
-			});
-		} else if (persistedDocument) {
-			deleteDraftPR({ projectId, branchName: sourceBranch });
-		}
-	};
-
-	const handleReset = () => {
-		const resetDocument = { ...remoteOrEmptyDocument, isDraft: false };
-		setLocalDocument(resetDocument);
-		deleteDraftPR({ projectId, branchName: sourceBranch });
-	};
-
-	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {
-		evt.preventDefault();
-		if (!canSubmit || isAnyPending || localDocument.title.trim() === "") return;
-
-		if (reviewId === null) {
-			publishReview({
-				projectId,
-				params: {
-					title: localDocument.title,
-					body: localDocument.body,
-					draft: localDocument.isDraft,
-					localBranch: sourceBranch,
-					sourceBranch,
-				},
-			});
-		} else {
-			updateReview({
-				projectId,
-				reviewId,
-				title: localDocument.title,
-				body: localDocument.body,
-				state: null,
-				targetBase: null,
-			});
-		}
-	};
-
-	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
-		conflictBehavior: "allow",
-		enabled: !isAnyPending && hasChanges,
-		target: formRef,
-	});
-
-	return (
-		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
-		<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Title</Field.Label>
-				<Field.Control
-					render={<FieldControlStyles />}
-					className="text-15 text-semibold"
-					data-selection-scope={"pr" satisfies SelectionScope}
-					ref={useAutofocusSelectionScope()}
-					name="title"
-					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
-					placeholder="Title"
-					required
-					value={localDocument.title}
-				/>
-			</Field.Root>
-
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Description</Field.Label>
-				<Field.Control
-					render={<FieldTextareaStyles />}
-					className="text-14 text-body text-monospace"
-					name="body"
-					onChange={(evt) => setLocalDocument({ ...localDocument, body: evt.currentTarget.value })}
-					placeholder="Description"
-					value={localDocument.body}
-				/>
-			</Field.Root>
-
-			{isNew && (
-				<Field.Root render={<FieldRootStyles />}>
-					<Field.Label render={<FieldLabelStyles />}>Draft</Field.Label>
-					<Checkbox
-						checked={localDocument.isDraft}
-						name="isDraft"
-						onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
-					/>
-				</Field.Root>
-			)}
-
-			<div className={styles.prFormActions}>
-				<button
-					className={getButtonClassName({})}
-					disabled={isAnyPending || !hasChanges}
-					onClick={handleReset}
-					type="button"
-				>
-					Reset
-				</button>
-
-				<button
-					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canSubmit || isAnyPending || !hasChanges}
-					type="submit"
-				>
-					{isAnyPending && <Icon name="spinner" />}
-					{isNew ? "Submit" : "Update"}
-				</button>
-			</div>
-		</form>
-	);
-};
-
-const PullRequestPrimaryAction: FC<{
-	projectId: string;
-	reviewId: number;
-	isDraft: boolean;
-}> = ({ projectId, reviewId, isDraft }) => {
-	const { data: mergeStatus } = useQuery({
-		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
-		// Minimise API calls.
-		enabled: !isDraft,
-	});
-
-	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
-	const { isPending: isMergeReviewPending, mutate: mergeReview } = useMergeReview();
-	const { isPending: isSetReviewDraftinessPending, mutate: setReviewDraftiness } =
-		useSetReviewDraftiness();
-	const { isPending: isSetReviewAutoMergePending, mutate: setReviewAutoMerge } =
-		useSetReviewAutoMerge();
-
-	const isAnyPending =
-		isUpdateReviewPending ||
-		isMergeReviewPending ||
-		isSetReviewDraftinessPending ||
-		isSetReviewAutoMergePending;
-
-	return (
-		<div className={styles.prActions}>
-			<button
-				className={getButtonClassName({ variant: !isDraft ? "outline" : "pop" })}
-				disabled={isAnyPending}
-				onClick={() => setReviewDraftiness({ projectId, reviewId, draft: !isDraft })}
-				type="button"
-			>
-				{isSetReviewDraftinessPending && <Icon name="spinner" />}
-				{isDraft ? "Mark as Ready" : "Convert to draft"}
-			</button>
-
-			<button
-				className={getButtonClassName({ variant: "danger" })}
-				disabled={isAnyPending}
-				onClick={() =>
-					updateReview({
-						projectId,
-						reviewId,
-						state: "closed",
-						title: null,
-						body: null,
-						targetBase: null,
-					})
-				}
-				type="button"
-			>
-				{isUpdateReviewPending && <Icon name="spinner" />}
-				Close
-			</button>
-
-			{!isDraft && (
-				<>
-					<button
-						className={getButtonClassName({ variant: "outline" })}
-						// Currently missing automerge state from SDK.
-						disabled
-						onClick={() => setReviewAutoMerge({ projectId, reviewId, enable: true })}
-						type="button"
-					>
-						{isSetReviewAutoMergePending && <Icon name="spinner" />}
-						Enable auto-merge
-					</button>
-
-					<button
-						className={getButtonClassName({ variant: "pop" })}
-						disabled={isAnyPending || mergeStatus?.isMergeable !== true}
-						onClick={() => mergeReview({ projectId, reviewId, mergeMethod: null })}
-						type="button"
-					>
-						{isMergeReviewPending && <Icon name="spinner" />}
-						Merge
-					</button>
-				</>
-			)}
-		</div>
-	);
-};
-
-const Check: FC<{
-	title: string;
-	icon: IconName;
-	iconColor: string;
-	url: string;
-}> = (p) => {
-	const handleOpen =
-		(url: string) =>
-		async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-			evt.preventDefault();
-
-			await window.lite.openInWebBrowser(url);
-		};
-
-	return (
-		<a
-			href={p.url}
-			onClick={(evt) => void handleOpen(p.url)(evt)}
-			className={classes("text-13", styles.check)}
-		>
-			<Icon name={p.icon} style={{ color: p.iconColor }} />
-			{p.title}
-		</a>
-	);
-};
-
-const Checks: FC<{ checks: Array<CiCheck>; aggregate: AggregateCIChecks }> = (p) => {
-	const [summary, summaryIcon, summaryIconColor] = Match.value(p.aggregate.status).pipe(
-		Match.withReturnType<[string, IconName, string]>(),
-		Match.when("success", () => ["All passed", "checklist", "var(--scale-safe-50)"]),
-		Match.when("failure", () => ["Failed", "checklist-remove", "var(--scale-danger-50)"]),
-		Match.when("cancelled", () => ["Some cancelled", "checklist-remove", "var(--scale-danger-50)"]),
-		Match.when("action_required", () => ["Action required", "warning", "var(--scale-warn-50)"]),
-		Match.when("in_progress", () => [
-			"In progress",
-			"spinner",
-			p.aggregate.failure.length > 0
-				? "var(--scale-danger-50)"
-				: p.aggregate.actionRequired.length > 0
-					? "var(--scale-warn-50)"
-					: "grey",
-		]),
-		Match.when("unknown", () => ["Unknown", "warning", "var(--scale-purple-50)"]),
-		Match.exhaustive,
-	);
-
-	return (
-		<div className={styles.checks}>
-			<h4 className={classes("text-14", styles.checkHeading)}>Checks</h4>
-
-			<div className={classes("text-14", styles.checkSummary)}>
-				<Icon name={summaryIcon} style={{ color: summaryIconColor }} />
-				{summary}
-			</div>
-
-			{(p.aggregate.failure.length > 0 || p.aggregate.actionRequired.length > 0) && (
-				<div className={styles.checkItems}>
-					<h5 className={classes("text-13", styles.checkJobsHeading)}>Failed jobs</h5>
-
-					{p.aggregate.failure.map((check) => (
-						<Check
-							key={check.id}
-							title={check.name}
-							icon="cross-circle"
-							iconColor="var(--scale-danger-60)"
-							url={check.htmlUrl}
-						/>
-					))}
-
-					{p.aggregate.actionRequired.map((check) => (
-						<Check
-							key={check.id}
-							title={check.name}
-							icon="warning"
-							iconColor="var(--scale-warn-60)"
-							url={check.htmlUrl}
-						/>
-					))}
-				</div>
-			)}
-		</div>
-	);
-};
-
 const CopyableId: FC<{
 	label: string;
 	icon: IconName;
@@ -1739,6 +1391,15 @@ const BranchDetails: FC<{
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
 	};
 
+	// Per-PR by construction: BranchDetails is keyed on the branch identity,
+	// so a selection change remounts this component and resets the mode.
+	const [prEditing, setPrEditing] = useState(false);
+
+	const togglePrEdit = () => {
+		if (!prEditing) setBranchTab("pr");
+		setPrEditing(!prEditing);
+	};
+
 	const ref = useRef<HTMLDivElement>(null);
 
 	useHotkeys([
@@ -1813,7 +1474,7 @@ const BranchDetails: FC<{
 					</div>
 				</div>
 
-				<div className={styles.tabsRow}>
+				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
 					<ToggleGroup
 						render={<ToggleGroupStyles />}
 						value={[branchTab]}
@@ -1832,7 +1493,7 @@ const BranchDetails: FC<{
 						</Toggle>
 					</ToggleGroup>
 
-					{!!forgeInfo?.capabilities.prService && (
+					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
 						<Suspense>
 							<SuspenseQuery
 								{...listReviewsQueryOptions({
@@ -1850,6 +1511,9 @@ const BranchDetails: FC<{
 												projectId={projectId}
 												reviewId={review.number}
 												isDraft={review.draft}
+												autoMergeEnabled={review.autoMergeEnabled}
+												isEditing={prEditing}
+												onToggleEdit={togglePrEdit}
 											/>
 										</div>
 									);
@@ -1896,31 +1560,27 @@ const BranchDetails: FC<{
 											canSubmit
 										/>
 									) : (
-										<>
-											<PullRequestForm
-												key={review.number}
-												body={review.body}
-												projectId={projectId}
-												reviewId={review.number}
-												sourceBranch={branchName}
-												title={review.title}
-												canSubmit
-											/>
+										<div className={styles.prLayout}>
+											<div className={styles.prMain}>
+												<PullRequestDescription
+													key={review.number}
+													body={review.body}
+													projectId={projectId}
+													reviewId={review.number}
+													sourceBranch={branchName}
+													title={review.title}
+													canSubmit
+													editing={prEditing}
+													onDoneEditing={() => setPrEditing(false)}
+												/>
 
-											{forgeInfo.capabilities.checks && (
-												<SuspenseQuery
-													{...listCIChecksQueryOptions({
-														projectId,
-														reference: branchName,
-														polling: "priority",
-													})}
-												>
-													{({ data: { data: checks, aggregate } }) =>
-														aggregate && <Checks checks={checks} aggregate={aggregate} />
-													}
-												</SuspenseQuery>
-											)}
-										</>
+												{forgeInfo.capabilities.reviewComments !== false && (
+													<PullRequestComments projectId={projectId} review={review} />
+												)}
+											</div>
+
+											<PullRequestPanel projectId={projectId} review={review} />
+										</div>
 									);
 								}}
 							</SuspenseQuery>

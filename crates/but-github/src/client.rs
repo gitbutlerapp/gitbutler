@@ -19,17 +19,17 @@ pub struct HttpStatusError {
     pub status: reqwest::StatusCode,
 }
 
-/// Return `HttpStatusError` for non-success responses so callers can downcast
-/// to distinguish 401/403 from other failures. The textual prefix that callers
-/// used to build into `bail!` is left to outer `.context(...)`.
-fn ensure_success(response: &reqwest::Response) -> Result<()> {
-    if !response.status().is_success() {
-        return Err(HttpStatusError {
-            status: response.status(),
-        }
-        .into());
+/// Pass successful responses through; failures carry the downcastable
+/// `HttpStatusError` (so callers can classify 401/403) with what the forge
+/// said in the body as context, so users see the reason and not just the
+/// status. The textual operation prefix stays with outer `.context(...)`.
+async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response> {
+    if response.status().is_success() {
+        return Ok(response);
     }
-    Ok(())
+    let status = response.status();
+    let said = response_error(response).await;
+    Err(anyhow::Error::from(HttpStatusError { status }).context(said))
 }
 
 pub struct GitHubClient {
@@ -200,6 +200,35 @@ impl GitHubClient {
         Ok(dedupe_latest_by_name(check_runs))
     }
 
+    /// Fetch every page of a GitHub list endpoint, 100 items per page,
+    /// stopping at the first short page or after `max_pages` (a silent
+    /// truncation bound for pathological list sizes).
+    async fn get_all_pages<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        max_pages: usize,
+    ) -> Result<Vec<T>> {
+        let mut items = Vec::new();
+        for page in 1..=max_pages {
+            let response = self
+                .client
+                .get(url)
+                .query(&[("per_page", "100"), ("page", &page.to_string())])
+                .send()
+                .await?;
+
+            let response = ensure_success(response).await?;
+
+            let page_items: Vec<T> = response.json().await?;
+            let last_page = page_items.len() < 100;
+            items.extend(page_items);
+            if last_page {
+                break;
+            }
+        }
+        Ok(items)
+    }
+
     /// The actual REST API call to fetch a page of the checks.
     async fn fetch_check_runs(&self, url: &str, page: usize) -> Result<reqwest::Response> {
         let response = self
@@ -213,7 +242,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        ensure_success(&response)?;
+        let response = ensure_success(response).await?;
 
         Ok(response)
     }
@@ -234,7 +263,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        ensure_success(&response)?;
+        let response = ensure_success(response).await?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -262,7 +291,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        ensure_success(&response)?;
+        let response = ensure_success(response).await?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -288,7 +317,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        ensure_success(&response)?;
+        let response = ensure_success(response).await?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -425,10 +454,419 @@ impl GitHubClient {
 
         let response = self.client.get(&url).send().await?;
 
-        ensure_success(&response)?;
+        let response = ensure_success(response).await?;
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
+    }
+
+    /// List the top-level conversation (issue) comments on a pull request,
+    /// oldest first. Paginated; review-thread (diff) comments are not included.
+    pub async fn list_pull_request_comments(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<PullRequestComment>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/comments",
+            self.base_url, owner, repo, pr_number
+        );
+
+        Ok(self
+            .get_all_pages::<GitHubIssueComment>(&url, 50)
+            .await?
+            .into_iter()
+            .map(PullRequestComment::from)
+            .collect())
+    }
+
+    /// List the individual reactions on a pull request itself (GitHub
+    /// models the PR as an issue for reaction purposes).
+    pub async fn list_pull_request_reactions(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<Reaction>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/reactions",
+            self.base_url, owner, repo, pr_number
+        );
+        self.list_reactions(&url).await
+    }
+
+    /// List the individual reactions on one conversation comment.
+    pub async fn list_comment_reactions(
+        &self,
+        owner: &str,
+        repo: &str,
+        comment_id: i64,
+    ) -> Result<Vec<Reaction>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments/{}/reactions",
+            self.base_url, owner, repo, comment_id
+        );
+        self.list_reactions(&url).await
+    }
+
+    async fn list_reactions(&self, url: &str) -> Result<Vec<Reaction>> {
+        Ok(self
+            .get_all_pages::<GitHubReactionApi>(url, 5)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// Add a reaction to a pull request itself. Idempotent on GitHub's
+    /// side: reacting again with the same kind returns the existing one.
+    pub async fn add_pull_request_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        content: &str,
+    ) -> Result<Reaction> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/reactions",
+            self.base_url, owner, repo, pr_number
+        );
+        self.add_reaction(&url, content).await
+    }
+
+    /// Remove one of the caller's reactions from a pull request itself.
+    pub async fn delete_pull_request_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        reaction_id: i64,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/reactions/{}",
+            self.base_url, owner, repo, pr_number, reaction_id
+        );
+        self.delete_reaction(&url).await
+    }
+
+    /// Add a reaction to one conversation comment.
+    pub async fn add_comment_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        comment_id: i64,
+        content: &str,
+    ) -> Result<Reaction> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments/{}/reactions",
+            self.base_url, owner, repo, comment_id
+        );
+        self.add_reaction(&url, content).await
+    }
+
+    /// Remove one of the caller's reactions from a conversation comment.
+    pub async fn delete_comment_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        comment_id: i64,
+        reaction_id: i64,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments/{}/reactions/{}",
+            self.base_url, owner, repo, comment_id, reaction_id
+        );
+        self.delete_reaction(&url).await
+    }
+
+    async fn add_reaction(&self, url: &str, content: &str) -> Result<Reaction> {
+        let response = self
+            .client
+            .post(url)
+            .json(&AddReactionBody { content })
+            .send()
+            .await?;
+        let response = ensure_success(response).await?;
+        let reaction: GitHubReactionApi = response.json().await?;
+        Ok(reaction.into())
+    }
+
+    async fn delete_reaction(&self, url: &str) -> Result<()> {
+        let response = self.client.delete(url).send().await?;
+        ensure_success(response).await?;
+        Ok(())
+    }
+
+    /// List the pushed commits and review requests on a pull request's
+    /// conversation timeline, oldest first. Other event kinds are dropped.
+    pub async fn list_pull_request_timeline(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<PullRequestTimelineEvent>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/timeline",
+            self.base_url, owner, repo, pr_number
+        );
+
+        Ok(self
+            .get_all_pages::<GitHubTimelineEventApi>(&url, 20)
+            .await?
+            .into_iter()
+            .filter_map(GitHubTimelineEventApi::into_event)
+            .collect())
+    }
+
+    /// List the labels defined on a repository, paginated.
+    pub async fn list_repo_labels(&self, owner: &str, repo: &str) -> Result<Vec<GitHubPrLabel>> {
+        let url = format!("{}/repos/{}/{}/labels", self.base_url, owner, repo);
+
+        Ok(self
+            .get_all_pages::<GitHubPrLabelApi>(&url, 10)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// Add labels to a pull request; returns the resulting label set.
+    pub async fn add_labels_to_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        labels: &[String],
+    ) -> Result<Vec<GitHubPrLabel>> {
+        #[derive(Serialize)]
+        struct AddLabelsBody<'a> {
+            labels: &'a [String],
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/labels",
+            self.base_url, owner, repo, pr_number
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&AddLabelsBody { labels })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to add labels: {}", response_error(response).await);
+        }
+
+        let labels: Vec<GitHubPrLabelApi> = response.json().await?;
+        Ok(labels.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn remove_label_from_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        label: &str,
+    ) -> Result<()> {
+        let url = label_removal_url(&self.base_url, owner, repo, pr_number, label)?;
+
+        let response = self.client.delete(url).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to remove label: {}", response_error(response).await);
+        }
+
+        Ok(())
+    }
+
+    /// List users who can be assigned (and requested for review) on the repo.
+    pub async fn list_assignable_users(&self, owner: &str, repo: &str) -> Result<Vec<GitHubUser>> {
+        let url = format!("{}/repos/{}/{}/assignees", self.base_url, owner, repo);
+
+        Ok(self
+            .get_all_pages::<GitHubApiUser>(&url, 10)
+            .await?
+            .into_iter()
+            .map(GitHubUser::from)
+            .collect())
+    }
+
+    pub async fn request_reviewers(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        reviewers: &[String],
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/requested_reviewers",
+            self.base_url, owner, repo, pr_number
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&ReviewersBody { reviewers })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to request reviewers: {}",
+                response_error(response).await
+            );
+        }
+
+        Ok(())
+    }
+
+    pub async fn remove_requested_reviewers(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        reviewers: &[String],
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/requested_reviewers",
+            self.base_url, owner, repo, pr_number
+        );
+
+        let response = self
+            .client
+            .delete(&url)
+            .json(&ReviewersBody { reviewers })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to withdraw review request: {}",
+                response_error(response).await
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Edit a conversation comment. Comments are addressed by their own id,
+    /// not the pull request number.
+    pub async fn update_pull_request_comment(
+        &self,
+        owner: &str,
+        repo: &str,
+        comment_id: i64,
+        body: &str,
+    ) -> Result<PullRequestComment> {
+        #[derive(Serialize)]
+        struct CommentBody<'a> {
+            body: &'a str,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments/{}",
+            self.base_url, owner, repo, comment_id
+        );
+
+        let response = self
+            .client
+            .patch(&url)
+            .json(&CommentBody { body })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to update comment: {}",
+                response_error(response).await
+            );
+        }
+
+        let comment: GitHubIssueComment = response.json().await?;
+        Ok(comment.into())
+    }
+
+    pub async fn delete_pull_request_comment(
+        &self,
+        owner: &str,
+        repo: &str,
+        comment_id: i64,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments/{}",
+            self.base_url, owner, repo, comment_id
+        );
+
+        let response = self.client.delete(&url).send().await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to delete comment: {}",
+                response_error(response).await
+            );
+        }
+
+        Ok(())
+    }
+
+    /// List the submitted reviews on a pull request (approvals, change
+    /// requests, review comments), oldest first. Paginated.
+    pub async fn list_pull_request_reviews(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<PullRequestReview>> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/reviews",
+            self.base_url, owner, repo, pr_number
+        );
+
+        Ok(self
+            .get_all_pages::<GitHubPullRequestReviewApi>(&url, 50)
+            .await?
+            .into_iter()
+            .map(PullRequestReview::from)
+            .collect())
+    }
+
+    /// Post a top-level conversation comment on a pull request.
+    pub async fn create_pull_request_comment(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        body: &str,
+    ) -> Result<PullRequestComment> {
+        #[derive(Serialize)]
+        struct CommentBody<'a> {
+            body: &'a str,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/comments",
+            self.base_url, owner, repo, pr_number
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&CommentBody { body })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to create pull request comment: {}",
+                response_error(response).await
+            );
+        }
+
+        let comment: GitHubIssueComment = response.json().await?;
+        Ok(comment.into())
     }
 
     /// Update the information of a given PR.
@@ -1182,6 +1620,230 @@ pub struct PullRequest {
     pub repo_owner: Option<String>,
     pub head_repo_is_fork: bool,
     pub requested_reviewers: Vec<GitHubUser>,
+    pub auto_merge_enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PullRequestComment {
+    pub id: i64,
+    pub body: String,
+    pub author: Option<GitHubUser>,
+    pub created_at: Option<String>,
+    pub modified_at: Option<String>,
+    pub html_url: String,
+    pub reactions: CommentReactions,
+}
+
+/// One reaction from the reactions endpoints. `content` is GitHub's raw
+/// kind string (`+1`, `laugh`, `heart`, …); `id` addresses deletion.
+#[derive(Debug, Serialize)]
+pub struct Reaction {
+    pub id: i64,
+    pub content: String,
+    pub user: Option<GitHubUser>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubReactionApi {
+    id: i64,
+    content: String,
+    user: Option<GitHubApiUser>,
+}
+
+impl From<GitHubReactionApi> for Reaction {
+    fn from(reaction: GitHubReactionApi) -> Self {
+        Reaction {
+            id: reaction.id,
+            content: reaction.content,
+            user: reaction.user.map(Into::into),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct AddReactionBody<'a> {
+    content: &'a str,
+}
+
+/// Reaction counts on a comment, straight from the `reactions` summary
+/// GitHub embeds in issue-comment responses.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CommentReactions {
+    #[serde(rename = "+1", default)]
+    pub plus_one: i64,
+    #[serde(rename = "-1", default)]
+    pub minus_one: i64,
+    #[serde(default)]
+    pub laugh: i64,
+    #[serde(default)]
+    pub confused: i64,
+    #[serde(default)]
+    pub heart: i64,
+    #[serde(default)]
+    pub hooray: i64,
+    #[serde(default)]
+    pub rocket: i64,
+    #[serde(default)]
+    pub eyes: i64,
+}
+
+#[derive(Serialize)]
+struct ReviewersBody<'a> {
+    reviewers: &'a [String],
+}
+
+/// Build `DELETE /repos/{o}/{r}/issues/{n}/labels/{name}` with the label name
+/// percent-encoded. `PathSegmentsMut::push` silently *drops* `.` and `..`
+/// segments, which would degrade this into GitHub's remove-ALL-labels
+/// endpoint — refuse those names instead of encoding them.
+fn label_removal_url(
+    base_url: &str,
+    owner: &str,
+    repo: &str,
+    pr_number: i64,
+    label: &str,
+) -> Result<reqwest::Url> {
+    if matches!(label, "" | "." | "..") {
+        bail!("Refusing to remove label with degenerate name {label:?}");
+    }
+
+    let mut url = reqwest::Url::parse(&format!(
+        "{base_url}/repos/{owner}/{repo}/issues/{pr_number}/labels"
+    ))?;
+    url.path_segments_mut()
+        .map_err(|()| anyhow::anyhow!("Invalid GitHub base URL"))?
+        .push(label);
+    Ok(url)
+}
+
+/// A submitted review on a pull request, from `GET /pulls/{n}/reviews`.
+#[derive(Debug, Serialize)]
+pub struct PullRequestReview {
+    pub id: i64,
+    pub author: Option<GitHubUser>,
+    /// GitHub state string: `APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`,
+    /// `DISMISSED`, or `PENDING` (the caller's own unsubmitted draft).
+    pub state: String,
+    pub body: Option<String>,
+    pub submitted_at: Option<String>,
+    pub html_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubPullRequestReviewApi {
+    id: i64,
+    user: Option<GitHubApiUser>,
+    state: String,
+    body: Option<String>,
+    submitted_at: Option<String>,
+    html_url: String,
+}
+
+impl From<GitHubPullRequestReviewApi> for PullRequestReview {
+    fn from(review: GitHubPullRequestReviewApi) -> Self {
+        PullRequestReview {
+            id: review.id,
+            author: review.user.map(Into::into),
+            state: review.state,
+            body: review.body,
+            submitted_at: review.submitted_at,
+            html_url: review.html_url,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubIssueComment {
+    id: i64,
+    body: Option<String>,
+    user: Option<GitHubApiUser>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    html_url: String,
+    #[serde(default)]
+    reactions: Option<CommentReactions>,
+}
+
+impl From<GitHubIssueComment> for PullRequestComment {
+    fn from(comment: GitHubIssueComment) -> Self {
+        PullRequestComment {
+            id: comment.id,
+            body: comment.body.unwrap_or_default(),
+            author: comment.user.map(Into::into),
+            created_at: comment.created_at,
+            modified_at: comment.updated_at,
+            html_url: comment.html_url,
+            reactions: comment.reactions.unwrap_or_default(),
+        }
+    }
+}
+
+/// The timeline rows lite renders between conversation comments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum PullRequestTimelineEventKind {
+    Committed,
+    ReviewRequested,
+}
+
+/// A pushed commit or review request on a pull request's conversation
+/// timeline, from `GET /issues/{n}/timeline`. Commit events carry the
+/// git author and commit fields; review requests carry actor/reviewer.
+#[derive(Debug, Serialize)]
+pub struct PullRequestTimelineEvent {
+    pub kind: PullRequestTimelineEventKind,
+    pub actor: Option<GitHubUser>,
+    pub requested_reviewer: Option<GitHubUser>,
+    pub commit_sha: Option<String>,
+    pub commit_summary: Option<String>,
+    pub commit_author_name: Option<String>,
+    pub created_at: Option<String>,
+}
+
+/// One raw timeline entry; the endpoint returns a heterogeneous array, so
+/// every field is optional and unknown event kinds deserialize cleanly.
+#[derive(Debug, Deserialize)]
+struct GitHubTimelineEventApi {
+    event: Option<String>,
+    actor: Option<GitHubApiUser>,
+    requested_reviewer: Option<GitHubApiUser>,
+    created_at: Option<String>,
+    sha: Option<String>,
+    message: Option<String>,
+    author: Option<GitHubCommitIdentityApi>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubCommitIdentityApi {
+    name: Option<String>,
+    date: Option<String>,
+}
+
+impl GitHubTimelineEventApi {
+    fn into_event(self) -> Option<PullRequestTimelineEvent> {
+        match self.event.as_deref() {
+            Some("committed") => Some(PullRequestTimelineEvent {
+                kind: PullRequestTimelineEventKind::Committed,
+                actor: None,
+                requested_reviewer: None,
+                commit_sha: self.sha,
+                commit_summary: self
+                    .message
+                    .map(|message| message.lines().next().unwrap_or_default().to_owned()),
+                created_at: self.author.as_ref().and_then(|author| author.date.clone()),
+                commit_author_name: self.author.and_then(|author| author.name),
+            }),
+            Some("review_requested") => Some(PullRequestTimelineEvent {
+                kind: PullRequestTimelineEventKind::ReviewRequested,
+                actor: self.actor.map(Into::into),
+                requested_reviewer: self.requested_reviewer.map(Into::into),
+                commit_sha: None,
+                commit_summary: None,
+                commit_author_name: None,
+                created_at: self.created_at,
+            }),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1190,6 +1852,17 @@ struct GitHubPrLabelApi {
     name: String,
     description: Option<String>,
     color: Option<String>,
+}
+
+impl From<GitHubPrLabelApi> for GitHubPrLabel {
+    fn from(label: GitHubPrLabelApi) -> Self {
+        GitHubPrLabel {
+            id: label.id,
+            name: label.name,
+            description: label.description,
+            color: label.color,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1226,22 +1899,15 @@ struct GitHubPullRequest {
     merged_at: Option<String>,
     closed_at: Option<String>,
     requested_reviewers: Vec<GitHubApiUser>,
+    #[serde(default)]
+    auto_merge: Option<serde_json::Value>,
 }
 
 impl From<GitHubPullRequest> for PullRequest {
     fn from(pr: GitHubPullRequest) -> Self {
         let author = pr.user.map(Into::into);
 
-        let labels = pr
-            .labels
-            .into_iter()
-            .map(|label| GitHubPrLabel {
-                id: label.id,
-                name: label.name,
-                description: label.description,
-                color: label.color,
-            })
-            .collect();
+        let labels = pr.labels.into_iter().map(GitHubPrLabel::from).collect();
 
         let requested_reviewers = pr.requested_reviewers.into_iter().map(Into::into).collect();
         // Only use the merge_commit_sha if the PR has been merged
@@ -1276,6 +1942,7 @@ impl From<GitHubPullRequest> for PullRequest {
                 .and_then(|r| r.owner.as_ref().map(|o| o.login.clone())),
             head_repo_is_fork: pr.head.repo.as_ref().map(|r| r.fork).unwrap_or(false),
             requested_reviewers,
+            auto_merge_enabled: pr.auto_merge.is_some(),
         }
     }
 }
@@ -1327,6 +1994,18 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn body_context_preserves_the_status_downcast() {
+        let err = anyhow::Error::from(HttpStatusError {
+            status: reqwest::StatusCode::UNAUTHORIZED,
+        })
+        .context("401 Unauthorized: bad credentials");
+        assert!(
+            err.downcast_ref::<HttpStatusError>().is_some(),
+            "token-expiry classification reads the status through the body context"
+        );
+    }
+
+    #[test]
     fn graphql_endpoint_for_github_cloud() {
         let endpoint = graphql_endpoint_from_base_url("https://api.github.com");
         assert_eq!(endpoint, "https://api.github.com/graphql");
@@ -1353,6 +2032,63 @@ mod tests {
         assert_eq!(merge, serde_json::json!("MERGE"));
         assert_eq!(squash, serde_json::json!("SQUASH"));
         assert_eq!(rebase, serde_json::json!("REBASE"));
+    }
+
+    #[test]
+    fn label_removal_url_encodes_exotic_names() {
+        let url = label_removal_url("https://api.github.com", "o", "r", 7, "help wanted 🙏/2")
+            .expect("normal names build a URL");
+        assert_eq!(
+            url.as_str(),
+            "https://api.github.com/repos/o/r/issues/7/labels/help%20wanted%20%F0%9F%99%8F%2F2",
+            "spaces, unicode, and slashes must be percent-encoded, not path-splitting"
+        );
+    }
+
+    #[test]
+    fn label_removal_url_refuses_names_the_url_crate_would_drop() {
+        // A dropped segment would target the remove-ALL-labels endpoint.
+        for degenerate in ["", ".", ".."] {
+            assert!(
+                label_removal_url("https://api.github.com", "o", "r", 7, degenerate).is_err(),
+                "{degenerate:?} must be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn auto_merge_presence_maps_to_enabled_flag() {
+        let mut pr_json = json!({
+            "html_url": "https://github.com/o/r/pull/1",
+            "number": 1,
+            "title": "t",
+            "body": null,
+            "user": null,
+            "labels": [],
+            "draft": false,
+            "merge_commit_sha": null,
+            "head": { "ref": "feature", "sha": "abc", "repo": null },
+            "base": { "ref": "main", "sha": "def", "repo": null },
+            "created_at": null,
+            "updated_at": null,
+            "merged_at": null,
+            "closed_at": null,
+            "requested_reviewers": [],
+            "auto_merge": null
+        });
+        let pr: PullRequest = serde_json::from_value::<GitHubPullRequest>(pr_json.clone())
+            .expect("fixture matches the API shape")
+            .into();
+        assert!(!pr.auto_merge_enabled, "null auto_merge means disabled");
+
+        pr_json["auto_merge"] = json!({ "merge_method": "squash" });
+        let pr: PullRequest = serde_json::from_value::<GitHubPullRequest>(pr_json)
+            .expect("fixture matches the API shape")
+            .into();
+        assert!(
+            pr.auto_merge_enabled,
+            "present auto_merge object means enabled"
+        );
     }
 
     fn check_run(name: &str, started_at: Option<&str>, conclusion: Option<&str>) -> CheckRun {

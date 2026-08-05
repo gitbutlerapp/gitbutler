@@ -1,5 +1,5 @@
 import { classes } from "#ui/components/classes.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { FC, ReactNode, Ref } from "react";
 import styles from "./Annotation.module.css";
 import { FieldTextareaStyles } from "./Field.tsx";
@@ -24,7 +24,7 @@ export const Annotation: FC<Props> = ({ textareaRef, ...p }) => (
 					dateTime={new Date(p.updatedAt).toISOString()}
 					className={classes(styles.date, "text-12")}
 				>
-					{formatRelativeTime(p.updatedAt)}
+					<RelativeTime timestamp={p.updatedAt} />
 				</time>
 			)}
 		</header>

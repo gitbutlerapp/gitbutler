@@ -16,7 +16,7 @@ import {
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -58,9 +58,7 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 	const title = commitTitle(commit.message);
 	const [now] = useState(() => Date.now());
 
-	const authored = [commit.author.name, formatRelativeTime(commit.committedAt, now)]
-		.filter((part) => part !== "")
-		.join(" ");
+	const authorName = commit.author.name;
 
 	const openReviewInBrowser = async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
 		evt.preventDefault();
@@ -90,31 +88,28 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 						)}
 					</RowLabel>
 				</RowLabelContainer>
-				{(authored !== "" || review !== null) && (
-					<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
-						{authored !== "" && (
-							<span
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-								title={commit.author.email}
-							>
-								{authored}
-							</span>
-						)}
+				<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
+					<span
+						className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+						title={commit.author.email}
+					>
+						{authorName !== "" && <>{authorName} </>}
+						<RelativeTime timestamp={commit.committedAt} now={now} />
+					</span>
 
-						{review !== null && (
-							<a
-								href={review.htmlUrl}
-								title={review.title}
-								onClick={(evt) => void openReviewInBrowser(evt)}
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-							>
-								<Icon name="pr" />
-								{review.unitSymbol}
-								{review.number}
-							</a>
-						)}
-					</RowLabelFooter>
-				)}
+					{review !== null && (
+						<a
+							href={review.htmlUrl}
+							title={review.title}
+							onClick={(evt) => void openReviewInBrowser(evt)}
+							className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+						>
+							<Icon name="pr" />
+							{review.unitSymbol}
+							{review.number}
+						</a>
+					)}
+				</RowLabelFooter>
 			</div>
 		</Row>
 	);

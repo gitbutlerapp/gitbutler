@@ -36,7 +36,7 @@ import {
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { Commit, ListedBranch, ListedStack } from "@gitbutler/but-sdk";
 import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -218,12 +218,7 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boo
 		}),
 	];
 
-	const lastTouched = [
-		branch.lastAuthor?.name,
-		branch.updatedAtMs !== null ? formatRelativeTime(branch.updatedAtMs, now) : undefined,
-	]
-		.filter((part) => part !== undefined)
-		.join(" ");
+	const lastAuthorName = branch.lastAuthor?.name;
 
 	return (
 		<div
@@ -276,12 +271,15 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boo
 							</span>
 						)}
 
-						{lastTouched !== "" && (
+						{(lastAuthorName !== undefined || branch.updatedAtMs !== null) && (
 							<span
 								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 								title={branch.lastAuthor?.email}
 							>
-								{lastTouched}
+								{lastAuthorName !== undefined && <>{lastAuthorName} </>}
+								{branch.updatedAtMs !== null && (
+									<RelativeTime timestamp={branch.updatedAtMs} now={now} />
+								)}
 							</span>
 						)}
 

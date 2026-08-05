@@ -1,10 +1,14 @@
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
+	currentForgeLoginQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
 	guiSettingsQueryOptions,
+	listCommentReactionsQueryOptions,
+	listReviewCommentsQueryOptions,
+	listReviewReactionsQueryOptions,
 	type QueryKey,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
@@ -18,7 +22,14 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Toast } from "@base-ui/react";
-import type { CommitAbsorption, Snapshot } from "@gitbutler/but-sdk";
+import type {
+	CommitAbsorption,
+	ForgeReview,
+	ForgeReviewComment,
+	ForgeReviewReaction,
+	ForgeReviewUser,
+	Snapshot,
+} from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation } from "@tanstack/react-query";
 import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
@@ -207,12 +218,508 @@ export const useUpdateReview = () => {
 	});
 };
 
+export const useAddReviewLabels = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.addReviewLabels,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to add label",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useRemoveReviewLabel = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.removeReviewLabel,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove label",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+/**
+ * Optimistic entries carry negative forge ids until the settle refetch
+ * swaps in the real ones; the UI treats them as not-yet-actionable.
+ * Each ghost takes a fresh id so simultaneous ghosts keep distinct
+ * render keys.
+ */
+let nextOptimisticForgeId = -1;
+const takeOptimisticForgeId = () => nextOptimisticForgeId--;
+
+const ghostForgeUser = (login: string): ForgeReviewUser => ({
+	id: takeOptimisticForgeId(),
+	login,
+	name: null,
+	email: null,
+	avatarUrl: null,
+	isBot: false,
+});
+
+const ghostReaction = (kind: string, login: string): ForgeReviewReaction => ({
+	id: takeOptimisticForgeId(),
+	kind,
+	user: ghostForgeUser(login),
+});
+
+/** Bump one kind's tally on one comment; entries appear and vanish at zero. */
+const withCommentReactionCount = (
+	comments: Array<ForgeReviewComment> | undefined,
+	commentId: number,
+	kind: string,
+	delta: number,
+): Array<ForgeReviewComment> | undefined =>
+	comments?.map((comment) => {
+		if (comment.id !== commentId) return comment;
+		const existing = comment.reactions.find((entry) => entry.kind === kind);
+		const next = (existing?.count ?? 0) + delta;
+		const reactions =
+			existing === undefined
+				? next > 0
+					? [...comment.reactions, { kind, count: next }]
+					: comment.reactions
+				: next > 0
+					? comment.reactions.map((entry) =>
+							entry.kind === kind ? { ...entry, count: next } : entry,
+						)
+					: comment.reactions.filter((entry) => entry.kind !== kind);
+		return { ...comment, reactions };
+	});
+
+export const useAddReviewReaction = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.addReviewReaction,
+		onMutate: async (input, ctx) => {
+			const key = listReviewReactionsQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			const login = ctx.client.getQueryData(
+				currentForgeLoginQueryOptions(input.projectId).queryKey,
+			);
+			if (login != null) {
+				ctx.client.setQueryData(key, (reactions) =>
+					(reactions ?? []).concat(ghostReaction(input.kind, login)),
+				);
+			}
+
+			return prev;
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: listReviewReactionsQueryOptions(input).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(listReviewReactionsQueryOptions(input).queryKey, prev);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to add reaction",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useRemoveReviewReaction = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.removeReviewReaction,
+		onMutate: async (input, ctx) => {
+			const key = listReviewReactionsQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			ctx.client.setQueryData(key, (reactions) =>
+				reactions?.filter((reaction) => reaction.id !== input.reactionId),
+			);
+
+			return prev;
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: listReviewReactionsQueryOptions(input).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(listReviewReactionsQueryOptions(input).queryKey, prev);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove reaction",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+/**
+ * A comment reaction spans two caches — the count summary on the comments
+ * listing and the names on the per-comment reactions listing — so the
+ * optimistic write and its rollback patch both.
+ */
+export const useAddCommentReaction = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.addCommentReaction,
+		onMutate: async (input, ctx) => {
+			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
+			await Promise.all([
+				ctx.client.cancelQueries({ queryKey: reactionsKey }),
+				ctx.client.cancelQueries({ queryKey: commentsKey }),
+			]);
+
+			const prevReactions = ctx.client.getQueryData(reactionsKey);
+			const prevComments = ctx.client.getQueryData(commentsKey);
+			const login = ctx.client.getQueryData(
+				currentForgeLoginQueryOptions(input.projectId).queryKey,
+			);
+			if (login != null) {
+				ctx.client.setQueryData(reactionsKey, (reactions) =>
+					(reactions ?? []).concat(ghostReaction(input.kind, login)),
+				);
+				ctx.client.setQueryData(commentsKey, (comments) =>
+					withCommentReactionCount(comments, input.commentId, input.kind, 1),
+				);
+			}
+
+			return { prevReactions, prevComments };
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			Promise.all([
+				ctx.client.invalidateQueries({
+					queryKey: listCommentReactionsQueryOptions(input).queryKey,
+				}),
+				ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
+			]),
+		onError: (error, input, prev, ctx) => {
+			if (prev?.prevReactions) {
+				ctx.client.setQueryData(
+					listCommentReactionsQueryOptions(input).queryKey,
+					prev.prevReactions,
+				);
+			}
+			if (prev?.prevComments)
+				ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev.prevComments);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to add reaction",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useRemoveCommentReaction = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.removeCommentReaction,
+		onMutate: async (input, ctx) => {
+			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
+			await Promise.all([
+				ctx.client.cancelQueries({ queryKey: reactionsKey }),
+				ctx.client.cancelQueries({ queryKey: commentsKey }),
+			]);
+
+			const prevReactions = ctx.client.getQueryData(reactionsKey);
+			const prevComments = ctx.client.getQueryData(commentsKey);
+			// The removed reaction's kind drives the count patch; it's in the
+			// listing the toggle was derived from.
+			const kind = prevReactions?.find((reaction) => reaction.id === input.reactionId)?.kind;
+			ctx.client.setQueryData(reactionsKey, (reactions) =>
+				reactions?.filter((reaction) => reaction.id !== input.reactionId),
+			);
+			if (kind !== undefined) {
+				ctx.client.setQueryData(commentsKey, (comments) =>
+					withCommentReactionCount(comments, input.commentId, kind, -1),
+				);
+			}
+
+			return { prevReactions, prevComments };
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			Promise.all([
+				ctx.client.invalidateQueries({
+					queryKey: listCommentReactionsQueryOptions(input).queryKey,
+				}),
+				ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
+			]),
+		onError: (error, input, prev, ctx) => {
+			if (prev?.prevReactions) {
+				ctx.client.setQueryData(
+					listCommentReactionsQueryOptions(input).queryKey,
+					prev.prevReactions,
+				);
+			}
+			if (prev?.prevComments)
+				ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev.prevComments);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove reaction",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useRequestReview = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.requestReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["reviewTimelineEvents" satisfies QueryKey, input.projectId],
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to request review",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useWithdrawReviewRequest = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.withdrawReviewRequest,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to withdraw review request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useCreateReviewComment = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.createReviewComment,
+		onMutate: async (input, ctx) => {
+			const key = listReviewCommentsQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			const login = ctx.client.getQueryData(
+				currentForgeLoginQueryOptions(input.projectId).queryKey,
+			);
+			const ghost: ForgeReviewComment = {
+				id: takeOptimisticForgeId(),
+				body: input.body,
+				author: login == null ? null : ghostForgeUser(login),
+				createdAt: new Date().toISOString(),
+				modifiedAt: null,
+				htmlUrl: "",
+				reactions: [],
+			};
+			ctx.client.setQueryData(key, (comments) => (comments ?? []).concat(ghost));
+
+			return prev;
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev);
+
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to post comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useUpdateReviewComment = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.updateReviewComment,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to update comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useDeleteReviewComment = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.deleteReviewComment,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to delete comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 export const useSetReviewAutoMerge = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.setReviewAutoMerge,
-		onError: (error, input) => {
+		onMutate: async (input, ctx) => {
+			const reviewsPrefix = ["reviews" satisfies QueryKey, input.projectId];
+			await ctx.client.cancelQueries({ queryKey: reviewsPrefix });
+
+			// The flag lives on every reviews listing (the key varies by cache
+			// config) plus the single-review cache; patch them all, snapshot
+			// for rollback.
+			const prev = ctx.client.getQueriesData<Array<ForgeReview>>({ queryKey: reviewsPrefix });
+			ctx.client.setQueriesData<Array<ForgeReview>>({ queryKey: reviewsPrefix }, (reviews) =>
+				reviews?.map((review) =>
+					review.number === input.reviewId ? { ...review, autoMergeEnabled: input.enable } : review,
+				),
+			);
+			const singleKey = getReviewQueryOptions({
+				projectId: input.projectId,
+				reviewId: input.reviewId,
+			}).queryKey;
+			const prevSingle = ctx.client.getQueryData(singleKey);
+			ctx.client.setQueryData(singleKey, (review) =>
+				review === undefined ? undefined : { ...review, autoMergeEnabled: input.enable },
+			);
+
+			return { prev, prevSingle };
+		},
+		onSettled: (_response, _err, input, _prev, ctx) =>
+			Promise.all([
+				ctx.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				ctx.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+			]),
+		onError: (error, input, prev, ctx) => {
+			for (const [key, data] of prev?.prev ?? []) ctx.client.setQueryData(key, data);
+			if (prev?.prevSingle) {
+				ctx.client.setQueryData(
+					getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId }).queryKey,
+					prev.prevSingle,
+				);
+			}
+
 			// oxlint-disable-next-line no-console
 			console.error(error);
 
@@ -232,19 +739,19 @@ export const useMergeReview = () => {
 	return useMutation({
 		mutationFn: window.lite.mergeReview,
 		onSuccess: async (_response, input, _context, mutation) => {
+			// Checks 422 once the branch is merged; refetch so the badge clears.
 			await Promise.all([
 				mutation.client.invalidateQueries({
 					queryKey: ["reviews" satisfies QueryKey, input.projectId],
 				}),
 				mutation.client.invalidateQueries({
-					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
-						.queryKey,
+					queryKey: ["review" satisfies QueryKey, input.projectId],
 				}),
 				mutation.client.invalidateQueries({
-					queryKey: getReviewMergeStatusQueryOptions({
-						projectId: input.projectId,
-						reviewId: input.reviewId,
-					}).queryKey,
+					queryKey: ["reviewMergeStatus" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["ciChecks" satisfies QueryKey, input.projectId],
 				}),
 			]);
 		},
@@ -620,9 +1127,28 @@ export const useWorkspaceBranchAndAncestorsPush = () => {
 	return useMutation({
 		mutationFn: window.lite.workspaceBranchAndAncestorsPush,
 		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
+			// A push moves the review's head, so the cached reviews, their mergeability,
+			// and the checks for the new sha are all stale.
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["headInfo" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["review" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["reviewMergeStatus" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["ciChecks" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: ["reviewTimelineEvents" satisfies QueryKey, input.projectId],
+				}),
+			]);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

@@ -29,8 +29,16 @@ export type QueryKey =
 	| "commitDetailsWithLineStats"
 	| "forgeInfo"
 	| "headInfo"
+	| "currentForgeLogin"
+	| "repoLabels"
 	| "review"
+	| "reviewComments"
+	| "reviewSubmissions"
+	| "reviewTimelineEvents"
+	| "reviewReactions"
+	| "commentReactions"
 	| "reviewMergeStatus"
+	| "reviewerCandidates"
 	| "reviews"
 	| "editors"
 	| "projects"
@@ -197,11 +205,101 @@ export const workspaceFetchQueryOptions = (
 	});
 };
 
+/** This query should be gated by PR capability lest it fail. */
+export const listReviewCommentsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["reviewComments" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.listReviewComments({ projectId, reviewId }),
+		// Fresh forge fetch each time; keep a gentle poll while the tab is open
+		// so replies from others appear without a manual refresh.
+		staleTime: 60_000,
+		refetchInterval: 60_000,
+	});
+
+export const currentForgeLoginQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["currentForgeLogin" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.currentForgeLogin(projectId),
+		// Resolved from local account storage; changes only on re-auth.
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+
+/** Gate on the forge being GitHub; other forges reject this call. */
+export const repoLabelsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["repoLabels" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.listRepoLabels(projectId),
+		// Label definitions rarely change.
+		staleTime: 5 * 60_000,
+	});
+
+/** Gate on the forge being GitHub; other forges reject this call. */
+export const reviewerCandidatesQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["reviewerCandidates" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.listReviewerCandidates(projectId),
+		// Collaborator lists rarely change.
+		staleTime: 5 * 60_000,
+	});
+
+/** This query should be gated by PR capability lest it fail. */
+export const listReviewSubmissionsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["reviewSubmissions" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.listReviewSubmissions({ projectId, reviewId }),
+		// Same freshness posture as the comments: fresh fetch, gentle poll.
+		staleTime: 60_000,
+		refetchInterval: 60_000,
+	});
+
+/** This query should be gated by PR capability lest it fail. */
+export const listReviewTimelineEventsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["reviewTimelineEvents" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.listReviewTimelineEvents({ projectId, reviewId }),
+		// Same freshness posture as the comments: fresh fetch, gentle poll.
+		staleTime: 60_000,
+		refetchInterval: 60_000,
+	});
+
+/** This query should be gated by PR capability lest it fail. */
+export const listReviewReactionsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: ["reviewReactions" satisfies QueryKey, projectId, reviewId],
+		queryFn: () => window.lite.listReviewReactions({ projectId, reviewId }),
+		// Same freshness posture as the comments: fresh fetch, gentle poll.
+		staleTime: 60_000,
+		refetchInterval: 60_000,
+	});
+
+/**
+ * Who reacted to one comment; the caller only mounts this for comments that
+ * have reactions, so most comments cost no request. No poll — the counts on
+ * the comment itself are the freshness signal.
+ */
+export const listCommentReactionsQueryOptions = ({
+	projectId,
+	commentId,
+}: {
+	projectId: string;
+	commentId: number;
+}) =>
+	queryOptions({
+		queryKey: ["commentReactions" satisfies QueryKey, projectId, commentId],
+		queryFn: () => window.lite.listCommentReactions({ projectId, commentId }),
+		staleTime: 60_000,
+	});
+
 export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
 	queryOptions({
 		queryKey: ["reviewMergeStatus" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
 		staleTime: ({ state: { data } }) => (data?.isMergeable ? 30_000 : 10_000),
+		// Mergeability flips from the forge side (checks finish, approvals
+		// land); poll while the tab is open. Pauses when the app is unfocused
+		// (refetchIntervalInBackground defaults off), and the focusManager
+		// wiring in main.tsx catches up on refocus.
+		refetchInterval: 60_000,
 	});
 
 /** This query should be gated by PR capability lest it fail. */
@@ -218,6 +316,12 @@ export const listReviewsQueryOptions = ({ projectId, ...params }: ListReviewsPar
 			};
 		},
 		staleTime: 60_000,
+		// Review state changes on the forge side too (closed/reopened/merged
+		// on the website, labels, review requests). Poll while the app is
+		// focused; refetchIntervalInBackground defaults off, so an
+		// unfocused app goes quiet and the focusManager wiring in main.tsx
+		// refetches on return instead.
+		refetchInterval: 60_000,
 	});
 
 export const listProjectsQueryOptions = queryOptions({

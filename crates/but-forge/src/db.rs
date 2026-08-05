@@ -37,6 +37,7 @@ impl TryFrom<ForgeReview> for but_db::ForgeReview {
             repo_owner: value.repo_owner,
             head_repo_is_fork: value.head_repo_is_fork,
             reviewers: serde_json::to_string(&value.reviewers)?,
+            auto_merge_enabled: value.auto_merge_enabled,
             unit_symbol: value.unit_symbol,
             last_sync_at: value.last_sync_at,
             struct_version: version,
@@ -84,6 +85,7 @@ impl TryFrom<but_db::ForgeReview> for ForgeReview {
             repo_owner: value.repo_owner,
             head_repo_is_fork: value.head_repo_is_fork,
             reviewers: serde_json::from_str(&value.reviewers)?,
+            auto_merge_enabled: value.auto_merge_enabled,
             unit_symbol: value.unit_symbol,
             last_sync_at: value.last_sync_at,
         })
@@ -344,6 +346,7 @@ mod tests {
             repo_owner: None,
             head_repo_is_fork: false,
             reviewers: Vec::new(),
+            auto_merge_enabled: false,
             unit_symbol: "#".to_string(),
             last_sync_at,
         }

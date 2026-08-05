@@ -19,6 +19,27 @@ pub fn remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<
     project_meta.remote_url_with_fallback(repo)
 }
 
+/// Everything a forge endpoint needs per call: account storage, the
+/// repository's forge coordinates, and the preferred account.
+fn forge_endpoint_context(
+    ctx: ThreadSafeContext,
+) -> Result<(
+    but_forge_storage::Controller,
+    but_forge::ForgeRepoInfo,
+    Option<but_forge::ForgeUser>,
+)> {
+    let ctx = ctx.into_thread_local();
+    let project_meta = ctx.project_meta()?;
+    let repo = ctx.repo.get()?;
+    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
+        .context("No forge could be determined for this repository branch")?;
+    Ok((
+        but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+        forge_repo_info,
+        ctx.legacy_project.preferred_forge_user.clone(),
+    ))
+}
+
 /// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
 ///
 /// Errors if no target is set, or if its remote cannot be determined.
@@ -506,6 +527,7 @@ mod tests {
             repository_https_url: None,
             repo_owner: Some("alice".into()),
             head_repo_is_fork: true,
+            auto_merge_enabled: false,
             reviewers: Vec::new(),
             unit_symbol: "#".into(),
             last_sync_at: Default::default(),
@@ -659,21 +681,323 @@ pub async fn get_review_base_repo_url(
     ctx: ThreadSafeContext,
     review_id: usize,
 ) -> Result<Option<String>> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.preferred_forge_user.clone(),
-        )
-    };
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
     but_forge::get_review_base_repo_url(
         &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
         review_id,
+        &storage,
+    )
+    .await
+}
+
+/// List the top-level conversation comments on a review, oldest first.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_review_comments(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewComment>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_comments(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
+/// List the individual reactions (with who reacted) on a review itself.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_review_reactions(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewReaction>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_reactions(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
+/// List the individual reactions (with who reacted) on one comment.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_comment_reactions(
+    ctx: ThreadSafeContext,
+    comment_id: i64,
+) -> Result<Vec<but_forge::ForgeReviewReaction>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_comment_reactions(
+        &preferred_forge_user,
+        &forge_repo_info,
+        comment_id,
+        &storage,
+    )
+    .await
+}
+
+/// Add the caller's reaction to a review itself.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn add_review_reaction(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    kind: String,
+) -> Result<but_forge::ForgeReviewReaction> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::add_review_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &kind,
+        &storage,
+    )
+    .await
+}
+
+/// Remove one of the caller's reactions from a review itself.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn remove_review_reaction(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    reaction_id: i64,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::remove_review_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        reaction_id,
+        &storage,
+    )
+    .await
+}
+
+/// Add the caller's reaction to one comment.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn add_comment_reaction(
+    ctx: ThreadSafeContext,
+    comment_id: i64,
+    kind: String,
+) -> Result<but_forge::ForgeReviewReaction> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::add_comment_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        comment_id,
+        &kind,
+        &storage,
+    )
+    .await
+}
+
+/// Remove one of the caller's reactions from one comment.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn remove_comment_reaction(
+    ctx: ThreadSafeContext,
+    comment_id: i64,
+    reaction_id: i64,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::remove_comment_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        comment_id,
+        reaction_id,
+        &storage,
+    )
+    .await
+}
+
+/// List the pushed commits and review requests on a review's timeline.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_review_timeline_events(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewTimelineEvent>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_timeline_events(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
+/// List the submitted reviews (approvals, change requests) on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_review_submissions(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewSubmission>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_submissions(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
+/// Edit a top-level conversation comment on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn update_review_comment(
+    ctx: ThreadSafeContext,
+    comment_id: i64,
+    body: String,
+) -> Result<but_forge::ForgeReviewComment> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::update_review_comment(
+        &preferred_forge_user,
+        &forge_repo_info,
+        comment_id,
+        &body,
+        &storage,
+    )
+    .await
+}
+
+/// Delete a top-level conversation comment on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn delete_review_comment(ctx: ThreadSafeContext, comment_id: i64) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::delete_review_comment(
+        &preferred_forge_user,
+        &forge_repo_info,
+        comment_id,
+        &storage,
+    )
+    .await
+}
+
+/// The login this project's forge calls authenticate as, if any account is
+/// configured. Resolved from stored accounts; no network.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn current_forge_login(ctx: &Context) -> Result<Option<String>> {
+    let project_meta = ctx.project_meta()?;
+    let repo = ctx.repo.get()?;
+    let Some(forge_repo_info) =
+        but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
+    else {
+        return Ok(None);
+    };
+    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    but_forge::current_forge_login(
+        &ctx.legacy_project.preferred_forge_user,
+        &forge_repo_info,
+        &storage,
+    )
+}
+
+/// List the labels defined on the repository backing this project's reviews.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_repo_labels(ctx: ThreadSafeContext) -> Result<Vec<but_forge::ForgeReviewLabel>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_repo_labels(&preferred_forge_user, &forge_repo_info, &storage).await
+}
+
+/// Add labels to a review; returns the resulting label set.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn add_review_labels(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    labels: Vec<String>,
+) -> Result<Vec<but_forge::ForgeReviewLabel>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::add_review_labels(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &labels,
+        &storage,
+    )
+    .await
+}
+
+/// Remove one label from a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn remove_review_label(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    label: String,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::remove_review_label(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &label,
+        &storage,
+    )
+    .await
+}
+
+/// List users who can be requested to review on this project's repository.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn list_reviewer_candidates(
+    ctx: ThreadSafeContext,
+) -> Result<Vec<but_forge::ForgeReviewUser>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_reviewer_candidates(&preferred_forge_user, &forge_repo_info, &storage).await
+}
+
+/// Request reviews from the given users on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn request_review(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    logins: Vec<String>,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::request_review(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &logins,
+        &storage,
+    )
+    .await
+}
+
+/// Withdraw review requests for the given users on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn withdraw_review_request(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    logins: Vec<String>,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::withdraw_review_request(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &logins,
+        &storage,
+    )
+    .await
+}
+
+/// Post a top-level conversation comment on a review.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn create_review_comment(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    body: String,
+) -> Result<but_forge::ForgeReviewComment> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::create_review_comment(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        &body,
         &storage,
     )
     .await
@@ -685,24 +1009,9 @@ pub async fn get_review_merge_status(
     ctx: ThreadSafeContext,
     review_id: usize,
 ) -> Result<but_forge::ReviewMergeStatus> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.preferred_forge_user.clone(),
-        )
-    };
-    but_forge::get_review_merge_status(
-        &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
-        review_id,
-        &storage,
-    )
-    .await
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::get_review_merge_status(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
 }
 
 #[but_api(napi)]
@@ -892,21 +1201,11 @@ pub async fn merge_review(
     review_id: usize,
     merge_method: Option<but_forge::ReviewMergeMethod>,
 ) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.preferred_forge_user.clone(),
-        )
-    };
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
 
     but_forge::merge_review(
         &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
         review_id,
         merge_method,
         &storage,
@@ -922,21 +1221,11 @@ pub async fn set_review_auto_merge(
     review_id: usize,
     enable: bool,
 ) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.preferred_forge_user.clone(),
-        )
-    };
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
 
     but_forge::set_review_auto_merge_state(
         &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
         review_id,
         enable,
         &storage,
@@ -987,22 +1276,12 @@ pub async fn update_review(
     state: Option<but_forge::ReviewState>,
     target_base: Option<String>,
 ) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
-        let project_meta = ctx.project_meta()?;
-        let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            forge_repo_info,
-            ctx.legacy_project.preferred_forge_user.clone(),
-        )
-    };
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
 
     let update_payload = but_forge::ReviewUpdatePayload::new(title, body, state, target_base);
     but_forge::update_review(
         &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
         review_id,
         update_payload,
         &storage,

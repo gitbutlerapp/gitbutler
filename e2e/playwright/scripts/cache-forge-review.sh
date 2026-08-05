@@ -30,6 +30,9 @@ database, review_number, source_branch, target_branch = sys.argv[1], int(sys.arg
 with sqlite3.connect(database) as connection:
     connection.execute(
         """
+        -- struct_version must match ForgeReview::struct_version() in
+        -- crates/but-forge/src/review.rs, or the backend discards the row
+        -- as an incompatible cache entry and the PR association never forms.
         INSERT INTO forge_reviews (
             html_url, number, title, body, author, labels, draft,
             source_branch, target_branch, sha, integration_commit_shas,
@@ -42,7 +45,7 @@ with sqlite3.connect(database) as connection:
             ?, ?, ?, '[]',
             datetime('now'), datetime('now'), NULL, NULL,
             NULL, NULL, NULL,
-            FALSE, '[]', '#', datetime('now'), 3
+            FALSE, '[]', '#', datetime('now'), 4
         )
         ON CONFLICT(number) DO UPDATE SET
             title = excluded.title,

@@ -27,6 +27,7 @@ fn cached_review(source_branch: &str, number: i64) -> ForgeReview {
         repository_https_url: None,
         repo_owner: None,
         head_repo_is_fork: false,
+        auto_merge_enabled: false,
         reviewers: Vec::new(),
         unit_symbol: "#".to_string(),
         last_sync_at: chrono::NaiveDateTime::default(),

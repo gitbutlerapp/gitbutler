@@ -138,6 +138,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         repo_owner: None,
         head_repo_is_fork: false,
         reviewers: "[]".to_string(),
+        auto_merge_enabled: false,
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()
@@ -377,6 +378,7 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         repo_owner: Some("owner".to_string()),
         head_repo_is_fork: false,
         reviewers: "[]".to_string(),
+        auto_merge_enabled: false,
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()

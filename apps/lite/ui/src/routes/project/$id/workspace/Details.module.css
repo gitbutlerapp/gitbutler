@@ -1,4 +1,12 @@
 .container {
+	/* Shared by the PR layout and the header so the primary-action buttons
+	   align with the panel column's right edge. The panel consumes
+	   --pr-panel-width for its own flex-basis. */
+	--pr-main-max: 700px;
+	--pr-panel-width: 220px;
+	--pr-layout-gap: 16px;
+	--pr-content-max: calc(var(--pr-main-max) + var(--pr-layout-gap) + var(--pr-panel-width));
+
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 12px;
@@ -13,7 +21,9 @@
 	display: flex;
 	row-gap: 10px;
 	flex-direction: column;
-	padding-inline: var(--panel-padding-inline) 10px;
+	/* Symmetric so the header actions share a right edge with the content
+	   columns below, which all inset by the same token. */
+	padding-inline: var(--panel-padding-inline);
 	padding-block-start: var(--panel-padding-block);
 }
 
@@ -50,11 +60,6 @@
 	white-space: nowrap;
 }
 
-.prActions {
-	display: flex;
-	gap: 6px;
-}
-
 .actions {
 	display: flex;
 	align-items: center;
@@ -73,42 +78,6 @@
 		padding-inline: var(--panel-padding-inline);
 		padding-block: var(--panel-padding-block);
 	}
-}
-
-.checks {
-	margin-block-start: 48px;
-}
-
-.checkHeading {
-	margin-block-end: 8px;
-	color: var(--text-2);
-	font-weight: 600;
-}
-
-.checkSummary {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.checkItems {
-	display: flex;
-	flex-direction: column;
-	margin-block-start: 8px;
-	gap: 6px;
-	color: var(--text-2);
-}
-
-.checkJobsHeading {
-	margin-block: 12px 8px;
-	color: var(--text-2);
-	font-weight: 600;
-}
-
-.check {
-	display: flex;
-	align-items: center;
-	gap: 6px;
 }
 
 .diffControls {
@@ -255,26 +224,39 @@
 	column-gap: 12px;
 }
 
+/* While the PR tab is showing, cap the row to the PR content width so the
+   primary actions align with the panel column instead of the pane edge. */
+.tabsRowPrCap {
+	max-width: var(--pr-content-max);
+}
+
 .tabsRowRight {
 	margin-inline-start: auto;
 }
 
 .prTab {
+	/* The container grid clamps this row to the pane height while the pane
+	   scrolls the overflow; size to content instead so the end padding lands
+	   after the composer rather than mid-content. */
+	align-self: start;
 	padding-inline: var(--panel-padding-inline);
 	padding-block-end: var(--panel-padding-block);
 }
 
-.prForm {
+.prLayout {
 	display: flex;
-	row-gap: 12px;
-	flex-direction: column;
-	max-width: 700px;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	/* Cap the whole row so the panel sits just right of the main column
+	   instead of drifting to the pane's far edge at wide widths. */
+	max-width: var(--pr-content-max);
+	gap: var(--pr-layout-gap);
 }
 
-.prFormActions {
-	display: flex;
-	column-gap: 4px;
-	justify-content: flex-end;
+.prMain {
+	flex: 1 1 400px;
+	min-width: 0;
+	max-width: var(--pr-main-max);
 }
 
 .fileHeader {
