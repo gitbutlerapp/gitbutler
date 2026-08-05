@@ -1,8 +1,8 @@
 //! In place of commands.rs
 
 use anyhow::Result;
-use but_action::cli::{InstallMode, do_install_cli, get_cli_path};
 use but_api_macros::but_api;
+use but_skill::cli_link::{InstallMode, do_install_cli, get_cli_path};
 use tracing::instrument;
 
 #[but_api]

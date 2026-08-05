@@ -81,6 +81,7 @@ legacy = [
 ]
 
 [dependencies]
+but-skill.workspace = true
 but-serde.workspace = true
 but-path.workspace = true
 but-api-macros.workspace = true

@@ -56,5 +56,5 @@ permission-taking helper.
 
 ## CLI Skills
 
-- After changing CLI commands or workflows, update `crates/but/skill/` so
+- After changing CLI commands or workflows, update `crates/but-skill/skill/` so
   bundled agent skills stay current.

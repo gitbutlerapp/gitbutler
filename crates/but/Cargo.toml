@@ -48,6 +48,7 @@ tui-profiling = ["dep:allocation-counter"]
 raw-clap-docs = []
 
 [dependencies]
+but-skill.workspace = true
 but-core.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true

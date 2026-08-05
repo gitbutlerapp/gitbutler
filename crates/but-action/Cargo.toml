@@ -12,14 +12,12 @@ test = false
 
 [features]
 ## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
-builtin-but = []
 
 [dependencies]
 but-serde.workspace = true
 but-db.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
-but-error.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
 but-hunk-assignment.workspace = true

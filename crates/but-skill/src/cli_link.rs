@@ -1,3 +1,6 @@
+//! Installing and inspecting the `but` CLI symlink that lets a terminal
+//! reach the binary shipped inside the desktop app.
+
 use anyhow::{Context as _, anyhow, bail};
 use but_error::{Code, Context as ErrorContext};
 

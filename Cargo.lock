@@ -863,6 +863,7 @@ dependencies = [
  "but-rebase",
  "but-secret",
  "but-settings",
+ "but-skill",
  "but-testsupport",
  "but-transaction",
  "but-update",
@@ -933,7 +934,6 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
- "but-error",
  "but-graph",
  "but-hunk-assignment",
  "but-llm",
@@ -1014,6 +1014,7 @@ dependencies = [
  "but-secret",
  "but-serde",
  "but-settings",
+ "but-skill",
  "but-testsupport",
  "but-workspace",
  "but-worktrees",
@@ -1653,6 +1654,18 @@ dependencies = [
  "serde_json_lenient",
  "tempfile",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "but-skill"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-path",
+ "serde",
+ "tempfile",
  "tracing",
 ]
 
@@ -4168,6 +4181,7 @@ dependencies = [
  "but-path",
  "but-secret",
  "but-settings",
+ "but-skill",
  "console-subscriber",
  "document-features",
  "gitbutler-project",

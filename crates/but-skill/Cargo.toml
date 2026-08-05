@@ -1,0 +1,27 @@
+[package]
+name = "but-skill"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+## Set when the `but` CLI capabilities are built into the hosting binary
+## (the Tauri app), so the CLI path resolves to the current executable
+## rather than a sibling `but` binary.
+builtin-but = []
+
+[dependencies]
+anyhow.workspace = true
+but-error.workspace = true
+but-path.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tempfile.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

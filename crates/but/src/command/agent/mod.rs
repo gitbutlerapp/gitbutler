@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Write as _},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use anyhow::{Context as _, Result};
@@ -8,26 +8,23 @@ use nonempty::NonEmpty;
 
 use crate::{
     args::agent,
-    command::skill,
     theme::{self, Paint},
     utils::{InputOutputChannel, OutputChannel, PromptLine, detect_agent},
 };
 
 mod cleanup;
-mod files;
-mod plan;
-mod policy;
 #[cfg(test)]
 mod tests;
 
 pub(crate) use cleanup::retired_policy_syntax_notice;
 
-use files::upsert_managed_block_file;
-use plan::{AgentTarget, Plan};
-use policy::{WizardAnswers, WorkflowOption, render_managed_policy_block};
-
-const MANAGED_BLOCK_START: &str = "<!-- gitbutler-agent-setup:start -->";
-const MANAGED_BLOCK_END: &str = "<!-- gitbutler-agent-setup:end -->";
+use but_skill::{
+    files::{MANAGED_BLOCK_END, MANAGED_BLOCK_START, upsert_managed_block_file},
+    install::write_skill_files,
+    plan::{Plan, RepoInfo, Scope},
+    policy::{WizardAnswers, WorkflowOption, render_managed_policy_block},
+    target::AgentTarget,
+};
 
 /// Error type for user-initiated cancellation.
 #[derive(Debug, Clone, Copy)]
@@ -234,12 +231,6 @@ fn write_intro(writer: &mut impl fmt::Write, repo: Option<&RepoInfo>) -> fmt::Re
     )
 }
 
-#[derive(Debug, Clone)]
-struct RepoInfo {
-    root: PathBuf,
-    needs_setup: bool,
-}
-
 fn discover_repo(current_dir: &Path) -> Option<RepoInfo> {
     let repo = gix::discover(current_dir).ok()?;
     let root = repo.workdir()?.to_path_buf();
@@ -264,23 +255,12 @@ fn repo_needs_setup(_workdir: &Path) -> bool {
     false
 }
 
-/// Where the user wants this setup to apply. A single choice that drives both
-/// where skills install and where workflow preferences are written, so the user
-/// is not asked the same repository-vs-global question several times.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Scope {
-    Repository,
-    Global,
-    Both,
-}
-
-impl Scope {
-    fn summary(self) -> &'static str {
-        match self {
-            Self::Repository => "this project",
-            Self::Global => "all your projects",
-            Self::Both => "this project and your global setup",
-        }
+/// How the wizard describes a scope in its review step.
+fn scope_summary(scope: Scope) -> &'static str {
+    match scope {
+        Scope::Repository => "this project",
+        Scope::Global => "all your projects",
+        Scope::Both => "this project and your global setup",
     }
 }
 
@@ -613,7 +593,7 @@ fn write_review(writer: &mut impl fmt::Write, plan: &Plan) -> fmt::Result {
     writeln!(
         writer,
         "Here's what GitButler will set up for {}.",
-        t.important.paint(plan.scope.summary())
+        t.important.paint(scope_summary(plan.scope))
     )?;
 
     if !plan.skill_installs.is_empty() {
@@ -721,7 +701,7 @@ fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Resul
     }
 
     for install in &plan.skill_installs {
-        skill::write_skill_files(&install.path)
+        write_skill_files(&install.path)
             .with_context(|| format!("Failed to install skill at {}", install.path.display()))?;
     }
 

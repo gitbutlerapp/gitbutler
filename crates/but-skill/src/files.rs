@@ -1,10 +1,21 @@
+//! Reading and writing GitButler's managed block inside agent instruction
+//! files such as `AGENTS.md` and `CLAUDE.md`.
+//!
+//! These files are usually hand-edited and git-tracked, so every operation here
+//! is deliberately conservative: markers are only recognised on their own line
+//! and outside fenced code blocks, and a malformed marker pair is an error
+//! rather than a guess.
+
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
 
-use super::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
+/// Opening delimiter of the block GitButler owns inside an instruction file.
+pub const MANAGED_BLOCK_START: &str = "<!-- gitbutler-agent-setup:start -->";
+/// Closing delimiter of the block GitButler owns inside an instruction file.
+pub const MANAGED_BLOCK_END: &str = "<!-- gitbutler-agent-setup:end -->";
 
-pub(super) fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> {
+pub fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> {
     let original = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
@@ -27,7 +38,7 @@ pub(super) fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> 
 /// text or backticks keep it off its own line), or shown as an example inside a
 /// fenced code block, from being mistaken for a real block delimiter — which
 /// would otherwise splice away the surrounding text.
-pub(super) fn find_line_anchored(haystack: &str, needle: &str, from: usize) -> Option<usize> {
+pub fn find_line_anchored(haystack: &str, needle: &str, from: usize) -> Option<usize> {
     let bytes = haystack.as_bytes();
     let mut search = from;
     while let Some(rel) = haystack[search..].find(needle) {
@@ -63,7 +74,7 @@ fn inside_fenced_block(haystack: &str, idx: usize) -> bool {
 /// end-exclusive `Range`). Pairs every line-anchored start with the first
 /// line-anchored end after it. Errors when a start marker has no matching end,
 /// so callers refuse to touch a malformed block.
-pub(super) fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<usize>>> {
+pub fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<usize>>> {
     let mut spans = Vec::new();
     let mut pos = 0;
     while let Some(start) = find_line_anchored(existing, MANAGED_BLOCK_START, pos) {
@@ -93,7 +104,7 @@ fn match_line_endings(existing: &str, block: &str) -> String {
     }
 }
 
-pub(super) fn upsert_managed_block(existing: &str, block: &str) -> Result<String> {
+pub fn upsert_managed_block(existing: &str, block: &str) -> Result<String> {
     let start = find_line_anchored(existing, MANAGED_BLOCK_START, 0);
     let end = find_line_anchored(existing, MANAGED_BLOCK_END, 0);
 

@@ -1,9 +1,12 @@
+//! The workflow preferences a user picks during agent setup, and how they
+//! render into (and parse back out of) the managed steering block.
+
 use std::fmt::Write as _;
 
-use super::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
+use crate::files::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum WorkflowOption {
+pub enum WorkflowOption {
     FoldFixes,
     SuggestSplits,
     StackedBranches,
@@ -17,7 +20,7 @@ pub(super) enum WorkflowOption {
 }
 
 impl WorkflowOption {
-    pub(super) const ALL: [Self; 10] = [
+    pub const ALL: [Self; 10] = [
         Self::FoldFixes,
         Self::SuggestSplits,
         Self::StackedBranches,
@@ -30,7 +33,7 @@ impl WorkflowOption {
         Self::CommitAfterTurn,
     ];
 
-    pub(super) fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::FoldFixes => "Prefer folding small follow-up fixes into the matching commit",
             Self::SuggestSplits => "Suggest splitting large or mixed commits into smaller commits",
@@ -47,7 +50,7 @@ impl WorkflowOption {
         }
     }
 
-    pub(super) fn help(self) -> &'static str {
+    pub fn help(self) -> &'static str {
         match self {
             Self::FoldFixes => {
                 "Small cleanup fixes go into the commit they belong to instead of becoming extra fixup commits."
@@ -82,7 +85,7 @@ impl WorkflowOption {
         }
     }
 
-    pub(super) fn default_selected(self) -> bool {
+    pub fn default_selected(self) -> bool {
         matches!(self, Self::FoldFixes | Self::SuggestSplits)
     }
 
@@ -91,24 +94,24 @@ impl WorkflowOption {
     /// targets, so a repo-local rule (like landing onto the target) must not be
     /// offered for a global or combined setup, where it would also land in the
     /// user's global config.
-    pub(super) fn repo_local_only(self) -> bool {
+    pub fn repo_local_only(self) -> bool {
         matches!(self, Self::PushToTarget)
     }
 
     /// Help shown for a repo-local-only option when the current setup is not
     /// scoped to a single repository: spells out how to enable it and what it
     /// does.
-    pub(super) fn repo_local_help(self) -> &'static str {
+    pub fn repo_local_help(self) -> &'static str {
         "Re-run setup for a single repo (pick \"Just this project\") to enable landing work directly onto the target (e.g. main) instead of opening pull requests."
     }
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct WizardAnswers {
-    pub(super) selected: Vec<WorkflowOption>,
-    pub(super) publish_phrase: String,
-    pub(super) branch_pattern: Option<String>,
-    pub(super) commit_convention: Option<String>,
+pub struct WizardAnswers {
+    pub selected: Vec<WorkflowOption>,
+    pub publish_phrase: String,
+    pub branch_pattern: Option<String>,
+    pub commit_convention: Option<String>,
 }
 
 impl Default for WizardAnswers {
@@ -126,7 +129,7 @@ impl Default for WizardAnswers {
 }
 
 impl WizardAnswers {
-    pub(super) fn has(&self, option: WorkflowOption) -> bool {
+    pub fn has(&self, option: WorkflowOption) -> bool {
         self.selected.contains(&option)
     }
 }
@@ -135,7 +138,7 @@ impl WizardAnswers {
 /// rewrite the retired wording in already-installed policy blocks to exactly
 /// this text. Rewording it strands old installs on the previous wording unless
 /// the cleanup learns that wording as another retired variant.
-pub(super) const FAST_PATH_BULLET: &str = "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.";
+pub const FAST_PATH_BULLET: &str = "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.";
 
 /// Render the GitButler steering as a managed block. Mirrors the published
 /// guidance: an always-on `## Version control` baseline (see the docs "Getting
@@ -143,7 +146,7 @@ pub(super) const FAST_PATH_BULLET: &str = "For commit just/only/specific changes
 /// the docs "Tuning agent behavior" page). The bullets are kept close to the
 /// docs text so the result matches hand-copying the relevant snippets, and they
 /// are phrased as direct instructions an agent can act on.
-pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
+pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     let mut body = String::new();
     body.push_str(MANAGED_BLOCK_START);
     body.push('\n');

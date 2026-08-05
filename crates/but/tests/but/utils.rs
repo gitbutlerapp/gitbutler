@@ -206,3 +206,33 @@ pub fn make_absolute(path: impl AsRef<Path>) -> PathBuf {
     cargo_manifest_dir = cargo_manifest_dir.parent().unwrap().parent().unwrap();
     cargo_manifest_dir.join(path)
 }
+
+/// Every agent environment variable must be explicitly removed by the test
+/// command isolation helper, so an ambient agent session in the developer's
+/// shell cannot change what `but` detects mid-test.
+///
+/// Lives here rather than beside the detection code in `but-skill`: it asserts
+/// against `but-testsupport`, which sits far above that crate in the dependency
+/// graph.
+#[test]
+fn command_isolation_removes_all_agent_environment_variables() {
+    use std::ffi::OsStr;
+
+    let mut cmd = std::process::Command::new("but");
+    for var in but::AGENT_ENVIRONMENT_VARIABLES {
+        cmd.env(var, "ambient-value");
+    }
+
+    but_testsupport::isolate_env_std_cmd_with_additional_removals(
+        &mut cmd,
+        but::AGENT_ENVIRONMENT_VARIABLES,
+    );
+
+    for var in but::AGENT_ENVIRONMENT_VARIABLES {
+        let update = cmd.get_envs().find(|(name, _)| *name == OsStr::new(var));
+        assert!(
+            matches!(update, Some((_, None))),
+            "{var} should be explicitly removed",
+        );
+    }
+}

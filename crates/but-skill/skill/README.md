@@ -45,7 +45,7 @@ This will overwrite the existing skill files with the latest version.
 The skill directory contains both distributable skill files and development documentation:
 
 ```text
-crates/but/skill/
+crates/but-skill/skill/
 ├── SKILL.md                   ← Skill entry point (INSTALLED)
 ├── AGENTS.md                  ← Rules for editing these files (NOT installed)
 ├── README.md                  ← This file - development docs (NOT installed)
