@@ -17,6 +17,9 @@ use but_workspace::RefInfo;
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+/// Managing coding-agent skills and the `but` CLI symlink.
+pub mod agents;
+
 /// Functions for GitHub authentication.
 pub mod github;
 

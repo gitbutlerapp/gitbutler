@@ -867,6 +867,37 @@ export type AbsorptionTarget = {
   type: "all";
 };
 
+/** One coding agent and its per-scope skill state. */
+export type AgentFramework = {
+  /** Stable identifier, and the key every mutating call takes. */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** One-line description of what installing does. */
+  description: string;
+  /** A config marker for this agent was found under `$HOME`. */
+  detectedGlobally: boolean;
+  /** A config marker was found in the project. Always false without one. */
+  detectedInRepo: boolean;
+  /**
+   * One entry per scope this framework can install into. Some agents
+   * are global-only, so this is not always both.
+   */
+  scopes: Array<FrameworkScopeState>;
+};
+
+/** Everything the settings screen needs to render the agent list. */
+export type AgentsStatus = {
+  /** The CLI version installed skills are compared against. */
+  cliVersion: string;
+  /** The user's home directory, when it can be determined. */
+  homeDir: string | null;
+  /** The repository root, absent when the request had no project. */
+  repoRoot: string | null;
+  /** Every known framework, detected ones first. */
+  frameworks: Array<AgentFramework>;
+};
+
 /** JSON transport type for the outcome of an AI conflict resolution. */
 export type AiResolutionResult = {
   /** The conflicted commit that was resolved. */
@@ -1340,6 +1371,26 @@ export type Claude = {
   useConfiguredModel: boolean;
 };
 
+/** The `but` CLI symlink, as the settings screen sees it. */
+export type CliInstallState = {
+  /** The `but` binary this app links to. */
+  targetPath: string;
+  /**
+   * Whether that binary exists. False in a dev build that has not built
+   * `but` yet.
+   */
+  targetExists: boolean;
+  /** The link location, absent on Windows. */
+  linkPath: string | null;
+  /** Whether the link is present and points at our binary. */
+  installed: boolean;
+  /**
+   * Set when the link cannot be managed: something that is not ours
+   * sits at the link path, or the platform has no symlink install.
+   */
+  blockedReason: string | null;
+};
+
 /**
  * A unique code that consumers of the API may rely on to identify errors.
  *
@@ -1350,7 +1401,7 @@ export type Claude = {
  *
  * In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
  */
-export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
+export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "CliUninstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {
@@ -1893,6 +1944,28 @@ export type ForgeUser = {
   details: BitbucketAccountIdentifier;
 };
 
+/** What is installed for one framework at one scope. */
+export type FrameworkScopeState = {
+  /** The scope this entry describes. */
+  scope: SkillScope;
+  /** Where a fresh install would write. */
+  skillPath: string;
+  /**
+   * The GitButler skill found here, if any. Identity comes from
+   * `SKILL.md` frontmatter, so the folder name may differ from
+   * `skill_path`.
+   */
+  installed: InstalledSkill | null;
+  /**
+   * The instruction file the managed policy block goes in. `None` when
+   * this agent has no supported file at this scope, in which case the
+   * policy can only be shown for manual copying.
+   */
+  instructionPath: string | null;
+  /** Whether that instruction file currently holds a managed block. */
+  hasManagedBlock: boolean;
+};
+
 /**
  * A full reference name accepted as raw bytes.
  *
@@ -2197,6 +2270,16 @@ export type InitialBranchIntegration = {
 /** Describes where relative to the selector a step should be inserted */
 export type InsertSide = "above" | "below";
 
+/** A discovered skill installation. */
+export type InstalledSkill = {
+  /** Where it actually lives. */
+  path: string;
+  /** Version from its `SKILL.md`, or "unknown". */
+  version: string;
+  /** Whether it matches the running CLI version. */
+  upToDate: boolean;
+};
+
 /** JSON transport type for integrating a branch. */
 export type IntegrateBranchResult = {
   /** Workspace state after applying or previewing the integration. */
@@ -2472,6 +2555,50 @@ export type OutsideWorkspaceMetadata = {
 
 /** A column in a detailed graph padding row. */
 export type PadLine = "blank" | "ancestor" | "parent";
+
+/** The workflow preferences themselves, as both input and output. */
+export type PolicyOptions = {
+  /** The enabled options. */
+  selected: Array<WorkflowOptionId>;
+  /** Phrase that means "publish everything". */
+  publishPhrase: string;
+  /** Preferred branch naming pattern. */
+  branchPattern?: string | null;
+  /** Preferred commit message convention. */
+  commitConvention?: string | null;
+};
+
+/** One instruction file inspected while reading the policy. */
+export type PolicySource = {
+  /** The file. */
+  path: string;
+  /**
+   * Framework ids whose steering lives in it. Several agents share one
+   * `AGENTS.md`, so this is often more than one.
+   */
+  frameworks: Array<string>;
+  /** Whether it currently holds a managed block. */
+  hasManagedBlock: boolean;
+  /** The options read out of that block. */
+  options: PolicyOptions | null;
+};
+
+/** The catalogue plus whatever the installed blocks currently say. */
+export type PolicyState = {
+  /** Every option, so the UI renders from this rather than hardcoding. */
+  available: Array<WorkflowOptionInfo>;
+  /** The options currently installed, or `None` when no block exists. */
+  current: PolicyOptions | null;
+  /** What a fresh setup would select, for pre-filling. */
+  defaults: PolicyOptions;
+  /** Every instruction file inspected and what each held. */
+  sources: Array<PolicySource>;
+  /**
+   * Whether two inspected files hold blocks that disagree, in which
+   * case `current` is only the first of them.
+   */
+  diverged: boolean;
+};
 
 /**
  * API-specific project type that can be enriched with computed/derived data
@@ -2862,6 +2989,9 @@ export type SingleHunk = {
   /** The worktree-relative path of the file this hunk belongs to. */
   pathBytes: Array<number>;
 };
+
+/** Where an agent artifact lives. */
+export type SkillScope = "global" | "repository";
 
 export type Snapshot = {
   commitId: string;
@@ -3269,6 +3399,32 @@ export type WatcherWorkspaceActivityPayload = null;
 export type WatcherWorktreeChangesPayload = {
   /** The file changes in the repository. */
   changes: WorktreeChanges;
+};
+
+/** One of the workflow preferences that render into the managed block. */
+export type WorkflowOptionId = "foldFixes" | "suggestSplits" | "stackedBranches" | "autoUpdate" | "draftPrs" | "pushToTarget" | "publishPhrase" | "branchPattern" | "commitConvention" | "commitAfterTurn";
+
+/**
+ * Static description of a workflow option, so the UI never hardcodes the
+ * wording.
+ */
+export type WorkflowOptionInfo = {
+  /** Which option this describes. */
+  id: WorkflowOptionId;
+  /** Checkbox label. */
+  label: string;
+  /** Explanatory help text. */
+  help: string;
+  /** Whether a fresh setup enables it. */
+  defaultSelected: boolean;
+  /**
+   * Whether it only makes sense for a single repository. The policy is
+   * rendered once and written everywhere the setup targets, so a
+   * repo-local rule must not be offered for a global setup.
+   */
+  repoLocalOnly: boolean;
+  /** Why it is unavailable outside repository scope, when it is. */
+  repoLocalHelp: string | null;
 };
 
 /** The persisted status of fetches performed through [`workspace_fetch_from_remotes()`]. */

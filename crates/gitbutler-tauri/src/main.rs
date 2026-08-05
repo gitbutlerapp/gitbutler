@@ -13,7 +13,7 @@
 
 use anyhow::{Context, bail};
 use but_api::{
-    bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
+    agents, bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
     workspace,
 };
 use but_settings::AppSettingsWithDiskSync;
@@ -335,6 +335,13 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_update_review_footers::update_review_footers,
                 legacy::cli::tauri_install_cli::install_cli,
                 legacy::cli::tauri_cli_path::cli_path,
+                agents::tauri_cli_install_state::cli_install_state,
+                agents::tauri_uninstall_cli::uninstall_cli,
+                agents::tauri_agents_status::agents_status,
+                agents::tauri_agent_skill_install::agent_skill_install,
+                agents::tauri_agent_skill_uninstall::agent_skill_uninstall,
+                agents::tauri_agent_policy_get::agent_policy_get,
+                agents::tauri_agent_policy_set::agent_policy_set,
                 legacy::workspace::tauri_head_info::head_info,
                 legacy::workspace::tauri_branch_details::branch_details,
                 legacy::workspace::tauri_discard_worktree_changes::discard_worktree_changes,
