@@ -38,6 +38,37 @@
 	}
 }
 
+/* Placed before .containerSelected so selection wins on a row that is both. */
+.containerChecked {
+	background-color: color-mix(var(--fill-pop-bg) 15%, transparent);
+
+	/* Deepens by the same amount an unchecked row picks up from
+	   --opacity-bg-hover, so hover reads the same everywhere. */
+	&:where(.containerInteractive:hover) {
+		background-color: color-mix(var(--fill-pop-bg) 20%, transparent);
+	}
+
+	/* A run of checked rows reads as one block: the corners where two of them
+	   meet are squared off so the tints join without a notch. */
+	&:has(+ .containerChecked) {
+		border-end-start-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	.containerChecked + & {
+		border-start-start-radius: 0;
+		border-start-end-radius: 0;
+	}
+
+	/* Selected but unfocused, this row would otherwise take the gray selection
+	   tint and punch a hole in a run of checked rows — so it stays in the pop
+	   family, one step deeper than its neighbours. The focused selection below
+	   still wins: it outranks this on specificity or on source order. */
+	&.containerSelected {
+		background-color: color-mix(var(--fill-pop-bg) 30%, transparent);
+	}
+}
+
 .containerSelected {
 	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
 

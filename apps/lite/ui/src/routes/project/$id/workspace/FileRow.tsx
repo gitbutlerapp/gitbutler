@@ -66,6 +66,7 @@ export const FileRow: FC<
 				render={
 					<Row
 						{...restProps}
+						isChecked={isChecked}
 						className={classes(restProps.className, styles.row)}
 						onContextMenu={(event) => {
 							void showNativeContextMenu(event, menuItems);

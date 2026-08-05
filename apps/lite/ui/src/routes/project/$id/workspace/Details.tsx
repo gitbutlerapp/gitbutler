@@ -988,7 +988,7 @@ const Diff: FC<{
 		onEnterList: activateFile,
 		panelRef: filesPanelRef,
 		listRef: filesTreeRef,
-		enabled: filesVisible,
+		enabled: filesVisible && changes.length > 0,
 	});
 
 	const { data: diffSettings } = useQuery({
