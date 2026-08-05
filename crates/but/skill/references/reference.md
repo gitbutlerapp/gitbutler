@@ -366,7 +366,7 @@ but resolve cancel --force
 
 ### `but push <branch>`
 
-Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals and pushes ALL branches with unpushed commits otherwise. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
+Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals (one entry per stack, folding in stack ancestors) and otherwise pushes all unpushed work — one push per stack via its topmost unpushed branch, so output has one entry per stack, not per branch. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
 but push <branch-name>             # Push the selected branch and its ancestors

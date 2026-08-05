@@ -16,16 +16,13 @@ use crate::{
     },
 };
 
-/// Represents the result of branch selection when no branch is specified
-#[derive(Clone)]
+/// The branches to push, resolved from the argument or interactive selection
 enum BranchSelection {
-    /// Push a single branch
-    Single(String),
-    /// Push multiple selected branches
-    Multiple(Vec<String>),
-    /// Push all branches with unpushed commits
+    /// Push these branches (explicit argument or picker selection)
+    Selected(Vec<String>),
+    /// Push everything with unpushed commits (non-interactive default)
     All,
-    /// User declined to push
+    /// Nothing to push, or the user declined
     None,
 }
 
@@ -71,46 +68,49 @@ pub async fn handle(
     let branch_selection = if let Some(ref branch_id) = args.branch_id {
         // Resolve branch_id to actual branch name
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
-        BranchSelection::Single(branch_name)
+        BranchSelection::Selected(vec![branch_name])
     } else {
         handle_no_branch_specified(ctx, out)?
     };
+
+    // Everything between here and the actual push (merged-upstream check,
+    // conflict check, the push's own workspace computation) is silent and can
+    // take a while; print feedback first so it doesn't look like a hang. The
+    // All path prints its own progress and may turn out to be a no-op.
+    if matches!(branch_selection, BranchSelection::Selected(_)) {
+        let mut progress = out.progress_channel();
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{}",
+            theme::get().progress.paint("Preparing push...")
+        )?;
+    }
 
     // Pushing a branch that already landed in the target recreates or rewrites
     // remote state for work that is finished. The lower push layer silently
     // skips branches with an integrated push status, but that misses branches
     // that never had a remote; refuse explicitly-selected merged branches here.
-    {
-        let selected_branches = match &branch_selection {
-            BranchSelection::Single(name) => std::slice::from_ref(name),
-            BranchSelection::Multiple(names) => names.as_slice(),
-            BranchSelection::All | BranchSelection::None => &[],
-        };
-        if !selected_branches.is_empty() {
-            let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
-            for name in selected_branches {
-                let full_name = gix::refs::FullName::try_from(format!("refs/heads/{name}"))?;
-                merged
-                    .ensure_branch_not_merged(full_name.as_ref())
-                    .into_internal_error()?;
-            }
+    if let BranchSelection::Selected(names) = &branch_selection {
+        let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
+        for name in names {
+            let full_name = gix::refs::FullName::try_from(format!("refs/heads/{name}"))?;
+            merged
+                .ensure_branch_not_merged(full_name.as_ref())
+                .into_internal_error()?;
         }
     }
 
-    // Handle branch selection
     match branch_selection {
         BranchSelection::All => {
             push_all_branches(ctx, &args, gerrit_mode, out).await?;
         }
-        BranchSelection::Single(branch_name) => {
-            push_single_branch(ctx, &branch_name, &args, gerrit_mode, out).await?;
-        }
-        BranchSelection::Multiple(branch_names) => {
+        BranchSelection::Selected(branch_names) => {
             for branch_name in branch_names {
                 push_single_branch(ctx, &branch_name, &args, gerrit_mode, out).await?;
             }
         }
-        BranchSelection::None => return Ok(()),
+        BranchSelection::None => {}
     }
 
     Ok(())
@@ -678,13 +678,7 @@ async fn push_all_branches(
 ) -> anyhow::Result<bool> {
     let t = theme::get();
     let mut progress = out.progress_channel();
-    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
-
-    // Filter to only branches with unpushed commits
-    let branches_to_push: Vec<_> = branches_with_info
-        .into_iter()
-        .filter(|(_, count, _)| *count > 0)
-        .collect();
+    let branches_to_push = get_push_candidates(ctx)?;
 
     if branches_to_push.is_empty() {
         // Output empty result for JSON
@@ -714,7 +708,9 @@ async fn push_all_branches(
     let mut pushed_results = Vec::new();
     let mut failed_branches = Vec::new();
 
-    for (branch_name, unpushed_count, _) in branches_to_push {
+    for candidate in branches_to_push {
+        let branch_name = candidate.branch_name;
+        let unpushed_count = candidate.unpushed_commits;
         write!(
             progress,
             "  {} {}... ",
@@ -843,15 +839,10 @@ fn handle_no_branch_specified(
     out: &mut OutputChannel,
 ) -> anyhow::Result<BranchSelection> {
     let t = theme::get();
-    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
-    if branches_with_info.is_empty() {
-        // Treat an empty workspace as a no-op push instead of an error.
-        // This keeps `but push` safe to call even before any stack branches exist.
-        return Ok(BranchSelection::All);
-    }
-
-    // Check if we're in an interactive terminal with human output format
+    // Check if we're in an interactive terminal with human output format.
+    // This comes first: push_all_branches computes its own candidates, so
+    // computing them here just to return All would be wasted work.
     if !out.can_prompt() {
         tracing::info!(
             "Non-interactive mode detected. Pushing all branches with unpushed commits..."
@@ -860,15 +851,14 @@ fn handle_no_branch_specified(
         return Ok(BranchSelection::All);
     }
 
+    let candidates = get_push_candidates(ctx)?;
+
     // Interactive mode: show branches and prompt for selection
     let mut progress = out.progress_channel();
-    // Collect branches with unpushed commits
-    let branches_with_unpushed: Vec<_> = branches_with_info
-        .iter()
-        .filter(|(_, unpushed_count, _)| *unpushed_count > 0)
-        .collect();
 
-    if branches_with_unpushed.is_empty() {
+    // Covers the empty workspace too, where this is vacuously true; either
+    // way `but push` is a safe no-op rather than an error.
+    if candidates.is_empty() {
         writeln!(progress)?;
         writeln!(
             progress,
@@ -879,27 +869,35 @@ fn handle_no_branch_specified(
         return Ok(BranchSelection::None);
     }
 
-    // If there's only one branch with unpushed commits, push it automatically
-    if branches_with_unpushed.len() == 1 {
-        let (branch_name, _unpushed_count, _) = branches_with_unpushed[0];
-        return Ok(BranchSelection::Single(branch_name.clone()));
+    // A single candidate that covers only itself is unambiguous; push it
+    // without prompting. If it would fold in stack ancestors, still show the
+    // picker so the user sees what else the push covers.
+    if candidates.len() == 1 && candidates[0].includes.is_empty() {
+        return Ok(BranchSelection::Selected(vec![
+            candidates[0].branch_name.clone(),
+        ]));
     }
 
     writeln!(progress)?;
 
-    // Multiple branches with unpushed commits - let the prompt handle it
-    let options = branches_with_unpushed
+    // Multiple pushable branches - let the prompt handle it
+    let options = candidates
         .iter()
-        .map(|(branch_name, unpushed_count, _)| {
-            (
-                format!(
-                    "{} - {} unpushed commit{}",
-                    branch_name,
-                    unpushed_count,
-                    if *unpushed_count == 1 { "" } else { "s" }
-                ),
-                branch_name.to_string(),
-            )
+        .map(|candidate| {
+            let mut label = format!(
+                "{} - {} unpushed commit{}",
+                candidate.branch_name,
+                candidate.unpushed_commits,
+                if candidate.unpushed_commits == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            );
+            if !candidate.includes.is_empty() {
+                label.push_str(&format!(" (also pushes {})", candidate.includes.join(", ")));
+            }
+            (label, candidate.branch_name.clone())
         })
         .collect::<Vec<_>>();
     let options = nonempty::NonEmpty::from_vec(options).context("No branches available to push")?;
@@ -907,8 +905,16 @@ fn handle_no_branch_specified(
         .prepare_for_terminal_input()
         .context("Human input required - run this in a terminal")?;
 
+    // Preselect everything so plain Enter pushes all candidates; the picker
+    // starts empty otherwise, making Enter a silent no-op.
     let selected_branches = input
-        .prompt_multi_select("Which branch(es) would you like to push?", &options)?
+        .prompt_multi_select_with_help(
+            "Which branch(es) would you like to push?",
+            &options,
+            (0..options.len()).collect(),
+            Vec::new(),
+            |_| None,
+        )?
         .ok_or_else(|| anyhow::anyhow!("Selection aborted"))?
         .into_iter()
         .cloned()
@@ -917,7 +923,76 @@ fn handle_no_branch_specified(
     if selected_branches.is_empty() {
         Ok(BranchSelection::None)
     } else {
-        Ok(BranchSelection::Multiple(selected_branches))
+        Ok(BranchSelection::Selected(selected_branches))
+    }
+}
+
+/// A branch worth offering for push: the topmost branch with unpushed commits
+/// in its stack. Pushing a branch always pushes its stack ancestors too, so
+/// lower branches of the same stack are folded into one candidate instead of
+/// being offered (and pushed) separately.
+struct PushCandidate {
+    branch_name: String,
+    /// Unpushed commits across this branch and its ancestors.
+    unpushed_commits: usize,
+    /// Ancestor branches with unpushed commits that this push also covers.
+    includes: Vec<String>,
+}
+
+/// Returns one push candidate per stack that has unpushed commits.
+fn get_push_candidates(ctx: &Context) -> anyhow::Result<Vec<PushCandidate>> {
+    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+
+    let mut candidates = Vec::new();
+    for stack in &stacks {
+        if stack.id.is_none() {
+            continue;
+        }
+        // Branches are ordered topmost-first; the first one with unpushed
+        // commits is the candidate, everything below it comes along.
+        let mut unpushed = stack.branches.iter().filter_map(|branch| {
+            let count = branch_unpushed_count(branch);
+            (count > 0).then(|| (branch.name.clone(), count))
+        });
+        if let Some((branch_name, count)) = unpushed.next() {
+            let mut unpushed_commits = count;
+            let mut includes = Vec::new();
+            for (name, count) in unpushed {
+                unpushed_commits += count;
+                includes.push(name);
+            }
+            candidates.push(PushCandidate {
+                branch_name,
+                unpushed_commits,
+                includes,
+            });
+        }
+    }
+    Ok(candidates)
+}
+
+fn branch_unpushed_count(branch: &crate::legacy::workspace::HeadInfoBranch) -> usize {
+    // Count only commits that are LocalOnly (not pushed to remote).
+    // LocalAndRemote means it exists on both, Integrated means it's already in base.
+    let local_only_count = branch
+        .commits
+        .iter()
+        .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
+        .count();
+
+    // Additionally check if push_status indicates there are unpushed commits
+    // even if we don't find any LocalOnly commits (e.g., for new branches).
+    match branch.push_status {
+        but_workspace::ui::PushStatus::CompletelyUnpushed => {
+            // All commits on the branch need to be pushed
+            branch.commits.len().max(local_only_count)
+        }
+        but_workspace::ui::PushStatus::UnpushedCommits
+        | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
+            // There are commits to push
+            local_only_count.max(1) // At least 1 if push_status says so
+        }
+        _ => local_only_count,
     }
 }
 
@@ -935,32 +1010,11 @@ fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String,
 
             // Get branch names from the heads
             for branch in &stack.branches {
-                let branch_name = branch.name.clone();
-
-                // Count only commits that are LocalOnly (not pushed to remote).
-                // LocalAndRemote means it exists on both, Integrated means it's already in base.
-                let local_only_count = branch
-                    .commits
-                    .iter()
-                    .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
-                    .count();
-
-                // Additionally check if push_status indicates there are unpushed commits
-                // even if we don't find any LocalOnly commits (e.g., for new branches).
-                let unpushed_count = match branch.push_status {
-                    but_workspace::ui::PushStatus::CompletelyUnpushed => {
-                        // All commits on the branch need to be pushed
-                        branch.commits.len().max(local_only_count)
-                    }
-                    but_workspace::ui::PushStatus::UnpushedCommits
-                    | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
-                        // There are commits to push
-                        local_only_count.max(1) // At least 1 if push_status says so
-                    }
-                    _ => local_only_count,
-                };
-
-                branches_info.push((branch_name, unpushed_count, stack_name.clone()));
+                branches_info.push((
+                    branch.name.clone(),
+                    branch_unpushed_count(branch),
+                    stack_name.clone(),
+                ));
             }
         }
     }
@@ -1159,8 +1213,9 @@ fn gerrit_review_ref(
     Ok(format!("refs/for/{target_branch}"))
 }
 
-/// Check if a branch contains any conflicted commits
-/// Returns an error if conflicted commits are found
+/// Check if a push of this branch would include any conflicted commits.
+/// The push covers the branch and its stack ancestors, so those are checked
+/// too. Returns an error if conflicted commits are found.
 fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
     let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
 
@@ -1168,11 +1223,13 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
     // Find the stack containing this branch.
     for stack in &stacks {
         if stack.id.is_some()
-            && let Some(branch) = stack.branch(branch_name)
+            && let Some(position) = stack.branches.iter().position(|b| b.name == branch_name)
         {
-            let conflicted: Vec<gix::ObjectId> = branch
-                .commits
+            // Branches are ordered topmost-first; the push includes the
+            // branch and everything below it.
+            let conflicted: Vec<gix::ObjectId> = stack.branches[position..]
                 .iter()
+                .flat_map(|branch| &branch.commits)
                 .filter(|c| c.has_conflicts)
                 .map(|c| c.id)
                 .collect();
@@ -1193,7 +1250,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
 
             if !conflicted_commits.is_empty() {
                 return Err(anyhow::anyhow!(
-                    "Cannot push branch '{}': the branch contains {} conflicted commit{}.\n\
+                    "Cannot push branch '{}': the push would include {} conflicted commit{}.\n\
                          Conflicted commits: {}\n\
                          Please resolve conflicts before pushing using 'but resolve <commit>'.",
                     branch_name,
