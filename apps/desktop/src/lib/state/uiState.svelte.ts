@@ -87,7 +87,8 @@ type GlobalModalType =
 	| "author-missing"
 	| "general-settings"
 	| "project-settings"
-	| "login-confirmation";
+	| "login-confirmation"
+	| "agent-setup";
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -125,12 +126,23 @@ export type LoginConfirmationModalState = BaseGlobalModalState & {
 
 export type AppTheme = "system" | "light" | "dark";
 
+export type AgentSetupModalState = BaseGlobalModalState & {
+	type: "agent-setup";
+	projectId?: string;
+	/**
+	 * The modal to restore on close. The router holds one modal at a time, so
+	 * opening the wizard from settings would otherwise close settings for good.
+	 */
+	returnTo?: GeneralSettingsModalState | ProjectSettingsModalState;
+};
+
 export type GlobalModalState =
 	| CommitFailedModalState
 	| AuthorMissingModalState
 	| GeneralSettingsModalState
 	| ProjectSettingsModalState
-	| LoginConfirmationModalState;
+	| LoginConfirmationModalState
+	| AgentSetupModalState;
 
 export type CodeEditorSettings = {
 	schemeIdentifer: string;

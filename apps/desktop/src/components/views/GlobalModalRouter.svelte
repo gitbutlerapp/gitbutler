@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitFailedModalContent from "$components/commit/CommitFailedModalContent.svelte";
 	import LoginConfirmationModalContent from "$components/onboarding/LoginConfirmationModalContent.svelte";
+	import AgentSetupModalContent from "$components/settings/AgentSetupModalContent.svelte";
 	import AuthorMissingModalContent from "$components/settings/AuthorMissingModalContent.svelte";
 	import GeneralSettingsModalContent from "$components/settings/GeneralSettingsModalContent.svelte";
 	import ProjectSettingsModalContent from "$components/settings/ProjectSettingsModalContent.svelte";
@@ -40,6 +41,16 @@
 						testId: TestId.GlobalModal_AuthorMissing,
 						closeButton: true,
 						width: 420,
+						noPadding: true,
+					},
+				};
+			}
+			case "agent-setup": {
+				return {
+					state: modalState,
+					props: {
+						closeButton: true,
+						width: 560,
 						noPadding: true,
 					},
 				};
@@ -115,6 +126,11 @@
 				userService.rejectIncomingUser();
 			}
 		}
+		// The wizard replaces whatever opened it, so put that back.
+		if (stableModalData?.state.type === "agent-setup" && stableModalData.state.returnTo) {
+			uiState.global.modal.set(stableModalData.state.returnTo);
+			return;
+		}
 		uiState.global.modal.set(undefined);
 	}
 
@@ -144,6 +160,8 @@
 			<CommitFailedModalContent data={stableModalData.state} oncloseclick={closeModal} />
 		{:else if stableModalData.state.type === "author-missing"}
 			<AuthorMissingModalContent data={stableModalData.state} close={closeModal} />
+		{:else if stableModalData.state.type === "agent-setup"}
+			<AgentSetupModalContent data={stableModalData.state} close={closeModal} />
 		{:else if stableModalData.state.type === "general-settings"}
 			<GeneralSettingsModalContent data={stableModalData.state} />
 		{:else if stableModalData.state.type === "project-settings"}

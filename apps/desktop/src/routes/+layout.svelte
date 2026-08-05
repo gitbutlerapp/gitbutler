@@ -5,6 +5,7 @@
 	import { browser, dev } from "$app/environment";
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
 	import { page } from "$app/state";
+	import AgentSetupPrompt from "$components/settings/AgentSetupPrompt.svelte";
 	import GlobalSettingsShortcutHandler from "$components/settings/GlobalSettingsShortcutHandler.svelte";
 	import ReloadShortcutHandler from "$components/settings/ReloadShortcutHandler.svelte";
 	import ThemeShortcutHandler from "$components/settings/ThemeShortcutHandler.svelte";
@@ -172,6 +173,7 @@
 </div>
 <ShareIssueModal />
 <ToastController />
+<AgentSetupPrompt />
 <ChipToastContainer />
 <AppUpdater />
 <GitInputPrompt />
