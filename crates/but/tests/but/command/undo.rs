@@ -143,7 +143,10 @@ fn can_undo_unapply() {
         env.but("unapply A")
             .assert()
             .success()
-            .stdout_eq("Unapplied stack with branches 'A' from workspace\n")
+            .stdout_eq(snapbox::str![[r#"
+Unapplied stack with 'A' from workspace
+
+"#]])
             .stderr_eq("");
     });
 }

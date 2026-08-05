@@ -67,7 +67,7 @@ tpm add A
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Unapplied stack with branches 'A' from workspace
+Unapplied stack with 'A' from workspace
 
 "#]]);
 

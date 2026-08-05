@@ -50,7 +50,7 @@ fn single_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Unapplied stack with branches 'feature-branch' from workspace
+Unapplied stack with 'feature-branch' from workspace
 
 "#]]);
 
@@ -129,7 +129,9 @@ fn unapply_idempotent() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unapply branch. Branch 'feature-branch' not found in any applied stack
+Error: Could not find source: 'feature-branch'
+
+Hint: Run `but status` for applicable targets.
 
 "#]])
         .stdout_eq(str![]);
@@ -144,7 +146,9 @@ fn unapply_nonexistent_branch() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unapply branch. Branch 'nonexistent-branch' not found in any applied stack
+Error: Could not find source: 'nonexistent-branch'
+
+Hint: Run `but status` for applicable targets.
 
 "#]])
         .stdout_eq(str![]);
@@ -175,7 +179,9 @@ fn unapply_branch_not_in_workspace() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unapply branch. Branch 'feature-branch' not found in any applied stack
+Error: Could not find source: 'feature-branch'
+
+Hint: Run `but status` for applicable targets.
 
 "#]])
         .stdout_eq(str![]);
@@ -229,7 +235,7 @@ fn unapply_remote_tracking_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Unapplied stack with branches 'remote-feature' from workspace
+Unapplied stack with 'remote-feature' from workspace
 
 "#]]);
 
@@ -330,7 +336,7 @@ fn unapply_using_cli_branch_id() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Unapplied stack with branches 'feature-branch' from workspace
+Unapplied stack with 'feature-branch' from workspace
 
 "#]]);
 
@@ -394,7 +400,7 @@ fn unapply_using_cli_stack_id() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Unapplied stack with branches 'feature-branch' from workspace
+Unapplied stack with 'feature-branch' from workspace
 
 "#]]);
 }
@@ -423,7 +429,6 @@ fn unapply_json_output_validation() {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
     // Validate JSON structure
-    assert_eq!(json["unapplied"], serde_json::json!(true));
     let branches = json["branches"]
         .as_array()
         .expect("branches should be an array");

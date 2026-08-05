@@ -291,7 +291,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
             }
-            ResolvedCliIdArg::Stack => {
+            ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")
                     .arg_name("<CHANGES>")
                     .arg_value(value)

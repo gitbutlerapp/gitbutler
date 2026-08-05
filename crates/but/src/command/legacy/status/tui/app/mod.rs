@@ -336,7 +336,7 @@ impl App {
             | ResolvedCliIdArg::CommittedFile(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::PathPrefix { .. }
-            | ResolvedCliIdArg::Stack => None,
+            | ResolvedCliIdArg::Stack { .. } => None,
         });
         let initial_committed_file = matches!(
             initial_target.as_ref(),

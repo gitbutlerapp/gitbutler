@@ -11,21 +11,25 @@ use ratatui::prelude::{Line, Span, Style, Text};
 
 use crate::{
     CliId,
-    command::legacy::status::{
-        FilesStatusFlag, StatusOutputLine,
-        output::StatusOutputLineData,
-        tui::{
-            App, Cursor, FuzzyPicker, Message, Modal, Mode, ReloadCause, SelectAfterReload,
-            ToastKind,
-            app::NormalMode,
-            cursor::is_selectable_in_mode,
-            fuzzy_picker::{Col, FuzzyPickerItem, SearchableToken},
-            fuzzy_picker_key_binds,
-            render::{
-                ModeRender, RenderSingleLineSpans, SpanExt,
-                render_move_stack_operation_target_marker, source_span, stack_operation_display,
+    command::legacy::{
+        status::{
+            FilesStatusFlag, StatusOutputLine,
+            output::StatusOutputLineData,
+            tui::{
+                App, Cursor, FuzzyPicker, Message, Modal, Mode, ReloadCause, SelectAfterReload,
+                ToastKind,
+                app::NormalMode,
+                cursor::is_selectable_in_mode,
+                fuzzy_picker::{Col, FuzzyPickerItem, SearchableToken},
+                fuzzy_picker_key_binds,
+                render::{
+                    ModeRender, RenderSingleLineSpans, SpanExt,
+                    render_move_stack_operation_target_marker, source_span,
+                    stack_operation_display,
+                },
             },
         },
+        unapply::{self, UnapplyOperation},
     },
     id::{BranchId, CommitId, CommittedFileId},
     resolve_legacy_top_level_apply_branch_name,
@@ -475,7 +479,16 @@ impl App {
             .map(SelectAfterReload::Branch)
             .unwrap_or(SelectAfterReload::Uncommitted);
 
-        but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
+        {
+            let mut guard = ctx.exclusive_worktree_access();
+            let head_info = but_api::legacy::workspace::head_info(ctx)?;
+            unapply::run(
+                ctx,
+                guard.write_permission(),
+                &head_info,
+                UnapplyOperation { stack_id },
+            )?;
+        }
 
         messages.extend([
             Message::EnterNormalModeAfterConfirmingOperation,
