@@ -90,29 +90,34 @@ function setupDragHandlers(
 	// Reduces getBoundingClientRect() calls from ~60/sec to ~10/sec, avoiding layout thrashing
 	const SCROLL_RECT_UPDATE_INTERVAL_MS = 100;
 	const cachedScrollRects: Map<HTMLElement, DOMRect> = new Map();
+	const cachedScrollAxes: Map<HTMLElement, { x: boolean; y: boolean }> = new Map();
 	let lastScrollRectUpdate = 0;
 
 	/**
-	 * Check if an element has scrollable overflow.
+	 * Determine which axes an element can actually be scrolled on, i.e. the
+	 * axis has overflow set to auto/scroll (not hidden) AND content exceeds
+	 * the bounds on that same axis. Checked per-axis so that e.g. a
+	 * horizontally-scrollable container with `overflow-y: hidden` is never
+	 * treated as vertically scrollable, even if its content happens to be
+	 * taller than its viewport.
 	 */
-	function hasScrollableOverflow(style: CSSStyleDeclaration): boolean {
-		return (
-			style.overflowY === "auto" ||
-			style.overflowY === "scroll" ||
-			style.overflowX === "auto" ||
-			style.overflowX === "scroll"
-		);
+	function getScrollableAxes(element: HTMLElement): { x: boolean; y: boolean } {
+		const style = window.getComputedStyle(element);
+		const x =
+			(style.overflowX === "auto" || style.overflowX === "scroll") &&
+			element.scrollWidth > element.clientWidth;
+		const y =
+			(style.overflowY === "auto" || style.overflowY === "scroll") &&
+			element.scrollHeight > element.clientHeight;
+		return { x, y };
 	}
 
 	/**
 	 * Check if an element is actually scrollable (has overflow and content exceeds bounds).
 	 */
 	function isScrollable(element: HTMLElement): boolean {
-		const style = window.getComputedStyle(element);
-		return (
-			hasScrollableOverflow(style) &&
-			(element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)
-		);
+		const { x, y } = getScrollableAxes(element);
+		return x || y;
 	}
 
 	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
@@ -171,11 +176,20 @@ function setupDragHandlers(
 		// This dramatically reduces layout recalculation during drag operations
 		if (now - lastScrollRectUpdate > SCROLL_RECT_UPDATE_INTERVAL_MS) {
 			cachedScrollRects.clear();
+			cachedScrollAxes.clear();
 			cachedScrollContainers.forEach((container) => {
 				const rect = container.getBoundingClientRect();
 				// Only cache visible containers - off-screen containers can't be scrolled via mouse
 				if (isContainerVisibleInViewport(rect)) {
 					cachedScrollRects.set(container, rect);
+					// The document element scrolls the page vertically; it isn't
+					// governed by its own overflow style the way regular elements are.
+					cachedScrollAxes.set(
+						container,
+						container === document.documentElement
+							? { x: false, y: true }
+							: getScrollableAxes(container),
+					);
 				}
 			});
 			lastScrollRectUpdate = now;
@@ -202,27 +216,33 @@ function setupDragHandlers(
 		// If no scrollable container found under cursor, nothing to scroll
 		if (!targetContainer || !targetRect) return;
 
+		const scrollableAxes = cachedScrollAxes.get(targetContainer);
 		let scrollX = 0;
 		let scrollY = 0;
 
-		// Check vertical scrolling
-		if (mouseY < targetRect.top + SCROLL_EDGE_SIZE && targetContainer.scrollTop > 0) {
-			scrollY = -SCROLL_SPEED;
-		} else if (
-			mouseY > targetRect.bottom - SCROLL_EDGE_SIZE &&
-			targetContainer.scrollTop < targetContainer.scrollHeight - targetContainer.clientHeight
-		) {
-			scrollY = SCROLL_SPEED;
+		// Check vertical scrolling (only if the container is actually scrollable on this axis,
+		// e.g. not `overflow-y: hidden` with content that merely happens to be taller)
+		if (scrollableAxes?.y) {
+			if (mouseY < targetRect.top + SCROLL_EDGE_SIZE && targetContainer.scrollTop > 0) {
+				scrollY = -SCROLL_SPEED;
+			} else if (
+				mouseY > targetRect.bottom - SCROLL_EDGE_SIZE &&
+				targetContainer.scrollTop < targetContainer.scrollHeight - targetContainer.clientHeight
+			) {
+				scrollY = SCROLL_SPEED;
+			}
 		}
 
-		// Check horizontal scrolling
-		if (mouseX < targetRect.left + SCROLL_EDGE_SIZE && targetContainer.scrollLeft > 0) {
-			scrollX = -SCROLL_SPEED;
-		} else if (
-			mouseX > targetRect.right - SCROLL_EDGE_SIZE &&
-			targetContainer.scrollLeft < targetContainer.scrollWidth - targetContainer.clientWidth
-		) {
-			scrollX = SCROLL_SPEED;
+		// Check horizontal scrolling (only if the container is actually scrollable on this axis)
+		if (scrollableAxes?.x) {
+			if (mouseX < targetRect.left + SCROLL_EDGE_SIZE && targetContainer.scrollLeft > 0) {
+				scrollX = -SCROLL_SPEED;
+			} else if (
+				mouseX > targetRect.right - SCROLL_EDGE_SIZE &&
+				targetContainer.scrollLeft < targetContainer.scrollWidth - targetContainer.clientWidth
+			) {
+				scrollX = SCROLL_SPEED;
+			}
 		}
 
 		// Perform scroll if needed
@@ -308,6 +328,7 @@ function setupDragHandlers(
 
 		// Reset auto-scroll optimization state
 		cachedScrollRects.clear();
+		cachedScrollAxes.clear();
 		lastScrollRectUpdate = 0;
 
 		if (opts.dragStateService) {
@@ -503,6 +524,7 @@ function setupDragHandlers(
 		dragHandle = null;
 		cachedScrollContainers = [];
 		cachedScrollRects.clear();
+		cachedScrollAxes.clear();
 		lastScrollRectUpdate = 0;
 		dragStartPosition = null;
 		currentMousePosition = null;
