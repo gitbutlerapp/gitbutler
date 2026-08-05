@@ -4,7 +4,8 @@
 use std::path::Path;
 
 use crate::detect::Agent;
-use crate::plan::{RepoInfo, Scope, marker_exists};
+use crate::framework::{Framework, framework_by_name};
+use crate::plan::{RepoInfo, Scope};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AgentTarget {
@@ -108,47 +109,15 @@ impl AgentTarget {
         // In use if the agent has config under $HOME, an unambiguous repo marker,
         // or a GitButler skill already installed for it — the last makes a re-run
         // of the wizard re-select agents it (or `but skill`) previously set up.
-        if let Some(home) = home
-            && (marker_exists(home, self.home_config_marker())
-                || marker_exists(home, self.skill_path_components(Scope::Global)))
-        {
-            return true;
-        }
-        if let Some(repo) = repo
-            && (marker_exists(&repo.root, self.repo_config_marker())
-                || marker_exists(&repo.root, self.skill_path_components(Scope::Repository)))
-        {
-            return true;
-        }
-        false
+        self.framework().in_use(home, repo)
     }
 
-    /// The agent's config directory under `$HOME`; its presence means the agent
-    /// is set up for this user.
-    pub fn home_config_marker(self) -> Option<&'static [&'static str]> {
-        Some(match self {
-            Self::Codex => &[".codex"],
-            Self::ClaudeCode => &[".claude"],
-            Self::Cursor => &[".cursor"],
-            Self::GitHubCopilot => &[".copilot"],
-            Self::OpenCode => &[".config", "opencode"],
-            Self::Poolside => &[".config", "poolside"],
-            Self::Windsurf => &[".codeium"],
-            // The shared `.agents` format has no agent-specific config to detect.
-            Self::AgentSkills => return None,
-        })
-    }
-
-    /// An unambiguous per-repository marker for this agent. `AGENTS.md` is shared
-    /// by several agents, so it is intentionally not treated as a marker.
-    pub fn repo_config_marker(self) -> Option<&'static [&'static str]> {
-        Some(match self {
-            Self::ClaudeCode => &["CLAUDE.md"],
-            Self::GitHubCopilot => &[".github", "copilot-instructions.md"],
-            Self::Cursor => &[".cursor"],
-            Self::Poolside => &[".poolside"],
-            Self::Codex | Self::OpenCode | Self::Windsurf | Self::AgentSkills => return None,
-        })
+    /// This target's entry in the shared framework table, which owns the
+    /// detection markers and instruction paths so the CLI wizard and the
+    /// desktop app can never disagree about them.
+    pub fn framework(self) -> &'static Framework {
+        framework_by_name(self.skill_format_name())
+            .expect("every AgentTarget has a framework entry")
     }
 
     /// Where this agent's skill installs, relative to a base directory. Derived
@@ -176,30 +145,10 @@ impl AgentTarget {
     }
 
     pub fn shared_instruction_components(self) -> &'static [&'static str] {
-        match self {
-            // Cursor reads AGENTS.md without rule metadata, so prefer it over a
-            // `.cursor/rules/*.mdc` file, which would need YAML frontmatter
-            // (e.g. `alwaysApply: true`) to be loaded automatically.
-            Self::Codex
-            | Self::OpenCode
-            | Self::Poolside
-            | Self::AgentSkills
-            | Self::Cursor
-            | Self::Windsurf => &["AGENTS.md"],
-            Self::ClaudeCode => &["CLAUDE.md"],
-            Self::GitHubCopilot => &[".github", "copilot-instructions.md"],
-        }
+        self.framework().repo_instructions
     }
 
     pub fn global_instruction_components(self) -> Option<&'static [&'static str]> {
-        match self {
-            Self::Codex => Some(&[".codex", "AGENTS.md"]),
-            Self::ClaudeCode => Some(&[".claude", "rules", "gitbutler.md"]),
-            Self::GitHubCopilot => Some(&[".copilot", "copilot-instructions.md"]),
-            Self::OpenCode => Some(&[".config", "opencode", "AGENTS.md"]),
-            Self::Poolside => Some(&[".config", "poolside", "AGENTS.md"]),
-            Self::Windsurf => Some(&[".codeium", "windsurf", "memories", "global_rules.md"]),
-            Self::Cursor | Self::AgentSkills => None,
-        }
+        self.framework().global_instructions
     }
 }

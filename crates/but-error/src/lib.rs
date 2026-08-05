@@ -166,6 +166,9 @@ pub enum Code {
     /// the `but` CLI. Not a real failure — the frontend swaps it for a
     /// neutral info toast.
     CliInstallCancelled,
+    /// The user dismissed the macOS admin-privileges prompt when uninstalling
+    /// the `but` CLI. Like [`Code::CliInstallCancelled`], not a real failure.
+    CliUninstallCancelled,
     /// The GitHub access token was rejected. Currently only synthesized by
     /// the frontend when an Octokit response message starts with
     /// "Not Found -" — kept here so the wire-level `Code` enum is the
