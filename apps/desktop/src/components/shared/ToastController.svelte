@@ -13,10 +13,12 @@
 				testId={toast.testId ?? TestId.ToastInfoMessage}
 				style={toast.style ?? "info"}
 				error={toast.error}
-				secondaryLabel={toast.extraAction ? toast.extraAction.label : "Dismiss"}
+				secondaryLabel={toast.extraAction
+					? toast.extraAction.label
+					: (toast.dismissLabel ?? "Dismiss")}
 				secondaryTestId={toast.extraAction ? toast.extraAction.testId : undefined}
 				secondaryAction={toast.extraAction ? () => toast.extraAction?.onClick(dismiss) : dismiss}
-				tertiaryLabel={toast.extraAction ? "Dismiss" : undefined}
+				tertiaryLabel={toast.extraAction ? (toast.dismissLabel ?? "Dismiss") : undefined}
 				tertiaryAction={toast.extraAction ? dismiss : undefined}
 				shadow
 			>

@@ -16,6 +16,13 @@ export interface Toast {
 	title?: string;
 	style?: MessageStyle;
 	extraAction?: ExtraAction;
+	/**
+	 * Label for the dismiss button. Override when dismissing has a lasting
+	 * effect, so the wording does not imply "just this time".
+	 */
+	dismissLabel?: string;
+	/** Runs when the toast is dismissed, but not when it is replaced by id. */
+	onDismiss?: () => void;
 }
 
 export const toastStore: Writable<Toast[]> = writable([]);
@@ -83,5 +90,8 @@ export function showWarning(
 
 export function dismissToast(messageId: string | undefined) {
 	if (!messageId) return;
-	toastStore.update((items) => items.filter((m) => m.id !== messageId));
+	toastStore.update((items) => {
+		items.find((m) => m.id === messageId)?.onDismiss?.();
+		return items.filter((m) => m.id !== messageId);
+	});
 }

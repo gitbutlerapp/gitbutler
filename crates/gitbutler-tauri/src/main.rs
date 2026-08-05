@@ -340,6 +340,7 @@ fn main() -> anyhow::Result<()> {
                 agents::tauri_agents_status::agents_status,
                 agents::tauri_agent_skill_install::agent_skill_install,
                 agents::tauri_agent_skill_uninstall::agent_skill_uninstall,
+                agents::tauri_agent_skills_update::agent_skills_update,
                 agents::tauri_agent_policy_get::agent_policy_get,
                 agents::tauri_agent_policy_set::agent_policy_set,
                 legacy::workspace::tauri_head_info::head_info,

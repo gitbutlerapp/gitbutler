@@ -19,6 +19,11 @@ export const projectSettingsPages = [
 		icon: "git",
 	},
 	{
+		id: "agents",
+		label: "Agents & CLI",
+		icon: "robot",
+	},
+	{
 		id: "ai",
 		label: "AI options",
 		icon: "ai",

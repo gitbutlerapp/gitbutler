@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import CliSymlinkSetup from "$components/settings/CliSymlinkSetup.svelte";
 	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
 	import { BACKEND } from "$lib/backend";
-	import { getUserErrorCode } from "$lib/backend/ipc";
-	import { CLI_MANAGER } from "$lib/config/cli";
-	import { showToast } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
@@ -39,15 +35,10 @@
 	const updaterService = inject(UPDATER_SERVICE);
 	const disableAutoChecks = updaterService.disableAutoChecks;
 
-	const cliManager = inject(CLI_MANAGER);
-	const [instalCLI, installingCLI] = cliManager.install;
-
 	const backend = inject(BACKEND);
 	const platformName = backend.platformName;
 
 	const terminalService = inject(TERMINAL_SERVICE);
-
-	const appSettings = settingsService.appSettings;
 
 	let saving = $state(false);
 	let newName = $state("");
@@ -154,8 +145,6 @@
 			isDeleting = false;
 		}
 	}
-
-	let showSymlink = $state(false);
 </script>
 
 {#if userService.user}
@@ -274,73 +263,6 @@
 				onclick={() => ($disableAutoChecks = !$disableAutoChecks)}
 			/>
 		{/snippet}
-	</CardGroup.Item>
-</CardGroup>
-
-<CardGroup>
-	<CardGroup.Item>
-		{#snippet title()}
-			Install the GitButler CLI <code class="code-string">but</code>
-		{/snippet}
-
-		{#snippet caption()}
-			{#if $appSettings?.ui.cliIsManagedByPackageManager}
-				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
-				install, update, or remove it.
-			{:else if platformName === "windows"}
-				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
-				PATH. Click "Show Command" for instructions.
-			{:else}
-				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
-				the terminal. This action will request admin privileges. Alternatively, you could create a
-				symlink manually.
-			{/if}
-		{/snippet}
-
-		{#if !$appSettings?.ui.cliIsManagedByPackageManager}
-			<div class="flex flex-col gap-16">
-				<div class="flex gap-8 justify-end">
-					{#if platformName !== "windows"}
-						<Button
-							style="pop"
-							icon="play"
-							onclick={async () => {
-								try {
-									await instalCLI();
-								} catch (err: unknown) {
-									// osascript returns a generic non-success when the
-									// user dismisses the macOS admin-privileges prompt.
-									// The backend tags that specific case with a
-									// `CliInstallCancelled` code so we can show an info
-									// toast instead of an error toast.
-									if (getUserErrorCode(err) === "CliInstallCancelled") {
-										showToast({
-											style: "info",
-											message: "CLI install cancelled.",
-										});
-										return;
-									}
-									throw err;
-								}
-							}}
-							loading={installingCLI.current.isLoading}
-						>
-							Install But CLI</Button
-						>
-					{/if}
-					<Button
-						style="gray"
-						kind="outline"
-						disabled={showSymlink}
-						onclick={() => (showSymlink = !showSymlink)}>Show command</Button
-					>
-				</div>
-			</div>
-
-			{#if showSymlink}
-				<CliSymlinkSetup class="m-t-14" />
-			{/if}
-		{/if}
 	</CardGroup.Item>
 </CardGroup>
 

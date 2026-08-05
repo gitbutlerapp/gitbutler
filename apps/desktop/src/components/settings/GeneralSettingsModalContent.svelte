@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppearanceSettings from "$components/projectSettings/AppearanceSettings.svelte";
+	import AgentsAndCliSettings from "$components/settings/AgentsAndCliSettings.svelte";
 	import AiSettings from "$components/settings/AiSettings.svelte";
 	import ExperimentalSettings from "$components/settings/ExperimentalSettings.svelte";
 	import GeneralSettings from "$components/settings/GeneralSettings.svelte";
@@ -51,6 +52,8 @@
 				<GitSettings />
 			{:else if currentPage.id === "integrations"}
 				<IntegrationsSettings />
+			{:else if currentPage.id === "agents"}
+				<AgentsAndCliSettings />
 			{:else if currentPage.id === "ai"}
 				<AiSettings />
 			{:else if currentPage.id === "telemetry"}
