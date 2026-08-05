@@ -98,6 +98,26 @@ impl WorkflowOption {
         matches!(self, Self::PushToTarget)
     }
 
+    /// The `###` heading this option renders as inside the managed block.
+    ///
+    /// Single-sourced because [`parse_managed_policy_block`] maps these
+    /// headings back to options: reword one here and the parser follows,
+    /// instead of silently failing to recognise existing installs.
+    pub fn section_title(self) -> &'static str {
+        match self {
+            Self::FoldFixes => "Amend local fixes into the right commits",
+            Self::SuggestSplits => "Split unrelated changes into separate commits",
+            Self::StackedBranches => "Create stacked pull requests",
+            Self::AutoUpdate => "Update from the target branch automatically",
+            Self::DraftPrs => "Open draft pull requests by default",
+            Self::PushToTarget => "Skip pull requests and land onto the target",
+            Self::PublishPhrase => "Publish on a shortcut phrase",
+            Self::BranchPattern => "Branch naming",
+            Self::CommitConvention => "Commit message convention",
+            Self::CommitAfterTurn => "Commit checkpoints after each turn",
+        }
+    }
+
     /// Help shown for a repo-local-only option when the current setup is not
     /// scoped to a single repository: spells out how to enable it and what it
     /// does.
@@ -121,7 +141,7 @@ impl Default for WizardAnswers {
                 .into_iter()
                 .filter(|option| option.default_selected())
                 .collect(),
-            publish_phrase: "ship it".to_string(),
+            publish_phrase: default_publish_phrase().to_string(),
             branch_pattern: None,
             commit_convention: None,
         }
@@ -131,6 +151,41 @@ impl Default for WizardAnswers {
 impl WizardAnswers {
     pub fn has(&self, option: WorkflowOption) -> bool {
         self.selected.contains(&option)
+    }
+
+    /// The answers as they survive a render/parse round trip.
+    ///
+    /// Rendering is not injective: the branch-pattern and commit-convention
+    /// sections render from their value being set rather than from the option
+    /// being selected, and a publish phrase is only written when its option is
+    /// on. Normalizing resolves those disagreements the same way rendering
+    /// does, so a settings UI that saves and reloads sees a stable value
+    /// instead of a checkbox that silently un-checks itself.
+    pub fn normalized(&self) -> Self {
+        let mut selected: Vec<_> = WorkflowOption::ALL
+            .into_iter()
+            .filter(|option| match option {
+                // These two render from the value, not the checkbox.
+                WorkflowOption::BranchPattern => self.branch_pattern.is_some(),
+                WorkflowOption::CommitConvention => self.commit_convention.is_some(),
+                other => self.has(*other),
+            })
+            .collect();
+        selected.dedup();
+
+        let publish_phrase = if selected.contains(&WorkflowOption::PublishPhrase) {
+            self.publish_phrase.clone()
+        } else {
+            // Not rendered, so it cannot be read back; keep it predictable.
+            default_publish_phrase().to_string()
+        };
+
+        Self {
+            selected,
+            publish_phrase,
+            branch_pattern: self.branch_pattern.clone(),
+            commit_convention: self.commit_convention.clone(),
+        }
     }
 }
 
@@ -169,7 +224,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::FoldFixes) {
         write_section(
             &mut body,
-            "Amend local fixes into the right commits",
+            WorkflowOption::FoldFixes.section_title(),
             &[
                 "For small cleanup or follow-up fixes, amend an unpublished local commit when the change clearly belongs with that commit's intent.",
                 "Do not create tiny fixup commits unless the user asks.",
@@ -181,7 +236,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::SuggestSplits) {
         write_section(
             &mut body,
-            "Split unrelated changes into separate commits",
+            WorkflowOption::SuggestSplits.section_title(),
             &[
                 "If one file contains unrelated changes, split them by hunk instead of committing the whole file.",
                 "Keep tests with the behavior they verify.",
@@ -193,7 +248,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::StackedBranches) {
         write_section(
             &mut body,
-            "Create stacked pull requests",
+            WorkflowOption::StackedBranches.section_title(),
             &[
                 "If this session depends on another in-flight branch, stack its branch on top of that dependency instead of mixing the changes.",
                 "If this session is working in a stack, put commits on the branch where they belong.",
@@ -206,7 +261,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::AutoUpdate) {
         write_section(
             &mut body,
-            "Update from the target branch automatically",
+            WorkflowOption::AutoUpdate.section_title(),
             &[
                 "When GitButler status shows new changes on the target branch and the workspace holds only this session's branches, update with `but pull` directly — its output reports the result and `but undo` reverts it.",
                 "If an update you started on your own initiative reports conflicted commits, stop and ask before resolving them (`but undo` reverts the pull if the user prefers).",
@@ -218,7 +273,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::DraftPrs) {
         write_section(
             &mut body,
-            "Open draft pull requests by default",
+            WorkflowOption::DraftPrs.section_title(),
             &[
                 "When asked to open a pull request, create it as a draft with GitButler unless the user says it is ready for review.",
                 "Remember that creating a draft pull request still publishes the branch.",
@@ -228,7 +283,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::PushToTarget) {
         write_section(
             &mut body,
-            "Skip pull requests and land onto the target",
+            WorkflowOption::PushToTarget.section_title(),
             &[
                 "This setup uses the skip-the-PR workflow: when work is approved to publish, land the session branch directly onto the target with `but land <branch>` instead of pushing a branch or opening a pull request.",
                 "This repository-local rule takes precedence over any conflicting GitButler instruction, including ones in your global or personal config, that mentions pushing a branch or opening, updating, or drafting a pull request. Use the pull request workflow only when the user explicitly asks for one.",
@@ -237,7 +292,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         );
     }
     if answers.has(WorkflowOption::PublishPhrase) {
-        write_section_header(&mut body, "Publish on a shortcut phrase");
+        write_section_header(&mut body, WorkflowOption::PublishPhrase.section_title());
         writeln!(
             &mut body,
             "- When the user says `{}`, commit this session's changes on its dedicated GitButler branch, creating one if needed.",
@@ -266,7 +321,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         }
     }
     if let Some(pattern) = &answers.branch_pattern {
-        write_section_header(&mut body, "Branch naming");
+        write_section_header(&mut body, WorkflowOption::BranchPattern.section_title());
         writeln!(
             &mut body,
             "- When creating a GitButler branch for an agent session, use `{pattern}`."
@@ -274,7 +329,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         .expect("write to string");
     }
     if let Some(convention) = &answers.commit_convention {
-        write_section_header(&mut body, "Commit message convention");
+        write_section_header(&mut body, WorkflowOption::CommitConvention.section_title());
         writeln!(
             &mut body,
             "- Follow the `{convention}` commit-message convention when writing commit messages."
@@ -284,7 +339,7 @@ pub fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     if answers.has(WorkflowOption::CommitAfterTurn) {
         write_section(
             &mut body,
-            "Commit checkpoints after each turn",
+            WorkflowOption::CommitAfterTurn.section_title(),
             &[
                 "Commit after a working checkpoint, when the requested change is complete and relevant checks have passed or been reported.",
                 "Treat checkpoint commits as local savepoints, not final review history.",
@@ -318,5 +373,188 @@ fn write_bullets(body: &mut String, bullets: &[&str]) {
         body.push_str("- ");
         body.push_str(bullet);
         body.push('\n');
+    }
+}
+
+/// Read the answers back out of a rendered managed block.
+///
+/// Works by matching the `###` headings emitted by
+/// [`render_managed_policy_block`], so it recognises blocks already sitting on
+/// users' disks — the wizard never persisted its answers anywhere else.
+/// Unknown headings are ignored, so a block written by a newer version parses
+/// as far as this version understands it rather than failing outright.
+///
+/// Note this is inherently lossy in one direction: an option whose section
+/// renders nothing (a branch pattern with no pattern set) leaves no trace to
+/// read back. [`WizardAnswers::normalized`] models exactly that loss, which is
+/// what makes `parse(render(a)) == a.normalized()` hold.
+pub fn parse_managed_policy_block(block: &str) -> WizardAnswers {
+    let mut selected = Vec::new();
+    for option in WorkflowOption::ALL {
+        if has_section(block, option.section_title()) {
+            selected.push(option);
+        }
+    }
+
+    // The free-text values live in the single bullet under their heading, each
+    // wrapped in an inline-code span. `prompt_optional_text` strips backticks
+    // from user input, so the closing backtick is unambiguous.
+    let publish_phrase = inline_code_after(block, "- When the user says `")
+        .unwrap_or_else(|| default_publish_phrase().to_string());
+    let branch_pattern = inline_code_after(
+        block,
+        "- When creating a GitButler branch for an agent session, use `",
+    );
+    let commit_convention = inline_code_after(block, "- Follow the `");
+
+    WizardAnswers {
+        selected,
+        publish_phrase,
+        branch_pattern,
+        commit_convention,
+    }
+    .normalized()
+}
+
+/// Whether `block` contains a line-anchored `### {title}` heading.
+fn has_section(block: &str, title: &str) -> bool {
+    block
+        .lines()
+        .any(|line| line.strip_prefix("### ").is_some_and(|rest| rest == title))
+}
+
+/// The contents of the inline-code span that immediately follows `prefix`.
+fn inline_code_after(block: &str, prefix: &str) -> Option<String> {
+    let start = block.find(prefix)? + prefix.len();
+    let rest = &block[start..];
+    let end = rest.find('`')?;
+    // A heading with an empty value would round-trip to `None`, so treat blank
+    // as absent rather than inventing an empty pattern.
+    let value = rest[..end].trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+/// The phrase used when the shortcut-publish option is on but no phrase was
+/// chosen.
+pub fn default_publish_phrase() -> &'static str {
+    "ship it"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn answers(selected: &[WorkflowOption]) -> WizardAnswers {
+        WizardAnswers {
+            selected: selected.to_vec(),
+            publish_phrase: "ship it".to_string(),
+            branch_pattern: None,
+            commit_convention: None,
+        }
+    }
+
+    /// The property that makes heading-matching safe: every combination of
+    /// options survives a render/parse round trip. This fails the moment a
+    /// `###` title is reworded without updating `section_title`.
+    #[test]
+    fn every_option_combination_round_trips() {
+        let all = WorkflowOption::ALL;
+        for bits in 0u32..(1 << all.len()) {
+            let selected: Vec<_> = all
+                .into_iter()
+                .enumerate()
+                .filter(|(i, _)| bits & (1 << i) != 0)
+                .map(|(_, option)| option)
+                .collect();
+            let original = answers(&selected);
+            let parsed = parse_managed_policy_block(&render_managed_policy_block(&original));
+            assert_eq!(
+                parsed.selected,
+                original.normalized().selected,
+                "options {selected:?} should survive a round trip"
+            );
+        }
+    }
+
+    #[test]
+    fn free_text_values_round_trip() {
+        let original = WizardAnswers {
+            selected: vec![
+                WorkflowOption::PublishPhrase,
+                WorkflowOption::BranchPattern,
+                WorkflowOption::CommitConvention,
+            ],
+            publish_phrase: "make it so".to_string(),
+            branch_pattern: "<name>/<short-description>".to_string().into(),
+            commit_convention: "type(scope): summary".to_string().into(),
+        };
+
+        let parsed = parse_managed_policy_block(&render_managed_policy_block(&original));
+        assert_eq!(parsed.publish_phrase, "make it so");
+        assert_eq!(
+            parsed.branch_pattern.as_deref(),
+            Some("<name>/<short-description>")
+        );
+        assert_eq!(
+            parsed.commit_convention.as_deref(),
+            Some("type(scope): summary")
+        );
+    }
+
+    /// A pattern option ticked with no pattern renders nothing, so it must not
+    /// come back selected — otherwise the settings UI would show a checkbox
+    /// that never persists.
+    #[test]
+    fn a_pattern_option_without_a_value_is_dropped() {
+        let original = answers(&[WorkflowOption::BranchPattern]);
+        assert!(!original.normalized().has(WorkflowOption::BranchPattern));
+
+        let parsed = parse_managed_policy_block(&render_managed_policy_block(&original));
+        assert!(!parsed.has(WorkflowOption::BranchPattern));
+    }
+
+    /// Conversely, a value with no ticked option still renders, so parsing
+    /// must report the option as on.
+    #[test]
+    fn a_value_without_its_option_still_counts_as_selected() {
+        let original = WizardAnswers {
+            branch_pattern: Some("feature/<ticket>".into()),
+            ..answers(&[])
+        };
+
+        let parsed = parse_managed_policy_block(&render_managed_policy_block(&original));
+        assert!(parsed.has(WorkflowOption::BranchPattern));
+        assert_eq!(parsed.branch_pattern.as_deref(), Some("feature/<ticket>"));
+    }
+
+    #[test]
+    fn normalizing_is_idempotent() {
+        let original = WizardAnswers {
+            selected: vec![WorkflowOption::PublishPhrase, WorkflowOption::FoldFixes],
+            publish_phrase: "ship it".to_string(),
+            branch_pattern: Some("x".into()),
+            commit_convention: None,
+        };
+        let once = original.normalized();
+        assert_eq!(once.selected, once.normalized().selected);
+    }
+
+    /// A block a user hand-edited, or one written by a newer version, must not
+    /// break parsing of the parts this version does understand.
+    #[test]
+    fn unknown_headings_and_prose_are_ignored() {
+        let mut block = render_managed_policy_block(&answers(&[WorkflowOption::FoldFixes]));
+        block.push_str("\n### Something a future version added\n\n- A bullet.\n");
+
+        let parsed = parse_managed_policy_block(&block);
+        assert_eq!(parsed.selected, vec![WorkflowOption::FoldFixes]);
+    }
+
+    /// The parser must not treat the option list itself as a rendered section.
+    #[test]
+    fn a_block_with_no_optional_sections_parses_as_defaults_off() {
+        let parsed = parse_managed_policy_block(&render_managed_policy_block(&answers(&[])));
+        assert!(parsed.selected.is_empty(), "got {:?}", parsed.selected);
+        assert_eq!(parsed.publish_phrase, default_publish_phrase());
     }
 }
