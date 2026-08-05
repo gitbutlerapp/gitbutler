@@ -850,7 +850,7 @@ pub fn resolve_target(
         ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::CommittedFile { .. }
         | ResolvedCliIdArgRef::PathPrefix { .. }
-        | ResolvedCliIdArgRef::Stack => Err(ResolveTargetError::InvalidTarget),
+        | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
     }
 }
 
@@ -1055,7 +1055,7 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
                 ));
             }
-            ResolvedCliIdArgRef::Stack => "a stack",
+            ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };
         Err(bad_input(format!(
             "Expected a commit, a branch, or an uncommitted change, got {kind}"

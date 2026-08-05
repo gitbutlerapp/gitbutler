@@ -181,7 +181,7 @@ fn resolve(
                         | ResolvedCliIdArg::CommittedFile(..)
                         | ResolvedCliIdArg::Uncommitted
                         | ResolvedCliIdArg::PathPrefix { .. }
-                        | ResolvedCliIdArg::Stack => Err(bad_input(format!(
+                        | ResolvedCliIdArg::Stack { .. } => Err(bad_input(format!(
                             "Only commits can be cherry-picked. {} is {}",
                             source,
                             resolved.kind_for_humans()

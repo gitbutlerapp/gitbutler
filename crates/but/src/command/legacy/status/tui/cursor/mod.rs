@@ -96,7 +96,7 @@ impl Cursor {
                     .hint(hint)
                     .into());
             }
-            ResolvedCliIdArg::Stack => {
+            ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Selecting stacks is not supported")
                     .hint(hint)
                     .into());
@@ -122,7 +122,7 @@ impl Cursor {
                 | ResolvedCliIdArg::CommittedFile(..)
                 | ResolvedCliIdArg::Uncommitted
                 | ResolvedCliIdArg::PathPrefix { .. }
-                | ResolvedCliIdArg::Stack => target == **cli_id,
+                | ResolvedCliIdArg::Stack { .. } => target == **cli_id,
             })
         }) else {
             return Ok(None);

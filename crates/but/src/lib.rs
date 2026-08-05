@@ -1696,7 +1696,10 @@ async fn match_subcommand(
             Ok(())
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Unapply { identifier } => {
+        Subcommands::Unapply(unapply_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -1705,10 +1708,17 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::unapply::handle(&mut ctx, out, &identifier)
-                .context("Failed to unapply branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            out.begin_status_after(status_after);
+
+            let outcome = command::legacy::unapply::unapply(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                unapply_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Apply { branch_name } => {

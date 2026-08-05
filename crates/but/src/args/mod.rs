@@ -469,10 +469,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Unapply {
-        /// CLI ID or name of the branch/stack to unapply
-        identifier: String,
-    },
+    Unapply(unapply::Platform),
 
     /// Apply a branch to the workspace.
     ///
@@ -1145,6 +1142,8 @@ pub mod skill;
 pub mod squash;
 #[cfg(feature = "legacy")]
 pub mod tui;
+#[cfg(feature = "legacy")]
+pub mod unapply;
 #[cfg(feature = "legacy")]
 pub mod uncommit;
 pub mod update;
