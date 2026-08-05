@@ -143,20 +143,49 @@ fn ci_checks_for_ref(
             let pipelines = std::thread::spawn(move || -> anyhow::Result<_> {
                 let runtime = tokio::runtime::Runtime::new()
                     .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
-                runtime.block_on(gl.list_pipeline_jobs_for_ref(project_id, &reference))
+                runtime.block_on(async {
+                    let jobs = gl
+                        .list_pipeline_jobs_for_ref(project_id.clone(), &reference)
+                        .await?;
+                    if !jobs.is_empty() {
+                        return Ok(Some(jobs));
+                    }
+                    // MR-only pipelines (detached / merged-results) and fork MRs
+                    // never have a branch pipeline; fall back to the head
+                    // pipeline of the branch's open MR.
+                    match gl
+                        .list_pipeline_jobs_for_open_mr(project_id, &reference)
+                        .await
+                    {
+                        Ok(Some(mr_jobs)) => Ok(Some(mr_jobs)),
+                        // No open MR or no head pipeline: authoritatively no checks.
+                        Ok(None) => Ok(Some(Vec::new())),
+                        Err(err) => {
+                            // Missing MR read access behaves like the ref path's
+                            // 403/404: show "no checks" without wiping the cache.
+                            let status = err
+                                .downcast_ref::<but_gitlab::HttpStatusError>()
+                                .map(|http| http.status.as_u16());
+                            if matches!(status, Some(403 | 404)) {
+                                Ok(None)
+                            } else {
+                                Err(err)
+                            }
+                        }
+                    }
+                })
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
-            Ok(Some(
-                pipelines
-                    .into_iter()
-                    .map(|pipeline| {
-                        let mut ci_check = CiCheck::from(pipeline);
+            Ok(pipelines.map(|jobs| {
+                jobs.into_iter()
+                    .map(|job| {
+                        let mut ci_check = CiCheck::from(job);
                         ci_check.reference = reference_for_checks.to_string();
                         ci_check
                     })
-                    .collect(),
-            ))
+                    .collect()
+            }))
         }
         ForgeName::Bitbucket => {
             let preferred_account = preferred_forge_user
@@ -353,7 +382,7 @@ impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
             output: CiOutput::default(),
             started_at,
             status,
-            head_sha: String::new(),
+            head_sha: job.pipeline.sha.clone().unwrap_or_default(),
             url: job_url.clone(),
             html_url: job_url.clone(),
             details_url: pipeline_url,
@@ -576,6 +605,7 @@ mod tests {
                 id: 7,
                 web_url: None,
                 status: None,
+                sha: None,
             },
         }
     }
@@ -623,6 +653,19 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn gitlab_jobs_carry_the_pipeline_sha_as_head_sha() {
+        let mut job = job("success", Some("https://example.com/job"));
+        job.pipeline.sha = Some("deadbeef".into());
+
+        let check = CiCheck::from(job);
+
+        assert_eq!(
+            check.head_sha, "deadbeef",
+            "the pipeline SHA identifies which commit the cached checks belong to"
+        );
     }
 
     #[test]
