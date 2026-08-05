@@ -105,6 +105,44 @@
 
 	let newProjectLoading = $state(false);
 	let projectSelectorOpen = $state(false);
+	let newWindowModifierHeld = $state(false);
+
+	const isMac = $derived(backend.platformName === "macos");
+	// ⌘-click is the new-window gesture on macOS; elsewhere that role belongs to Ctrl.
+	const newWindowModifierLabel = $derived(isMac ? "⌘" : "Ctrl");
+
+	function hasNewWindowModifier(e: KeyboardEvent | MouseEvent) {
+		return isMac ? e.metaKey : e.ctrlKey;
+	}
+
+	// Only listen while the dropdown is open, so rows can hint that the modifier opens a new window.
+	$effect(() => {
+		if (!projectSelectorOpen) {
+			newWindowModifierHeld = false;
+			return;
+		}
+
+		function update(e: KeyboardEvent | MouseEvent) {
+			newWindowModifierHeld = hasNewWindowModifier(e);
+		}
+		function clear() {
+			newWindowModifierHeld = false;
+		}
+
+		window.addEventListener("keydown", update);
+		window.addEventListener("keyup", update);
+		// Mouse events carry the modifier state too, so a modifier already held when the
+		// dropdown opened is picked up as soon as the pointer moves over the list.
+		window.addEventListener("mousemove", update);
+		window.addEventListener("blur", clear);
+
+		return () => {
+			window.removeEventListener("keydown", update);
+			window.removeEventListener("keyup", update);
+			window.removeEventListener("mousemove", update);
+			window.removeEventListener("blur", clear);
+		};
+	});
 
 	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
@@ -126,7 +164,7 @@
 
 <div
 	class="chrome-header"
-	class:mac={backend.platformName === "macos"}
+	class:mac={isMac}
 	data-tauri-drag-region={useCustomTitleBar}
 	class:single-branch={singleBranchMode}
 	use:focusable
@@ -164,7 +202,7 @@
 				loading={newProjectLoading}
 				disabled={newProjectLoading}
 				onselect={(value: string, modifiers?) => {
-					if (modifiers?.meta) {
+					if (isMac ? modifiers?.meta : modifiers?.ctrl) {
 						projectsService.openProjectInNewWindow(value);
 					} else {
 						goto(projectPath(value));
@@ -194,7 +232,11 @@
 				{/snippet}
 
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === projectId} {highlighted}>
+					<SelectItem
+						selected={item.value === projectId}
+						{highlighted}
+						hoverIcon={newWindowModifierHeld ? "open-in-folder" : undefined}
+					>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -233,6 +275,11 @@
 						Clone repository
 					</SelectItem>
 				</OptionsGroup>
+
+				<div class="text-11 new-window-hint">
+					<Icon name="open-in-folder" color="var(--text-3)" size={14} />
+					<span>Hold {newWindowModifierLabel} to open in a new window</span>
+				</div>
 			</Select>
 			{#if singleBranchMode}
 				<Tooltip text="Current branch">
@@ -363,6 +410,16 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.new-window-hint {
+		display: flex;
+		align-items: center;
+		padding-inline: 12px;
+		padding-block: 10px;
+		gap: 8px;
+		background-color: var(--bg-2);
+		color: var(--text-2);
 	}
 
 	/** Mac padding added here to not affect header flex-box sizing, only applied when using custom title bar. */
