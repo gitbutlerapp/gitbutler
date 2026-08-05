@@ -588,17 +588,13 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Oplog(oplog::Platform),
 
-    /// Undo the last operation.
-    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Undo,
+    Undo(undo::Platform),
 
-    /// Redo the last undo.
-    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Redo,
+    Redo(redo::Platform),
 
     /// Sets up a GitButler project from a git repository in the current directory.
     ///
@@ -1088,6 +1084,8 @@ pub mod r#move;
 #[cfg(feature = "legacy")]
 pub mod pick;
 #[cfg(feature = "legacy")]
+pub mod redo;
+#[cfg(feature = "legacy")]
 pub mod reword2;
 pub mod skill;
 #[cfg(feature = "legacy")]
@@ -1098,6 +1096,8 @@ pub mod tui;
 pub mod unapply;
 #[cfg(feature = "legacy")]
 pub mod uncommit;
+#[cfg(feature = "legacy")]
+pub mod undo;
 pub mod update;
 
 pub mod actions {

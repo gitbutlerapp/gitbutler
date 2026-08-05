@@ -1314,18 +1314,40 @@ async fn match_subcommand(
             }
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Undo => {
+        Subcommands::Undo(undo_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::handle_undo(&mut ctx, out)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            out.begin_status_after(status_after);
+
+            let outcome = command::legacy::undo_redo::undo(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                undo_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Redo => {
+        Subcommands::Redo(redo_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::handle_redo(&mut ctx, out)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            out.begin_status_after(status_after);
+
+            let outcome = command::legacy::undo_redo::redo(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                redo_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb {

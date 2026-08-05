@@ -50,12 +50,13 @@ where
     );
 
     // Act
-    env.but("undo").assert().success().stdout_eq(
-        r#"Undoing operation...
-  Reverting to: [..]
-✓ Undo completed successfully! Restored to snapshot:[..]
-"#,
-    );
+    env.but("undo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Undid [..] (2000-01-02 00:00:00): [..]
+
+"#]]);
 
     // Assert
     env.but("status")
