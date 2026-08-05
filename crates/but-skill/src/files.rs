@@ -177,3 +177,154 @@ fn append_managed_block(existing: &str, block: &str) -> String {
     updated.push_str(&block);
     updated
 }
+
+/// The contents of the managed block in `existing`, markers included, or
+/// `None` when there is no block.
+///
+/// Errors on a malformed marker pair for the same reason
+/// [`upsert_managed_block`] does: a partial block is not ours to interpret.
+pub fn read_managed_block(existing: &str) -> Result<Option<String>> {
+    Ok(managed_block_spans(existing)?
+        .first()
+        .map(|span| existing[span.clone()].to_string()))
+}
+
+/// Like [`read_managed_block`], but reads `path` first. A missing file has no
+/// block.
+pub fn read_managed_block_file(path: &Path) -> Result<Option<String>> {
+    match std::fs::read_to_string(path) {
+        Ok(content) => read_managed_block(&content),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    }
+}
+
+/// Splice every managed block out of `existing`, returning `None` when there
+/// was none to remove.
+///
+/// Inherits [`managed_block_spans`]'s protections: markers quoted in prose or
+/// shown inside a fenced code block are left alone, and a partial or reversed
+/// marker pair errors rather than guessing at a span to delete.
+pub fn remove_managed_block(existing: &str) -> Result<Option<String>> {
+    let spans = managed_block_spans(existing)?;
+    if spans.is_empty() {
+        return Ok(None);
+    }
+
+    let mut updated = String::with_capacity(existing.len());
+    let mut copied = 0;
+    for span in spans {
+        updated.push_str(&existing[copied..span.start]);
+        copied = span.end;
+        // Take the block's own line terminator with it, so removing a block
+        // does not leave a widening gap behind each time.
+        if existing[copied..].starts_with("\r\n") {
+            copied += 2;
+        } else if existing[copied..].starts_with('\n') {
+            copied += 1;
+        }
+        // `append_managed_block` separates the block from preceding text with
+        // a blank line. Take that back too, but only when leaving it would
+        // strand a trailing or doubled blank line — otherwise a block that
+        // merely follows a blank line would lose it.
+        let rest_starts_new_line =
+            existing[copied..].is_empty() || existing[copied..].starts_with('\n');
+        if rest_starts_new_line {
+            if updated.ends_with("\r\n\r\n") {
+                updated.truncate(updated.len() - 2);
+            } else if updated.ends_with("\n\n") {
+                updated.truncate(updated.len() - 1);
+            }
+        }
+    }
+    updated.push_str(&existing[copied..]);
+    Ok(Some(updated))
+}
+
+/// Remove the managed block from `path`, leaving the rest of the file intact.
+///
+/// Never deletes the file, even when nothing but the block was in it: these
+/// are usually git-tracked files the user owns, and removing one is a
+/// surprising, visible side effect of uninstalling a skill.
+///
+/// Returns whether anything changed.
+pub fn remove_managed_block_file(path: &Path) -> Result<bool> {
+    let original = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(err) => return Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    };
+    let Some(updated) = remove_managed_block(&original)? else {
+        return Ok(false);
+    };
+    std::fs::write(path, updated).with_context(|| format!("Failed to write {}", path.display()))?;
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn managed(body: &str) -> String {
+        format!("{MANAGED_BLOCK_START}\n{body}\n{MANAGED_BLOCK_END}\n")
+    }
+
+    #[test]
+    fn removes_the_block_and_nothing_else() {
+        let existing = format!("# Rules\n\n{}\nAfter.\n", managed("- policy"));
+        let updated = remove_managed_block(&existing).unwrap().unwrap();
+        assert_eq!(updated, "# Rules\n\nAfter.\n");
+    }
+
+    #[test]
+    fn reports_no_change_when_there_is_no_block() {
+        assert_eq!(remove_managed_block("# Just my notes\n").unwrap(), None);
+    }
+
+    /// The same refusal `upsert_managed_block` makes: half a marker pair is
+    /// not a span we can safely delete.
+    #[test]
+    fn refuses_a_partial_marker_pair() {
+        let existing = format!("# Rules\n\n{MANAGED_BLOCK_START}\n- policy\n");
+        assert!(remove_managed_block(&existing).is_err());
+    }
+
+    /// A marker shown as documentation inside a fenced block is not a real
+    /// delimiter, so nothing should be spliced out around it.
+    #[test]
+    fn ignores_markers_inside_a_fenced_code_block() {
+        let existing =
+            format!("# Docs\n\n```\n{MANAGED_BLOCK_START}\n{MANAGED_BLOCK_END}\n```\n\nEnd.\n");
+        assert_eq!(remove_managed_block(&existing).unwrap(), None);
+    }
+
+    #[test]
+    fn preserves_crlf_content_around_the_block() {
+        let existing = format!(
+            "# Rules\r\n\r\n{MANAGED_BLOCK_START}\r\n- policy\r\n{MANAGED_BLOCK_END}\r\nAfter.\r\n"
+        );
+        let updated = remove_managed_block(&existing).unwrap().unwrap();
+        assert_eq!(updated, "# Rules\r\n\r\nAfter.\r\n");
+    }
+
+    /// Uninstalling a skill must not delete a file the user owns and git
+    /// tracks, even if the block was all it contained.
+    #[test]
+    fn leaves_an_emptied_file_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("AGENTS.md");
+        std::fs::write(&path, managed("- policy")).unwrap();
+
+        assert!(remove_managed_block_file(&path).unwrap());
+        assert!(path.is_file(), "the file still exists");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "");
+    }
+
+    #[test]
+    fn round_trips_with_upsert() {
+        let original = "# Rules\n\nMy own notes.\n";
+        let block = managed("- policy");
+        let written = upsert_managed_block(original, &block).unwrap();
+        assert_eq!(remove_managed_block(&written).unwrap().unwrap(), original);
+    }
+}
