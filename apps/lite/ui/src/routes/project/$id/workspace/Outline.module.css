@@ -48,8 +48,7 @@
 }
 
 .workspaceName {
-	--button-gap: 6px;
-	--button-padding-inline: 8px;
+	--button-gap: 8px;
 	display: flex;
 	align-items: center;
 	min-width: 0;
