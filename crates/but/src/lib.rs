@@ -861,7 +861,7 @@ async fn match_subcommand(
                         out,
                     )?;
                     out.begin_status_after(status_after);
-                    let result = command::branch::update(
+                    command::branch::update(
                         &mut ctx,
                         &branch,
                         strategy,
@@ -869,10 +869,10 @@ async fn match_subcommand(
                         verbose,
                         interactive,
                         out,
-                    )
-                    .map_err(CliError::from);
-                    run_status_after_if_ok(status_after, &result, &mut ctx, out);
-                    result
+                    )?;
+                    #[cfg(feature = "legacy")]
+                    run_status_after_if_requested(status_after, &mut ctx, out);
+                    Ok(())
                 }
                 Some(branch::Subcommands::Move { .. }) => Err(bad_input(
                     "`but branch move` has been removed. Use `but move` instead.",
@@ -963,7 +963,7 @@ async fn match_subcommand(
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);
-            let result = command::legacy::clean::handle(
+            command::legacy::clean::handle(
                 &mut ctx,
                 out,
                 command::legacy::clean::CleanOptions {
@@ -971,9 +971,9 @@ async fn match_subcommand(
                     include_upstream,
                 },
             )
-            .emit_metrics(metrics_ctx);
-            run_status_after_if_ok(status_after, &result, &mut ctx, out);
-            result.map_err(CliError::from)
+            .emit_metrics(metrics_ctx)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
@@ -1266,7 +1266,7 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = command::legacy::reword::reword_target(
+            command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
                 target,
@@ -1277,9 +1277,9 @@ async fn match_subcommand(
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
                 allow_merged,
             )
-            .emit_metrics(metrics_ctx);
-            run_status_after_if_ok(status_after, &result, &mut ctx, out);
-            result
+            .emit_metrics(metrics_ctx)?;
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
@@ -1366,23 +1366,17 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let result = command::legacy::absorb::handle(
+            command::legacy::absorb::handle(
                 &mut ctx,
                 out,
                 source.as_deref(),
                 dry_run,
                 allow_merged,
             )
-            .emit_metrics(metrics_ctx);
-            if result.is_ok() {
-                command::legacy::conflict_notice::report_newly_conflicted(
-                    &ctx,
-                    out,
-                    conflicts_before,
-                );
-            }
-            run_status_after_if_ok(status_after, &result, &mut ctx, out);
-            result.map_err(CliError::from)
+            .emit_metrics(metrics_ctx)?;
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+            run_status_after_if_requested(status_after, &mut ctx, out);
+            Ok(())
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard(discard_args) => {
@@ -1611,7 +1605,9 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
             let result = command::legacy::resolve::handle(&mut ctx, out, cmd, commit, ai)
                 .context("Failed to handle conflict resolution.");
-            run_status_after_if_ok(status_after, &result, &mut ctx, out);
+            if result.is_ok() {
+                run_status_after_if_requested(status_after, &mut ctx, out);
+            }
             result
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -1813,32 +1809,6 @@ fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     )
 }
 
-/// If requested, appends workspace status to the output.
-///
-/// Call `out.begin_status_after(status_after)` *before* the mutation to set up
-/// JSON buffering, then call this *after* to conditionally emit the combined output.
-///
-/// When the mutation succeeded, runs status and combines the output.
-/// When the mutation failed, the buffer is left intact — `OutputChannel::drop`
-/// will flush any buffered error JSON (e.g. structured illegal_move details) to stdout.
-/// Errors from the status query itself are logged to stderr but never mask
-/// the mutation's success.
-#[cfg(feature = "legacy")]
-fn run_status_after_if_ok<T, E>(
-    status_after: bool,
-    result: &Result<T, E>,
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) {
-    if result.is_ok() {
-        run_status_after_if_requested(status_after, ctx, out);
-    } else {
-        // Mutation failed — don't drain the buffer here. OutputChannel::drop
-        // will flush any buffered JSON (e.g. structured illegal_move details)
-        // to stdout, so the mutation result is never silently lost.
-    }
-}
-
 #[cfg(feature = "legacy")]
 fn run_status_after_if_requested(
     status_after: bool,
@@ -1855,16 +1825,6 @@ fn run_status_after_if_requested(
     }
     let mutation_json = out.take_json_buffer();
     run_status_after(ctx, out, mutation_json);
-}
-
-/// Ignore mutation status output in non-legacy builds until a non-legacy status command exists.
-#[cfg(not(feature = "legacy"))]
-fn run_status_after_if_ok<T, E>(
-    _status_after: bool,
-    _result: &Result<T, E>,
-    _ctx: &mut but_ctx::Context,
-    _out: &mut OutputChannel,
-) {
 }
 
 /// Run workspace status output after a mutation command when explicitly requested.
