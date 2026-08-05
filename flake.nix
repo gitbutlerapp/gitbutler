@@ -1,5 +1,5 @@
 {
-  description = "GitButler development environment";
+  description = "GitButler";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -12,7 +12,27 @@
     nixpkgs,
     flake-utils,
     rust-overlay,
-  }:
+  }: let
+    appVersion = let
+      lines =
+        nixpkgs.lib.splitString "\n"
+        (builtins.readFile ./crates/gitbutler-tauri/com.gitbutler.gitbutler.metainfo.xml);
+      versions =
+        nixpkgs.lib.filter (m: m != null)
+        (map (builtins.match "[[:space:]]*<release version=\"([^\"]+)\".*") lines);
+    in
+      builtins.head (builtins.head versions);
+
+    version = let
+      stamp = self.lastModifiedDate or "19700101";
+      date =
+        builtins.substring 0 4 stamp
+        + "-"
+        + builtins.substring 4 2 stamp
+        + "-"
+        + builtins.substring 6 2 stamp;
+    in "${appVersion}-unstable-${date}";
+  in
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
@@ -20,6 +40,174 @@
       };
 
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      rustPlatform = pkgs.makeRustPlatform {
+        cargo = rustToolchain;
+        rustc = rustToolchain;
+      };
+
+      # If you change Rust or pnpm dependencies, set these to `pkgs.lib.fakeHash` to have Nix print the expected hashes.
+      cargoHash = "sha256-xwsAlCpeeAY0lWpAP0IB7o+MYc0/gcDq0bnVyvDPZLk=";
+      pnpmHash = "sha256-03jmeeQdK27JKPUvlJPAWtBZVrO0K0SKhlN7Ml0xfWU=";
+
+      commonRustAttrs = {
+        inherit version cargoHash;
+        src = self;
+
+        cargoDepsName = "gitbutler-workspace-${appVersion}";
+
+        nativeBuildInputs = [
+          pkgs.cmake
+          pkgs.pkg-config
+        ];
+
+        buildInputs = [
+          pkgs.openssl
+        ]
+        ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.dbus;
+
+        env = {
+          OPENSSL_NO_VENDOR = true;
+          VERSION = appVersion;
+        };
+      };
+
+      but = rustPlatform.buildRustPackage (commonRustAttrs
+        // {
+          pname = "but";
+
+          cargoBuildFlags = [
+            "-p"
+            "but"
+            "--features"
+            "packaged-but-distribution"
+          ];
+
+          doCheck = false;
+
+          meta = {
+            description = "GitButler command-line interface";
+            homepage = "https://gitbutler.com";
+            license = pkgs.lib.licenses.fsl11Mit;
+            mainProgram = "but";
+            platforms = pkgs.lib.platforms.linux ++ pkgs.lib.platforms.darwin;
+          };
+        });
+
+      gitbutler = rustPlatform.buildRustPackage (finalAttrs:
+        commonRustAttrs
+        // {
+          pname = "gitbutler";
+
+          pnpmDeps = pkgs.fetchPnpmDeps {
+            inherit (finalAttrs) pname version src;
+            pnpm = pkgs.pnpm_10;
+            fetcherVersion = 3;
+            hash = pnpmHash;
+          };
+
+          postPatch = ''
+            tauriConfig=crates/gitbutler-tauri/tauri.conf.release.json
+            jq '
+              .version = "${appVersion}"
+              | .bundle.createUpdaterArtifacts = false
+              | .bundle.externalBin = ["gitbutler-git-askpass"]
+            ' "$tauriConfig" > "$tauriConfig.tmp"
+            mv "$tauriConfig.tmp" "$tauriConfig"
+
+            substituteInPlace apps/desktop/src/lib/backend/tauri.ts \
+              --replace-fail \
+                'checkUpdate = tauriCheck;' \
+                'checkUpdate = () => null;'
+          '';
+
+          nativeBuildInputs =
+            commonRustAttrs.nativeBuildInputs
+            ++ [
+              pkgs.cacert
+              pkgs.cargo-tauri.hook
+              pkgs.desktop-file-utils
+              pkgs.jq
+              pkgs.nodejs_22
+              pkgs.pnpmConfigHook
+              pkgs.pnpm_10
+              pkgs.turbo
+              pkgs.wrapGAppsHook4
+              pkgs.dart-sass
+            ]
+            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.makeBinaryWrapper;
+
+          buildInputs =
+            commonRustAttrs.buildInputs
+            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.curl
+            ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+              pkgs.glib-networking
+              pkgs.webkitgtk_4_1
+            ];
+
+          tauriBuildFlags = [
+            "--config"
+            "crates/gitbutler-tauri/tauri.conf.release.json"
+            "--features"
+            "builtin-but,packaged-but-distribution,disable-auto-updates"
+          ];
+
+          env =
+            commonRustAttrs.env
+            // {
+              CI = "true";
+              COREPACK_ENABLE_STRICT = 0;
+              RUSTFLAGS = "--cfg tokio_unstable";
+              TRIPLE_OVERRIDE = pkgs.stdenv.hostPlatform.rust.rustcTarget;
+              TURBO_BINARY_PATH = pkgs.lib.getExe pkgs.turbo;
+              TURBO_TELEMETRY_DISABLED = 1;
+            };
+
+          preBuild = ''
+            substituteInPlace \
+              node_modules/.pnpm/sass-embedded@*/node_modules/sass-embedded/dist/lib/src/compiler-path.js \
+              --replace-fail \
+                'compilerCommand = (() => {' \
+                'compilerCommand = (() => { return ["${pkgs.lib.getExe pkgs.dart-sass}"];'
+
+            turbo run --filter @gitbutler/svelte-comment-injector build
+            pnpm build:desktop -- --mode production
+          '';
+
+          postInstall =
+            pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+              makeBinaryWrapper \
+                "$out/Applications/GitButler.app/Contents/MacOS/gitbutler-tauri" \
+                "$out/bin/gitbutler-tauri"
+            ''
+            + pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
+              desktop-file-edit \
+                --set-comment "A Git client for simultaneous branches on top of your existing workflow." \
+                --set-key Keywords \
+                --set-value "git;" \
+                --set-key StartupWMClass \
+                --set-value GitButler \
+                "$out/share/applications/GitButler.desktop"
+            '';
+
+          doCheck = false;
+
+          meta = {
+            description = "Git client for simultaneous branches";
+            homepage = "https://gitbutler.com";
+            license = pkgs.lib.licenses.fsl11Mit;
+            mainProgram = "gitbutler-tauri";
+            platforms = pkgs.lib.platforms.linux ++ pkgs.lib.platforms.darwin;
+          };
+        });
+
+      gitbutlerWithCli = pkgs.symlinkJoin {
+        name = "gitbutler-with-cli-${version}";
+        paths = [
+          gitbutler
+          but
+        ];
+        meta.mainProgram = "gitbutler-tauri";
+      };
 
       # Pin cargo-flamegraph to upstream main for macOS xctrace fixes that have
       # not been released yet.
@@ -48,6 +236,27 @@
         '';
       });
     in {
+      packages = {
+        inherit gitbutler but;
+        default = gitbutlerWithCli;
+      };
+
+      apps = {
+        gitbutler = flake-utils.lib.mkApp {
+          drv = gitbutler;
+        };
+        but = flake-utils.lib.mkApp {
+          drv = but;
+        };
+        default = flake-utils.lib.mkApp {
+          drv = gitbutler;
+        };
+      };
+
+      checks = {
+        inherit gitbutler but;
+      };
+
       devShells.default = pkgs.mkShell {
         packages = [
           rustToolchain
