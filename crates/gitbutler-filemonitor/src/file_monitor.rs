@@ -8,6 +8,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_project_handle::{ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gix::bstr::BStr;
+use gix::utils::str::precompose_os_string;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
@@ -411,7 +412,9 @@ pub fn spawn(
                             !is_tracked_in_index(relative_path, is_dir, &index, icase_acc.as_ref())
                         };
                         for (file_path, kind) in classified_file_paths.iter_mut() {
-                            if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
+                            if let Some(relative_path) =
+                                strip_prefix_allowing_normalisation(file_path, &worktree_path)
+                            {
                                 let is_dir = file_path.is_dir();
                                 let is_excluded = excludes
                                     .at_path(relative_path, is_dir.then_some(gix::index::entry::Mode::DIR))
@@ -458,24 +461,29 @@ pub fn spawn(
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => match file_path
-                                .strip_prefix(&worktree_path)
-                            {
-                                Ok(relative_file_path) => {
-                                    if relative_file_path.as_os_str().is_empty() {
-                                        continue;
+                            FileKind::Project | FileKind::Git => {
+                                match strip_prefix_allowing_normalisation(
+                                    &file_path,
+                                    &worktree_path,
+                                ) {
+                                    Some(relative_file_path) => {
+                                        if relative_file_path.as_os_str().is_empty() {
+                                            continue;
+                                        }
+                                        if let Ok(stripped) =
+                                            relative_file_path.strip_prefix(".git")
+                                        {
+                                            stripped_git_paths.insert(stripped.to_owned());
+                                        } else {
+                                            worktree_relative_paths
+                                                .insert(relative_file_path.to_owned());
+                                        };
                                     }
-                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
-                                        stripped_git_paths.insert(stripped.to_owned());
-                                    } else {
-                                        worktree_relative_paths
-                                            .insert(relative_file_path.to_owned());
-                                    };
+                                    None => {
+                                        tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
+                                    }
                                 }
-                                Err(_) => {
-                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
-                                }
-                            },
+                            }
                         }
                     }
 
@@ -610,8 +618,40 @@ enum FileKind {
     ProjectIgnored,
 }
 
+/// Strip `prefix` from `path`, tolerating a Unicode normalisation mismatch between the two.
+///
+/// On macOS the watcher can deliver a path in a different Unicode normal form than the one the
+/// project was configured with, in either direction: a decomposed `Moire` plus a combining acute
+/// arriving for a precomposed `Moiré` worktree, say. Both name the same directory, but
+/// [`Path::strip_prefix()`] compares bytes and finds no match, so every event under such a
+/// worktree is dropped and the project stops seeing its own changes.
+///
+/// The byte comparison runs first, so precomposing only costs anything once that has failed.
+/// [`precompose_os_string()`] passes through components that are not valid UTF-8, leaving them
+/// byte-compared, which is what we want for names that have no normal form.
+fn strip_prefix_allowing_normalisation<'a>(path: &'a Path, prefix: &Path) -> Option<&'a Path> {
+    if let Ok(relative) = path.strip_prefix(prefix) {
+        return Some(relative);
+    }
+
+    let mut components = path.components();
+    for expected in prefix.components() {
+        let actual = components.next()?;
+        if actual == expected {
+            continue;
+        }
+        if precompose_os_string(actual.as_os_str().into())
+            != precompose_os_string(expected.as_os_str().into())
+        {
+            return None;
+        }
+    }
+    // What follows the prefix is returned as it arrived, keeping the spelling the filesystem uses.
+    Some(components.as_path())
+}
+
 fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
-    if let Ok(check_file_path) = file_path.strip_prefix(git_dir) {
+    if let Some(check_file_path) = strip_prefix_allowing_normalisation(file_path, git_dir) {
         if check_file_path == Path::new(FETCH_HEAD)
             || check_file_path == Path::new(HEAD_ACTIVITY)
             || check_file_path == Path::new(HEAD)
@@ -633,7 +673,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     fn git_dir() -> &'static Path {
         Path::new("/repo/.git")
@@ -696,6 +736,111 @@ mod tests {
             classify_file(git_dir(), Path::new("/repo/.git/gitbutler/REFRESH")),
             FileKind::Git
         );
+    }
+
+    // "Moiré": the accent is one codepoint precomposed, two decomposed. Both spellings name the
+    // same directory, and on macOS the watcher and the configured project path can disagree on
+    // which one they use.
+    const PRECOMPOSED: &str = "Moir\u{e9}";
+    const DECOMPOSED: &str = "Moire\u{301}";
+
+    #[test]
+    fn strip_prefix_still_matches_byte_for_byte() {
+        assert_eq!(
+            strip_prefix_allowing_normalisation(Path::new("/repo/src/main.rs"), Path::new("/repo")),
+            Some(Path::new("src/main.rs")),
+            "an exact prefix is untouched by the fallback"
+        );
+    }
+
+    #[test]
+    fn strip_prefix_matches_a_decomposed_path_against_a_precomposed_prefix() {
+        let path = PathBuf::from(format!("/Users/v/{DECOMPOSED}SL/TexFiles/README.md"));
+        let prefix = PathBuf::from(format!("/Users/v/{PRECOMPOSED}SL/TexFiles"));
+        assert!(
+            path.strip_prefix(&prefix).is_err(),
+            "the byte comparison is what fails here, and is what dropped the event"
+        );
+        assert_eq!(
+            strip_prefix_allowing_normalisation(&path, &prefix),
+            Some(Path::new("README.md")),
+            "the two spell the same directory, so the event belongs to this worktree"
+        );
+    }
+
+    #[test]
+    fn strip_prefix_matches_a_precomposed_path_against_a_decomposed_prefix() {
+        let path = PathBuf::from(format!("/Users/v/{PRECOMPOSED}/a/b.txt"));
+        let prefix = PathBuf::from(format!("/Users/v/{DECOMPOSED}"));
+        assert_eq!(
+            strip_prefix_allowing_normalisation(&path, &prefix),
+            Some(Path::new("a/b.txt")),
+            "the mismatch is tolerated in either direction"
+        );
+    }
+
+    #[test]
+    fn strip_prefix_keeps_rejecting_genuinely_different_paths() {
+        assert_eq!(
+            strip_prefix_allowing_normalisation(Path::new("/elsewhere/file"), Path::new("/repo")),
+            None,
+            "an unrelated path is still outside the worktree"
+        );
+        // Same leading bytes, different directory.
+        assert_eq!(
+            strip_prefix_allowing_normalisation(Path::new("/repo-other/file"), Path::new("/repo")),
+            None,
+            "a sibling sharing leading bytes is not inside it either"
+        );
+    }
+
+    /// The worktree root itself arrives as an event; the call site relies on the empty remainder
+    /// to skip it, and that has to hold through the fallback too, not just the byte fast path.
+    #[test]
+    fn strip_prefix_of_the_whole_path_is_an_empty_remainder() {
+        let path = PathBuf::from(format!("/Users/v/{DECOMPOSED}"));
+        let prefix = PathBuf::from(format!("/Users/v/{PRECOMPOSED}"));
+        let relative = strip_prefix_allowing_normalisation(&path, &prefix)
+            .expect("the two spell the same directory");
+        assert!(
+            relative.as_os_str().is_empty(),
+            "the worktree root itself has nothing left to report"
+        );
+    }
+
+    #[test]
+    fn strip_prefix_rejects_a_prefix_longer_than_the_path() {
+        assert_eq!(
+            strip_prefix_allowing_normalisation(Path::new("/repo"), Path::new("/repo/src/deep")),
+            None,
+            "a path cannot live inside something longer than itself"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn strip_prefix_byte_compares_components_that_are_not_utf8() {
+        use std::os::unix::ffi::OsStrExt as _;
+        let odd = Path::new(std::ffi::OsStr::from_bytes(b"/\xff\xfe/file"));
+        let prefix = Path::new(std::ffi::OsStr::from_bytes(b"/\xff\xfe"));
+        assert_eq!(
+            strip_prefix_allowing_normalisation(odd, prefix),
+            Some(Path::new("file")),
+            "names with no normal form still match themselves"
+        );
+        let other = Path::new(std::ffi::OsStr::from_bytes(b"/\xff\xfd"));
+        assert_eq!(
+            strip_prefix_allowing_normalisation(odd, other),
+            None,
+            "and still do not match a different name"
+        );
+    }
+
+    #[test]
+    fn classify_file_tolerates_a_decomposed_git_dir() {
+        let git_dir = PathBuf::from(format!("/{DECOMPOSED}/repo/.git"));
+        let head = PathBuf::from(format!("/{PRECOMPOSED}/repo/.git/HEAD"));
+        assert_eq!(classify_file(&git_dir, &head), FileKind::Git);
     }
 
     #[test]
