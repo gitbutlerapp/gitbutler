@@ -307,6 +307,8 @@
 					prNumber,
 					first,
 					stackLength: segments.length,
+					lastBranch,
+					isNewBranch,
 				}}
 				<BranchHeaderContextMenu
 					{projectId}
@@ -314,6 +316,7 @@
 					{laneId}
 					{rightClickTrigger}
 					contextData={data}
+					onLand={(branch) => landBranchModal?.show(branch)}
 				/>
 			{/if}
 		{/snippet}

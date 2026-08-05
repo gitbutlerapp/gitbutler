@@ -6,6 +6,8 @@
 		prNumber?: number;
 		first?: boolean;
 		stackLength: number;
+		lastBranch?: boolean;
+		isNewBranch?: boolean;
 	};
 </script>
 
@@ -22,12 +24,15 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { projectAiGenEnabled } from "$lib/config/config";
+	import { projectAiGenEnabled, projectLandDirectly } from "$lib/config/config";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import {
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
@@ -45,6 +50,8 @@
 		openId?: string;
 		rightClickTrigger?: HTMLElement;
 		contextData: BranchHeaderContextData;
+		/** Opens the land-branch confirmation modal owned by the parent branch list. */
+		onLand?: (branchName: string) => void;
 	};
 
 	let {
@@ -54,8 +61,10 @@
 		openId = $bindable(),
 		rightClickTrigger,
 		contextData,
+		onLand,
 	}: Props = $props();
 
+	const controller = getStackContext();
 	const aiService = inject(AI_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const prService = inject(PR_SERVICE);
@@ -65,6 +74,7 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const modeService = inject(MODE_SERVICE);
+	const auth = useForgeAuth(reactive(() => projectId));
 
 	// The app layout keeps rendering stack UI in Edit and single-branch
 	// OutsideWorkspace modes (see routes/[projectId]/+layout.svelte), but the
@@ -113,6 +123,9 @@
 	const branchType = $derived(branchCommits.at(0)?.state.type || "LocalOnly");
 	const isConflicted = $derived(branchCommits.some((commit) => commit.hasConflicts));
 	const hasCommits = $derived(branchCommits.length > 0);
+
+	const landDirectly = $derived(projectLandDirectly(projectId));
+	const canPublishPR = $derived(auth.authenticated.current);
 
 	let aiConfigurationValid = $state(false);
 
@@ -185,7 +198,7 @@
 	contextMenuTestId={TestId.BranchHeaderContextMenu}
 >
 	{#snippet contextMenu({ close })}
-		{@const { prNumber, first, stackLength } = contextData}
+		{@const { prNumber, first, stackLength, lastBranch, isNewBranch } = contextData}
 		<ContextMenuSection>
 			{#if remoteTrackingBranch && branchName}
 				<ContextMenuItem
@@ -327,6 +340,42 @@
 					/>
 				{/if}
 			</ContextMenuSection>
+		{/if}
+		{#if stackId && branchName}
+			{#if $landDirectly}
+				{#if canPublishPR && !prNumber}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Create {reviewUnitAbbr}"
+							icon="pr-plus"
+							testId={TestId.BranchHeaderContextMenu_CreatePR}
+							disabled={isReadOnly || isNewBranch}
+							onclick={() => {
+								controller.projectState.exclusiveAction.set({
+									type: "create-pr",
+									stackId,
+									branchName,
+								});
+								close();
+							}}
+						/>
+					</ContextMenuSection>
+				{/if}
+			{:else if lastBranch && !isNewBranch}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Land"
+						icon="branch-merge"
+						testId={TestId.BranchHeaderContextMenu_Land}
+						disabled={isReadOnly || isConflicted}
+						caption={isConflicted ? "Resolve conflicts before landing" : undefined}
+						onclick={() => {
+							onLand?.(branchName);
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/if}
 		{#if prNumber}
 			{@const prQuery = prService.get(projectId, prNumber)}
