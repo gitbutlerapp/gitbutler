@@ -12,7 +12,27 @@
     nixpkgs,
     flake-utils,
     rust-overlay,
-  }:
+  }: let
+    appVersion = let
+      lines =
+        nixpkgs.lib.splitString "\n"
+        (builtins.readFile ./crates/gitbutler-tauri/com.gitbutler.gitbutler.metainfo.xml);
+      versions =
+        nixpkgs.lib.filter (m: m != null)
+        (map (builtins.match "[[:space:]]*<release version=\"([^\"]+)\".*") lines);
+    in
+      builtins.head (builtins.head versions);
+
+    version = let
+      stamp = self.lastModifiedDate or "19700101";
+      date =
+        builtins.substring 0 4 stamp
+        + "-"
+        + builtins.substring 4 2 stamp
+        + "-"
+        + builtins.substring 6 2 stamp;
+    in "${appVersion}-unstable-${date}";
+  in
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
@@ -25,8 +45,6 @@
         rustc = rustToolchain;
       };
 
-      version = "0.0.0";
-
       # If you change Rust or pnpm dependencies, set these to `pkgs.lib.fakeHash` to have Nix print the expected hashes.
       cargoHash = "sha256-xwsAlCpeeAY0lWpAP0IB7o+MYc0/gcDq0bnVyvDPZLk=";
       pnpmHash = "sha256-03jmeeQdK27JKPUvlJPAWtBZVrO0K0SKhlN7Ml0xfWU=";
@@ -34,6 +52,8 @@
       commonRustAttrs = {
         inherit version cargoHash;
         src = self;
+
+        cargoDepsName = "gitbutler-workspace-${appVersion}";
 
         nativeBuildInputs = [
           pkgs.cmake
@@ -47,6 +67,7 @@
 
         env = {
           OPENSSL_NO_VENDOR = true;
+          VERSION = appVersion;
         };
       };
 
@@ -87,7 +108,7 @@
           postPatch = ''
             tauriConfig=crates/gitbutler-tauri/tauri.conf.release.json
             jq '
-              .version = "${version}"
+              .version = "${appVersion}"
               | .bundle.createUpdaterArtifacts = false
               | .bundle.externalBin = ["gitbutler-git-askpass"]
             ' "$tauriConfig" > "$tauriConfig.tmp"
