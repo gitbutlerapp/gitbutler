@@ -59,6 +59,14 @@
 		border-start-start-radius: 0;
 		border-start-end-radius: 0;
 	}
+
+	/* Selected but unfocused, this row would otherwise take the gray selection
+	   tint and punch a hole in a run of checked rows — so it stays in the pop
+	   family, one step deeper than its neighbours. The focused selection below
+	   still wins: it outranks this on specificity or on source order. */
+	&.containerSelected {
+		background-color: color-mix(var(--fill-pop-bg) 30%, transparent);
+	}
 }
 
 .containerSelected {
