@@ -616,6 +616,8 @@ impl GitLabClient {
             id: i64,
             status: String,
             web_url: Option<String>,
+            #[serde(default)]
+            sha: Option<String>,
         }
 
         let url = format!("{}/projects/{}/pipelines/latest", self.base_url, project_id);
@@ -643,12 +645,138 @@ impl GitLabClient {
             .await
             .with_context(|| format!("Failed to parse GitLab pipeline for ref '{reference}'"))?;
 
-        let pipeline_web_url = pipeline.web_url;
-        let pipeline_status = Some(pipeline.status);
+        self.list_jobs_for_pipeline(
+            &PipelineProject::Path(project_id),
+            pipeline.id,
+            pipeline.web_url,
+            Some(pipeline.status),
+            pipeline.sha,
+        )
+        .await
+    }
 
+    /// Fallback CI source for branches whose pipelines only run on
+    /// merge-request refs (detached / merged-results pipelines) or live in a
+    /// fork's source project: resolve the open MR for `source_branch` and
+    /// list the jobs of its head pipeline.
+    ///
+    /// Returns `Ok(None)` when the branch has no open MR or the MR has no
+    /// head pipeline — an authoritative "no checks". Non-success MR responses
+    /// surface as [`HttpStatusError`] so callers can distinguish missing
+    /// access (403/404) from other failures.
+    pub async fn list_pipeline_jobs_for_open_mr(
+        &self,
+        project_id: GitLabProjectId,
+        source_branch: &str,
+    ) -> Result<Option<Vec<GitLabPipelineJob>>> {
+        let Some(mr) = self
+            .find_open_mr_with_head_pipeline(&project_id, source_branch)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let Some(pipeline) = mr.head_pipeline else {
+            return Ok(None);
+        };
+        // Fork pipelines run in the MR's source project, not the target.
+        let project = PipelineProject::Numeric(
+            pipeline
+                .project_id
+                .or(mr.source_project_id)
+                .unwrap_or(mr.project_id),
+        );
+        let jobs = self
+            .list_jobs_for_pipeline(
+                &project,
+                pipeline.id,
+                pipeline.web_url,
+                pipeline.status,
+                pipeline.sha,
+            )
+            .await?;
+        Ok(Some(jobs))
+    }
+
+    /// Find the open MR for `source_branch`, resolving its head pipeline.
+    ///
+    /// List responses omit `head_pipeline`, so the selected MR is re-fetched
+    /// via the single-MR endpoint when the list did not include one.
+    async fn find_open_mr_with_head_pipeline(
+        &self,
+        project_id: &GitLabProjectId,
+        source_branch: &str,
+    ) -> Result<Option<MrWithHeadPipeline>> {
+        let url = format!("{}/projects/{}/merge_requests", self.base_url, project_id);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("state", "opened"),
+                ("source_branch", source_branch),
+                ("per_page", "100"),
+            ])
+            .send()
+            .await
+            .with_context(|| {
+                format!("Failed to list open GitLab MRs for source branch '{source_branch}'")
+            })?;
+
+        if !response.status().is_success() {
+            return Err(HttpStatusError {
+                status: response.status(),
+            }
+            .into());
+        }
+
+        let mrs: Vec<MrWithHeadPipeline> = response.json().await.with_context(|| {
+            format!("Failed to parse GitLab MRs for source branch '{source_branch}'")
+        })?;
+
+        let Some(mr) = select_mr_with_head_pipeline(mrs) else {
+            return Ok(None);
+        };
+        if mr.head_pipeline.is_some() {
+            return Ok(Some(mr));
+        }
+
+        let url = format!(
+            "{}/projects/{}/merge_requests/{}",
+            self.base_url, project_id, mr.iid
+        );
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to get GitLab MR !{}", mr.iid))?;
+
+        if !response.status().is_success() {
+            return Err(HttpStatusError {
+                status: response.status(),
+            }
+            .into());
+        }
+
+        let mr: MrWithHeadPipeline = response
+            .json()
+            .await
+            .with_context(|| format!("Failed to parse GitLab MR !{}", mr.iid))?;
+        Ok(Some(mr))
+    }
+
+    /// Fetch all jobs of a pipeline with pagination, filling in missing
+    /// job-level URLs, statuses, and SHAs from the pipeline-level data.
+    async fn list_jobs_for_pipeline(
+        &self,
+        project: &PipelineProject,
+        pipeline_id: i64,
+        pipeline_web_url: Option<String>,
+        pipeline_status: Option<String>,
+        pipeline_sha: Option<String>,
+    ) -> Result<Vec<GitLabPipelineJob>> {
         let jobs_url = format!(
             "{}/projects/{}/pipelines/{}/jobs",
-            self.base_url, project_id, pipeline.id
+            self.base_url, project, pipeline_id
         );
         let mut jobs = Vec::new();
         let mut next_page = Some("1".to_string());
@@ -658,8 +786,7 @@ impl GitLabClient {
         while let Some(page) = next_page.take() {
             if pages_iterated >= MAX_PIPELINE_JOB_PAGES || !seen_pages.insert(page.clone()) {
                 bail!(
-                    "Stopped listing GitLab jobs for pipeline {} after unsafe pagination state",
-                    pipeline.id
+                    "Stopped listing GitLab jobs for pipeline {pipeline_id} after unsafe pagination state",
                 );
             }
             pages_iterated += 1;
@@ -671,7 +798,7 @@ impl GitLabClient {
                 .send()
                 .await
                 .with_context(|| {
-                    format!("Failed to list GitLab jobs for pipeline {}", pipeline.id)
+                    format!("Failed to list GitLab jobs for pipeline {pipeline_id}")
                 })?;
 
             if !response.status().is_success() {
@@ -681,7 +808,7 @@ impl GitLabClient {
             next_page = next_page_from_headers(response.headers());
             let mut page_jobs: Vec<GitLabPipelineJob> =
                 response.json().await.with_context(|| {
-                    format!("Failed to parse GitLab jobs for pipeline {}", pipeline.id)
+                    format!("Failed to parse GitLab jobs for pipeline {pipeline_id}")
                 })?;
             if page_jobs.is_empty() {
                 break;
@@ -693,11 +820,68 @@ impl GitLabClient {
             jobs,
             pipeline_web_url,
             pipeline_status,
+            pipeline_sha,
             &self.base_url,
-            project_id,
+            project,
         );
         Ok(jobs)
     }
+}
+
+/// GitLab project selector for pipeline endpoints: the url-encoded
+/// `owner/repo` path of the configured remote, or the numeric project id
+/// GitLab reports in MR payloads (the only identifier available for a
+/// fork's source project). GitLab accepts both forms in the `:id` slot.
+enum PipelineProject {
+    Path(GitLabProjectId),
+    Numeric(i64),
+}
+
+impl std::fmt::Display for PipelineProject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PipelineProject::Path(project_id) => write!(f, "{project_id}"),
+            PipelineProject::Numeric(id) => write!(f, "{id}"),
+        }
+    }
+}
+
+/// Focused subset of GitLab's MR payload used to resolve the head pipeline
+/// backing CI checks. `head_pipeline` is only present in single-MR
+/// responses; list responses leave it `None`.
+#[derive(Debug, Deserialize)]
+struct MrWithHeadPipeline {
+    iid: i64,
+    project_id: i64,
+    #[serde(default)]
+    source_project_id: Option<i64>,
+    #[serde(default)]
+    head_pipeline: Option<HeadPipeline>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HeadPipeline {
+    id: i64,
+    #[serde(default)]
+    project_id: Option<i64>,
+    #[serde(default)]
+    sha: Option<String>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    web_url: Option<String>,
+}
+
+/// Pick the MR whose head pipeline should back the CI badge: the highest-iid
+/// MR that reports a head pipeline, falling back to the highest iid overall
+/// (its pipeline may still surface via the single-MR endpoint).
+fn select_mr_with_head_pipeline(mrs: Vec<MrWithHeadPipeline>) -> Option<MrWithHeadPipeline> {
+    let (with_pipeline, without): (Vec<_>, Vec<_>) =
+        mrs.into_iter().partition(|mr| mr.head_pipeline.is_some());
+    with_pipeline
+        .into_iter()
+        .max_by_key(|mr| mr.iid)
+        .or_else(|| without.into_iter().max_by_key(|mr| mr.iid))
 }
 
 fn next_page_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -713,15 +897,14 @@ fn normalize_pipeline_jobs(
     jobs: Vec<GitLabPipelineJob>,
     pipeline_web_url: Option<String>,
     pipeline_status: Option<String>,
+    pipeline_sha: Option<String>,
     base_url: &str,
-    project_id: GitLabProjectId,
+    project: &PipelineProject,
 ) -> Vec<GitLabPipelineJob> {
     let web_base = base_url
         .strip_suffix("/api/v4")
         .unwrap_or(base_url)
         .trim_end_matches('/');
-    let username = project_id.username();
-    let project_name = project_id.project_name();
 
     jobs.into_iter()
         .map(|mut job| {
@@ -729,11 +912,16 @@ fn normalize_pipeline_jobs(
                 job.web_url = pipeline_web_url
                     .clone()
                     .or_else(|| job.pipeline.web_url.clone())
-                    .or_else(|| {
-                        Some(format!(
+                    .or_else(|| match project {
+                        PipelineProject::Path(project_id) => Some(format!(
                             "{}/{}/{}/-/pipelines/{}",
-                            web_base, username, project_name, job.pipeline.id
-                        ))
+                            web_base,
+                            project_id.username(),
+                            project_id.project_name(),
+                            job.pipeline.id
+                        )),
+                        // A numeric project id cannot be turned into a web path.
+                        PipelineProject::Numeric(_) => None,
                     });
             }
             if job.pipeline.web_url.is_none() {
@@ -741,6 +929,9 @@ fn normalize_pipeline_jobs(
             }
             if job.pipeline.status.is_none() {
                 job.pipeline.status = pipeline_status.clone();
+            }
+            if job.pipeline.sha.is_none() {
+                job.pipeline.sha = pipeline_sha.clone();
             }
             job
         })
@@ -930,6 +1121,9 @@ pub struct GitLabPipelineRef {
     pub web_url: Option<String>,
     #[serde(default)]
     pub status: Option<String>,
+    /// The commit the pipeline ran for; the MR head SHA for MR pipelines.
+    #[serde(default)]
+    pub sha: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1075,8 +1269,9 @@ pub(crate) fn resolve_account(
 #[cfg(test)]
 mod tests {
     use super::{
-        GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MergeRequest,
-        next_page_from_headers, normalize_pipeline_jobs, repo_owner_from_path_with_namespace,
+        GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, HeadPipeline, MergeRequest,
+        MrWithHeadPipeline, PipelineProject, next_page_from_headers, normalize_pipeline_jobs,
+        repo_owner_from_path_with_namespace, select_mr_with_head_pipeline,
         update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
@@ -1099,7 +1294,27 @@ mod tests {
                 id: pipeline_id,
                 web_url: pipeline_web_url.map(str::to_owned),
                 status: None,
+                sha: None,
             },
+        }
+    }
+
+    fn mr(iid: i64, head_pipeline: Option<HeadPipeline>) -> MrWithHeadPipeline {
+        MrWithHeadPipeline {
+            iid,
+            project_id: 1,
+            source_project_id: None,
+            head_pipeline,
+        }
+    }
+
+    fn head_pipeline(id: i64) -> HeadPipeline {
+        HeadPipeline {
+            id,
+            project_id: None,
+            sha: None,
+            status: None,
+            web_url: None,
         }
     }
 
@@ -1199,8 +1414,9 @@ mod tests {
             vec![job(1, 123, None, None), job(2, 123, None, None)],
             Some("https://gitlab.example/pipelines/123".into()),
             Some("success".into()),
+            Some("deadbeef".into()),
             "https://gitlab.example/api/v4",
-            crate::GitLabProjectId::new("group", "repo"),
+            &PipelineProject::Path(crate::GitLabProjectId::new("group", "repo")),
         );
 
         assert_eq!(
@@ -1216,6 +1432,7 @@ mod tests {
             Some("https://gitlab.example/pipelines/123")
         );
         assert_eq!(jobs[0].pipeline.status.as_deref(), Some("success"));
+        assert_eq!(jobs[0].pipeline.sha.as_deref(), Some("deadbeef"));
     }
 
     #[test]
@@ -1224,13 +1441,76 @@ mod tests {
             vec![job(1, 123, None, None)],
             None,
             None,
+            None,
             "https://gitlab.example/api/v4",
-            crate::GitLabProjectId::new("group", "repo"),
+            &PipelineProject::Path(crate::GitLabProjectId::new("group", "repo")),
         );
 
         assert_eq!(
             jobs[0].web_url.as_deref(),
             Some("https://gitlab.example/group/repo/-/pipelines/123")
+        );
+    }
+
+    #[test]
+    fn normalize_pipeline_jobs_never_synthesizes_url_from_numeric_project() {
+        // The numeric id of a fork's source project has no derivable web
+        // path, so the fallback URL must stay absent rather than be wrong.
+        let jobs = normalize_pipeline_jobs(
+            vec![job(1, 123, None, None)],
+            None,
+            None,
+            None,
+            "https://gitlab.example/api/v4",
+            &PipelineProject::Numeric(42),
+        );
+
+        assert_eq!(jobs[0].web_url, None);
+    }
+
+    #[test]
+    fn pipeline_project_display_urlencodes_path_and_passes_numeric_through() {
+        assert_eq!(
+            PipelineProject::Path(crate::GitLabProjectId::new("group", "repo")).to_string(),
+            "group%2Frepo",
+            "GitLab path project ids must stay urlencoded in the :id slot"
+        );
+        assert_eq!(
+            PipelineProject::Numeric(42).to_string(),
+            "42",
+            "numeric project ids go into the :id slot as-is"
+        );
+    }
+
+    #[test]
+    fn selects_highest_iid_mr_with_head_pipeline() {
+        let selected = select_mr_with_head_pipeline(vec![
+            mr(3, Some(head_pipeline(30))),
+            mr(5, None),
+            mr(4, Some(head_pipeline(40))),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            selected.iid, 4,
+            "an MR that reports a head pipeline wins over a higher-iid MR without one"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_highest_iid_mr_without_head_pipeline() {
+        // List responses omit `head_pipeline` entirely, so the selection must
+        // still produce an MR for the follow-up single-MR fetch.
+        let selected = select_mr_with_head_pipeline(vec![mr(3, None), mr(5, None)]).unwrap();
+
+        assert_eq!(selected.iid, 5);
+    }
+
+    #[test]
+    fn selects_nothing_from_an_empty_mr_list() {
+        assert!(
+            select_mr_with_head_pipeline(vec![]).is_none(),
+            "no open MRs means there is no pipeline to fall back to"
         );
     }
 
