@@ -282,6 +282,7 @@ const UncommittedChanges: FC<{
 		onEnterList: onActiveFileSelection,
 		panelRef,
 		listRef: fileListRef,
+		enabled: (worktreeChanges?.changes.length ?? 0) > 0,
 	});
 
 	return (
@@ -723,9 +724,6 @@ export const OutlineTree: FC<
 		items: commitTargetComboboxItems,
 		outlineSelection,
 	});
-	const hasCheckedOperands = useAppSelector((state) =>
-		projectSlice.selectors.selectHasCheckedOperands(state, projectId),
-	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
@@ -815,7 +813,6 @@ export const OutlineTree: FC<
 					{...props}
 					id={layoutId}
 					orientation="vertical"
-					data-has-checked-operands={hasCheckedOperands || undefined}
 					className={classes(props.className, styles.tree)}
 					defaultLayout={outlineLayout.defaultLayout}
 					onLayoutChanged={outlineLayout.onLayoutChanged}

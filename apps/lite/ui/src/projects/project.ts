@@ -572,11 +572,6 @@ const selectCheckedOperandCount = createSelector(
 	(checkedOperands) => checkedOperands.length,
 );
 
-const selectHasCheckedOperands = createSelector(
-	selectCheckedOperands,
-	(checkedOperands) => checkedOperands.length > 0,
-);
-
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
 	selectOutlineTab: (state: ProjectState) => state.outlineTab,
@@ -640,7 +635,6 @@ export const projectSelectors = {
 	selectCheckedCommitIds,
 	selectCheckedUncommittedFilePaths,
 	selectCheckedOperandCount,
-	selectHasCheckedOperands,
 	// Checking has been defined in a flexible way to support heterogeneous items, however in the UI
 	// we currently only allow a single context of checked items at a time, hence these selectors.
 	selectCheckedOperandsContext: (state: ProjectState): CheckableOperand["_tag"] | null =>

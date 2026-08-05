@@ -10,13 +10,13 @@
 	justify-self: center;
 	opacity: 0;
 
-	:global([data-has-checked-operands]) &,
+	&[data-checked],
 	.row:hover &,
 	&:focus {
 		opacity: 1;
 	}
 
-	:global([role="tree"]:not([data-has-checked-operands])) &[data-disabled] {
+	&[data-disabled]:not([data-checked]) {
 		display: none;
 	}
 }
