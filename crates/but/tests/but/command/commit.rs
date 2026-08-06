@@ -2461,3 +2461,47 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+/// Hunks chosen before a hook runs cannot survive the hook rewriting the file they came from, so
+/// the commit is refused rather than quietly carrying whichever of them still matched.
+#[cfg(unix)]
+#[test]
+fn choosing_hunks_a_hook_then_rewrites_refuses_the_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let lines: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    env.file("many.txt", &lines);
+    env.but("commit --no-message").assert().success();
+
+    env.file(
+        "many.txt",
+        lines
+            .replace("l02\n", "l02-top\n")
+            .replace("l19\n", "l19-bottom\n"),
+    );
+    write_line_shifting_hook(&env);
+
+    // `rr:e` and `rr:c` are this fixture's two hunks in many.txt, as `but diff` shows them.
+    env.but("commit --no-message rr:e rr:c")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: the pre-commit hook changed many.txt, which this commit was told to take part of.
+
+Nothing was committed and the hook's changes are still in the worktree. Re-run `but commit` to choose from the files as they are now, or commit without ids to take the worktree as the hook left it.
+
+"#]]);
+
+    let mut expected: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    expected = expected
+        .replace("l02\n", "l02-top\n")
+        .replace("l19\n", "l19-bottom\n");
+    let after_ninth = expected.match_indices('\n').nth(8).expect("twenty lines").0 + 1;
+    expected.insert_str(after_ninth, "INSERTED\n");
+    assert_eq!(
+        env.read_file("many.txt").expect("still there"),
+        expected,
+        "a refused commit leaves the hook's changes in the worktree rather than undoing them"
+    );
+}

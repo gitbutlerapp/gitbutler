@@ -283,18 +283,22 @@ pub fn run(
     run_hooks: RunHooks,
 ) -> anyhow::Result<CommitOutcome> {
     let takes_whole_worktree = matches!(commit_selection, CommitSelection::AllChanges);
-    let (mut changes, _) = build_diff_specs(ctx, perm, commit_selection)?;
+    let mut changes = build_diff_specs(ctx, perm, commit_selection)?;
 
     if run_hooks.is_yes() {
+        let committed_paths: std::collections::BTreeSet<_> =
+            changes.iter().map(|spec| spec.path.clone()).collect();
         let touched = run_pre_commit_hook(ctx, perm, &changes)?;
         if !touched.is_empty() {
             // The hook rewrote files this commit is made of. Every spec carries hunk headers even
             // when no ids were given, and `DiffSpec` drops headers that no longer match without
             // saying so, which would quietly commit less than was asked for.
             if takes_whole_worktree {
-                // Nothing was singled out, so what the hook left behind is what to commit - the
-                // same result `git` gives for a hook that stages its own edits.
-                changes = build_diff_specs(ctx, perm, CommitSelection::AllChanges)?.0;
+                // Nothing was singled out, so take these files as the hook left them. Only these
+                // files: a hook is free to write elsewhere, and committing what it happened to
+                // touch would put files in the commit that were never going to be in it.
+                changes = build_diff_specs(ctx, perm, CommitSelection::AllChanges)?;
+                changes.retain(|spec| committed_paths.contains(&spec.path));
             } else {
                 return Err(hook_changed_selected_files(&touched));
             }
@@ -409,6 +413,11 @@ impl HunkSelections {
         let mut seen = std::collections::BTreeSet::new();
         let files = changes
             .iter()
+            // Only hunk headers go stale. A whole-file spec - an addition, a deletion, a binary
+            // or too-large file - is read from disk while the commit is built, so a hook's edits
+            // to it are picked up rather than lost, and watching it would refuse commits that
+            // were never at risk. It also keeps the biggest files out of the snapshot below.
+            .filter(|spec| !spec.hunk_headers.is_empty())
             .filter(|spec| seen.insert(spec.path.clone()))
             .map(|spec| {
                 let path = workdir.join(gix::path::from_bstr(spec.path.as_bstr()));
@@ -428,19 +437,15 @@ impl HunkSelections {
     }
 }
 
-/// Build the changes to commit, and the paths that were singled out to make them.
-///
-/// `selected_paths` is empty when nothing was singled out, which is what tells a hook's own edits
-/// apart from edits that invalidate a selection the user made.
+/// Build the changes a commit is made of.
 fn build_diff_specs(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
     commit_selection: CommitSelection,
-) -> anyhow::Result<(Vec<DiffSpec>, Vec<BString>)> {
+) -> anyhow::Result<Vec<DiffSpec>> {
     let context_lines = ctx.settings.context_lines;
     let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let mut builder = DiffSpecBuilder::new(&repo, context_lines);
-    let mut selected_paths = Vec::new();
 
     match commit_selection {
         CommitSelection::AllChanges => {
@@ -448,7 +453,6 @@ fn build_diff_specs(
         }
         CommitSelection::Changes(changes) => {
             for change in *changes {
-                selected_paths.extend(change.hunks.iter().map(|hunk| hunk.hunk.path.clone()));
                 builder.push_changes_from_uncommitted(&change)?;
             }
 
@@ -457,7 +461,7 @@ fn build_diff_specs(
         CommitSelection::Nothing => {}
     }
 
-    Ok((builder.into_diff_specs(), selected_paths))
+    Ok(builder.into_diff_specs())
 }
 
 /// Refuse a commit whose singled-out files a hook rewrote underneath it.
