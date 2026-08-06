@@ -415,26 +415,20 @@ pub fn apply(
     {
         let ws_mut: &mut Workspace = &mut ws_md;
         // Demote previously-applied stacks before re-applying, in two situations:
-        //  - stale AdHoc metadata left after switching out of the workspace: the stack no longer
-        //    appears in the projection, and
+        //  - stale metadata whose stack no longer appears in the projection, and
         //  - re-rooting around a branch we have checked out that's already in the workspace: keep
         //    only that branch and the branch being applied.
-        // Ref names the projection (`ws`) contains, in AdHoc mode only; `None` in a managed
-        // workspace, where the metadata is authoritative so projection absence doesn't demote.
-        let projected_refs = matches!(ws.kind, WorkspaceKind::AdHoc).then(|| {
-            ws.stacks
-                .iter()
-                .flat_map(|s| s.segments.iter())
-                .filter_map(|seg| seg.ref_name().map(|rn| rn.as_bstr()))
-                .collect::<std::collections::HashSet<_>>()
-        });
+        let projected_refs = ws
+            .stacks
+            .iter()
+            .flat_map(|s| s.segments.iter())
+            .filter_map(|seg| seg.ref_name().map(|rn| rn.as_bstr()))
+            .collect::<std::collections::HashSet<_>>();
         for stack in &mut ws_mut.stacks {
-            let dropped_from_projection = projected_refs.as_ref().is_some_and(|projected| {
-                !stack
-                    .branches
-                    .iter()
-                    .any(|b| projected.contains(b.ref_name.as_ref().as_bstr()))
-            });
+            let dropped_from_projection = !stack
+                .branches
+                .iter()
+                .any(|b| projected_refs.contains(b.ref_name.as_ref().as_bstr()));
             let stack_is_kept = stack.branches.iter().any(|b| {
                 branches_to_apply
                     .iter()
@@ -755,6 +749,7 @@ pub fn apply(
             ..Default::default()
         },
     )?;
+    ws.reconcile_metadata(&mut ws_md)?;
     persist_metadata_and_gitconfig(
         meta,
         &branches_to_apply,

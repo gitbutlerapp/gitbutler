@@ -15,7 +15,6 @@ use but_workspace::{
     commit_engine,
     legacy::{StacksFilter, ui::StackEntry},
 };
-use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -326,16 +325,15 @@ pub fn stash_into_branch(
 
     let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
 
-    let stack = ctx.branch_manager().create_virtual_branch(
-        &gitbutler_branch::BranchCreateRequest {
-            name: Some(branch_name.clone()),
-            ..Default::default()
+    let (stack_id, full_ref_name) = super::stack::create_reference_with_perm(
+        ctx,
+        super::stack::create_reference::Request {
+            new_name: branch_name,
+            anchor: None,
         },
         perm,
     )?;
-
-    let branch_name = stack.derived_name()?;
-    let full_ref_name: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into()?;
+    let stack_id = stack_id.context("created stash branch is missing its stack id")?;
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
@@ -389,10 +387,10 @@ pub fn stash_into_branch(
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
-    gitbutler_branch_actions::update_workspace_commit(ctx, false)
+    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm.read_permission())
         .context("failed to update gitbutler workspace")?;
 
-    super::virtual_branches::unapply_stack_with_perm(ctx, stack.id, perm)?;
+    super::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;
 
     outcome
 }

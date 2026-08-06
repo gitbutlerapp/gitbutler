@@ -22,15 +22,6 @@ pub fn get(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     controller.get(id)
 }
 
-/// Testing purpose only.
-pub fn get_with_path<P: AsRef<Path>>(
-    app_data_dir: P,
-    id: ProjectHandleOrLegacyProjectId,
-) -> anyhow::Result<Project> {
-    let controller = Controller::from_path(app_data_dir.as_ref());
-    controller.get(id)
-}
-
 pub fn get_validated(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get_validated(id)
@@ -53,17 +44,6 @@ pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
 /// This is very much like [`gix::discover()`] compared to [`gix::open()`] in [`add()`].
 pub fn add_with_best_effort<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
-    controller.add_with_best_effort(path)
-}
-
-/// Like [`add_with_best_effort()`], but it allows to obtain a controller from `app_data_dir` directly,
-/// without relying on globals. This helps with isolation, particularly in tests.
-/// This is very much like [`gix::discover()`]
-pub fn add_with_best_effort_at_app_data_dir(
-    app_data_dir: impl AsRef<Path>,
-    path: impl AsRef<Path>,
-) -> anyhow::Result<AddProjectOutcome> {
-    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.add_with_best_effort(path)
 }
 

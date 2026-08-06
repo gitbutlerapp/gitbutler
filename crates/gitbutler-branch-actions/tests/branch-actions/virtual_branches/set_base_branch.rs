@@ -1,5 +1,5 @@
 use super::*;
-use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_oplog::OplogExt as _;
 
 #[test]
 fn success() {
@@ -12,6 +12,22 @@ fn success() {
         guard.write_permission(),
     )
     .unwrap();
+}
+
+#[test]
+fn reconfiguring_base_branch_records_snapshot() {
+    let Test { ctx, .. } = &mut Test::default();
+    let target = "refs/remotes/origin/master".parse().unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    drop(guard);
+
+    assert_eq!(
+        ctx.snapshots_iter(None, Vec::new(), None).unwrap().count(),
+        1,
+        "the second call snapshots the initialized project before reconfiguration"
+    );
 }
 
 #[test]
@@ -143,57 +159,9 @@ mod error {
 }
 
 mod go_back_to_workspace {
-    use gitbutler_branch::BranchCreateRequest;
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[test]
-    fn should_preserve_applied_vbranches() {
-        let Test { repo, ctx, .. } = &mut Test::default();
-
-        std::fs::write(repo.path().join("file.txt"), "one").unwrap();
-        let oid_one = repo.commit_all("one");
-        std::fs::write(repo.path().join("file.txt"), "two").unwrap();
-        repo.commit_all("two");
-        repo.push();
-
-        let mut guard = ctx.exclusive_worktree_access();
-        gitbutler_branch_actions::set_base_branch(
-            ctx,
-            &"refs/remotes/origin/master".parse().unwrap(),
-            guard.write_permission(),
-        )
-        .unwrap();
-        drop(guard);
-
-        let mut guard = ctx.exclusive_worktree_access();
-        let stack_entry = ctx
-            .branch_manager()
-            .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-            .unwrap();
-        drop(guard);
-
-        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
-        super::create_commit(ctx, stack_entry.id, "one").unwrap();
-
-        let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-
-        repo.checkout_commit(oid_one);
-
-        let mut guard = ctx.exclusive_worktree_access();
-        gitbutler_branch_actions::set_base_branch(
-            ctx,
-            &"refs/remotes/origin/master".parse().unwrap(),
-            guard.write_permission(),
-        )
-        .unwrap();
-
-        let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-        assert_eq!(stacks[0].0, stack_entry.id);
-    }
 
     #[test]
     fn from_target_branch_index_conflicts() {

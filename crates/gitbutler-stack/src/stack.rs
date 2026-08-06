@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow};
 pub(crate) use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_error::bail_precondition;
@@ -9,12 +7,8 @@ use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_bran
 use gix::validate::reference::name_partial;
 use itertools::Itertools;
 
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
 use crate::{
-    StackBranch, VirtualBranchesHandle,
+    StackBranch,
     stack_branch::remote_reference,
     target::{default_target_base_oid, default_target_push_remote_name},
 };
@@ -102,10 +96,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     }
 }
 
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
 impl Stack {
     /// The name of the stack, defined as the name of the first head (branch) in the stack.
     /// The usage of this is discouraged
@@ -145,17 +135,9 @@ impl Stack {
         head: gix::ObjectId,
         order: usize,
     ) -> Result<Self> {
-        let state = branch_state(ctx);
         let repo = ctx.repo.get()?;
         let push_remote_name = default_target_push_remote_name(ctx)?;
-        let name = Stack::new_name(
-            &repo,
-            &state,
-            &push_remote_name,
-            upstream.clone(),
-            name,
-            true,
-        )?;
+        let name = Stack::new_name(&repo, &push_remote_name, upstream.clone(), name, true)?;
         let stack_branch = Stack::create_stack_branch(&repo, head, name.clone())?;
         Ok(Self {
             id: StackId::generate(),
@@ -173,10 +155,9 @@ impl Stack {
         head: gix::ObjectId,
         order: usize,
     ) -> Result<Self> {
-        let state = branch_state(ctx);
         let repo = ctx.repo.get()?;
         let push_remote_name = default_target_push_remote_name(ctx)?;
-        let name = Stack::new_name(&repo, &state, &push_remote_name, None, name, false)?;
+        let name = Stack::new_name(&repo, &push_remote_name, None, name, false)?;
         let stack_branch = Stack::create_stack_branch(&repo, head, name.clone())?;
         Ok(Self {
             id: StackId::generate(),
@@ -201,21 +182,8 @@ impl Stack {
         Ok(merge_base.detach())
     }
 
-    /// An initialized stack has at least one head (branch).
-    ///
-    /// # Errors
-    /// - If the stack has not been initialized
-    fn ensure_initialized(&self) -> Result<()> {
-        if self.heads.is_empty() {
-            bail!("Stack has not been initialized")
-        }
-
-        Ok(())
-    }
-
     fn new_name(
         repo: &gix::Repository,
-        state: &VirtualBranchesHandle,
         push_remote_name: &str,
         upstream: Option<RemoteRefname>,
         fallback: String,
@@ -226,9 +194,8 @@ impl Stack {
         } else {
             fallback
         };
-        let name =
-            Stack::next_available_name(repo, state, push_remote_name, name, allow_duplicate_refs)?;
-        validate_name(&name, state)?;
+        let name = Stack::next_available_name(repo, push_remote_name, name, allow_duplicate_refs)?;
+        validate_name(&name, repo, allow_duplicate_refs)?;
         Ok(name)
     }
 
@@ -246,17 +213,15 @@ impl Stack {
 
     fn next_available_name(
         repo: &gix::Repository,
-        state: &VirtualBranchesHandle,
         push_remote_name: &str,
         mut name: String,
         allow_duplicate_refs: bool,
     ) -> Result<String> {
         let is_duplicate = |name: &String| -> Result<bool> {
             Ok(if allow_duplicate_refs {
-                patch_reference_exists(state, name)?
+                false
             } else {
-                patch_reference_exists(state, name)?
-                    || local_reference_exists(repo, name)?
+                local_reference_exists(repo, name)?
                     || remote_reference_exists(repo, push_remote_name, name)?
             })
         };
@@ -272,65 +237,6 @@ impl Stack {
         }
         Ok(name)
     }
-
-    /// Renames an existing branch in the stack and its local Git reference.
-    /// A rename resets the pull-request number and persists the updated stack.
-    pub fn rename_branch(
-        &mut self,
-        ctx: &Context,
-        branch_name: String,
-        new_name: String,
-    ) -> Result<()> {
-        self.ensure_initialized()?;
-
-        let mut updated_heads = self.heads.clone();
-        let head = updated_heads
-            .iter_mut()
-            .find(|head| *head.name() == branch_name)
-            .ok_or_else(|| {
-                anyhow!(
-                    "Series {} does not exist on stack {}",
-                    branch_name,
-                    self.name()
-                )
-            })?;
-        if new_name == branch_name {
-            return Ok(());
-        }
-
-        let mut state = branch_state(ctx);
-        validate_name(&new_name, &state)?;
-        head.set_name(new_name, &*ctx.repo.get()?)?;
-        head.pr_number = None;
-        self.heads = updated_heads;
-        state.set_stack(self.clone())
-    }
-
-    /// Updates the top branch and its local Git reference to `commit_id`, then persists the stack.
-    pub fn set_stack_head(
-        &mut self,
-        state: &mut VirtualBranchesHandle,
-        gix_repo: &gix::Repository,
-        commit_id: gix::ObjectId,
-    ) -> Result<()> {
-        self.ensure_initialized()?;
-
-        let commit = gix_repo.find_commit(commit_id)?;
-
-        let head = self
-            .heads
-            .last_mut()
-            .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-
-        head.set_head(commit.id, gix_repo)?;
-        state.set_stack(self.clone())
-    }
-
-    /// Returns a list of all branches/series in the stack.
-    /// Ordered from oldest to newest (most recent)
-    pub fn branches(&self) -> Vec<StackBranch> {
-        self.heads.clone()
-    }
 }
 
 impl TryFrom<&Stack> for VirtualRefname {
@@ -345,53 +251,19 @@ impl TryFrom<&Stack> for VirtualRefname {
 
 /// Validates the name of the stack head.
 /// The name must be:
-///  - unique within all stacks
-///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
+///  - not the same as any existing local git reference unless it names the source ref
 ///  - not including the `refs/heads/` prefix
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
+fn validate_name(name: &str, repo: &gix::Repository, allow_existing_ref: bool) -> Result<()> {
     if name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
     // assert that the name is a valid branch name
     name_partial(name.into()).context("Invalid branch name")?;
-    // assert that there are no existing patch references with this name
-    if patch_reference_exists(state, name)? {
+    if !allow_existing_ref && local_reference_exists(repo, name)? {
         bail_precondition!("A patch reference with the name {name} exists");
     }
 
     Ok(())
-}
-
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-fn branch_state_from_project_data_dir(project_data_dir: &Path) -> VirtualBranchesHandle {
-    VirtualBranchesHandle::new(project_data_dir)
-}
-
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-fn branch_state(ctx: &Context) -> VirtualBranchesHandle {
-    branch_state_from_project_data_dir(&ctx.project_data_dir())
-}
-
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {
-    Ok(state
-        .list_stacks_in_workspace()?
-        .iter()
-        .flat_map(|b| b.heads.iter())
-        .any(|r| r.name() == name))
 }
 
 fn local_reference_exists(repo: &gix::Repository, name: &str) -> Result<bool> {

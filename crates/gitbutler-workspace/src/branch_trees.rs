@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use but_core::RepositoryExt as _;
 use but_ctx::{
     Context,
@@ -6,8 +6,6 @@ use but_ctx::{
 };
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-
-use crate::{legacy_target_base_oid, legacy_workspace_stack_heads};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -19,10 +17,16 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn create(ctx: &Context, _perm: &RepoShared) -> Result<Self> {
-        let repo = ctx.repo.get()?;
-        let target_base_oid = legacy_target_base_oid(ctx)?;
-        let head_oids = legacy_workspace_stack_heads(ctx, &repo, target_base_oid)?;
+    pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+        let target_base_oid = ws
+            .stored_target_commit_id()
+            .context("failed to get target base oid")?;
+        let head_oids = ws
+            .stacks
+            .iter()
+            .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
+            .collect::<Vec<_>>();
         Self::create_from_heads_and_target(&repo, &head_oids, target_base_oid)
     }
 
@@ -150,10 +154,7 @@ fn move_tree(
 /// Takes N trees and a base tree and merges all the heads together with respect to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-pub fn merge_workspace(
-    repo: &gix::Repository,
-    workspace: &WorkspaceState,
-) -> Result<gix::ObjectId> {
+fn merge_workspace(repo: &gix::Repository, workspace: &WorkspaceState) -> Result<gix::ObjectId> {
     if workspace.heads.is_empty() {
         return Ok(workspace.base);
     } else if workspace.heads.len() == 1 {

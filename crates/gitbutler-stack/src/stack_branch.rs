@@ -1,10 +1,6 @@
 use anyhow::Result;
-use bstr::{BString, ByteSlice};
 use but_meta::virtual_branches_legacy_types;
-use gix::refs::{
-    Target,
-    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
-};
+use gix::refs::transaction::PreviousValue;
 
 /// Legacy metadata for a branch within a stack, paired with a local Git reference.
 /// The persisted `head` value remains as a fallback for restoring that reference.
@@ -100,79 +96,8 @@ impl StackBranch {
         Ok(branch)
     }
 
-    /// This will update the commit that real git reference points to, so it points to `target`,
-    /// as well as the cached data in this instance.
-    pub(crate) fn set_head(&mut self, target: gix::ObjectId, repo: &gix::Repository) -> Result<()> {
-        self.set_real_reference(repo, target)?;
-        self.head = target;
-        Ok(())
-    }
-
     pub fn name(&self) -> &String {
         &self.name
-    }
-
-    pub(crate) fn set_name(&mut self, name: String, repo: &gix::Repository) -> Result<()> {
-        self.rename_real_reference(&name, repo)?;
-        self.name = name;
-        Ok(())
-    }
-
-    fn rename_real_reference(&self, name: &str, repo: &gix::Repository) -> Result<()> {
-        if self.name == name {
-            return Ok(()); // noop
-        }
-        let current_name: BString = qualified_reference_name(self.name()).into();
-
-        let oid = self.head_oid(repo)?;
-
-        if let Some(reference) = repo.try_find_reference(&current_name)? {
-            let delete = RefEdit {
-                change: Change::Delete {
-                    expected: PreviousValue::MustExistAndMatch(oid.into()),
-                    log: RefLog::AndReference,
-                },
-                name: reference.name().into(),
-                deref: false,
-            };
-            let new_name: gix::refs::FullName = qualified_reference_name(name).try_into()?;
-            let create = RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: "GitButler reference".into(),
-                    },
-                    expected: PreviousValue::ExistingMustMatch(oid.into()),
-                    new: Target::Object(oid),
-                },
-                name: new_name.clone(),
-                deref: false,
-            };
-
-            let one_is_contained_in_the_other = [
-                (new_name.as_bstr(), reference.name().as_bstr()),
-                (reference.name().as_bstr(), new_name.as_bstr()),
-            ]
-            .iter()
-            .any(|(a, b)| a.contains_str(b) && a.get(b.len()) == Some(&b'/'));
-            if one_is_contained_in_the_other {
-                // Workaround `gix` issue which can't deal with directories in one transactions.
-                // TODO(gix): should be able to handle this.
-                repo.edit_references([delete])?;
-                repo.edit_references([create])?;
-            } else {
-                repo.edit_references([delete, create])?;
-            }
-        } else {
-            repo.reference(
-                qualified_reference_name(name),
-                oid,
-                PreviousValue::MustNotExist,
-                "GitButler reference",
-            )?;
-        };
-        Ok(())
     }
 
     /// Creates or updates a real git reference using the head information (target commit, name)

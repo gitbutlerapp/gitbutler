@@ -94,7 +94,7 @@ fn edit_branch_name(
             continue;
         }
 
-        if let Some(sid) = stack_entry.id {
+        if let Some(branch) = stack_entry.branch(branch_name) {
             let non_validated_new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
 
@@ -112,13 +112,15 @@ fn edit_branch_name(
                     .shorten()
                     .to_string()
             };
-            but_api::legacy::stack::update_branch_name_with_perm(
+            let new_branch_name = but_api::branch::branch_rename_with_perm(
                 ctx,
-                sid,
-                branch_name.to_owned(),
-                new_branch_name.clone(),
+                branch.reference.clone(),
+                new_branch_name,
                 perm,
-            )?;
+            )?
+            .new_ref
+            .shorten()
+            .to_string();
             if let Some(out) = out.for_human() {
                 writeln!(out, "Renamed branch '{branch_name}' to '{new_branch_name}'")?;
             }

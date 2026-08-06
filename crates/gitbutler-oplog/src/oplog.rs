@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{
-    RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes, ref_metadata::ProjectMeta,
+    RefMetadata, RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes,
+    ref_metadata::ProjectMeta,
 };
 use but_ctx::{
     Context,
@@ -562,7 +563,7 @@ fn snapshot_metadata(
 mod legacy_virtual_branches {
     use std::path::PathBuf;
 
-    use anyhow::Result;
+    use anyhow::{Result, bail};
     use but_ctx::Context;
     use but_meta::{
         legacy_storage,
@@ -622,13 +623,10 @@ mod legacy_virtual_branches {
     }
 
     fn branch_head_oid(branch: &StackBranch, repo: &gix::Repository) -> Result<gix::ObjectId> {
-        if let Some(mut reference) = repo.try_find_reference(&branch.name)? {
-            let commit = reference.peel_to_commit()?;
-            Ok(commit.id)
-        } else {
-            set_reference_to_stored_head(branch, repo)?;
-            Ok(branch.head)
-        }
+        let Some(mut reference) = repo.try_find_reference(&branch.name)? else {
+            bail!("branch '{}' no longer exists", branch.name);
+        };
+        Ok(reference.peel_to_commit()?.id)
     }
 
     pub(super) fn set_reference_to_stored_head(
@@ -661,7 +659,7 @@ mod legacy_virtual_branches {
 
 fn prepare_snapshot_with_target(
     ctx: &Context,
-    _shared_access: &RepoShared,
+    shared_access: &RepoShared,
 ) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
@@ -698,8 +696,26 @@ fn prepare_snapshot_with_target(
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
 
     let vb_content = {
-        let mut legacy_meta = ctx.legacy_meta()?;
-        let mut virtual_branches_changed = false;
+        let ws = ctx.workspace_from_head_uncached(shared_access)?;
+        // Open this read-only so there is no write-back, there should be no side-effects when
+        // preparing a snapshot.
+        let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
+            ctx.project_data_dir().join("virtual_branches.toml"),
+        )?;
+        // Overlay *projected* workspace metadata onto the legacy snapshot format.
+        // We want the metadata to represent what's actually there.
+        if let Some(workspace_meta) = ws.metadata_from_projection()? {
+            let workspace_ref = ws
+                .ref_name()
+                .context("workspace metadata requires a workspace reference")?;
+            let mut handle = legacy_meta.workspace(workspace_ref)?;
+            *handle = workspace_meta;
+            legacy_meta.set_workspace(&handle)?;
+        } else {
+            for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
+                stack.in_workspace = false;
+            }
+        }
         for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
             let stack_head =
                 legacy_virtual_branches::stack_head_oid(stack, default_target_commit_id, &repo)?;
@@ -712,9 +728,8 @@ fn prepare_snapshot_with_target(
             // calculate all the commits between branch.head and the target and codify them
             stack_tree_cursor.upsert("tree", EntryKind::Tree, stack_tree)?;
 
-            // If the references are out of sync, now is a good time to update them
-            virtual_branches_changed |=
-                legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
+            // Keep the snapshot-local legacy metadata in sync with the references.
+            let _ = legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
 
             for commit_id in commit_ids_excluding_reachable_from_with_graph(
                 &repo,
@@ -739,10 +754,6 @@ fn prepare_snapshot_with_target(
             }
         }
 
-        if virtual_branches_changed {
-            legacy_meta.set_changed_to_necessitate_write();
-            legacy_meta.write_unreconciled()?;
-        }
         toml::to_string(legacy_meta.data())?
     };
 

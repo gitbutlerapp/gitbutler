@@ -1,6 +1,9 @@
 use anyhow::Context;
 use bstr::BStr;
-use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
+use but_core::{
+    RefMetadata, extract_remote_name_and_short_name,
+    ref_metadata::{ProjectedWorkspaceStack, StackId},
+};
 use petgraph::Direction;
 use tracing::instrument;
 
@@ -74,6 +77,66 @@ impl Workspace {
 
 /// Utilities
 impl Workspace {
+    /// Reconcile workspace metadata with the stacks in this projection using
+    /// [`metadata.reconcile_projected_stacks()`](but_core::ref_metadata::Workspace::reconcile_projected_stacks).
+    pub fn reconcile_metadata(
+        &self,
+        metadata: &mut but_core::ref_metadata::Workspace,
+    ) -> anyhow::Result<()> {
+        metadata.reconcile_projected_stacks(
+            self.stacks.iter().map(|stack| ProjectedWorkspaceStack {
+                id: stack.id,
+                branches: stack
+                    .segments
+                    .iter()
+                    .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
+                    .collect(),
+            }),
+            |_| StackId::generate(),
+        )
+    }
+
+    /// Return workspace metadata normalized against this projection.
+    ///
+    /// Unlike [`Self::metadata`], applied stacks absent from the projection are
+    /// treated as outside the workspace, and branches absent from a projected
+    /// stack are excluded.
+    pub fn metadata_from_projection(
+        &self,
+    ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
+        let Some(mut metadata) = self.metadata.clone() else {
+            return Ok(None);
+        };
+        for stack in &mut metadata.stacks {
+            if !stack.workspacecommit_relation.is_in_workspace() {
+                continue;
+            }
+            let Some(projected_stack) = self.stacks.iter().find(|projected| {
+                projected.id == Some(stack.id)
+                    || projected.segments.iter().any(|segment| {
+                        segment.ref_name().is_some_and(|projected_ref| {
+                            stack
+                                .branches
+                                .iter()
+                                .any(|branch| branch.ref_name.as_ref() == projected_ref)
+                        })
+                    })
+            }) else {
+                stack.workspacecommit_relation =
+                    but_core::ref_metadata::WorkspaceCommitRelation::Outside;
+                continue;
+            };
+            stack.branches.retain(|branch| {
+                projected_stack
+                    .segments
+                    .iter()
+                    .any(|segment| segment.ref_name() == Some(branch.ref_name.as_ref()))
+            });
+        }
+        self.reconcile_metadata(&mut metadata)?;
+        Ok(Some(metadata))
+    }
+
     /// Return the name of the remote most closely associated with this workspace.
     /// In order, we try:
     /// - The remote name of the [Self::target_ref].

@@ -2,9 +2,9 @@ use std::time;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    WORKSPACE_REF_NAME,
+    RefMetadata as _, WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
-    ref_metadata::ProjectMeta,
+    ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
     sync::RepoShared,
 };
 use but_ctx::Context;
@@ -13,15 +13,10 @@ use but_graph::FirstParent;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::first_parent_commit_ids_until;
-use gitbutler_stack::Stack;
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::{
-    VirtualBranchesExt,
-    integration::update_workspace_commit,
-    remote::{RemoteCommit, commit_to_remote_commit},
-};
+use crate::remote::{RemoteCommit, commit_to_remote_commit};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -127,10 +122,11 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
 
 #[instrument(skip(ctx, perm), err(Debug))]
 fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
+    let ws = ctx.workspace_from_ref_uncached(WORKSPACE_REF_NAME.try_into()?, perm)?;
     {
         let repo = ctx.repo.get()?;
         let workspace_commit_to_checkout =
-            but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
+            but_workspace::legacy::remerged_workspace_commit_v2(ctx, &ws)?;
         let tree_to_checkout_to_avoid_ref_update =
             repo.find_commit(workspace_commit_to_checkout)?.tree_id()?;
         but_core::worktree::safe_checkout_from_head(
@@ -143,7 +139,7 @@ fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch
         )?;
     }
 
-    update_workspace_commit(ctx, false)?;
+    crate::integration::update_workspace_commit_from_workspace(ctx, false, &ws)?;
     get_base_branch_data(ctx, perm)
 }
 
@@ -161,7 +157,8 @@ pub(crate) fn set_base_branch(
             ctx.set_project_meta(repaired_project_meta.clone())?;
             project_meta = repaired_project_meta;
         }
-        project_meta.target_commit_id.is_some()
+        repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
+            && project_meta.target_commit_id.is_some()
             && project_meta
                 .target_ref
                 .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
@@ -207,7 +204,6 @@ pub(crate) fn set_base_branch(
     };
     project_meta.remote_url_with_fallback(&repo)?;
     ctx.set_project_meta(project_meta)?;
-    let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch
     let head_name: Refname = current_head
@@ -218,54 +214,63 @@ pub(crate) fn set_base_branch(
                 .expect("BUG: we have to avoid using these legacy types")
         })
         .context("Failed to get HEAD reference name")?;
+    let mut workspace_to_initialize = None;
     if !head_name.to_string().eq(WORKSPACE_REF_NAME) {
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
         if !changes.is_empty() || current_head_commit != target_commit_oid {
-            let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
+            let branch_matches_target = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                if upstream_name.eq(target_branch_ref) {
-                    (None, true)
-                } else {
-                    let upstream = repo
-                        .try_find_reference(Refname::from(&upstream_name).to_string().as_str())
-                        .with_context(|| format!("failed to find upstream for {head_name}"))?;
-                    (upstream.map(|_| upstream_name), false)
-                }
+                upstream_name.eq(target_branch_ref)
             } else {
-                (None, false)
+                false
             };
 
-            let branch_name = if branch_matches_target {
-                but_core::branch::canned_refname(&*ctx.repo.get()?)?
-                    .shorten()
-                    .to_string()
-            } else {
-                head_name.to_string().replace("refs/heads/", "")
-            };
-
-            let branch = if branch_matches_target {
-                Stack::new_empty(ctx, branch_name, current_head_commit, 0)
-            } else {
-                Stack::new_from_existing(
-                    ctx,
-                    branch_name,
-                    Some(head_name),
-                    upstream,
+            let stack_ref_name = if branch_matches_target {
+                let stack_ref_name = but_core::branch::unique_canned_refname(&repo)?;
+                repo.reference(
+                    stack_ref_name.as_ref(),
                     current_head_commit,
-                    0,
-                )
-            }?;
+                    gix::refs::transaction::PreviousValue::MustNotExist,
+                    "initialize stack",
+                )?;
+                stack_ref_name
+            } else {
+                head_name.to_string().try_into()?
+            };
 
-            vb_state.set_stack(branch)?;
+            let mut meta = ctx.meta()?;
+            let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+            workspace.add_or_insert_new_stack_if_not_present(
+                stack_ref_name.as_ref(),
+                None,
+                WorkspaceCommitRelation::Merged,
+                |_| StackId::generate(),
+            );
+            meta.set_workspace(&workspace)?;
+            drop((workspace, meta));
+            if !branch_matches_target {
+                repo.reference(
+                    WORKSPACE_REF_NAME,
+                    current_head_commit,
+                    gix::refs::transaction::PreviousValue::MustNotExist,
+                    "initialize workspace",
+                )?;
+                workspace_to_initialize =
+                    Some(ctx.workspace_from_ref_uncached(WORKSPACE_REF_NAME.try_into()?, perm)?);
+            }
         }
     }
 
     set_exclude_decoration(ctx)?;
 
-    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, true)?;
+    if let Some(workspace) = workspace_to_initialize {
+        crate::integration::update_workspace_commit_from_workspace(ctx, true, &workspace)?;
+    } else {
+        crate::integration::update_workspace_commit_with_perm(ctx, true, perm)?;
+    }
 
     get_base_branch_data(ctx, perm)
 }

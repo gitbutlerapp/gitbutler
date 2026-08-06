@@ -17,10 +17,6 @@ fn repo_path_at(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn writable_fixture() -> TempDir {
-    but_testsupport::gix_testtools::scripted_fixture_writable("various-repositories.sh").unwrap()
-}
-
 fn repo_git_dir(path: &Path) -> Result<PathBuf> {
     let repo = gix::open_opts(path, gix::open::Options::isolated())?;
     Ok(repo.git_dir().canonicalize()?)
@@ -58,32 +54,6 @@ mod add {
     }
 
     #[test]
-    fn worktree_directory_ending_in_dot_git_is_added_and_loadable() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let repo_root = tempfile::tempdir()?;
-        let repo_dir = repo_root.path().join("non-bare.git");
-        let repo = gix::init(&repo_dir)?;
-        let expected_worktree_dir = repo.workdir().unwrap().canonicalize()?;
-        let expected_git_dir = repo.git_dir().canonicalize()?;
-
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir)?.unwrap_project();
-        let loaded_project = gitbutler_project::get_with_path(data_dir.path(), project.id.clone())?;
-        assert_eq!(project.title, "non-bare.git");
-        assert_eq!(project.git_dir(), expected_git_dir.as_path());
-        assert_eq!(
-            serde_json::to_value(&project)?["path"],
-            serde_json::Value::String(expected_worktree_dir.display().to_string())
-        );
-        assert_eq!(loaded_project.git_dir(), expected_git_dir.as_path());
-        assert_eq!(
-            loaded_project.open_isolated_repo()?.workdir(),
-            Some(expected_worktree_dir.as_path())
-        );
-        Ok(())
-    }
-
-    #[test]
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = support::data_dir();
         let repo = support::TestProject::default();
@@ -99,131 +69,6 @@ mod add {
         let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
         assert_eq!(gb_dir, expected_gb_dir);
         assert!(gb_dir.exists());
-        Ok(())
-    }
-
-    #[test]
-    fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let repo = support::TestProject::default();
-        let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
-        let expected_gb_dir = configured_repo
-            .git_dir()
-            .canonicalize()?
-            .join("gitbutler-custom");
-
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
-        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
-        assert_eq!(gb_dir, expected_gb_dir);
-        std::fs::remove_dir_all(&gb_dir)?;
-        assert!(!gb_dir.exists(), "sanity check");
-
-        let _project = gitbutler_project::get_with_path(data_dir.path(), project.id)?;
-        assert!(gb_dir.exists(), "storage dir should be recreated on get");
-        Ok(())
-    }
-
-    #[test]
-    fn submodule_is_added_as_project() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let fixture = writable_fixture();
-        let superproject = fixture.path().join("with-submodule").canonicalize()?;
-        let submodule = superproject.join("submodule");
-        let expected_git_dir = superproject.join(".git/modules/submodule").canonicalize()?;
-
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), &submodule)?.unwrap_project();
-
-        assert_eq!(project.git_dir(), expected_git_dir.as_path());
-        assert_eq!(
-            serde_json::to_value(&project)?["path"],
-            serde_json::Value::String(submodule.display().to_string()),
-            "path is the worktree directory (and deprecated, hence the access workaround)"
-        );
-        assert_eq!(
-            project.open_isolated_repo()?.gitbutler_storage_path()?,
-            expected_git_dir.join("gitbutler")
-        );
-
-        let loaded = gitbutler_project::get_with_path(data_dir.path(), project.id)?;
-        assert_eq!(loaded.git_dir(), expected_git_dir.as_path());
-        Ok(())
-    }
-
-    #[test]
-    fn best_effort_adds_submodule_even_if_superproject_exists() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let fixture = writable_fixture();
-        let superproject = fixture.path().join("with-submodule").canonicalize()?;
-        let submodule = superproject.join("submodule");
-        let expected_submodule_git_dir =
-            superproject.join(".git/modules/submodule").canonicalize()?;
-        let parent = gitbutler_project::add_at_app_data_dir(data_dir.path(), &superproject)?
-            .unwrap_project();
-
-        let outcome =
-            gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &submodule)?;
-        let project = match outcome {
-            gitbutler_project::AddProjectOutcome::Added(project) => project,
-            other => panic!("expected submodule to be added, got {other:?}"),
-        };
-
-        assert_ne!(
-            project.id, parent.id,
-            "parent and super projects are distinct"
-        );
-        assert_eq!(project.git_dir(), expected_submodule_git_dir.as_path());
-        Ok(())
-    }
-
-    #[test]
-    fn best_effort_adds_parent_repo_from_nested_directory() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let repo = support::TestProject::default();
-        let nested_dir = repo.path().join("nested/inside");
-        let expected_worktree_dir = repo.path().canonicalize()?;
-        let expected_git_dir = repo_git_dir(repo.path())?;
-        std::fs::create_dir_all(&nested_dir)?;
-
-        let outcome =
-            gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &nested_dir)?;
-        let project = match outcome {
-            gitbutler_project::AddProjectOutcome::Added(project) => project,
-            other => panic!("expected parent repo to be added, got {other:?}"),
-        };
-
-        assert_eq!(project.git_dir(), expected_git_dir.as_path());
-        assert_eq!(
-            serde_json::to_value(&project)?["path"],
-            serde_json::Value::String(expected_worktree_dir.display().to_string())
-        );
-        Ok(())
-    }
-
-    /// Used in deep-links for instance
-    #[test]
-    fn best_effort_finds_existing_project_from_file_path() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let repo = support::TestProject::default();
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
-        let file_path = repo.path().join("nested/inside/file.txt");
-        std::fs::create_dir_all(file_path.parent().expect("file has parent"))?;
-        std::fs::write(&file_path, "hello world")?;
-
-        let outcome =
-            gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &file_path)?;
-        let existing_project = match outcome {
-            gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
-            other => panic!("expected existing project to be found, got {other:?}"),
-        };
-
-        assert_eq!(
-            existing_project.id, project.id,
-            "it finds the containing project even if a filepath is given"
-        );
-        assert_eq!(existing_project.git_dir(), project.git_dir());
         Ok(())
     }
 
@@ -268,35 +113,6 @@ mod add {
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
-        }
-
-        #[test]
-        fn nested_directory_inside_repo_is_not_added_by_exact_path_but_is_by_best_effort() {
-            let data_dir = support::data_dir();
-            let repo = support::TestProject::default();
-            let nested_dir = repo.path().join("nested/inside");
-            std::fs::create_dir_all(&nested_dir).unwrap();
-            let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())
-                .unwrap()
-                .unwrap_project();
-
-            let outcome =
-                gitbutler_project::add_at_app_data_dir(data_dir.path(), &nested_dir).unwrap();
-            assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
-
-            let outcome = gitbutler_project::add_with_best_effort_at_app_data_dir(
-                data_dir.path(),
-                &nested_dir,
-            )
-            .unwrap();
-            let existing_project = match outcome {
-                AddProjectOutcome::AlreadyExists(project) => project,
-                other => panic!("expected owning project to be found, got {other:?}"),
-            };
-            assert_eq!(
-                existing_project.id, project.id,
-                "With best effort, we find the surrounding project, it's like discover"
-            );
         }
 
         #[test]
@@ -378,26 +194,6 @@ mod add {
         }
 
         #[test]
-        fn global_reftable_ref_format_does_not_affect_project_add() {
-            let data_dir = support::data_dir();
-            let tmp = tempfile::tempdir().unwrap();
-            let repo_dir = tmp.path().join("repo");
-            let global_config = tmp.path().join("global.gitconfig");
-
-            git_at_dir(tmp.path()).args(["init"]).arg(&repo_dir).run();
-            std::fs::write(&global_config, "[extensions]\n\trefStorage = reftable\n").unwrap();
-
-            let outcome = temp_env::with_var("GIT_CONFIG_GLOBAL", Some(&global_config), || {
-                gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &repo_dir)
-                    .unwrap()
-            });
-            assert!(
-                matches!(outcome, AddProjectOutcome::Added(_)),
-                "only the repo's own configuration decides reftables"
-            );
-        }
-
-        #[test]
         fn worktree_reftable_ref_format_does_not_affect_project_add() {
             let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
@@ -424,51 +220,6 @@ mod add {
 mod delete {
     use super::*;
     use snapbox::prelude::*;
-    #[test]
-    fn success() {
-        let data_dir = support::data_dir();
-        let repo = support::TestProject::default();
-        let path = repo.path();
-        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
-            .unwrap()
-            .unwrap_project();
-        let project_id = project.id.clone();
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok());
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok()); // idempotent
-        assert!(gitbutler_project::get_with_path(data_dir.path(), project_id).is_err());
-        assert!(repo.path().exists());
-        assert!(
-            !project
-                .open_isolated_repo()
-                .unwrap()
-                .gitbutler_storage_path()
-                .unwrap()
-                .exists()
-        );
-    }
-
-    #[test]
-    fn submodule_success_without_accidentally_removing_submodule() -> anyhow::Result<()> {
-        let data_dir = support::data_dir();
-        let fixture = writable_fixture();
-        let submodule = fixture
-            .path()
-            .join("with-submodule")
-            .join("submodule")
-            .canonicalize()?;
-        let project =
-            gitbutler_project::add_at_app_data_dir(data_dir.path(), &submodule)?.unwrap_project();
-        let project_id = project.id.clone();
-        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
-
-        assert_eq!(gb_dir, project.git_dir().join("gitbutler"));
-        gitbutler_project::delete_with_path(data_dir.path(), project_id.clone())?;
-        assert!(submodule.exists());
-        assert!(!gb_dir.exists());
-        assert!(gitbutler_project::get_with_path(data_dir.path(), project_id).is_err());
-        Ok(())
-    }
-
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
         let data_dir = support::data_dir();

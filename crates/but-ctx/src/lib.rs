@@ -783,6 +783,44 @@ impl Context {
         let graph = but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options)?;
         graph.into_workspace()
     }
+
+    /// Project the current workspace without reading from or updating the workspace cache.
+    pub fn workspace_from_head_uncached(
+        &self,
+        _perm: &RepoShared,
+    ) -> anyhow::Result<but_graph::Workspace> {
+        self.workspace_from_head()
+    }
+
+    /// Legacy escape hatch for projecting the workspace at an arbitrary `ref_name` without
+    /// reading from or updating the shared workspace cache.
+    ///
+    /// Prefer the cached `workspace_*_and_db*` helpers. In particular, mutators must eventually
+    /// re-project the current repository state and update the cache so subsequent callers see the
+    /// mutation. Use this only when legacy code needs a one-off view of a non-HEAD workspace ref
+    /// and deliberately must not replace the cached current workspace.
+    pub fn workspace_from_ref_uncached(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        _perm: &RepoShared,
+    ) -> anyhow::Result<but_graph::Workspace> {
+        let options = self.graph_options(but_graph::init::Options::limited())?;
+        let repo = self.repo.get()?;
+        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
+            self.project_data_dir().join("virtual_branches.toml"),
+            self.project_data_dir(),
+        )?;
+        let mut reference = repo.find_reference(ref_name)?;
+        let tip = reference.peel_to_id()?;
+        let graph = but_graph::Graph::from_commit_traversal(
+            tip,
+            reference.name().to_owned(),
+            &meta,
+            self.project_meta()?,
+            options,
+        )?;
+        graph.into_workspace()
+    }
 }
 
 /// Non-project/global data access. Only for when no project is available (yet).
@@ -1042,11 +1080,6 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
-    LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::LegacyProjectId(
-        LegacyProjectId::from_number_for_testing(1),
-    ))
-    .with_paths_for_testing(
-        repo.git_dir().to_owned(),
-        repo.workdir().map(ToOwned::to_owned),
-    )
+    LegacyProject::from_path(repo.workdir().unwrap_or_else(|| repo.git_dir()))
+        .expect("test repositories are valid projects")
 }

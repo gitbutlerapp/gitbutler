@@ -93,9 +93,31 @@ filepath='/[..]/first.txt' filepath='/[..]/second.txt'
 }
 
 #[test]
-fn open_uncommitted_hunk() {
+fn open_ignores_metadata_for_missing_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&["A"]);
+    env.file("uncommitted.txt", "content");
+
+    env.but("_open uncommitted.txt -p echo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+filepath='/[..]/uncommitted.txt'
+
+"#]]);
+
+    assert!(
+        env.open_repo()
+            .try_find_reference("refs/heads/A")
+            .expect("reference lookup succeeds")
+            .is_none(),
+        "opening a file must not recreate a branch from stale metadata"
+    );
+}
+
+#[test]
+fn open_uncommitted_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
 
     let original_content = "this\nis\nsome\ncontent\nto\ndiff\nwith\nadded\nlines\n";
     env.file("file-with-additions.txt", original_content);
