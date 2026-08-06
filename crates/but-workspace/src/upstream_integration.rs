@@ -279,6 +279,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .transpose()?;
     let mut fully_integrated_workspace_parents = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
+    let mut selected_stack_nodes = HashSet::new();
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
             || stack.to_merge
@@ -292,6 +293,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         if !is_selected {
             continue;
         }
+        selected_stack_nodes.extend(stack.nodes.keys().copied());
 
         if is_fully_integrated {
             // If we're not in the managed workspace, we haven't determined a
@@ -351,12 +353,17 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         let direct_parents = editor.direct_parents(workspace_commit_selector)?;
         match direct_parents.as_slice() {
             [(parent_selector, parent_order)]
-                if fully_integrated_workspace_parents.is_empty()
+                if !selected_stack_nodes.contains(parent_selector)
                     && selector_commit_id(&editor, *parent_selector)? == Some(target_sha)
                     && target_sha != target_ref_commit.detach() =>
             {
-                // Only parent is the old target sha, and that's not the latest tip of the target ref.
-                // We need to reparent it onto the latest target ref.
+                // Only parent is the old target sha, and that's not the latest tip of the target
+                // ref. This is a workspace with no stacks, or an unnamed empty lane at the base
+                // left behind after disconnecting fully integrated stacks — but never a selected
+                // stack (a selected empty branch is rebased onto the target instead, and the
+                // workspace commit must keep following it). We need to reparent it onto the
+                // latest target ref; leaving it would materialize the stale target's tree over
+                // the worktree.
                 editor.remove_edges(workspace_commit_selector, *parent_selector)?;
                 editor.add_edge(
                     workspace_commit_selector,
