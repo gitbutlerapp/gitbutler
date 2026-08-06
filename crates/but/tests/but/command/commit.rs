@@ -2401,3 +2401,63 @@ fn no_hooks_commits_past_a_failing_pre_commit_hook() {
         "--no-hooks skips the hook rather than running it and ignoring its verdict"
     );
 }
+
+/// A formatter-style hook: inserts a line in the middle of a file that is already tracked,
+/// shifting every line below it and so invalidating hunk headers computed before it ran.
+#[cfg(unix)]
+fn write_line_shifting_hook(env: &Sandbox) {
+    // `sed -i` is spelled differently on BSD and GNU, so splice the line with head/tail instead.
+    env.invoke_bash(
+        "mkdir -p .git/hooks && cat > .git/hooks/pre-commit <<'HOOK'\n\
+         #!/bin/sh\n\
+         { head -9 many.txt; echo INSERTED; tail -n +10 many.txt; } > many.tmp\n\
+         mv many.tmp many.txt\n\
+         HOOK\n\
+         chmod +x .git/hooks/pre-commit",
+    );
+}
+
+/// With nothing singled out, the worktree as the hook left it is what gets committed - the same
+/// result `git` gives a hook that stages its own edits.
+///
+/// Committing the changes computed before the hook would drop every hunk whose header the hook
+/// moved, silently committing less than was asked for, so `status` would still show changes.
+#[cfg(unix)]
+#[test]
+fn a_hook_that_shifts_lines_does_not_strand_the_changes_below_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let lines: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    env.file("many.txt", &lines);
+    env.but("commit --no-message").assert().success();
+
+    // Two changes far enough apart to be separate hunks, with the hook's insertion between them.
+    env.file(
+        "many.txt",
+        lines
+            .replace("l02\n", "l02-top\n")
+            .replace("l19\n", "l19-bottom\n"),
+    );
+    write_line_shifting_hook(&env);
+
+    env.but("commit --no-message").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1#0 (no commit message)
+┊●   1#1 (no commit message)
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

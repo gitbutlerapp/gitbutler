@@ -11,9 +11,11 @@ use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks::{ErrorData, HookResult};
+use gix::bstr::{BString, ByteSlice};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 
 use crate::{
     CliError, CliId, CliResult, CliResultExt, IdMap,
@@ -280,29 +282,23 @@ pub fn run(
     reword_op: CommitMessageSource,
     run_hooks: RunHooks,
 ) -> anyhow::Result<CommitOutcome> {
-    let changes = {
-        let context_lines = ctx.settings.context_lines;
-        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+    let takes_whole_worktree = matches!(commit_selection, CommitSelection::AllChanges);
+    let (mut changes, _) = build_diff_specs(ctx, perm, commit_selection)?;
 
-        match commit_selection {
-            CommitSelection::AllChanges => {
-                builder.push_changes_from_uncommitted_area()?;
-            }
-            CommitSelection::Changes(changes) => {
-                for change in *changes {
-                    builder.push_changes_from_uncommitted(&change)?;
-                }
-
-                builder.reconcile_worktree_diff_specs()?;
-            }
-            CommitSelection::Nothing => {}
-        }
-
-        builder.into_diff_specs()
-    };
     if run_hooks.is_yes() {
-        run_pre_commit_hook(ctx, perm, &changes)?;
+        let touched = run_pre_commit_hook(ctx, perm, &changes)?;
+        if !touched.is_empty() {
+            // The hook rewrote files this commit is made of. Every spec carries hunk headers even
+            // when no ids were given, and `DiffSpec` drops headers that no longer match without
+            // saying so, which would quietly commit less than was asked for.
+            if takes_whole_worktree {
+                // Nothing was singled out, so what the hook left behind is what to commit - the
+                // same result `git` gives for a hook that stages its own edits.
+                changes = build_diff_specs(ctx, perm, CommitSelection::AllChanges)?.0;
+            } else {
+                return Err(hook_changed_selected_files(&touched));
+            }
+        }
     }
 
     let rejection_target = commit_op.rejection_target();
@@ -372,27 +368,113 @@ fn run_pre_commit_hook(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
     changes: &[DiffSpec],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<String>> {
     let context_lines = ctx.settings.context_lines;
-    let tree = {
+    let (tree, selections) = {
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let head = repo
             .head_tree_id_or_empty()
             .context("Failed to get head tree")?;
-        let mut changes = changes.iter().cloned().map(Ok).collect::<Vec<_>>();
+        let mut specs = changes.iter().cloned().map(Ok).collect::<Vec<_>>();
         let (tree, ..) = but_core::tree::apply_worktree_changes(
             head.detach(),
             &repo,
-            &mut changes,
+            &mut specs,
             context_lines,
         )?;
-        tree.detach()
+        let workdir = repo.workdir().context("non-bare repository")?.to_owned();
+        (tree.detach(), HunkSelections::of(changes, &workdir))
     };
 
     match gitbutler_repo::hooks::pre_commit_with_tree(ctx, tree)? {
-        HookResult::Success | HookResult::NotConfigured => Ok(()),
-        HookResult::Failure(ErrorData { error }) => Err(hook_failed("pre-commit", error)),
+        HookResult::Success | HookResult::NotConfigured => {}
+        HookResult::Failure(ErrorData { error }) => return Err(hook_failed("pre-commit", error)),
     }
+
+    Ok(selections.changed_since())
+}
+
+/// The files a commit takes only part of, remembered as they were before a hook ran.
+///
+/// A whole-file change survives a hook that rewrites it, because the commit re-reads the file
+/// once the hook is done. Chosen hunks do not: they were matched against the file as it looked
+/// when the command started, and a hook that reformats it leaves some of them matching nothing.
+/// Those are dropped without a word, so a commit meant to carry two hunks quietly carries one.
+struct HunkSelections {
+    files: Vec<(BString, PathBuf, Option<Vec<u8>>)>,
+}
+
+impl HunkSelections {
+    fn of(changes: &[DiffSpec], workdir: &Path) -> Self {
+        let mut seen = std::collections::BTreeSet::new();
+        let files = changes
+            .iter()
+            .filter(|spec| seen.insert(spec.path.clone()))
+            .map(|spec| {
+                let path = workdir.join(gix::path::from_bstr(spec.path.as_bstr()));
+                let before = std::fs::read(&path).ok();
+                (spec.path.clone(), path, before)
+            })
+            .collect();
+        Self { files }
+    }
+
+    fn changed_since(self) -> Vec<String> {
+        self.files
+            .into_iter()
+            .filter(|(_, path, before)| std::fs::read(path).ok().as_ref() != before.as_ref())
+            .map(|(rela_path, ..)| rela_path.to_string())
+            .collect()
+    }
+}
+
+/// Build the changes to commit, and the paths that were singled out to make them.
+///
+/// `selected_paths` is empty when nothing was singled out, which is what tells a hook's own edits
+/// apart from edits that invalidate a selection the user made.
+fn build_diff_specs(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+    commit_selection: CommitSelection,
+) -> anyhow::Result<(Vec<DiffSpec>, Vec<BString>)> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+    let mut selected_paths = Vec::new();
+
+    match commit_selection {
+        CommitSelection::AllChanges => {
+            builder.push_changes_from_uncommitted_area()?;
+        }
+        CommitSelection::Changes(changes) => {
+            for change in *changes {
+                selected_paths.extend(change.hunks.iter().map(|hunk| hunk.hunk.path.clone()));
+                builder.push_changes_from_uncommitted(&change)?;
+            }
+
+            builder.reconcile_worktree_diff_specs()?;
+        }
+        CommitSelection::Nothing => {}
+    }
+
+    Ok((builder.into_diff_specs(), selected_paths))
+}
+
+/// Refuse a commit whose singled-out files a hook rewrote underneath it.
+fn hook_changed_selected_files(files: &[String]) -> anyhow::Error {
+    let first = files.first().map(String::as_str).unwrap_or_default();
+    let files = if files.len() == 1 {
+        first.to_owned()
+    } else {
+        format!("{first} and {} more", files.len() - 1)
+    };
+    anyhow::anyhow!(
+        "the pre-commit hook changed {files}, which this commit was told to take part of.\n\
+         \n\
+         Nothing was committed and the hook's changes are still in the worktree. Re-run \
+         `but commit` to choose from the files as they are now, or commit without ids to take \
+         the worktree as the hook left it."
+    )
 }
 
 /// Run `post-commit`, which cannot fail the commit that already exists.
