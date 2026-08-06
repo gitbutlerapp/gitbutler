@@ -381,13 +381,37 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 .context("BUG: Head should exist")?;
             let head_step = editor.lookup_step(*head)?;
 
-            let insert_side = match head_step {
+            let insert_side = match &head_step {
                 Step::Pick(_) | Step::None => InsertSide::Above,
                 Step::Reference { .. } => InsertSide::Below,
             };
 
+            // Name the branch this is merged into. In a managed workspace the head is the lane's
+            // own reference. A direct checkout's head is the commit instead, and there the branch
+            // the user has checked out is the one to name: other branches can sit on the same
+            // commit, and `step_references()` promises no ordering, so asking it first would name
+            // whichever of them it happened to reach.
+            let merged_into = match &head_step {
+                Step::Reference { refname, .. } => Some(refname.clone()),
+                Step::Pick(_) | Step::None => direct_checkout_head_ref_name.clone().or_else(|| {
+                    editor.step_references(*head).ok()?.into_iter().find_map(
+                        |selector| match editor.lookup_step(selector) {
+                            Ok(Step::Reference { refname, .. }) => Some(refname),
+                            _ => None,
+                        },
+                    )
+                }),
+            };
+
             let mut merge_commit = editor.empty_commit()?;
-            merge_commit.message = format!("Merge {} into merge", target_ref.ref_name).into();
+            merge_commit.message = match merged_into {
+                Some(refname) => {
+                    format!("Merge {} into {}", target_ref.ref_name, refname.shorten())
+                }
+                // Nothing names this head, so the message only states what was merged.
+                None => format!("Merge {}", target_ref.ref_name),
+            }
+            .into();
             let merge_commit =
                 editor.new_commit(merge_commit, DateMode::CommitterKeepAuthorKeep)?;
             let merge_commit = editor.insert(
