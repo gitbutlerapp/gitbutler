@@ -755,132 +755,151 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
-        Subcommands::Branch(branch::Platform { cmd }) => {
-            let result = match cmd {
-                #[cfg(not(feature = "legacy"))]
-                None => todo!("implement list and call recursively"),
-                #[cfg(feature = "legacy")]
-                None => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::handle_no_subcommand(&mut ctx, out)
-                        .map_err(CliError::from)
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::List {
-                    filter,
-                    local,
-                    remote,
-                    all,
-                    no_ahead,
-                    review,
-                    no_check,
-                    empty,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::list_branches(
-                        &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check,
-                        empty,
-                    )
+        Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+            #[cfg(not(feature = "legacy"))]
+            None => todo!("implement list and call recursively"),
+            #[cfg(feature = "legacy")]
+            None => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled { silent: false },
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::handle_no_subcommand(&mut ctx, out)
                     .map_err(CliError::from)
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Show {
-                    branch,
-                    review,
-                    files,
-                    ai,
-                    check,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::show_branches(
-                        &mut ctx, out, branch, review, files, ai, check,
-                    )
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::New {
-                    branch_name,
-                    anchor,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
-                }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Delete { branch_name }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::delete(&mut ctx, out, branch_name)
-                }
-                Some(branch::Subcommands::Update {
-                    branch,
+                    .emit_metrics(metrics_ctx)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::List {
+                filter,
+                local,
+                remote,
+                all,
+                no_ahead,
+                review,
+                no_check,
+                empty,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled { silent: false },
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::list_branches(
+                    &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
+                )
+                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Show {
+                branch,
+                review,
+                files,
+                ai,
+                check,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled { silent: false },
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::show_branches(
+                    &mut ctx, out, branch, review, files, ai, check,
+                )
+                .emit_metrics(metrics_ctx)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::New {
+                branch_name,
+                anchor,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled { silent: false },
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
+                    .emit_metrics(metrics_ctx)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Delete { branches }) => {
+                use crate::utils::IntermediateChannel;
+
+                let status_after = args.status_after;
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled { silent: false },
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                out.begin_status_after(status_after);
+
+                let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+                let outcome = command::legacy::branch::delete(
+                    &mut ctx,
+                    IntermediateChannel::new(out),
+                    branches,
+                )
+                .emit_metrics(metrics_ctx)?;
+                out.print_cli_output(outcome)?;
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                );
+                run_status_after_if_requested(status_after, &mut ctx, out);
+                Ok(())
+            }
+            Some(branch::Subcommands::Update {
+                branch,
+                strategy,
+                dry_run,
+                verbose,
+                interactive,
+            }) => {
+                let status_after = args.status_after && !dry_run && !interactive;
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        workspace_check: setup::WorkspaceCheck::Disabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                out.begin_status_after(status_after);
+                command::branch::update(
+                    &mut ctx,
+                    &branch,
                     strategy,
                     dry_run,
                     verbose,
                     interactive,
-                }) => {
-                    let status_after = args.status_after && !dry_run && !interactive;
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            workspace_check: setup::WorkspaceCheck::Disabled,
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    out.begin_status_after(status_after);
-                    command::branch::update(
-                        &mut ctx,
-                        &branch,
-                        strategy,
-                        dry_run,
-                        verbose,
-                        interactive,
-                        out,
-                    )?;
-                    #[cfg(feature = "legacy")]
-                    run_status_after_if_requested(status_after, &mut ctx, out);
-                    Ok(())
-                }
-                Some(branch::Subcommands::Move { .. }) => Err(bad_input(
-                    "`but branch move` has been removed. Use `but move` instead.",
+                    out,
                 )
-                .into()),
-            };
-            result.emit_metrics(metrics_ctx)
-        }
+                .emit_metrics(metrics_ctx)?;
+                #[cfg(feature = "legacy")]
+                run_status_after_if_requested(status_after, &mut ctx, out);
+                Ok(())
+            }
+            Some(branch::Subcommands::Move { .. }) => {
+                Err(bad_input("`but branch move` has been removed. Use `but move` instead.").into())
+            }
+        },
         Subcommands::Switch {
             target,
             workspace,

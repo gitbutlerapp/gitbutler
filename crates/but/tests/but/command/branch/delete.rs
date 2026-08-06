@@ -28,7 +28,7 @@ fn can_delete_branch_with_commits() {
         .success()
         .stderr_eq(str![[""]])
         .stdout_eq(str![[r#"
-Deleted branch A
+Discarded branch 'A'
 
 "#]]);
 
@@ -61,7 +61,7 @@ fn can_delete_branch_with_commits_in_the_bottom_of_a_stack() {
         .success()
         .stderr_eq(str![[""]])
         .stdout_eq(str![[r#"
-Deleted branch A
+Discarded branch 'A'
 
 "#]]);
 
@@ -97,7 +97,7 @@ fn can_delete_branch_with_commits_in_the_middle_of_a_stack() {
         .success()
         .stderr_eq(str![[""]])
         .stdout_eq(str![[r#"
-Deleted branch B
+Discarded branch 'B'
 
 "#]]);
 
@@ -133,7 +133,7 @@ fn can_delete_branch_with_commits_in_the_top_of_a_stack() {
         .success()
         .stderr_eq(str![[""]])
         .stdout_eq(str![[r#"
-Deleted branch C
+Discarded branch 'C'
 
 "#]]);
 
@@ -169,7 +169,7 @@ fn can_delete_branches_via_short_code() {
         .success()
         .stderr_eq(str![[""]])
         .stdout_eq(str![[r#"
-Deleted branch C
+Discarded branch 'C'
 
 "#]]);
 
