@@ -1,5 +1,5 @@
 use but_api::WorkspaceState;
-use but_core::{DiffSpec, DryRun};
+use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
@@ -185,6 +185,98 @@ fn create_reference_without_creating_commits() {
         "created reference should be persisted even if no commits are created"
     );
     assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn create_reference_records_branch_stack_order_in_single_branch_mode() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout main");
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+    let main = FullName::try_from("refs/heads/main").unwrap();
+    let new_branch = FullName::try_from("refs/heads/new-branch").unwrap();
+    let main_target = ref_target(&env, main.as_ref()).unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                new_branch.as_ref(),
+                Anchor::at_reference(main.as_ref(), Position::Above),
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        Some(main_target),
+        ref_target(&env, new_branch.as_ref()),
+        "single-branch transaction should persist the created reference"
+    );
+    assert_eq!(
+        meta.branch_stack_order(main.as_ref()).unwrap(),
+        Some(vec![new_branch, main]),
+        "single-branch transaction should persist the recorded branch order"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout main");
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+    let main = FullName::try_from("refs/heads/main").unwrap();
+    let new_branch = FullName::try_from("refs/heads/rolled-back").unwrap();
+
+    let outcome = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                new_branch.as_ref(),
+                Anchor::at_reference(main.as_ref(), Position::Above),
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+
+            Ok(tx.rollback("rolled back"))
+        },
+    )
+    .unwrap();
+
+    assert_eq!(outcome, "rolled back");
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "rolled-back single-branch transaction should remove the created reference"
+    );
+    assert_eq!(
+        meta.branch_stack_order(main.as_ref()).unwrap(),
+        None,
+        "rolled-back single-branch transaction should not persist branch order"
+    );
+    assert_num_snapshots(&ctx, 0);
 }
 
 #[test]
