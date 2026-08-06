@@ -232,6 +232,79 @@ fn single_branch_outputs_created_branch_for_all_formats() {
 }
 
 #[test]
+fn single_branch_stacks_new_branches_above_head_and_checks_them_out() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+
+    env.but("branch new first").assert().success();
+    env.but("branch new second").assert().success();
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.head_name().unwrap().unwrap().as_bstr(),
+        "refs/heads/second",
+        "each single-branch creation checks out the newly created branch"
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ se [second] (no commits)
+┊│
+┊├┄ fi [first] (no commits)
+┊│
+┊├┄ ma [main]
+┊●   nmy M (no changes)
+┊●   ply add init
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn single_branch_stacks_anchored_branch_on_named_branch() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+
+    env.but("branch new first").assert().success();
+    env.but("branch new --anchor first stacked")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+✓ Created branch stacked stacked on first
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.head_name().unwrap().unwrap().as_bstr(),
+        "refs/heads/stacked",
+        "creating above the checked-out anchor checks out the new branch"
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ st [stacked] (no commits)
+┊│
+┊├┄ fi [first] (no commits)
+┊│
+┊├┄ ma [main]
+┊●   nmy M (no changes)
+┊●   ply add init
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn handles_path_prefix_collision() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
