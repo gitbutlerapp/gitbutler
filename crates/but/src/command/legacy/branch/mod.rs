@@ -1,13 +1,15 @@
 use anyhow::Context as _;
 use but_api::json::HexHash;
-use but_core::DryRun;
-use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use but_ctx::Context;
+use itertools::Itertools;
+use nonempty::NonEmpty;
 
 use crate::{
     CliResult, IdMap,
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose, ResolvedCliIdArg},
+    command::legacy::discard::{self, DiscardOutcome},
     theme::{self, Paint},
-    utils::OutputChannel,
+    utils::{IntermediateChannel, OutputChannel},
 };
 
 mod json;
@@ -15,42 +17,34 @@ mod list;
 mod show;
 
 pub fn delete(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-    branch_arg: CliIdArg,
-) -> CliResult<()> {
-    let t = theme::get();
+    ctx: &mut Context,
+    _out: IntermediateChannel<'_>,
+    branch_args: Vec<CliIdArg>,
+) -> CliResult<DiscardOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
-    let branch_arg = {
-        let guard = ctx.exclusive_worktree_access();
-        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let branches = {
         let repo = ctx.repo.get()?;
-        branch_arg.resolve_branch_in_workspace(&repo, &id_map)?
+        let branches = branch_args
+            .iter()
+            .map(|branch| branch.resolve_branch_in_workspace(&repo, &id_map))
+            .map(|branch| Ok(branch?.resolve_local_branch_name()?))
+            .collect::<CliResult<Vec<_>>>()?
+            .into_iter()
+            .unique()
+            .collect::<Vec<_>>();
+        NonEmpty::from_vec(branches)
+            .context("BUG: branches is required to be non-empty in clap args")?
     };
 
-    let head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let segment = branch_arg.resolve_segment(&head_info)?;
-
-    let ref_name = &segment
-        .ref_info
-        .context("segment missing ref_info")?
-        .ref_name;
-
-    let mut meta = ctx.meta()?;
-    let snapshot_details = SnapshotDetails::new(OperationKind::DeleteBranch);
-    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
-        tx.remove_reference(ref_name.as_ref())?;
-        if !segment.commits.is_empty() {
-            tx.discard_commits(segment.commits.iter().map(|commit| commit.id))?;
-        }
-        Ok(())
-    })?;
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Deleted branch {}", t.local_branch.paint(&branch_arg))?;
-    }
-
-    Ok(())
+    Ok(discard::run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        discard::DiscardOperation::Branches(branches),
+    )?)
 }
 
 pub fn new(

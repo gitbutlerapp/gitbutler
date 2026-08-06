@@ -42,18 +42,15 @@ pub enum Subcommands {
         anchor: Option<CliIdArg>,
     },
 
-    /// Deletes a branch from the workspace
-    ///
-    /// This will remove the branch and all its commits from the workspace.
-    /// If the branch has unpushed commits, you will be prompted for confirmation
-    /// unless the `--force` flag is used.
+    /// Delete branchs from the workspace
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Delete {
-        /// Name of the branch to delete
-        branch_name: CliIdArg,
+        /// One or more branches to delete.
+        #[clap(required = true)]
+        branches: Vec<CliIdArg>,
     },
 
     /// List the branches in the repository
