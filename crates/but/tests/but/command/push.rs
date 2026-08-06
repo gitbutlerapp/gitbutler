@@ -153,6 +153,28 @@ Please resolve conflicts before pushing using 'but resolve <commit>'.
 }
 
 #[test]
+fn push_all_exits_nonzero_when_push_fails() {
+    let env = repo_with_unpushed_branch();
+
+    // Reject every push via a pre-push hook, then push without a branch
+    // argument: the non-interactive push-all path must surface the failure
+    // in the exit code, not just in the printed summary.
+    env.invoke_bash(
+        "mkdir -p .githooks \
+         && printf '#!/bin/sh\\necho PRE-PUSH DENY; exit 1\\n' > .githooks/pre-push \
+         && chmod +x .githooks/pre-push \
+         && git config core.hooksPath .githooks",
+    );
+
+    // Counts are wildcarded: the claim is the non-zero exit on failure, not
+    // how many candidates this fixture happens to produce.
+    env.but("push").assert().failure().stderr_eq(str![[r#"
+Error: failed to push [..] of [..] branches
+
+"#]]);
+}
+
+#[test]
 fn push_refuses_conflicted_commits_on_ancestors() {
     let env = sandbox_with_conflicted_commit();
 
