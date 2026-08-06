@@ -38,8 +38,8 @@
 	}
 }
 
-/* Placed before .containerSelected so the focused selection's fill wins on a
-   row that is both. */
+/* Placed before .containerSelected so selection wins on a row that is both:
+   selection reads the same everywhere, checked or not. */
 .containerChecked {
 	background-color: color-mix(var(--fill-pop-bg) 15%, transparent);
 
@@ -63,28 +63,10 @@
 }
 
 .containerSelected {
-	/* Unfocused, the tint alone is faint enough to blend into an already tinted
-	   or busy background, so the row carries a hairline as well. Drawn as an
-	   inset outline: it costs no layout, and it follows whatever corners the row
-	   ends up with — including the squared ones inside a run of checked rows. */
-	outline: 1px solid color-mix(var(--fill-gray-bg) 25%, transparent);
-	outline-offset: -1px;
-
-	/* A checked row already carries a tint of its own, so selection leaves its
-	   background alone and speaks through the outline — which joins the pop
-	   family so it doesn't drop a gray line into a run of checked rows. */
-	&:not(.containerChecked) {
-		background-color: var(--list-item-hover-bg);
-	}
-
-	&.containerChecked {
-		outline-color: color-mix(var(--fill-pop-bg) 80%, transparent);
-	}
+	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-selection-scope]:focus & {
-		/* The focused fill is solid — it carries the state on its own. */
-		outline-color: transparent;
 		background-color: var(--fill-gray-bg);
 		color: var(--fill-gray-fg);
 	}
