@@ -4,7 +4,10 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice as _};
-use but_api::json::{ChangeIdString, HexHash};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_transaction::Commit;
@@ -255,7 +258,7 @@ pub fn discard(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<DiscardOutcome> {
+) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -370,7 +373,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: DiscardOperation,
-) -> anyhow::Result<DiscardOutcome> {
+) -> anyhow::Result<(DiscardOutcome, WorkspaceState)> {
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
             let commits = {
@@ -442,7 +445,7 @@ pub fn run(
         }
     };
 
-    let (mut outcome, workspace) = but_transaction::with_transaction_with_perm(
+    let (mut outcome, mut ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -503,10 +506,10 @@ pub fn run(
         replaced_commits, ..
     } = &mut outcome
     {
-        *replaced_commits = workspace.replaced_commits;
+        *replaced_commits = std::mem::take(&mut ws.replaced_commits);
     }
 
-    Ok(outcome)
+    Ok((outcome, ws))
 }
 
 #[derive(Debug)]

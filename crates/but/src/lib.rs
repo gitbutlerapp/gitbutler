@@ -28,6 +28,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
+use but_api::WorkspaceState;
 use cfg_if::cfg_if;
 use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
@@ -864,7 +865,7 @@ async fn match_subcommand(
     // If `Some`, and if result is `Ok`, this is passed to
     // `run_status_after_if_requested()`.
     let mut status_after_data: Option<bool> = None;
-    let result = match cmd {
+    let _ws: Option<WorkspaceState> = match cmd {
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
         | Subcommands::Completions { .. }
@@ -891,39 +892,42 @@ async fn match_subcommand(
             use crate::utils::IntermediateChannel;
 
             let out = IntermediateChannel::new(out);
-            command::open::open(&ctx, out, sources, program_id).emit_metrics(metrics_ctx)
+            command::open::open(&ctx, out, sources, program_id).emit_metrics(metrics_ctx)?;
+            None
         }
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id).emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
             Some(alias_args::Subcommands::List) | None => {
-                command::alias::list(&*ctx.repo.get()?, out)
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)?;
+                None
             }
             Some(alias_args::Subcommands::Add {
                 name,
                 value,
                 global,
-            }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from),
+            }) => {
+                command::alias::add(&mut ctx, out, &name, &value, global.into())
+                    .emit_metrics(metrics_ctx)?;
+                None
+            }
             Some(alias_args::Subcommands::Remove { name, global }) => {
                 command::alias::remove(&mut ctx, out, &name, global.into())
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                None
             }
         },
         Subcommands::Branch(branch::Platform { cmd }) => match cmd {
             #[cfg(not(feature = "legacy"))]
             None => todo!("implement list and call recursively"),
             #[cfg(feature = "legacy")]
-            None => command::legacy::branch::handle_no_subcommand(&mut ctx, out)
-                .map_err(CliError::from)
-                .emit_metrics(metrics_ctx),
+            None => {
+                command::legacy::branch::handle_no_subcommand(&mut ctx, out)?;
+                None
+            }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::List {
                 filter,
@@ -934,11 +938,13 @@ async fn match_subcommand(
                 review,
                 no_check,
                 empty,
-            }) => command::legacy::branch::list_branches(
-                &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
-            )
-            .map_err(CliError::from)
-            .emit_metrics(metrics_ctx),
+            }) => {
+                command::legacy::branch::list_branches(
+                    &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
+                )
+                .emit_metrics(metrics_ctx)?;
+                None
+            }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Show {
                 branch,
@@ -946,18 +952,22 @@ async fn match_subcommand(
                 files,
                 ai,
                 check,
-            }) => command::legacy::branch::show_branches(
-                &mut ctx, out, branch, review, files, ai, check,
-            )
-            .emit_metrics(metrics_ctx),
+            }) => {
+                command::legacy::branch::show_branches(
+                    &mut ctx, out, branch, review, files, ai, check,
+                )
+                .emit_metrics(metrics_ctx)?;
+                None
+            }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::New(new_args)) => {
                 use crate::utils::IntermediateChannel;
 
                 let status_after = args.status_after;
                 out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
 
-                let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
                 let outcome = command::legacy::branch::new::new(
                     &mut ctx,
                     IntermediateChannel::new(out),
@@ -965,13 +975,7 @@ async fn match_subcommand(
                 )
                 .emit_metrics(metrics_ctx)?;
                 out.print_cli_output(outcome)?;
-                command::legacy::conflict_notice::report_newly_conflicted(
-                    &ctx,
-                    out,
-                    conflicts_before,
-                );
-                run_status_after_if_requested(status_after, &mut ctx, out);
-                Ok(())
+                None
             }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Delete { branches }) => {
@@ -982,14 +986,14 @@ async fn match_subcommand(
                 status_after_data = Some(status_after);
 
                 newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-                let outcome = command::legacy::branch::delete(
+                let (outcome, ws) = command::legacy::branch::delete(
                     &mut ctx,
                     IntermediateChannel::new(out),
                     branches,
                 )
                 .emit_metrics(metrics_ctx)?;
                 out.print_cli_output(outcome)?;
-                Ok(())
+                Some(ws)
             }
             Some(branch::Subcommands::Update {
                 branch,
@@ -1011,34 +1015,46 @@ async fn match_subcommand(
                     out,
                 )
                 .emit_metrics(metrics_ctx)?;
-                Ok(())
+                None
             }
             Some(branch::Subcommands::Move { .. }) => {
-                Err(bad_input("`but branch move` has been removed. Use `but move` instead.").into())
+                return Err(bad_input(
+                    "`but branch move` has been removed. Use `but move` instead.",
+                )
+                .into());
             }
         },
         Subcommands::Switch {
             target,
             workspace,
             new,
-        } => command::r#switch::handle(&mut ctx, out, target, workspace, new)
-            .emit_metrics(metrics_ctx),
+        } => {
+            command::r#switch::handle(&mut ctx, out, target, workspace, new)
+                .emit_metrics(metrics_ctx)?;
+            None
+        }
         #[cfg(feature = "legacy")]
-        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
-            Some(actions::Subcommands::HandleChanges {
-                description,
-                handler,
-            }) => command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
-                .map_err(CliError::from),
-            None => {
-                command::legacy::actions::list_actions(&ctx, out, 0, 10).map_err(CliError::from)
+        Subcommands::Actions(actions::Platform { cmd }) => {
+            match cmd {
+                Some(actions::Subcommands::HandleChanges {
+                    description,
+                    handler,
+                }) => {
+                    command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)?;
+                }
+                None => {
+                    command::legacy::actions::list_actions(&ctx, out, 0, 10)?;
+                }
             }
-        },
+            None
+        }
         #[cfg(feature = "legacy")]
-        Subcommands::Pull { check } => command::legacy::pull::handle(&mut ctx, out, check)
-            .await
-            .emit_metrics(metrics_ctx)
-            .map_err(CliError::from),
+        Subcommands::Pull { check } => {
+            command::legacy::pull::handle(&mut ctx, out, check)
+                .await
+                .emit_metrics(metrics_ctx)?;
+            None
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
             use std::fmt::Write;
@@ -1052,8 +1068,8 @@ async fn match_subcommand(
             )?;
             command::legacy::pull::handle(&mut ctx, out, true)
                 .await
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {
@@ -1080,13 +1096,12 @@ async fn match_subcommand(
                 },
             )
             .emit_metrics(metrics_ctx)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            command::legacy::worktree::handle(cmd, &mut ctx, out)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            command::legacy::worktree::handle(cmd, &mut ctx, out).emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Status {
@@ -1118,7 +1133,8 @@ async fn match_subcommand(
                 flags,
                 command::legacy::status::StatusRenderMode::Oneshot,
             )
-            .emit_metrics(metrics_ctx)
+            .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Tui(tui_args) => {
@@ -1138,7 +1154,8 @@ async fn match_subcommand(
                 StatusFlags::for_tui(),
                 StatusRenderMode::Tui(options),
             )
-            .emit_metrics(metrics_ctx)
+            .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Diff {
@@ -1194,14 +1211,14 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome = command::legacy::commit::commit(
+            let (outcome, ws) = command::legacy::commit::commit(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 commit_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Squash(squash_args) => {
@@ -1212,14 +1229,14 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome = command::legacy::squash::squash(
+            let (outcome, ws) = command::legacy::squash::squash(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 squash_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Move(move_args) => {
@@ -1230,11 +1247,11 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome =
+            let (outcome, ws) =
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::_Diff2(diff_args) => {
@@ -1244,13 +1261,15 @@ async fn match_subcommand(
                 command::legacy::diff2::diff(&mut ctx, IntermediateChannel::new(out), diff_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Push(push_args) => command::legacy::push::handle(push_args, &mut ctx, out)
-            .await
-            .emit_metrics(metrics_ctx)
-            .map_err(CliError::from),
+        Subcommands::Push(push_args) => {
+            command::legacy::push::handle(push_args, &mut ctx, out)
+                .await
+                .emit_metrics(metrics_ctx)?;
+            None
+        }
         #[cfg(feature = "legacy")]
         Subcommands::_Reword2(reword_args) => {
             use crate::utils::IntermediateChannel;
@@ -1259,14 +1278,14 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
 
-            let outcome = command::legacy::reword2::reword(
+            let (outcome, ws) = command::legacy::reword2::reword(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 reword_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword {
@@ -1292,7 +1311,7 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
@@ -1304,24 +1323,24 @@ async fn match_subcommand(
                         None
                     };
                     command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
                     command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
                     command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 None => {
                     // Default to list when no subcommand is provided
                     command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
             }
         }
@@ -1340,7 +1359,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Redo(redo_args) => {
@@ -1357,7 +1376,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb {
@@ -1377,7 +1396,7 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard(discard_args) => {
@@ -1388,14 +1407,14 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome = command::legacy::discard::discard(
+            let (outcome, ws) = command::legacy::discard::discard(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 discard_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            Some(ws)
         }
         Subcommands::_Comment(comment_args) => {
             use crate::utils::IntermediateChannel;
@@ -1404,13 +1423,14 @@ async fn match_subcommand(
                 command::comment::comment(&mut ctx, IntermediateChannel::new(out), comment_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {
             command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
                 .map_err(|err| err.context("Failed to teardown GitButler project."))
-                .emit_metrics(metrics_ctx)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform {
@@ -1473,8 +1493,8 @@ async fn match_subcommand(
                     )
                     .await
                     .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
                     command::legacy::forge::review::set_review_template(
@@ -1483,29 +1503,29 @@ async fn match_subcommand(
                         out,
                     )
                     .context("Failed to set forge review template.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
                         .context("Failed to set the auto-merge state.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
                         .context("Failed to set reviews as draft.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
                         .context("Failed to set reviews as ready-for-review.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
@@ -1522,8 +1542,8 @@ async fn match_subcommand(
                     )
                     .await
                     .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
             }
         }
@@ -1535,8 +1555,8 @@ async fn match_subcommand(
             updates,
         } => {
             command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit, ai } => {
@@ -1561,14 +1581,14 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome = command::legacy::uncommit::uncommit(
+            let (outcome, ws) = command::legacy::uncommit::uncommit(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 uncommit_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Amend(amend_args) => {
@@ -1579,11 +1599,11 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome =
+            let (outcome, ws) =
                 command::legacy::amend::amend(&mut ctx, IntermediateChannel::new(out), amend_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Land {
@@ -1615,11 +1635,11 @@ async fn match_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let outcome =
+            let (outcome, ws) =
                 command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unapply(unapply_args) => {
@@ -1636,7 +1656,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Apply(apply_args) => {
@@ -1650,22 +1670,20 @@ async fn match_subcommand(
                 command::legacy::apply::apply(&mut ctx, IntermediateChannel::new(out), apply_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
     };
 
-    if result.is_ok() {
-        #[cfg(feature = "legacy")]
-        if let Some(conflicts_before) = newly_conflicted_data {
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-        }
-        #[cfg(feature = "legacy")]
-        if let Some(status_after) = status_after_data {
-            run_status_after_if_requested(status_after, &mut ctx, out);
-        }
+    #[cfg(feature = "legacy")]
+    if let Some(conflicts_before) = newly_conflicted_data {
+        command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+    }
+    #[cfg(feature = "legacy")]
+    if let Some(status_after) = status_after_data {
+        run_status_after_if_requested(status_after, &mut ctx, out);
     }
 
-    result
+    Ok(())
 }
 
 fn run_agentlog_command(

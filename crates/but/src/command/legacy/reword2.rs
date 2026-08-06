@@ -1,5 +1,6 @@
 use bstr::{BStr, BString};
 use but_api::{
+    WorkspaceState,
     diff::ComputeLineStats,
     json::{ChangeIdString, HexHash},
 };
@@ -143,7 +144,7 @@ pub fn reword(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<RewordOutcome> {
+) -> CliResult<(RewordOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -240,7 +241,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: RewordOperation,
-) -> CliResult<RewordOutcome> {
+) -> CliResult<(RewordOutcome, Option<WorkspaceState>)> {
     match operation {
         RewordOperation::Commit {
             target,
@@ -270,14 +271,9 @@ pub fn run(
                     )?
                 }
             };
-            Ok(reword_commit(
-                ctx,
-                meta,
-                perm,
-                target,
-                &current_message,
-                new_message,
-            )?)
+            let (outcome, ws) =
+                reword_commit(ctx, meta, perm, target, &current_message, new_message)?;
+            Ok((outcome, ws))
         }
         RewordOperation::FormatCommit { target } => {
             let current_message = {
@@ -291,24 +287,22 @@ pub fn run(
             let new_message = Some(but_action::commit_format::format_commit_message(
                 &current_message,
             ));
-            Ok(reword_commit(
-                ctx,
-                meta,
-                perm,
-                target,
-                &current_message,
-                new_message,
-            )?)
+            let (outcome, ws) =
+                reword_commit(ctx, meta, perm, target, &current_message, new_message)?;
+            Ok((outcome, ws))
         }
         RewordOperation::Branch {
             target: old_name,
             new_name,
-        } => match reword_branch(ctx, old_name.clone(), new_name, perm)? {
-            BranchRename::Unchanged => Ok(RewordOutcome::BranchUnchanged { name: old_name }),
-            BranchRename::Renamed(new_name) => {
-                Ok(RewordOutcome::BranchRenamed { old_name, new_name })
-            }
-        },
+        } => Ok((
+            match reword_branch(ctx, old_name.clone(), new_name, perm)? {
+                BranchRename::Unchanged => RewordOutcome::BranchUnchanged { name: old_name },
+                BranchRename::Renamed(new_name) => {
+                    RewordOutcome::BranchRenamed { old_name, new_name }
+                }
+            },
+            None,
+        )),
     }
 }
 
@@ -460,15 +454,15 @@ fn reword_commit(
     target: CommitId,
     current_message: &str,
     new_message: Option<String>,
-) -> anyhow::Result<RewordOutcome> {
+) -> anyhow::Result<(RewordOutcome, Option<WorkspaceState>)> {
     let Some(new_message) =
         new_message.filter(|message| should_update_commit_message(current_message, message))
     else {
-        return Ok(RewordOutcome::CommitUnchanged { target });
+        return Ok((RewordOutcome::CommitUnchanged { target }, None));
     };
 
     let snapshot_details = SnapshotDetails::new(OperationKind::UpdateCommitMessage);
-    let (new_commit, _workspace) = but_transaction::with_transaction_with_perm(
+    let (new_commit, ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -481,10 +475,13 @@ fn reword_commit(
         },
     )?;
 
-    Ok(RewordOutcome::CommitUpdated {
-        target,
-        new_commit: new_commit.into(),
-    })
+    Ok((
+        RewordOutcome::CommitUpdated {
+            target,
+            new_commit: new_commit.into(),
+        },
+        Some(ws),
+    ))
 }
 
 fn reword_branch(

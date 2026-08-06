@@ -1433,7 +1433,7 @@ impl App {
                 let mut guard = ctx.exclusive_worktree_access();
                 let mut meta = ctx.meta()?;
 
-                let outcome = commit::run(
+                let (outcome, _ws) = commit::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
@@ -1459,7 +1459,7 @@ impl App {
                 let mut guard = ctx.exclusive_worktree_access();
                 let mut meta = ctx.meta()?;
 
-                let outcome = commit::run(
+                let (outcome, _ws) = commit::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
