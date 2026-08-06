@@ -38,7 +38,8 @@
 	}
 }
 
-/* Placed before .containerSelected so selection wins on a row that is both. */
+/* Placed before .containerSelected so the focused selection's fill wins on a
+   row that is both. */
 .containerChecked {
 	background-color: color-mix(var(--fill-pop-bg) 15%, transparent);
 
@@ -59,21 +60,38 @@
 		border-start-start-radius: 0;
 		border-start-end-radius: 0;
 	}
-
-	/* Selected but unfocused, this row would otherwise take the gray selection
-	   tint and punch a hole in a run of checked rows — so it stays in the pop
-	   family, one step deeper than its neighbours. The focused selection below
-	   still wins: it outranks this on specificity or on source order. */
-	&.containerSelected {
-		background-color: color-mix(var(--fill-pop-bg) 30%, transparent);
-	}
 }
 
 .containerSelected {
-	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	/* Unfocused, the tint alone is faint enough to blend into an already tinted
+	   or busy background, so the row carries a hairline as well. Drawn as an
+	   inset outline: it costs no layout, and it follows whatever corners the row
+	   ends up with — including the squared ones inside a run of checked rows. */
+	outline: 1px solid color-mix(var(--fill-gray-bg) 25%, transparent);
+	outline-offset: -1px;
+
+	/* A checked row already carries a tint of its own, so selection leaves its
+	   background alone and speaks through the outline — which joins the pop
+	   family so it doesn't drop a gray line into a run of checked rows. */
+	&:not(.containerChecked) {
+		/* Half the usual blurred-selection tint, since the outline now carries
+		   most of the state and the fill only has to hint at it. Derived from the
+		   selection token rather than the hover one it currently matches, so the
+		   two can be tuned apart. */
+		background-color: color-mix(
+			var(--fill-gray-bg) calc(var(--opacity-bg-selected-blur) / 2),
+			transparent
+		);
+	}
+
+	&.containerChecked {
+		outline-color: color-mix(var(--fill-pop-bg) 80%, transparent);
+	}
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-selection-scope]:focus & {
+		/* The focused fill is solid — it carries the state on its own. */
+		outline-color: transparent;
 		background-color: var(--fill-gray-bg);
 		color: var(--fill-gray-fg);
 	}
