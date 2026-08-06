@@ -3,7 +3,7 @@ use but_api::{
     diff::ComputeLineStats,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DryRun, RefMetadata, diff::CommitDetails, sync::RepoExclusive};
+use but_core::{RefMetadata, diff::CommitDetails, sync::RepoExclusive};
 use but_ctx::Context;
 use but_error::Code;
 use but_transaction::Transaction;
@@ -473,7 +473,7 @@ fn reword_commit(
         meta,
         perm,
         snapshot_details,
-        DryRun::No,
+        Default::default(),
         |mut tx| {
             let new_commit =
                 tx.reword_commit(target.commit_id, BString::from(new_message).as_ref())?;

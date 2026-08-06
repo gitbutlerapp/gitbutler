@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice as _};
 use but_api::json::{ChangeIdString, HexHash};
-use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
-use but_transaction::Commit;
+use but_transaction::{Commit, WithTransactionOptions};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{ObjectId, refs::FullName};
 use itertools::Itertools;
@@ -124,6 +124,7 @@ pub enum DiscardOutcome {
         commits: NonEmpty<CommitId>,
         /// Rewritten surviving commits, used by callers to retain their selection.
         replaced_commits: BTreeMap<ObjectId, ObjectId>,
+        checkout_conflict_occurred: bool,
     },
     CommittedFiles {
         source: CommitId,
@@ -153,13 +154,20 @@ impl CliOutputHuman for DiscardOutcome {
             }
             DiscardOutcome::Commits {
                 commits,
-                replaced_commits: _,
+                checkout_conflict_occurred,
+                ..
             } => {
                 if commits.len() == 1 {
                     writeln!(out, "Discarded commit {}", theme::Commit(commits.head))?;
                 } else {
                     let commits = commits.iter().map(theme::Commit).join(", ");
                     writeln!(out, "Discarded commits {commits}")?;
+                }
+                if checkout_conflict_occurred {
+                    writeln!(
+                        out,
+                        "A conflict occurred during checkout. Run `but status` for more information."
+                    )?;
                 }
             }
             DiscardOutcome::CommittedFiles {
@@ -221,10 +229,7 @@ impl CliOutput for DiscardOutcome {
                     .map(|branch| branch.shorten().to_string())
                     .collect(),
             },
-            DiscardOutcome::Commits {
-                commits,
-                replaced_commits: _,
-            } => Output::Commits {
+            DiscardOutcome::Commits { commits, .. } => Output::Commits {
                 commits: commits.into_iter().map(Into::into).collect(),
             },
             DiscardOutcome::CommittedFiles {
@@ -447,7 +452,10 @@ pub fn run(
         meta,
         perm,
         SnapshotDetails::new(OperationKind::Discard),
-        DryRun::No,
+        WithTransactionOptions {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
         |mut tx| {
             let outcome = match executable {
                 ExecutableDiscardOperation::Branches { branches, commits } => {
@@ -464,6 +472,7 @@ pub fn run(
                     DiscardOutcome::Commits {
                         commits,
                         replaced_commits: BTreeMap::new(),
+                        checkout_conflict_occurred: false,
                     }
                 }
                 ExecutableDiscardOperation::CommittedFiles {
@@ -500,10 +509,13 @@ pub fn run(
     )?;
 
     if let DiscardOutcome::Commits {
-        replaced_commits, ..
+        replaced_commits,
+        checkout_conflict_occurred,
+        ..
     } = &mut outcome
     {
         *replaced_commits = workspace.replaced_commits;
+        *checkout_conflict_occurred = workspace.checkout_conflict_occurred;
     }
 
     Ok(outcome)

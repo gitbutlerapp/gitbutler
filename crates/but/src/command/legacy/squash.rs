@@ -1283,7 +1283,7 @@ pub fn run(
                 meta,
                 perm,
                 snapshot_details,
-                DryRun::No,
+                Default::default(),
                 |mut tx| {
                     let new_commit = match op.clone() {
                         TransactionCompatibleOperation::Commits(op) => op.execute(&mut tx)?,
@@ -1362,7 +1362,7 @@ pub fn run(
                 meta,
                 perm,
                 snapshot_details,
-                DryRun::No,
+                Default::default(),
                 |mut tx| {
                     match &op {
                         UncommitOperation::Commits { sources } => {

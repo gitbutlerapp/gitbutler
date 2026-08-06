@@ -1,4 +1,4 @@
-use crate::WorkspaceState;
+use crate::{WorkspaceState, workspace_state::WorkspaceStateFromSuccessfulRebaseOptions};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -43,7 +43,10 @@ pub fn commit_discard_only_with_perm(
 
     let rebase = but_workspace::commit::discard_commits(editor, [subject_commit_id])?;
 
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace = WorkspaceStateFromSuccessfulRebaseOptions::new(rebase, &repo, dry_run)
+        .with_db(&db)?
+        .allow_uncommitted_changes_to_conflict_with_new_head(true)
+        .generate()?;
 
     Ok(CommitDiscardResult {
         discarded_commit: subject_commit_id,

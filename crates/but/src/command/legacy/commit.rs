@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use but_api::json::{ChangeIdString, HexHash};
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    DiffSpec, RefMetadata,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
@@ -297,7 +297,7 @@ pub fn run(
         meta,
         perm,
         snapshot_details,
-        DryRun::No,
+        Default::default(),
         |mut tx| {
             let (
                 IntermediateCommitCreateResult {

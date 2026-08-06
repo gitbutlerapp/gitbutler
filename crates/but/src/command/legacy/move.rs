@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use bstr::ByteSlice;
 use but_api::json::{ChangeIdString, HexHash};
-use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_transaction::Transaction;
@@ -876,7 +876,7 @@ pub fn run(
         meta,
         perm,
         snapshot_details,
-        DryRun::No,
+        Default::default(),
         |mut tx| {
             let outcome = match move_op {
                 MoveOperation::CommitsRelativeTo(op) => {

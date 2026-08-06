@@ -127,6 +127,8 @@ impl App {
                             let DiscardOutcome::Commits {
                                 commits: _,
                                 replaced_commits,
+                                // TODO report checkout conflict if it has occurred
+                                checkout_conflict_occurred: _,
                             } = run_discard(ctx, DiscardOperation::Commits(NonEmpty::new(commit)))?
                             else {
                                 anyhow::bail!("BUG: commit discard returned an unexpected outcome")
@@ -294,6 +296,8 @@ impl App {
                     DiscardOutcome::Commits {
                         commits: _,
                         replaced_commits,
+                        // TODO report checkout conflict if it has occurred
+                        checkout_conflict_occurred: _,
                     } => map_selected_commits(select_after_reload, |commit_id| {
                         replaced_commits
                             .get(&commit_id)

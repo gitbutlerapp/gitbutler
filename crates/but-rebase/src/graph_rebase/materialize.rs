@@ -126,6 +126,14 @@ pub struct MaterializeOptions {
     /// rewrite, so what they had checked out surfaces as uncommitted changes there -
     /// exactly like the editor's own worktree.
     pub without_checkout: bool,
+    /// When checking out our own worktree, allow uncommitted changes to
+    /// conflict with what's checked out. If such a conflict happens, it will be
+    /// reported in the returned [MaterializeOutcome].
+    ///
+    /// (In linked worktrees, conflicts are still unallowed.)
+    ///
+    /// Has no effect if [Self::without_checkout] is false.
+    pub allow_uncommitted_changes_to_conflict_with_new_head: bool,
 }
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
@@ -207,7 +215,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         let specs = self.linked_checkout_specs()?;
         let detached_head_edits = detached_worktree_head_edits(&specs)?;
 
-        let head = if !materialize_options.without_checkout {
+        let (head, checkout_conflict_occurred) = if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
                 safe_checkout_from_head(
@@ -217,25 +225,31 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
+                        allow_uncommitted_changes_to_conflict_with_new_head: false,
                     },
                 )?;
             }
 
             let head = self.head_checkout()?;
-            if let Some(head) = &head {
-                safe_checkout_from_head(
+            let checkout_conflict_occurred = if let Some(head) = &head {
+                let outcome = safe_checkout_from_head(
                     head.target,
                     &repo,
                     Options {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: true,
+                        allow_uncommitted_changes_to_conflict_with_new_head: materialize_options
+                            .allow_uncommitted_changes_to_conflict_with_new_head,
                     },
                 )?;
-            }
-            head
+                outcome.conflict_occurred
+            } else {
+                false
+            };
+            (head, checkout_conflict_occurred)
         } else {
-            None
+            (None, false)
         };
 
         let mut ref_edits = self.ref_edits.clone();
@@ -276,6 +290,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            checkout_conflict_occurred,
         })
     }
 
@@ -284,6 +299,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         self.materialize(MaterializeOptions {
             without_checkout: true,
+            ..Default::default()
         })
     }
 }

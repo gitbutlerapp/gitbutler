@@ -1,6 +1,6 @@
 use but_api::json::{ChangeIdString, HexHash};
 use but_core::{
-    DryRun, RefMetadata,
+    RefMetadata,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
 };
@@ -249,7 +249,7 @@ pub fn run(
         meta,
         perm,
         snapshot_details,
-        DryRun::No,
+        Default::default(),
         |mut tx| {
             let (new_commits, branch_name_target) = match commit_op {
                 CommitOperation::CommitToNewBranch(CommitToNewBranchOperation { branch_name }) => {

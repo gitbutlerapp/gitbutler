@@ -474,6 +474,10 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
+    /// True if a conflict occurred during checkout. This is always false if
+    /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
+    /// struct passed to the materialize call is false.
+    pub checkout_conflict_occurred: bool,
 }
 
 /// Provides lookup for different steps that a selector might point to.

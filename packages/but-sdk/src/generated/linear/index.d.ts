@@ -3295,6 +3295,11 @@ export type WorkspaceState = {
   replacedCommits: Record<string, string>;
   /** The post-operation workspace view presented to the frontend. */
   headInfo: RefInfo;
+  /**
+   * True if a checkout occurred, and a conflict occurred during that
+   * checkout.
+   */
+  checkoutConflictOccurred: boolean;
 };
 
 /** Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments. */
