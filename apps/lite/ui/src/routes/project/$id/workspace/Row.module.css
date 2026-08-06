@@ -74,14 +74,7 @@
 	   background alone and speaks through the outline — which joins the pop
 	   family so it doesn't drop a gray line into a run of checked rows. */
 	&:not(.containerChecked) {
-		/* Half the usual blurred-selection tint, since the outline now carries
-		   most of the state and the fill only has to hint at it. Derived from the
-		   selection token rather than the hover one it currently matches, so the
-		   two can be tuned apart. */
-		background-color: color-mix(
-			var(--fill-gray-bg) calc(var(--opacity-bg-selected-blur) / 2),
-			transparent
-		);
+		background-color: var(--list-item-hover-bg);
 	}
 
 	&.containerChecked {
