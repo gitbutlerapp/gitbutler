@@ -2340,3 +2340,168 @@ For more information, try '--help'.
 
 "#]]);
 }
+
+/// Writes an executable `pre-commit` hook that runs `body`.
+#[cfg(unix)]
+fn write_pre_commit_hook(env: &Sandbox, body: &str) {
+    env.invoke_bash(format!(
+        "mkdir -p .git/hooks && printf '#!/bin/sh\\n{body}\\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn pre_commit_hook_runs_for_a_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo ran > hook-ran.txt");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message").assert().success();
+
+    assert_eq!(
+        env.read_file("hook-ran.txt").expect("the hook wrote it"),
+        "ran\n",
+        "the pre-commit hook runs when committing through the CLI"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failing_pre_commit_hook_blocks_the_commit_and_says_why() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo \"lint found 3 problems\" >&2\\nexit 1");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: pre-commit hook failed:
+lint found 3 problems
+
+To bypass the hook, run: but commit --no-hooks
+
+"#]]);
+}
+
+#[cfg(unix)]
+#[test]
+fn no_hooks_commits_past_a_failing_pre_commit_hook() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo ran > hook-ran.txt\\nexit 1");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-hooks --no-message").assert().success();
+
+    assert!(
+        !env.projects_root().join("hook-ran.txt").exists(),
+        "--no-hooks skips the hook rather than running it and ignoring its verdict"
+    );
+}
+
+/// A formatter-style hook: inserts a line in the middle of a file that is already tracked,
+/// shifting every line below it and so invalidating hunk headers computed before it ran.
+#[cfg(unix)]
+fn write_line_shifting_hook(env: &Sandbox) {
+    // `sed -i` is spelled differently on BSD and GNU, so splice the line with head/tail instead.
+    env.invoke_bash(
+        "mkdir -p .git/hooks && cat > .git/hooks/pre-commit <<'HOOK'\n\
+         #!/bin/sh\n\
+         { head -9 many.txt; echo INSERTED; tail -n +10 many.txt; } > many.tmp\n\
+         mv many.tmp many.txt\n\
+         HOOK\n\
+         chmod +x .git/hooks/pre-commit",
+    );
+}
+
+/// With nothing singled out, the worktree as the hook left it is what gets committed - the same
+/// result `git` gives a hook that stages its own edits.
+///
+/// Committing the changes computed before the hook would drop every hunk whose header the hook
+/// moved, silently committing less than was asked for, so `status` would still show changes.
+#[cfg(unix)]
+#[test]
+fn a_hook_that_shifts_lines_does_not_strand_the_changes_below_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let lines: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    env.file("many.txt", &lines);
+    env.but("commit --no-message").assert().success();
+
+    // Two changes far enough apart to be separate hunks, with the hook's insertion between them.
+    env.file(
+        "many.txt",
+        lines
+            .replace("l02\n", "l02-top\n")
+            .replace("l19\n", "l19-bottom\n"),
+    );
+    write_line_shifting_hook(&env);
+
+    env.but("commit --no-message").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1#0 (no commit message)
+┊●   1#1 (no commit message)
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// Hunks chosen before a hook runs cannot survive the hook rewriting the file they came from, so
+/// the commit is refused rather than quietly carrying whichever of them still matched.
+#[cfg(unix)]
+#[test]
+fn choosing_hunks_a_hook_then_rewrites_refuses_the_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let lines: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    env.file("many.txt", &lines);
+    env.but("commit --no-message").assert().success();
+
+    env.file(
+        "many.txt",
+        lines
+            .replace("l02\n", "l02-top\n")
+            .replace("l19\n", "l19-bottom\n"),
+    );
+    write_line_shifting_hook(&env);
+
+    // `rr:e` and `rr:c` are this fixture's two hunks in many.txt, as `but diff` shows them.
+    env.but("commit --no-message rr:e rr:c")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: the pre-commit hook changed many.txt, which this commit was told to take part of.
+
+Nothing was committed and the hook's changes are still in the worktree. Re-run `but commit` to choose from the files as they are now, or commit without ids to take the worktree as the hook left it.
+
+"#]]);
+
+    let mut expected: String = (1..=20).map(|n| format!("l{n:02}\n")).collect();
+    expected = expected
+        .replace("l02\n", "l02-top\n")
+        .replace("l19\n", "l19-bottom\n");
+    let after_ninth = expected.match_indices('\n').nth(8).expect("twenty lines").0 + 1;
+    expected.insert_str(after_ninth, "INSERTED\n");
+    assert_eq!(
+        env.read_file("many.txt").expect("still there"),
+        expected,
+        "a refused commit leaves the hook's changes in the worktree rather than undoing them"
+    );
+}

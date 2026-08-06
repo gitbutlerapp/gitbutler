@@ -330,7 +330,7 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
     let code = code
         .map(|code| format!(" (Exit Code {code})"))
         .unwrap_or_default();
-    if stdout.is_empty() && stderr.is_ascii() {
+    if stdout.is_empty() && stderr.is_empty() {
         return format!("hook produced no output{code}");
     } else if stdout.is_empty() {
         return stderr;
@@ -338,4 +338,43 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
         return stdout;
     }
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::join_output;
+
+    /// A hook that explains its refusal on stderr says nothing otherwise, so the explanation is
+    /// the whole of what the user has to go on.
+    #[test]
+    fn stderr_only_output_is_reported() {
+        assert_eq!(
+            join_output(String::new(), "gate says no\n".into(), Some(1)),
+            "gate says no\n"
+        );
+    }
+
+    #[test]
+    fn stdout_only_output_is_reported() {
+        assert_eq!(
+            join_output("formatted 3 files\n".into(), String::new(), Some(1)),
+            "formatted 3 files\n"
+        );
+    }
+
+    #[test]
+    fn both_streams_are_labelled() {
+        assert_eq!(
+            join_output("out".into(), "err".into(), Some(2)),
+            "stdout:\nout\n\nstderr:\nerr (Exit Code 2)"
+        );
+    }
+
+    #[test]
+    fn a_silent_hook_says_so_with_its_exit_code() {
+        assert_eq!(
+            join_output(String::new(), String::new(), Some(1)),
+            "hook produced no output (Exit Code 1)"
+        );
+    }
 }

@@ -1440,6 +1440,9 @@ impl App {
                     }),
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
+                    // A blank commit carries no changes, so there is nothing for a content
+                    // gate to inspect and nothing it could sensibly refuse.
+                    commit::RunHooks::No,
                 )?;
 
                 messages.push(Message::Reload(
@@ -1467,6 +1470,9 @@ impl App {
                     }),
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
+                    // A blank commit carries no changes, so there is nothing for a content
+                    // gate to inspect and nothing it could sensibly refuse.
+                    commit::RunHooks::No,
                 )?;
 
                 messages.push(Message::Reload(
