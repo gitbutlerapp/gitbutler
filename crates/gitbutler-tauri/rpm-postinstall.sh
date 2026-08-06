@@ -1,4 +1,8 @@
 #!/bin/sh
+# Postinstall script for the rpm package.
+
+set -eu
+
 # Create a 'but' symlink so the CLI is available as /usr/bin/but.
 #
 # Ideally this symlink would be a proper tracked file in the RPM (like VS Code
@@ -36,4 +40,13 @@ else
     # Path exists but is not a symlink
     echo "Error: $SYMLINK already exists and is not a symlink" >&2
     exit 1
+fi
+
+# Print metrics notice on fresh install
+if [ "${1:-}" = "1" ]; then
+  echo ""
+  echo "GitButler uses metrics to help us improve our product."
+  echo "You can configure metrics collection either in the GUI or via 'but config metrics'."
+  echo "Privacy policy: https://gitbutler.com/privacy"
+  echo ""
 fi
