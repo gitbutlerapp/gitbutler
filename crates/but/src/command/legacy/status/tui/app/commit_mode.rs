@@ -507,6 +507,7 @@ where
         commit_op,
         commit_selection,
         reword_op,
+        commit::RunHooks::Yes,
     )?;
 
     drop(_suspend_guard);

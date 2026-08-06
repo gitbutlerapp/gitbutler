@@ -83,6 +83,10 @@ pub struct Platform {
     #[clap(short, long, group = "changes_to_commit")]
     pub interactive: bool,
 
+    /// Bypass commit hooks
+    #[clap(short = 'n', long = "no-hooks", visible_alias = "no-verify")]
+    pub no_hooks: bool,
+
     /// One or more changes to commit.
     ///
     /// A change can either be a file or a hunk.

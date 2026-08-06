@@ -165,6 +165,7 @@ but commit --above <target> -m "message" <id>  # Place the commit above a commit
 but commit --below <target> -m "message" <id>  # Place the commit below a commit or branch
 but commit -b <branch> --no-message <id>     # Commit without a message
 but commit --empty -b <branch> -m "message"  # Insert an empty commit
+but commit -b <branch> -m "message" --no-hooks # Commit without running commit hooks
 ```
 
 **Where the commit goes:** `-b`/`--branch`, `-A`/`--above`, and `-B`/`--below` are mutually exclusive.
@@ -174,6 +175,11 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 - With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
+
+**Hooks:** the repository's `pre-commit` hook runs before the commit is written, and `post-commit`
+after it. A failing `pre-commit` aborts the commit and its output is shown; `--no-hooks` (alias
+`--no-verify`) skips both, matching `but push`. A failing `post-commit` is reported but does not
+undo the commit.
 
 `but commit` is not supported from linked worktrees. Use Git directly for the worktree-local commit, and do not run `but setup` there.
 

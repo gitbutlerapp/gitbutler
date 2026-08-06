@@ -10,6 +10,7 @@ use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gitbutler_repo::hooks::{ErrorData, HookResult};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
 use serde::Serialize;
@@ -119,7 +120,7 @@ pub fn commit(
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
-    let (mut guard, commit_op, commit_selection, reword_op) = {
+    let (mut guard, commit_op, commit_selection, reword_op, run_hooks) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
@@ -130,6 +131,7 @@ pub fn commit(
         commit_op,
         commit_selection,
         reword_op,
+        run_hooks,
     )?)
 }
 
@@ -145,6 +147,7 @@ fn resolve(
     CommitOperation,
     CommitSelection,
     CommitMessageSource,
+    RunHooks,
 )> {
     let Platform {
         no_message,
@@ -154,6 +157,7 @@ fn resolve(
         above,
         below,
         interactive,
+        no_hooks,
         changes,
         allow_merged,
     } = args;
@@ -236,7 +240,13 @@ fn resolve(
 
     let reword_op = CommitMessageSource::from_args(no_message, message)?;
 
-    Ok((guard, commit_op, commit_selection, reword_op))
+    Ok((
+        guard,
+        commit_op,
+        commit_selection,
+        reword_op,
+        RunHooks::from_flag(no_hooks),
+    ))
 }
 
 /// The retired syntax put the target branch in positional position
@@ -268,6 +278,7 @@ pub fn run(
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
+    run_hooks: RunHooks,
 ) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
@@ -290,6 +301,10 @@ pub fn run(
 
         builder.into_diff_specs()
     };
+    if run_hooks.is_yes() {
+        run_pre_commit_hook(ctx, perm, &changes)?;
+    }
+
     let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
@@ -321,10 +336,84 @@ pub fn run(
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
+    if run_hooks.is_yes() {
+        run_post_commit_hook(ctx);
+    }
+
     Ok(CommitOutcome {
         new_commit,
         branch_name,
     })
+}
+
+/// Whether the commit hooks should run, as decided by `--no-hooks`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunHooks {
+    Yes,
+    No,
+}
+
+impl RunHooks {
+    fn from_flag(no_hooks: bool) -> Self {
+        if no_hooks { Self::No } else { Self::Yes }
+    }
+
+    fn is_yes(self) -> bool {
+        self == Self::Yes
+    }
+}
+
+/// Run `pre-commit` against the tree the commit is about to have, and fail the commit if the hook
+/// does.
+///
+/// The tree is built the same way the desktop builds it for this hook, so both surfaces show the
+/// hook the same thing: `HEAD^{tree}` with the changes being committed applied on top.
+fn run_pre_commit_hook(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+    changes: &[DiffSpec],
+) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let tree = {
+        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let head = repo
+            .head_tree_id_or_empty()
+            .context("Failed to get head tree")?;
+        let mut changes = changes.iter().cloned().map(Ok).collect::<Vec<_>>();
+        let (tree, ..) = but_core::tree::apply_worktree_changes(
+            head.detach(),
+            &repo,
+            &mut changes,
+            context_lines,
+        )?;
+        tree.detach()
+    };
+
+    match gitbutler_repo::hooks::pre_commit_with_tree(ctx, tree)? {
+        HookResult::Success | HookResult::NotConfigured => Ok(()),
+        HookResult::Failure(ErrorData { error }) => Err(hook_failed("pre-commit", error)),
+    }
+}
+
+/// Run `post-commit`, which cannot fail the commit that already exists.
+fn run_post_commit_hook(ctx: &Context) {
+    let outcome = gitbutler_repo::hooks::post_commit(ctx);
+    let error = match outcome {
+        Ok(HookResult::Success | HookResult::NotConfigured) => return,
+        Ok(HookResult::Failure(ErrorData { error })) => error,
+        Err(err) => format!("{err:#}"),
+    };
+    tracing::warn!("post-commit hook failed: {error}");
+}
+
+fn hook_failed(name: &str, error: String) -> anyhow::Error {
+    // Wording kept from before the `commit2` rewrite dropped hook support, so anyone who saw
+    // this message on an older build sees the same one again.
+    // Hook output usually ends in a newline of its own; trimming keeps one blank line here.
+    anyhow::anyhow!(
+        "{name} hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+        error.trim_end()
+    )
 }
 
 /// Targeting modes for committing.

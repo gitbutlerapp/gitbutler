@@ -2340,3 +2340,64 @@ For more information, try '--help'.
 
 "#]]);
 }
+
+/// Writes an executable `pre-commit` hook that runs `body`.
+#[cfg(unix)]
+fn write_pre_commit_hook(env: &Sandbox, body: &str) {
+    env.invoke_bash(format!(
+        "mkdir -p .git/hooks && printf '#!/bin/sh\\n{body}\\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn pre_commit_hook_runs_for_a_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo ran > hook-ran.txt");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message").assert().success();
+
+    assert_eq!(
+        env.read_file("hook-ran.txt").expect("the hook wrote it"),
+        "ran\n",
+        "the pre-commit hook runs when committing through the CLI"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failing_pre_commit_hook_blocks_the_commit_and_says_why() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo \"lint found 3 problems\" >&2\\nexit 1");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: pre-commit hook failed:
+lint found 3 problems
+
+To bypass the hook, run: but commit --no-hooks
+
+"#]]);
+}
+
+#[cfg(unix)]
+#[test]
+fn no_hooks_commits_past_a_failing_pre_commit_hook() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    write_pre_commit_hook(&env, "echo ran > hook-ran.txt\\nexit 1");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-hooks --no-message").assert().success();
+
+    assert!(
+        !env.projects_root().join("hook-ran.txt").exists(),
+        "--no-hooks skips the hook rather than running it and ignoring its verdict"
+    );
+}
