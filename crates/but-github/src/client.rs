@@ -503,7 +503,10 @@ impl GitHubClient {
         let response = self.client.put(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            bail!("Failed to merge pull request: {}", response.status());
+            bail!(
+                "Failed to merge pull request: {}",
+                response_error(response).await
+            );
         }
 
         Ok(())
@@ -1312,13 +1315,43 @@ struct CheckRunsQuery<'a> {
     page: usize,
 }
 
-/// Render a failed response as `<status>: <body>` so GitHub's error message reaches the user.
+/// Render a failed response as `<status>: <detail>` so GitHub's error message reaches the user.
 pub(crate) async fn response_error(response: reqwest::Response) -> String {
     let status = response.status();
     match response.text().await {
-        Ok(body) if !body.is_empty() => format!("{status}: {body}"),
+        Ok(body) if !body.is_empty() => format!("{status}: {}", error_message(&body)),
         _ => status.to_string(),
     }
+}
+
+/// Return the `message` of a GitHub error body, or `body` itself when that would lose something.
+///
+/// Failures come back as a JSON object whose `message` is the sentence worth showing, alongside
+/// fields like `documentation_url` that only add noise to a toast. A rejected merge is the case
+/// this exists for: the status alone says nothing a user can act on.
+///
+/// `errors` is the exception. It carries the per-field detail that makes a validation failure
+/// diagnosable, of which `message` is only the headline, so such a body is passed through whole.
+fn error_message(body: &str) -> String {
+    // Only an object can be an error body; deserializing straight into a struct would also accept
+    // a JSON array and quietly adopt its first element as the message.
+    let Ok(serde_json::Value::Object(fields)) = serde_json::from_str(body) else {
+        return body.to_owned();
+    };
+
+    let has_details = fields
+        .get("errors")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|errors| !errors.is_empty());
+    if has_details {
+        return body.to_owned();
+    }
+
+    fields
+        .get("message")
+        .and_then(serde_json::Value::as_str)
+        .filter(|message| !message.trim().is_empty())
+        .map_or_else(|| body.to_owned(), ToOwned::to_owned)
 }
 
 #[cfg(test)]
@@ -1330,6 +1363,67 @@ mod tests {
     fn graphql_endpoint_for_github_cloud() {
         let endpoint = graphql_endpoint_from_base_url("https://api.github.com");
         assert_eq!(endpoint, "https://api.github.com/graphql");
+    }
+
+    /// A refused merge reaches the user as GitHub's sentence rather than a bare status.
+    #[test]
+    fn error_message_is_what_github_said() {
+        let body = json!({
+            "message": "Rebase merges are not allowed on this repository.",
+            "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+            "status": "405"
+        })
+        .to_string();
+
+        assert_eq!(
+            error_message(&body),
+            "Rebase merges are not allowed on this repository."
+        );
+    }
+
+    /// `message` is only the headline of a validation failure, so the detail has to survive.
+    #[test]
+    fn error_message_keeps_a_body_that_carries_errors() {
+        let body = json!({
+            "message": "Validation Failed",
+            "errors": [{ "resource": "PullRequest", "field": "base", "code": "invalid" }]
+        })
+        .to_string();
+
+        assert_eq!(error_message(&body), body);
+    }
+
+    #[test]
+    fn error_message_collapses_when_errors_is_empty() {
+        let body = json!({ "message": "Not Found", "errors": [] }).to_string();
+        assert_eq!(error_message(&body), "Not Found");
+    }
+
+    /// A struct would accept a sequence here and adopt its first element as the message.
+    #[test]
+    fn error_message_keeps_a_json_array() {
+        let body = json!(["boom"]).to_string();
+        assert_eq!(error_message(&body), body);
+    }
+
+    #[test]
+    fn error_message_keeps_a_body_that_is_not_json() {
+        assert_eq!(
+            error_message("<html>502 Bad Gateway</html>"),
+            "<html>502 Bad Gateway</html>"
+        );
+    }
+
+    #[test]
+    fn error_message_keeps_json_without_a_message() {
+        let body = json!({ "documentation_url": "https://docs.github.com" }).to_string();
+        assert_eq!(error_message(&body), body);
+    }
+
+    #[test]
+    fn error_message_keeps_the_body_when_the_message_is_blank() {
+        let body = json!({ "message": "   " }).to_string();
+        assert_eq!(error_message(&body), body);
     }
 
     #[test]
