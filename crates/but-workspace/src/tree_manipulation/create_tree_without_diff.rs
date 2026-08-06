@@ -69,7 +69,7 @@ impl ChangesSource {
 /// discards changes without recovery.
 ///
 /// In practice, this is like a selective 'inverse-checkout', as such it must have a lot of the capabilities of checkout, but focussed
-/// on just a couple of paths, and with special handling for renamed files, something that `checkout` can't naturally handle
+/// on just a couple of paths, and with special handling for renamed files, something that `checkout` can't naturally entry
 /// as it's only dealing with single file-paths.
 ///
 /// ### Hunk-based discarding

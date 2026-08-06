@@ -867,6 +867,21 @@ export type AbsorptionTarget = {
   type: "all";
 };
 
+/**
+ * A declared branch whose ref has advanced outside the workspace — the user committed to it
+ * directly, so the workspace merge no longer contains its tip.
+ */
+export type AdvancedOutside = {
+  /** The branch that moved, e.g. `B`. */
+  refName: BranchReference;
+  /**
+   * The commits from the ref down to (excluding) the first workspace commit, newest first.
+   * These are local commits; the light commit shape is shared with upstream-only commits
+   * because neither kind has workspace-relation fields to offer.
+   */
+  commitsOutside: Array<UpstreamCommit>;
+};
+
 /** JSON transport type for the outcome of an AI conflict resolution. */
 export type AiResolutionResult = {
   /** The conflicted commit that was resolved. */
@@ -1015,7 +1030,7 @@ export type BottomUpdate = {
   /** How the selected stack bottom should be updated. */
   kind: BottomUpdateKind;
   /** The bottom-most commit or empty bottom reference to update. */
-  selector: RelativeTo;
+  anchor: RelativeTo;
 };
 
 /** JSON transport type for how a stack bottom should be updated. */
@@ -1101,14 +1116,7 @@ export type BranchDetails = {
   authors: Array<Author>;
   /** Whether the branch is conflicted. */
   isConflicted: boolean;
-  /**
-   * The commits contained in the branch, excluding the upstream commits.
-   *
-   * Note that legacy stack details currently do not expose
-   * [`crate::ref_info::Segment::commits_outside`], so commits that only appear there are
-   * omitted from this list rather than represented separately.
-   * It's also unclear how to recover from there.
-   */
+  /** The commits contained in the branch, excluding the upstream commits. */
   commits: Array<Commit>;
   /** The commits that are only at the remote. */
   upstreamCommits: Array<UpstreamCommit>;
@@ -1352,7 +1360,7 @@ export type Claude = {
  */
 export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
-/** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
+/** Commit that is a part of a legacy `StackBranch` and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {
   /** The OID of the commit. */
   id: string;
@@ -2194,7 +2202,7 @@ export type InitialBranchIntegration = {
   divergence: IntegrationDivergenceDisplay;
 };
 
-/** Describes where relative to the selector a step should be inserted */
+/** Describes where relative to the target an insertion lands */
 export type InsertSide = "above" | "below";
 
 /** JSON transport type for integrating a branch. */
@@ -2808,18 +2816,18 @@ export type Segment = {
    */
   commitsOnRemote: Array<UpstreamCommit>;
   /**
-   * All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-   * The list was created by walking all parents, not only the first parent.
-   * This means the segment needs fixing.
+   * Branches declared in this segment's stack whose refs have moved OUTSIDE the workspace,
+   * each with the commits the workspace is missing. The segment is never renamed after
+   * them — the ref points elsewhere, and this reports where instead of pretending.
    */
-  commitsOutside: Array<Commit> | null;
+  advancedOutside: Array<AdvancedOutside>;
   /**
    * Read-only metadata with additional information about the branch naming the segment,
    * or `None` if nothing was present.
    */
   metadata: Branch | null;
   /**
-   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
+   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Workspace::from_tip)
    * is this segment, and the surrounding workspace is provided for context.
    *
    * This means one will see the entire workspace, while knowing the focus is on one specific segment.

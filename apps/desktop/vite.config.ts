@@ -45,6 +45,8 @@ export default defineConfig({
 		fs: {
 			strict: false,
 		},
+		watch: process.env.VITE_DISABLE_WATCH ? null : undefined,
+		hmr: process.env.VITE_DISABLE_WATCH ? false : undefined,
 	},
 	optimizeDeps: {
 		// Exclude local packages from pre-bundling

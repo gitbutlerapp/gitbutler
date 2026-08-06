@@ -138,7 +138,9 @@ fn can_undo_but_discard_rename() {
 #[test]
 fn can_undo_unapply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("unapply A")
@@ -155,7 +157,9 @@ Unapplied stack with 'A' from workspace
 #[test]
 fn can_undo_clean_apply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
     env.but("unapply A").assert().success();
 
     run_mutate_undo_roundtrip_test(&env, |env| {

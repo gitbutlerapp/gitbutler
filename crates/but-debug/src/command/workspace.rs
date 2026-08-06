@@ -25,7 +25,7 @@ pub(crate) fn apply(
 
     let outcome = but_workspace::branch::apply(
         branch.as_ref(),
-        ws.clone(),
+        &ws,
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
@@ -66,7 +66,8 @@ pub(crate) fn unapply(
     )?;
 
     writeln!(out, "{outcome:#?}")?;
-    *ws = outcome.workspace.into_owned();
+    // The display boundary: the context cache holds the pruned display workspace.
+    ws.adopt(outcome.workspace);
     emit_after(&ws, &mutation_args.debug, err)
 }
 
@@ -83,8 +84,8 @@ fn emit_stack_summary(ws: &but_graph::Workspace, err: &mut dyn io::Write) -> Res
     writeln!(
         err,
         "workspace stacks after: {} ({})",
-        ws.stacks.len(),
-        ws.stacks
+        ws.display_stacks()?.len(),
+        ws.display_stacks()?
             .iter()
             .filter_map(|stack| stack.ref_name())
             .map(|ref_name| ref_name.shorten().to_string())

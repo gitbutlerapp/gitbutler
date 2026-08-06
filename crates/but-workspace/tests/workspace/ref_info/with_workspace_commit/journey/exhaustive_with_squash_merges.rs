@@ -56,12 +56,10 @@ Ok(
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "None",
@@ -70,8 +68,7 @@ Ok(
             },
         ],
         target_ref: None,
-        target_commit: None,
-        lower_bound: None,
+        target_commits_ahead: 0,
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -133,12 +130,10 @@ Ok(
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "None",
@@ -147,15 +142,7 @@ Ok(
             },
         ],
         target_ref: None,
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(0),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -221,12 +208,10 @@ Ok(
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "refs/remotes/origin/main",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "None",
@@ -239,19 +224,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(0),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -300,12 +275,10 @@ Ok(
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "refs/remotes/origin/main",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "None",
@@ -318,19 +291,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(0),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -395,19 +358,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -477,12 +430,10 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -495,19 +446,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -574,14 +515,12 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(ba16348, "one\n", local),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -594,19 +533,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -654,14 +583,12 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(ba16348, "one\n", local),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -674,19 +601,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -756,14 +673,12 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
                             LocalCommit(ba16348, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -776,19 +691,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -862,7 +767,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -870,7 +774,6 @@ Ok(
                             LocalCommit(ba16348, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: UnpushedCommits,
                         base: "fafd9d0",
@@ -883,19 +786,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -968,7 +861,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -976,7 +868,6 @@ Ok(
                             LocalCommit(3234835, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -989,19 +880,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 0,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -1079,7 +960,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1087,7 +967,6 @@ Ok(
                             LocalCommit(3234835, "one\n", integrated(d110262)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1100,19 +979,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 2,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
+        target_commits_ahead: 2,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -1200,7 +1069,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1211,7 +1079,6 @@ Ok(
                             Commit(16d0628, "add other remote file\n"),
                             Commit(66fe1d7, "add remote file\n"),
                         ],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1224,19 +1091,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 5,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(adc9f0cd07bd0a09363ac6536291bf821ca845c4),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(5),
-        ),
+        target_commits_ahead: 5,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -1330,7 +1187,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1341,7 +1197,6 @@ Ok(
                             Commit(16d0628, "add other remote file\n"),
                             Commit(66fe1d7, "add remote file\n"),
                         ],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1355,27 +1210,23 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
                         ref_name: "►local",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(1af5d57, "new local file\n", integrated(2eb07c5)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "de02b20",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
                         ref_name: "►local-bottom",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(de02b20, "new local-bottom file\n", integrated(2eb07c5)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -1388,19 +1239,9 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 7,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(35faa22c8d0a01ba45da3971406eab6932b1bbde),
-                segment_index: NodeIndex(2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(8),
-        ),
+        target_commits_ahead: 7,
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,

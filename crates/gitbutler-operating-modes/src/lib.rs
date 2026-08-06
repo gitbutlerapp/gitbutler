@@ -186,7 +186,7 @@ fn worktree_conflicts_with_workspace(
     gix_repo: &gix::Repository,
 ) -> Result<Vec<BStringForFrontend>> {
     let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-    if ws.target_ref.is_none() || ws.stacks.is_empty() {
+    if ws.target_ref.is_none() || ws.display_stacks().map_or(true, |s| s.is_empty()) {
         // Nothing to conflict
         return Ok(vec![]);
     }

@@ -2,9 +2,7 @@
 
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
-};
+use but_rebase::graph_rebase::{CommitIndex, CommitSpec, Editor, RebasedEditor};
 
 use crate::commit_engine::{Destination, create_commit};
 
@@ -12,26 +10,26 @@ use super::{ChangeSource, cancel_consumed_changes};
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
-pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitAmendOutcome<'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// Selector pointing to the amended commit, if the amend was
+    pub rebase: RebasedEditor<'meta, M>,
+    /// The amended commit, if the amend was
     /// successful.
     ///
     /// A commit may not be amended if all the diff_specs are rejected. See
     /// [`create_commit`] for more details.
-    pub commit_selector: Option<Selector>,
+    pub commit: Option<CommitIndex>,
     /// Rejected diff specs from commit creation. See [`create_commit`] for
     /// more details.
     pub rejected_specs: Vec<(but_core::tree::create_tree::RejectionReason, DiffSpec)>,
 }
 
-/// Amend a commit specified by `commit` selector.
+/// Amend a commit specified by `commit` entry.
 ///
 /// Similar to other `editor` based functions, this consumes an editor and
-/// gives it back as a [`SuccessfulRebase`] which can be used to chain more
+/// gives it back as a [`RebasedEditor`] which can be used to chain more
 /// operations or just materialize the result.
 ///
 /// `changes` defines which changes should be committed, and `source` which
@@ -52,27 +50,26 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-    commit: impl ToCommitSelector,
+pub fn commit_amend<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
+    commit: CommitIndex,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
-) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
-    let (target_selector, target) = editor.find_selectable_commit(commit)?;
+) -> Result<CommitAmendOutcome<'meta, M>> {
+    let target_entry = commit;
+    let target = editor.commit_of(target_entry)?;
 
     let target_id = target.id;
     if target.attach(editor.repo()).is_conflicted() {
         bail!("Cannot amend a conflicted commit")
     }
-    // An immutable pick would be replaced in the step graph while the rebase copies
+    // An immutable commit would be replaced in the editor graph while the rebase copies
     // its descendants verbatim and never moves the (immutable) refs pointing at it -
     // the amended commit would be written but stay unreachable, with this function
     // still reporting success. Fail fast instead.
-    let Step::Pick(target_pick) = editor.lookup_step(target_selector)? else {
-        bail!("BUG: Expected pick step from commit selector. This should never happen");
-    };
-    if !target_pick.mutable {
+    let target_spec = editor.spec_of(target_entry)?;
+    if !target_spec.mutable {
         bail!(
             "cannot amend into {target_id}: the commit is immutable (not part of a mutable branch)"
         );
@@ -94,7 +91,7 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     let Some(new_commit_id) = create_out.new_commit else {
         return Ok(CommitAmendOutcome {
             rebase: editor.rebase()?,
-            commit_selector: None,
+            commit: None,
             rejected_specs: create_out.rejected_specs,
         });
     };
@@ -108,11 +105,11 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
         context_lines,
     )?;
 
-    editor.replace(target_selector, Step::new_pick(new_commit_id))?;
+    editor.replace_commit(target_entry, CommitSpec::new(new_commit_id))?;
 
     Ok(CommitAmendOutcome {
         rebase: editor.rebase()?,
-        commit_selector: Some(target_selector),
+        commit: Some(target_entry),
         rejected_specs: create_out.rejected_specs,
     })
 }

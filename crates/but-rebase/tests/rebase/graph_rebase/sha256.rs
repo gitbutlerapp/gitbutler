@@ -1,12 +1,12 @@
 //! Tests key graph rebase operations against a SHA-256 repository.
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, Step, mutate::InsertSide},
+    graph_rebase::{CommitSpec, Editor, mutate::InsertSide},
 };
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{git_status, graph_dag, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -38,47 +38,44 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
-    let (selector, mut merge_obj) = editor.find_selectable_commit(merge_id)?;
+    let handle = editor.select_commit(merge_id)?;
+    let mut merge_obj = editor.commit_of(handle)?;
     merge_obj.message = "Commit below the merge commit in SHA-256".into();
     merge_obj.parents = vec![].into();
     let new_commit = editor.new_commit(merge_obj, DateMode::CommitterKeepAuthorKeep)?;
 
-    editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
+    editor.insert_commit(handle, CommitSpec::new(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·d165592 (⌂|1)
-    └── ·526ed5b (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·d261f8f (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·2ff29ff (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8dcf66f (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·8f04e4a (⌂|1)
-                        └── →:4: (main)
-
+*  👉·d165592 (⌂) ►with-inner-merge[🌳]
+*  ·526ed5b (⌂)
+*    ·d261f8f (⌂)
+├─╮
+* │  ·2ff29ff (⌂) ►A
+│ *  ·8f04e4a (⌂) ►B
+├─╯
+*  🏁·8dcf66f (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -97,7 +94,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d1655921309ddaa17f3ba486f91d53527165826034828f7d69a6a73f07c089ec),
@@ -136,47 +133,44 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
-    let (a_selector, mut a_obj) = editor
-        .find_selectable_commit(a)
+    let a_handle = editor.select_commit(a)?;
+    let mut a_obj = editor
+        .commit_of(a_handle)
         .context("failed to select branch A commit")?;
     a_obj.message = "A: SHA-256 reworded".into();
     let a_new = editor.new_commit(a_obj, DateMode::CommitterKeepAuthorKeep)?;
 
-    editor.replace(a_selector, Step::new_pick(a_new))?;
+    editor.replace_commit(a_handle, CommitSpec::new(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·d050214 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·8b1722f (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·546b14b (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8dcf66f (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·8f04e4a (⌂|1)
-                        └── →:4: (main)
-
+*  👉·d050214 (⌂) ►with-inner-merge[🌳]
+*    ·8b1722f (⌂)
+├─╮
+* │  ·546b14b (⌂) ►A
+│ *  ·8f04e4a (⌂) ►B
+├─╯
+*  🏁·8dcf66f (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -194,7 +188,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d0502143e9c3dd325182004472511cde469772f5dc91d1c50792ab681607c125),
@@ -233,26 +227,27 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
     let a = editor.repo().rev_parse_single("A")?.detach();
     let b_refname = editor.repo().find_reference("B")?.inner.name;
 
-    let (inner_merge_selector, _) = editor.find_selectable_commit(inner_merge)?;
-    let (a_selector, _) = editor.find_selectable_commit(a)?;
-    let b_ref_selector = editor.select_reference(b_refname.as_ref())?;
-    let (b_selector, _) = editor.find_reference_target(b_ref_selector)?;
+    let inner_merge_handle = editor.select_commit(inner_merge)?;
+    let _ = editor.commit_of(inner_merge_handle)?;
+    let a_handle = editor.select_commit(a)?;
+    let _ = editor.commit_of(a_handle)?;
+    let b_ref_handle = editor.select_reference(b_refname.as_ref())?;
+    let (b_handle, _) = editor.target_of(b_ref_handle)?;
 
-    let removed_orders = editor.remove_edges(inner_merge_selector, b_ref_selector)?;
+    let removed_orders = editor.detach(inner_merge_handle, b_ref_handle)?;
     snapbox::assert_data_eq!(
         removed_orders.to_debug(),
         snapbox::str![[r#"
@@ -262,29 +257,27 @@ Sha256
 
 "#]]
     );
-    editor.add_edge(a_selector, b_selector, 1)?;
+    editor.insert_parent(a_handle, b_handle, 1)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·636f2bd (⌂|1)
-    └── ·93b14a1 (⌂|1)
-        └── ►:1[1]:A
-            └── ·9d083f9 (⌂|1)
-                ├── ►:2[3]:main
-                │   └── 🏁·8dcf66f (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·8f04e4a (⌂|1)
-                        └── →:2: (main)
-
+*  👉·636f2bd (⌂) ►with-inner-merge[🌳]
+*  ·93b14a1 (⌂)
+*    ·9d083f9 (⌂) ►A
+├─╮
+│ *  ·8f04e4a (⌂) ►B
+├─╯
+*  🏁·8dcf66f (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -302,7 +295,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(636f2bd7679b194672f68390fed8f677231454871ea9d56e315062c62c07698c),

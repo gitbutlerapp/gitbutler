@@ -1,4 +1,4 @@
-mod init;
-mod merge_base;
-mod vis;
+mod fuzz;
+mod tour;
+mod walk;
 mod workspace;

@@ -19,11 +19,11 @@ function segment(name?: string): Segment {
 		remoteTrackingRefName: null,
 		commits: [],
 		commitsOnRemote: [],
-		commitsOutside: null,
 		metadata: null,
 		isEntrypoint: false,
 		pushStatus: "unpushedCommits",
 		base: null,
+		advancedOutside: [],
 	};
 }
 
@@ -125,7 +125,7 @@ describe("UpstreamIntegrationService", () => {
 			updates: [
 				{
 					kind: "rebase",
-					selector: {
+					anchor: {
 						type: "referenceBytes",
 						subject: bytes("refs/heads/feature"),
 					},
@@ -137,7 +137,7 @@ describe("UpstreamIntegrationService", () => {
 			updates: [
 				{
 					kind: "rebase",
-					selector: {
+					anchor: {
 						type: "referenceBytes",
 						subject: bytes("refs/heads/feature"),
 					},

@@ -24,7 +24,7 @@ Method: `editor.order_commit_selectors_by_parentage(selectors) -> Result<Vec<Sel
 
 ## Preconditions and Errors
 
-The function treats the editor step graph as the single source of truth.
+The function treats the editor commit graph as the single source of truth.
 
 This means:
 
@@ -43,12 +43,15 @@ The current algorithm has three phases.
 
 2. Build rank map from editor traversal
 
-Build a map `commit_id -> rank` by traversing the entire editor step graph from all child-most nodes.
+Build a map `commit_id -> rank` by traversing the entire editor commit graph from all child-most nodes.
 
 Implementation notes:
 
-- Seed traversal with `editor.graph.externals(Direction::Incoming)`, i.e. all nodes with no children.
-- Sort these traversal entrypoints by graph index for deterministic iteration.
+- Seed traversal with all child-most entries (`tips()`, i.e. entries with no children).
+- Sort these traversal entrypoints by graph index for deterministic iteration, then move the
+  editor's own `HEAD` checkout to the front: the entrypoint's history ranks before commits
+  only an auxiliary region (a linked worktree's branch) reaches, so arena layout never
+  decides the order of unrelated commits.
 - Traverse parent-direction edges using `collect_ordered_parents`, which respects parent edge weights.
 - Push parents onto the traversal stack in that same order (no reversal).
 - Use iterative DFS with post-order assignment so parents are ranked before descendants.

@@ -20,4 +20,6 @@ git checkout B
   commit B
 git checkout B -b C
   commit C
-create_workspace_commit_once A C
+# Reverse arg order on purpose: this fixture must keep parent[0] diverging from the
+# metadata stack order, to exercise the *_display_order_follows_workspace_parents tests.
+create_workspace_commit_once C A

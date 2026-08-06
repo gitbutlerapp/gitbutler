@@ -143,7 +143,7 @@ pub fn stacks_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
-    traversal: but_graph::init::Options,
+    traversal: but_graph::walk::Options,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<StackEntry>> {
@@ -272,7 +272,7 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
-    traversal: but_graph::init::Options,
+    traversal: but_graph::walk::Options,
 ) -> anyhow::Result<ui::StackDetails> {
     // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
     // back to resolving from a surviving ref when that stack is no longer reachable from `HEAD`.
@@ -284,7 +284,7 @@ pub fn stack_details_v3(
     }
     fn new_ref_info_options(
         project_meta: &ProjectMeta,
-        traversal: &but_graph::init::Options,
+        traversal: &but_graph::walk::Options,
     ) -> ref_info::Options<'static> {
         ref_info::Options {
             project_meta: project_meta.clone(),
@@ -395,14 +395,12 @@ pub fn stack_details_v3(
 impl ui::BranchDetails {
     fn from_segment(
         Segment {
-            id: _,
             ref_info,
             commits: commits_unique_from_tip,
             commits_on_remote: commits_unique_in_remote_tracking_branch,
+            // The legacy view has no representation for a branch that moved outside.
+            advanced_outside: _,
             remote_tracking_ref_name,
-            remote_tracking_branch_segment_id: _,
-            // There is nothing equivalent
-            commits_outside,
             metadata,
             push_status,
             is_entrypoint: _,
@@ -412,16 +410,6 @@ impl ui::BranchDetails {
         let ref_info = ref_info
             .clone()
             .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
-        if let Some(commits_outside) = commits_outside
-            .as_ref()
-            .filter(|commits| !commits.is_empty())
-        {
-            tracing::warn!(
-                ignored_outside_commits = commits_outside.len(),
-                stack_segment_ref = %ref_info.ref_name,
-                "Legacy StackDetails drops commits_outside for this stack segment"
-            );
-        }
         let (updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {

@@ -4,7 +4,7 @@ use std::io::{self, Write as _};
 
 use anyhow::{Context as _, Result, bail, ensure};
 use but_graph::FirstParent;
-use but_graph::init::Tip;
+use but_graph::walk::Seed;
 use gix::{odb::store::RefreshMode, reference::Category, revision::plumbing::Spec};
 
 use crate::{
@@ -59,11 +59,7 @@ fn log(
 
     let _span = tracing::info_span!("traverse graph").entered();
     let commits = if let Some(excluded) = excluded {
-        graph.find_commit_ids_reachable_from_a_not_b(
-            included,
-            excluded,
-            FirstParent::from(log_args.first_parent),
-        )?
+        graph.commit_ids_in_a_not_b(included, excluded, FirstParent::from(log_args.first_parent))?
     } else {
         bail!("Need to specify a rev-spec of form `a..b` to indicate an exclusion for now.")
     };
@@ -105,34 +101,12 @@ fn merge_base(
         graph_for_revisions(repo, meta, &commits, graph_tips)?
     };
 
-    let segments = {
-        let _span = tracing::info_span!("map commit ids to segments", commit_count = commits.len())
-            .entered();
-        commits
-            .iter()
-            .copied()
-            .map(|commit_id| graph.segment_id_by_commit_id(commit_id))
-            .collect::<Result<Vec<_>>>()
-            .context("Failed to map commit ids to graph segments")?
-    };
-
     let merge_base = {
         let _span = tracing::info_span!("compute octopus merge-base", commit_count = commits.len())
             .entered();
         graph
-            .find_merge_base_octopus(segments)
-            .map(|segment_id| {
-                graph
-                    .tip_skip_empty(segment_id)
-                    .map(|commit| commit.id)
-                    .with_context(|| {
-                        format!(
-                            "BUG: Segment {segment_id:?} does not contain a reachable tip commit"
-                        )
-                    })
-            })
-            .transpose()
-            .context("Failed to compute octopus merge-base from graph")?
+            .commit_graph()
+            .merge_base_octopus(commits.iter().copied())
     };
 
     let Some(merge_base) = merge_base else {
@@ -146,7 +120,7 @@ fn merge_base(
     Ok(())
 }
 
-fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Result<Vec<Tip>> {
+fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Result<Vec<Seed>> {
     let mut tips = Vec::new();
 
     if let Some(tip) = graph_args
@@ -162,7 +136,7 @@ fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Resul
                 "Target ref '{name}' resolved from '{target_ref}' is not a remote-tracking branch; use --extra-target for arbitrary revisions"
             );
             let id = reference.peel_to_id()?.detach();
-            Ok(Tip::integrated(id, Some(name)))
+            Ok(Seed::integrated(id, Some(name)))
         })
         .transpose()?
     {
@@ -174,7 +148,7 @@ fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Resul
         .as_deref()
         .map(|rev| {
             repo.rev_parse_single(rev)
-                .map(|id| Tip::integrated(id.detach(), None))
+                .map(|id| Seed::integrated(id.detach(), None))
                 .with_context(|| format!("Failed to resolve extra target '{rev}'"))
         })
         .transpose()?
@@ -189,27 +163,27 @@ fn graph_for_revisions(
     repo: &gix::Repository,
     meta: &EmptyRefMetadata,
     commits: &[gix::ObjectId],
-    graph_tips: Vec<Tip>,
-) -> Result<but_graph::Graph> {
+    graph_tips: Vec<Seed>,
+) -> Result<but_graph::Workspace> {
     let first = *commits
         .first()
         .context("BUG: revision graph requires at least one commit")?;
-    let options = but_graph::init::Options {
+    let options = but_graph::walk::Options {
         collect_tags: false,
         commits_limit_hint: None,
         ..Default::default()
     };
-    let tips = std::iter::once(Tip::entrypoint(first, None))
+    let tips = std::iter::once(Seed::entrypoint(first, None))
         .chain(
             commits
                 .iter()
                 .copied()
                 .skip(1)
-                .map(|id| Tip::reachable(id, None)),
+                .map(|id| Seed::reachable(id, None)),
         )
         .chain(graph_tips);
 
-    but_graph::Graph::from_commit_traversal_tips(
+    but_graph::Workspace::from_seeds(
         repo,
         tips,
         meta,

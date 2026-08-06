@@ -208,6 +208,9 @@ fn comments_on_unapplied_branches_survive() {
         .assert()
         .success();
 
+    // The workspace is never left without stacks, so unapplying the only branch is
+    // refused — give the workspace a second lane before taking A away.
+    env.but("branch new keeper").assert().success();
     env.but("unapply A").assert().success();
     env.but("_comment list")
         .assert()

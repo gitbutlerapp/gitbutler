@@ -193,7 +193,15 @@ pub(crate) fn app_settings() -> Result<&'static AppSettings> {
         return Ok(settings);
     }
     match AppSettings::load_from_default_path_creating_without_customization() {
-        Ok(settings) => Ok(APP_SETTINGS.get_or_init(|| settings)),
+        Ok(mut settings) => {
+            // NOT IN THE CLI, YET. The v3 unapply dissolves the workspace onto the branch that
+            // remains, which is the behaviour the desktop wants — but it leaves you on an ordinary
+            // branch, and every `but` command refuses to run outside `gitbutler/*`. Until the CLI
+            // can work in a single-branch workspace, taking a branch out here would end the
+            // session and `but setup` would be the only way back.
+            settings.feature_flags.unapply_v3_pgm = false;
+            Ok(APP_SETTINGS.get_or_init(|| settings))
+        }
         // A concurrent caller may have initialized while our load failed.
         Err(err) => APP_SETTINGS.get().ok_or(err),
     }

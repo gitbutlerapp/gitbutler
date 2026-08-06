@@ -17,17 +17,18 @@ import { execFileSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 
 /**
- * Navigate to the branches page and assert the standard 3-card layout from
- * `project-with-remote-branches.sh`. Filters on the `origin/master` header
- * because workspace stack headers also use the `branch-header` test id.
+ * Navigate to the branches page and assert the card count. The default 3 is the remote branches
+ * of `project-with-remote-branches.sh`; callers pass 4 once a fresh branch has been minted to
+ * stand in for an integrated one. Filters on the `origin/master` header because workspace stack
+ * headers also use the `branch-header` test id.
  */
-async function gotoBranchesView(page: Page) {
+async function gotoBranchesView(page: Page, expectedCards = 3) {
 	await clickByTestId(page, "navigation-branches-button");
 	const originHeader = getByTestId(page, "branch-header").filter({ hasText: "origin/master" });
 	await expect(originHeader).toBeVisible();
 
 	const cards = getByTestId(page, "branch-list-card");
-	await expect(cards).toHaveCount(3);
+	await expect(cards).toHaveCount(expectedCards);
 }
 
 /**
@@ -426,6 +427,10 @@ test("should be able to apply a remote branch and integrate the remote changes -
 	await textEditorFillByTestId(page, "commit-drawer-description-input", "CCCCCCC");
 	await clickByTestId(page, "commit-drawer-action-button");
 
+	// Wait for the new local commit to land before integrating; otherwise integrate
+	// races commit creation and can drop it, leaving 3 commits (flaky toHaveCount(4)).
+	await expect(commitRow(page)).toHaveCount(3);
+
 	// Integrate upstream commits on top
 	await clickByTestId(page, "upstream-commits-integrate-button");
 	await waitForTestId(page, "branch-integration-apply-button");
@@ -595,11 +600,15 @@ test("should update the stale selection of an unexisting branch", async ({ page,
 	await clickByTestId(page, "integrate-upstream-action-button");
 	await waitForTestIdToNotExist(page, "integrate-upstream-action-button");
 
-	await waitForTestIdToNotExist(page, "stack");
+	// The workspace is never left without stacks (product ruling 2026-07-26): branch1 is
+	// integrated away, and a fresh branch at the target stands in its place.
+	await expect(stack(page, "branch1")).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
 
-	await gotoBranchesView(page);
+	// Four now: the three we started with plus the branch that replaced the integrated one.
+	await gotoBranchesView(page, 4);
 
-	// We don't prune, so 3 branches remain, but branch1 is not selected anymore.
+	// We don't prune, so branch1 remains, just no longer selected.
 	const cardsAfter = getByTestId(page, "branch-list-card");
 	await expect(cardsAfter.filter({ hasText: "branch1" })).not.toHaveClass(/\bselected\b/);
 	await expect(getByTestId(page, "current-origin-list-card")).toHaveClass(/\bselected\b/);
@@ -639,17 +648,20 @@ test("should be able to delete an empty local branch", async ({ page, gitbutler 
 
 test("should be able to unapply a stack", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
-	await applyUpstream(gitbutler, "branch1");
+	await applyUpstream(gitbutler, "branch1", "branch3");
 	await openWorkspace(page);
 
-	await expect(stack(page)).toHaveCount(1);
+	await expect(stack(page)).toHaveCount(2);
 	await expect(getByTestId(page, "branch-header").filter({ hasText: "branch1" })).toBeVisible();
 
 	await unapplyStack(page, "branch1");
 	await waitForTestId(page, "workspace-view");
 
-	await expect(stack(page)).toHaveCount(0);
+	// Unapplying the second-to-last stack dissolves the workspace onto the branch that
+	// remains, so branch3 is still shown as the one lane — the user is never stranded.
+	await expect(stack(page)).toHaveCount(1);
 	await expect(getByTestId(page, "branch-header").filter({ hasText: "branch1" })).toHaveCount(0);
+	await expect(getByTestId(page, "branch-header").filter({ hasText: "branch3" })).toBeVisible();
 });
 
 test("should be able to move a branch when origin/master has advanced past the fork point", async ({

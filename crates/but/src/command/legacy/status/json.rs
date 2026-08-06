@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 
 use anyhow::Context as _;
-use but_graph::SegmentIndex;
 use but_workspace::ref_info::LocalCommit;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -312,7 +311,10 @@ impl Branch {
         repo: &gix::Repository,
         cli_id: String,
         segment: SegmentWithId,
-        push_statuses_by_segment_id: &HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
+        push_statuses_by_segment_id: &HashMap<
+            super::SegmentStatusKey,
+            but_workspace::ui::PushStatus,
+        >,
         local_commits_by_id: &HashMap<gix::ObjectId, LocalCommit>,
         remote_commits_by_id: &HashMap<gix::ObjectId, but_workspace::ref_info::Commit>,
         review_id: Option<String>,
@@ -348,7 +350,7 @@ impl Branch {
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let push_status = push_statuses_by_segment_id
-            .get(&segment.inner.id)
+            .get(&super::segment_status_key_with_id(&segment))
             .copied()
             .unwrap_or_else(|| {
                 eprintln!("warning: head_info does not have segment that graph has");

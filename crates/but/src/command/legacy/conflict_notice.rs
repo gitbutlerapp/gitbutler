@@ -154,14 +154,14 @@ fn conflicted_workspace_commits(ctx: &Context) -> anyhow::Result<Vec<ConflictedC
         .flat_map(|stack| &stack.segments)
         .flat_map(|segment| &segment.commits)
     {
-        if !seen.insert(stack_commit.id) {
+        if !seen.insert(*stack_commit) {
             continue;
         }
-        let commit = but_core::Commit::from_id(stack_commit.id.attach(&repo))?;
+        let commit = but_core::Commit::from_id(stack_commit.attach(&repo))?;
         if commit.is_conflicted() {
             conflicted.push(ConflictedCommit {
                 inner: CommitIdentifiers {
-                    id: stack_commit.id,
+                    id: *stack_commit,
                     change_id: commit.change_id(),
                 },
                 message: message_excerpt(&commit),

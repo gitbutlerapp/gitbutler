@@ -49,7 +49,7 @@ pub fn stacks_v3(
         repo,
         meta,
         &project_meta(repo)?,
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
         filter,
         ref_name_override,
     )
@@ -68,7 +68,7 @@ pub fn stack_details_v3(
         repo,
         meta,
         &project_meta(repo)?,
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )
 }
 
@@ -148,7 +148,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
     // It's clear that this branch is unborn as there is not a single commit,
     // in absence of a target ref.
     snapbox::assert_data_eq!(
-        info.to_debug(),
+        &info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
     workspace_ref_info: Some(
@@ -174,12 +174,10 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -188,8 +186,7 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
-    lower_bound: None,
+    target_commits_ahead: 0,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -203,7 +200,7 @@ RefInfo {
     // It's now possible to use the old API with unborn repos.
     // This type can't really represent missing tips, but `null()` will do.
     snapbox::assert_data_eq!(
-        stacks.to_debug(),
+        &stacks.to_debug(),
         snapbox::str![[r#"
 [
     StackEntry {
@@ -228,7 +225,7 @@ RefInfo {
     let details = stack_details_v3(stacks[0].id, &repo, &meta)?;
     // It's also possible to obtain details.
     snapbox::assert_data_eq!(
-        details.to_debug(),
+        &details.to_debug(),
         snapbox::str![[r#"
 StackDetails {
     derived_name: "main",
@@ -269,7 +266,7 @@ fn detached() -> anyhow::Result<()> {
     // As the workspace name is derived from the first segment, it's empty as well.
     // We do know that `main` is pointing at the local commit though, despite the unnamed segment owning it.
     snapbox::assert_data_eq!(
-        info.to_debug(),
+        &info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
     workspace_ref_info: None,
@@ -282,14 +279,12 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "None",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(15bcd1b, "init\n", local, ►main),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -298,8 +293,7 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
-    lower_bound: None,
+    target_commits_ahead: 0,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -313,7 +307,7 @@ RefInfo {
     let stacks = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
     // Detached heads can't be represented with this API as it really needs a name.
     snapbox::assert_data_eq!(
-        stacks.to_debug(),
+        &stacks.to_debug(),
         snapbox::str![[r#"
 []
 
@@ -334,7 +328,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, ref_info::Options::default())?;
     // The conflict is detected in the local commit.
     snapbox::assert_data_eq!(
-        info.to_debug(),
+        &info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
     workspace_ref_info: Some(
@@ -362,7 +356,6 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -370,7 +363,6 @@ RefInfo {
                         LocalCommit(a047f81, "init\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -379,8 +371,7 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
-    lower_bound: None,
+    target_commits_ahead: 0,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -393,7 +384,7 @@ RefInfo {
 
     let stacks = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
     snapbox::assert_data_eq!(
-        stacks.to_debug(),
+        &stacks.to_debug(),
         snapbox::str![[r#"
 [
     StackEntry {
@@ -469,7 +460,7 @@ fn single_branch() -> anyhow::Result<()> {
         "a single branch, a single segment"
     );
     snapbox::assert_data_eq!(
-        info.to_debug(),
+        &info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
     workspace_ref_info: Some(
@@ -497,7 +488,6 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -513,7 +503,6 @@ RefInfo {
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -522,8 +511,7 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
-    lower_bound: None,
+    target_commits_ahead: 0,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -536,7 +524,7 @@ RefInfo {
 
     let stacks = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
     snapbox::assert_data_eq!(
-        stacks.to_debug(),
+        &stacks.to_debug(),
         snapbox::str![[r#"
 [
     StackEntry {
@@ -613,7 +601,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, standard_options())?;
 
     snapbox::assert_data_eq!(
-        info.to_debug(),
+        &info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
     workspace_ref_info: Some(
@@ -641,20 +629,17 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(b5743a3, "10\n", local, ►above-10),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "344e320",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(1),
                     ref_name: "►nine",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -663,13 +648,11 @@ RefInfo {
                         LocalCommit(05f069b, "7\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "c4f2a35",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(2),
                     ref_name: "►six",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -678,13 +661,11 @@ RefInfo {
                         LocalCommit(c584dbe, "4\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "281da94",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
                     ref_name: "►three",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -692,20 +673,17 @@ RefInfo {
                         LocalCommit(12995d7, "2\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "3d57fc1",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
                     ref_name: "►one",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -714,8 +692,7 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
-    lower_bound: None,
+    target_commits_ahead: 0,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -730,7 +707,7 @@ RefInfo {
 
     let stacks = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
     snapbox::assert_data_eq!(
-        stacks.to_debug(),
+        &stacks.to_debug(),
         snapbox::str![[r#"
 [
     StackEntry {
