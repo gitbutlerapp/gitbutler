@@ -1080,11 +1080,6 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
-    LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::LegacyProjectId(
-        LegacyProjectId::from_number_for_testing(1),
-    ))
-    .with_paths_for_testing(
-        repo.git_dir().to_owned(),
-        repo.workdir().map(ToOwned::to_owned),
-    )
+    LegacyProject::from_path(repo.workdir().unwrap_or_else(|| repo.git_dir()))
+        .expect("test repositories are valid projects")
 }

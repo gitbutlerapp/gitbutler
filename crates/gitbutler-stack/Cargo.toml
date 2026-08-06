@@ -20,7 +20,6 @@ gitbutler-reference.workspace = true
 gix = { workspace = true, features = [] }
 itertools.workspace = true
 anyhow.workspace = true
-bstr.workspace = true
 
 [dev-dependencies]
 but-askpass.workspace = true

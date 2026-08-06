@@ -3894,7 +3894,6 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "ctor 0.6.3",
- "git2",
  "gitbutler-branch",
  "gitbutler-commit",
  "gitbutler-operating-modes",
@@ -3905,8 +3904,6 @@ dependencies = [
  "gitbutler-stack",
  "gitbutler-workspace",
  "gix",
- "glob",
- "itertools",
  "md5",
  "pretty_assertions",
  "schemars 1.2.1",
@@ -4054,6 +4051,7 @@ dependencies = [
  "but-serde",
  "but-testsupport",
  "but-utils",
+ "git2",
  "gitbutler-cherry-pick",
  "gitbutler-repo",
  "gix",
@@ -4136,7 +4134,6 @@ name = "gitbutler-stack"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bstr",
  "but-askpass",
  "but-core",
  "but-ctx",
@@ -4216,6 +4213,7 @@ dependencies = [
  "but-path",
  "but-schemars",
  "but-secret",
+ "but-testsupport",
  "but-utils",
  "keyring",
  "reqwest",
@@ -4261,6 +4259,7 @@ dependencies = [
  "git2",
  "gitbutler-cherry-pick",
  "gix",
+ "tempfile",
 ]
 
 [[package]]

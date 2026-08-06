@@ -8,9 +8,6 @@ mod actions;
 // This is our API
 pub use actions::set_base_branch;
 
-mod branch_manager;
-pub use branch_manager::BranchManagerExt;
-
 pub mod base;
 pub use base::BaseBranch;
 

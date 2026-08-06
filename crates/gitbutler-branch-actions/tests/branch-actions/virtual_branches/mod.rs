@@ -2,19 +2,13 @@
 
 use std::{fs, path::PathBuf, str::FromStr};
 
-use but_core::{RepositoryExt as _, ref_metadata::StackId};
+use but_core::RepositoryExt as _;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::{AnyhowContextExt as _, Code};
-use but_rebase::graph_rebase::LookupStep as _;
 use but_settings::AppSettings;
 use but_testsupport::{
     gix_testtools::{Creation, scripted_fixture_writable_with_args},
     open_repo,
-};
-use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails, Trailer},
 };
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
@@ -295,90 +289,5 @@ fn set_head_detached(repo: &gix::Repository, target: gix::ObjectId) {
 mod init;
 mod list;
 mod list_details;
-mod oplog;
 mod set_base_branch;
 mod workspace_migration;
-
-pub fn list_commit_files(
-    ctx: &Context,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<Vec<but_core::TreeChange>> {
-    let repo = ctx.repo.get()?;
-    but_core::diff::CommitDetails::from_commit_id(
-        gix::prelude::ObjectIdExt::attach(commit_id, &repo),
-        false,
-    )
-    .map(|d| d.diff_with_first_parent)
-}
-
-pub fn create_commit(
-    ctx: &mut Context,
-    stack_id: StackId,
-    message: &str,
-) -> anyhow::Result<gix::ObjectId> {
-    let mut guard = ctx.exclusive_worktree_access();
-
-    let repo = ctx.repo.get()?.clone();
-    let worktree = but_core::diff::worktree_changes(&repo)?;
-    let file_changes: Vec<but_core::DiffSpec> =
-        worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
-
-    let meta = ctx.legacy_meta()?;
-    let stacks = {
-        but_workspace::legacy::stacks_v3(
-            &repo,
-            &meta,
-            &ctx.project_meta()?,
-            ctx.graph_options(but_graph::init::Options::limited())?,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-            None,
-        )?
-    };
-
-    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-
-    let stack_branch_name = stacks
-        .iter()
-        .find(|s| s.id == Some(stack_id))
-        .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
-        .ok_or(anyhow::anyhow!("Could not find associated reference name"))?;
-
-    let mut meta = ctx.meta()?;
-    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
-    let full_ref_name: gix::refs::FullName =
-        format!("refs/heads/{stack_branch_name}").try_into()?;
-    let outcome = {
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
-        but_workspace::commit::commit_create(
-            editor,
-            file_changes,
-            but_rebase::graph_rebase::mutate::RelativeToRef::Reference(full_ref_name.as_ref()),
-            but_rebase::graph_rebase::mutate::InsertSide::Below,
-            message,
-            ctx.settings.context_lines,
-            but_workspace::commit::ChangeSource::Head,
-        )
-        .and_then(|outcome| {
-            let selector = outcome.commit_selector;
-            let materialized = outcome.rebase.materialize(Default::default())?;
-            selector
-                .map(|selector| materialized.lookup_pick(selector))
-                .transpose()
-        })
-    };
-    let _ = snapshot_tree.and_then(|snapshot_tree| {
-        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
-            [Trailer::Message(message.to_owned())].into_iter().chain(
-                outcome
-                    .as_ref()
-                    .err()
-                    .map(|e| Trailer::Error(e.to_string())),
-            ),
-        );
-        ctx.commit_snapshot(snapshot_tree, details, guard.write_permission())
-    });
-    let new_commit = outcome?.ok_or(anyhow::anyhow!("No new commit created"))?;
-    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
-    Ok(new_commit)
-}

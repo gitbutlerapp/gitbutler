@@ -140,39 +140,9 @@ impl Project {
             preferred_forge_user: None,
         }
     }
-
-    /// A utility to support old code for basic path needs, but without actually needing full
-    /// or meaningful metadata.
-    pub fn with_paths_for_testing(
-        mut self,
-        git_dir: PathBuf,
-        worktree_dir: Option<PathBuf>,
-    ) -> Self {
-        self.git_dir = git_dir;
-        if let Some(worktree_dir) = worktree_dir {
-            self.worktree_dir = worktree_dir;
-        }
-        self
-    }
 }
 
-/// Testing
-// TODO: remove once `gitbutler-repo` doesn't need this constructor anymore.
 impl Project {
-    /// A special constructor needed as `worktree_dir` isn't accessible anymore.
-    pub fn new_for_gitbutler_repo(worktree_dir: PathBuf) -> Self {
-        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
-            ProjectHandle::from_path(&worktree_dir)
-                .expect("repo projects require a valid path for ProjectHandle"),
-        );
-        Project {
-            worktree_dir,
-            ..Project::default_with_id(project_id)
-        }
-        .migrated()
-        .unwrap()
-    }
-
     /// Call this after each invocation of `list()` with manual filtering to get fields filled in.
     pub fn migrated(mut self) -> anyhow::Result<Self> {
         self.migrate()?;

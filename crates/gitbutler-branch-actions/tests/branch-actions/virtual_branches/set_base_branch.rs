@@ -1,5 +1,5 @@
 use super::*;
-use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_oplog::OplogExt as _;
 
 #[test]
 fn success() {
@@ -12,6 +12,22 @@ fn success() {
         guard.write_permission(),
     )
     .unwrap();
+}
+
+#[test]
+fn reconfiguring_base_branch_records_snapshot() {
+    let Test { ctx, .. } = &mut Test::default();
+    let target = "refs/remotes/origin/master".parse().unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    drop(guard);
+
+    assert_eq!(
+        ctx.snapshots_iter(None, Vec::new(), None).unwrap().count(),
+        1,
+        "the first call initializes the project without a snapshot because there is no target yet; the second call snapshots that initialized state before reconfiguration"
+    );
 }
 
 #[test]
@@ -143,13 +159,12 @@ mod error {
 }
 
 mod go_back_to_workspace {
-    use gitbutler_branch::BranchCreateRequest;
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[test]
-    fn should_preserve_applied_vbranches() {
+    fn preserves_applied_vbranches() {
         let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
@@ -157,6 +172,10 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("file.txt"), "two").unwrap();
         repo.commit_all("two");
         repo.push();
+
+        repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
+        repo.commit_all("feature");
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -167,19 +186,7 @@ mod go_back_to_workspace {
         .unwrap();
         drop(guard);
 
-        let mut guard = ctx.exclusive_worktree_access();
-        let stack_entry = ctx
-            .branch_manager()
-            .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-            .unwrap();
-        drop(guard);
-
-        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
-        super::create_commit(ctx, stack_entry.id, "one").unwrap();
-
-        let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-
+        let stack_id = stack_details(ctx)[0].0;
         repo.checkout_commit(oid_one);
 
         let mut guard = ctx.exclusive_worktree_access();
@@ -189,10 +196,11 @@ mod go_back_to_workspace {
             guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-        assert_eq!(stacks[0].0, stack_entry.id);
+        assert_eq!(stacks.len(), 1, "the applied stack is preserved");
+        assert_eq!(stacks[0].0, stack_id, "the preserved stack keeps its id");
     }
 
     #[test]
