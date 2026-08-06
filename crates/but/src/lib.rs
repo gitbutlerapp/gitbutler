@@ -856,7 +856,15 @@ async fn match_subcommand(
         }
     };
 
-    match cmd {
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `report_newly_conflicted()`.
+    #[cfg(feature = "legacy")]
+    let mut newly_conflicted_data: Option<command::legacy::conflict_notice::ConflictSnapshot> =
+        None;
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `run_status_after_if_requested()`.
+    let mut status_after_data: Option<bool> = None;
+    let result = match cmd {
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
         | Subcommands::Completions { .. }
@@ -971,8 +979,9 @@ async fn match_subcommand(
 
                 let status_after = args.status_after;
                 out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
 
-                let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
                 let outcome = command::legacy::branch::delete(
                     &mut ctx,
                     IntermediateChannel::new(out),
@@ -980,12 +989,6 @@ async fn match_subcommand(
                 )
                 .emit_metrics(metrics_ctx)?;
                 out.print_cli_output(outcome)?;
-                command::legacy::conflict_notice::report_newly_conflicted(
-                    &ctx,
-                    out,
-                    conflicts_before,
-                );
-                run_status_after_if_requested(status_after, &mut ctx, out);
                 Ok(())
             }
             Some(branch::Subcommands::Update {
@@ -997,6 +1000,7 @@ async fn match_subcommand(
             }) => {
                 let status_after = args.status_after && !dry_run && !interactive;
                 out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
                 command::branch::update(
                     &mut ctx,
                     &branch,
@@ -1007,8 +1011,6 @@ async fn match_subcommand(
                     out,
                 )
                 .emit_metrics(metrics_ctx)?;
-                #[cfg(feature = "legacy")]
-                run_status_after_if_requested(status_after, &mut ctx, out);
                 Ok(())
             }
             Some(branch::Subcommands::Move { .. }) => {
@@ -1068,6 +1070,7 @@ async fn match_subcommand(
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
             command::legacy::clean::handle(
                 &mut ctx,
                 out,
@@ -1077,7 +1080,6 @@ async fn match_subcommand(
                 },
             )
             .emit_metrics(metrics_ctx)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1189,8 +1191,9 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome = command::legacy::commit::commit(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1198,8 +1201,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1208,8 +1209,9 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome = command::legacy::squash::squash(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1217,8 +1219,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1227,14 +1227,13 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome =
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1258,6 +1257,7 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::reword2::reword(
                 &mut ctx,
@@ -1266,7 +1266,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1280,6 +1279,7 @@ async fn match_subcommand(
         } => {
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
             command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
@@ -1292,7 +1292,6 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1332,6 +1331,7 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::undo_redo::undo(
                 &mut ctx,
@@ -1340,7 +1340,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1349,6 +1348,7 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::undo_redo::redo(
                 &mut ctx,
@@ -1357,7 +1357,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1368,7 +1367,8 @@ async fn match_subcommand(
         } => {
             let status_after = args.status_after;
             out.begin_status_after(status_after);
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            status_after_data = Some(status_after);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             command::legacy::absorb::handle(
                 &mut ctx,
                 out,
@@ -1377,8 +1377,6 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1387,8 +1385,9 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome = command::legacy::discard::discard(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1396,8 +1395,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         Subcommands::_Comment(comment_args) => {
@@ -1561,8 +1558,9 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome = command::legacy::uncommit::uncommit(
                 &mut ctx,
                 IntermediateChannel::new(out),
@@ -1570,8 +1568,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1580,14 +1576,13 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome =
                 command::legacy::amend::amend(&mut ctx, IntermediateChannel::new(out), amend_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1617,14 +1612,13 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let outcome =
                 command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1633,6 +1627,7 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::unapply::unapply(
                 &mut ctx,
@@ -1641,7 +1636,6 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1650,15 +1644,28 @@ async fn match_subcommand(
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome =
                 command::legacy::apply::apply(&mut ctx, IntermediateChannel::new(out), apply_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
             Ok(())
         }
+    };
+
+    if result.is_ok() {
+        #[cfg(feature = "legacy")]
+        if let Some(conflicts_before) = newly_conflicted_data {
+            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+        }
+        #[cfg(feature = "legacy")]
+        if let Some(status_after) = status_after_data {
+            run_status_after_if_requested(status_after, &mut ctx, out);
+        }
     }
+
+    result
 }
 
 fn run_agentlog_command(
