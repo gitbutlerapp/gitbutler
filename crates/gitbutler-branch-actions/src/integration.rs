@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context as _, Result, anyhow};
 use but_ctx::{Context, access::RepoExclusive};
@@ -170,6 +170,17 @@ pub(crate) fn update_workspace_commit_with_vb_state(
         None,
     )?;
 
+    // Taken before the checkout below, which writes `.git/index` itself and strips these flags
+    // from every path whose content it updates. Reading it back afterwards would find them
+    // already gone.
+    let per_file_flags = {
+        let mut index = repo.index()?;
+        // Only re-reads when the file changed underneath us, which is what picks up a
+        // `git update-index --skip-worktree` made outside the app.
+        index.read(false)?;
+        per_file_index_flags(&index)
+    };
+
     let checkout_res = if checkout_new_worktree && prev_head_id.is_some() {
         let res = but_core::worktree::safe_checkout_from_head(
             final_commit,
@@ -200,6 +211,7 @@ pub(crate) fn update_workspace_commit_with_vb_state(
 
     let mut index = repo.index()?;
     index.read_tree(&repo.find_tree(workspace_tree.to_git2())?)?;
+    restore_per_file_index_flags(&mut index, &per_file_flags)?;
     index.write()?;
 
     // Everything is written out already, so if we fail here, we do so to surface the error
@@ -211,6 +223,62 @@ pub(crate) fn update_workspace_commit_with_vb_state(
     ctx.invalidate_workspace_cache()?;
 
     Ok(final_commit)
+}
+
+/// The per-file index state that lives only in the index: `skip-worktree`, which tells Git to
+/// leave a tracked file's worktree copy alone, and `assume-unchanged`.
+///
+/// A tree has nowhere to record either, so rebuilding the index from one drops them for every
+/// path. Collecting them first lets [`restore_per_file_index_flags()`] put them back.
+fn per_file_index_flags(index: &git2::Index) -> HashMap<Vec<u8>, (bool, bool)> {
+    let assume_unchanged_bit = git2::IndexEntryFlag::VALID.bits();
+    let skip_worktree_bit = git2::IndexEntryExtendedFlag::SKIP_WORKTREE.bits();
+
+    index
+        .iter()
+        .filter_map(|entry| {
+            let assume_unchanged = entry.flags & assume_unchanged_bit != 0;
+            let skip_worktree = entry.flags_extended & skip_worktree_bit != 0;
+            (assume_unchanged || skip_worktree)
+                .then(|| (entry.path.clone(), (assume_unchanged, skip_worktree)))
+        })
+        .collect()
+}
+
+/// Put the flags that [`per_file_index_flags()`] collected back onto the paths that are still
+/// tracked, leaving paths the rebuild dropped alone.
+///
+/// Only the two flag bits are carried over. The rest of each entry belongs to the tree the index
+/// was just rebuilt from.
+fn restore_per_file_index_flags(
+    index: &mut git2::Index,
+    per_file_flags: &HashMap<Vec<u8>, (bool, bool)>,
+) -> Result<()> {
+    if per_file_flags.is_empty() {
+        return Ok(());
+    }
+    let assume_unchanged_bit = git2::IndexEntryFlag::VALID.bits();
+    let skip_worktree_bit = git2::IndexEntryExtendedFlag::SKIP_WORKTREE.bits();
+
+    // Collected first because adding entries while iterating the index would invalidate it.
+    let restored: Vec<git2::IndexEntry> = index
+        .iter()
+        .filter_map(|mut entry| {
+            let (assume_unchanged, skip_worktree) = per_file_flags.get(&entry.path)?;
+            if *assume_unchanged {
+                entry.flags |= assume_unchanged_bit;
+            }
+            if *skip_worktree {
+                entry.flags_extended |= skip_worktree_bit;
+            }
+            Some(entry)
+        })
+        .collect();
+
+    for entry in restored {
+        index.add(&entry)?;
+    }
+    Ok(())
 }
 
 pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
