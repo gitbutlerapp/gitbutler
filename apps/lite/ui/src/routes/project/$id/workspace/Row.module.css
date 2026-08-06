@@ -206,6 +206,14 @@
 .rowCheckbox {
 	--checkbox-height: 14px;
 	margin-block-start: calc((var(--single-line-row-height) - var(--checkbox-height)) / 2);
+
+	/* On the focused selection's solid fill, an unchecked box painted in --bg-1
+	   reads as a light chip punched out of the row. It takes the fill instead, so
+	   only its border marks it out. */
+	[data-selection-focus-styles="true"] [data-selection-scope]:focus .containerSelected &,
+	.containerSelected:has(:is(textarea, input):focus) & {
+		--checkbox-bg: var(--fill-gray-bg);
+	}
 }
 
 .labelContainer {

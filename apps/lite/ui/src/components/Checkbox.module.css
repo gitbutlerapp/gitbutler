@@ -8,7 +8,9 @@
 	inline-size: 14px;
 	block-size: 14px;
 	border-radius: var(--radius-xs);
-	background-color: var(--bg-1);
+	/* Left undeclared so a consumer can set --checkbox-bg from the row or the
+	   checkbox itself without a same-specificity fight over the default. */
+	background-color: var(--checkbox-bg, var(--bg-1));
 	box-shadow: inset 0 0 0 var(--border-width) var(--border-2);
 	color: var(--text-2);
 	transition:
@@ -44,19 +46,34 @@
 
 	&:disabled,
 	&[data-disabled] {
-		color: var(--text-2);
 		cursor: not-allowed;
 
 		&:not([data-checked]) {
-			background-color: color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+			background-color: color-mix(
+				in srgb,
+				var(--border-2) var(--disabled-opacity),
+				var(--checkbox-bg, var(--bg-1))
+			);
 			box-shadow: inset 0 0 0 var(--border-width)
-				color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+				color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--checkbox-bg, var(--bg-1)));
 		}
 
 		&[data-checked] {
-			background-color: color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+			background-color: color-mix(
+				in srgb,
+				var(--fill-pop-bg) var(--disabled-opacity),
+				var(--checkbox-bg, var(--bg-1))
+			);
 			box-shadow: inset 0 0 0 var(--border-width)
-				color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+				color-mix(
+					in srgb,
+					var(--fill-pop-bg) var(--disabled-opacity),
+					var(--checkbox-bg, var(--bg-1))
+				);
+
+			& .checkboxIndicator {
+				opacity: var(--disabled-opacity);
+			}
 		}
 	}
 }
