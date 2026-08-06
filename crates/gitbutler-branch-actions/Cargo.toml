@@ -35,7 +35,6 @@ gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true
