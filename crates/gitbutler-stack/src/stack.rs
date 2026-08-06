@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow};
 pub(crate) use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_error::bail_precondition;
@@ -7,12 +7,8 @@ use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_bran
 use gix::validate::reference::name_partial;
 use itertools::Itertools;
 
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
 use crate::{
-    StackBranch, VirtualBranchesHandle,
+    StackBranch,
     stack_branch::remote_reference,
     target::{default_target_base_oid, default_target_push_remote_name},
 };
@@ -100,10 +96,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     }
 }
 
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
 impl Stack {
     /// The name of the stack, defined as the name of the first head (branch) in the stack.
     /// The usage of this is discouraged
@@ -190,18 +182,6 @@ impl Stack {
         Ok(merge_base.detach())
     }
 
-    /// An initialized stack has at least one head (branch).
-    ///
-    /// # Errors
-    /// - If the stack has not been initialized
-    fn ensure_initialized(&self) -> Result<()> {
-        if self.heads.is_empty() {
-            bail!("Stack has not been initialized")
-        }
-
-        Ok(())
-    }
-
     fn new_name(
         repo: &gix::Repository,
         push_remote_name: &str,
@@ -256,65 +236,6 @@ impl Stack {
                 .unwrap_or_else(|| format!("{name}-1"));
         }
         Ok(name)
-    }
-
-    /// Renames an existing branch in the stack and its local Git reference.
-    /// A rename resets the pull-request number and persists the updated stack.
-    pub fn rename_branch(
-        &mut self,
-        ctx: &Context,
-        branch_name: String,
-        new_name: String,
-    ) -> Result<()> {
-        self.ensure_initialized()?;
-
-        let mut updated_heads = self.heads.clone();
-        let head = updated_heads
-            .iter_mut()
-            .find(|head| *head.name() == branch_name)
-            .ok_or_else(|| {
-                anyhow!(
-                    "Series {} does not exist on stack {}",
-                    branch_name,
-                    self.name()
-                )
-            })?;
-        if new_name == branch_name {
-            return Ok(());
-        }
-
-        let mut state = VirtualBranchesHandle::new(ctx.project_data_dir());
-        validate_name(&new_name, &*ctx.repo.get()?, false)?;
-        head.set_name(new_name, &*ctx.repo.get()?)?;
-        head.pr_number = None;
-        self.heads = updated_heads;
-        state.set_stack(self.clone())
-    }
-
-    /// Updates the top branch and its local Git reference to `commit_id`, then persists the stack.
-    pub fn set_stack_head(
-        &mut self,
-        state: &mut VirtualBranchesHandle,
-        gix_repo: &gix::Repository,
-        commit_id: gix::ObjectId,
-    ) -> Result<()> {
-        self.ensure_initialized()?;
-
-        let commit = gix_repo.find_commit(commit_id)?;
-
-        let head = self
-            .heads
-            .last_mut()
-            .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-
-        head.set_head(commit.id, gix_repo)?;
-        state.set_stack(self.clone())
-    }
-
-    /// Returns a list of all branches/series in the stack.
-    /// Ordered from oldest to newest (most recent)
-    pub fn branches(&self) -> Vec<StackBranch> {
-        self.heads.clone()
     }
 }
 

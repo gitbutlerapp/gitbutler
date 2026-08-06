@@ -219,3 +219,5 @@ mod prepare_snapshot {
         Ok(())
     }
 }
+
+mod integration;

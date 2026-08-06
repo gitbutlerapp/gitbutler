@@ -154,10 +154,7 @@ fn move_tree(
 /// Takes N trees and a base tree and merges all the heads together with respect to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-pub fn merge_workspace(
-    repo: &gix::Repository,
-    workspace: &WorkspaceState,
-) -> Result<gix::ObjectId> {
+fn merge_workspace(repo: &gix::Repository, workspace: &WorkspaceState) -> Result<gix::ObjectId> {
     if workspace.heads.is_empty() {
         return Ok(workspace.base);
     } else if workspace.heads.len() == 1 {

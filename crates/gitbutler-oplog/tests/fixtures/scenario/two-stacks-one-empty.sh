@@ -9,4 +9,9 @@ git config user.name GitButler
 git config user.email gitbutler@example.com
 commit-file M
 setup_target_to_match_main
-create_workspace_commit_once
+
+git branch B
+git checkout -b A
+commit-file A
+git checkout B
+create_workspace_commit_once A B

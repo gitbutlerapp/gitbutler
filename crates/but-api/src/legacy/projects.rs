@@ -195,17 +195,19 @@ mod tests {
 
     #[test]
     fn delete_project_is_idempotent() -> Result<()> {
-        let app_data_dir = tempfile::tempdir()?;
-        let repo_dir = tempfile::tempdir()?;
-        gix::init(repo_dir.path())?;
-        let project = gitbutler_project::add_at_app_data_dir(app_data_dir.path(), repo_dir.path())?
-            .unwrap_project();
-        let project_id = project.id.clone();
+        but_testsupport::isolated_app_data_dir(|| -> Result<()> {
+            let app_data_dir = but_path::app_data_dir()?;
+            let repo_dir = tempfile::tempdir()?;
+            gix::init(repo_dir.path())?;
+            let project = gitbutler_project::add_at_app_data_dir(&app_data_dir, repo_dir.path())?
+                .unwrap_project();
+            let project_id = project.id.clone();
 
-        delete_project_at_app_data_dir(app_data_dir.path(), project_id.clone())?;
-        delete_project_at_app_data_dir(app_data_dir.path(), project_id.clone())?;
+            delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
+            delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
 
-        assert!(gitbutler_project::get_with_path(app_data_dir.path(), project_id).is_err());
-        Ok(())
+            assert!(gitbutler_project::get(project_id).is_err());
+            Ok(())
+        })
     }
 }
