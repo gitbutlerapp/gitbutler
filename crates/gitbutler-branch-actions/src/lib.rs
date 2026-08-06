@@ -1,8 +1,4 @@
 //! GitButler internal library containing functionality related to branches, i.e. the virtual branches implementation
-#![expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
 
 mod actions;
 // This is our API
@@ -19,17 +15,6 @@ pub use integration::{
 mod remote;
 
 mod gravatar;
-use gitbutler_stack::VirtualBranchesHandle;
-
-trait VirtualBranchesExt {
-    fn virtual_branches(&self) -> VirtualBranchesHandle;
-}
-
-impl VirtualBranchesExt for but_ctx::Context {
-    fn virtual_branches(&self) -> VirtualBranchesHandle {
-        VirtualBranchesHandle::new(self.project_data_dir())
-    }
-}
 
 mod branch;
 pub use branch::{

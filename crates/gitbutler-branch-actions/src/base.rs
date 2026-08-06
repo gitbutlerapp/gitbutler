@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_core::{
     RefMetadata as _, WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
-    ref_metadata::{ProjectMeta, WorkspaceCommitRelation},
+    ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
     sync::RepoShared,
 };
 use but_ctx::Context;
@@ -13,14 +13,10 @@ use but_graph::FirstParent;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::first_parent_commit_ids_until;
-use gitbutler_stack::Stack;
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::{
-    VirtualBranchesExt,
-    remote::{RemoteCommit, commit_to_remote_commit},
-};
+use crate::remote::{RemoteCommit, commit_to_remote_commit};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -208,7 +204,6 @@ pub(crate) fn set_base_branch(
     };
     project_meta.remote_url_with_fallback(&repo)?;
     ctx.set_project_meta(project_meta)?;
-    let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch
     let head_name: Refname = current_head
@@ -226,56 +221,38 @@ pub(crate) fn set_base_branch(
 
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
         if !changes.is_empty() || current_head_commit != target_commit_oid {
-            let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
+            let branch_matches_target = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                if upstream_name.eq(target_branch_ref) {
-                    (None, true)
-                } else {
-                    let upstream = repo
-                        .try_find_reference(Refname::from(&upstream_name).to_string().as_str())
-                        .with_context(|| format!("failed to find upstream for {head_name}"))?;
-                    (upstream.map(|_| upstream_name), false)
-                }
+                upstream_name.eq(target_branch_ref)
             } else {
-                (None, false)
+                false
             };
 
-            let branch_name = if branch_matches_target {
-                but_core::branch::canned_refname(&*ctx.repo.get()?)?
-                    .shorten()
-                    .to_string()
-            } else {
-                head_name.to_string().replace("refs/heads/", "")
-            };
-
-            let head_ref_name = (!branch_matches_target).then(|| head_name.to_string());
-            let branch = if branch_matches_target {
-                Stack::new_empty(ctx, branch_name, current_head_commit, 0)
-            } else {
-                Stack::new_from_existing(
-                    ctx,
-                    branch_name,
-                    Some(head_name),
-                    upstream,
+            let stack_ref_name = if branch_matches_target {
+                let stack_ref_name = but_core::branch::unique_canned_refname(&repo)?;
+                repo.reference(
+                    stack_ref_name.as_ref(),
                     current_head_commit,
-                    0,
-                )
-            }?;
+                    gix::refs::transaction::PreviousValue::MustNotExist,
+                    "initialize stack",
+                )?;
+                stack_ref_name
+            } else {
+                head_name.to_string().try_into()?
+            };
 
-            let stack_id = branch.id;
-            vb_state.set_stack(branch)?;
-            if let Some(head_ref_name) = head_ref_name {
-                let mut meta = ctx.meta()?;
-                let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-                workspace.add_or_insert_new_stack_if_not_present(
-                    head_ref_name.as_str().try_into()?,
-                    None,
-                    WorkspaceCommitRelation::Merged,
-                    |_| stack_id,
-                );
-                meta.set_workspace(&workspace)?;
-                drop((workspace, meta));
-                ctx.repo.get()?.reference(
+            let mut meta = ctx.meta()?;
+            let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+            workspace.add_or_insert_new_stack_if_not_present(
+                stack_ref_name.as_ref(),
+                None,
+                WorkspaceCommitRelation::Merged,
+                |_| StackId::generate(),
+            );
+            meta.set_workspace(&workspace)?;
+            drop((workspace, meta));
+            if !branch_matches_target {
+                repo.reference(
                     WORKSPACE_REF_NAME,
                     current_head_commit,
                     gix::refs::transaction::PreviousValue::MustNotExist,
