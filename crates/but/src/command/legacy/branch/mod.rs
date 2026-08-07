@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use but_api::WorkspaceState;
 use but_ctx::Context;
 use itertools::Itertools;
 use nonempty::NonEmpty;
@@ -20,7 +21,7 @@ pub fn delete(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     branch_args: Vec<CliIdArg>,
-) -> CliResult<DiscardOutcome> {
+) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;

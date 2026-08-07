@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use but_api::WorkspaceState;
 use but_core::{
     RefMetadata,
     sync::{RepoExclusive, RepoExclusiveGuard},
@@ -25,7 +26,7 @@ pub fn uncommit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<squash::SquashOutcome> {
+) -> CliResult<(squash::SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
