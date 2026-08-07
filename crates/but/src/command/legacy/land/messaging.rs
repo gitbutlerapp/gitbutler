@@ -37,6 +37,14 @@ pub(super) fn report_land_result(
             t.success
         };
         writeln!(out, "\n{}", style.paint(headline))?;
+        for name in &result.deleted_remote_branches {
+            writeln!(
+                out,
+                "{}",
+                t.hint
+                    .paint(format!("Deleted {push_remote_name}/{name} (landed)"))
+            )?;
+        }
     }
 
     if result.reconcile_skipped {
@@ -205,7 +213,10 @@ pub(super) fn confirm_direct_target_update(
             .map(|(name, pr)| format!("{name} (PR #{pr})"))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("{action} This orphans open pull request(s): {prs}.")
+        format!(
+            "{action} This closes open pull request(s) {prs}: their remote branches are deleted \
+             after landing."
+        )
     };
 
     if let Some(out) = out.for_human() {
@@ -234,8 +245,9 @@ pub(super) fn confirm_direct_target_update(
     Ok(())
 }
 
-/// The open pull-request numbers attached to `branch_name` or any of `lower_segments`. Whole-stack
-/// landing orphans every one of them, so all are surfaced.
+/// The open pull-request numbers attached to `branch_name` or any of `lower_segments`. Landing
+/// deletes each landed branch's remote copy, which closes the attached reviews on the forge, so
+/// all are surfaced.
 ///
 /// Only applied workspace segments can land, so this reads the forge review associations that
 /// `head_info` projects onto the workspace segments (`segment.metadata.review.pull_request` is

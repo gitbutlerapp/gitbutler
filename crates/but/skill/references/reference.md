@@ -438,7 +438,9 @@ project-local and shared with Desktop.
 
 Land a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
 when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
-locally. Then reconciles the remaining branches like `but pull`.
+locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
+copy on the push remote (only when fully contained in the landed target), reported as
+`Deleted <remote>/<branch> (landed)`.
 
 ```bash
 but land <branch-id> --yes                  # Land onto the target (--yes required non-interactively)
