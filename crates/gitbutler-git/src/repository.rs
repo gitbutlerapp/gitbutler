@@ -526,6 +526,7 @@ where
 {
     let mut args = vec!["push", "--quiet", "--no-verify"];
 
+    let is_deletion = refspec.source.is_none();
     let refspec = refspec.to_string();
 
     args.push(remote);
@@ -534,7 +535,12 @@ where
     if force {
         if force_push_protection {
             args.push("--force-with-lease");
-            args.push("--force-if-includes");
+            // `--force-if-includes` verifies the remote tip was integrated into the local branch
+            // being pushed; a deletion has no local side, so the check can never pass there and
+            // the lease alone provides the compare-and-swap against our remote-tracking ref.
+            if !is_deletion {
+                args.push("--force-if-includes");
+            }
         } else {
             args.push("--force");
         }

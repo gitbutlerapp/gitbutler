@@ -553,6 +553,147 @@ fn land_without_yes_refuses_non_interactively() {
     );
 }
 
+/// Landing a previously pushed branch deletes its copy on the remote and the local tracking ref —
+/// the direct-push counterpart of the forge's "delete branch after merge". Leaving it behind makes
+/// a later branch with the same name show up as merged upstream and refuse commits.
+#[test]
+fn land_deletes_remote_copy_of_landed_branch() {
+    let (env, remote) = sandbox_with_bare_origin();
+
+    env.file("file1.txt", "content1");
+    env.but("commit -b first-branch -m 'first commit'")
+        .assert()
+        .success();
+    env.but("push first-branch").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse origin/first-branch"),
+        env.invoke_git("rev-parse first-branch"),
+        "the branch must be on the remote before landing for this test to mean anything"
+    );
+
+    let output = env
+        .but("land first-branch --yes")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("Deleted origin/first-branch"),
+        "land should report the remote copy cleanup; got:\n{stdout}"
+    );
+
+    let remote_refs = env.invoke_git(&format!("--git-dir={} show-ref", remote.display()));
+    assert!(
+        !remote_refs.contains("refs/heads/first-branch"),
+        "the landed branch's copy on the remote must be deleted; got:\n{remote_refs}"
+    );
+    let local_refs = env.invoke_git("show-ref");
+    assert!(
+        !local_refs.contains("refs/remotes/origin/first-branch"),
+        "the stale remote-tracking ref must be deleted too; got:\n{local_refs}"
+    );
+}
+
+/// A remote copy holding commits that did not land must be left alone: the containment guard only
+/// deletes remote branches whose tip is reachable from the landed target.
+#[test]
+fn land_keeps_remote_branch_with_unlanded_commits() {
+    let (env, remote) = sandbox_with_bare_origin();
+
+    env.file("file1.txt", "content1");
+    env.but("commit -b first-branch -m 'first commit'")
+        .assert()
+        .success();
+    env.file("file2.txt", "content2");
+    env.but("commit -b second-branch -m 'second commit'")
+        .assert()
+        .success();
+
+    // Point the remote's first-branch at a commit that will NOT land (second-branch's tip).
+    let unlanded = env.invoke_git("rev-parse second-branch");
+    env.invoke_git(&format!("push origin {unlanded}:refs/heads/first-branch"));
+    env.invoke_git("fetch origin");
+
+    let output = env
+        .but("land first-branch --yes")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("Landed first-branch onto origin/main"),
+        "the land itself must succeed and report, or the negative check below proves nothing; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("Deleted origin/first-branch"),
+        "a remote copy with unlanded commits must not be reported deleted; got:\n{stdout}"
+    );
+
+    let remote_refs = env.invoke_git(&format!("--git-dir={} show-ref", remote.display()));
+    assert!(
+        remote_refs.contains("refs/heads/first-branch"),
+        "a remote copy with unlanded commits must survive the land; got:\n{remote_refs}"
+    );
+}
+
+/// A branch whose configured upstream is the target itself — the `git checkout -b topic
+/// origin/main` shape — must never have that upstream deleted as its "remote copy": the upstream
+/// is a fork point, not a copy, and deleting it would delete the target branch on the remote.
+#[test]
+fn land_never_deletes_a_differently_named_upstream() {
+    let (env, remote) = sandbox_with_bare_origin();
+
+    env.file("file1.txt", "content1");
+    env.but("commit -b topic -m 'topic commit'")
+        .assert()
+        .success();
+    env.invoke_git("branch --set-upstream-to=origin/main topic");
+
+    let output = env
+        .but("land topic --yes")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("Landed topic onto origin/main"),
+        "the land itself must succeed; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("Deleted origin/main"),
+        "the target must never be reported as a deleted branch copy; got:\n{stdout}"
+    );
+
+    let remote_refs = env.invoke_git(&format!("--git-dir={} show-ref", remote.display()));
+    assert!(
+        remote_refs.contains("refs/heads/main"),
+        "the target branch must survive on the remote; got:\n{remote_refs}"
+    );
+}
+
+/// A sandbox whose `origin` is a real bare repository holding `main`, with the workspace set up —
+/// the shape the remote-copy cleanup tests need to observe deletions on the remote side.
+fn sandbox_with_bare_origin() -> (Sandbox, std::path::PathBuf) {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    let remote = env.projects_root().with_extension("origin.git");
+    env.invoke_git(&format!("init --bare {}", remote.display()));
+    env.invoke_git(&format!(
+        "--git-dir={} symbolic-ref HEAD refs/heads/main",
+        remote.display()
+    ));
+    env.invoke_git(&format!("remote set-url origin {}", remote.display()));
+    env.invoke_git("push origin main:main");
+    env.invoke_git("fetch origin");
+    env.but("setup").assert().success();
+    (env, remote)
+}
+
 fn status_json(env: &Sandbox) -> serde_json::Value {
     let stdout = env
         .but("status --json")

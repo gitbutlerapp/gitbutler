@@ -1206,6 +1206,8 @@ export type BranchLandKind = {
 export type BranchLandResult = {
   /** What landing did to the target. */
   landed: BranchLandKind;
+  /** The landed branches whose copy on the push remote was deleted after the land. */
+  deletedRemoteBranches: Array<string>;
   /** Whether delivery moved local refs rather than pushing to a remote. */
   localDelivery: boolean;
   /** Whether the remaining branches were left un-reconciled (run `but pull` to finish). */

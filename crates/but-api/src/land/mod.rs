@@ -64,6 +64,9 @@ pub enum BranchLandKind {
 pub struct BranchLandResult {
     /// What landing did to the target.
     pub landed: BranchLandKind,
+    /// The landed branches whose copy on the push remote was deleted after the land (only copies
+    /// fully contained in the landed target are deleted).
+    pub deleted_remote_branches: Vec<String>,
     /// Whether delivery moved local refs (a `gb-local` self-remote) rather than pushing to a remote.
     pub local_delivery: bool,
     /// Set when the remaining branches were not reconciled onto the moved target — either the
@@ -126,6 +129,8 @@ pub mod json {
     pub struct BranchLandResult {
         /// What landing did to the target.
         pub landed: BranchLandKind,
+        /// The landed branches whose copy on the push remote was deleted after the land.
+        pub deleted_remote_branches: Vec<String>,
         /// Whether delivery moved local refs rather than pushing to a remote.
         pub local_delivery: bool,
         /// Whether the remaining branches were left un-reconciled (run `but pull` to finish).
@@ -143,6 +148,7 @@ pub mod json {
         fn try_from(value: super::BranchLandResult) -> Result<Self, Self::Error> {
             Ok(Self {
                 landed: value.landed.into(),
+                deleted_remote_branches: value.deleted_remote_branches,
                 local_delivery: value.local_delivery,
                 reconcile_skipped: value.reconcile_skipped,
                 workspace: value.workspace.try_into()?,
@@ -223,8 +229,14 @@ pub fn branch_land(
     };
 
     // Safety guards a non-CLI caller must not be able to bypass: never publish lower stack segments
-    // the user did not opt into, and never publish conflicted commits onto the target.
-    validate_branch_landing(ctx, &branch, &target_display, whole_stack)?;
+    // the user did not opt into, and never publish conflicted commits onto the target. The names
+    // being landed are captured before anything mutates: their remote copies are deleted after a
+    // successful land.
+    let lower_segments = validate_branch_landing(ctx, &branch, &target_display, whole_stack)?;
+    let mut landed_branch_names = vec![branch.clone()];
+    landed_branch_names.extend(lower_segments);
+    // Landing the target branch's own name must never delete the target on the remote.
+    landed_branch_names.retain(|name| *name != target_branch_name);
 
     // Fetch only the target's remote: landing needs a fresh target tracking ref and nothing else,
     // and an unreachable unrelated remote must not block the land.
@@ -322,6 +334,7 @@ pub fn branch_land(
         if !advanced {
             return Ok(BranchLandResult {
                 landed,
+                deleted_remote_branches: Vec::new(),
                 local_delivery: update_target_locally,
                 reconcile_skipped: true,
                 workspace: current_workspace_state(ctx)?,
@@ -333,8 +346,41 @@ pub fn branch_land(
     ctx.invalidate_workspace_cache()?;
 
     let reconciled = reconcile::reconcile_after_land(ctx)?;
+
+    // The direct-push counterpart of the forge's "delete branch after merge": drop the landed
+    // branches' remote copies now that the target contains them. Leaving them behind is what makes
+    // a later same-named branch show up as merged upstream and refuse commits. This must run after
+    // the reconcile — integration detection reads the remote-tracking refs as evidence — and is
+    // skipped when the reconcile was, so the still-applied branches keep that evidence for the
+    // later `but pull`.
+    let deleted_remote_branches = if reconciled.blocked_by_worktree {
+        Vec::new()
+    } else {
+        let target_tip = {
+            let repo = ctx.repo.get()?;
+            peel_target_tip(&repo, &fetch_remote_name, &target_branch_name)?
+        };
+        target_tip
+            .map(|tip| {
+                deliver::delete_landed_remote_branches(
+                    ctx,
+                    &landed_branch_names,
+                    &push_remote_name,
+                    tip,
+                    update_target_locally,
+                )
+            })
+            .unwrap_or_default()
+    };
+    if !deleted_remote_branches.is_empty() {
+        // The deletions changed refs after the reconcile's workspace read; drop the cached view so
+        // later reads in this process don't serve the deleted remote-tracking refs.
+        ctx.invalidate_workspace_cache()?;
+    }
+
     Ok(BranchLandResult {
         landed,
+        deleted_remote_branches,
         local_delivery: update_target_locally,
         reconcile_skipped: reconciled.blocked_by_worktree,
         workspace: reconciled.workspace,
@@ -346,14 +392,16 @@ pub fn branch_land(
 /// stack lands", never a partial land that strands the segments above. Also refuse conflicted
 /// commits in any segment that would be published (the same guard `but push` applies before
 /// sending commits to a remote). All computed from the graph workspace, not stack projections.
+/// Returns the named lower segments that land together with `branch` — non-empty only for a
+/// validated `--whole-stack` land.
 fn validate_branch_landing(
     ctx: &mut Context,
     branch: &str,
     target_display: &str,
     whole_stack: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<String>> {
     let Some(scan) = scan_stack(ctx, branch)? else {
-        return Ok(());
+        return Ok(Vec::new());
     };
 
     if whole_stack && scan.has_upper {
@@ -402,7 +450,7 @@ fn validate_branch_landing(
             scan.conflicted.join(", "),
         );
     }
-    Ok(())
+    Ok(scan.lower_segments)
 }
 
 /// Fetch the target's fetch remote and record the outcome on the project, mirroring the
