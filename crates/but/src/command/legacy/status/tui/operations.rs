@@ -79,35 +79,6 @@ pub fn commit_message_has_multiple_lines_legacy(message: &str) -> bool {
     legacy::commit_message_prep::commit_message_has_multiple_lines(message)
 }
 
-pub fn create_branch_anchored_legacy(
-    ctx: &mut Context,
-    short_name: String,
-) -> anyhow::Result<String> {
-    let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
-        .context("failed to generate branch name")?;
-    let anchor = but_api::legacy::stack::create_reference::Anchor::AtSegment {
-        short_name,
-        position: but_workspace::branch::create_reference::Position::Above,
-    };
-    let req = but_api::legacy::stack::create_reference::Request {
-        new_name: new_name.clone(),
-        anchor: Some(anchor),
-    };
-    but_api::legacy::stack::create_reference(ctx, req).context("failed to create branch")?;
-    Ok(new_name)
-}
-
-pub fn create_branch_legacy(ctx: &mut Context) -> anyhow::Result<String> {
-    let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
-        .context("failed to generate branch name")?;
-    let req = but_api::legacy::stack::create_reference::Request {
-        new_name: new_name.clone(),
-        anchor: None,
-    };
-    but_api::legacy::stack::create_reference(ctx, req).context("failed to create branch")?;
-    Ok(new_name)
-}
-
 pub fn commit_is_empty(ctx: &mut Context, commit_id: gix::ObjectId) -> anyhow::Result<bool> {
     let repo = ctx.repo.get()?;
     let commit = but_core::Commit::from_id(commit_id.attach(&repo))?;

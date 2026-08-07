@@ -819,10 +819,10 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
             }
             #[cfg(feature = "legacy")]
-            Some(branch::Subcommands::New {
-                branch_name,
-                anchor,
-            }) => {
+            Some(branch::Subcommands::New(new_args)) => {
+                use crate::utils::IntermediateChannel;
+
+                let status_after = args.status_after;
                 let mut ctx = setup::init_ctx(
                     &args,
                     InitCtxOptions {
@@ -831,8 +831,23 @@ async fn match_subcommand(
                     },
                     out,
                 )?;
-                command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
-                    .emit_metrics(metrics_ctx)
+                out.begin_status_after(status_after);
+
+                let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+                let outcome = command::legacy::branch::new::new(
+                    &mut ctx,
+                    IntermediateChannel::new(out),
+                    new_args,
+                )
+                .emit_metrics(metrics_ctx)?;
+                out.print_cli_output(outcome)?;
+                command::legacy::conflict_notice::report_newly_conflicted(
+                    &ctx,
+                    out,
+                    conflicts_before,
+                );
+                run_status_after_if_requested(status_after, &mut ctx, out);
+                Ok(())
             }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Delete { branches }) => {

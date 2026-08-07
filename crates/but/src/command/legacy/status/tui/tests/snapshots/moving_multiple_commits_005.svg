@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
-  <rect x="10" y="82" width="800" height="18" fill="#45475A" />
+  <rect x="10" y="64" width="800" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
@@ -16,16 +16,16 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;">c-branch-1</text>
     <text x="154" y="60" style="fill:#CCCCCC;">]</text>
-    <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;">l</text>
-    <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">rm</text>
-    <text x="82 90 98" y="78" style="fill:#CCCCCC;">add</text>
-    <text x="114" y="78" style="fill:#CCCCCC;">B</text>
-    <text x="10 18" y="96" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="96" style="fill:#AA00AA;font-weight:bold;">t</text>
-    <text x="58 66" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">pm</text>
-    <text x="82 90 98" y="96" style="fill:#FFFFFF;font-weight:bold;">add</text>
-    <text x="114" y="96" style="fill:#FFFFFF;font-weight:bold;">A</text>
+    <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">t</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">pm</text>
+    <text x="82 90 98" y="78" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="114" y="78" style="fill:#FFFFFF;font-weight:bold;">A</text>
+    <text x="10 18" y="96" style="fill:#CCCCCC;">┊●</text>
+    <text x="50" y="96" style="fill:#AA00AA;">l</text>
+    <text x="58 66" y="96" style="fill:#CCCCCC;opacity:0.75;">rm</text>
+    <text x="82 90 98" y="96" style="fill:#CCCCCC;">add</text>
+    <text x="114" y="96" style="fill:#CCCCCC;">B</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="132" style="fill:#CCCCCC;">┊</text>
     <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊╭┄</text>
