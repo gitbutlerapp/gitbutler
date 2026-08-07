@@ -13,6 +13,9 @@ pub(crate) mod virtual_branches;
 pub(crate) mod worktree_meta;
 
 /// Move migrations that relate to tables that don't have their module anymore here.
+///
+/// Removing a feature does not justify a schema-version bump: keep these at
+/// [`SchemaVersion::Zero`] and leave tables that older binaries still read in place.
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
     M::up(
         20251013092749,

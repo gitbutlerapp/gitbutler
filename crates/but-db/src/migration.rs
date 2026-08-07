@@ -175,6 +175,9 @@ impl<'a> M<'a> {
     /// Create a new migration with `created_at_for_sorting` in a format like `20250529110746`,
     /// a documented forward-compatibility `schema_version`, and the `up_sql` which is Sqlite
     /// compatible SQL to create or update tables.
+    ///
+    /// Prefer [`SchemaVersion::Zero`]: a higher version locks older binaries out of the
+    /// database. Leave stale columns or tables in place rather than bumping for cleanup.
     pub const fn up(
         created_at_for_sorting: u64,
         schema_version: SchemaVersion,
