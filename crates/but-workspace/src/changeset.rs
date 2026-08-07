@@ -8,8 +8,8 @@ use std::borrow::Cow;
 
 use bstr::BStr;
 use but_core::changeset::{
-    ChangeIdMode, ChangesetCommit, Identifier, changeset_identifier, create_similarity_lut,
-    id_for_tree_diff, id_to_tree, lookup_similar,
+    ChangeIdMode, ChangesetCommit, changeset_identifier, create_similarity_lut, lookup_similar,
+    squash_merge_match, tree_introduces_changes,
 };
 use gix::prelude::ObjectIdExt;
 
@@ -189,13 +189,8 @@ impl RefInfo {
                 else {
                     continue;
                 };
-                let Some(changeset_id) = id_for_tree_diff(repo, base_commit_id, boundary_tree_id)?
-                else {
-                    continue;
-                };
-
-                let identity_of_tip_to_base = Identifier::ChangesetId(changeset_id);
-                let Some(squashed_commit_id) = upstream_lut.get(&identity_of_tip_to_base).cloned()
+                let Some(squashed_commit_id) =
+                    squash_merge_match(repo, &upstream_lut, base_commit_id, boundary_tree_id)?
                 else {
                     continue;
                 };
@@ -365,15 +360,8 @@ fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {
     )
 }
 
-/// Whether `commit` introduces changes of its own, i.e. its tree differs from its first
-/// parent's tree. This only compares tree ids and skips the full diff that [`id_for_tree_diff`]
-/// computes, which matters when scanning many commits. On a lookup failure we assume the commit
-/// carries changes, so a genuinely merged branch is never spared from squash-merge detection.
+/// Whether `commit` introduces changes of its own, comparing its raw tree id to its first
+/// parent's tree.
 fn commit_introduces_changes(repo: &gix::Repository, commit: &LocalCommit) -> bool {
-    match commit.parent_ids.first() {
-        None => !commit.tree_id.is_empty_tree(),
-        Some(parent) => id_to_tree(repo, *parent)
-            .map(|parent_tree| parent_tree.id != commit.tree_id)
-            .unwrap_or(true),
-    }
+    tree_introduces_changes(repo, commit.tree_id, commit.parent_ids.first().copied())
 }

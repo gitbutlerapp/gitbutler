@@ -94,6 +94,52 @@ impl<T: ChangesetCommit + ?Sized> ChangesetCommit for &T {
 pub struct SimilarityByCommitIds {
     /// Upstream commit IDs keyed by the workspace commit ID that matched them.
     pub matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
+    /// The upstream similarity table, kept so callers can run squash-merge trials.
+    upstream_lut: Identity,
+}
+
+impl SimilarityByCommitIds {
+    /// [`squash_merge_match()`] against the retained upstream table.
+    pub fn squash_merge_match(
+        &self,
+        repo: &gix::Repository,
+        base: Option<gix::ObjectId>,
+        tip: gix::ObjectId,
+    ) -> anyhow::Result<Option<gix::ObjectId>> {
+        squash_merge_match(repo, &self.upstream_lut, base, tip)
+    }
+}
+
+/// Return the commit in `lut` whose changeset matches the cumulative changes from `base` to
+/// `tip` (both commit-ish or tree-ish), i.e. the commit that would exist had the whole range
+/// been squash-merged. Only finds matches if `lut` was built with `expensive` checks.
+pub fn squash_merge_match(
+    repo: &gix::Repository,
+    lut: &Identity,
+    base: Option<gix::ObjectId>,
+    tip: gix::ObjectId,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    let Some(changeset_id) = id_for_tree_diff(repo, base, tip)? else {
+        return Ok(None);
+    };
+    Ok(lut.get(&Identifier::ChangesetId(changeset_id)).copied())
+}
+
+/// Whether a commit whose tree is `tree_id` introduces changes of its own, i.e. that tree
+/// differs from its first parent's tree, or from the empty tree if there is no parent.
+/// On a lookup failure we assume the commit carries changes, so a genuinely merged branch is
+/// never spared from squash-merge detection.
+pub fn tree_introduces_changes(
+    repo: &gix::Repository,
+    tree_id: gix::ObjectId,
+    first_parent_id: Option<gix::ObjectId>,
+) -> bool {
+    match first_parent_id {
+        None => !tree_id.is_empty_tree(),
+        Some(parent_id) => id_to_tree(repo, parent_id)
+            .map(|parent_tree| parent_tree.id != tree_id)
+            .unwrap_or(true),
+    }
 }
 
 /// Compute upstream similarity for the provided workspace commits.
@@ -137,6 +183,7 @@ pub fn compute_similarity_by_commit_ids(
 
     Ok(SimilarityByCommitIds {
         matches_by_workspace_commit,
+        upstream_lut,
     })
 }
 

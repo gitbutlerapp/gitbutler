@@ -19,6 +19,8 @@ use crate::changeset::compute_similarity_by_commit_ids;
 use crate::graph_manipulation::traverse_nodes;
 use crate::resolve_tracking_branch_ref_name;
 
+mod squash;
+
 /// Whether a bottom most commit should be rebased, or a merge commit should be
 /// created at the top of the commit run.
 #[derive(Clone, Copy, PartialEq)]
@@ -606,10 +608,11 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         .iter()
         .filter_map(|s| (!from_target_sha.contains(s)).then_some(*s))
         .collect::<Vec<_>>();
-    let upstream_selectors = if upstream_selectors.is_empty() {
-        from_target_ref.iter().copied().collect()
-    } else {
+    let target_advanced = !upstream_selectors.is_empty();
+    let upstream_selectors = if target_advanced {
         upstream_selectors
+    } else {
+        from_target_ref.iter().copied().collect()
     };
     let upstream_commits = commit_ids(editor, upstream_selectors)?;
     let mut workspace_selectors = HashSet::new();
@@ -654,6 +657,14 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             {
                 attrs.content_integrated = true;
             }
+        }
+
+        // A squash-merge implies the target advanced past the old base. Without new target
+        // commits the similarity table above fell back to historical target commits, where a
+        // cumulative-changeset match would be a coincidence (e.g. a branch redoing a
+        // once-reverted change) that must not delete a live branch.
+        if target_advanced {
+            squash::squash_merge_trial(editor, stack, &integration)?;
         }
 
         apply_review_integration_hints(editor, stack, review_hints)?;

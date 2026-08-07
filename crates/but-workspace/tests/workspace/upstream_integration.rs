@@ -970,6 +970,184 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 }
 
 #[test]
+fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("squash-merged-branch")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    // Branch A holds two commits whose squashed sum is the target's new base commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 2d37747 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 860210a (A) add A2
+* 5434680 add A1
+| * 6204bf3 (origin/main) add X
+| * 039050a A1 + A2 (#1)
+|/  
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    let mut workspace = graph.into_workspace()?;
+    // Neither commit is marked integrated up front - per-commit matching cannot see the squash.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+└── ≡📙:3:A on 9bede57 {1}
+    └── 📙:3:A
+        ├── ·860210a (🏘️)
+        └── ·5434680 (🏘️)
+
+"#]]
+    );
+
+    let project_meta = integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
+        }],
+    )?;
+
+    let meta = empty_managed_workspace_metadata(&meta)?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    // Neither commit matches the squash commit one-to-one, but their cumulative changeset
+    // does - the branch must be recognized as integrated and leave the workspace.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6204bf3
+
+"#]]
+    );
+    // A's commits are dropped rather than rebased into empty copies above the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6ad6d07 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 6204bf3 (origin/main) add X
+* 039050a A1 + A2 (#1)
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("squash-merged-branch-below-stacked-work")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    // Branch B with unmerged work sits on branch A, whose commits were squash-merged.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ee705c0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* d96a0bd (B) add B1
+* 860210a (A) add A2
+* 5434680 add A1
+| * 6204bf3 (origin/main) add X
+| * 039050a A1 + A2 (#1)
+|/  
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    let mut workspace = graph.into_workspace()?;
+    // One stack, two segments: B's commit on top of A's two squash-merged ones.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+└── ≡📙:3:B on 9bede57 {1}
+    ├── 📙:3:B
+    │   └── ·d96a0bd (🏘️)
+    └── 📙:4:A
+        ├── ·860210a (🏘️)
+        └── ·5434680 (🏘️)
+
+"#]]
+    );
+
+    let project_meta = integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
+        }],
+    )?;
+
+    let meta = empty_managed_workspace_metadata(&meta)?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    // The trial at B's boundary misses (B carries unmerged work), but the retry at A's
+    // boundary matches the squash commit: A is pruned while B is rebased onto the new
+    // target and keeps its commit.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6204bf3
+└── ≡:3:B on 6204bf3 {1}
+    └── :3:B
+        └── ·3f21b99 (🏘️)
+
+"#]]
+    );
+    // A's refs and commits are gone; B1 was rewritten on top of the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 20c6172 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 3f21b99 (B) add B1
+* 6204bf3 (origin/main) add X
+* 039050a A1 + A2 (#1)
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_commit() -> Result<()>
 {
     let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
