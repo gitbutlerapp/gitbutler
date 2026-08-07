@@ -20,7 +20,14 @@ import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type RefCallback, type SubmitEventHandler, useRef, useState } from "react";
+import {
+	type FC,
+	type ReactNode,
+	type RefCallback,
+	type SubmitEventHandler,
+	useRef,
+	useState,
+} from "react";
 import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
@@ -51,6 +58,42 @@ const CommitTargetComboboxPopup: FC = () => (
 			)}
 		</Combobox.List>
 	</Combobox.Popup>
+);
+
+/**
+ * Wires up the commit target combobox. The trigger is passed as children so the
+ * same picker can be rendered both in the expanded form's footer and next to
+ * the collapsed "Start commit" button.
+ */
+const CommitTargetCombobox: FC<{
+	items: Array<CommitTargetComboboxItem>;
+	value: CommitTargetComboboxItem | null;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	onValueChange: (item: CommitTargetComboboxItem | null) => void;
+	disabled: boolean;
+	children: ReactNode;
+}> = ({ items, value, open, onOpenChange, onValueChange, disabled, children }) => (
+	<Combobox.Root<CommitTargetComboboxItem>
+		items={items}
+		open={open}
+		onOpenChange={onOpenChange}
+		// Note `undefined` means uncontrolled.
+		value={value}
+		onValueChange={onValueChange}
+		itemToStringLabel={(x) => x.label}
+		itemToStringValue={(x) => operandIdentityKey(x.operand)}
+		isItemEqualToValue={(a, b) => operandEquals(a.operand, b.operand)}
+		autoHighlight
+		disabled={disabled}
+	>
+		{children}
+		<Combobox.Portal>
+			<Combobox.Positioner align="start" sideOffset={4}>
+				<CommitTargetComboboxPopup />
+			</Combobox.Positioner>
+		</Combobox.Portal>
+	</Combobox.Root>
 );
 
 export const CommitForm: FC<{
@@ -251,20 +294,77 @@ export const CommitForm: FC<{
 
 	if (!isExpanded) {
 		return (
-			<Button
-				className={classes(
-					getButtonClassName({ variant: "pop" }),
-					styles.startCommitButton,
-					className,
-				)}
-				id={startCommitButtonId}
-				onClick={() => setIsExpanded(true)}
-				focusableWhenDisabled
-				disabled={!isDefaultMode}
-			>
-				Start commit
-				<Kbd hotkey={outlineHotkeys.composeCommitMessage.hotkey} variant="button" />
-			</Button>
+			<div className={classes(styles.startCommitRow, className)}>
+				<CommitTargetCombobox
+					items={targetComboboxItems}
+					value={commitTarget ?? null}
+					open={open}
+					onOpenChange={setOpen}
+					onValueChange={selectBranch}
+					disabled={!isDefaultMode || isCommitOrAmendPending}
+				>
+					<Tooltip.Root>
+						<Combobox.Trigger
+							className={classes(
+								getButtonClassName({ variant: "outline" }),
+								styles.collapsedTargetTrigger,
+							)}
+							aria-label="Select commit target"
+							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
+						>
+							<Icon name="bullseye" size={14} />
+							<Icon
+								name={commitTarget?.operand._tag === "Commit" ? "commit" : "branch"}
+								size={14}
+							/>
+						</Combobox.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup
+									render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
+								>
+									{commitTarget ? (
+										<span className={styles.tooltipTarget}>
+											<span className={styles.tooltipTargetLabel}>Target:</span>
+											<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
+										</span>
+									) : (
+										"Select commit target"
+									)}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				</CommitTargetCombobox>
+
+				{/* Amend ignores the message, so its affordance belongs here rather than
+				    behind the message composer. Mirrors the hotkeys, which are registered
+				    regardless of whether the form is expanded. */}
+				<div className={classes(styles.dropdownButton, styles.startCommitSplit)}>
+					<Button
+						className={classes(getButtonClassName({ variant: "pop" }), styles.startCommitButton)}
+						id={startCommitButtonId}
+						onClick={() => setIsExpanded(true)}
+						focusableWhenDisabled
+						disabled={!isDefaultMode}
+					>
+						Start commit
+						<Kbd hotkey={outlineHotkeys.composeCommitMessage.hotkey} variant="button" />
+					</Button>
+					<div aria-hidden className={styles.dropdownButtonSeparator} />
+					<Button
+						focusableWhenDisabled
+						disabled={!(canAmend || canCommit)}
+						aria-label="Commit options"
+						className={getButtonClassName({ variant: "pop", iconOnly: true })}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+						}}
+					>
+						<Icon name="chevron-down" />
+					</Button>
+				</div>
+			</div>
 		);
 	}
 
@@ -300,25 +400,18 @@ export const CommitForm: FC<{
 			/>
 
 			<div className={styles.footer}>
-				<Combobox.Root<CommitTargetComboboxItem>
+				<CommitTargetCombobox
 					items={targetComboboxItems}
+					value={commitTarget ?? null}
 					open={open}
 					onOpenChange={setOpen}
-					// Note `undefined` means uncontrolled.
-					value={commitTarget ?? null}
 					onValueChange={selectBranch}
-					itemToStringLabel={(x) => x.label}
-					itemToStringValue={(x) => operandIdentityKey(x.operand)}
-					isItemEqualToValue={(a, b) => operandEquals(a.operand, b.operand)}
-					autoHighlight
 					disabled={!isDefaultMode || isCommitOrAmendPending}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
 							className={classes("text-13 text-semibold", styles.targetTrigger)}
 							aria-label="Select commit target"
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
 							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 						>
 							<Icon
@@ -339,12 +432,7 @@ export const CommitForm: FC<{
 							</Tooltip.Positioner>
 						</Tooltip.Portal>
 					</Tooltip.Root>
-					<Combobox.Portal>
-						<Combobox.Positioner align="start" sideOffset={4}>
-							<CommitTargetComboboxPopup />
-						</Combobox.Positioner>
-					</Combobox.Portal>
-				</Combobox.Root>
+				</CommitTargetCombobox>
 
 				<div className={styles.commitActions}>
 					<Tooltip.Root>
@@ -373,40 +461,26 @@ export const CommitForm: FC<{
 						</Tooltip.Portal>
 					</Tooltip.Root>
 
-					<div className={styles.dropdownButton}>
-						{/* The tooltip is redundant while the label is visible. */}
-						<Tooltip.Root disabled={!commitLabelHidden}>
-							<Tooltip.Trigger
-								aria-label="Commit"
-								className={getButtonClassName({ variant: "pop" })}
-								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
-							>
-								<span ref={observeCommitLabel} className={styles.commitButtonLabel}>
-									Commit
-								</span>
-								<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
-										Commit
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-						<div aria-hidden className={styles.dropdownButtonSeparator} />
-						<Button
-							focusableWhenDisabled
-							disabled={!(canAmend || canCommit)}
-							aria-label="Commit options"
-							className={getButtonClassName({ variant: "pop", iconOnly: true })}
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-							}}
+					{/* The tooltip is redundant while the label is visible. */}
+					<Tooltip.Root disabled={!commitLabelHidden}>
+						<Tooltip.Trigger
+							aria-label="Commit"
+							className={getButtonClassName({ variant: "pop" })}
+							render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
 						>
-							<Icon name="chevron-down" />
-						</Button>
-					</div>
+							<span ref={observeCommitLabel} className={styles.commitButtonLabel}>
+								Commit
+							</span>
+							<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
+									Commit
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
 				</div>
 			</div>
 		</form>

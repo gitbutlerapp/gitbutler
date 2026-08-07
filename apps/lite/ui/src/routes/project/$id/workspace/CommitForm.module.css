@@ -1,5 +1,23 @@
+.startCommitRow {
+	display: flex;
+	column-gap: 4px;
+}
+
+.startCommitSplit {
+	flex: 1;
+	min-width: 0;
+}
+
 .startCommitButton {
+	flex: 1;
+	min-width: 0;
+}
+
+.collapsedTargetTrigger {
+	display: flex;
 	flex-shrink: 0;
+	align-items: center;
+	padding-inline: 6px;
 }
 
 .form {
@@ -97,6 +115,30 @@
 	&:not([data-disabled])[aria-expanded="true"] {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	}
+}
+
+/* "Target:" keeps its width; only the name after it is allowed to shrink. */
+.tooltipTarget {
+	display: flex;
+	column-gap: 4px;
+	min-width: 0;
+}
+
+.tooltipTargetLabel {
+	flex-shrink: 0;
+	color: color-mix(in srgb, var(--text-1) 60%, transparent);
+}
+
+/* A branch name or commit subject is an identifier, so it stays on one
+   ellipsised line rather than wrapping the tooltip across several. */
+.tooltipTargetName {
+	/* `display: block` gives the span a width to ellipsise against — as an inline
+	   box it would just overflow the tooltip. */
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .targetTriggerLabel {
