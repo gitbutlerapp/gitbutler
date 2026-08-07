@@ -94,42 +94,70 @@ impl<T: ChangesetCommit + ?Sized> ChangesetCommit for &T {
 pub struct SimilarityByCommitIds {
     /// Upstream commit IDs keyed by the workspace commit ID that matched them.
     pub matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
-    /// The upstream similarity table, kept so callers can run squash-merge trials.
-    upstream_lut: Identity,
+    /// The upstream similarity table, for squash-merge trials via [`squash_merge_boundary()`].
+    pub upstream_lut: Identity,
 }
 
-impl SimilarityByCommitIds {
-    /// [`squash_merge_match()`] against the retained upstream table.
-    pub fn squash_merge_match(
-        &self,
-        repo: &gix::Repository,
-        base: Option<gix::ObjectId>,
-        tip: gix::ObjectId,
-    ) -> anyhow::Result<Option<gix::ObjectId>> {
-        squash_merge_match(repo, &self.upstream_lut, base, tip)
-    }
+/// One commit of a stack, ordered top to bottom, as input to [`squash_merge_boundary()`].
+pub struct SquashCandidate {
+    /// The commit to consider.
+    pub id: gix::ObjectId,
+    /// Whether the commit is already known to be integrated upstream.
+    pub integrated: bool,
+    /// The index of the branch segment the commit belongs to, increasing downward.
+    pub segment: usize,
 }
 
-/// Return the commit in `lut` whose changeset matches the cumulative changes from `base` to
-/// `tip` (both commit-ish or tree-ish), i.e. the commit that would exist had the whole range
-/// been squash-merged. Only finds matches if `lut` was built with `expensive` checks.
-pub fn squash_merge_match(
+/// Find the squash-merge boundary among `candidates`, a stack's commits from tip down to
+/// `base`: each segment's boundary is its topmost commit that isn't already integrated and
+/// introduces changes of its own, and boundaries are trialed top to bottom until the
+/// changeset from `base` to a boundary matches a commit in `lut` — the commit a squash-merge
+/// of that range would have produced. A failed trial retries at the next lower segment's
+/// boundary: the topmost segment may carry unmerged work stacked on a squash-merged segment
+/// below it.
+///
+/// Commits are compared by their auto-resolution tree when conflicted, and only candidates
+/// that are actually examined get decoded. `lut` must contain only commits the target gained
+/// since `base`: a cumulative-changeset match against older target history would be a
+/// coincidence, and acting on it could delete a live branch. Only finds matches if `lut` was
+/// built with `expensive` checks.
+///
+/// Returns the index of the matched boundary candidate and the matching commit; the caller
+/// marks the boundary and everything beneath it integrated. Candidates above the boundary
+/// must stay untouched: a no-change tip commit borrows the cumulative content beneath it and
+/// must not have its branch deleted by a match.
+pub fn squash_merge_boundary(
     repo: &gix::Repository,
     lut: &Identity,
     base: Option<gix::ObjectId>,
-    tip: gix::ObjectId,
-) -> anyhow::Result<Option<gix::ObjectId>> {
-    let Some(changeset_id) = id_for_tree_diff(repo, base, tip)? else {
-        return Ok(None);
-    };
-    Ok(lut.get(&Identifier::ChangesetId(changeset_id)).copied())
+    candidates: &[SquashCandidate],
+) -> anyhow::Result<Option<(usize, gix::ObjectId)>> {
+    let mut tried_segment = None;
+    for (idx, candidate) in candidates.iter().enumerate() {
+        if tried_segment == Some(candidate.segment) || candidate.integrated {
+            continue;
+        }
+        let commit = Commit::from_id(candidate.id.attach(repo))?;
+        let tree_id = commit.tree_id_or_auto_resolution()?.detach();
+        if !tree_introduces_changes(repo, tree_id, commit.inner.parents.first().copied()) {
+            continue;
+        }
+        tried_segment = Some(candidate.segment);
+        let Some(changeset_id) = id_for_tree_diff(repo, base, tree_id)? else {
+            continue;
+        };
+        if let Some(commit_id) = lut.get(&Identifier::ChangesetId(changeset_id)) {
+            return Ok(Some((idx, *commit_id)));
+        }
+    }
+    Ok(None)
 }
 
 /// Whether a commit whose tree is `tree_id` introduces changes of its own, i.e. that tree
 /// differs from its first parent's tree, or from the empty tree if there is no parent.
 /// On a lookup failure we assume the commit carries changes, so a genuinely merged branch is
 /// never spared from squash-merge detection.
-pub fn tree_introduces_changes(
+fn tree_introduces_changes(
     repo: &gix::Repository,
     tree_id: gix::ObjectId,
     first_parent_id: Option<gix::ObjectId>,

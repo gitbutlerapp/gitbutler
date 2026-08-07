@@ -664,6 +664,8 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         // cumulative-changeset match would be a coincidence (e.g. a branch redoing a
         // once-reverted change) that must not delete a live branch.
         if target_advanced {
+            // Runs before review hints on purpose: `integrated` then means historically or
+            // content integrated, matching what the status-side trial sees.
             squash::squash_merge_trial(editor, stack, &integration)?;
         }
 

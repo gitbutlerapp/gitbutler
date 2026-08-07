@@ -8,14 +8,14 @@ use std::borrow::Cow;
 
 use bstr::BStr;
 use but_core::changeset::{
-    ChangeIdMode, ChangesetCommit, changeset_identifier, create_similarity_lut, lookup_similar,
-    squash_merge_match, tree_introduces_changes,
+    ChangeIdMode, ChangesetCommit, SquashCandidate, changeset_identifier, create_similarity_lut,
+    lookup_similar, squash_merge_boundary,
 };
 use gix::prelude::ObjectIdExt;
 
 use crate::{
     RefInfo,
-    ref_info::{Commit, LocalCommit, LocalCommitRelation},
+    ref_info::{Commit, LocalCommitRelation},
     ui::PushStatus,
 };
 
@@ -49,10 +49,8 @@ impl RefInfo {
     /// the target branch and the workspace base (B)…
     /// * …and change-ids in stack commits then…
     /// * …and author and message (exact match) in stack commits…
-    /// * …and (expensive) changeset-ids of
-    ///     - stack commits
-    ///     - the squash-merge between all stack-tips (ST) and the target branch to simulate squash merges
-    ///       as they could have happened.
+    /// * …and (expensive) changeset-ids of stack commits, plus a per-stack squash-merge trial
+    ///   ([`squash_merge_boundary()`]) to catch branches that landed as a single squash commit.
     ///
     /// Matches from the first two cheap stages will speed up the expensive stage, as fewer commits or combinations
     /// are left to test.
@@ -166,44 +164,34 @@ impl RefInfo {
                 continue 'next_stack;
             }
 
-            // Another round from top to bottom where we take remote and local tips of non-integrated commits
-            // and test-squash-merge them (cleanly), to see if that changeset ID is contained in upstream.
-            // If so, the whole branch everything that follows is bluntly considered integrated, as it probably is
-            // most of the time.
+            // Another round where we test-squash-merge the stack's segments against upstream,
+            // to catch branches whose commits landed as a single squash commit.
             let base_commit_id = stack.segments.last().and_then(|s| s.base);
-            let mut segments = stack.segments.iter_mut();
-            while let Some(segment) = segments.next() {
-                // Find the topmost commit that isn't already integrated and carries changes of its
-                // own; that is the integration boundary for the squash-merge trial. Commits above it
-                // are either already integrated or introduce no changes of their own, so the trial
-                // must not mark them: otherwise a no-change commit at the tip would be treated as
-                // merged - because it borrows the cumulative content of the commits below it - and
-                // its branch deleted.
-                let Some((boundary, boundary_tree_id)) =
-                    segment.commits.iter().enumerate().find_map(|(i, c)| {
-                        let carries_changes =
-                            !matches!(c.relation, LocalCommitRelation::Integrated(_))
-                                && commit_introduces_changes(repo, c);
-                        carries_changes.then_some((i, c.tree_id))
+            let candidates = stack
+                .segments
+                .iter()
+                .enumerate()
+                .flat_map(|(segment, s)| {
+                    s.commits.iter().map(move |c| SquashCandidate {
+                        id: c.id,
+                        integrated: matches!(c.relation, LocalCommitRelation::Integrated(_)),
+                        segment,
                     })
-                else {
-                    continue;
-                };
-                let Some(squashed_commit_id) =
-                    squash_merge_match(repo, &upstream_lut, base_commit_id, boundary_tree_id)?
-                else {
-                    continue;
-                };
-
-                // Mark the boundary commit and everything below it (down to the base, across the
-                // lower segments) as integrated; leave the commits above the boundary untouched.
-                for (i, segment) in Some(segment).into_iter().chain(segments).enumerate() {
-                    let skip = if i == 0 { boundary } else { 0 };
-                    for commit in segment.commits.iter_mut().skip(skip) {
-                        commit.relation = LocalCommitRelation::Integrated(squashed_commit_id)
-                    }
+                })
+                .collect::<Vec<_>>();
+            if let Some((boundary, squashed_commit_id)) =
+                squash_merge_boundary(repo, &upstream_lut, base_commit_id, &candidates)?
+            {
+                // Mark the boundary commit and everything below it (down to the base, across
+                // the lower segments) as integrated; commits above the boundary stay untouched.
+                for commit in stack
+                    .segments
+                    .iter_mut()
+                    .flat_map(|s| s.commits.iter_mut())
+                    .skip(boundary)
+                {
+                    commit.relation = LocalCommitRelation::Integrated(squashed_commit_id);
                 }
-                break;
             }
         }
         self.compute_pushstatus(graph);
@@ -358,10 +346,4 @@ fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {
         // if any of these is also integrated.
         LocalCommitRelation::LocalAndRemote(_)
     )
-}
-
-/// Whether `commit` introduces changes of its own, comparing its raw tree id to its first
-/// parent's tree.
-fn commit_introduces_changes(repo: &gix::Repository, commit: &LocalCommit) -> bool {
-    tree_introduces_changes(repo, commit.tree_id, commit.parent_ids.first().copied())
 }
