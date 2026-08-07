@@ -3453,6 +3453,11 @@ export type WorkspaceState = {
    * rendered graph projection.
    */
   graphWorkspace: DetailedGraphWorkspace;
+  /**
+   * True if a checkout occurred, and a conflict occurred during that
+   * checkout.
+   */
+  checkoutConflictOccurred: boolean;
 };
 
 /** Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments. */

@@ -1,7 +1,12 @@
 use anyhow::bail;
+use bstr::BStr;
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
-use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
+use gix::{
+    merge::{plumbing::tree::ConflictIndexEntry, tree::TreatAsUnresolved},
+    prelude::ObjectIdExt as _,
+    refs::Target,
+};
 use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
@@ -31,6 +36,7 @@ pub fn safe_checkout_from_head(
         skip_head_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
+        allow_uncommitted_changes_to_conflict_with_new_head,
     }: Options,
 ) -> anyhow::Result<Outcome> {
     let new_object = new_head_id.attach(repo).object()?;
@@ -65,6 +71,7 @@ pub fn safe_checkout_from_head(
     let new_tree = git2_repo
         .find_object(new_head_id.to_git2(), None)?
         .peel_to_tree()?;
+    let mut conflict_occurred = false;
     if old_tree.id() != new_tree.id() {
         // Reopen to ensure that there is no "object memory" (i.e. all object
         // writes actually happen on disk).
@@ -83,28 +90,80 @@ pub fn safe_checkout_from_head(
             Default::default(),
             repo.tree_merge_options()?.with_rewrites(None),
         )?;
+        let checkout_target_base_id = outcome.tree.write()?.detach();
+
+        let checkout_target_base = git2_repo.find_tree(checkout_target_base_id.to_git2())?;
+        let mut checkout_target = git2::Index::new()?;
+        checkout_target.read_tree(&checkout_target_base)?;
+
         let unresolved = TreatAsUnresolved::git();
         if outcome.has_unresolved_conflicts(unresolved) {
-            let mut paths = outcome
-                .conflicts
-                .iter()
-                .filter(|c| c.is_unresolved(unresolved))
-                .map(|c| format!("{:?}", c.ours.location()))
-                .collect::<Vec<_>>();
-            paths.sort();
-            paths.dedup();
-            bail_precondition!(
-                "Uncommitted files would be overwritten by checkout: {}",
-                paths.join(", ")
-            );
+            conflict_occurred = true;
+            if allow_uncommitted_changes_to_conflict_with_new_head {
+                for conflict in outcome.conflicts.iter() {
+                    if !conflict.is_unresolved(unresolved) {
+                        continue;
+                    }
+                    let [base, ours, theirs] = conflict.entries();
+                    if base.is_some_and(|c| c.mode.is_tree())
+                        || ours.is_some_and(|c| c.mode.is_tree())
+                        || theirs.is_some_and(|c| c.mode.is_tree())
+                    {
+                        bail_precondition!(
+                            "Cannot checkout file-directory conflict: {}",
+                            conflict.ours.location()
+                        );
+                    }
+                    fn to_git2_index_entry(
+                        entry: &ConflictIndexEntry,
+                        path: &BStr,
+                    ) -> git2::IndexEntry {
+                        git2::IndexEntry {
+                            ctime: git2::IndexTime::new(0, 0),
+                            mtime: git2::IndexTime::new(0, 0),
+                            dev: 0,
+                            ino: 0,
+                            mode: entry.mode.value() as u32,
+                            uid: 0,
+                            gid: 0,
+                            file_size: 0,
+                            id: entry.id.to_git2(),
+                            flags: 0,
+                            flags_extended: 0,
+                            path: path.to_vec(),
+                        }
+                    }
+                    let base_index_entry =
+                        base.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
+                    let ours_index_entry =
+                        ours.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
+                    let theirs_index_entry =
+                        theirs.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
+                    checkout_target.conflict_add(
+                        base_index_entry.as_ref(),
+                        ours_index_entry.as_ref(),
+                        theirs_index_entry.as_ref(),
+                    )?;
+                }
+            } else {
+                let mut paths = outcome
+                    .conflicts
+                    .iter()
+                    .filter(|c| c.is_unresolved(unresolved))
+                    .map(|c| format!("{:?}", c.ours.location()))
+                    .collect::<Vec<_>>();
+                paths.sort();
+                paths.dedup();
+                bail_precondition!(
+                    "Uncommitted files would be overwritten by checkout: {}",
+                    paths.join(", ")
+                );
+            }
         }
-        let checkout_target_id = outcome.tree.write()?.detach();
 
         let mut checkout_opts = git2::build::CheckoutBuilder::new();
         checkout_opts.baseline(&wd_tree);
-        let checkout_target =
-            git2_repo.find_object(checkout_target_id.to_git2(), Some(git2::ObjectType::Tree))?;
-        git2_repo.checkout_tree(&checkout_target, Some(&mut checkout_opts))?;
+        git2_repo.checkout_index(Some(&mut checkout_target), Some(&mut checkout_opts))?;
     }
 
     let mut head_update = None;
@@ -128,5 +187,8 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    Ok(Outcome { head_update })
+    Ok(Outcome {
+        head_update,
+        conflict_occurred,
+    })
 }

@@ -62,6 +62,33 @@ pub(crate) fn snapshot(ctx: &Context) -> ConflictSnapshot {
     ConflictSnapshot { change_ids }
 }
 
+/// Warn about checkout conflict.
+pub(crate) fn report_checkout_conflict(out: &mut OutputChannel) {
+    if let Err(err) = try_report_checkout_conflict(out) {
+        tracing::warn!(?err, "could not report checkout_conflict");
+    }
+}
+
+fn try_report_checkout_conflict(out: &mut OutputChannel) -> anyhow::Result<()> {
+    let t = theme::get();
+    if let Some(out) = out.for_human() {
+        writeln!(out)?;
+        writeln!(
+            out,
+            "{}",
+            t.attention.paint(
+                "⚠ A conflict occurred during checkout. Run `but status` for more information."
+            )
+        )?;
+    } else if matches!(out.format(), OutputFormat::Json) {
+        // JSON outputs are parsed, so the warning goes to stderr.
+        eprintln!(
+            "warning: A conflict occurred during checkout. Run `but status` for more information.",
+        );
+    }
+    Ok(())
+}
+
 /// Warn about commits that are conflicted now but weren't in `before`.
 /// Best-effort; the mutation already succeeded, so errors are only logged.
 pub(crate) fn report_newly_conflicted(

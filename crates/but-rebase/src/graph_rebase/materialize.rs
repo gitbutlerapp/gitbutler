@@ -207,7 +207,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         let specs = self.linked_checkout_specs()?;
         let detached_head_edits = detached_worktree_head_edits(&specs)?;
 
-        let head = if !materialize_options.without_checkout {
+        let (head, checkout_conflict_occurred) = if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
                 safe_checkout_from_head(
@@ -217,25 +217,32 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
+                        // Don't allow for linked worktrees.
+                        allow_uncommitted_changes_to_conflict_with_new_head: false,
                     },
                 )?;
             }
 
             let head = self.head_checkout()?;
-            if let Some(head) = &head {
-                safe_checkout_from_head(
+            let checkout_conflict_occurred = if let Some(head) = &head {
+                let outcome = safe_checkout_from_head(
                     head.target,
                     &repo,
                     Options {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: true,
+                        // Allow for our worktree.
+                        allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
-            }
-            head
+                outcome.conflict_occurred
+            } else {
+                false
+            };
+            (head, checkout_conflict_occurred)
         } else {
-            None
+            (None, false)
         };
 
         let mut ref_edits = self.ref_edits.clone();
@@ -276,6 +283,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            checkout_conflict_occurred,
         })
     }
 

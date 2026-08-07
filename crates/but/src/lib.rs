@@ -865,7 +865,7 @@ async fn match_subcommand(
     // If `Some`, and if result is `Ok`, this is passed to
     // `run_status_after_if_requested()`.
     let mut status_after_data: Option<bool> = None;
-    let _ws: Option<WorkspaceState> = match cmd {
+    let ws: Option<WorkspaceState> = match cmd {
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
         | Subcommands::Completions { .. }
@@ -1674,6 +1674,12 @@ async fn match_subcommand(
         }
     };
 
+    #[cfg(feature = "legacy")]
+    if let Some(ws) = ws
+        && ws.checkout_conflict_occurred
+    {
+        command::legacy::conflict_notice::report_checkout_conflict(out);
+    }
     #[cfg(feature = "legacy")]
     if let Some(conflicts_before) = newly_conflicted_data {
         command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);

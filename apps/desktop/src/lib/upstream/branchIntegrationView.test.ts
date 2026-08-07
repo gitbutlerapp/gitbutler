@@ -251,6 +251,7 @@ describe("branchIntegrationView", () => {
 				isManagedCommit: true,
 				isEntrypoint: true,
 			},
+			checkoutConflictOccurred: false,
 		};
 
 		expect(buildNextStateGraphRows({ workspace, branchRef: BRANCH_REF })).toEqual([
