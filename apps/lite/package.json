@@ -145,8 +145,12 @@
 		"ms": "^4.0.0-nightly.202508271359",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
+		"react-markdown": "^10.1.0",
 		"react-redux": "^9.2.0",
 		"react-resizable-panels": "^4.11.2",
+		"rehype-raw": "^7.0.0",
+		"rehype-sanitize": "^6.0.0",
+		"remark-gfm": "^4.0.1",
 		"shiki": "^4.3.0"
 	},
 	"devDependencies": {

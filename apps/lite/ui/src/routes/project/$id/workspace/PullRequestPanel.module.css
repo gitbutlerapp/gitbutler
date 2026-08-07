@@ -1,0 +1,113 @@
+.panel {
+	display: flex;
+	/* Width is set by the details container so the header can align with
+	   the panel column (see --pr-panel-width in Details.module.css). */
+	flex: 0 0 var(--pr-panel-width, 220px);
+	flex-direction: column;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-lg);
+}
+
+.section {
+	display: flex;
+	row-gap: 6px;
+	flex-direction: column;
+	padding: 10px 12px;
+
+	& + & {
+		border-top: 1px solid var(--border-3);
+	}
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	/* Keep row height stable whether or not a picker button renders. */
+	min-height: 20px;
+	gap: 8px;
+}
+
+.heading {
+	color: var(--text-2);
+	font-weight: 600;
+}
+
+.statusRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.link {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	color: var(--text-2);
+}
+
+.user {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.reviewerRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+.avatar {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background-color: lightgray;
+}
+
+.labels {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.label {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 8px;
+	gap: 5px;
+	border: 1px solid var(--border-2);
+	border-radius: 100px;
+}
+
+.labelDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+.checksSummary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.checksProblems {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	color: var(--text-2);
+}
+
+.branches {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--text-2);
+	word-break: break-all;
+}
+
+.created {
+	color: var(--text-2);
+}

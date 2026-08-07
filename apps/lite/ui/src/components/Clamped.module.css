@@ -1,0 +1,33 @@
+.clamped {
+	z-index: 0;
+	position: relative;
+	max-height: var(--clamp-max-height);
+	overflow: hidden;
+}
+
+/* Fade out the cut-off line so the clamp reads as "there's more". */
+.overflowing::after {
+	z-index: 1;
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 32px;
+	background: linear-gradient(to bottom, transparent, var(--bg-1));
+	content: "";
+	pointer-events: none;
+}
+
+.toggle {
+	align-self: flex-start;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
+}

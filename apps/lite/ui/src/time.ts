@@ -54,3 +54,11 @@ export const formatDurationWith =
 const stdDurationFormatter = new Intl.DurationFormat(undefined, { style: "long" });
 
 export const formatDuration: (ms: number) => string = formatDurationWith(stdDurationFormatter);
+
+const stdAbsoluteTimeFormatter = new Intl.DateTimeFormat(undefined, {
+	dateStyle: "medium",
+	timeStyle: "short",
+});
+
+export const formatAbsoluteTime = (timestamp: number): string =>
+	stdAbsoluteTimeFormatter.format(timestamp);

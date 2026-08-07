@@ -29,7 +29,18 @@ import {
 	type ForgeCompareBranchUrlParams,
 	type GetInitialBranchIntegrationParams,
 	type GetReviewBaseRepoUrlParams,
+	type CreateReviewCommentParams,
+	type DeleteReviewCommentParams,
 	type GetReviewParams,
+	type UpdateReviewCommentParams,
+	type CommentReactionsParams,
+	type AddReviewReactionParams,
+	type RemoveReviewReactionParams,
+	type AddCommentReactionParams,
+	type RemoveCommentReactionParams,
+	type RemoveReviewLabelParams,
+	type AddReviewLabelsParams,
+	type ReviewRequestParams,
 	type ListCiChecksParams,
 	type ListReviewsParams,
 	type MoveBranchParams,
@@ -92,8 +103,12 @@ import {
 	commitUncommitChanges,
 	headInfo,
 	commitMove,
+	addReviewLabels,
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
+	createReviewComment,
+	currentForgeLogin,
+	deleteReviewComment,
 	forgeCompareBranchUrl,
 	forgeInfo,
 	forgeProvider,
@@ -107,7 +122,22 @@ import {
 	listEditors,
 	listPrograms,
 	listProjectsStateless,
+	listRepoLabels,
+	addCommentReaction,
+	addReviewReaction,
+	listCommentReactions,
+	listReviewComments,
+	listReviewReactions,
+	removeCommentReaction,
+	removeReviewReaction,
+	listReviewSubmissions,
+	listReviewTimelineEvents,
+	listReviewerCandidates,
 	listReviews,
+	updateReviewComment,
+	removeReviewLabel,
+	requestReview,
+	withdrawReviewRequest,
 	listReviewsForBranch,
 	mergeReview,
 	moveBranch,
@@ -558,6 +588,91 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.getReviewMergeStatus,
 		(_e, { projectId, reviewId }: GetReviewParams) => getReviewMergeStatus(projectId, reviewId),
 	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewComments,
+		(_e, { projectId, reviewId }: GetReviewParams) => listReviewComments(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewSubmissions,
+		(_e, { projectId, reviewId }: GetReviewParams) => listReviewSubmissions(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewTimelineEvents,
+		(_e, { projectId, reviewId }: GetReviewParams) => listReviewTimelineEvents(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewReactions,
+		(_e, { projectId, reviewId }: GetReviewParams) => listReviewReactions(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listCommentReactions,
+		(_e, { projectId, commentId }: CommentReactionsParams) =>
+			listCommentReactions(projectId, commentId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.addReviewReaction,
+		(_e, { projectId, reviewId, kind }: AddReviewReactionParams) =>
+			addReviewReaction(projectId, reviewId, kind),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeReviewReaction,
+		(_e, { projectId, reviewId, reactionId }: RemoveReviewReactionParams) =>
+			removeReviewReaction(projectId, reviewId, reactionId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.addCommentReaction,
+		(_e, { projectId, commentId, kind }: AddCommentReactionParams) =>
+			addCommentReaction(projectId, commentId, kind),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeCommentReaction,
+		(_e, { projectId, commentId, reactionId }: RemoveCommentReactionParams) =>
+			removeCommentReaction(projectId, commentId, reactionId),
+	);
+	senderValidatingHandle(liteIpcChannels.listRepoLabels, (_e, projectId: string) =>
+		listRepoLabels(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.listReviewerCandidates, (_e, projectId: string) =>
+		listReviewerCandidates(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.addReviewLabels,
+		(_e, { projectId, reviewId, labels }: AddReviewLabelsParams) =>
+			addReviewLabels(projectId, reviewId, labels),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeReviewLabel,
+		(_e, { projectId, reviewId, label }: RemoveReviewLabelParams) =>
+			removeReviewLabel(projectId, reviewId, label),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.requestReview,
+		(_e, { projectId, reviewId, logins }: ReviewRequestParams) =>
+			requestReview(projectId, reviewId, logins),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.withdrawReviewRequest,
+		(_e, { projectId, reviewId, logins }: ReviewRequestParams) =>
+			withdrawReviewRequest(projectId, reviewId, logins),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.createReviewComment,
+		(_e, { projectId, reviewId, body }: CreateReviewCommentParams) =>
+			createReviewComment(projectId, reviewId, body),
+	);
+	senderValidatingHandle(liteIpcChannels.currentForgeLogin, (_e, projectId: string) =>
+		currentForgeLogin(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateReviewComment,
+		(_e, { projectId, commentId, body }: UpdateReviewCommentParams) =>
+			updateReviewComment(projectId, commentId, body),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.deleteReviewComment,
+		(_e, { projectId, commentId }: DeleteReviewCommentParams) =>
+			deleteReviewComment(projectId, commentId),
+	);
 	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
 	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
 		getRedoTargetSnapshot(projectId),
@@ -838,7 +953,9 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data: https://*.gravatar.com;" +
+			// user-attachments assets on github.com 302 to GitHub's signed S3 bucket,
+			// and CSP checks every redirect hop — hence the explicit bucket host.
+			"img-src 'self' data: https://*.gravatar.com https://*.githubusercontent.com https://github.com https://github-production-user-asset-6210df.s3.amazonaws.com;" +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -872,7 +989,9 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data: https://*.gravatar.com;" +
+			// user-attachments assets on github.com 302 to GitHub's signed S3 bucket,
+			// and CSP checks every redirect hop — hence the explicit bucket host.
+			"img-src 'self' data: https://*.gravatar.com https://*.githubusercontent.com https://github.com https://github-production-user-asset-6210df.s3.amazonaws.com;" +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

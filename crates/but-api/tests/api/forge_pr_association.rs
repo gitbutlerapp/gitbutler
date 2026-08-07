@@ -165,6 +165,7 @@ fn review(number: usize) -> but_forge::ForgeReview {
         repository_https_url: None,
         repo_owner: None,
         head_repo_is_fork: false,
+        auto_merge_enabled: false,
         reviewers: vec![],
         unit_symbol: "#".into(),
         last_sync_at: Default::default(),

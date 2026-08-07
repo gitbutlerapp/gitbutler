@@ -50,6 +50,10 @@ pub struct ForgeCapabilities {
     pub repo_info: bool,
     pub pr_service: bool,
     pub list_service: bool,
+    /// Conversation comments and review submissions can be read and written.
+    pub review_comments: bool,
+    /// Labels and review requests can be listed and changed.
+    pub review_management: bool,
 }
 
 #[cfg(feature = "export-schema")]
@@ -194,24 +198,32 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             repo_info: true,
             pr_service: true,
             list_service: true,
+            review_comments: true,
+            review_management: true,
         },
         ForgeName::GitLab => ForgeCapabilities {
             checks: true,
             repo_info: true,
             pr_service: true,
             list_service: true,
+            review_comments: false,
+            review_management: false,
         },
         ForgeName::Bitbucket => ForgeCapabilities {
             checks: true,
             repo_info: true,
             pr_service: true,
             list_service: true,
+            review_comments: false,
+            review_management: false,
         },
         ForgeName::Azure => ForgeCapabilities {
             checks: false,
             repo_info: false,
             pr_service: false,
             list_service: false,
+            review_comments: false,
+            review_management: false,
         },
     }
 }

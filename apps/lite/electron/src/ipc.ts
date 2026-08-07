@@ -59,6 +59,12 @@ import type {
 	ReviewState,
 	ReviewMergeMethod,
 	ReviewMergeStatus,
+	ForgeReviewComment,
+	ForgeReviewLabel,
+	ForgeReviewReaction,
+	ForgeReviewSubmission,
+	ForgeReviewTimelineEvent,
+	ForgeReviewUser,
 	ReviewTemplateInfo,
 	RestoreKind,
 	Snapshot,
@@ -264,6 +270,78 @@ export interface ListReviewsForBranchParams {
 export interface GetReviewParams {
 	projectId: string;
 	reviewId: number;
+}
+
+export interface CreateReviewCommentParams {
+	projectId: string;
+	reviewId: number;
+	body: string;
+}
+
+/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
+export interface UpdateReviewCommentParams {
+	projectId: string;
+	reviewId: number;
+	commentId: number;
+	body: string;
+}
+
+/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
+export interface DeleteReviewCommentParams {
+	projectId: string;
+	reviewId: number;
+	commentId: number;
+}
+
+export interface CommentReactionsParams {
+	projectId: string;
+	commentId: number;
+}
+
+export interface AddReviewReactionParams {
+	projectId: string;
+	reviewId: number;
+	kind: string;
+}
+
+export interface RemoveReviewReactionParams {
+	projectId: string;
+	reviewId: number;
+	reactionId: number;
+}
+
+/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
+export interface AddCommentReactionParams {
+	projectId: string;
+	reviewId: number;
+	commentId: number;
+	kind: string;
+}
+
+/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
+export interface RemoveCommentReactionParams {
+	projectId: string;
+	reviewId: number;
+	commentId: number;
+	reactionId: number;
+}
+
+export interface AddReviewLabelsParams {
+	projectId: string;
+	reviewId: number;
+	labels: Array<string>;
+}
+
+export interface RemoveReviewLabelParams {
+	projectId: string;
+	reviewId: number;
+	label: string;
+}
+
+export interface ReviewRequestParams {
+	projectId: string;
+	reviewId: number;
+	logins: Array<string>;
 }
 
 export interface ListCiChecksParams {
@@ -474,6 +552,10 @@ export interface LiteElectronApi {
 	commitMoveChangesBetween: (params: CommitMoveChangesBetweenParams) => Promise<MoveChangesResult>;
 	commitUncommit: (params: CommitUncommitParams) => Promise<UncommitResult>;
 	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
+	addReviewLabels: (params: AddReviewLabelsParams) => Promise<Array<ForgeReviewLabel>>;
+	createReviewComment: (params: CreateReviewCommentParams) => Promise<ForgeReviewComment>;
+	currentForgeLogin: (projectId: string) => Promise<string | null>;
+	deleteReviewComment: (params: DeleteReviewCommentParams) => Promise<void>;
 	forgeCompareBranchUrl: (params: ForgeCompareBranchUrlParams) => Promise<string | null>;
 	forgeInfo: (projectId: string) => Promise<ForgeInfo | null>;
 	forgeProvider: (projectId: string) => Promise<ForgeName | null>;
@@ -495,6 +577,21 @@ export interface LiteElectronApi {
 	listEditors: () => Promise<Array<Editor>>;
 	listPrograms: () => Promise<Array<Program>>;
 	listProjectsStateless: () => Promise<Array<ProjectForFrontend>>;
+	listRepoLabels: (projectId: string) => Promise<Array<ForgeReviewLabel>>;
+	listReviewComments: (params: GetReviewParams) => Promise<Array<ForgeReviewComment>>;
+	listReviewSubmissions: (params: GetReviewParams) => Promise<Array<ForgeReviewSubmission>>;
+	listReviewTimelineEvents: (params: GetReviewParams) => Promise<Array<ForgeReviewTimelineEvent>>;
+	listReviewReactions: (params: GetReviewParams) => Promise<Array<ForgeReviewReaction>>;
+	listCommentReactions: (params: CommentReactionsParams) => Promise<Array<ForgeReviewReaction>>;
+	addReviewReaction: (params: AddReviewReactionParams) => Promise<ForgeReviewReaction>;
+	removeReviewReaction: (params: RemoveReviewReactionParams) => Promise<void>;
+	addCommentReaction: (params: AddCommentReactionParams) => Promise<ForgeReviewReaction>;
+	removeCommentReaction: (params: RemoveCommentReactionParams) => Promise<void>;
+	updateReviewComment: (params: UpdateReviewCommentParams) => Promise<ForgeReviewComment>;
+	listReviewerCandidates: (projectId: string) => Promise<Array<ForgeReviewUser>>;
+	removeReviewLabel: (params: RemoveReviewLabelParams) => Promise<void>;
+	requestReview: (params: ReviewRequestParams) => Promise<void>;
+	withdrawReviewRequest: (params: ReviewRequestParams) => Promise<void>;
 	listReviews: (params: ListReviewsParams) => Promise<Array<ForgeReview>>;
 	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	mergeReview: (params: MergeReviewParams) => Promise<void>;
@@ -569,44 +666,63 @@ export const liteIpcChannels = {
 	commitMoveChangesBetween: "workspace:commit-move-changes-between",
 	commitUncommit: "workspace:commit-uncommit",
 	commitUncommitChanges: "workspace:commit-uncommit-changes",
-	forgeCompareBranchUrl: "workspace:forge-compare-branch-url",
-	forgeInfo: "workspace:forge-info",
-	forgeProvider: "workspace:forge-provider",
+	addReviewLabels: "forge:add-review-labels",
+	createReviewComment: "forge:create-review-comment",
+	currentForgeLogin: "forge:current-login",
+	deleteReviewComment: "forge:delete-review-comment",
+	forgeCompareBranchUrl: "forge:compare-branch-url",
+	forgeInfo: "forge:info",
+	forgeProvider: "forge:provider",
 	getInitialBranchIntegration: "workspace:get-initial-branch-integration",
 	getRepoInfo: "workspace:get-repo-info",
-	getReviewBaseRepoUrl: "workspace:get-review-base-repo-url",
-	getReviewMergeStatus: "workspace:get-review-merge-status",
+	getReviewBaseRepoUrl: "forge:get-review-base-repo-url",
+	getReviewMergeStatus: "forge:get-review-merge-status",
 	getVersion: "lite:get-version",
 	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
-	getReview: "workspace:get-review",
+	getReview: "forge:get-review",
 	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
 	headInfo: "workspace:head-info",
 	isFullScreen: "lite:is-full-screen",
 	fullScreenChange: "lite:full-screen-change",
-	listAvailableReviewTemplates: "workspace:list-available-review-templates",
-	listCiChecks: "workspace:list-ci-checks",
+	listAvailableReviewTemplates: "forge:list-available-review-templates",
+	listCiChecks: "forge:list-ci-checks",
 	listEditors: "workspace:list-editors",
 	listPrograms: "workspace:list-programs",
 	listProjectsStateless: "projects:list-stateless",
-	listReviews: "workspace:list-reviews",
-	listReviewsForBranch: "workspace:list-reviews-for-branch",
-	mergeReview: "workspace:merge-review",
+	listRepoLabels: "forge:list-repo-labels",
+	listReviewComments: "forge:list-review-comments",
+	listReviewSubmissions: "forge:list-review-submissions",
+	listReviewTimelineEvents: "forge:list-review-timeline-events",
+	listReviewReactions: "forge:list-review-reactions",
+	listCommentReactions: "workspace:list-comment-reactions",
+	addReviewReaction: "forge:add-review-reaction",
+	removeReviewReaction: "forge:remove-review-reaction",
+	addCommentReaction: "workspace:add-comment-reaction",
+	removeCommentReaction: "workspace:remove-comment-reaction",
+	updateReviewComment: "forge:update-review-comment",
+	listReviewerCandidates: "forge:list-reviewer-candidates",
+	removeReviewLabel: "forge:remove-review-label",
+	requestReview: "forge:request-review",
+	withdrawReviewRequest: "forge:withdraw-review-request",
+	listReviews: "forge:list-reviews",
+	listReviewsForBranch: "forge:list-reviews-for-branch",
+	mergeReview: "forge:merge-review",
 	moveBranch: "workspace:move-branch",
 	openInProgram: "workspace:open-in-program",
 	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",
-	publishReview: "workspace:publish-review",
+	publishReview: "forge:publish-review",
 	branchRename: "workspace:branch-rename",
-	updateReview: "workspace:update-review",
+	updateReview: "forge:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	workspaceBranchAndAncestorsPush: "workspace:push-stack",
 	branchRemove: "workspace:branch-remove",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
-	reviewTemplate: "workspace:review-template",
-	setReviewAutoMerge: "workspace:set-review-auto-merge",
-	setReviewDraftiness: "workspace:set-review-draftiness",
-	setReviewTemplate: "workspace:set-review-template",
+	reviewTemplate: "forge:review-template",
+	setReviewAutoMerge: "forge:set-review-auto-merge",
+	setReviewDraftiness: "forge:set-review-draftiness",
+	setReviewTemplate: "forge:set-review-template",
 	setTargetRefAndInitProject: "workspace:set-target-ref-and-init-project",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",
@@ -615,8 +731,8 @@ export const liteIpcChannels = {
 	workspaceFetchStatus: "workspace:fetch-status",
 	workspaceTargetCommits: "workspace:target-commits",
 	workspaceIntegrateUpstream: "workspace:integrate-upstream",
-	updateReviewFooters: "workspace:update-review-footers",
-	warmCiChecksCache: "workspace:warm-ci-checks-cache",
+	updateReviewFooters: "forge:update-review-footers",
+	warmCiChecksCache: "forge:warm-ci-checks-cache",
 	watcherSubscribe: "workspace:watcher-subscribe",
 	watcherUnsubscribe: "workspace:watcher-unsubscribe",
 	watcherStopAll: "workspace:watcher-stop-all",

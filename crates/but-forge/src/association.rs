@@ -128,6 +128,7 @@ mod tests {
             repo_owner: None,
             head_repo_is_fork: false,
             reviewers: Vec::new(),
+            auto_merge_enabled: false,
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }

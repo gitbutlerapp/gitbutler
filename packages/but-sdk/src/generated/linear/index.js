@@ -579,9 +579,12 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, commentArchive, commentCreate, commentsList, commentUpdate, commitAmend, commitCherryPick, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, getWorkspace, headInfo, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listPrograms, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, openInProgram, peelRestoreSnapshot, ProgramCategory, publishReview, removeBranch, restoreSnapshotWithKind, reviewApply, reviewTemplate, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setTargetRefAndInitProject, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceTargetCommits, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, addCommentReaction, addReviewLabels, addReviewReaction, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, commentArchive, commentCreate, commentsList, commentUpdate, commitAmend, commitCherryPick, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, createReviewComment, currentForgeLogin, deleteReviewComment, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, getWorkspace, headInfo, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listCommentReactions, listEditors, listPrograms, listProjectsStateless, listRepoLabels, listReviewComments, listReviewerCandidates, listReviewReactions, listReviews, listReviewsForBranch, listReviewSubmissions, listReviewTimelineEvents, mergeReview, moveBranch, openInProgram, peelRestoreSnapshot, ProgramCategory, publishReview, removeBranch, removeCommentReaction, removeReviewLabel, removeReviewReaction, requestReview, restoreSnapshotWithKind, reviewApply, reviewTemplate, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setTargetRefAndInitProject, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewComment, updateReviewFooters, warmCiChecksCache, withdrawReviewRequest, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceTargetCommits, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
+export { addCommentReaction }
+export { addReviewLabels }
+export { addReviewReaction }
 export { apply }
 export { applyBranchIntegration }
 export { assignHunk }
@@ -614,6 +617,9 @@ export { commitSquash }
 export { commitUncommit }
 export { commitUncommitChanges }
 export { commitUncommitChangesFromCommits }
+export { createReviewComment }
+export { currentForgeLogin }
+export { deleteReviewComment }
 export { discardWorktreeChanges }
 export { forgeCompareBranchUrl }
 export { forgeInfo }
@@ -631,11 +637,18 @@ export { initApplicationNamespace }
 export { listAvailableReviewTemplates }
 export { listBranches }
 export { listCiChecks }
+export { listCommentReactions }
 export { listEditors }
 export { listPrograms }
 export { listProjectsStateless }
+export { listRepoLabels }
+export { listReviewComments }
+export { listReviewerCandidates }
+export { listReviewReactions }
 export { listReviews }
 export { listReviewsForBranch }
+export { listReviewSubmissions }
+export { listReviewTimelineEvents }
 export { mergeReview }
 export { moveBranch }
 export { openInProgram }
@@ -643,6 +656,10 @@ export { peelRestoreSnapshot }
 export { ProgramCategory }
 export { publishReview }
 export { removeBranch }
+export { removeCommentReaction }
+export { removeReviewLabel }
+export { removeReviewReaction }
+export { requestReview }
 export { restoreSnapshotWithKind }
 export { reviewApply }
 export { reviewTemplate }
@@ -656,8 +673,10 @@ export { treeChangeDiffs }
 export { unapplyStack }
 export { updateBranchName }
 export { updateReview }
+export { updateReviewComment }
 export { updateReviewFooters }
 export { warmCiChecksCache }
+export { withdrawReviewRequest }
 export { workspaceBranchAndAncestorsPush }
 export { workspaceCheckout }
 export { workspaceFetchFromRemotes }

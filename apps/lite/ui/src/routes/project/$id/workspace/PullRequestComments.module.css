@@ -1,0 +1,152 @@
+.comments {
+	margin-block-start: 48px;
+}
+
+.commentsHeading {
+	margin-block-end: 8px;
+	color: var(--text-2);
+	font-weight: 600;
+}
+
+.commentsEmpty {
+	color: var(--text-3);
+}
+
+.commentList {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.comment {
+	display: flex;
+	flex-direction: column;
+	padding: 10px 12px;
+	gap: 4px;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-lg);
+}
+
+/* An optimistic comment still in flight to the forge. */
+.commentSending {
+	opacity: 0.6;
+}
+
+.commentMeta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.commentTime {
+	color: var(--text-3);
+}
+
+.commentActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: auto;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	cursor: pointer;
+	/* Quiet until the comment is hovered; keyboard focus and an in-flight
+	   delete keep it visible. */
+	opacity: 0;
+	transition: opacity 120ms ease;
+
+	&:hover {
+		color: var(--text-1);
+	}
+
+	.comment:hover &,
+	&:focus-visible,
+	&:disabled {
+		opacity: 1;
+	}
+}
+
+/* Timeline rows that are events (opened, reviewed) rather than comments:
+ * no card chrome, just the meta line and an optional indented body. */
+.event {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	padding-inline: 12px;
+	gap: 4px;
+
+	/* Short connector dashes in the gaps around event rows, centered on the
+	   icon column. Adjacent events' below/above stubs coincide, so each gap
+	   shows exactly one dash; the comment cards stay dash-free. */
+	&:not(:first-child)::before,
+	&:not(:last-child)::after {
+		position: absolute;
+		left: 20px;
+		width: 1px;
+		background-color: var(--border-2);
+		content: "";
+	}
+
+	&::before {
+		top: -12px;
+		height: 8px;
+	}
+
+	&::after {
+		bottom: -12px;
+		height: 8px;
+	}
+}
+
+.eventText {
+	color: var(--text-2);
+}
+
+.eventBody {
+	padding: 10px 12px;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-lg);
+}
+
+.eventActor {
+	color: var(--text-1);
+}
+
+.eventSha {
+	font-family: var(--text-fontfamily-mono);
+}
+
+.commentFooter {
+	display: flex;
+	align-items: center;
+	margin-block-start: 4px;
+	padding-block-start: 8px;
+	gap: 8px;
+	border-top: 1px solid var(--border-3);
+}
+
+.replyButton {
+	margin-inline-start: auto;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
+
+.composer {
+	display: flex;
+	flex-direction: column;
+	margin-block-start: 16px;
+	gap: 8px;
+}
+
+.composerActions {
+	display: flex;
+	justify-content: flex-end;
+}

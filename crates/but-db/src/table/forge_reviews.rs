@@ -44,6 +44,11 @@ CREATE TABLE `forge_reviews`(
         "ALTER TABLE `forge_reviews` ADD COLUMN `integration_commit_shas` TEXT NOT NULL DEFAULT '[]';
 DELETE FROM `forge_reviews`;",
     ),
+    M::up(
+        20260805120000,
+        SchemaVersion::Zero,
+        "ALTER TABLE `forge_reviews` ADD COLUMN `auto_merge_enabled` BOOL NOT NULL DEFAULT FALSE;",
+    ),
 ];
 
 /// Tests are in `but-db/tests/db/table/forge_review.rs`.
@@ -69,6 +74,7 @@ pub struct ForgeReview {
     pub repo_owner: Option<String>,
     pub head_repo_is_fork: bool,
     pub reviewers: String,
+    pub auto_merge_enabled: bool,
     pub unit_symbol: String,
     pub last_sync_at: chrono::NaiveDateTime,
     pub struct_version: i32,
@@ -113,7 +119,7 @@ impl ForgeReviewsHandle<'_> {
             "SELECT html_url, number, title, body, author, labels, draft, source_branch, \
              target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
              repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
-             unit_symbol, last_sync_at, struct_version FROM forge_reviews",
+             auto_merge_enabled, unit_symbol, last_sync_at, struct_version FROM forge_reviews",
         )?;
 
         let results = stmt.query_map([], |row| {
@@ -138,9 +144,10 @@ impl ForgeReviewsHandle<'_> {
                 repo_owner: row.get(17)?,
                 head_repo_is_fork: row.get(18)?,
                 reviewers: row.get(19)?,
-                unit_symbol: row.get(20)?,
-                last_sync_at: row.get(21)?,
-                struct_version: row.get(22)?,
+                auto_merge_enabled: row.get(20)?,
+                unit_symbol: row.get(21)?,
+                last_sync_at: row.get(22)?,
+                struct_version: row.get(23)?,
             })
         })?;
 
@@ -285,8 +292,8 @@ impl ForgeReviewsHandleMut<'_> {
             "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
              source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
              repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
-             unit_symbol, last_sync_at, struct_version) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23) \
+             auto_merge_enabled, unit_symbol, last_sync_at, struct_version) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24) \
              ON CONFLICT(number) DO UPDATE SET
                 html_url = excluded.html_url,
                 title = excluded.title,
@@ -307,6 +314,7 @@ impl ForgeReviewsHandleMut<'_> {
                 repo_owner = excluded.repo_owner,
                 head_repo_is_fork = excluded.head_repo_is_fork,
                 reviewers = excluded.reviewers,
+                auto_merge_enabled = excluded.auto_merge_enabled,
                 unit_symbol = excluded.unit_symbol,
                 last_sync_at = excluded.last_sync_at,
                 struct_version = excluded.struct_version",
@@ -331,6 +339,7 @@ impl ForgeReviewsHandleMut<'_> {
                 review.repo_owner,
                 review.head_repo_is_fork,
                 review.reviewers,
+                review.auto_merge_enabled,
                 review.unit_symbol,
                 review.last_sync_at,
                 review.struct_version,

@@ -15,15 +15,23 @@ pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_c
 pub use forge_info::{ForgeCapabilities, ForgeInfo, ForgeUnitInfo, compare_branch_url, forge_info};
 pub use repo::{RepoInfo, RepoPermissions, get_repo_info};
 pub use review::{
-    CacheConfig, CreateForgeReviewParams, ForgeAccountValidity, ForgeReview, ForgeReviewFilter,
-    ForgeReviewTargetUpdate, ForgeReviewUpdate, GitHubStackingMode, PublishReviewOutcome,
-    ReviewMergeMethod, ReviewMergeStatus, ReviewStackingDescription, ReviewState,
-    ReviewSyncOutcome, ReviewTemplateFunctions, ReviewUpdatePayload, available_review_templates,
-    cache_review, check_forge_account_is_valid, compute_review_target_updates, create_forge_review,
-    get_forge_review, get_review_base_repo_url, get_review_merge_status,
-    get_review_template_functions, list_forge_reviews_for_branch, list_forge_reviews_with_cache,
-    merge_review, prepare_review_target_updates, restore_native_stacks,
-    set_review_auto_merge_state, set_review_draftiness, sync_reviews, update_review,
+    CacheConfig, CreateForgeReviewParams, ForgeAccountValidity, ForgeReview, ForgeReviewComment,
+    ForgeReviewFilter, ForgeReviewLabel, ForgeReviewReaction, ForgeReviewReactionCount,
+    ForgeReviewSubmission, ForgeReviewSubmissionState, ForgeReviewTargetUpdate,
+    ForgeReviewTimelineEvent, ForgeReviewTimelineEventKind, ForgeReviewUpdate, ForgeReviewUser,
+    GitHubStackingMode, PublishReviewOutcome, ReviewMergeMethod, ReviewMergeStatus,
+    ReviewStackingDescription, ReviewState, ReviewSyncOutcome, ReviewTemplateFunctions,
+    ReviewUpdatePayload, add_comment_reaction, add_review_labels, add_review_reaction,
+    available_review_templates, cache_review, check_forge_account_is_valid,
+    compute_review_target_updates, create_forge_review, create_review_comment,
+    delete_review_comment, get_forge_review, get_review_base_repo_url, get_review_merge_status,
+    get_review_template_functions, list_comment_reactions, list_forge_reviews_for_branch,
+    list_forge_reviews_with_cache, list_repo_labels, list_review_comments, list_review_reactions,
+    list_review_submissions, list_review_timeline_events, list_reviewer_candidates, merge_review,
+    prepare_review_target_updates, remove_comment_reaction, remove_review_label,
+    remove_review_reaction, request_review, restore_native_stacks, set_review_auto_merge_state,
+    set_review_draftiness, sync_reviews, update_review, update_review_comment,
+    withdraw_review_request,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
@@ -141,6 +149,40 @@ fn normalize_host_for_comparison(value: &str) -> String {
         .trim()
         .trim_end_matches('.')
         .to_ascii_lowercase()
+}
+
+/// The login this repository's forge calls authenticate as: the preferred
+/// account when it is known to storage, otherwise the first known account of
+/// the repository's forge — mirroring how the per-forge clients resolve
+/// their account. `None` when no matching account is configured.
+pub fn current_forge_login(
+    preferred_forge_user: &Option<ForgeUser>,
+    forge_repo_info: &ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+) -> anyhow::Result<Option<String>> {
+    match forge_repo_info.forge {
+        ForgeName::GitHub => {
+            let accounts = but_github::list_known_github_accounts(storage)?;
+            let preferred = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.github())
+                .filter(|preferred| accounts.contains(preferred));
+            Ok(preferred
+                .or(accounts.first())
+                .map(|account| account.username().to_string()))
+        }
+        ForgeName::GitLab => {
+            let accounts = but_gitlab::list_known_gitlab_accounts(storage)?;
+            let preferred = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitlab())
+                .filter(|preferred| accounts.contains(preferred));
+            Ok(preferred
+                .or(accounts.first())
+                .map(|account| account.username().to_string()))
+        }
+        _ => Ok(None),
+    }
 }
 
 /// Get all known forge accounts

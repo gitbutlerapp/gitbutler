@@ -506,7 +506,7 @@ CREATE TABLE `forge_reviews`(
 	`unit_symbol` TEXT NOT NULL,
 	`last_sync_at` TIMESTAMP NOT NULL,
 	`struct_version` INTEGER NOT NULL
-, `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE, `integration_commit_shas` TEXT NOT NULL DEFAULT '[]');
+, `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE, `integration_commit_shas` TEXT NOT NULL DEFAULT '[]', `auto_merge_enabled` BOOL NOT NULL DEFAULT FALSE);
 
 -- table gerrit_metadata
 CREATE TABLE `gerrit_metadata`(
@@ -679,6 +679,7 @@ Text("20260626120100")
 Text("20260715120000")
 Text("20260715161258")
 Text("20260716175500")
+Text("20260805120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -705,7 +706,7 @@ Table: gerrit_metadata
 change_id | commit_id | review_url | created_at | updated_at
 
 Table: forge_reviews
-html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork | integration_commit_shas
+html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork | integration_commit_shas | auto_merge_enabled
 
 Table: ci_checks
 id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version

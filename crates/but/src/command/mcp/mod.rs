@@ -1600,6 +1600,7 @@ mod tests {
             repository_https_url: None,
             repo_owner: Some("gitbutlerapp".into()),
             head_repo_is_fork: false,
+            auto_merge_enabled: false,
             reviewers: Vec::new(),
             unit_symbol: "#".into(),
             last_sync_at: Default::default(),

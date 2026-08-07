@@ -11,6 +11,12 @@ import type {
 	DiffSpec,
 	Editor,
 	ForgeReview,
+	ForgeReviewComment,
+	ForgeReviewLabel,
+	ForgeReviewReaction,
+	ForgeReviewSubmission,
+	ForgeReviewTimelineEvent,
+	ForgeReviewUser,
 	Program,
 	ProjectForFrontend,
 	PublishReviewOutcome,
@@ -138,12 +144,20 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:commit-uncommit", params) as Promise<UncommitResult>,
 	commitUncommitChanges: (params) =>
 		ipcRenderer.invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
+	addReviewLabels: (params) =>
+		ipcRenderer.invoke("forge:add-review-labels", params) as Promise<Array<ForgeReviewLabel>>,
+	createReviewComment: (params) =>
+		ipcRenderer.invoke("forge:create-review-comment", params) as Promise<ForgeReviewComment>,
+	currentForgeLogin: (projectId) =>
+		ipcRenderer.invoke("forge:current-login", projectId) as Promise<string | null>,
+	deleteReviewComment: (params) =>
+		ipcRenderer.invoke("forge:delete-review-comment", params) as Promise<void>,
 	forgeCompareBranchUrl: (params) =>
-		ipcRenderer.invoke("workspace:forge-compare-branch-url", params) as Promise<string | null>,
+		ipcRenderer.invoke("forge:compare-branch-url", params) as Promise<string | null>,
 	forgeInfo: (projectId) =>
-		ipcRenderer.invoke("workspace:forge-info", projectId) as Promise<ForgeInfo | null>,
+		ipcRenderer.invoke("forge:info", projectId) as Promise<ForgeInfo | null>,
 	forgeProvider: (projectId) =>
-		ipcRenderer.invoke("workspace:forge-provider", projectId) as Promise<ForgeName | null>,
+		ipcRenderer.invoke("forge:provider", projectId) as Promise<ForgeName | null>,
 	getInitialBranchIntegration: (params) =>
 		ipcRenderer.invoke(
 			"workspace:get-initial-branch-integration",
@@ -152,13 +166,13 @@ const api: LiteElectronApi = {
 	getRepoInfo: (projectId) =>
 		ipcRenderer.invoke("workspace:get-repo-info", projectId) as Promise<RepoInfo>,
 	getReviewBaseRepoUrl: (params) =>
-		ipcRenderer.invoke("workspace:get-review-base-repo-url", params) as Promise<string | null>,
+		ipcRenderer.invoke("forge:get-review-base-repo-url", params) as Promise<string | null>,
 	getReviewMergeStatus: (params) =>
-		ipcRenderer.invoke("workspace:get-review-merge-status", params) as Promise<ReviewMergeStatus>,
+		ipcRenderer.invoke("forge:get-review-merge-status", params) as Promise<ReviewMergeStatus>,
 	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
 	getRedoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
-	getReview: (params) => ipcRenderer.invoke("workspace:get-review", params) as Promise<ForgeReview>,
+	getReview: (params) => ipcRenderer.invoke("forge:get-review", params) as Promise<ForgeReview>,
 	getUndoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
 	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
@@ -171,20 +185,59 @@ const api: LiteElectronApi = {
 		return () => ipcRenderer.removeListener("lite:full-screen-change", listener);
 	},
 	listAvailableReviewTemplates: (projectId) =>
-		ipcRenderer.invoke("workspace:list-available-review-templates", projectId) as Promise<
+		ipcRenderer.invoke("forge:list-available-review-templates", projectId) as Promise<
 			Array<string>
 		>,
 	listCiChecks: (params) =>
-		ipcRenderer.invoke("workspace:list-ci-checks", params) as Promise<Array<CiCheck>>,
+		ipcRenderer.invoke("forge:list-ci-checks", params) as Promise<Array<CiCheck>>,
 	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
 	listPrograms: () => ipcRenderer.invoke("workspace:list-programs") as Promise<Array<Program>>,
 	listProjectsStateless: () =>
 		ipcRenderer.invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
+	listRepoLabels: (projectId) =>
+		ipcRenderer.invoke("forge:list-repo-labels", projectId) as Promise<Array<ForgeReviewLabel>>,
+	listReviewComments: (params) =>
+		ipcRenderer.invoke("forge:list-review-comments", params) as Promise<Array<ForgeReviewComment>>,
+	listReviewTimelineEvents: (params) =>
+		ipcRenderer.invoke("forge:list-review-timeline-events", params) as Promise<
+			Array<ForgeReviewTimelineEvent>
+		>,
+	listReviewReactions: (params) =>
+		ipcRenderer.invoke("forge:list-review-reactions", params) as Promise<
+			Array<ForgeReviewReaction>
+		>,
+	listCommentReactions: (params) =>
+		ipcRenderer.invoke("workspace:list-comment-reactions", params) as Promise<
+			Array<ForgeReviewReaction>
+		>,
+	addReviewReaction: (params) =>
+		ipcRenderer.invoke("forge:add-review-reaction", params) as Promise<ForgeReviewReaction>,
+	removeReviewReaction: (params) =>
+		ipcRenderer.invoke("forge:remove-review-reaction", params) as Promise<void>,
+	addCommentReaction: (params) =>
+		ipcRenderer.invoke("workspace:add-comment-reaction", params) as Promise<ForgeReviewReaction>,
+	removeCommentReaction: (params) =>
+		ipcRenderer.invoke("workspace:remove-comment-reaction", params) as Promise<void>,
+	listReviewSubmissions: (params) =>
+		ipcRenderer.invoke("forge:list-review-submissions", params) as Promise<
+			Array<ForgeReviewSubmission>
+		>,
+	updateReviewComment: (params) =>
+		ipcRenderer.invoke("forge:update-review-comment", params) as Promise<ForgeReviewComment>,
+	listReviewerCandidates: (projectId) =>
+		ipcRenderer.invoke("forge:list-reviewer-candidates", projectId) as Promise<
+			Array<ForgeReviewUser>
+		>,
+	removeReviewLabel: (params) =>
+		ipcRenderer.invoke("forge:remove-review-label", params) as Promise<void>,
+	requestReview: (params) => ipcRenderer.invoke("forge:request-review", params) as Promise<void>,
+	withdrawReviewRequest: (params) =>
+		ipcRenderer.invoke("forge:withdraw-review-request", params) as Promise<void>,
 	listReviews: (params) =>
-		ipcRenderer.invoke("workspace:list-reviews", params) as Promise<Array<ForgeReview>>,
+		ipcRenderer.invoke("forge:list-reviews", params) as Promise<Array<ForgeReview>>,
 	listReviewsForBranch: (params) =>
-		ipcRenderer.invoke("workspace:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
-	mergeReview: (params) => ipcRenderer.invoke("workspace:merge-review", params) as Promise<void>,
+		ipcRenderer.invoke("forge:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
+	mergeReview: (params) => ipcRenderer.invoke("forge:merge-review", params) as Promise<void>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
 	openInProgram: (params) =>
@@ -194,10 +247,10 @@ const api: LiteElectronApi = {
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	publishReview: (params) =>
-		ipcRenderer.invoke("workspace:publish-review", params) as Promise<PublishReviewOutcome>,
+		ipcRenderer.invoke("forge:publish-review", params) as Promise<PublishReviewOutcome>,
 	branchRename: (params) =>
 		ipcRenderer.invoke("workspace:branch-rename", params) as Promise<BranchRenameResult>,
-	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
+	updateReview: (params) => ipcRenderer.invoke("forge:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>
@@ -209,16 +262,13 @@ const api: LiteElectronApi = {
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	reviewTemplate: (projectId) =>
-		ipcRenderer.invoke(
-			"workspace:review-template",
-			projectId,
-		) as Promise<ReviewTemplateInfo | null>,
+		ipcRenderer.invoke("forge:review-template", projectId) as Promise<ReviewTemplateInfo | null>,
 	setReviewAutoMerge: (params) =>
-		ipcRenderer.invoke("workspace:set-review-auto-merge", params) as Promise<void>,
+		ipcRenderer.invoke("forge:set-review-auto-merge", params) as Promise<void>,
 	setReviewDraftiness: (params) =>
-		ipcRenderer.invoke("workspace:set-review-draftiness", params) as Promise<void>,
+		ipcRenderer.invoke("forge:set-review-draftiness", params) as Promise<void>,
 	setReviewTemplate: (params) =>
-		ipcRenderer.invoke("workspace:set-review-template", params) as Promise<void>,
+		ipcRenderer.invoke("forge:set-review-template", params) as Promise<void>,
 	setTargetRefAndInitProject: (params) =>
 		ipcRenderer.invoke("workspace:set-target-ref-and-init-project", params) as Promise<void>,
 	showNativeMenu: (params) =>
@@ -238,9 +288,9 @@ const api: LiteElectronApi = {
 			params,
 		) as Promise<WorkspaceIntegrateUpstreamOutcome>,
 	updateReviewFooters: (params) =>
-		ipcRenderer.invoke("workspace:update-review-footers", params) as Promise<void>,
+		ipcRenderer.invoke("forge:update-review-footers", params) as Promise<void>,
 	warmCiChecksCache: (projectId) =>
-		ipcRenderer.invoke("workspace:warm-ci-checks-cache", projectId) as Promise<void>,
+		ipcRenderer.invoke("forge:warm-ci-checks-cache", projectId) as Promise<void>,
 	/**
 	 * Subscribe to a project.
 	 *

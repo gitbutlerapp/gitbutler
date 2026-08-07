@@ -1,0 +1,85 @@
+.prActions {
+	display: flex;
+	gap: 6px;
+}
+
+.splitButton {
+	display: flex;
+	gap: 2px;
+}
+
+/* The design's auto-merge control: a switch and label in outline-button
+   chrome, sitting between Edit and Merge. */
+.autoMerge {
+	display: flex;
+	align-items: center;
+	height: 28px;
+	padding-inline: 8px;
+	gap: 6px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-button);
+
+	label {
+		cursor: pointer;
+	}
+
+	/* Fade the whole pill like a disabled button; the switch's own fade is
+	   neutralized via its opacity variable so the two don't compound.
+	   base-ui disables via data-disabled, never the native attribute. */
+	&:has(button[data-disabled]) {
+		--disabled-opacity: 100%;
+
+		opacity: 0.5;
+
+		label {
+			cursor: default;
+		}
+	}
+}
+
+/* The design's kebab is chromeless, unlike its outlined neighbors. */
+.moreActions {
+	display: flex;
+	align-items: center;
+	padding: 0 4px;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	cursor: pointer;
+
+	&:hover:not(:disabled) {
+		color: var(--text-1);
+	}
+}
+
+.disabledActionWrap {
+	display: inline-flex;
+
+	/* Disabled buttons don't fire pointer events; let the wrapper receive them. */
+	> button:disabled {
+		pointer-events: none;
+	}
+}
+
+.prForm {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+	max-width: 700px;
+}
+
+.prView {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+.prViewEmptyBody {
+	color: var(--text-3);
+}
+
+.prFormActions {
+	display: flex;
+	column-gap: 4px;
+	justify-content: flex-end;
+}

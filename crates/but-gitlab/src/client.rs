@@ -958,6 +958,7 @@ pub struct MergeRequest {
     pub source_project_is_fork: bool,
     pub assignees: Vec<GitLabUser>,
     pub reviewers: Vec<GitLabUser>,
+    pub auto_merge_enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -985,6 +986,8 @@ struct GitLabMergeRequest {
     assignees: Vec<GitLabApiUser>,
     #[serde(default)]
     reviewers: Vec<GitLabApiUser>,
+    #[serde(default)]
+    merge_when_pipeline_succeeds: bool,
 }
 
 impl From<GitLabMergeRequest> for MergeRequest {
@@ -1027,6 +1030,7 @@ impl From<GitLabMergeRequest> for MergeRequest {
             ),
             assignees,
             reviewers,
+            auto_merge_enabled: mr.merge_when_pipeline_succeeds,
         }
     }
 }
@@ -1258,6 +1262,7 @@ mod tests {
             target_project_id: Some(1),
             assignees: vec![],
             reviewers: vec![],
+            merge_when_pipeline_succeeds: false,
         }
         .into();
 
@@ -1317,6 +1322,7 @@ mod tests {
             target_project_id: Some(7),
             assignees: vec![],
             reviewers: vec![],
+            merge_when_pipeline_succeeds: false,
         }
         .into();
 
@@ -1350,6 +1356,7 @@ mod tests {
             target_project_id: None,
             assignees: vec![],
             reviewers: vec![],
+            merge_when_pipeline_succeeds: false,
         }
         .into();
 
