@@ -70,7 +70,7 @@
 }
 
 /* When the panel is too narrow to fit the commit button label, hide it. */
-@container (max-width: 300px) {
+@container (max-width: 280px) {
 	.commitButtonLabel {
 		display: none;
 	}
