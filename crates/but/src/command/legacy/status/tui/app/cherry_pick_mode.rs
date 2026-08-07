@@ -304,7 +304,7 @@ impl App {
         let mut guard = ctx.exclusive_worktree_access();
         let mut meta = ctx.meta()?;
 
-        let PickOutcome { new_commits, .. } =
+        let (PickOutcome { new_commits, .. }, _ws) =
             pick::run(ctx, &mut meta, guard.write_permission(), pick_operation)?;
 
         messages.extend([

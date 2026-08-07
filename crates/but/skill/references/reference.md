@@ -95,6 +95,8 @@ but branch new feature -a <anchor>  # Stacked branch (dependent work)
 
 Use parallel branches for independent tasks. Use stacked branches when work depends on another branch.
 
+In single-branch mode (no managed workspace), `but branch new` stacks the new branch above the checked-out branch (or the `-a` anchor). When the new branch lands above the checked-out branch — always the case without an anchor — it is checked out and `HEAD` moves to it.
+
 For "commit these selected changes on a new branch", prefer `but commit -b <branch> -m "message" <ids>` instead of a separate `but branch new` or preflight `but status -fv` — `-b` creates the branch when it does not exist.
 
 ### `but apply <branch-name>`
@@ -366,7 +368,7 @@ but resolve cancel --force
 
 ### `but push <branch>`
 
-Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals (one entry per stack, folding in stack ancestors) and otherwise pushes all unpushed work — one push per stack via its topmost unpushed branch, so output has one entry per stack, not per branch. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
+Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals (one entry per stack, folding in stack ancestors) and otherwise pushes all unpushed work — one push per stack via its topmost unpushed branch, so output has one entry per stack, not per branch. A batch push exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe since up-to-date stacks are skipped. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
 but push <branch-name>             # Push the selected branch and its ancestors

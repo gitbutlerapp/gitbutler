@@ -669,13 +669,15 @@ async fn push_single_branch_impl(
     .await
 }
 
-/// Returns `true` if at least one branch was pushed successfully.
+/// Errors if any attempted branch failed to push, so the process exits
+/// non-zero; per-branch failures are still printed and reported via JSON
+/// first. An up-to-date workspace with nothing to push is not an error.
 async fn push_all_branches(
     ctx: &mut Context,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<()> {
     let t = theme::get();
     let mut progress = out.progress_channel();
     let branches_to_push = get_push_candidates(ctx)?;
@@ -697,7 +699,7 @@ async fn push_all_branches(
                 t.hint.paint("No branches have unpushed commits.")
             )?;
         }
-        return Ok(false);
+        return Ok(());
     }
 
     writeln!(progress)?;
@@ -831,7 +833,17 @@ async fn push_all_branches(
         }
     }
 
-    Ok(!pushed_results.is_empty())
+    if !failed_branches.is_empty() {
+        let attempted = failed_branches.len() + pushed_results.len();
+        anyhow::bail!(
+            "failed to push {} of {} branch{}",
+            failed_branches.len(),
+            attempted,
+            if attempted == 1 { "" } else { "es" }
+        );
+    }
+
+    Ok(())
 }
 
 fn handle_no_branch_specified(

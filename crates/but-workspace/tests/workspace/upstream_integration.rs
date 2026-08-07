@@ -970,6 +970,105 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 }
 
 #[test]
+fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_commit() -> Result<()>
+{
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "fully-integrated-branch-with-stale-target-parent",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+
+    // This is the `but land` reconcile shape: the workspace commit merges the landed stack and
+    // the stale target directly (an unnamed empty lane at the base). Removing the integrated
+    // stack must not leave the workspace commit parented on the stale base — that would
+    // materialize the old target's tree over the worktree.
+    assert_eq!(
+        workspace_parent_ids(&repo)?,
+        vec![repo.rev_parse_single("origin/main")?.detach()],
+        "workspace commit moves off the stale target parent onto the advanced target tip"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "fully-integrated-branch-with-empty-sibling-at-stale-target",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/B")?),
+            },
+        ],
+    )?;
+
+    // Same shape as the stale-target-parent test, except the second lane is a named empty
+    // branch B, selected for update like every named stack is by real callers. The reparent
+    // must leave the workspace commit following B — B has its own rebase onto the target —
+    // rather than treating B's edge as a stale base and stealing the workspace commit from it.
+    assert_eq!(
+        repo.rev_parse_single("B")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "the selected empty branch survives and rebases onto the advanced target tip"
+    );
+    assert_eq!(
+        workspace_parent_ids(&repo)?,
+        vec![repo.rev_parse_single("origin/main")?.detach()],
+        "workspace commit keeps following the empty branch to the target tip"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;

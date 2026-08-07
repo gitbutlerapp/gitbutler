@@ -28,6 +28,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
+use but_api::WorkspaceState;
 use cfg_if::cfg_if;
 use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
@@ -578,7 +579,7 @@ async fn match_subcommand(
         metrics_ctx.push_extra_prop("retiredCommitSyntax", true);
     }
 
-    match cmd {
+    let mut ctx = match cmd {
         Subcommands::Metrics {
             command_name,
             props,
@@ -592,78 +593,37 @@ async fn match_subcommand(
                 utils::metrics::add_workspace_shape(&mut event, &args.current_dir);
             }
             utils::metrics::capture_event_blocking(&app_settings, event).await;
-            Ok(())
+            return Ok(());
         }
         Subcommands::Gui { new_window, path } => {
             let path = path
                 .as_ref()
                 .map(|path| args.current_dir.join(path))
                 .unwrap_or_else(|| args.current_dir.clone());
-            command::gui::open(&path, new_window)
+            return command::gui::open(&path, new_window)
                 .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .map_err(CliError::from);
         }
-        Subcommands::_Open {
-            sources,
-            program_id,
-        } => {
-            use crate::utils::IntermediateChannel;
-
-            let ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Disabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            let out = IntermediateChannel::new(out);
-            command::open::open(&ctx, out, sources, program_id).emit_metrics(metrics_ctx)
+        Subcommands::Completions { shell } => {
+            return command::completions::generate_completions(shell)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from);
         }
-        Subcommands::Completions { shell } => command::completions::generate_completions(shell)
-            .emit_metrics(metrics_ctx)
-            .map_err(CliError::from),
         Subcommands::Update(update_args::Platform { cmd }) => {
-            command::update::handle(cmd, out, &app_settings)
+            return command::update::handle(cmd, out, &app_settings)
                 .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .map_err(CliError::from);
         }
         Subcommands::Help { topic } => {
             command::help::print(out, topic)?;
-            Ok(())
+            return Ok(());
         }
-        Subcommands::_Expand { cli_id } => {
-            let ctx = but_ctx::Context::discover(&args.current_dir)?;
-            let outcome = command::expand::handle(&ctx, cli_id).emit_metrics(metrics_ctx)?;
-            out.print_cli_output(outcome)?;
-            Ok(())
-        }
-        Subcommands::Onboarding => command::onboarding::handle(out).map_err(CliError::from),
-        Subcommands::Alias(alias_args::Platform { cmd }) => {
-            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-            match cmd {
-                Some(alias_args::Subcommands::List) | None => {
-                    command::alias::list(&*ctx.repo.get()?, out)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
-                }
-                Some(alias_args::Subcommands::Add {
-                    name,
-                    value,
-                    global,
-                }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from),
-                Some(alias_args::Subcommands::Remove { name, global }) => {
-                    command::alias::remove(&mut ctx, out, &name, global.into())
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
-                }
-            }
+        Subcommands::Onboarding => {
+            return command::onboarding::handle(out).map_err(CliError::from);
         }
         Subcommands::Config(args::config::Platform { cmd }) => {
             // Handle subcommands that don't require a repo context
-            match &cmd {
+            return match &cmd {
                 Some(args::config::Subcommands::Metrics { status }) => {
                     command::config::metrics_config(out, *status)
                         .await
@@ -727,7 +687,7 @@ async fn match_subcommand(
                         }
                     }
                 }
-            }
+            };
         }
         Subcommands::Skill(args::skill::Platform { cmd }) => {
             // Skill commands use repository context when available, but can run
@@ -748,29 +708,225 @@ async fn match_subcommand(
                 return Ok(());
             }
 
-            result.emit_metrics(metrics_ctx).map_err(CliError::from)
+            return result.emit_metrics(metrics_ctx).map_err(CliError::from);
         }
         Subcommands::Agent(agent::Platform { cmd }) => {
             let result = command::agent::handle(&args.current_dir, out, cmd);
 
-            result.emit_metrics(metrics_ctx).map_err(CliError::from)
+            return result.emit_metrics(metrics_ctx).map_err(CliError::from);
         }
+        Subcommands::Mcp(args::mcp::Platform { cmd }) => {
+            return match cmd {
+                args::mcp::Subcommands::Serve => {
+                    command::mcp::serve().await.map_err(CliError::from)
+                }
+            };
+        }
+        Subcommands::Edit { file } => {
+            let path = args.current_dir.join(&file);
+            tui::editor::edit_file(&path)
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Setup { init } => {
+            let repo = match but_api::legacy::projects::add_project_best_effort(
+                args.current_dir.clone(),
+            )? {
+                gitbutler_project::AddProjectOutcome::Added(project)
+                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
+                    gix::open(project.git_dir())?
+                }
+                gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => {
+                    return Err(anyhow::anyhow!(
+                            "The repository at {} uses the currently unsupported reftable reference format.",
+                            args.current_dir.display()
+                        )
+                        .into());
+                }
+                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
+            };
+            let mut ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
+            let mut guard = ctx.exclusive_worktree_access();
+            return command::legacy::setup::repo(
+                &mut ctx,
+                &args.current_dir,
+                out,
+                guard.write_permission(),
+            )
+            .context("Failed to set up GitButler project.")
+            .emit_metrics(metrics_ctx)
+            .map_err(CliError::from);
+        }
+        Subcommands::_Open { .. } => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Disabled,
+                ..Default::default()
+            },
+            out,
+        )?,
+        Subcommands::_Expand { .. } | Subcommands::Alias(..) => {
+            but_ctx::Context::discover(&args.current_dir)?
+        }
+        Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
+            &args,
+            match cmd {
+                Some(branch::Subcommands::Update { .. }) => InitCtxOptions {
+                    workspace_check: setup::WorkspaceCheck::Disabled,
+                    ..Default::default()
+                },
+                _ => InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+            },
+            out,
+        )?,
+        Subcommands::Switch { .. } => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                workspace_check: setup::WorkspaceCheck::Disabled,
+                ..Default::default()
+            },
+            out,
+        )?,
+        Subcommands::_Comment(..) => setup::init_ctx(&args, InitCtxOptions::default(), out)?,
+        #[cfg(feature = "legacy")]
+        Subcommands::Actions { .. }
+        | Subcommands::Pull { .. }
+        | Subcommands::Fetch
+        | Subcommands::Worktree(..)
+        | Subcommands::Push(..)
+        | Subcommands::Oplog(..)
+        | Subcommands::Undo(..)
+        | Subcommands::Redo(..)
+        | Subcommands::RefreshRemoteData { .. }
+        | Subcommands::Land { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out)?,
+        #[cfg(feature = "legacy")]
+        Subcommands::Clean { .. }
+        | Subcommands::Status { .. }
+        | Subcommands::Diff { .. }
+        | Subcommands::Show { .. }
+        | Subcommands::Commit(..)
+        | Subcommands::Squash(..)
+        | Subcommands::Move(..)
+        | Subcommands::_Diff2(..)
+        | Subcommands::_Reword2(..)
+        | Subcommands::Reword { .. }
+        | Subcommands::Absorb { .. }
+        | Subcommands::Discard(..)
+        | Subcommands::Pr(..)
+        | Subcommands::Resolve { .. }
+        | Subcommands::Uncommit(..)
+        | Subcommands::Amend(..)
+        | Subcommands::Pick(..)
+        | Subcommands::Unapply(..)
+        | Subcommands::Apply(..) => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Enabled { silent: false },
+                ..Default::default()
+            },
+            out,
+        )?,
+        #[cfg(feature = "legacy")]
+        Subcommands::Tui(..) => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                background_sync: BackgroundSync::Enabled { silent: true },
+                ..Default::default()
+            },
+            out,
+        )?,
+        #[cfg(feature = "legacy")]
+        Subcommands::Teardown { .. } => setup::init_ctx(
+            &args,
+            InitCtxOptions {
+                workspace_check: setup::WorkspaceCheck::Disabled,
+                target_requirement: TargetRequirement::Optional,
+                ..Default::default()
+            },
+            out,
+        )?,
+        Subcommands::AgentLog { .. } => {
+            unreachable!("agentlog command is handled before metrics setup")
+        }
+        Subcommands::External(_) => {
+            unreachable!("external commands are delegated before reaching match_subcommand")
+        }
+    };
+
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `report_newly_conflicted()`.
+    #[cfg(feature = "legacy")]
+    let mut newly_conflicted_data: Option<command::legacy::conflict_notice::ConflictSnapshot> =
+        None;
+    // If `Some`, and if result is `Ok`, this is passed to
+    // `run_status_after_if_requested()`.
+    let mut status_after_data: Option<bool> = None;
+    let _ws: Option<WorkspaceState> = match cmd {
+        Subcommands::Metrics { .. }
+        | Subcommands::Gui { .. }
+        | Subcommands::Completions { .. }
+        | Subcommands::Update(..)
+        | Subcommands::Help { .. }
+        | Subcommands::Onboarding
+        | Subcommands::Config(..)
+        | Subcommands::Skill(..)
+        | Subcommands::Agent(..)
+        | Subcommands::Mcp(..)
+        | Subcommands::Edit { .. }
+        | Subcommands::AgentLog { .. }
+        | Subcommands::External(..) => {
+            unreachable!("handled above")
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Setup { .. } => {
+            unreachable!("handled above")
+        }
+        Subcommands::_Open {
+            sources,
+            program_id,
+        } => {
+            use crate::utils::IntermediateChannel;
+
+            let out = IntermediateChannel::new(out);
+            command::open::open(&ctx, out, sources, program_id).emit_metrics(metrics_ctx)?;
+            None
+        }
+        Subcommands::_Expand { cli_id } => {
+            let outcome = command::expand::handle(&ctx, cli_id).emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
+            Some(alias_args::Subcommands::List) | None => {
+                command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)?;
+                None
+            }
+            Some(alias_args::Subcommands::Add {
+                name,
+                value,
+                global,
+            }) => {
+                command::alias::add(&mut ctx, out, &name, &value, global.into())
+                    .emit_metrics(metrics_ctx)?;
+                None
+            }
+            Some(alias_args::Subcommands::Remove { name, global }) => {
+                command::alias::remove(&mut ctx, out, &name, global.into())
+                    .emit_metrics(metrics_ctx)?;
+                None
+            }
+        },
         Subcommands::Branch(branch::Platform { cmd }) => match cmd {
             #[cfg(not(feature = "legacy"))]
             None => todo!("implement list and call recursively"),
             #[cfg(feature = "legacy")]
             None => {
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        background_sync: BackgroundSync::Enabled { silent: false },
-                        ..Default::default()
-                    },
-                    out,
-                )?;
-                command::legacy::branch::handle_no_subcommand(&mut ctx, out)
-                    .map_err(CliError::from)
-                    .emit_metrics(metrics_ctx)
+                command::legacy::branch::handle_no_subcommand(&mut ctx, out)?;
+                None
             }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::List {
@@ -783,19 +939,11 @@ async fn match_subcommand(
                 no_check,
                 empty,
             }) => {
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        background_sync: BackgroundSync::Enabled { silent: false },
-                        ..Default::default()
-                    },
-                    out,
-                )?;
                 command::legacy::branch::list_branches(
                     &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
                 )
-                .map_err(CliError::from)
-                .emit_metrics(metrics_ctx)
+                .emit_metrics(metrics_ctx)?;
+                None
             }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Show {
@@ -805,65 +953,47 @@ async fn match_subcommand(
                 ai,
                 check,
             }) => {
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        background_sync: BackgroundSync::Enabled { silent: false },
-                        ..Default::default()
-                    },
-                    out,
-                )?;
                 command::legacy::branch::show_branches(
                     &mut ctx, out, branch, review, files, ai, check,
                 )
-                .emit_metrics(metrics_ctx)
+                .emit_metrics(metrics_ctx)?;
+                None
             }
             #[cfg(feature = "legacy")]
-            Some(branch::Subcommands::New {
-                branch_name,
-                anchor,
-            }) => {
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        background_sync: BackgroundSync::Enabled { silent: false },
-                        ..Default::default()
-                    },
-                    out,
-                )?;
-                command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
-                    .emit_metrics(metrics_ctx)
+            Some(branch::Subcommands::New(new_args)) => {
+                use crate::utils::IntermediateChannel;
+
+                let status_after = args.status_after;
+                out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
+
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+                let outcome = command::legacy::branch::new::new(
+                    &mut ctx,
+                    IntermediateChannel::new(out),
+                    new_args,
+                )
+                .emit_metrics(metrics_ctx)?;
+                out.print_cli_output(outcome)?;
+                None
             }
             #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Delete { branches }) => {
                 use crate::utils::IntermediateChannel;
 
                 let status_after = args.status_after;
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        background_sync: BackgroundSync::Enabled { silent: false },
-                        ..Default::default()
-                    },
-                    out,
-                )?;
                 out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
 
-                let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-                let outcome = command::legacy::branch::delete(
+                newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+                let (outcome, ws) = command::legacy::branch::delete(
                     &mut ctx,
                     IntermediateChannel::new(out),
                     branches,
                 )
                 .emit_metrics(metrics_ctx)?;
                 out.print_cli_output(outcome)?;
-                command::legacy::conflict_notice::report_newly_conflicted(
-                    &ctx,
-                    out,
-                    conflicts_before,
-                );
-                run_status_after_if_requested(status_after, &mut ctx, out);
-                Ok(())
+                Some(ws)
             }
             Some(branch::Subcommands::Update {
                 branch,
@@ -873,15 +1003,8 @@ async fn match_subcommand(
                 interactive,
             }) => {
                 let status_after = args.status_after && !dry_run && !interactive;
-                let mut ctx = setup::init_ctx(
-                    &args,
-                    InitCtxOptions {
-                        workspace_check: setup::WorkspaceCheck::Disabled,
-                        ..Default::default()
-                    },
-                    out,
-                )?;
                 out.begin_status_after(status_after);
+                status_after_data = Some(status_after);
                 command::branch::update(
                     &mut ctx,
                     &branch,
@@ -892,12 +1015,13 @@ async fn match_subcommand(
                     out,
                 )
                 .emit_metrics(metrics_ctx)?;
-                #[cfg(feature = "legacy")]
-                run_status_after_if_requested(status_after, &mut ctx, out);
-                Ok(())
+                None
             }
             Some(branch::Subcommands::Move { .. }) => {
-                Err(bad_input("`but branch move` has been removed. Use `but move` instead.").into())
+                return Err(bad_input(
+                    "`but branch move` has been removed. Use `but move` instead.",
+                )
+                .into());
             }
         },
         Subcommands::Switch {
@@ -905,42 +1029,31 @@ async fn match_subcommand(
             workspace,
             new,
         } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    workspace_check: setup::WorkspaceCheck::Disabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
             command::r#switch::handle(&mut ctx, out, target, workspace, new)
-                .emit_metrics(metrics_ctx)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
-        Subcommands::Mcp(args::mcp::Platform { cmd }) => match cmd {
-            args::mcp::Subcommands::Serve => command::mcp::serve().await.map_err(CliError::from),
-        },
         #[cfg(feature = "legacy")]
-        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
-            Some(actions::Subcommands::HandleChanges {
-                description,
-                handler,
-            }) => {
-                let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-                command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
-                    .map_err(CliError::from)
+        Subcommands::Actions(actions::Platform { cmd }) => {
+            match cmd {
+                Some(actions::Subcommands::HandleChanges {
+                    description,
+                    handler,
+                }) => {
+                    command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)?;
+                }
+                None => {
+                    command::legacy::actions::list_actions(&ctx, out, 0, 10)?;
+                }
             }
-            None => {
-                let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-                command::legacy::actions::list_actions(&ctx, out, 0, 10).map_err(CliError::from)
-            }
-        },
+            None
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Pull { check } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::pull::handle(&mut ctx, out, check)
                 .await
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
@@ -953,11 +1066,10 @@ async fn match_subcommand(
                     "Assuming you meant to check for upstream work, running `but pull --check`"
                 )
             )?;
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::pull::handle(&mut ctx, out, true)
                 .await
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {
@@ -966,14 +1078,6 @@ async fn match_subcommand(
             include_upstream,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             if pull {
                 use std::fmt::Write;
                 let mut progress = out.progress_channel();
@@ -982,6 +1086,7 @@ async fn match_subcommand(
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
             command::legacy::clean::handle(
                 &mut ctx,
                 out,
@@ -991,15 +1096,12 @@ async fn match_subcommand(
                 },
             )
             .emit_metrics(metrics_ctx)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::worktree::handle(cmd, &mut ctx, out)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            command::legacy::worktree::handle(cmd, &mut ctx, out).emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Status {
@@ -1013,14 +1115,6 @@ async fn match_subcommand(
             use crate::command::legacy::status::FilesStatusFlag;
             use crate::command::legacy::status::StatusFlags;
 
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             let show_files = if show_files {
                 FilesStatusFlag::All
             } else {
@@ -1039,7 +1133,8 @@ async fn match_subcommand(
                 flags,
                 command::legacy::status::StatusRenderMode::Oneshot,
             )
-            .emit_metrics(metrics_ctx)
+            .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Tui(tui_args) => {
@@ -1052,14 +1147,6 @@ async fn match_subcommand(
                 .into());
             }
 
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: true },
-                    ..Default::default()
-                },
-                out,
-            )?;
             let options = TuiLaunchOptions::resolve(tui_args);
             command::legacy::status::worktree(
                 &mut ctx,
@@ -1067,7 +1154,8 @@ async fn match_subcommand(
                 StatusFlags::for_tui(),
                 StatusRenderMode::Tui(options),
             )
-            .emit_metrics(metrics_ctx)
+            .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Diff {
@@ -1081,14 +1169,6 @@ async fn match_subcommand(
                 )
                 .into());
             }
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             let use_tui = if tui {
                 true
             } else if no_tui || !out.format().allows_human_ui() {
@@ -1116,22 +1196,8 @@ async fn match_subcommand(
                     .show_root_cause_error_then_exit_without_destructors(output)
             }
         }
-        Subcommands::Edit { file } => {
-            let path = args.current_dir.join(&file);
-            tui::editor::edit_file(&path)
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -1141,130 +1207,85 @@ async fn match_subcommand(
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome = command::legacy::commit::commit(
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::commit::commit(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 commit_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Squash(squash_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome = command::legacy::squash::squash(
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::squash::squash(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 squash_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Move(move_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome =
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) =
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::_Diff2(diff_args) => {
             use crate::utils::IntermediateChannel;
 
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-
             let outcome =
                 command::legacy::diff2::diff(&mut ctx, IntermediateChannel::new(out), diff_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::push::handle(push_args, &mut ctx, out)
                 .await
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::_Reword2(reword_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let outcome = command::legacy::reword2::reword(
+            let (outcome, ws) = command::legacy::reword2::reword(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 reword_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword {
@@ -1276,15 +1297,8 @@ async fn match_subcommand(
             allow_merged,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
             command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
@@ -1297,12 +1311,10 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             match cmd {
                 Some(args::oplog::Subcommands::List { since, snapshot }) => {
                     let filter = if snapshot {
@@ -1311,24 +1323,24 @@ async fn match_subcommand(
                         None
                     };
                     command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
                     command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
                     command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 None => {
                     // Default to list when no subcommand is provided
                     command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
             }
         }
@@ -1337,8 +1349,8 @@ async fn match_subcommand(
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::undo_redo::undo(
                 &mut ctx,
@@ -1347,16 +1359,15 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Redo(redo_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::undo_redo::redo(
                 &mut ctx,
@@ -1365,8 +1376,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb {
@@ -1375,16 +1385,9 @@ async fn match_subcommand(
             allow_merged,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
+            status_after_data = Some(status_after);
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             command::legacy::absorb::handle(
                 &mut ctx,
                 out,
@@ -1393,100 +1396,47 @@ async fn match_subcommand(
                 allow_merged,
             )
             .emit_metrics(metrics_ctx)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard(discard_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome = command::legacy::discard::discard(
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::discard::discard(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 discard_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            Some(ws)
         }
         Subcommands::_Comment(comment_args) => {
             use crate::utils::IntermediateChannel;
 
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             let outcome =
                 command::comment::comment(&mut ctx, IntermediateChannel::new(out), comment_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Ok(())
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => {
-            let repo = match but_api::legacy::projects::add_project_best_effort(
-                args.current_dir.clone(),
-            )? {
-                gitbutler_project::AddProjectOutcome::Added(project)
-                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
-                    gix::open(project.git_dir())?
-                }
-                gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => {
-                    return Err(anyhow::anyhow!(
-                            "The repository at {} uses the currently unsupported reftable reference format.",
-                            args.current_dir.display()
-                        )
-                        .into());
-                }
-                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
-            };
-            let mut ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
-            let mut guard = ctx.exclusive_worktree_access();
-            command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
-                .context("Failed to set up GitButler project.")
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    workspace_check: setup::WorkspaceCheck::Disabled,
-                    target_requirement: TargetRequirement::Optional,
-                    ..Default::default()
-                },
-                out,
-            )?;
             command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
                 .map_err(|err| err.context("Failed to teardown GitButler project."))
-                .emit_metrics(metrics_ctx)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform {
             cmd,
             draft: top_level_draft,
         }) => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             match cmd {
                 Some(forge::pr::Subcommands::New {
                     branch,
@@ -1543,8 +1493,8 @@ async fn match_subcommand(
                     )
                     .await
                     .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
                     command::legacy::forge::review::set_review_template(
@@ -1553,29 +1503,29 @@ async fn match_subcommand(
                         out,
                     )
                     .context("Failed to set forge review template.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
                         .context("Failed to set the auto-merge state.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
                         .context("Failed to set reviews as draft.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
                         .context("Failed to set reviews as ready-for-review.")
-                        .emit_metrics(metrics_ctx)
-                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)?;
+                    None
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
@@ -1592,8 +1542,8 @@ async fn match_subcommand(
                     )
                     .await
                     .context("Failed to create forge review for branch.")
-                    .emit_metrics(metrics_ctx)
-                    .map_err(CliError::from)
+                    .emit_metrics(metrics_ctx)?;
+                    None
                 }
             }
         }
@@ -1604,23 +1554,14 @@ async fn match_subcommand(
             ci,
             updates,
         } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+                .emit_metrics(metrics_ctx)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit, ai } => {
             let status_after = args.status_after
                 && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
             let result = command::legacy::resolve::handle(&mut ctx, out, cmd, commit, ai)
                 .context("Failed to handle conflict resolution.");
@@ -1636,51 +1577,33 @@ async fn match_subcommand(
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome = command::legacy::uncommit::uncommit(
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) = command::legacy::uncommit::uncommit(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 uncommit_args,
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Amend(amend_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome =
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) =
                 command::legacy::amend::amend(&mut ctx, IntermediateChannel::new(out), amend_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Land {
@@ -1689,7 +1612,6 @@ async fn match_subcommand(
             no_ff,
             whole_stack,
         } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let result =
                 command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
@@ -1709,39 +1631,23 @@ async fn match_subcommand(
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
-            let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let outcome =
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) =
                 command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            Some(ws)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unapply(unapply_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome = command::legacy::unapply::unapply(
                 &mut ctx,
@@ -1750,38 +1656,34 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Apply(apply_args) => {
             use crate::utils::IntermediateChannel;
 
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
             out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
 
             let outcome =
                 command::legacy::apply::apply(&mut ctx, IntermediateChannel::new(out), apply_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            run_status_after_if_requested(status_after, &mut ctx, out);
-            Ok(())
+            None
         }
-        Subcommands::AgentLog { .. } => {
-            unreachable!("agentlog command is handled before metrics setup")
-        }
-        Subcommands::External(_) => {
-            unreachable!("external commands are delegated before reaching match_subcommand")
-        }
+    };
+
+    #[cfg(feature = "legacy")]
+    if let Some(conflicts_before) = newly_conflicted_data {
+        command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
     }
+    #[cfg(feature = "legacy")]
+    if let Some(status_after) = status_after_data {
+        run_status_after_if_requested(status_after, &mut ctx, out);
+    }
+
+    Ok(())
 }
 
 fn run_agentlog_command(

@@ -88,6 +88,13 @@ vendored, or fixture data unless the task is specifically about that code.
   consumers need classification, use existing `but_error::Code` patterns; do
   not make consumers match error strings.
 
+## Database Migrations (`but-db`)
+
+- Keep migrations forward-compatible: stay on the current `SchemaVersion` and
+  leave columns or tables that new code stopped using in place. Bumping the
+  version locks every older binary out of the database; reserve it for planned,
+  coordinated breaks, never routine cleanup.
+
 ## Version Control
 
 - Assume the worktree may contain other agents' changes. Do not overwrite, clean

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow, bail};
 use but_api_macros::but_api;
 use but_core::{DryRun, branch, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
@@ -68,6 +68,10 @@ pub fn create_reference(
 /// translates the legacy anchor payload into the `but_workspace` representation,
 /// and updates the workspace state in place without acquiring its own repository lock.
 ///
+/// In single-branch mode the request is fulfilled through
+/// `create_reference_single_branch_with_perm()` instead, which re-anchors it for the
+/// ad-hoc workspace.
+///
 /// Returns the stack id owning the created or attached reference when one exists, together with
 /// the full refname that was created.
 ///
@@ -120,6 +124,12 @@ pub fn create_reference_with_perm(
         })
         .transpose()?;
 
+    if ctx.settings.feature_flags.single_branch
+        && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?
+    {
+        return create_reference_single_branch_with_perm(ctx, new_ref, anchor, perm);
+    }
+
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
@@ -151,6 +161,72 @@ pub fn create_reference_with_perm(
 
     *ws = new_ws.into_owned();
     Ok((stack_id, new_ref))
+}
+
+/// Fulfill a [`create_reference_with_perm()`] request in single-branch mode by delegating to
+/// [`crate::branch::branch_create_with_perm()`], which owns the ad-hoc placement rules and the
+/// checkout of a branch created above the checked-out branch.
+///
+/// An unanchored request becomes placement above the checked-out `HEAD` branch, and segment
+/// anchors above a branch are applied as reference placement - in an ad-hoc workspace both name
+/// a local branch on the same commit. Placement below a segment would have to split the
+/// segment's commits, which reference placement cannot express, so it is refused rather than
+/// silently remapped. Ad-hoc workspaces have no stack ids, so none is returned.
+fn create_reference_single_branch_with_perm(
+    ctx: &mut Context,
+    new_ref: gix::refs::FullName,
+    anchor: Option<but_workspace::branch::create_reference::Anchor<'_>>,
+    perm: &mut RepoExclusive,
+) -> Result<(Option<StackId>, gix::refs::FullName)> {
+    use but_rebase::graph_rebase::mutate::InsertSide;
+    use but_workspace::branch::create_reference::{Anchor, Position};
+
+    use crate::commit::json::RelativeTo;
+
+    let to_side = |position: Position| match position {
+        Position::Above => InsertSide::Above,
+        Position::Below => InsertSide::Below,
+    };
+    let (relative_to, side) = match anchor {
+        None => {
+            let head_name = ctx
+                .repo
+                .get()?
+                .head()?
+                .referent_name()
+                .filter(|name| name.category() == Some(Category::LocalBranch))
+                .context("single-branch branch creation requires HEAD to be a local branch")?
+                .to_owned();
+            (RelativeTo::Reference(head_name), InsertSide::Above)
+        }
+        Some(Anchor::AtCommit {
+            commit_id,
+            position,
+        }) => (RelativeTo::Commit(commit_id), to_side(position)),
+        Some(Anchor::AtSegment {
+            ref_name,
+            position: Position::Below,
+        }) => {
+            bail!(
+                "Cannot create '{new}' below segment '{anchor}' in single-branch mode",
+                new = new_ref.shorten(),
+                anchor = ref_name.shorten()
+            );
+        }
+        Some(
+            Anchor::AtSegment { ref_name, position } | Anchor::AtReference { ref_name, position },
+        ) => (
+            RelativeTo::Reference(ref_name.into_owned()),
+            to_side(position),
+        ),
+    };
+    let created = crate::branch::branch_create_with_perm(
+        ctx,
+        Some(new_ref),
+        crate::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
+        perm,
+    )?;
+    Ok((None, created.new_ref))
 }
 
 /// Create a dependent branch named by `request.name` in the stack identified by

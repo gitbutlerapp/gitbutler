@@ -101,7 +101,7 @@ impl App {
 
         let mut guard = ctx.exclusive_worktree_access();
         let mut meta = ctx.meta()?;
-        let outcome = reword2::run(
+        let (outcome, _ws) = reword2::run(
             ctx,
             &mut meta,
             guard.write_permission(),
@@ -234,7 +234,7 @@ impl App {
             InlineRewordMode::Commit {
                 commit_id: target, ..
             } => {
-                let outcome = reword2::run(
+                let (outcome, _ws) = reword2::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
@@ -256,7 +256,7 @@ impl App {
                 ]);
             }
             InlineRewordMode::Branch { name: target, .. } => {
-                let outcome = reword2::run(
+                let (outcome, _ws) = reword2::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
@@ -305,7 +305,7 @@ impl App {
         let mut meta = ctx.meta()?;
 
         let _suspend_guard = terminal_guard.suspend()?;
-        let outcome = match inline_reword_mode {
+        let (outcome, _ws) = match inline_reword_mode {
             InlineRewordMode::Commit {
                 commit_id: target, ..
             } => reword2::run(
