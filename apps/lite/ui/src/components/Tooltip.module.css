@@ -1,6 +1,7 @@
 .tooltip {
 	display: flex;
 	align-items: center;
+	max-width: 240px;
 	padding: 6px 8px;
 	gap: 7px;
 	border-radius: var(--radius-button);
@@ -9,6 +10,19 @@
 	color: var(--text-1);
 }
 
+/* Long content (branch or commit names) wraps instead of stretching the tooltip
+   past its max width, and breaks mid-word when a single token is wider than the
+   tooltip. */
+.content {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
 .withKbd {
 	padding-right: 6px;
+
+	/* The shortcut keeps its intrinsic width; only the text wraps. */
+	& > :not(.content) {
+		flex-shrink: 0;
+	}
 }
