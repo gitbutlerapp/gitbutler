@@ -18,13 +18,13 @@ use crate::{
     CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
 };
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
 mod remotes;
 
@@ -706,14 +706,18 @@ impl Graph {
         project_meta: ProjectMeta,
         options: Options,
     ) -> anyhow::Result<Self> {
-        Self::from_commit_traversal_with_extra_tips(
-            tip,
-            ref_name,
-            None::<Tip>,
-            meta,
-            project_meta,
-            options,
-        )
+        let repo = tip.repo;
+        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+        let graph = crate::nosegment::graph(repo, tip.detach(), None)?;
+        graph.to_segment_graph(repo, &overlay_repo, &overlay_meta)
+        // Self::from_commit_traversal_with_extra_tips(
+        //     tip,
+        //     ref_name,
+        //     None::<Tip>,
+        //     meta,
+        //     project_meta,
+        //     options,
+        // )
     }
 
     /// Like [`Graph::from_commit_traversal()`], but additionally traverse `extra_tips`.
