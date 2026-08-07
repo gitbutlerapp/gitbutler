@@ -1139,6 +1139,10 @@ impl Graph {
         let s = &mut self[sidx];
         if let Some((rn, first_commit)) = s.ref_info.take().zip(s.commits.first_mut()) {
             first_commit.refs.push(rn);
+            // The upstream belonged to the ref that now lives on the commit -
+            // a detached HEAD has none.
+            s.remote_tracking_ref_name = None;
+            s.remote_tracking_branch_segment_id = None;
         }
         Ok(())
     }
