@@ -19,6 +19,15 @@
 	&[data-disabled]:not([data-checked]) {
 		display: none;
 	}
+
+	/* While the row carries an inline editor it is a text field, not a list
+	   item: the only things it can answer are save and cancel. The checkbox
+	   steps aside for the duration rather than sitting there disabled — it
+	   shares its grid cell with the graph glyph, which shows through in its
+	   place, so nothing moves. */
+	.row:has(:is(textarea, input):focus) & {
+		display: none;
+	}
 }
 
 .conflictIcon {
