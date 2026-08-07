@@ -2,7 +2,10 @@ use std::borrow::Cow;
 
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice as _};
-use but_api::json::{ChangeIdString, HexHash};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
@@ -150,7 +153,7 @@ pub fn squash(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<SquashOutcome> {
+) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -1122,7 +1125,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
-) -> anyhow::Result<SquashOutcome> {
+) -> anyhow::Result<(SquashOutcome, Option<WorkspaceState>)> {
     let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
@@ -1278,7 +1281,7 @@ pub fn run(
     match executable_op {
         ExecutableSquashOperation::TransactionCompatible(op) => {
             let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
-            let (new_commit, _ws) = but_transaction::with_transaction_with_perm(
+            let (new_commit, ws) = but_transaction::with_transaction_with_perm(
                 ctx,
                 meta,
                 perm,
@@ -1312,30 +1315,31 @@ pub fn run(
                 rejection::explain_after_rollback(ctx, perm, "amend", target, err)
             })?;
 
-            match op.clone() {
+            let outcome = match op.clone() {
                 TransactionCompatibleOperation::Commits(SquashCommitsOperation {
                     sources,
                     target,
                     ..
-                }) => Ok(SquashOutcome::Commits {
+                }) => SquashOutcome::Commits {
                     new_commit,
                     sources,
                     target,
-                }),
+                },
                 TransactionCompatibleOperation::Branch(SquashBranchOperation {
                     source_branches,
                     ..
-                }) => Ok(SquashOutcome::Branch {
+                }) => SquashOutcome::Branch {
                     new_commit,
                     branch_names: source_branches,
-                }),
+                },
                 TransactionCompatibleOperation::UncommittedHunks(
                     AmendUncommittedDiffSpecsOperation { target, .. },
                 )
                 | TransactionCompatibleOperation::MoveCommittedFiles(
                     MoveCommittedFilesOperation { target, .. },
-                ) => Ok(SquashOutcome::Hunks { target, new_commit }),
-            }
+                ) => SquashOutcome::Hunks { target, new_commit },
+            };
+            Ok((outcome, Some(ws)))
         }
         ExecutableSquashOperation::Uncommit(op) => {
             if op.has_commit_sources() {
@@ -1357,7 +1361,7 @@ pub fn run(
             }
 
             let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
-            let _ws = but_transaction::with_transaction_with_perm(
+            let ws = but_transaction::with_transaction_with_perm(
                 ctx,
                 meta,
                 perm,
@@ -1388,18 +1392,19 @@ pub fn run(
                 },
             )?;
 
-            match op {
-                UncommitOperation::Commits { sources } => Ok(SquashOutcome::UncommitCommit {
+            let outcome = match op {
+                UncommitOperation::Commits { sources } => SquashOutcome::UncommitCommit {
                     sources: sources.into_iter().collect(),
-                }),
+                },
                 UncommitOperation::Branches {
                     source_branches,
                     source_commits: _,
                     branches_to_remove: _,
-                } => Ok(SquashOutcome::UncommitBranch {
+                } => SquashOutcome::UncommitBranch {
                     branch_names: source_branches,
-                }),
-            }
+                },
+            };
+            Ok((outcome, Some(ws)))
         }
         ExecutableSquashOperation::UncommitHunks { source, changes } => {
             {
@@ -1429,7 +1434,7 @@ pub fn run(
                     perm,
                 )?;
 
-            Ok(SquashOutcome::UncommitHunk { source })
+            Ok((SquashOutcome::UncommitHunk { source }, None))
         }
     }
 }

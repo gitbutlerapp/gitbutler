@@ -504,16 +504,34 @@ where
             }
             anchor => (anchor, None),
         };
+        let repo = self.repo().clone();
+        let branch_stack_orders = self
+            .inner
+            .pending_metadata_updates
+            .iter()
+            .filter_map(|update| match update {
+                PendingMetadataUpdate::Workspace(_) | PendingMetadataUpdate::Branch(_) => None,
+                PendingMetadataUpdate::BranchStackOrder(branches) => Some(branches.clone()),
+            })
+            .collect();
+        let rebase = self
+            .inner
+            .rebase
+            .as_mut()
+            .expect("rebase is always Some(_)");
+        let (_, persisted_meta) = rebase.repo_and_meta_mut();
         let mut meta = RecordingMetadata {
+            persisted_meta,
             workspace_name: workspace.ref_name().map(ToOwned::to_owned),
             workspace: workspace.metadata.clone(),
+            branch_stack_orders,
             updates: Vec::new(),
         };
 
         but_workspace::branch::create_reference(
             ref_name,
             anchor.clone(),
-            self.repo(),
+            &repo,
             &workspace,
             &mut meta,
             new_stack_id,
@@ -975,12 +993,14 @@ struct PendingCreatedIndependentRef {
 enum PendingMetadataUpdate {
     Workspace(RecordingMetadataHandle<ref_metadata::Workspace>),
     Branch(RecordingMetadataHandle<ref_metadata::Branch>),
+    BranchStackOrder(Vec<FullName>),
 }
 
-#[derive(Default)]
-struct RecordingMetadata {
+struct RecordingMetadata<'meta, M: RefMetadata> {
+    persisted_meta: &'meta M,
     workspace_name: Option<FullName>,
     workspace: Option<ref_metadata::Workspace>,
+    branch_stack_orders: Vec<Vec<FullName>>,
     updates: Vec<PendingMetadataUpdate>,
 }
 
@@ -1017,7 +1037,7 @@ impl<T> ref_metadata::ValueInfo for RecordingMetadataHandle<T> {
     }
 }
 
-impl RefMetadata for RecordingMetadata {
+impl<M: RefMetadata> RefMetadata for RecordingMetadata<'_, M> {
     type Handle<T> = RecordingMetadataHandle<T>;
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn std::any::Any>)>> {
@@ -1070,6 +1090,34 @@ impl RefMetadata for RecordingMetadata {
                 is_default: value.is_default,
             }));
         Ok(())
+    }
+
+    fn branch_stack_order(&self, ref_name: &FullNameRef) -> anyhow::Result<Option<Vec<FullName>>> {
+        let pending_order = self
+            .updates
+            .iter()
+            .rev()
+            .filter_map(|update| match update {
+                PendingMetadataUpdate::Workspace(_) | PendingMetadataUpdate::Branch(_) => None,
+                PendingMetadataUpdate::BranchStackOrder(branches) => Some(branches),
+            })
+            .chain(self.branch_stack_orders.iter().rev())
+            .find(|branches| branches.iter().any(|branch| branch.as_ref() == ref_name));
+
+        match pending_order {
+            Some(branches) => Ok(Some(branches.clone())),
+            None => self.persisted_meta.branch_stack_order(ref_name),
+        }
+    }
+
+    fn set_branch_stack_order(&mut self, branches: &[FullName]) -> anyhow::Result<()> {
+        self.updates
+            .push(PendingMetadataUpdate::BranchStackOrder(branches.to_vec()));
+        Ok(())
+    }
+
+    fn can_persist_branch_stack_order(&self) -> bool {
+        self.persisted_meta.can_persist_branch_stack_order()
     }
 
     fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<bool> {
@@ -1326,6 +1374,9 @@ fn workspace_state_from_rebase<M: RefMetadata>(
                 let mut handle = materialized.meta.branch(branch.as_ref())?;
                 *handle = branch.value;
                 materialized.meta.set_branch(&handle)?;
+            }
+            PendingMetadataUpdate::BranchStackOrder(branches) => {
+                materialized.meta.set_branch_stack_order(&branches)?;
             }
         }
     }

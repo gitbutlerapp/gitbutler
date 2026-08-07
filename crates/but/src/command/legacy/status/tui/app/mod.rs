@@ -20,6 +20,10 @@ use crate::{
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::{
+            branch::{
+                self,
+                new::{NewOperation, NewStackedBranchTarget},
+            },
             commit::{
                 self, CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitSelection,
             },
@@ -1429,7 +1433,7 @@ impl App {
                 let mut guard = ctx.exclusive_worktree_access();
                 let mut meta = ctx.meta()?;
 
-                let outcome = commit::run(
+                let (outcome, _ws) = commit::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
@@ -1455,7 +1459,7 @@ impl App {
                 let mut guard = ctx.exclusive_worktree_access();
                 let mut meta = ctx.meta()?;
 
-                let outcome = commit::run(
+                let (outcome, _ws) = commit::run(
                     ctx,
                     &mut meta,
                     guard.write_permission(),
@@ -1508,12 +1512,39 @@ impl App {
                 let CliId::Branch(branch) = &**cli_id else {
                     return Ok(());
                 };
-                operations::create_branch_anchored_legacy(ctx, branch.name.to_owned())?
+
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let outcome = branch::new::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    NewOperation::NewStackedBranch {
+                        name: None,
+                        target: NewStackedBranchTarget::Branch(
+                            Category::LocalBranch.to_full_name(&*branch.name)?,
+                        ),
+                        side: Side::Above,
+                    },
+                )?;
+
+                outcome.name.shorten().to_string()
             }
             StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UncommittedFile { .. } => {
-                operations::create_branch_legacy(ctx)?
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let outcome = branch::new::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    NewOperation::NewUnstackedBranch { name: None },
+                )?;
+
+                outcome.name.shorten().to_string()
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector

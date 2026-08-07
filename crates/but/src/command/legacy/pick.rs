@@ -1,4 +1,7 @@
-use but_api::json::{ChangeIdString, HexHash};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
 use but_core::{
     DryRun, RefMetadata,
     ref_metadata::StackId,
@@ -130,7 +133,7 @@ pub fn pick(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<PickOutcome> {
+) -> CliResult<(PickOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -235,7 +238,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     pick_op: PickOperation,
-) -> anyhow::Result<PickOutcome> {
+) -> anyhow::Result<(PickOutcome, WorkspaceState)> {
     let PickOperation {
         sources,
         commit_op,
@@ -244,7 +247,7 @@ pub fn run(
 
     let snapshot_details =
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());
-    let ((new_commits, branch_name_target), _ws) = but_transaction::with_transaction_with_perm(
+    let ((new_commits, branch_name_target), ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -294,9 +297,12 @@ pub fn run(
 
     let new_commits = new_commits.into_iter().map(Into::into).collect();
 
-    Ok(PickOutcome {
-        sources,
-        new_commits,
-        branch_name: branch_name_target,
-    })
+    Ok((
+        PickOutcome {
+            sources,
+            new_commits,
+            branch_name: branch_name_target,
+        },
+        ws,
+    ))
 }

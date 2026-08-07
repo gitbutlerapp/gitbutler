@@ -1,5 +1,8 @@
 use anyhow::Context as _;
-use but_api::json::{ChangeIdString, HexHash};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
     ref_metadata::StackId,
@@ -114,7 +117,7 @@ pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<CommitOutcome> {
+) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -268,7 +271,7 @@ pub fn run(
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
-) -> anyhow::Result<CommitOutcome> {
+) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -292,7 +295,7 @@ pub fn run(
     };
     let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
-    let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
+    let ((new_commit, branch_name), ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -321,10 +324,13 @@ pub fn run(
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
-    Ok(CommitOutcome {
-        new_commit,
-        branch_name,
-    })
+    Ok((
+        CommitOutcome {
+            new_commit,
+            branch_name,
+        },
+        ws,
+    ))
 }
 
 /// Targeting modes for committing.

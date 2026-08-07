@@ -22,6 +22,9 @@ pub use table::{
 
 /// Just like [`crate::SchemaVersion`], but for project caches. Note that caches can always be created though
 /// as they are generated in memory in the worst case, particularly on migration failure.
+///
+/// The same rule applies: stay on the current version and leave stale columns or tables
+/// in place — bump only for a planned, coordinated break, never routine cleanup.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchemaVersion {
     /// The current forward-compatible schema line.

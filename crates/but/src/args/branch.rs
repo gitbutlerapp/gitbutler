@@ -1,5 +1,5 @@
 #[cfg(feature = "legacy")]
-use crate::args::atoms::{BranchArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, BranchArg, CliIdArg};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
 pub enum IntegrationStrategy {
@@ -23,24 +23,9 @@ pub struct Platform {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Creates a new branch in the workspace
-    ///
-    /// If no branch name is provided, a new parallel branch with a generated
-    /// name will be created.
-    ///
-    /// You can also specify an anchor point using the `--anchor` option,
-    /// which can be either a commit ID or an existing branch name to create
-    /// the new branch from. This allows you to create stacked branches.
-    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    New {
-        /// Name of the new branch
-        branch_name: Option<BranchArg>,
-        /// Anchor point - either a commit ID or branch name to create the new branch from
-        #[clap(long, short = 'a')]
-        anchor: Option<CliIdArg>,
-    },
+    New(NewPlatform),
 
     /// Delete branchs from the workspace
     ///
@@ -161,4 +146,60 @@ pub enum Subcommands {
         #[clap(long, short = 'i')]
         interactive: bool,
     },
+}
+
+/// Create a new branch.
+///
+/// Use `--above` or `--below` to created stacked branches. Omitting these create a new unstacked
+/// branch.
+///
+/// For more details about CLI IDs, see `but help cli-ids`.
+#[cfg(feature = "legacy")]
+#[derive(Debug, clap::Parser)]
+#[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+pub struct NewPlatform {
+    /// Place the branch above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, the new branch is created above the commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the new branch is created above the targeted branch.
+    #[clap(
+        short = 'A',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub above: Option<CliIdArg>,
+
+    /// Deprecated flag that will be removed in a future release. Use `--above` instead.
+    #[clap(
+        short,
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting",
+        hide = true
+    )]
+    pub anchor: Option<CliIdArg>,
+
+    /// Place the branch below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a commit, the new branch is created below the commit.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a branch, the new branch is created below the targeted branch.
+    #[clap(
+        short = 'B',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        group = "targeting"
+    )]
+    pub below: Option<CliIdArg>,
+
+    /// Name of the new branch.
+    ///
+    /// If omitted the new branch will get a generated name.
+    pub name: Option<BranchArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub allow_merged: AllowMergedArg,
 }

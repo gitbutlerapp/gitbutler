@@ -1,6 +1,5 @@
 use but_core::ref_metadata::StackId;
 use nonempty::NonEmpty;
-use serde::Serialize;
 
 use crate::{
     CliError, CliId, CliResult, IdMap,
@@ -11,8 +10,7 @@ use crate::{
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
-#[derive(Debug, Clone, Serialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone)]
 pub struct CliIdArg(pub String);
 
 impl std::str::FromStr for CliIdArg {

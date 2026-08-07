@@ -1,7 +1,10 @@
 use std::fmt::Display;
 
 use bstr::ByteSlice;
-use but_api::json::{ChangeIdString, HexHash};
+use but_api::{
+    WorkspaceState,
+    json::{ChangeIdString, HexHash},
+};
 use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
@@ -221,7 +224,7 @@ pub fn r#move(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<MoveOutcome> {
+) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -860,7 +863,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     move_op: MoveOperation,
-) -> anyhow::Result<MoveOutcome> {
+) -> anyhow::Result<(MoveOutcome, WorkspaceState)> {
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {
             SnapshotDetails::new(OperationKind::MoveCommit)
@@ -871,7 +874,7 @@ pub fn run(
         MoveOperation::StackBranch(_) => SnapshotDetails::new(OperationKind::MoveBranch),
         MoveOperation::UnstackBranch(_) => SnapshotDetails::new(OperationKind::TearOffBranch),
     };
-    let (outcome, _ws) = but_transaction::with_transaction_with_perm(
+    let (outcome, ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -957,5 +960,5 @@ pub fn run(
         },
     )?;
 
-    Ok(outcome)
+    Ok((outcome, ws))
 }
