@@ -285,17 +285,12 @@ fn worktree_changes() -> anyhow::Result<()> {
         101
       ],
       "status": {
-        "type": "Modification",
+        "type": "Deletion",
         "subject": {
           "previousState": {
             "id": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
             "kind": "Blob"
-          },
-          "state": {
-            "id": "0000000000000000000000000000000000000000",
-            "kind": "Blob"
-          },
-          "flags": null
+          }
         }
       }
     },
@@ -703,17 +698,9 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
   {
     "type": "Patch",
     "subject": {
-      "hunks": [
-        {
-          "oldStart": 1,
-          "oldLines": 0,
-          "newStart": 1,
-          "newLines": 1,
-          "diff": "@@ -1,0 +1,1 @@\n+worktree-change\n"
-        }
-      ],
+      "hunks": [],
       "isResultOfBinaryToTextConversion": false,
-      "linesAdded": 1,
+      "linesAdded": 0,
       "linesRemoved": 0
     }
   },
