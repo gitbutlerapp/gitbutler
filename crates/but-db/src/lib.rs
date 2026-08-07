@@ -161,6 +161,10 @@ pub struct M<'a> {
 /// The numeric migration id remains the source of truth for ordering. This enum exists so
 /// each migration must state whether it crosses into a new forward-incompatible database
 /// shape or remains readable by older client binaries.
+///
+/// Bumping the version locks every older binary out of the database, so it is reserved
+/// for planned, coordinated breaks. Leaving no-longer-used columns or tables in place is
+/// harmless and always preferred over a bump for routine cleanup.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchemaVersion {
     /// The current forward-compatible schema line.
