@@ -445,7 +445,7 @@ fn find_real_tree<'repo>(
     })
 }
 
-fn commit_from_unconflicted_tree<'repo>(
+pub(crate) fn commit_from_unconflicted_tree<'repo>(
     parents: &[gix::ObjectId],
     to_rebase: but_core::Commit<'repo>,
     resolved_tree_id: gix::Id<'repo>,
