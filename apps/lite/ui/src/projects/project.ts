@@ -167,9 +167,6 @@ export const projectReducers = {
 	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
 		upstreamReducers.toggleSegment(state.upstream, { segmentId });
 	},
-	toggleUpstreamIncoming: (state: ProjectState) => {
-		upstreamReducers.toggleIncoming(state.upstream);
-	},
 	selectFiles: (state: ProjectState, { selection }: { selection: string | null }) => {
 		const workspaceState = state.workspace;
 		if (workspaceState.selection.files === selection) return;

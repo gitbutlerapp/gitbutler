@@ -11,12 +11,7 @@ import type {
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
-import {
-	infiniteQueryOptions,
-	queryOptions,
-	skipToken,
-	type QueryClient,
-} from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import * as ms from "ms";
 
 export type QueryKey =
@@ -48,8 +43,7 @@ export type QueryKey =
 	| "guiSettings"
 	| "workspaceFetch"
 	| "workspaceFetchStatus"
-	| "workspaceTargetCommits"
-	| "workspaceTargetCommitsOlder";
+	| "workspaceTargetCommits";
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
 	queryOptions({
@@ -145,30 +139,6 @@ export const refreshIntegratedReviews = async (
 		}),
 	);
 };
-
-const olderTargetCommitsPageSize = 25;
-
-/**
- * Pages of target history older than the workspace's fork point, continued
- * below `from` with a commit-id cursor. A `null` cursor means the base
- * listing has not arrived yet, so there is nothing to continue from.
- */
-export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string | null) =>
-	infiniteQueryOptions({
-		queryKey: ["workspaceTargetCommitsOlder" satisfies QueryKey, projectId, from],
-		queryFn:
-			from === null
-				? skipToken
-				: ({ pageParam }) =>
-						window.lite.workspaceTargetCommits({
-							projectId,
-							from: pageParam,
-							limit: olderTargetCommitsPageSize,
-						}),
-		initialPageParam: from ?? "",
-		getNextPageParam: (lastPage) =>
-			lastPage.hasMore ? (lastPage.commits.at(-1)?.commit.id ?? undefined) : undefined,
-	});
 
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
