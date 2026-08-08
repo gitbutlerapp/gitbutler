@@ -21,7 +21,7 @@
 		"dev:electron": "pnpm prepare-askpass && pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
-		"build:electron": "tsgo -p electron/tsconfig.json",
+		"build:electron": "tsgo -p electron/tsconfig.json && vite build --config electron/vite.config.ts",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vite.config.ts",
 		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",

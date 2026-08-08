@@ -1,3 +1,4 @@
+import type { PayloadFor } from "#electron/ipc.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -31,7 +32,6 @@ import type {
 	Snapshot,
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation } from "@tanstack/react-query";
-import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 
@@ -809,7 +809,7 @@ export const useOpenInProgram = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: OpenInProgramParams) => window.lite.openInProgram(input),
+		mutationFn: (input: PayloadFor<"openInProgram">) => window.lite.openInProgram(input),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

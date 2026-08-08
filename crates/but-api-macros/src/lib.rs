@@ -310,6 +310,31 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .reduce(|a, b| format!("{a}{b}"));
 
+    // Parameter names for the napi declaration, camelCased the way napi-rs
+    // renders them, so a caller can address arguments by name.
+    let napi_param_js_names: Vec<String> = napi_info
+        .names
+        .iter()
+        .map(|name| name.to_case(Case::Camel))
+        .collect();
+    let js_name_str = js_name.clone().unwrap_or_else(|| fn_name.to_string());
+
+    // Registered whenever the attribute opts into napi, deliberately not
+    // behind `cfg(feature = "napi")`: but-ts reads this registry and builds
+    // but-api without that feature. The entry is inert metadata either way.
+    let napi_registry_entry = if opts.napi {
+        quote! {
+            ::but_schemars::internal_submit! {
+                ::but_schemars::ApiFnEntry {
+                    js_name: #js_name_str,
+                    params: &[#(#napi_param_js_names),*],
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let napi_fn_block = if opts.napi {
         quote! {
             #(#napi_doc_attrs)*
@@ -333,6 +358,8 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
+        #napi_registry_entry
+
         // Generated struct
         #[cfg(feature = "legacy")]
         #[derive(::serde::Deserialize)]
@@ -1193,6 +1220,8 @@ fn result_container(ty: &syn::Type) -> ResultContainer {
 struct NapiParamsInfo {
     /// The napi-compatible function parameters.
     params: Vec<proc_macro2::TokenStream>,
+    /// The name of each napi parameter, in the same order as `params`.
+    names: Vec<String>,
     /// Code to convert napi parameters into the types the original function expects.
     conversions: Vec<proc_macro2::TokenStream>,
     /// The identifiers to pass to the original function call (may include `&` or `&mut`).
@@ -1214,6 +1243,7 @@ fn build_napi_params<'a>(
     json_ty_by_name: &HashMap<String, JsonParameterMapping>,
 ) -> Result<NapiParamsInfo, syn::Error> {
     let mut params = Vec::new();
+    let mut names = Vec::new();
     let mut conversions = Vec::new();
     let mut call_arg_idents = Vec::new();
     let mut context_bindings = Vec::new();
@@ -1244,6 +1274,7 @@ fn build_napi_params<'a>(
             let transport_ident = format_ident!("__{}_transport", ident);
             let actual_ty = &pat_ty.ty;
             params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+            names.push(ident.to_string());
             conversions.push(quote! {
                 let #transport_ident: #transport_ty = ::serde_json::from_value(#ident)
                     .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
@@ -1276,6 +1307,7 @@ fn build_napi_params<'a>(
             if *last_ident == "LegacyProjectId" || *last_ident == "ProjectHandleOrLegacyProjectId" {
                 // Context → String project_id, then convert to Context
                 params.push(quote! { #param_name: String });
+                names.push(param_name.to_string());
                 // Determine the actual type we need to produce (stripping references)
                 let actual_ty = match &*pat_ty.ty {
                     syn::Type::Reference(r) => &*r.elem,
@@ -1302,6 +1334,7 @@ fn build_napi_params<'a>(
             } else if *last_ident == "HexHash" {
                 // ObjectId via HexHash → String, then parse
                 params.push(quote! { #param_name: String });
+                names.push(param_name.to_string());
                 conversions.push(quote! {
                     let #ident = ::std::str::FromStr::from_str(&#param_name)
                         .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
@@ -1317,6 +1350,7 @@ fn build_napi_params<'a>(
             } else if *last_ident == "FullName" {
                 // FullNameRef via FullName transport → String, then parse
                 params.push(quote! { #param_name: String });
+                names.push(param_name.to_string());
                 conversions.push(quote! {
                     let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
                         .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
@@ -1329,6 +1363,7 @@ fn build_napi_params<'a>(
             } else if *last_ident == "Vec" && is_hex_hash_container_path(&mapping.json_ty, "Vec") {
                 // Vec<ObjectId> via Vec<HexHash> → Vec<String>, then parse each entry
                 params.push(quote! { #param_name: Vec<String> });
+                names.push(param_name.to_string());
                 conversions.push(quote! {
                     let #ident: Vec<gix::ObjectId> = #param_name
                         .into_iter()
@@ -1357,6 +1392,7 @@ fn build_napi_params<'a>(
                 params.push(
                     quote! { #[napi(ts_arg_type = #ts_type_str)] #param_name: ::serde_json::Value },
                 );
+                names.push(param_name.to_string());
                 let actual_ty = match &*pat_ty.ty {
                     syn::Type::Reference(r) => &*r.elem,
                     other => other,
@@ -1387,6 +1423,7 @@ fn build_napi_params<'a>(
             match type_name.as_deref() {
                 Some("BString") => {
                     params.push(quote! { #ident: String });
+                    names.push(ident.to_string());
                     conversions.push(quote! {
                         let #ident: bstr::BString = #ident.into();
                     });
@@ -1399,6 +1436,7 @@ fn build_napi_params<'a>(
                 Some("HexHash") => {
                     // json::HexHash used directly as parameter (not via ObjectId mapping)
                     params.push(quote! { #ident: String });
+                    names.push(ident.to_string());
                     conversions.push(quote! {
                         let #ident: crate::json::HexHash = ::std::str::FromStr::from_str(&#ident)
                             .map(crate::json::HexHash)
@@ -1411,6 +1449,7 @@ fn build_napi_params<'a>(
                     if let Some(napi_ty) = napi_type_remap(base_ty) {
                         // Type needs remapping (e.g., usize → i64)
                         params.push(quote! { #ident: #napi_ty });
+                        names.push(ident.to_string());
                         let arg_name = ident.to_string();
                         let conversion = match type_name.as_deref() {
                             Some("usize") => quote! {
@@ -1442,11 +1481,13 @@ fn build_napi_params<'a>(
                     } else if is_simple_napi_type(base_ty) {
                         // Simple types (String, bool, numbers) can be passed directly
                         params.push(quote! { #ident: #ty });
+                        names.push(ident.to_string());
                         call_arg_idents.push(quote! { #ident });
                     } else {
                         // Complex types → serde_json::Value with ts_arg_type for proper TS typing
                         let ts_type_str = type_to_ts_name(ty);
                         params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+                        names.push(ident.to_string());
                         conversions.push(quote! {
                             let #ident: #base_ty = ::serde_json::from_value(#ident)
                                 .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
@@ -1507,6 +1548,7 @@ fn build_napi_params<'a>(
 
     Ok(NapiParamsInfo {
         params,
+        names,
         conversions,
         call_arg_idents,
     })

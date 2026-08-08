@@ -1,4 +1,4 @@
-import type { BranchDetailsParams } from "#electron/ipc.ts";
+import type { PayloadFor } from "#electron/ipc.ts";
 import type { ListedBranch, ListedStack } from "@gitbutler/but-sdk";
 import Fuse from "fuse.js";
 
@@ -89,7 +89,7 @@ export const searchStacks = (stacks: Array<ListedStack>, query: string): Array<L
 // https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
 export const branchDetailsParams = (
 	refName: string,
-): Pick<BranchDetailsParams, "branchName" | "remote"> => {
+): Pick<PayloadFor<"branchDetails">, "branchName" | "remote"> => {
 	const remoteMatch = /^refs\/remotes\/([^/]+)\/(.+)$/.exec(refName);
 	const remote = remoteMatch?.[1];
 	const branchName = remoteMatch?.[2];

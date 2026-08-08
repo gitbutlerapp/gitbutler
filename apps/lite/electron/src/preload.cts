@@ -1,58 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { exposedEndpoints, localEndpoints } from "./ipc.js";
 import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
-import type {
-	CommitAbsorption,
-	ApplyOutcome,
-	BranchCheckoutResult,
-	BranchCreateResult,
-	BranchDetails,
-	CommitDetails,
-	DiffComment,
-	DiffSpec,
-	Editor,
-	ForgeReview,
-	ForgeReviewComment,
-	ForgeReviewLabel,
-	ForgeReviewReaction,
-	ForgeReviewSubmission,
-	ForgeReviewTimelineEvent,
-	ForgeReviewUser,
-	Program,
-	ProjectForFrontend,
-	PublishReviewOutcome,
-	PushResult,
-	RefInfo,
-	TreeChanges,
-	CommitCreateResult,
-	CommitDiscardResult,
-	CommitInsertBlankResult,
-	CommitMoveResult,
-	CommitRewordResult,
-	CommitSquashResult,
-	CiCheck,
-	ForgeInfo,
-	ForgeName,
-	MoveBranchResult,
-	MoveChangesResult,
-	InitialBranchIntegration,
-	ListedStack,
-	IntegrateBranchResult,
-	UnifiedPatch,
-	TargetCommitPage,
-	WatcherEvent,
-	WorktreeChanges,
-	WorkspaceFetchStatus,
-	WorkspaceIntegrateUpstreamOutcome,
-	UncommitResult,
-	Snapshot,
-	AskpassPromptEvent,
-	RepoInfo,
-	ReviewMergeStatus,
-	ReviewTemplateInfo,
-	BranchRemoveResult,
-	BranchRenameResult,
-} from "@gitbutler/but-sdk";
-import type { GUISettings } from "./settings";
+import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
 
 /**
  * The map of subscription IDs to channels and callbacks.
@@ -68,229 +17,78 @@ const watcherListenerBySubscription = new Map<
 	}
 >();
 
+/** API members implemented below rather than forwarded. */
+type SpecialKey =
+	| "onAskpassPrompt"
+	| "onFullScreenChange"
+	| "platform"
+	| "watcherSubscribe"
+	| "watcherUnsubscribe"
+	| "watcherStopAll";
+
+/** The same members under their endpoint names; `platform` has no channel at all. */
+const specialNames = [
+	"askpassPrompt",
+	"fullScreenChange",
+	"watcherSubscribe",
+	"watcherUnsubscribe",
+	"watcherStopAll",
+] as const;
+
+type SpecialName = (typeof specialNames)[number];
+type ForwardedKey = Exclude<keyof LiteElectronApi, SpecialKey>;
+type ListedKey = Exclude<
+	(typeof exposedEndpoints)[number] | (typeof localEndpoints)[number],
+	SpecialName
+>;
+
+/**
+ * Wiring a member on only one side fails here: both aliases must resolve to
+ * `never`, so a member missing from the lists, or listed without a member,
+ * is a compile error rather than a runtime "No handler registered".
+ */
+type AssertNever<T extends never> = T;
+type _EveryMemberIsListed = AssertNever<Exclude<ForwardedKey, ListedKey>>;
+type _EveryListedNameHasAMember = AssertNever<Exclude<ListedKey, ForwardedKey>>;
+
+const special = new Set<string>(specialNames);
+
+/**
+ * electron declares `invoke` as `Promise<any>`, which spreads unchecked into
+ * every caller. Narrowing it to `unknown` — by annotation, not assertion —
+ * makes each wire result something a reader has to pin down.
+ */
+const invoke = (channel: string, ...args: Array<unknown>): Promise<unknown> =>
+	ipcRenderer.invoke(channel, ...args);
+
+/**
+ * Every forwarded member hands its arguments to the channel of the same
+ * name, so they are generated from the lists rather than written out. The
+ * cast is sound because arguments and results are typed at every call site
+ * through `LiteElectronApi`.
+ */
+const forwarders = Object.fromEntries(
+	[...exposedEndpoints, ...localEndpoints]
+		.filter((name) => !special.has(name))
+		.map((name) => [name, (...args: Array<unknown>) => invoke(name, ...args)]),
+) as Omit<LiteElectronApi, SpecialKey>;
+
 const api: LiteElectronApi = {
-	absorptionPlan: (params) =>
-		ipcRenderer.invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
-	absorb: (params) => ipcRenderer.invoke("workspace:absorb", params) as Promise<number>,
-	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
-	applyBranchIntegration: (params) =>
-		ipcRenderer.invoke(
-			"workspace:apply-branch-integration",
-			params,
-		) as Promise<IntegrateBranchResult>,
+	...forwarders,
 	onAskpassPrompt: (callback) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: AskpassPromptEvent) => {
 			callback(payload);
 		};
-		ipcRenderer.on("askpass:prompt", listener);
-		return () => ipcRenderer.removeListener("askpass:prompt", listener);
+		ipcRenderer.on("askpassPrompt", listener);
+		return () => ipcRenderer.removeListener("askpassPrompt", listener);
 	},
-	askpassSubmitPromptResponse: (params) =>
-		ipcRenderer.invoke("askpass:submit-prompt-response", params) as Promise<void>,
-	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
-	branchCheckout: (params) =>
-		ipcRenderer.invoke("workspace:branch-checkout", params) as Promise<BranchCheckoutResult>,
-	branchCheckoutNew: (params) =>
-		ipcRenderer.invoke("workspace:branch-checkout-new", params) as Promise<BranchCheckoutResult>,
-	branchCreate: (params) =>
-		ipcRenderer.invoke("workspace:branch-create", params) as Promise<BranchCreateResult>,
-	branchDetails: (params) =>
-		ipcRenderer.invoke("workspace:branch-details", params) as Promise<BranchDetails>,
-	branchDiff: (params) =>
-		ipcRenderer.invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
-	branchList: (projectId) =>
-		ipcRenderer.invoke("workspace:branch-list", projectId) as Promise<Array<ListedStack>>,
-	changesInWorktree: (projectId) =>
-		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
-	clipboardWriteText: (text) =>
-		ipcRenderer.invoke("lite:clipboard-write-text", text) as Promise<void>,
-	commentArchive: (params) =>
-		ipcRenderer.invoke("workspace:comment-archive", params) as Promise<boolean>,
-	commentCreate: (params) =>
-		ipcRenderer.invoke("workspace:comment-create", params) as Promise<DiffComment>,
-	commentUpdate: (params) =>
-		ipcRenderer.invoke("workspace:comment-update", params) as Promise<void>,
-	commentsList: (projectId) =>
-		ipcRenderer.invoke("workspace:comments-list", projectId) as Promise<Array<DiffComment>>,
-	commitAmend: (params) =>
-		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
-	commitCreate: (params) =>
-		ipcRenderer.invoke("workspace:commit-create", params) as Promise<CommitCreateResult>,
-	commitDiscard: (params) =>
-		ipcRenderer.invoke("workspace:commit-discard", params) as Promise<CommitDiscardResult>,
-	commitDiscardChanges: (params) =>
-		ipcRenderer.invoke("workspace:commit-discard-changes", params) as Promise<MoveChangesResult>,
-	commitDetailsWithLineStats: (params) =>
-		ipcRenderer.invoke(
-			"workspace:commit-details-with-line-stats",
-			params,
-		) as Promise<CommitDetails>,
-	discardWorktreeChanges: (params) =>
-		ipcRenderer.invoke("workspace:discard-worktree-changes", params) as Promise<Array<DiffSpec>>,
-	commitInsertBlank: (params) =>
-		ipcRenderer.invoke("workspace:commit-insert-blank", params) as Promise<CommitInsertBlankResult>,
-	commitMove: (params) =>
-		ipcRenderer.invoke("workspace:commit-move", params) as Promise<CommitMoveResult>,
-	commitSquash: (params) =>
-		ipcRenderer.invoke("workspace:commit-squash", params) as Promise<CommitSquashResult>,
-	commitReword: (params) =>
-		ipcRenderer.invoke("workspace:commit-reword", params) as Promise<CommitRewordResult>,
-	commitMoveChangesBetween: (params) =>
-		ipcRenderer.invoke(
-			"workspace:commit-move-changes-between",
-			params,
-		) as Promise<MoveChangesResult>,
-	commitUncommit: (params) =>
-		ipcRenderer.invoke("workspace:commit-uncommit", params) as Promise<UncommitResult>,
-	commitUncommitChanges: (params) =>
-		ipcRenderer.invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
-	addReviewLabels: (params) =>
-		ipcRenderer.invoke("forge:add-review-labels", params) as Promise<Array<ForgeReviewLabel>>,
-	createReviewComment: (params) =>
-		ipcRenderer.invoke("forge:create-review-comment", params) as Promise<ForgeReviewComment>,
-	currentForgeLogin: (projectId) =>
-		ipcRenderer.invoke("forge:current-login", projectId) as Promise<string | null>,
-	deleteReviewComment: (params) =>
-		ipcRenderer.invoke("forge:delete-review-comment", params) as Promise<void>,
-	forgeCompareBranchUrl: (params) =>
-		ipcRenderer.invoke("forge:compare-branch-url", params) as Promise<string | null>,
-	forgeInfo: (projectId) =>
-		ipcRenderer.invoke("forge:info", projectId) as Promise<ForgeInfo | null>,
-	forgeProvider: (projectId) =>
-		ipcRenderer.invoke("forge:provider", projectId) as Promise<ForgeName | null>,
-	getInitialBranchIntegration: (params) =>
-		ipcRenderer.invoke(
-			"workspace:get-initial-branch-integration",
-			params,
-		) as Promise<InitialBranchIntegration>,
-	getRepoInfo: (projectId) =>
-		ipcRenderer.invoke("workspace:get-repo-info", projectId) as Promise<RepoInfo>,
-	getReviewBaseRepoUrl: (params) =>
-		ipcRenderer.invoke("forge:get-review-base-repo-url", params) as Promise<string | null>,
-	getReviewMergeStatus: (params) =>
-		ipcRenderer.invoke("forge:get-review-merge-status", params) as Promise<ReviewMergeStatus>,
-	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
-	getRedoTargetSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
-	getReview: (params) => ipcRenderer.invoke("forge:get-review", params) as Promise<ForgeReview>,
-	getUndoTargetSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
-	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
-	isFullScreen: () => ipcRenderer.invoke("lite:is-full-screen") as Promise<boolean>,
 	onFullScreenChange: (callback) => {
 		const listener = (_event: Electron.IpcRendererEvent, fullScreen: boolean) => {
 			callback(fullScreen);
 		};
-		ipcRenderer.on("lite:full-screen-change", listener);
-		return () => ipcRenderer.removeListener("lite:full-screen-change", listener);
+		ipcRenderer.on("fullScreenChange", listener);
+		return () => ipcRenderer.removeListener("fullScreenChange", listener);
 	},
-	listAvailableReviewTemplates: (projectId) =>
-		ipcRenderer.invoke("forge:list-available-review-templates", projectId) as Promise<
-			Array<string>
-		>,
-	listCiChecks: (params) =>
-		ipcRenderer.invoke("forge:list-ci-checks", params) as Promise<Array<CiCheck>>,
-	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
-	listPrograms: () => ipcRenderer.invoke("workspace:list-programs") as Promise<Array<Program>>,
-	listProjectsStateless: () =>
-		ipcRenderer.invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
-	listRepoLabels: (projectId) =>
-		ipcRenderer.invoke("forge:list-repo-labels", projectId) as Promise<Array<ForgeReviewLabel>>,
-	listReviewComments: (params) =>
-		ipcRenderer.invoke("forge:list-review-comments", params) as Promise<Array<ForgeReviewComment>>,
-	listReviewTimelineEvents: (params) =>
-		ipcRenderer.invoke("forge:list-review-timeline-events", params) as Promise<
-			Array<ForgeReviewTimelineEvent>
-		>,
-	listReviewReactions: (params) =>
-		ipcRenderer.invoke("forge:list-review-reactions", params) as Promise<
-			Array<ForgeReviewReaction>
-		>,
-	listCommentReactions: (params) =>
-		ipcRenderer.invoke("workspace:list-comment-reactions", params) as Promise<
-			Array<ForgeReviewReaction>
-		>,
-	addReviewReaction: (params) =>
-		ipcRenderer.invoke("forge:add-review-reaction", params) as Promise<ForgeReviewReaction>,
-	removeReviewReaction: (params) =>
-		ipcRenderer.invoke("forge:remove-review-reaction", params) as Promise<void>,
-	addCommentReaction: (params) =>
-		ipcRenderer.invoke("workspace:add-comment-reaction", params) as Promise<ForgeReviewReaction>,
-	removeCommentReaction: (params) =>
-		ipcRenderer.invoke("workspace:remove-comment-reaction", params) as Promise<void>,
-	listReviewSubmissions: (params) =>
-		ipcRenderer.invoke("forge:list-review-submissions", params) as Promise<
-			Array<ForgeReviewSubmission>
-		>,
-	updateReviewComment: (params) =>
-		ipcRenderer.invoke("forge:update-review-comment", params) as Promise<ForgeReviewComment>,
-	listReviewerCandidates: (projectId) =>
-		ipcRenderer.invoke("forge:list-reviewer-candidates", projectId) as Promise<
-			Array<ForgeReviewUser>
-		>,
-	removeReviewLabel: (params) =>
-		ipcRenderer.invoke("forge:remove-review-label", params) as Promise<void>,
-	requestReview: (params) => ipcRenderer.invoke("forge:request-review", params) as Promise<void>,
-	withdrawReviewRequest: (params) =>
-		ipcRenderer.invoke("forge:withdraw-review-request", params) as Promise<void>,
-	listReviews: (params) =>
-		ipcRenderer.invoke("forge:list-reviews", params) as Promise<Array<ForgeReview>>,
-	listReviewsForBranch: (params) =>
-		ipcRenderer.invoke("forge:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
-	mergeReview: (params) => ipcRenderer.invoke("forge:merge-review", params) as Promise<void>,
-	moveBranch: (params) =>
-		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
-	openInProgram: (params) =>
-		ipcRenderer.invoke("workspace:open-in-program", params) as Promise<void>,
-	openInWebBrowser: (url) =>
-		ipcRenderer.invoke("workspace:open-in-web-browser", url) as Promise<void>,
-	pathJoin: (path, ...paths) =>
-		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
-	publishReview: (params) =>
-		ipcRenderer.invoke("forge:publish-review", params) as Promise<PublishReviewOutcome>,
-	branchRename: (params) =>
-		ipcRenderer.invoke("workspace:branch-rename", params) as Promise<BranchRenameResult>,
-	updateReview: (params) => ipcRenderer.invoke("forge:update-review", params) as Promise<void>,
-	tearOffBranch: (params) =>
-		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
-	peelRestoreSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
-	workspaceBranchAndAncestorsPush: (params) =>
-		ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
-	branchRemove: (params) =>
-		ipcRenderer.invoke("workspace:branch-remove", params) as Promise<BranchRemoveResult>,
-	restoreSnapshotWithKind: (params) =>
-		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
-	reviewTemplate: (projectId) =>
-		ipcRenderer.invoke("forge:review-template", projectId) as Promise<ReviewTemplateInfo | null>,
-	setReviewAutoMerge: (params) =>
-		ipcRenderer.invoke("forge:set-review-auto-merge", params) as Promise<void>,
-	setReviewDraftiness: (params) =>
-		ipcRenderer.invoke("forge:set-review-draftiness", params) as Promise<void>,
-	setReviewTemplate: (params) =>
-		ipcRenderer.invoke("forge:set-review-template", params) as Promise<void>,
-	setTargetRefAndInitProject: (params) =>
-		ipcRenderer.invoke("workspace:set-target-ref-and-init-project", params) as Promise<void>,
-	showNativeMenu: (params) =>
-		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
-	treeChangeDiffs: (params) =>
-		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
-	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
-	workspaceFetchFromRemotes: (params) =>
-		ipcRenderer.invoke("workspace:fetch-from-remotes", params) as Promise<void>,
-	workspaceFetchStatus: (projectId) =>
-		ipcRenderer.invoke("workspace:fetch-status", projectId) as Promise<WorkspaceFetchStatus>,
-	workspaceTargetCommits: (params) =>
-		ipcRenderer.invoke("workspace:target-commits", params) as Promise<TargetCommitPage>,
-	workspaceIntegrateUpstream: (params) =>
-		ipcRenderer.invoke(
-			"workspace:integrate-upstream",
-			params,
-		) as Promise<WorkspaceIntegrateUpstreamOutcome>,
-	updateReviewFooters: (params) =>
-		ipcRenderer.invoke("forge:update-review-footers", params) as Promise<void>,
-	warmCiChecksCache: (projectId) =>
-		ipcRenderer.invoke("forge:warm-ci-checks-cache", projectId) as Promise<void>,
 	/**
 	 * Subscribe to a project.
 	 *
@@ -308,10 +106,9 @@ const api: LiteElectronApi = {
 	 * @returns A subscription ID.
 	 */
 	watcherSubscribe: async (projectId, callback) => {
-		const { subscriptionId, eventChannel } = (await ipcRenderer.invoke(
-			"workspace:watcher-subscribe",
-			{ projectId },
-		)) as WatcherSubscribeResult;
+		const { subscriptionId, eventChannel } = (await invoke("watcherSubscribe", {
+			projectId,
+		})) as WatcherSubscribeResult;
 		const listener = (_event: Electron.IpcRendererEvent, payload: WatcherEvent) => {
 			callback(payload);
 		};
@@ -332,9 +129,7 @@ const api: LiteElectronApi = {
 			ipcRenderer.removeListener(registration.eventChannel, registration.listener);
 			watcherListenerBySubscription.delete(subscriptionId);
 		}
-		return ipcRenderer.invoke("workspace:watcher-unsubscribe", {
-			subscriptionId,
-		}) as Promise<boolean>;
+		return invoke("watcherUnsubscribe", { subscriptionId }) as Promise<boolean>;
 	},
 	/**
 	 * Stop all watchers.
@@ -346,11 +141,8 @@ const api: LiteElectronApi = {
 			ipcRenderer.removeListener(eventChannel, listener);
 
 		watcherListenerBySubscription.clear();
-		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
+		return invoke("watcherStopAll") as Promise<number>;
 	},
-	readGUISettings: () => ipcRenderer.invoke("lite:gui-settings:read") as Promise<GUISettings>,
-	writeGUISettings: (settings: GUISettings) =>
-		ipcRenderer.invoke("lite:gui-settings:write", settings) as Promise<void>,
 	platform: process.platform,
 };
 

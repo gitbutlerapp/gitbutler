@@ -1071,6 +1071,7 @@ dependencies = [
  "but-api-macros",
  "but-ctx",
  "but-error",
+ "but-schemars",
  "futures",
  "gix",
  "napi",
