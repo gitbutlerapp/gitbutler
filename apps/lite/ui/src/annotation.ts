@@ -1,8 +1,4 @@
-import type {
-	CommentArchiveParams,
-	CommentCreateParams,
-	CommentUpdateParams,
-} from "#electron/ipc.ts";
+import type { PayloadFor } from "#electron/ipc.ts";
 import { commentsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -64,7 +60,7 @@ export const useCommentCreate = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (params: CommentCreateParams & { comment: { id: string } }) =>
+		mutationFn: (params: PayloadFor<"commentCreate"> & { comment: { id: string } }) =>
 			window.lite.commentCreate(params),
 		onMutate: async (input, ctx) => {
 			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
@@ -109,7 +105,7 @@ export const useCommentUpdate = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (params: CommentUpdateParams) => window.lite.commentUpdate(params),
+		mutationFn: (params: PayloadFor<"commentUpdate">) => window.lite.commentUpdate(params),
 		onSettled: (_comment, _err, input, _result, ctx) =>
 			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error) => {
@@ -130,7 +126,7 @@ export const useCommentArchive = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (params: CommentArchiveParams) => window.lite.commentArchive(params),
+		mutationFn: (params: PayloadFor<"commentArchive">) => window.lite.commentArchive(params),
 		onMutate: async (input, ctx) => {
 			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
 

@@ -1,3 +1,4 @@
+import type { PayloadFor } from "#electron/ipc.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -31,7 +32,6 @@ import type {
 	Snapshot,
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation } from "@tanstack/react-query";
-import type { OpenInProgramParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 
@@ -406,7 +406,13 @@ export const useAddCommentReaction = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.addCommentReaction,
+		// `reviewId` keys the cache below; the forge addresses comments by id,
+		// so it is not part of what the endpoint takes.
+		mutationFn: ({
+			reviewId: _reviewId,
+			...params
+		}: PayloadFor<"addCommentReaction"> & { reviewId: number }) =>
+			window.lite.addCommentReaction(params),
 		onMutate: async (input, ctx) => {
 			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
 			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
@@ -465,7 +471,13 @@ export const useRemoveCommentReaction = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.removeCommentReaction,
+		// `reviewId` keys the cache below; the forge addresses comments by id,
+		// so it is not part of what the endpoint takes.
+		mutationFn: ({
+			reviewId: _reviewId,
+			...params
+		}: PayloadFor<"removeCommentReaction"> & { reviewId: number }) =>
+			window.lite.removeCommentReaction(params),
 		onMutate: async (input, ctx) => {
 			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
 			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
@@ -629,7 +641,13 @@ export const useUpdateReviewComment = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.updateReviewComment,
+		// `reviewId` keys the cache below; the forge addresses comments by id,
+		// so it is not part of what the endpoint takes.
+		mutationFn: ({
+			reviewId: _reviewId,
+			...params
+		}: PayloadFor<"updateReviewComment"> & { reviewId: number }) =>
+			window.lite.updateReviewComment(params),
 		onSuccess: async (_response, input, _context, mutation) => {
 			await mutation.client.invalidateQueries({
 				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
@@ -653,7 +671,13 @@ export const useDeleteReviewComment = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.deleteReviewComment,
+		// `reviewId` keys the cache below; the forge addresses comments by id,
+		// so it is not part of what the endpoint takes.
+		mutationFn: ({
+			reviewId: _reviewId,
+			...params
+		}: PayloadFor<"deleteReviewComment"> & { reviewId: number }) =>
+			window.lite.deleteReviewComment(params),
 		onSuccess: async (_response, input, _context, mutation) => {
 			await mutation.client.invalidateQueries({
 				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
@@ -809,7 +833,7 @@ export const useOpenInProgram = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: OpenInProgramParams) => window.lite.openInProgram(input),
+		mutationFn: (input: PayloadFor<"openInProgram">) => window.lite.openInProgram(input),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

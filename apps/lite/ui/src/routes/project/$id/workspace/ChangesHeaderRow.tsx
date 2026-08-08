@@ -75,7 +75,7 @@ export const ChangesHeaderRow: FC<{
 						nativeMenuItem({
 							label: "Discard Changes",
 							enabled: changes.length > 0 && !isDiscardWorktreeChangesPending,
-							onSelect: () => discardWorktreeChanges({ projectId, changes: diffSpecs() }),
+							onSelect: () => discardWorktreeChanges({ projectId, worktreeChanges: diffSpecs() }),
 						}),
 					],
 				],

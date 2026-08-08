@@ -1,487 +1,193 @@
-import type {
-	AbsorptionTarget,
-	ApplyOutcome,
-	BranchCheckoutResult,
-	BranchIntegrationStrategy,
-	BranchCreatePlacement,
-	BranchCreateResult,
-	BranchDetails,
-	BranchRemoveResult,
-	BranchRenameResult,
-	BottomUpdate,
-	CacheConfig,
-	ChangesSource,
-	CiCheck,
-	Editor,
-	ForgeInfo,
-	ForgeName,
-	ForgeReview,
-	ForgeReviewFilter,
-	ForgeReviewUpdate,
-	CommitAbsorption,
-	HunkAssignmentRequest,
-	CommitDetails,
-	DiffComment,
-	DiffSpec,
-	FullNameBytes,
-	InitialBranchIntegration,
-	InsertSide,
-	IntegrateBranchResult,
-	InteractiveIntegration,
-	ListedStack,
-	MessageCombinationStrategy,
-	PushResult,
-	Program,
-	ProjectForFrontend,
-	PublishReviewInput,
-	PublishReviewOutcome,
-	RelativeTo,
-	RefInfo,
-	RepoInfo,
-	TreeChange,
-	TreeChanges,
-	TargetCommitPage,
-	CommitCreateResult,
-	CommitDiscardResult,
-	CommitInsertBlankResult,
-	CommitMoveResult,
-	CommitRewordResult,
-	CommitSquashResult,
-	MoveBranchResult,
-	MoveChangesResult,
-	PushFlag,
-	UnifiedPatch,
-	WatcherEvent,
-	WorktreeChanges,
-	WorkspaceFetchStatus,
-	WorkspaceIntegrateUpstreamOutcome,
-	UncommitResult,
-	ReviewState,
-	ReviewMergeMethod,
-	ReviewMergeStatus,
-	ForgeReviewComment,
-	ForgeReviewLabel,
-	ForgeReviewReaction,
-	ForgeReviewSubmission,
-	ForgeReviewTimelineEvent,
-	ForgeReviewUser,
-	ReviewTemplateInfo,
-	RestoreKind,
-	Snapshot,
-	AskpassPromptEvent,
-	MaybeLossyFullNameRef,
-	NewComment,
-} from "@gitbutler/but-sdk";
+import type { WatcherEvent, AskpassPromptEvent } from "@gitbutler/but-sdk";
+import type * as sdk from "@gitbutler/but-sdk";
+import type { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import type { GUISettings } from "./settings.js";
 
-export interface AbsorbParams {
-	projectId: string;
-	absorptionPlan: Array<CommitAbsorption>;
-}
+/**
+ * What the renderer can call: the exposed endpoints, whose signatures are the
+ * SDK's, plus the members electron implements itself.
+ */
+export type LiteElectronApi = {
+	[K in ExposedKey]: EndpointFn<K>;
+} & {
+	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
+	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
+	clipboardWriteText: (text: string) => Promise<void>;
+	getVersion: () => Promise<string>;
+	isFullScreen: () => Promise<boolean>;
+	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
+	openInWebBrowser: (url: string) => Promise<void>;
+	pathJoin: (...paths: Array<string>) => Promise<string>;
+	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
+	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
+	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
+	watcherStopAll: () => Promise<number>;
+	readGUISettings: () => Promise<GUISettings>;
+	writeGUISettings: (settings: GUISettings) => Promise<void>;
+	platform: string;
+};
 
-export interface AbsorptionPlanParams {
-	projectId: string;
-	target: AbsorptionTarget;
-}
+/**
+ * The SDK endpoints the renderer may call. This list is the decision — the
+ * signatures, payloads and handlers all follow from it — and an endpoint's
+ * name is its IPC channel, so there is nothing else to keep in step.
+ */
+export const exposedEndpoints = [
+	"absorb",
+	"absorptionPlan",
+	"addCommentReaction",
+	"addReviewLabels",
+	"addReviewReaction",
+	"apply",
+	"applyBranchIntegration",
+	"assignHunk",
+	"branchCheckout",
+	"branchCheckoutNew",
+	"branchCreate",
+	"branchDetails",
+	"branchDiff",
+	"branchList",
+	"branchRemove",
+	"branchRename",
+	"changesInWorktree",
+	"commentArchive",
+	"commentCreate",
+	"commentUpdate",
+	"commentsList",
+	"commitAmend",
+	"commitCreate",
+	"commitDetailsWithLineStats",
+	"commitDiscard",
+	"commitDiscardChanges",
+	"commitInsertBlank",
+	"commitMove",
+	"commitMoveChangesBetween",
+	"commitReword",
+	"commitSquash",
+	"commitUncommit",
+	"commitUncommitChanges",
+	"createReviewComment",
+	"currentForgeLogin",
+	"deleteReviewComment",
+	"discardWorktreeChanges",
+	"forgeCompareBranchUrl",
+	"forgeInfo",
+	"forgeProvider",
+	"getInitialBranchIntegration",
+	"getRedoTargetSnapshot",
+	"getRepoInfo",
+	"getReview",
+	"getReviewBaseRepoUrl",
+	"getReviewMergeStatus",
+	"getUndoTargetSnapshot",
+	"headInfo",
+	"listAvailableReviewTemplates",
+	"listCiChecks",
+	"listCommentReactions",
+	"listEditors",
+	"listPrograms",
+	"listProjectsStateless",
+	"listRepoLabels",
+	"listReviewComments",
+	"listReviewReactions",
+	"listReviewSubmissions",
+	"listReviewTimelineEvents",
+	"listReviewerCandidates",
+	"listReviews",
+	"listReviewsForBranch",
+	"mergeReview",
+	"moveBranch",
+	"openInProgram",
+	"peelRestoreSnapshot",
+	"publishReview",
+	"removeCommentReaction",
+	"removeReviewLabel",
+	"removeReviewReaction",
+	"requestReview",
+	"restoreSnapshotWithKind",
+	"reviewTemplate",
+	"setReviewAutoMerge",
+	"setReviewDraftiness",
+	"setReviewTemplate",
+	"setTargetRefAndInitProject",
+	"tearOffBranch",
+	"treeChangeDiffs",
+	"unapplyStack",
+	"updateReview",
+	"updateReviewComment",
+	"updateReviewFooters",
+	"warmCiChecksCache",
+	"withdrawReviewRequest",
+	"workspaceBranchAndAncestorsPush",
+	"workspaceFetchFromRemotes",
+	"workspaceFetchStatus",
+	"workspaceIntegrateUpstream",
+	"workspaceTargetCommits",
+] as const;
 
-export interface ApplyParams {
-	projectId: string;
-	existingBranch: string;
-}
+/** Members the main process answers itself rather than forwarding to the SDK. */
+export const localEndpoints = [
+	"askpassPrompt",
+	"askpassSubmitPromptResponse",
+	"clipboardWriteText",
+	"fullScreenChange",
+	"getVersion",
+	"isFullScreen",
+	"openInWebBrowser",
+	"pathJoin",
+	"readGUISettings",
+	"showNativeMenu",
+	"watcherStopAll",
+	"watcherSubscribe",
+	"watcherUnsubscribe",
+	"writeGUISettings",
+] as const;
 
-export interface ApplyBranchIntegrationParams {
-	projectId: string;
-	branch: string;
-	integration: InteractiveIntegration;
-	dryRun: boolean;
-}
+// Everything below derives the surface above from the list above.
 
+/** An endpoint the SDK exposes to JavaScript. */
+export type Endpoint = keyof typeof apiParamNames & keyof typeof sdk;
+
+/**
+ * The payload for an endpoint, named.
+ *
+ * napi-rs declares endpoints positionally; the SDK separately emits each
+ * one's parameter names, generated from the Rust signature that owns them.
+ * Pairing the two gives the object shape without restating a single type —
+ * every type here still comes from the declaration.
+ */
+export type PayloadFor<K extends Endpoint> = {
+	// Indices only, never the array's own members: mapping straight over
+	// `keyof tuple` is homomorphic and would yield an array-like type.
+	[I in Extract<keyof (typeof apiParamNames)[K], `${number}`> as (typeof apiParamNames)[K][I] &
+		string]: (typeof sdk)[K] extends (...args: infer A) => unknown
+		? I extends keyof A
+			? A[I]
+			: never
+		: never;
+};
+
+type Result<K extends Endpoint> = ReturnType<(typeof sdk)[K]>;
+
+/** Takes nothing, the lone argument itself, or a payload — by parameter count. */
+type EndpointFn<K extends Endpoint> = (typeof apiParamNames)[K]["length"] extends 0
+	? () => Result<K>
+	: (typeof apiParamNames)[K]["length"] extends 1
+		? (arg: Parameters<(typeof sdk)[K]>[0]) => Result<K>
+		: (params: PayloadFor<K>) => Result<K>;
+
+export type ExposedKey = (typeof exposedEndpoints)[number];
+
+// Shapes electron owns: no SDK declaration behind them, so they are written
+// out by hand — the only types in this file that are.
+
+/** Askpass is not a `#[but_api]` endpoint, so there are no names to derive from. */
 export interface AskpassSubmitPromptResponseParams {
 	id: string;
 	response: string | null;
 }
 
-export interface AssignHunkParams {
-	projectId: string;
-	assignments: Array<HunkAssignmentRequest>;
-}
-
-export interface CommentCreateParams {
-	projectId: string;
-	comment: NewComment;
-}
-
-export interface CommentUpdateParams {
-	projectId: string;
-	id: string;
-	payload: string;
-}
-
-export interface CommentArchiveParams {
-	projectId: string;
-	id: string;
-}
-
-export interface BranchCreateParams {
-	projectId: string;
-	newRef: MaybeLossyFullNameRef;
-	placement: BranchCreatePlacement;
-}
-
-export interface BranchCheckoutParams {
-	projectId: string;
-	branch: FullNameBytes;
-}
-
-export interface BranchCheckoutNewParams {
-	projectId: string;
-	name: string | null;
-}
-
-export interface BranchDetailsParams {
-	projectId: string;
-	branchName: string;
-	remote: string | null;
-}
-
-export interface BranchDiffParams {
-	projectId: string;
-	branch: string;
-}
-
-export interface CommitAmendParams {
-	projectId: string;
-	commitId: string;
-	changes: Array<DiffSpec>;
-	changesSource: ChangesSource;
-	dryRun: boolean;
-}
-
-export interface CommitCreateParams {
-	projectId: string;
-	relativeTo: RelativeTo;
-	side: InsertSide;
-	changes: Array<DiffSpec>;
-	changesSource: ChangesSource;
-	message: string;
-	dryRun: boolean;
-}
-
-export interface CommitDetailsWithLineStatsParams {
-	projectId: string;
-	commitId: string;
-}
-
-export interface CommitDiscardParams {
-	projectId: string;
-	subjectCommitId: string;
-	dryRun: boolean;
-}
-
-export interface CommitDiscardChangesParams {
-	projectId: string;
-	commitId: string;
-	changes: Array<DiffSpec>;
-	dryRun: boolean;
-}
-
-export interface DiscardWorktreeChangesParams {
-	projectId: string;
-	changes: Array<DiffSpec>;
-}
-
-export interface CommitInsertBlankParams {
-	projectId: string;
-	relativeTo: RelativeTo;
-	side: InsertSide;
-	dryRun: boolean;
-}
-
-export interface CommitMoveParams {
-	projectId: string;
-	subjectCommitIds: Array<string>;
-	relativeTo: RelativeTo;
-	side: InsertSide;
-	dryRun: boolean;
-}
-
-export interface CommitMoveChangesBetweenParams {
-	projectId: string;
-	sourceCommitId: string;
-	destinationCommitId: string;
-	changes: Array<DiffSpec>;
-	dryRun: boolean;
-}
-
-export interface CommitRewordParams {
-	projectId: string;
-	commitId: string;
-	message: string;
-	dryRun: boolean;
-}
-
-export interface CommitSquashParams {
-	projectId: string;
-	sourceCommitIds: Array<string>;
-	destinationCommitId: string;
-	howToCombineMessages?: MessageCombinationStrategy;
-	dryRun: boolean;
-}
-
-export interface ForgeCompareBranchUrlParams {
-	projectId: string;
-	base: string;
-	branch: string;
-	fork: string | null;
-}
-
-export interface GetInitialBranchIntegrationParams {
-	projectId: string;
-	branch: string;
-	strategy: BranchIntegrationStrategy | null;
-}
-
-export interface GetReviewBaseRepoUrlParams {
-	projectId: string;
-	reviewId: number;
-}
-
-export interface CommitUncommitParams {
-	projectId: string;
-	subjectCommitIds: Array<string>;
-	assignTo: string | null;
-	dryRun: boolean;
-}
-
-export interface CommitUncommitChangesParams {
-	projectId: string;
-	commitId: string;
-	changes: Array<DiffSpec>;
-	assignTo: string | null;
-	dryRun: boolean;
-}
-
-export interface ListReviewsForBranchParams {
-	projectId: string;
-	branch: string;
-	filter: ForgeReviewFilter | null;
-}
-
-export interface GetReviewParams {
-	projectId: string;
-	reviewId: number;
-}
-
-export interface CreateReviewCommentParams {
-	projectId: string;
-	reviewId: number;
-	body: string;
-}
-
-/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
-export interface UpdateReviewCommentParams {
-	projectId: string;
-	reviewId: number;
-	commentId: number;
-	body: string;
-}
-
-/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
-export interface DeleteReviewCommentParams {
-	projectId: string;
-	reviewId: number;
-	commentId: number;
-}
-
-export interface CommentReactionsParams {
-	projectId: string;
-	commentId: number;
-}
-
-export interface AddReviewReactionParams {
-	projectId: string;
-	reviewId: number;
-	kind: string;
-}
-
-export interface RemoveReviewReactionParams {
-	projectId: string;
-	reviewId: number;
-	reactionId: number;
-}
-
-/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
-export interface AddCommentReactionParams {
-	projectId: string;
-	reviewId: number;
-	commentId: number;
-	kind: string;
-}
-
-/** `reviewId` is carried for cache invalidation; the forge addresses comments by id. */
-export interface RemoveCommentReactionParams {
-	projectId: string;
-	reviewId: number;
-	commentId: number;
-	reactionId: number;
-}
-
-export interface AddReviewLabelsParams {
-	projectId: string;
-	reviewId: number;
-	labels: Array<string>;
-}
-
-export interface RemoveReviewLabelParams {
-	projectId: string;
-	reviewId: number;
-	label: string;
-}
-
-export interface ReviewRequestParams {
-	projectId: string;
-	reviewId: number;
-	logins: Array<string>;
-}
-
-export interface ListCiChecksParams {
-	projectId: string;
-	reference: string;
-	cacheConfig: CacheConfig | null;
-}
-
-export interface ListReviewsParams {
-	projectId: string;
-	cacheConfig: CacheConfig | null;
-}
-
-export interface MoveBranchParams {
-	projectId: string;
-	subjectBranch: string;
-	targetBranch: string;
-	dryRun: boolean;
-}
-
-export interface MergeReviewParams {
-	projectId: string;
-	reviewId: number;
-	mergeMethod: ReviewMergeMethod | null;
-}
-
-export interface OpenInProgramParams {
-	projectId: string;
-	programId: string;
-	path: string;
-	lineNr: number | null;
-}
-
-export interface PeelRestoreSnapshotParams {
-	projectId: string;
-	sha: string;
-}
-
-export interface PublishReviewParams {
-	projectId: string;
-	params: PublishReviewInput;
-}
-
-export interface WorkspaceBranchAndAncestorsPushParams {
-	projectId: string;
-	branch: string;
-	withForce: boolean;
-	skipForcePushProtection: boolean;
-	runHooks: boolean;
-	pushOpts: Array<PushFlag>;
-}
-
-export interface BranchRemoveParams {
-	projectId: string;
-	refName: FullNameBytes;
-}
-
-export interface RestoreSnapshotWithKindParams {
-	projectId: string;
-	restoreKind: RestoreKind;
-	sha: string;
-}
-
-export interface SetReviewAutoMergeParams {
-	projectId: string;
-	reviewId: number;
-	enable: boolean;
-}
-
-export interface SetReviewDraftinessParams {
-	projectId: string;
-	reviewId: number;
-	draft: boolean;
-}
-
-export interface SetReviewTemplateParams {
-	projectId: string;
-	templatePath: string | null;
-}
-
-export interface SetTargetRefAndInitProjectParams {
-	projectId: string;
-	targetRef: string;
-	pushRemote?: string;
-}
-
-export interface TearOffBranchParams {
-	projectId: string;
-	subjectBranch: string;
-	dryRun: boolean;
-}
-
-export interface TreeChangeDiffParams {
-	projectId: string;
-	change: TreeChange;
-}
-
-export interface UnapplyStackParams {
-	projectId: string;
-	stackId: string;
-}
-
-export interface WorkspaceIntegrateUpstreamParams {
-	projectId: string;
-	updates: Array<BottomUpdate>;
-	dryRun: boolean;
-}
-
-export interface WorkspaceTargetCommitsParams {
-	projectId: string;
-	/** Continue the listing below this commit; `null` starts from the target tip. */
-	from: string | null;
-	limit: number | null;
-}
-
-export interface WorkspaceFetchFromRemotesParams {
-	projectId: string;
-	action: string | null;
-}
-
-export interface BranchRenameParams {
-	projectId: string;
-	refName: FullNameBytes;
-	newName: string;
-}
-
-export interface UpdateReviewParams {
-	projectId: string;
-	reviewId: number;
-	title: string | null;
-	body: string | null;
-	state: ReviewState | null;
-	targetBase: string | null;
-}
-
-export interface UpdateReviewFootersParams {
-	projectId: string;
-	reviews: Array<ForgeReviewUpdate>;
-}
-
+/** Watcher wire shapes; the preload wraps these behind a callback API. */
 export interface WatcherSubscribeParams {
 	projectId: string;
 }
@@ -518,224 +224,3 @@ export interface ShowNativeMenuParams {
 	items: Array<NativeMenuPopupItem>;
 	position: NativeMenuPosition;
 }
-
-export interface LiteElectronApi {
-	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
-	absorb: (params: AbsorbParams) => Promise<number>;
-	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
-	applyBranchIntegration: (params: ApplyBranchIntegrationParams) => Promise<IntegrateBranchResult>;
-	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
-	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
-	assignHunk: (params: AssignHunkParams) => Promise<void>;
-	branchCheckout: (params: BranchCheckoutParams) => Promise<BranchCheckoutResult>;
-	branchCheckoutNew: (params: BranchCheckoutNewParams) => Promise<BranchCheckoutResult>;
-	branchCreate: (params: BranchCreateParams) => Promise<BranchCreateResult>;
-	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
-	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
-	branchList: (projectId: string) => Promise<Array<ListedStack>>;
-	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
-	clipboardWriteText: (text: string) => Promise<void>;
-	commentArchive: (params: CommentArchiveParams) => Promise<boolean>;
-	commentCreate: (params: CommentCreateParams) => Promise<DiffComment>;
-	commentUpdate: (params: CommentUpdateParams) => Promise<void>;
-	commentsList: (projectId: string) => Promise<Array<DiffComment>>;
-	commitAmend: (params: CommitAmendParams) => Promise<CommitCreateResult>;
-	commitCreate: (params: CommitCreateParams) => Promise<CommitCreateResult>;
-	commitDiscard: (params: CommitDiscardParams) => Promise<CommitDiscardResult>;
-	commitDiscardChanges: (params: CommitDiscardChangesParams) => Promise<MoveChangesResult>;
-	commitDetailsWithLineStats: (params: CommitDetailsWithLineStatsParams) => Promise<CommitDetails>;
-	discardWorktreeChanges: (params: DiscardWorktreeChangesParams) => Promise<Array<DiffSpec>>;
-	commitInsertBlank: (params: CommitInsertBlankParams) => Promise<CommitInsertBlankResult>;
-	commitMove: (params: CommitMoveParams) => Promise<CommitMoveResult>;
-	commitSquash: (params: CommitSquashParams) => Promise<CommitSquashResult>;
-	commitReword: (params: CommitRewordParams) => Promise<CommitRewordResult>;
-	commitMoveChangesBetween: (params: CommitMoveChangesBetweenParams) => Promise<MoveChangesResult>;
-	commitUncommit: (params: CommitUncommitParams) => Promise<UncommitResult>;
-	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
-	addReviewLabels: (params: AddReviewLabelsParams) => Promise<Array<ForgeReviewLabel>>;
-	createReviewComment: (params: CreateReviewCommentParams) => Promise<ForgeReviewComment>;
-	currentForgeLogin: (projectId: string) => Promise<string | null>;
-	deleteReviewComment: (params: DeleteReviewCommentParams) => Promise<void>;
-	forgeCompareBranchUrl: (params: ForgeCompareBranchUrlParams) => Promise<string | null>;
-	forgeInfo: (projectId: string) => Promise<ForgeInfo | null>;
-	forgeProvider: (projectId: string) => Promise<ForgeName | null>;
-	getInitialBranchIntegration: (
-		params: GetInitialBranchIntegrationParams,
-	) => Promise<InitialBranchIntegration>;
-	getRepoInfo: (projectId: string) => Promise<RepoInfo>;
-	getReviewBaseRepoUrl: (params: GetReviewBaseRepoUrlParams) => Promise<string | null>;
-	getReviewMergeStatus: (params: GetReviewParams) => Promise<ReviewMergeStatus>;
-	getVersion: () => Promise<string>;
-	getRedoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
-	getReview: (params: GetReviewParams) => Promise<ForgeReview>;
-	getUndoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
-	headInfo: (projectId: string) => Promise<RefInfo>;
-	isFullScreen: () => Promise<boolean>;
-	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
-	listAvailableReviewTemplates: (projectId: string) => Promise<Array<string>>;
-	listCiChecks: (params: ListCiChecksParams) => Promise<Array<CiCheck>>;
-	listEditors: () => Promise<Array<Editor>>;
-	listPrograms: () => Promise<Array<Program>>;
-	listProjectsStateless: () => Promise<Array<ProjectForFrontend>>;
-	listRepoLabels: (projectId: string) => Promise<Array<ForgeReviewLabel>>;
-	listReviewComments: (params: GetReviewParams) => Promise<Array<ForgeReviewComment>>;
-	listReviewSubmissions: (params: GetReviewParams) => Promise<Array<ForgeReviewSubmission>>;
-	listReviewTimelineEvents: (params: GetReviewParams) => Promise<Array<ForgeReviewTimelineEvent>>;
-	listReviewReactions: (params: GetReviewParams) => Promise<Array<ForgeReviewReaction>>;
-	listCommentReactions: (params: CommentReactionsParams) => Promise<Array<ForgeReviewReaction>>;
-	addReviewReaction: (params: AddReviewReactionParams) => Promise<ForgeReviewReaction>;
-	removeReviewReaction: (params: RemoveReviewReactionParams) => Promise<void>;
-	addCommentReaction: (params: AddCommentReactionParams) => Promise<ForgeReviewReaction>;
-	removeCommentReaction: (params: RemoveCommentReactionParams) => Promise<void>;
-	updateReviewComment: (params: UpdateReviewCommentParams) => Promise<ForgeReviewComment>;
-	listReviewerCandidates: (projectId: string) => Promise<Array<ForgeReviewUser>>;
-	removeReviewLabel: (params: RemoveReviewLabelParams) => Promise<void>;
-	requestReview: (params: ReviewRequestParams) => Promise<void>;
-	withdrawReviewRequest: (params: ReviewRequestParams) => Promise<void>;
-	listReviews: (params: ListReviewsParams) => Promise<Array<ForgeReview>>;
-	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
-	mergeReview: (params: MergeReviewParams) => Promise<void>;
-	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
-	openInWebBrowser: (url: string) => Promise<void>;
-	openInProgram: (params: OpenInProgramParams) => Promise<void>;
-	pathJoin: (...paths: Array<string>) => Promise<string>;
-	publishReview: (params: PublishReviewParams) => Promise<PublishReviewOutcome>;
-	branchRename: (params: BranchRenameParams) => Promise<BranchRenameResult>;
-	updateReview: (params: UpdateReviewParams) => Promise<void>;
-	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
-	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
-	workspaceBranchAndAncestorsPush: (
-		params: WorkspaceBranchAndAncestorsPushParams,
-	) => Promise<PushResult>;
-	branchRemove: (params: BranchRemoveParams) => Promise<BranchRemoveResult>;
-	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
-	reviewTemplate: (projectId: string) => Promise<ReviewTemplateInfo | null>;
-	setReviewAutoMerge: (params: SetReviewAutoMergeParams) => Promise<void>;
-	setReviewDraftiness: (params: SetReviewDraftinessParams) => Promise<void>;
-	setReviewTemplate: (params: SetReviewTemplateParams) => Promise<void>;
-	setTargetRefAndInitProject: (params: SetTargetRefAndInitProjectParams) => Promise<void>;
-	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
-	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
-	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
-	workspaceFetchFromRemotes: (params: WorkspaceFetchFromRemotesParams) => Promise<void>;
-	workspaceFetchStatus: (projectId: string) => Promise<WorkspaceFetchStatus>;
-	workspaceTargetCommits: (params: WorkspaceTargetCommitsParams) => Promise<TargetCommitPage>;
-	workspaceIntegrateUpstream: (
-		params: WorkspaceIntegrateUpstreamParams,
-	) => Promise<WorkspaceIntegrateUpstreamOutcome>;
-	updateReviewFooters: (params: UpdateReviewFootersParams) => Promise<void>;
-	warmCiChecksCache: (projectId: string) => Promise<void>;
-	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
-	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
-	watcherStopAll: () => Promise<number>;
-	readGUISettings: () => Promise<GUISettings>;
-	writeGUISettings: (settings: GUISettings) => Promise<void>;
-	platform: string;
-}
-
-export const liteIpcChannels = {
-	absorptionPlan: "workspace:absorption-plan",
-	absorb: "workspace:absorb",
-	apply: "workspace:apply",
-	applyBranchIntegration: "workspace:apply-branch-integration",
-	askpassPrompt: "askpass:prompt",
-	askpassSubmitPromptResponse: "askpass:submit-prompt-response",
-	assignHunk: "workspace:assign-hunk",
-	branchCheckout: "workspace:branch-checkout",
-	branchCheckoutNew: "workspace:branch-checkout-new",
-	branchCreate: "workspace:branch-create",
-	branchDetails: "workspace:branch-details",
-	branchDiff: "workspace:branch-diff",
-	branchList: "workspace:branch-list",
-	changesInWorktree: "workspace:changes-in-worktree",
-	clipboardWriteText: "lite:clipboard-write-text",
-	commentArchive: "workspace:comment-archive",
-	commentCreate: "workspace:comment-create",
-	commentUpdate: "workspace:comment-update",
-	commentsList: "workspace:comments-list",
-	commitAmend: "workspace:commit-amend",
-	commitCreate: "workspace:commit-create",
-	commitDiscard: "workspace:commit-discard",
-	commitDiscardChanges: "workspace:commit-discard-changes",
-	commitDetailsWithLineStats: "workspace:commit-details-with-line-stats",
-	discardWorktreeChanges: "workspace:discard-worktree-changes",
-	commitInsertBlank: "workspace:commit-insert-blank",
-	commitMove: "workspace:commit-move",
-	commitSquash: "workspace:commit-squash",
-	commitReword: "workspace:commit-reword",
-	commitMoveChangesBetween: "workspace:commit-move-changes-between",
-	commitUncommit: "workspace:commit-uncommit",
-	commitUncommitChanges: "workspace:commit-uncommit-changes",
-	addReviewLabels: "forge:add-review-labels",
-	createReviewComment: "forge:create-review-comment",
-	currentForgeLogin: "forge:current-login",
-	deleteReviewComment: "forge:delete-review-comment",
-	forgeCompareBranchUrl: "forge:compare-branch-url",
-	forgeInfo: "forge:info",
-	forgeProvider: "forge:provider",
-	getInitialBranchIntegration: "workspace:get-initial-branch-integration",
-	getRepoInfo: "workspace:get-repo-info",
-	getReviewBaseRepoUrl: "forge:get-review-base-repo-url",
-	getReviewMergeStatus: "forge:get-review-merge-status",
-	getVersion: "lite:get-version",
-	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
-	getReview: "forge:get-review",
-	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
-	headInfo: "workspace:head-info",
-	isFullScreen: "lite:is-full-screen",
-	fullScreenChange: "lite:full-screen-change",
-	listAvailableReviewTemplates: "forge:list-available-review-templates",
-	listCiChecks: "forge:list-ci-checks",
-	listEditors: "workspace:list-editors",
-	listPrograms: "workspace:list-programs",
-	listProjectsStateless: "projects:list-stateless",
-	listRepoLabels: "forge:list-repo-labels",
-	listReviewComments: "forge:list-review-comments",
-	listReviewSubmissions: "forge:list-review-submissions",
-	listReviewTimelineEvents: "forge:list-review-timeline-events",
-	listReviewReactions: "forge:list-review-reactions",
-	listCommentReactions: "workspace:list-comment-reactions",
-	addReviewReaction: "forge:add-review-reaction",
-	removeReviewReaction: "forge:remove-review-reaction",
-	addCommentReaction: "workspace:add-comment-reaction",
-	removeCommentReaction: "workspace:remove-comment-reaction",
-	updateReviewComment: "forge:update-review-comment",
-	listReviewerCandidates: "forge:list-reviewer-candidates",
-	removeReviewLabel: "forge:remove-review-label",
-	requestReview: "forge:request-review",
-	withdrawReviewRequest: "forge:withdraw-review-request",
-	listReviews: "forge:list-reviews",
-	listReviewsForBranch: "forge:list-reviews-for-branch",
-	mergeReview: "forge:merge-review",
-	moveBranch: "workspace:move-branch",
-	openInProgram: "workspace:open-in-program",
-	openInWebBrowser: "workspace:open-in-web-browser",
-	pathJoin: "lite:path-join",
-	publishReview: "forge:publish-review",
-	branchRename: "workspace:branch-rename",
-	updateReview: "forge:update-review",
-	tearOffBranch: "workspace:tear-off-branch",
-	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
-	workspaceBranchAndAncestorsPush: "workspace:push-stack",
-	branchRemove: "workspace:branch-remove",
-	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
-	reviewTemplate: "forge:review-template",
-	setReviewAutoMerge: "forge:set-review-auto-merge",
-	setReviewDraftiness: "forge:set-review-draftiness",
-	setReviewTemplate: "forge:set-review-template",
-	setTargetRefAndInitProject: "workspace:set-target-ref-and-init-project",
-	showNativeMenu: "lite:show-native-menu",
-	treeChangeDiffs: "workspace:tree-change-diffs",
-	unapplyStack: "workspace:unapply-stack",
-	workspaceFetchFromRemotes: "workspace:fetch-from-remotes",
-	workspaceFetchStatus: "workspace:fetch-status",
-	workspaceTargetCommits: "workspace:target-commits",
-	workspaceIntegrateUpstream: "workspace:integrate-upstream",
-	updateReviewFooters: "forge:update-review-footers",
-	warmCiChecksCache: "forge:warm-ci-checks-cache",
-	watcherSubscribe: "workspace:watcher-subscribe",
-	watcherUnsubscribe: "workspace:watcher-unsubscribe",
-	watcherStopAll: "workspace:watcher-stop-all",
-	readGUISettings: "lite:gui-settings:read",
-	writeGUISettings: "lite:gui-settings:write",
-} as const;

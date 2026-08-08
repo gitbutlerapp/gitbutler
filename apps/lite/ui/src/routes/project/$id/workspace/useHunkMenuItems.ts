@@ -166,7 +166,7 @@ export const useHunkMenuItems = ({
 							onSelect: () =>
 								discardWorktreeChanges({
 									projectId,
-									changes: [discardDiffSpec],
+									worktreeChanges: [discardDiffSpec],
 								}),
 						}),
 					],

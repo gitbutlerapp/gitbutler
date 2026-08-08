@@ -180,7 +180,7 @@ export const useFileMenuItems = ({
 						const discard = () =>
 							discardWorktreeChanges({
 								projectId,
-								changes: [createDiffSpec(change, [])],
+								worktreeChanges: [createDiffSpec(change, [])],
 							});
 
 						return [
