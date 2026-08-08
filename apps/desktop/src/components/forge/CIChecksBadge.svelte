@@ -52,11 +52,14 @@
 	const projectState = $derived(uiState.project(projectId));
 	const isDone = $derived(!projectState.branchesToPoll.current.includes(branchName));
 
-	// Do not create a checks monitor if pull request is merged or from a fork.
-	// For more information about unavailability of check-runs for forked repos,
-	// see GitHub docs at:
+	// Do not create a checks monitor if the pull request is merged, or if it is
+	// from a fork on a forge where fork checks are unavailable. GitHub does not
+	// expose check-runs for forked repos, see:
 	// https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28#list-check-runs-in-a-check-suite
-	const enabled = $derived(!isFork && !isMerged); // Deduplication.
+	// GitLab resolves fork MR pipelines through the MR itself, so forks are fine there.
+	const isGitLab = $derived(forgeInfo?.name === "gitlab");
+	const forkBlocksChecks = $derived(Boolean(isFork) && !isGitLab);
+	const enabled = $derived(!forkBlocksChecks && !isMerged); // Deduplication.
 
 	// Backs polling off while the checks query is failing (offline, rate-limited,
 	// repo access lost) and restores the schedule on recovery. A transient 422
@@ -79,7 +82,7 @@
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
 		const checks = checksQuery?.response;
-		if (isFork) {
+		if (forkBlocksChecks) {
 			return {
 				style: "gray",
 				icon: undefined,
