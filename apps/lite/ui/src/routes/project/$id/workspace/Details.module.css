@@ -148,6 +148,19 @@
 
 .diffContentsContainer {
 	display: grid;
+	/* Code, then the minimap ruler — which collapses the column when it has
+	   nothing to map. */
+	grid-template-columns: minmax(0, 1fr) auto;
+
+	/* Drop the native scrollbar only while the minimap is showing, so a diff too
+	   short to map keeps one. */
+	&:has([data-minimap-navigable="true"]) .diffContents {
+		scrollbar-width: none;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
 }
 
 .diffContents {

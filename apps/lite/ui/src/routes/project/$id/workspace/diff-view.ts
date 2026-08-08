@@ -15,9 +15,31 @@ import {
 } from "#ui/operands.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { processFile, type CodeViewDiffItem, type CodeViewLineSelection } from "@pierre/diffs";
+import {
+	processFile,
+	type CodeViewDiffItem,
+	type CodeViewLayout,
+	type CodeViewLineSelection,
+	type VirtualFileMetrics,
+} from "@pierre/diffs";
 
 export type Annotation = { _tag: "local"; id: string };
+
+/**
+ * Layout and metrics handed to CodeView. Shared because the minimap models item
+ * positions from the same numbers, and would drift silently if they diverged.
+ */
+export const codeViewLayout: CodeViewLayout = {
+	paddingTop: 0,
+	// Match --panel-padding-block.
+	paddingBottom: 12,
+	gap: 10,
+};
+
+export const codeViewItemMetrics = {
+	diffHeaderHeight: 38,
+	paddingBottom: 9,
+} satisfies Partial<VirtualFileMetrics>;
 
 type DiffViewDeps = {
 	fileParent: FileParent;
@@ -58,6 +80,21 @@ const parseFileDiff = (
 	if (!parsed) throw new Error("Failed to parse patch");
 
 	return parsed;
+};
+
+/**
+ * Parse a change into CodeView's diff shape. Shared with the minimap, which
+ * needs the same hunk layout — going through here keeps both on one parse
+ * cache entry instead of paying for the patch twice.
+ */
+export const parseChangeDiff = (
+	change: TreeChange,
+	patch: UnifiedPatch | null,
+): { version: number; fileDiff: CodeViewDiffItem<Annotation>["fileDiff"] } => {
+	const combined = synthesizeFilePatch(change, patch?.type === "Patch" ? patch.subject.hunks : []);
+	const version = hash(combined);
+
+	return { version, fileDiff: parseFileDiff(combined, String(version)) };
 };
 
 type DiffFileNavigation = {
@@ -125,16 +162,12 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 			path: change.path,
 		};
 
-		const combinedFilePatch = synthesizeFilePatch(
-			change,
-			mdiff?.type === "Patch" ? mdiff.subject.hunks : [],
-		);
-		const version = hash(combinedFilePatch);
+		const { version, fileDiff } = parseChangeDiff(change, mdiff ?? null);
 		const item: CodeViewDiffItem<Annotation> = {
 			type: "diff",
 			id: weakFileIdentityKey(file),
 			version,
-			fileDiff: parseFileDiff(combinedFilePatch, String(version)),
+			fileDiff,
 		};
 
 		items.push(item);
