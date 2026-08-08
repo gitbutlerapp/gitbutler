@@ -1,0 +1,153 @@
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--bg-overlay);
+}
+
+.viewport {
+	display: flex;
+	position: fixed;
+	inset: 0;
+	padding: 4.5rem 1rem;
+}
+
+/*
+ * Recessed, so the sidebar and each group of settings read as cards sitting on it —
+ * the arrangement desktop's settings use, on the tokens both apps share.
+ */
+.popup {
+	display: flex;
+	width: min(820px, 100%);
+	height: min(76vh, 1000px);
+	margin: auto;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-lg);
+	background-color: var(--bg-2);
+	box-shadow:
+		0 0.5px 1px rgb(0 0 0 / 0.12),
+		0 1px 3px -1px rgb(0 0 0 / 0.04),
+		0 2px 4px -1px rgb(0 0 0 / 0.04),
+		0 4px 8px -2px rgb(0 0 0 / 0.04),
+		0 12px 14px -4px rgb(0 0 0 / 0.04),
+		0 24px 64px -8px rgb(0 0 0 / 0.04),
+		0 40px 48px -32px rgb(0 0 0 / 0.04);
+}
+
+.sidebar {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	width: 184px;
+	margin: 8px 0 8px 8px;
+	padding: 12px 8px 8px;
+	overflow-y: auto;
+	gap: 14px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+.heading {
+	padding-inline-start: 6px;
+}
+
+.group {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.groupHeading {
+	margin-block-end: 4px;
+	padding-inline: 8px;
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.link {
+	display: flex;
+	position: relative;
+	align-items: center;
+	padding: 5px 8px;
+	gap: 8px;
+	border-radius: var(--radius-button);
+	color: var(--text-2);
+	text-align: left;
+	cursor: default;
+	transition: background-color var(--transition-fast);
+
+	/* Slides in from the sidebar's inner edge, so the selection reads even at a glance. */
+	&::after {
+		position: absolute;
+		top: 50%;
+		left: -12px;
+		width: 6px;
+		height: 18px;
+		transform: translateY(-50%) translateX(-100%);
+		border-radius: 0 var(--radius-button) var(--radius-button) 0;
+		background-color: var(--fill-pop-bg);
+		content: "";
+		transition: transform 0.15s ease;
+	}
+
+	&:hover {
+		background-color: var(--bg-2);
+	}
+}
+
+.linkSelected {
+	background-color: var(--bg-2);
+	color: var(--text-1);
+
+	&::after {
+		transform: translateY(-50%) translateX(0);
+	}
+
+	& .linkIcon {
+		color: var(--text-1);
+	}
+}
+
+.linkIcon {
+	flex: none;
+	color: var(--text-3);
+	transition: color var(--transition-fast);
+}
+
+/* Pushed to the bottom, so the pages above keep their own block. */
+.social {
+	display: flex;
+	flex-direction: column;
+	margin-block-start: auto;
+	padding-block-start: 8px;
+	gap: 2px;
+	border-top: 1px solid var(--border-2);
+}
+
+.linkExternal {
+	margin-inline-start: auto;
+	color: var(--text-3);
+}
+
+.content {
+	flex: 1;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+.contentColumn {
+	display: flex;
+	flex-direction: column;
+	max-width: 640px;
+	margin: 0 auto;
+	/*
+	 * The same 8px the sidebar keeps off the popup, so every card sits on one gutter and
+	 * the tops line up. Inner padding belongs to the cards; adding it here too reads as
+	 * one card inside another.
+	 */
+	padding: 8px;
+	gap: 12px;
+}

@@ -1,0 +1,15 @@
+.path {
+	max-width: 320px;
+	overflow: hidden;
+	color: var(--text-2);
+	direction: rtl;
+	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.confirm {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}

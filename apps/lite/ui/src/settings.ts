@@ -4,12 +4,19 @@ import type { GUISettings } from "#electron/settings.ts";
 // [tag:lite_default_settings]
 export const defaultSettings = {
 	autoFetchFrequency: "15 min",
+	autoUpdate: true,
 	diffBackground: true,
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,
+	diffLigatures: false,
 	diffOverflow: "scroll",
-	diffStyle: "unified",
+	diffStyle: "split",
 	diffTabSize: 4,
+	// Pierre's own default, named here so the setting has somewhere to fall back to.
+	lineDiffType: "word-alt",
+	// Lite has always led with the file name; desktop leads with the path.
+	pathFirst: false,
+	terminalId: "",
 	// Pierre doesn't re-export BundledTheme from Shiki and it's not possible to extract it from the
 	// union, hence importing from Shiki. See also:
 	//   https://shiki.style/themes#bundled-themes

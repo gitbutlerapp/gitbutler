@@ -1,4 +1,4 @@
-import { checkForUpdates, registerUpdater } from "./updater.js";
+import { checkForUpdates, registerUpdater, setAutoUpdateEnabled } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import * as sdk from "@gitbutler/but-sdk";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
@@ -51,6 +51,7 @@ const currentDirPath = path.dirname(currentFilePath);
 // [ref:lite_default_settings]
 const applyGUISettings = (settings: GUISettings): void => {
 	nativeTheme.themeSource = settings.theme ?? "system";
+	setAutoUpdateEnabled(settings.autoUpdate ?? true);
 };
 
 // Permissions in this array are allowed by default for trusted origins, without prompting the user for input.
@@ -76,6 +77,24 @@ const trustedOriginDefaultPermissions: Array<
 	| "unknown"
 	| "fileSystem"
 > = ["clipboard-sanitized-write"] as const;
+
+/**
+ * Hosts allowed to supply images, shared by both policies.
+ *
+ * Both GitHub attachments and GitButler avatars are served by a host that 302s to a
+ * bucket, and CSP checks every hop — hence the bucket names alongside the app ones.
+ */
+const imgSrc = [
+	"'self'",
+	"data:",
+	"https://*.gravatar.com",
+	"https://*.githubusercontent.com",
+	"https://github.com",
+	"https://github-production-user-asset-6210df.s3.amazonaws.com",
+	"https://app.gitbutler.com",
+	"https://app.staging.gitbutler.com",
+	"https://gitbutler-public.s3.amazonaws.com",
+].join(" ");
 
 const liteProtocolScheme = "lite";
 const liteProtocolHost = "app";
@@ -456,7 +475,7 @@ void app.whenReady().then(async () => {
 			"form-action 'none';" +
 			// user-attachments assets on github.com 302 to GitHub's signed S3 bucket,
 			// and CSP checks every redirect hop — hence the explicit bucket host.
-			"img-src 'self' data: https://*.gravatar.com https://*.githubusercontent.com https://github.com https://github-production-user-asset-6210df.s3.amazonaws.com;" +
+			`img-src ${imgSrc};` +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -492,7 +511,7 @@ void app.whenReady().then(async () => {
 			"form-action 'none';" +
 			// user-attachments assets on github.com 302 to GitHub's signed S3 bucket,
 			// and CSP checks every redirect hop — hence the explicit bucket host.
-			"img-src 'self' data: https://*.gravatar.com https://*.githubusercontent.com https://github.com https://github-production-user-asset-6210df.s3.amazonaws.com;" +
+			`img-src ${imgSrc};` +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

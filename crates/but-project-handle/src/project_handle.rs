@@ -17,6 +17,11 @@ pub struct ProjectHandle(String);
 ///
 /// This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
 /// when the `legacy` feature is enabled.
+///
+/// Its serialized form is a plain string — see the `Serialize`/`Deserialize` impls below —
+/// so it describes itself to schemars as one, and API consumers pass an ordinary string.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "export-schema", schemars(with = "String"))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ProjectHandleOrLegacyProjectId {
     /// Self-describing project handle.
@@ -25,6 +30,8 @@ pub enum ProjectHandleOrLegacyProjectId {
     #[cfg(feature = "legacy")]
     LegacyProjectId(LegacyProjectId),
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ProjectHandleOrLegacyProjectId);
 
 /// Lifecycle
 impl ProjectHandle {

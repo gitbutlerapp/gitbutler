@@ -1,0 +1,21 @@
+.check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.passed {
+	color: var(--text-safe);
+}
+
+.failed {
+	max-width: 240px;
+	overflow: hidden;
+	color: var(--text-danger);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pending {
+	color: var(--text-3);
+}

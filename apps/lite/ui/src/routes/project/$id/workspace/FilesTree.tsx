@@ -5,6 +5,7 @@ import {
 	listEditorsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { defaultSettings } from "#ui/settings.ts";
 import {
 	uncommittedChangesFileParent,
 	fileOperand,
@@ -256,6 +257,13 @@ export const FilesTree: FC<
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
+	// Resolved once here rather than per row: a row that subscribes to the settings query
+	// is a row that re-renders with it. Selecting the boolean keeps that subscription to
+	// this one field.
+	const { data: pathFirst } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.pathFirst ?? defaultSettings.pathFirst,
+	});
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
@@ -369,6 +377,7 @@ export const FilesTree: FC<
 										render={
 											<FileRow
 												item={item}
+												pathFirst={pathFirst ?? defaultSettings.pathFirst}
 												inert={!navigationIndexIncludes(navigationIndex, item.path, (path) => path)}
 												isSelected={selection !== null && selection === item.path}
 												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}

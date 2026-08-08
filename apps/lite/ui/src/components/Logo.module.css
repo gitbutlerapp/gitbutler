@@ -1,0 +1,12 @@
+/* 28px is the size desktop's settings give a forge mark. */
+.logo {
+	display: inline-grid;
+	flex-shrink: 0;
+	width: var(--logo-size, 28px);
+	height: var(--logo-size, 28px);
+
+	& > svg {
+		width: 100%;
+		height: 100%;
+	}
+}

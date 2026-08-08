@@ -32,7 +32,12 @@ export type QueryKey =
 	| "reviewerCandidates"
 	| "reviews"
 	| "editors"
+	| "terminals"
+	| "forgeAccounts"
+	| "userProfile"
+	| "gbConfig"
 	| "projects"
+	| "signingSettings"
 	| "treeChangeDiffs"
 	| "absorptionPlan"
 	| "dryRun"
@@ -215,6 +220,25 @@ export const listReviewCommentsQueryOptions = ({
 		refetchInterval: 60_000,
 	});
 
+export const gbConfigQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["gbConfig" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.getGbConfig(projectId),
+	});
+
+/**
+ * Whether the repository's signing configuration actually produces a signature.
+ * Runs git, so it is asked for on demand rather than polled.
+ */
+export const signingSettingsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["signingSettings" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.checkSigningSettings(projectId),
+		enabled: false,
+		retry: false,
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+
 export const currentForgeLoginQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["currentForgeLogin" satisfies QueryKey, projectId],
@@ -331,6 +355,40 @@ export const listReviewsQueryOptions = ({ projectId, ...params }: PayloadFor<"li
 		// refetches on return instead.
 		refetchInterval: 60_000,
 	});
+
+/**
+ * The backend names platforms the way Rust does; electron reports node's names, so
+ * `darwin` would match nothing and quietly yield an empty list.
+ */
+const backendPlatform = (platform: string): string =>
+	platform === "darwin" ? "macos" : platform === "win32" ? "windows" : platform;
+
+/** Terminals are per-platform, and the platform cannot change while running. */
+export const terminalsQueryOptions = queryOptions({
+	queryKey: ["terminals" satisfies QueryKey],
+	queryFn: () => window.lite.getTerminalOptionsForPlatform(backendPlatform(window.lite.platform)),
+	staleTime: Number.POSITIVE_INFINITY,
+});
+
+export const userProfileQueryOptions = queryOptions({
+	queryKey: ["userProfile" satisfies QueryKey],
+	queryFn: () => window.lite.getUserProfileLocal(),
+});
+
+export const githubAccountsQueryOptions = queryOptions({
+	queryKey: ["forgeAccounts" satisfies QueryKey, "github"],
+	queryFn: () => window.lite.listKnownGithubAccounts(),
+});
+
+export const gitlabAccountsQueryOptions = queryOptions({
+	queryKey: ["forgeAccounts" satisfies QueryKey, "gitlab"],
+	queryFn: () => window.lite.listKnownGitlabAccounts(),
+});
+
+export const bitbucketAccountsQueryOptions = queryOptions({
+	queryKey: ["forgeAccounts" satisfies QueryKey, "bitbucket"],
+	queryFn: () => window.lite.listKnownBitbucketAccounts(),
+});
 
 export const listProjectsQueryOptions = queryOptions({
 	queryKey: ["projects" satisfies QueryKey],

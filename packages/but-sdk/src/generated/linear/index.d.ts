@@ -189,6 +189,27 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
 export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
 /**
+ * Checks the status of a GitHub device OAuth authorization.
+ *
+ * Polls the GitHub API to check if the user has completed the device authorization flow.
+ * If successful, stores the access token and returns the authenticated user information.
+ *
+ * # Arguments
+ *
+ * * `device_code` - The device code received from [`init_github_device_oauth`]
+ *
+ * # Returns
+ *
+ * * `Ok(AuthStatusResponse)` - User is authenticated, contains access token and user details
+ * * `Err(_)` - If the authorization is pending, denied, or the request fails
+ *
+ * For lower-level implementation details, see [`but_github::check_github_auth_status()`].
+ */
+export declare function checkGithubAuthStatus(deviceCode: string): Promise<GithubAuthStatusResponseSensitive>
+
+export declare function checkSigningSettings(projectId: string): Promise<boolean>
+
+/**
  * Archive the comment with the given `id`, hiding it from all future listings.
  * Returns `false` if the comment does not exist or was already archived.
  */
@@ -370,8 +391,14 @@ export declare function createReviewComment(projectId: string, reviewId: number,
  */
 export declare function currentForgeLogin(projectId: string): Promise<string | null>
 
+export declare function deleteAllData(): Promise<void>
+
+export declare function deleteProject(projectId: ProjectHandleOrLegacyProjectId): Promise<void>
+
 /** Delete a top-level conversation comment on a review. */
 export declare function deleteReviewComment(projectId: string, commentId: number): Promise<void>
+
+export declare function deleteUser(): Promise<void>
 
 /**
  * Discard all worktree changes that match the specs in `worktree_changes`.
@@ -412,8 +439,108 @@ export declare function forgeInfo(projectId: string): Promise<ForgeInfo | null>
  */
 export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
 
+/**
+ * Removes stored credentials for a specific Bitbucket account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the Bitbucket account
+ *
+ * # Returns
+ *
+ * * `Ok(())` - Always succeeds, even if no token was found
+ */
+export declare function forgetBitbucketAccount(account: BitbucketAccountIdentifier): Promise<void>
+
+/**
+ * Removes stored credentials for a specific GitHub account.
+ *
+ * Deletes the access token associated with the specified GitHub account identifier.
+ * This is used when users want to sign out or remove an account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the GitHub account (github.com or enterprise)
+ *
+ * # Returns
+ *
+ * * `Ok(())` - Always succeeds, even if no token was found
+ */
+export declare function forgetGithubAccount(account: GithubAccountIdentifier): Promise<void>
+
+/**
+ * Removes stored credentials for a specific GitLab account.
+ *
+ * Deletes the access token associated with the specified GitLab account identifier.
+ * This is used when users want to sign out or remove an account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the GitLab account (gitlab.com or self-hosted)
+ *
+ * # Returns
+ *
+ * * `Ok(())` - Always succeeds, even if no token was found
+ */
+export declare function forgetGitlabAccount(account: GitlabAccountIdentifier): Promise<void>
+
+/**
+ * Retrieves the authenticated user information for a Bitbucket account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the Bitbucket account to query
+ *
+ * # Returns
+ *
+ * * `Ok(Some(AuthenticatedUser))` - User information
+ * * `Ok(None)` - No credentials stored for this account
+ * * `Err(_)` - If the API request fails or credentials are invalid
+ */
+export declare function getBbUser(account: BitbucketAccountIdentifier): Promise<BitbucketAuthenticatedUserSensitive | null>
+
+export declare function getGbConfig(projectId: string): Promise<GitConfigSettings>
+
+/**
+ * Retrieves the authenticated user information for a GitHub account.
+ *
+ * Fetches the stored credentials and current user profile for the specified GitHub account.
+ * Returns `None` if no credentials are stored for the account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the GitHub account to query
+ *
+ * # Returns
+ *
+ * * `Ok(Some(AuthenticatedUser))` - User information with access token
+ * * `Ok(None)` - No credentials stored for this account
+ * * `Err(_)` - If the API request fails or credentials are invalid
+ */
+export declare function getGhUser(account: GithubAccountIdentifier): Promise<GithubAuthenticatedUserSensitive | null>
+
+/**
+ * Retrieves the authenticated user information for a GitLab account.
+ *
+ * Fetches the stored credentials and current user profile for the specified GitLab account.
+ * Returns `None` if no credentials are stored for the account.
+ *
+ * # Arguments
+ *
+ * * `account` - Identifier for the GitLab account to query
+ *
+ * # Returns
+ *
+ * * `Ok(Some(AuthenticatedUser))` - User information
+ * * `Ok(None)` - No credentials stored for this account
+ * * `Err(_)` - If the API request fails or credentials are invalid
+ */
+export declare function getGlUser(account: GitlabAccountIdentifier): Promise<GitlabAuthenticatedUserSensitive | null>
+
 /** Get the initial upstream integration script for `branch`. */
 export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
+
+export declare function getLoginToken(): Promise<LoginToken>
 
 /**
  * Get the snapshot that a redo operation should restore to.
@@ -431,11 +558,27 @@ export declare function getReviewBaseRepoUrl(projectId: string, reviewId: number
 export declare function getReviewMergeStatus(projectId: string, reviewId: number): Promise<ReviewMergeStatus>
 
 /**
+ * Returns all available terminal options for the given platform.
+ *
+ * The list is empty if the `platform` isn't one of `linux`, `macos` or `windows`, case-sensitive.
+ *
+ * ## Why Legacy?
+ *
+ * It's born as a port from the frontend, which means it's frontend centric and serves mostly that right now.
+ * But it could be generalised as more consumers join in.
+ * Big question is if the backend shouldn't just know the platform… If it is needed, it should be an enum here.
+ */
+export declare function getTerminalOptionsForPlatform(platform: string): Promise<Array<TerminalOption>>
+
+/**
  * Get the snapshot that an undo operation should restore to.
  *
  * This handles multiple consecutive undos.
  */
 export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapshot | null>
+
+/** The signed-in account, or `None`. Credentials stay in this process. */
+export declare function getUserProfileLocal(): Promise<UserProfile | null>
 
 /**
  * Return the current detailed graph workspace for the frontend.
@@ -444,6 +587,10 @@ export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapsh
  * mutate the cached [`WorkspaceState`] returned by mutation APIs.
  */
 export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
+
+export declare function gitTestFetch(projectId: string, remoteName: string, action: string | null): Promise<void>
+
+export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
@@ -455,6 +602,23 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * `None`, the namespace defaults to the SDK's compiled GitButler app channel.
  */
 export declare function initApplicationNamespace(identifier: string | null): Promise<void>
+
+/**
+ * Starts the GitHub device OAuth flow.
+ *
+ * This starts the OAuth device authorization flow, which allows users to authenticate
+ * by visiting a URL and entering a code. Returns verification details including the
+ * user code and verification URL.
+ *
+ * # Returns
+ *
+ * * `Ok(Verification)` - Contains the user code, device code, and verification URL
+ * * `Err(_)` - If the OAuth initialization request fails
+ *
+ * For lower-level implementation details,
+ * see [`but_github::init_github_device_oauth()`].
+ */
+export declare function initGithubDeviceOauth(): Promise<Verification>
 
 /** Get the list of review template paths for the given project. */
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
@@ -468,6 +632,42 @@ export declare function listCommentReactions(projectId: string, commentId: numbe
 
 /** List all editors that can be opened from a GUI client. */
 export declare function listEditors(): Promise<Array<Editor>>
+
+/**
+ * Lists all Bitbucket accounts with stored credentials.
+ *
+ * # Returns
+ *
+ * * `Ok(Vec<BitbucketAccountIdentifier>)` - List of all known accounts
+ * * `Err(_)` - If storage access fails
+ */
+export declare function listKnownBitbucketAccounts(): Promise<Array<BitbucketAccountIdentifier>>
+
+/**
+ * Lists all GitHub accounts with stored credentials.
+ *
+ * Returns identifiers for all GitHub accounts (github.com and enterprise) that have
+ * stored access tokens in the application.
+ *
+ * # Returns
+ *
+ * * `Ok(Vec<GithubAccountIdentifier>)` - List of all known accounts
+ * * `Err(_)` - If storage access fails
+ */
+export declare function listKnownGithubAccounts(): Promise<Array<GithubAccountIdentifier>>
+
+/**
+ * Lists all GitLab accounts with stored credentials.
+ *
+ * Returns identifiers for all GitLab accounts (gitlab.com and self-hosted) that have
+ * stored access tokens in the application.
+ *
+ * # Returns
+ *
+ * * `Ok(Vec<GitlabAccountIdentifier>)` - List of all known accounts
+ * * `Err(_)` - If storage access fails
+ */
+export declare function listKnownGitlabAccounts(): Promise<Array<GitlabAccountIdentifier>>
 
 /** List all programs that can be opened from a GUI client. */
 export declare function listPrograms(): Promise<Array<Program>>
@@ -496,6 +696,9 @@ export declare function listReviewSubmissions(projectId: string, reviewId: numbe
 /** List the pushed commits and review requests on a review's timeline. */
 export declare function listReviewTimelineEvents(projectId: string, reviewId: number): Promise<Array<ForgeReviewTimelineEvent>>
 
+/** Complete a login and persist the account, so the token never leaves this process. */
+export declare function loginAndPersist(token: string): Promise<UserProfile>
+
 /** Merge a review on the forge. */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
 
@@ -519,6 +722,53 @@ export declare function moveBranch(projectId: string, subjectBranch: string, tar
  * [`list_programs`] provides the available `program_id`s.
  */
 export declare function openInProgram(projectId: string, programId: string, path: string, lineNr: number | null): Promise<void>
+
+/**
+ * Opens a terminal application at the specified directory path.
+ *
+ * # Parameters
+ * - `terminal_id`: Identifier for the terminal application to open.
+ * - `path`: The directory path where the terminal should open.
+ *   It's a string as it's passed from the frontend, but ideally we'd manage to keep the original bytes.
+ *
+ * # Supported Terminals
+ *
+ * **macOS:**
+ * - `terminal` - Terminal.app
+ * - `iterm2` - iTerm2
+ * - `ghostty` - Ghostty
+ * - `warp` - Warp
+ * - `alacritty-mac` - Alacritty
+ * - `wezterm-mac` - WezTerm
+ * - `hyper` - Hyper
+ * - `kitty` - Kitty
+ *
+ * **Windows:**
+ * - `wt` - Windows Terminal
+ * - `powershell` - PowerShell
+ * - `cmd` - Command Prompt
+ *
+ * **Linux:**
+ * - `ptyxis` - Ptyxis
+ * - `gnome-terminal` - GNOME Terminal
+ * - `konsole` - KDE Konsole
+ * - `xfce4-terminal` - XFCE Terminal
+ * - `alacritty` - Alacritty
+ * - `ghostty` - Ghostty
+ * - `warp` - Warp
+ * - `hyper` - Hyper
+ * - `wezterm` - WezTerm
+ * - `kitty` - Kitty
+ * - `cosmic-term` - COSMIC Terminal
+ *
+ * # Errors
+ * Returns an error if:
+ * - The terminal application is not installed or not found in PATH
+ * - The specified path does not exist or is not accessible
+ * - The terminal_id is not recognized for the current platform
+ * - On all platforms, only spawn failures are detected; the terminal's later exit status is not checked
+ */
+export declare function openInTerminal(terminalId: string, path: string): Promise<void>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.
@@ -607,6 +857,8 @@ export declare function reviewApply(projectId: string, reviewId: number): Promis
  */
 export declare function reviewTemplate(projectId: string): Promise<ReviewTemplateInfo | null>
 
+export declare function setGbConfig(projectId: string, config: GitConfigSettings): Promise<void>
+
 /**
  * Set the remote used to publish branches without changing the default target.
  *
@@ -638,6 +890,59 @@ export declare function setReviewTemplate(projectId: string, templatePath: strin
  * snapshot - only project metadata changes, no repository state.
  */
 export declare function setTargetRefAndInitProject(projectId: string, targetRef: string, pushRemote: string | null): Promise<void>
+
+/**
+ * Stores an Atlassian API token for Bitbucket Cloud.
+ *
+ * Bitbucket Cloud authenticates over HTTP Basic where the username is the
+ * Atlassian account email and the password is the API token (with scopes).
+ * Validates and stores the provided token, then returns the authenticated user.
+ *
+ * # Arguments
+ *
+ * * `email` - The Atlassian account email (HTTP Basic username)
+ * * `access_token` - The Bitbucket API token to store (wrapped in Sensitive)
+ *
+ * # Returns
+ *
+ * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Err(_)` - If the token is invalid or storage fails
+ */
+export declare function storeBitbucketApiToken(email: string, accessToken: string): Promise<BitbucketAuthStatusResponseSensitive>
+
+/**
+ * Stores a GitHub Personal Access Token (PAT) for github.com.
+ *
+ * Validates and stores the provided PAT, then retrieves and returns the authenticated
+ * user information. The token is securely stored in the application's data directory.
+ *
+ * # Arguments
+ *
+ * * `access_token` - The GitHub PAT to store (wrapped in Sensitive to prevent logging)
+ *
+ * # Returns
+ *
+ * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Err(_)` - If the token is invalid or storage fails
+ */
+export declare function storeGithubPat(accessToken: string): Promise<GithubAuthStatusResponseSensitive>
+
+/**
+ * Stores a GitLab Personal Access Token (PAT) for gitlab.com.
+ *
+ * Validates and stores the provided PAT, then retrieves and returns the authenticated
+ * user information. The token is securely stored in the application's data directory.
+ *
+ * # Arguments
+ *
+ * * `access_token` - The GitLab PAT to store (wrapped in Sensitive to prevent logging)
+ *
+ * # Returns
+ *
+ * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Err(_)` - If the token is invalid or storage fails
+ */
+export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthStatusResponseSensitive>
 
 /**
  * Tears off a branch using the behavior described by [`tear_off_branch_with_perm()`].
@@ -678,6 +983,17 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
 export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
+
+/**
+ * Change the profile on gitbutler.com and keep the stored account in step.
+ *
+ * The API call alone would leave the local copy stale, so the name shown next to the
+ * picture would still be the old one until the next sign-in.
+ */
+export declare function updateProfileAndPersist(params: UpdateUserParams): Promise<UserProfile>
+
+/** Change the stored settings of a project, leaving absent fields as they were. */
+export declare function updateProjectSettings(projectId: ProjectHandleOrLegacyProjectId, settings: ProjectSettingsUpdate): Promise<void>
 
 /**
  * Update arbitrary fields of a single review (title, body, state, target base).
@@ -2542,6 +2858,24 @@ export type ListedStack = {
 /** JSON transport type for how a branch stack relates to the workspace. */
 export type ListedStackStatus = "applied" | "unapplied" | "target" | "standalone";
 
+/** Response from `POST /api/login/token.json`. */
+export type LoginToken = {
+  /**
+   * Polling token returned by the API for completing login.
+   *
+   * This value is sensitive. Although it is obtained via a server-side HTTP
+   * call, this struct may be returned from backend commands to browser-based
+   * frontends, so callers must avoid exposing or logging it unnecessarily.
+   */
+  token: string;
+  /** Token shown to the user after authentication on gitbutler.com. */
+  browser_token: string;
+  /** Expiration timestamp. */
+  expires: string;
+  /** The full URL to redirect the user's browser to for login. */
+  url: string;
+};
+
 /**
  * An optional full reference name accepted as a string like `refs/heads/main`,
  * for use as a parameter transport via `#[but_api(...)]`.
@@ -2668,6 +3002,31 @@ export type ProjectForFrontend = {
   forge_review_template_path: string | null;
   /** Tell if the project is known to be open in a Window in the frontend. */
   is_open: boolean;
+};
+
+/**
+ * JSON input for `project_id` parameters.
+ *
+ * This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
+ * when the `legacy` feature is enabled.
+ *
+ * Its serialized form is a plain string — see the `Serialize`/`Deserialize` impls below —
+ * so it describes itself to schemars as one, and API consumers pass an ordinary string.
+ */
+export type ProjectHandleOrLegacyProjectId = string;
+
+/**
+ * The stored project fields a settings UI can change. An absent field is left alone.
+ *
+ * A transport DTO rather than [`gitbutler_project::UpdateRequest`], which reaches into
+ * `ApiProject`, `FetchResult` and `ForgeUser` and carries fetch bookkeeping no settings
+ * screen should be able to write.
+ */
+export type ProjectSettingsUpdate = {
+  title: string | null;
+  description: string | null;
+  forcePushProtection: boolean | null;
+  omitCertificateCheck: boolean | null;
 };
 
 /**
@@ -3207,6 +3566,19 @@ export type TelemetryUpdate = {
   appErrorReportingEnabled?: boolean | null;
 };
 
+/** Configuration for a terminal application. */
+export type TerminalOption = {
+  /** The name of the process/program to run. */
+  identifier: string;
+  /** Human-readable terminal name shown to users in picker and settings UI. */
+  displayName: string;
+  /**
+   * Operating-system family this option applies to: `macos`, `windows`, or
+   * `linux`.
+   */
+  platform: string;
+};
+
 export type Trailer = {
   key: string;
   value: string;
@@ -3363,6 +3735,21 @@ export type UnifiedPatch = {
   };
 };
 
+/** Parameters for updating the user profile. */
+export type UpdateUserParams = {
+  name: string | null;
+  website: string | null;
+  twitter: string | null;
+  bluesky: string | null;
+  timezone: string | null;
+  location: string | null;
+  email_share: boolean | null;
+  /** Base64-encoded avatar image bytes. */
+  avatar_base64: string | null;
+  /** Original filename of the avatar (e.g. "photo.png"). */
+  avatar_filename: string | null;
+};
+
 /**
  * Commit that is only at the remote.
  * Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
@@ -3380,6 +3767,27 @@ export type UpstreamCommit = {
   author: Author;
   /** The GitButler change-id associated with this commit, if available. */
   changeId: string | null;
+};
+
+/**
+ * The signed-in account, without any credential.
+ *
+ * `json::UserWithSecretsSensitive` carries the GitButler and GitHub access tokens
+ * because desktop calls the GitButler API from its frontend. A client that does not
+ * should not be handed long-lived credentials to display a name and a picture.
+ */
+export type UserProfile = {
+  id: number;
+  name: string | null;
+  login: string | null;
+  email: string | null;
+  picture: string;
+  githubUsername: string | null;
+};
+
+export type Verification = {
+  user_code: string;
+  device_code: string;
 };
 
 /** Git files activity. Supplies the head sha */

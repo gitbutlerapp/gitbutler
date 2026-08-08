@@ -1,0 +1,64 @@
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Outside the card, the way desktop labels a group of settings. */
+.heading {
+	padding-inline-start: 2px;
+	color: var(--text-1);
+}
+
+/*
+ * A card on the recessed content pane. Rows stay one line of label against one
+ * control rather than desktop's taller title-over-caption stack, which is what
+ * keeps a page of settings readable at lite's density.
+ */
+.rows {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	padding: 10px 12px;
+	gap: 10px 12px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+.row {
+	display: grid;
+	grid-template-columns: subgrid;
+	row-gap: 2px;
+	grid-column: 1 / -1;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.label {
+	color: var(--text-1);
+	text-wrap: pretty;
+}
+
+/* Spans both columns, so a sentence of it cannot squeeze the control. */
+.hint {
+	grid-column: 1 / -1;
+	color: var(--text-3);
+	text-wrap: pretty;
+}
+
+/*
+ * Controls sit against the right edge. A field stretches to fill the column and reads
+ * right-aligned; a composite widget keeps its natural width and just ends there.
+ */
+.control {
+	display: flex;
+	justify-content: flex-end;
+
+	& > input,
+	& > select {
+		flex: 1;
+		padding-inline: 4px;
+		padding-block: 5px;
+		text-align: right;
+	}
+}

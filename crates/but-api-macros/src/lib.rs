@@ -1630,6 +1630,17 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
                     }
                     "any | null".to_string()
                 }
+                // `Sensitive` marks a value as not-to-be-logged. It deserializes straight
+                // through to the value and deliberately cannot serialize at all, so the
+                // inner type is what crosses the wire and it has no schema of its own.
+                "Sensitive" => {
+                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
+                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+                    {
+                        return type_to_ts_name(inner);
+                    }
+                    "any".to_string()
+                }
                 "HashMap" | "BTreeMap" => {
                     if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
                         let mut iter = args.args.iter();

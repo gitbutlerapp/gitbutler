@@ -140,12 +140,6 @@ type PanelId = "files-panel" | "diff-panel";
 
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 
-const diffDefaults = {
-	diffBackground: true,
-	diffOverflow: "scroll",
-	diffStyle: "split",
-} satisfies Partial<GUISettings>;
-
 const getCommitFileRowItems = ({
 	commitDetails,
 }: {
@@ -255,7 +249,9 @@ const DiffContents: FC<{
 			editor: editors?.find((editor) => editor.id === cfg.editorId),
 			diffFontFamily: cfg.diffFontFamily,
 			diffFontSize: cfg.diffFontSize,
+			diffLigatures: cfg.diffLigatures,
 			diffTabSize: cfg.diffTabSize,
+			lineDiffType: cfg.lineDiffType,
 			theme: cfg.theme,
 		}),
 	});
@@ -577,9 +573,10 @@ const DiffContents: FC<{
 			selectedLines={selectedRange}
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
-				diffStyle: diffStyle ?? diffDefaults.diffStyle,
-				disableBackground: !(diffBackgrounds ?? diffDefaults.diffBackground),
-				overflow: diffOverflow ?? diffDefaults.diffOverflow,
+				diffStyle: diffStyle ?? defaultSettings.diffStyle,
+				disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
+				lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
+				overflow: diffOverflow ?? defaultSettings.diffOverflow,
 				themeType: settings?.theme ?? defaultSettings.theme,
 				stickyHeaders: true,
 				enableLineSelection: true,
@@ -605,6 +602,11 @@ const DiffContents: FC<{
 				unsafeCSS: `
           :host {
             background-color: transparent;
+            /* Inherited, so this reaches the code inside the shadow root — which is the
+               only way in, since ligatures are not one of Pierre's options. */
+            font-variant-ligatures: ${
+							(settings?.diffLigatures ?? defaultSettings.diffLigatures) ? "normal" : "none"
+						};
           }
 
           [data-diffs-header="custom"] {
@@ -760,7 +762,7 @@ const DiffOverflowToggle: FC<
 					<Toggle
 						{...toggleProps}
 						aria-label="Toggle line wrapping"
-						pressed={(diffOverflow ?? diffDefaults.diffOverflow) === "wrap"}
+						pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
 						onPressedChange={(pressed) =>
 							saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
 						}
@@ -792,7 +794,7 @@ const DiffBackgroundsToggle: FC<
 					<Toggle
 						{...toggleProps}
 						aria-label="Toggle diff backgrounds"
-						pressed={diffBackgrounds ?? diffDefaults.diffBackground}
+						pressed={diffBackgrounds ?? defaultSettings.diffBackground}
 						onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
 					/>
 				}
@@ -825,7 +827,7 @@ const DiffStyleToggleGroup: FC<
 					<ToggleGroup
 						{...toggleGroupProps}
 						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-						value={[diffStyle ?? diffDefaults.diffStyle]}
+						value={[diffStyle ?? defaultSettings.diffStyle]}
 						onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
 							const head = value[0];
 							if (head === undefined) return;
@@ -991,7 +993,7 @@ const Diff: FC<{
 	// Split and unified lay hunks out differently, so the minimap has to model
 	// whichever style the viewer is actually rendering.
 	const diffStyle = canUseSplitDiff
-		? (diffSettings?.diffStyle ?? diffDefaults.diffStyle)
+		? (diffSettings?.diffStyle ?? defaultSettings.diffStyle)
 		: "unified";
 
 	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
@@ -1022,7 +1024,9 @@ const Diff: FC<{
 			callback: () =>
 				saveGUISettings({
 					diffStyle:
-						(diffSettings?.diffStyle ?? diffDefaults.diffStyle) === "split" ? "unified" : "split",
+						(diffSettings?.diffStyle ?? defaultSettings.diffStyle) === "split"
+							? "unified"
+							: "split",
 				}),
 			options: {
 				conflictBehavior: "allow",
