@@ -56,7 +56,7 @@ type Operation =
 	  }
 	| {
 			_tag: "SquashCommit";
-			sourceCommitIds: Array<string>;
+			subjectCommitIds: Array<string>;
 			destinationCommitId: string;
 	  }
 	| { _tag: "UndoCommit"; subjectCommitIds: Array<string>; assignTo: string | null }
@@ -108,8 +108,9 @@ const executeOperation = async ({
 			SquashCommit: (operation) =>
 				window.lite.commitSquash({
 					projectId,
-					sourceCommitIds: operation.sourceCommitIds,
-					destinationCommitId: operation.destinationCommitId,
+					subjectCommitIds: operation.subjectCommitIds,
+					targetCommitId: operation.destinationCommitId,
+					howToCombineMessages: "KeepBoth",
 					dryRun,
 				}),
 			UndoCommit: (operation) =>
@@ -296,7 +297,7 @@ const squashOperation = ({
 		return {
 			operation: {
 				_tag: "SquashCommit",
-				sourceCommitIds: sources.map((source) => source.commitId),
+				subjectCommitIds: sources.map((source) => source.commitId),
 				destinationCommitId: target.commitId,
 			},
 			label: "Squash",

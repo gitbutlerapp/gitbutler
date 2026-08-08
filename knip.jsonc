@@ -25,6 +25,8 @@
 				"@gitbutler/design-core",
 				"@tanstack/eslint-plugin-query",
 				"eslint-plugin-react-you-might-not-need-an-effect",
+				// Needed by knip:prod (--strict): electron is a devDependency, so
+				// strict mode reports it unlisted. knip:non-prod hints to remove it.
 				"electron",
 				"@types/semver",
 			],

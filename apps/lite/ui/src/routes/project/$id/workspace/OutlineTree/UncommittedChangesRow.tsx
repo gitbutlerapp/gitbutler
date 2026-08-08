@@ -61,7 +61,7 @@ export const UncommittedChangesRow: FC<{
 	const discardChanges = () => {
 		discardWorktreeChanges({
 			projectId,
-			changes: changes.map((change) => createDiffSpec(change, [])),
+			worktreeChanges: changes.map((change) => createDiffSpec(change, [])),
 		});
 	};
 

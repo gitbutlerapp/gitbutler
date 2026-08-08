@@ -380,6 +380,23 @@ pub struct SchemarEntry {
 
 inventory::collect!(SchemarEntry);
 
+/// One `#[but_api(napi)]` function's JS-visible name and the names of its
+/// parameters, in call order.
+///
+/// napi-rs declares those parameters positionally, so a caller holding a
+/// payload object has no way to know which field feeds which argument. This
+/// carries the only piece it is missing — the names — from the Rust
+/// signature that owns them; the types keep coming from napi-rs's own
+/// declarations.
+pub struct ApiFnEntry {
+    /// The name napi-rs exposes to JavaScript, e.g. `branchDiff`.
+    pub js_name: &'static str,
+    /// Parameter names in call order, camelCased to match the declaration.
+    pub params: &'static [&'static str],
+}
+
+inventory::collect!(ApiFnEntry);
+
 use std::borrow::Cow;
 
 #[doc(hidden)]
