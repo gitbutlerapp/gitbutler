@@ -49,9 +49,17 @@
 	padding-block-end: var(--stack-card-body-inset-block-end, 6px);
 }
 
-/* Carries the rail on from one branch to the next. The last one has no branch
-   to reach, so it is clipped to a stub that runs past the final row and
-   supplies the card's floor — which is what the body's inset opts out of. */
+/* Carries the rail on from one branch to the next. It only has to bridge the
+   gap, so it is clipped shorter than a regular row. */
+.railConnector {
+	height: 14px;
+	min-height: auto;
+	overflow: hidden;
+}
+
+/* The last one has no branch to reach, so it is clipped to a stub that runs
+   past the final row and supplies the card's floor — which is what the body's
+   inset opts out of. */
 .railConnector:last-child {
 	height: 8px;
 	min-height: auto;
