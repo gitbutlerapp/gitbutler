@@ -140,25 +140,51 @@ export const firstContiguousSelectionFromHunk = (hunk: Hunk): HunkLineSelection 
 	return null;
 };
 
-export const contiguousSelectionByLine = ({
-	hunks,
-	line,
-	side,
-}: {
+/** A line as the diff view names it: a number, read on one side of the change. */
+type LineQuery = {
 	hunks: Array<Hunk>;
 	line: number;
 	side: SelectionSide;
-}): HunkLineSelection | null => {
-	for (const hunk of hunks) {
-		for (const sel of contiguousSelectionsFromHunk(hunk)) {
-			const containsChangedLine = sel.lineGroups.some(
-				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
-			);
-			if (containsChangedLine) return sel;
-		}
-	}
+};
 
-	return null;
+/** The hunk covering the line on that side. Hunks never overlap, so at most one does. */
+const hunkByLine = ({ hunks, line, side }: LineQuery): Hunk | null =>
+	hunks.find((hunk) => {
+		const start = side === "deletions" ? hunk.deletionStart : hunk.additionStart;
+		const lines = side === "deletions" ? hunk.deletionCount : hunk.additionCount;
+		return line >= start && line < start + lines;
+	}) ?? null;
+
+/** The changed group under the line, or nothing when the line is context. */
+export const contiguousSelectionByLine = (query: LineQuery): HunkLineSelection | null => {
+	const hunk = hunkByLine(query);
+	if (!hunk) return null;
+
+	const { line, side } = query;
+	return (
+		contiguousSelectionsFromHunk(hunk).find((sel) =>
+			sel.lineGroups.some(
+				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+			),
+		) ?? null
+	);
+};
+
+/**
+ * Every changed group in the hunk holding the line. Context lines belong to no group of their own,
+ * so a click on one takes the hunk whole.
+ */
+export const wholeHunkSelectionByLine = (query: LineQuery): HunkLineSelection | null => {
+	const hunk = hunkByLine(query);
+	if (!hunk) return null;
+
+	const lineGroups = contiguousSelectionsFromHunk(hunk).flatMap((sel) => sel.lineGroups);
+	if (lineGroups.length === 0) return null;
+
+	return {
+		hunkHeader: hunkHeaderFromHunk(hunk),
+		lineGroups,
+	};
 };
 
 export const diffSpecHunkHeadersForLineSelection = (
