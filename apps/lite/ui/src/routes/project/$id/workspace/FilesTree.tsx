@@ -30,9 +30,8 @@ import { FileRow } from "./FileRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import {
-	useCommitDiscardChanges,
 	useCommitUncommitChanges,
-	useDiscardWorktreeChanges,
+	useDiscardFileChanges,
 	useOpenInProgram,
 } from "#ui/api/mutations.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -66,12 +65,9 @@ const useFilesTreeHotkeys = ({
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
-	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
-		useCommitDiscardChanges();
 	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
 		useCommitUncommitChanges();
-	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
-		useDiscardWorktreeChanges();
+	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
 
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -115,17 +111,8 @@ const useFilesTreeHotkeys = ({
 	const discardSelectedFile = () => {
 		if (selectedChange === null) return;
 
-		const changes = [createDiffSpec(selectedChange, [])];
-		if (fileParent._tag === "Commit") {
-			commitDiscardChanges({
-				projectId,
-				commitId: fileParent.commitId,
-				changes,
-				dryRun: false,
-			});
-		} else if (fileParent._tag === "UncommittedChanges") {
-			discardWorktreeChanges({ projectId, worktreeChanges: changes });
-		}
+		// As with the other list-wide hotkeys, checked files are the subject when there are any.
+		void discard({ change: selectedChange, extendToCheckedFiles: true });
 	};
 
 	const uncommitSelectedFile = () => {
@@ -140,10 +127,7 @@ const useFilesTreeHotkeys = ({
 		});
 	};
 
-	const canDiscardSelectedFile =
-		selectedChange !== null &&
-		((fileParent._tag === "Commit" && !isCommitDiscardChangesPending) ||
-			(fileParent._tag === "UncommittedChanges" && !isDiscardWorktreeChangesPending));
+	const canDiscardSelectedFile = selectedChange !== null && canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
