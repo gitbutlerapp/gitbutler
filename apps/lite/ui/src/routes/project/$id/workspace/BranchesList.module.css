@@ -11,7 +11,7 @@
 	align-items: center;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: 10px;
-	border-bottom: 1px solid var(--border-3);
+	border-bottom: 1px solid var(--border-section);
 	background-color: var(--bg-1);
 }
 

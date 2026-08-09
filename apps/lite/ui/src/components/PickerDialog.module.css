@@ -183,7 +183,7 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 0.625rem 0.75rem;
-	border-top: 1px solid var(--border-3);
+	border-top: 1px solid var(--border-section);
 	border-radius: 0 0 1rem 1rem;
 	background-color: var(--bg-2);
 	color: var(--text-2);
