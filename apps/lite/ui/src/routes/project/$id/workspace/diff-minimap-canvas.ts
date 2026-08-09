@@ -3,6 +3,7 @@ import {
 	getMinimapScale,
 	type MinimapFile,
 	type MinimapGeometry,
+	type MinimapOverlays,
 	type MinimapSide,
 } from "./diff-minimap.ts";
 
@@ -11,6 +12,10 @@ const LANE_SPLIT = 1;
 
 /** Vertical room a file rule needs before the next one is drawn. */
 const RULE_MIN_GAP = 6;
+
+/** How far a comment pin reaches in from the ruler's right edge. */
+const PIN_WIDTH = 5;
+const PIN_HEIGHT = 3;
 
 /** Height a file's section needs before it is badged with its type icon. */
 const ICON_MIN_SECTION = 24;
@@ -159,10 +164,12 @@ export const paintMinimap = (
 		files,
 		geometry,
 		diffStyle,
+		overlays,
 	}: {
 		files: Array<MinimapFile>;
 		geometry: MinimapGeometry;
 		diffStyle: GUISettings["diffStyle"];
+		overlays: MinimapOverlays;
 	},
 ): Array<MinimapBadge> => {
 	const { width, height } = canvas.getBoundingClientRect();
@@ -185,6 +192,8 @@ export const paintMinimap = (
 		context: palette.getPropertyValue("--minimap-context"),
 		deletions: palette.getPropertyValue("--minimap-deletions"),
 		additions: palette.getPropertyValue("--minimap-additions"),
+		pin: palette.getPropertyValue("--minimap-pin"),
+		selection: palette.getPropertyValue("--minimap-selection"),
 	};
 
 	const split = diffStyle === "split";
@@ -235,6 +244,18 @@ export const paintMinimap = (
 		}
 	};
 
+	// Laid down before the marks so a selected hunk still reads as added or
+	// removed, with the wash showing through the gaps between its lines.
+	if (overlays.band) {
+		context.fillStyle = fills.selection;
+		context.fillRect(
+			0,
+			overlays.band.top * scale,
+			width,
+			Math.max(overlays.band.height * scale, thinnest),
+		);
+	}
+
 	const right = laneWidth + LANE_SPLIT;
 	// Unchanged code is the same on both sides, so split shows it in both columns.
 	drawLane(lanes.context, 0, fills.context);
@@ -247,6 +268,14 @@ export const paintMinimap = (
 	const rules = resolveRules({ geometry, scale, limit: height - thinnest });
 	context.fillStyle = palette.getPropertyValue("--minimap-file-rule");
 	for (const rule of rules) context.fillRect(0, rule.y, width, thinnest);
+
+	// Pinned to the right edge, opposite the file badges, so a commented line is
+	// findable without covering the marks it belongs to.
+	context.fillStyle = fills.pin;
+	for (const pin of overlays.pins) {
+		const top = Math.min(Math.max(pin * scale - PIN_HEIGHT / 2, 0), height - PIN_HEIGHT);
+		context.fillRect(width - PIN_WIDTH, top, PIN_WIDTH, PIN_HEIGHT);
+	}
 
 	const first = geometry.blocks[0];
 	const opening = first && first.height * scale >= ICON_MIN_SECTION ? [{ index: 0, top: 0 }] : [];

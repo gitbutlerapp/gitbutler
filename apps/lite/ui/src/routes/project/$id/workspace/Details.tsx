@@ -130,7 +130,7 @@ import {
 	hunkOperandIdentityKey,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
-import { getMinimapFiles, measureWrapColumns } from "./diff-minimap.ts";
+import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -949,6 +949,26 @@ const Diff: FC<{
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
+	// The diff panel resolves this selection for the viewer; the ruler wants it in
+	// file line numbers, which is what the hunk's own range already holds.
+	const diffSelection = useAppSelector((state) =>
+		projectSlice.selectors.selectSelectionDiff(state, projectId, diffViewSansAnno.navigationIndex),
+	);
+	const minimapSelection = useMemo((): MinimapSelection | null => {
+		if (!diffSelection) return null;
+
+		const key = hunkOperandIdentityKey(diffSelection);
+		const selected = diffViewSansAnno.hunkByKey.get(key)?.selectedLines;
+		if (!selected) return null;
+
+		return {
+			itemId: selected.id,
+			side: selected.range.side ?? "additions",
+			start: selected.range.start,
+			end: selected.range.end,
+		};
+	}, [diffSelection, diffViewSansAnno]);
+
 	const activateFile = (selection: string) => {
 		onPassiveFileSelection(selection);
 
@@ -1200,7 +1220,13 @@ const Diff: FC<{
 							didScrollToViaFileRef={didScrollToViaFileRef}
 						/>
 
-						<DiffMinimap viewerRef={viewerRef} files={minimapFiles} diffStyle={diffStyle} />
+						<DiffMinimap
+							viewerRef={viewerRef}
+							files={minimapFiles}
+							diffStyle={diffStyle}
+							annotationsByPath={annotationsByPath}
+							selection={minimapSelection}
+						/>
 					</div>
 				</Panel>
 			</Group>
