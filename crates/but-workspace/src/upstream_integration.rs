@@ -15,7 +15,6 @@ use but_rebase::{
     },
 };
 
-use crate::changeset::compute_similarity_by_commit_ids;
 use crate::graph_manipulation::traverse_nodes;
 use crate::resolve_tracking_branch_ref_name;
 
@@ -616,15 +615,31 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     for stack in &output_stacks {
         workspace_selectors.extend(stack.nodes.keys());
     }
-    let integration = compute_similarity_by_commit_ids(
-        editor.repo(),
+    let integration = editor.workspace_content_matches(
         &upstream_commits,
-        &commit_ids(editor, workspace_selectors)?,
-        true,
+        &workspace_selectors,
+        &from_target_ref,
     )?;
 
     for stack in &mut output_stacks {
-        let Stack { nodes, bottoms, .. } = stack;
+        let Stack {
+            nodes,
+            heads,
+            bottoms,
+            ..
+        } = stack;
+
+        for head in heads.iter().copied() {
+            for reference in editor.step_references(head)? {
+                if matches!(
+                    editor.lookup_step(reference)?,
+                    Step::Reference { refname, .. }
+                        if refname.category() == Some(gix::refs::Category::LocalBranch)
+                ) {
+                    nodes.entry(reference).or_insert_with(AnnotatedNode::new);
+                }
+            }
+        }
 
         for node in nodes.keys() {
             if editor
@@ -650,7 +665,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
 
             if let Step::Pick(Pick { id, .. }) = step
-                && integration.matches_by_workspace_commit.contains_key(&id)
+                && integration.contains_key(&id)
             {
                 attrs.content_integrated = true;
             }

@@ -8,20 +8,16 @@ use std::borrow::Cow;
 
 use bstr::BStr;
 use but_core::changeset::{
-    ChangeIdMode, ChangesetCommit, Identifier, changeset_identifier, create_similarity_lut,
-    id_for_tree_diff, id_to_tree, lookup_similar,
+    ChangeIdMode, ChangesetCommit, changeset_identifier, create_similarity_lut, lookup_similar,
+    range_changeset_identifier,
 };
 use gix::prelude::ObjectIdExt;
 
 use crate::{
     RefInfo,
-    ref_info::{Commit, LocalCommit, LocalCommitRelation},
+    ref_info::{Commit, LocalCommitRelation},
     ui::PushStatus,
 };
-
-// The by-ids similarity entry point now lives in `but-core`; re-exported so existing
-// `crate::changeset::compute_similarity_by_commit_ids` callers stay unchanged.
-pub(crate) use but_core::changeset::compute_similarity_by_commit_ids;
 
 /// Lets the `but-core` changeset engine read `ref_info::Commit` directly, without
 /// copying it into an intermediate struct. The message is already conflict-stripped
@@ -51,8 +47,7 @@ impl RefInfo {
     /// * …and author and message (exact match) in stack commits…
     /// * …and (expensive) changeset-ids of
     ///     - stack commits
-    ///     - the squash-merge between all stack-tips (ST) and the target branch to simulate squash merges
-    ///       as they could have happened.
+    ///     - content-equivalent stack prefixes, to simulate squash merges.
     ///
     /// Matches from the first two cheap stages will speed up the expensive stage, as fewer commits or combinations
     /// are left to test.
@@ -166,49 +161,81 @@ impl RefInfo {
                 continue 'next_stack;
             }
 
-            // Another round from top to bottom where we take remote and local tips of non-integrated commits
-            // and test-squash-merge them (cleanly), to see if that changeset ID is contained in upstream.
-            // If so, the whole branch everything that follows is bluntly considered integrated, as it probably is
-            // most of the time.
-            let base_commit_id = stack.segments.last().and_then(|s| s.base);
-            let mut segments = stack.segments.iter_mut();
-            while let Some(segment) = segments.next() {
-                // Find the topmost commit that isn't already integrated and carries changes of its
-                // own; that is the integration boundary for the squash-merge trial. Commits above it
-                // are either already integrated or introduce no changes of their own, so the trial
-                // must not mark them: otherwise a no-change commit at the tip would be treated as
-                // merged - because it borrows the cumulative content of the commits below it - and
-                // its branch deleted.
-                let Some((boundary, boundary_tree_id)) =
-                    segment.commits.iter().enumerate().find_map(|(i, c)| {
-                        let carries_changes =
-                            !matches!(c.relation, LocalCommitRelation::Integrated(_))
-                                && commit_introduces_changes(repo, c);
-                        carries_changes.then_some((i, c.tree_id))
+            // Test prefixes from the base upwards, both within each named segment and across the
+            // linear stack. The segment-local identity must be non-empty even for a stack-wide
+            // match, so a live upper segment whose changes cancel out cannot borrow landed content
+            // from below.
+            let eligible = |segment: &crate::ref_info::Segment| {
+                segment.commits_outside.is_none()
+                    && segment
+                        .ref_info
+                        .as_ref()
+                        .and_then(|info| info.ref_name.category())
+                        == Some(gix::refs::Category::LocalBranch)
+                    && segment
+                        .commits
+                        .iter()
+                        .all(|commit| commit.parent_ids.len() == 1)
+            };
+            let stack_base = stack.segments.last().and_then(|segment| segment.base);
+            for segment_idx in (0..stack.segments.len()).rev() {
+                let (_, current_and_lower) = stack.segments.split_at_mut(segment_idx);
+                let Some((segment, lower_segments)) = current_and_lower.split_first_mut() else {
+                    continue;
+                };
+                let Some(base_commit_id) = segment.base else {
+                    continue;
+                };
+                if !eligible(segment)
+                    || segment.commits.last().is_some_and(|commit| {
+                        matches!(commit.relation, LocalCommitRelation::Integrated(_))
                     })
-                else {
+                {
                     continue;
-                };
-                let Some(changeset_id) = id_for_tree_diff(repo, base_commit_id, boundary_tree_id)?
-                else {
-                    continue;
-                };
-
-                let identity_of_tip_to_base = Identifier::ChangesetId(changeset_id);
-                let Some(squashed_commit_id) = upstream_lut.get(&identity_of_tip_to_base).cloned()
-                else {
-                    continue;
-                };
-
-                // Mark the boundary commit and everything below it (down to the base, across the
-                // lower segments) as integrated; leave the commits above the boundary untouched.
-                for (i, segment) in Some(segment).into_iter().chain(segments).enumerate() {
-                    let skip = if i == 0 { boundary } else { 0 };
-                    for commit in segment.commits.iter_mut().skip(skip) {
-                        commit.relation = LocalCommitRelation::Integrated(squashed_commit_id)
+                }
+                let stack_range_eligible = lower_segments.iter().all(&eligible);
+                let mut matched = None;
+                for (boundary, commit) in segment.commits.iter().enumerate().rev() {
+                    let Some(segment_id) = range_changeset_identifier(
+                        repo,
+                        Some(base_commit_id),
+                        commit.id,
+                        &mut time_used,
+                    )?
+                    else {
+                        continue;
+                    };
+                    let local_match = upstream_lut.get(&segment_id).copied();
+                    let stack_match = if local_match.is_none()
+                        && stack_base.is_some_and(|stack_base| stack_base != base_commit_id)
+                        && stack_range_eligible
+                    {
+                        range_changeset_identifier(repo, stack_base, commit.id, &mut time_used)?
+                            .and_then(|id| upstream_lut.get(&id).copied())
+                    } else {
+                        None
+                    };
+                    if let Some(squashed_commit_id) = local_match.or(stack_match) {
+                        matched = Some((boundary, squashed_commit_id, stack_match.is_some()));
+                        break;
                     }
                 }
-                break;
+
+                let Some((boundary, squashed_commit_id, crosses_segments)) = matched else {
+                    continue;
+                };
+
+                let (_, suffix) = segment.commits.split_at_mut(boundary);
+                for commit in suffix {
+                    commit.relation = LocalCommitRelation::Integrated(squashed_commit_id)
+                }
+                if crosses_segments {
+                    for segment in lower_segments {
+                        for commit in &mut segment.commits {
+                            commit.relation = LocalCommitRelation::Integrated(squashed_commit_id)
+                        }
+                    }
+                }
             }
         }
         self.compute_pushstatus(graph);
@@ -363,17 +390,4 @@ fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {
         // if any of these is also integrated.
         LocalCommitRelation::LocalAndRemote(_)
     )
-}
-
-/// Whether `commit` introduces changes of its own, i.e. its tree differs from its first
-/// parent's tree. This only compares tree ids and skips the full diff that [`id_for_tree_diff`]
-/// computes, which matters when scanning many commits. On a lookup failure we assume the commit
-/// carries changes, so a genuinely merged branch is never spared from squash-merge detection.
-fn commit_introduces_changes(repo: &gix::Repository, commit: &LocalCommit) -> bool {
-    match commit.parent_ids.first() {
-        None => !commit.tree_id.is_empty_tree(),
-        Some(parent) => id_to_tree(repo, *parent)
-            .map(|parent_tree| parent_tree.id != commit.tree_id)
-            .unwrap_or(true),
-    }
 }

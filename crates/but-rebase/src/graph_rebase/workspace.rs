@@ -380,14 +380,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             upstream = from_target_ref.iter().copied().collect();
         }
         let upstream_ids = self.pick_ids(upstream.into_iter())?;
-        let workspace_ids = self.pick_ids(nodes.iter().copied())?;
-        let content = but_core::changeset::compute_similarity_by_commit_ids(
-            self.repo(),
-            &upstream_ids,
-            &workspace_ids,
-            true,
-        )?;
-
         let reference_names: HashMap<Selector, gix::refs::FullName> = nodes
             .iter()
             .filter_map(|node| match self.lookup_step(*node) {
@@ -397,14 +389,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             })
             .collect::<Result<_>>()?;
 
+        let content = self.workspace_content_matches(&upstream_ids, nodes, &from_target_ref)?;
+
         let is_commit_integrated = |selector: Selector| -> Result<bool> {
             if from_target_ref.contains(&selector) {
                 return Ok(true);
             }
             Ok(match self.lookup_step(selector)? {
-                Step::Pick(Pick { id, .. }) => {
-                    content.matches_by_workspace_commit.contains_key(&id)
-                }
+                Step::Pick(Pick { id, .. }) => content.contains_key(&id),
                 _ => false,
             })
         };
@@ -501,6 +493,107 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             commit_state,
             integrated_references,
         })
+    }
+
+    /// Match workspace commits to upstream by individual identity or cumulative stack content.
+    ///
+    /// Aggregate matches use the named, unique stack segments in the workspace projection backing
+    /// this editor. Call this before editing the graph, while that projection still describes it.
+    pub fn workspace_content_matches(
+        &self,
+        upstream_ids: &[gix::ObjectId],
+        nodes: &HashSet<Selector>,
+        excluded: &HashSet<Selector>,
+    ) -> Result<HashMap<gix::ObjectId, gix::ObjectId>> {
+        let workspace_ids = self.pick_ids(nodes.iter().copied())?;
+        let mut content = but_core::changeset::compute_similarity_by_commit_ids(
+            self.repo(),
+            upstream_ids,
+            &workspace_ids,
+            true,
+        )?;
+        let eligible = |segment: &but_graph::workspace::StackSegment| {
+            segment.commits_outside.is_none()
+                && segment.ref_name().and_then(|name| name.category())
+                    == Some(gix::refs::Category::LocalBranch)
+                && segment.commits.iter().all(|commit| {
+                    commit.parent_ids.len() == 1
+                        && self.try_select_commit(commit.id).is_some_and(|selector| {
+                            nodes.contains(&selector)
+                                && !excluded.contains(&selector)
+                                && matches!(
+                                    self.lookup_step(selector),
+                                    Ok(Step::Pick(Pick {
+                                        mutable: true,
+                                        preserved_parents: None,
+                                        ..
+                                    }))
+                                )
+                        })
+                })
+        };
+
+        for stack in &self.workspace.stacks {
+            let Some(stack_base) = stack.base() else {
+                continue;
+            };
+            let mut lower_segments_eligible = true;
+            for segment_idx in (0..stack.segments.len()).rev() {
+                let segment = &stack.segments[segment_idx];
+                let segment_eligible = eligible(segment);
+                let stack_range_eligible = segment_eligible && lower_segments_eligible;
+                lower_segments_eligible = stack_range_eligible;
+                let Some(segment_base) = segment.base else {
+                    continue;
+                };
+                if !segment_eligible
+                    || segment.commits.last().is_some_and(|commit| {
+                        content.matches_by_workspace_commit.contains_key(&commit.id)
+                    })
+                {
+                    continue;
+                }
+                let base_tree = if stack_base == segment_base {
+                    None
+                } else {
+                    Some(but_core::changeset::id_to_tree(self.repo(), segment_base)?.id)
+                };
+                for boundary in (0..segment.commits.len()).rev() {
+                    let commit_id = segment.commits[boundary].id;
+                    let local_match =
+                        content.matching_changeset(self.repo(), segment_base, commit_id)?;
+                    let stack_match = if local_match.is_none()
+                        && stack_range_eligible
+                        && let Some(base_tree) = base_tree
+                        && but_core::changeset::id_to_tree(self.repo(), commit_id)?.id != base_tree
+                    {
+                        content.matching_changeset(self.repo(), stack_base, commit_id)?
+                    } else {
+                        None
+                    };
+                    let Some(upstream_id) = local_match.or(stack_match) else {
+                        continue;
+                    };
+                    for commit in &segment.commits[boundary..] {
+                        content
+                            .matches_by_workspace_commit
+                            .insert(commit.id, upstream_id);
+                    }
+                    if stack_match.is_some() {
+                        for commit in stack.segments[segment_idx + 1..]
+                            .iter()
+                            .flat_map(|segment| &segment.commits)
+                        {
+                            content
+                                .matches_by_workspace_commit
+                                .insert(commit.id, upstream_id);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        Ok(content.matches_by_workspace_commit)
     }
 
     /// The commit ids of the `Pick` steps among `selectors` (non-picks dropped).
