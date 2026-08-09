@@ -1,6 +1,10 @@
 import type { CodeViewHandle } from "@pierre/diffs/react";
 import { useEffectEvent, useLayoutEffect, type RefObject } from "react";
-import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
+import {
+	diffLineTargetFromElement,
+	LINE_NUMBER_ATTRIBUTES,
+	type DiffLineTarget,
+} from "./diff-line-target.ts";
 
 export type DiffLineContextMenuTarget = {
 	event: MouseEvent;
@@ -14,11 +18,14 @@ const contextMenuTarget = <T>(
 	// composed, so inspecting their path lets us delegate from the stable CodeView container
 	// instead of observing renders or attaching listeners to every line number.
 	const path = event.composedPath();
-	const lineNumberElement = path.find(
+	// A row is a gutter cell and the code beside it, each numbering the line in its own way. The
+	// menu belongs to the whole row, so take whichever half was clicked.
+	const lineElement = path.find(
 		(target): target is HTMLElement =>
-			target instanceof HTMLElement && target.hasAttribute("data-column-number"),
+			target instanceof HTMLElement &&
+			LINE_NUMBER_ATTRIBUTES.some((attribute) => target.hasAttribute(attribute)),
 	);
-	if (!lineNumberElement) return null;
+	if (!lineElement) return null;
 
 	const item = viewerRef.current
 		?.getInstance()
@@ -26,7 +33,7 @@ const contextMenuTarget = <T>(
 		.find(({ element }) => path.includes(element));
 	if (item?.type !== "diff") return null;
 
-	const target = diffLineTargetFromElement({ element: lineNumberElement, itemId: item.id });
+	const target = diffLineTargetFromElement({ element: lineElement, itemId: item.id });
 	return target ? { event, ...target } : null;
 };
 

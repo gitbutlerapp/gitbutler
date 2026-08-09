@@ -94,7 +94,7 @@ import {
 } from "./file-row.ts";
 import { FileFilterRow } from "./FileFilterRow.tsx";
 import { useFileFilter } from "./useFileFilter.ts";
-import { contiguousSelectionByLine } from "#ui/hunk.ts";
+import { contiguousSelectionByLine, wholeHunkSelectionByLine } from "#ui/hunk.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
@@ -413,15 +413,14 @@ const DiffContents: FC<{
 		itemId,
 		lineNumber,
 		side,
+		lineType,
 	}: DiffLineTarget): HunkOperand | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
-		const selection = contiguousSelectionByLine({
-			hunks: file.item.fileDiff.hunks,
-			line: lineNumber,
-			side,
-		});
+		const query = { hunks: file.item.fileDiff.hunks, line: lineNumber, side };
+		const selection =
+			lineType === "context" ? wholeHunkSelectionByLine(query) : contiguousSelectionByLine(query);
 		if (!selection) return null;
 
 		return {
