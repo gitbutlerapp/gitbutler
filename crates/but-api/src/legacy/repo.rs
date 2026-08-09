@@ -11,7 +11,7 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn check_signing_settings(ctx: &Context) -> Result<bool> {
     ctx.check_signing_settings()

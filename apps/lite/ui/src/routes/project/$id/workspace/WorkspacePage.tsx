@@ -58,7 +58,7 @@ import { getOperations } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
-import { Settings } from "./Settings.tsx";
+import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import { useUpstreamOutline } from "./useUpstreamOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
@@ -586,6 +586,25 @@ const WorkspacePage: FC = () => {
 	const deferredDetailsSelection = useDeferredValue(detailsSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const project = projects.find((candidate) => candidate.id === projectId);
+	// Names the project group in settings. The route has already established it resolves.
+	const projectName = project?.title ?? "";
+	// Resolved here rather than in the handler, so the hotkey can disable itself when
+	// there is no terminal chosen yet rather than failing on activation.
+	const { data: terminalId } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.terminalId ?? "",
+	});
+
+	const canOpenTerminal = project !== undefined && terminalId !== undefined && terminalId !== "";
+	useHotkey(
+		workspaceHotkeys.openInTerminal.hotkey,
+		() => {
+			if (!canOpenTerminal) return;
+			void window.lite.openInTerminal({ terminalId, path: project.path });
+		},
+		{ enabled: canOpenTerminal, meta: workspaceHotkeys.openInTerminal.meta },
+	);
 
 	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
 		enabled: projects.length > 0,
@@ -671,7 +690,14 @@ const WorkspacePage: FC = () => {
 							onOpenChange={setProjectPickerOpen}
 						/>
 					),
-					Settings: () => <Settings open onOpenChange={setSettingsOpen} />,
+					Settings: () => (
+						<Settings
+							open
+							projectId={projectId}
+							projectName={projectName}
+							onOpenChange={setSettingsOpen}
+						/>
+					),
 				}),
 			)}
 		</>

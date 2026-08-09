@@ -3,10 +3,12 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	currentForgeLoginQueryOptions,
+	gbConfigQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
 	guiSettingsQueryOptions,
+	signingSettingsQueryOptions,
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
 	listReviewReactionsQueryOptions,
@@ -826,6 +828,163 @@ export const useSetReviewDraftiness = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to update pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useSetGbConfig = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.setGbConfig,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: gbConfigQueryOptions(input.projectId).queryKey,
+				}),
+				// The stored settings are what signing was checked against, so a change
+				// retires the previous verdict.
+				mutation.client.invalidateQueries({
+					queryKey: signingSettingsQueryOptions(input.projectId).queryKey,
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to save git settings",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useDeleteAllData = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.deleteAllData,
+		onSuccess: async (_response, _input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["projects" satisfies QueryKey],
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove projects",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+/**
+ * Every forge's accounts live under one key root, so any change to any of them
+ * refreshes the lot — and the per-project login they resolve to.
+ */
+const invalidateForgeAccounts = async (client: QueryClient): Promise<void> => {
+	await Promise.all([
+		client.invalidateQueries({ queryKey: ["forgeAccounts" satisfies QueryKey] }),
+		client.invalidateQueries({ queryKey: ["currentForgeLogin" satisfies QueryKey] }),
+	]);
+};
+
+const useForgeAccountMutation = <TInput>(
+	mutationFn: (input: TInput) => Promise<unknown>,
+	failureTitle: string,
+) => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn,
+		onSuccess: async (_response, _input, _context, mutation) => {
+			await invalidateForgeAccounts(mutation.client);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: failureTitle,
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useForgetGithubAccount = () =>
+	useForgeAccountMutation(window.lite.forgetGithubAccount, "Failed to forget account");
+
+export const useForgetGitlabAccount = () =>
+	useForgeAccountMutation(window.lite.forgetGitlabAccount, "Failed to forget account");
+
+export const useForgetBitbucketAccount = () =>
+	useForgeAccountMutation(window.lite.forgetBitbucketAccount, "Failed to forget account");
+
+export const useStoreGithubPat = () =>
+	useForgeAccountMutation(window.lite.storeGithubPat, "Failed to add GitHub account");
+
+export const useStoreGitlabPat = () =>
+	useForgeAccountMutation(window.lite.storeGitlabPat, "Failed to add GitLab account");
+
+export const useStoreBitbucketApiToken = () =>
+	useForgeAccountMutation(window.lite.storeBitbucketApiToken, "Failed to add Bitbucket account");
+
+export const useDeleteProject = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.deleteProject,
+		onSuccess: async (_response, _input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["projects" satisfies QueryKey],
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove project",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useUpdateProjectSettings = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.updateProjectSettings,
+		onSuccess: async (_response, _input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["projects" satisfies QueryKey],
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to save project settings",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

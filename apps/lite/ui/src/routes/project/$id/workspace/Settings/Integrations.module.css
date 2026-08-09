@@ -1,0 +1,114 @@
+.card {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+/* A connected account, above the forge it belongs to. */
+.account {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	gap: 12px;
+	border-bottom: 1px solid var(--border-2);
+}
+
+.forge {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	gap: 10px;
+}
+
+/* Recessed only when there are accounts to read as belonging to it; on its own the
+ * forge row is the whole card and stays the card's own colour. */
+.forgeUnderAccounts {
+	background-color: var(--bg-2);
+}
+
+.forgeLogo {
+	align-self: center;
+}
+
+/* The mark sits before the name, so the identity takes what is left. */
+.forge .identity {
+	flex: 1;
+}
+
+.addButton {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.identity {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: 2px;
+}
+
+.muted {
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.addForm {
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+	gap: 8px;
+	border-top: 1px solid var(--border-2);
+
+	& input {
+		padding: 8px;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-button);
+		background-color: var(--bg-1);
+	}
+}
+
+.addActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.footnote {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-3);
+	text-wrap: pretty;
+}
+
+.footnoteIcon {
+	flex: none;
+}
+
+.deviceCode {
+	padding: 10px 12px;
+	border-top: 1px solid var(--border-2);
+	color: var(--text-2);
+	text-wrap: pretty;
+
+	& code {
+		padding: 1px 5px;
+		border-radius: var(--radius-xs);
+		background-color: var(--bg-2);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+	}
+}
+
+.error {
+	color: var(--text-danger);
+	text-wrap: pretty;
+}

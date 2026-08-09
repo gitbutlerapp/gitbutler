@@ -14,6 +14,38 @@ pub fn update_project(
     Ok(gitbutler_project::update(project)?.into())
 }
 
+/// The stored project fields a settings UI can change. An absent field is left alone.
+///
+/// A transport DTO rather than [`gitbutler_project::UpdateRequest`], which reaches into
+/// `ApiProject`, `FetchResult` and `ForgeUser` and carries fetch bookkeeping no settings
+/// screen should be able to write.
+#[derive(Debug, Clone, Default, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProjectSettingsUpdate {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub force_push_protection: Option<bool>,
+    pub omit_certificate_check: Option<bool>,
+}
+but_schemars::register_sdk_type!(ProjectSettingsUpdate);
+
+/// Change the stored settings of a project, leaving absent fields as they were.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn update_project_settings(
+    project_id: ProjectHandleOrLegacyProjectId,
+    settings: ProjectSettingsUpdate,
+) -> Result<()> {
+    gitbutler_project::update(gitbutler_project::UpdateRequest {
+        title: settings.title,
+        description: settings.description,
+        force_push_protection: settings.force_push_protection,
+        omit_certificate_check: settings.omit_certificate_check,
+        ..gitbutler_project::UpdateRequest::default_with_id(project_id)
+    })?;
+    Ok(())
+}
+
 /// Adds an existing git repository as a GitButler project.
 /// `path` is the Git repository to remember as project.
 #[but_api]
@@ -129,7 +161,7 @@ pub fn list_projects(
     })
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> {
     delete_project_at_app_data_dir(but_path::app_data_dir()?, project_id)

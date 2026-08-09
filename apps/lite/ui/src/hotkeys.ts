@@ -129,6 +129,10 @@ export const workspaceHotkeys = {
 	focusVerticalSelectionScopeDown: {
 		hotkey: "Mod+Alt+ArrowDown",
 	},
+	openInTerminal: {
+		hotkey: "Mod+Shift+T",
+		meta: { group: "Workspace", name: "Open project in terminal" },
+	},
 	settings: {
 		hotkey: "Mod+,",
 		meta: { group: "Workspace", name: "Settings" },

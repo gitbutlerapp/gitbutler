@@ -28,6 +28,8 @@ export const FileRow: FC<
 		canCheck: boolean;
 		isChecked: boolean;
 		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
+		/** Lead with the directory instead of the file name. Resolved by the list, not here. */
+		pathFirst: boolean;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({
 	item,
@@ -37,6 +39,7 @@ export const FileRow: FC<
 	canCheck,
 	isChecked,
 	checkFile,
+	pathFirst,
 	id,
 	...restProps
 }) => {
@@ -114,8 +117,13 @@ export const FileRow: FC<
 						/>
 					)}
 					<RowLabel singleLine>
+						{directoryPath !== null && pathFirst && (
+							<span className={classes(styles.pathLead, rowStyles.fadedText)}>
+								{directoryPath}/
+							</span>
+						)}
 						{fileName}
-						{directoryPath !== null && (
+						{directoryPath !== null && !pathFirst && (
 							<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 						)}
 					</RowLabel>

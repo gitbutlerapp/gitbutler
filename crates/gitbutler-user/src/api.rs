@@ -60,6 +60,7 @@ fn api_url_override_from_env(mut get_var: impl FnMut(&str) -> Option<String>) ->
 }
 
 /// Response from `POST /api/login/token.json`.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LoginToken {
     /// Polling token returned by the API for completing login.
@@ -75,6 +76,8 @@ pub struct LoginToken {
     /// The full URL to redirect the user's browser to for login.
     pub url: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(LoginToken);
 
 /// Request a new login token from the GitButler API.
 ///
@@ -161,6 +164,7 @@ pub fn fetch_user_profile() -> Result<serde_json::Value> {
 }
 
 /// Parameters for updating the user profile.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserParams {
     pub name: Option<String>,
@@ -175,6 +179,8 @@ pub struct UpdateUserParams {
     /// Original filename of the avatar (e.g. "photo.png").
     pub avatar_filename: Option<String>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UpdateUserParams);
 
 /// Update the authenticated user's profile on the GitButler API.
 ///

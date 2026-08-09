@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Configuration for a terminal application.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalOption {
@@ -12,6 +13,8 @@ pub struct TerminalOption {
     /// `linux`.
     pub platform: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TerminalOption);
 
 // TODO: this list was in the frontend before, now it could be backend-integrated
 //       more so they don't get out of sync, when moving this out of legacy.
@@ -68,7 +71,7 @@ pub(super) fn terminal_binary(identifier: &str) -> &str {
 /// But it could be generalised as more consumers join in.
 /// Big question is if the backend shouldn't just know the platform… If it is needed, it should be an enum here.
 #[cfg(feature = "legacy")]
-#[but_api_macros::but_api]
+#[but_api_macros::but_api(napi)]
 #[tracing::instrument(err(Debug))]
 pub fn get_terminal_options_for_platform(platform: String) -> anyhow::Result<Vec<TerminalOption>> {
     Ok(ALL_TERMINALS

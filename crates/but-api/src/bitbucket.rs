@@ -19,7 +19,7 @@ use tracing::instrument;
 ///
 /// * `Ok(AuthStatusResponse)` - Token is valid, contains user details
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(json::AuthStatusResponseSensitive)]
+#[but_api(napi, json::BitbucketAuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn store_bitbucket_api_token(
     email: String,
@@ -38,7 +38,7 @@ pub async fn store_bitbucket_api_token(
 /// # Returns
 ///
 /// * `Ok(())` - Always succeeds, even if no token was found
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn forget_bitbucket_account(account: but_bitbucket::BitbucketAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -70,7 +70,7 @@ pub fn clear_all_bitbucket_tokens() -> Result<()> {
 /// * `Ok(Some(AuthenticatedUser))` - User information
 /// * `Ok(None)` - No credentials stored for this account
 /// * `Err(_)` - If the API request fails or credentials are invalid
-#[but_api(json::AuthenticatedUserSensitive)]
+#[but_api(napi, json::BitbucketAuthenticatedUserSensitive)]
 #[instrument(err(Debug))]
 pub async fn get_bb_user(
     account: but_bitbucket::BitbucketAccountIdentifier,
@@ -85,7 +85,7 @@ pub async fn get_bb_user(
 ///
 /// * `Ok(Vec<BitbucketAccountIdentifier>)` - List of all known accounts
 /// * `Err(_)` - If storage access fails
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_known_bitbucket_accounts() -> Result<Vec<but_bitbucket::BitbucketAccountIdentifier>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

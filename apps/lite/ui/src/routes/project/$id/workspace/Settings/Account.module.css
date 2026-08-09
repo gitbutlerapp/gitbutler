@@ -1,0 +1,100 @@
+/* Matches the card chrome a Section draws, since this is a form rather than rows. */
+.profileCard {
+	display: flex;
+	padding: 12px;
+	gap: 14px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+.avatarButton {
+	display: grid;
+	position: relative;
+	flex: none;
+	place-items: center;
+	width: 76px;
+	height: 76px;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-2);
+	cursor: default;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+
+	&:hover .avatarOverlay {
+		opacity: 1;
+	}
+}
+
+.avatar {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.avatarEmpty {
+	color: var(--text-3);
+}
+
+/* Only on hover: the picture is the point, the affordance is secondary. */
+.avatarOverlay {
+	align-self: end;
+	inline-size: 100%;
+	padding-block: 4px;
+	background-color: rgb(0 0 0 / 0.55);
+	color: white;
+	text-align: center;
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+.fields {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: 4px;
+}
+
+.fieldLabel {
+	color: var(--text-2);
+
+	&:not(:first-child) {
+		margin-block-start: 6px;
+	}
+}
+
+.field {
+	padding: 5px 8px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-button);
+	background-color: var(--bg-1);
+	color: var(--text-1);
+}
+
+.fieldReadonly {
+	background-color: var(--bg-2);
+	color: var(--text-2);
+}
+
+.formActions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin-block-start: 12px;
+	gap: 8px;
+}
+
+.error {
+	color: var(--text-danger);
+	text-wrap: pretty;
+}
+
+/* The real control is the avatar; this only carries the file. */
+.fileInput {
+	display: none;
+}

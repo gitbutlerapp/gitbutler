@@ -229,12 +229,8 @@ pub mod json {
     /// Serializable version of [`AuthStatusResponse`] with exposed access token.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(rename = "BitbucketAuthStatusResponseSensitive")
-    )]
     #[serde(rename_all = "camelCase")]
-    pub struct AuthStatusResponseSensitive {
+    pub struct BitbucketAuthStatusResponseSensitive {
         /// The Bitbucket access token as a plain string (sensitive data).
         pub access_token: String,
         /// The Bitbucket username.
@@ -245,7 +241,7 @@ pub mod json {
         pub email: Option<String>,
     }
 
-    impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
+    impl From<AuthStatusResponse> for BitbucketAuthStatusResponseSensitive {
         fn from(
             AuthStatusResponse {
                 access_token,
@@ -254,7 +250,7 @@ pub mod json {
                 email,
             }: AuthStatusResponse,
         ) -> Self {
-            AuthStatusResponseSensitive {
+            BitbucketAuthStatusResponseSensitive {
                 access_token: access_token.0,
                 username,
                 name,
@@ -264,17 +260,13 @@ pub mod json {
     }
 
     #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(AuthStatusResponseSensitive);
+    but_schemars::register_sdk_type!(BitbucketAuthStatusResponseSensitive);
 
     /// Serializable version of [`AuthenticatedUser`] with exposed access token.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(rename = "BitbucketAuthenticatedUserSensitive")
-    )]
     #[serde(rename_all = "camelCase")]
-    pub struct AuthenticatedUserSensitive {
+    pub struct BitbucketAuthenticatedUserSensitive {
         /// The Bitbucket access token as a plain string (sensitive data).
         pub access_token: String,
         /// The Bitbucket username.
@@ -287,7 +279,7 @@ pub mod json {
         pub email: Option<String>,
     }
 
-    impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
+    impl From<AuthenticatedUser> for BitbucketAuthenticatedUserSensitive {
         fn from(
             AuthenticatedUser {
                 access_token,
@@ -297,7 +289,7 @@ pub mod json {
                 email,
             }: AuthenticatedUser,
         ) -> Self {
-            AuthenticatedUserSensitive {
+            BitbucketAuthenticatedUserSensitive {
                 access_token: access_token.0,
                 username,
                 avatar_url,
@@ -308,7 +300,7 @@ pub mod json {
     }
 
     #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(AuthenticatedUserSensitive);
+    but_schemars::register_sdk_type!(BitbucketAuthenticatedUserSensitive);
 }
 
 #[cfg(test)]

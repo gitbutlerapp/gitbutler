@@ -359,7 +359,7 @@ pub fn open_url(url: String) -> Result<()> {
 /// - The specified path does not exist or is not accessible
 /// - The terminal_id is not recognized for the current platform
 /// - On all platforms, only spawn failures are detected; the terminal's later exit status is not checked
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;

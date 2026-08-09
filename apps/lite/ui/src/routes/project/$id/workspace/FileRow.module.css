@@ -2,6 +2,11 @@
 	margin-inline-start: 6px;
 }
 
+/* Leading the name, so the separator does the spacing rather than a margin. */
+.pathLead {
+	margin-inline-end: 0;
+}
+
 .statusBadge {
 	flex-shrink: 0;
 	align-self: center;
