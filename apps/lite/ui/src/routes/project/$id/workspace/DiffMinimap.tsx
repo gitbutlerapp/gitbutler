@@ -24,6 +24,18 @@ import { type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
 import styles from "./DiffMinimap.module.css";
 
 /**
+ * Height the lens keeps however little of the diff the window holds, so it stays
+ * a thing you can take hold of rather than a hairline.
+ */
+const MARKER_MIN_HEIGHT = 14;
+
+const markerHeight = (share: number, track: number): number =>
+	Math.min(Math.max(share * track, MARKER_MIN_HEIGHT), track);
+
+/** Track left for the lens to move down, once it has taken its own height out. */
+const travel = (track: number, marker: number): number => Math.max(track - marker, 0);
+
+/**
  * A scroll ruler for the diff: every added and removed run drawn where it
  * actually sits in the scroll extent, as wide as its lines are long, with a
  * rule between files.
@@ -43,7 +55,7 @@ export const DiffMinimap: FC<{
 	const rulerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const markerRef = useRef<HTMLDivElement>(null);
-	/** Where the pointer took hold of the thumb, as a fraction of the content. */
+	/** Where the pointer took hold of the lens, in pixels from its top. */
 	const grabRef = useRef(0);
 	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection });
 	const geometryRef = useRef<MinimapGeometry | null>(null);
@@ -89,9 +101,24 @@ export const DiffMinimap: FC<{
 			const ruler = rulerRef.current;
 			if (!ruler) return;
 
+			// The ruler is collapsed until the first draw finds something to map, and
+			// a lens measured against no track at all would be written away to
+			// nothing. The draw that gives it a height also resizes the canvas, which
+			// brings us straight back here.
+			//
+			// Measured to the sub-pixel, as the drag is: a track rounded here and not
+			// there puts the two a fraction of a percent apart, which on a diff long
+			// enough to floor the lens is thousands of lines.
+			const track = ruler.getBoundingClientRect().height;
+			if (track === 0) return;
+
 			const viewport = getMinimapViewport(viewer);
-			ruler.style.setProperty("--minimap-marker-top", `${viewport.top * 100}%`);
-			ruler.style.setProperty("--minimap-marker-height", `${viewport.height * 100}%`);
+			const marker = markerHeight(viewport.height, track);
+			ruler.style.setProperty(
+				"--minimap-marker-top",
+				`${viewport.progress * travel(track, marker)}px`,
+			);
+			ruler.style.setProperty("--minimap-marker-height", `${marker}px`);
 		};
 
 		// A forced pass has to outlive being folded into a pending scroll one,
@@ -163,9 +190,17 @@ export const DiffMinimap: FC<{
 		return Math.min(Math.max((event.clientY - top) / height, 0), 1);
 	};
 
-	const dragTo = (fraction: number): void => {
+	// Placing the lens rather than pointing at content: the pointer carries it by
+	// the spot it was taken hold of, over the track its own height leaves.
+	const dragTo = (event: PointerEvent<HTMLDivElement>): void => {
 		const viewer = viewerRef.current?.getInstance();
-		if (viewer) scrollMinimapTo(viewer, fraction - grabRef.current);
+		const { height: track, top: trackTop } = event.currentTarget.getBoundingClientRect();
+		if (!viewer || track === 0) return;
+
+		const room = travel(track, markerHeight(getMinimapViewport(viewer).height, track));
+		const top = event.clientY - trackTop - grabRef.current;
+
+		scrollMinimapTo(viewer, room === 0 ? 0 : Math.min(Math.max(top / room, 0), 1));
 	};
 
 	// The label's position is written straight to the DOM, so following the
@@ -197,8 +232,7 @@ export const DiffMinimap: FC<{
 				event.preventDefault();
 
 				const viewer = viewerRef.current?.getInstance();
-				const fraction = fractionAt(event);
-				if (!viewer || fraction === null) return;
+				if (!viewer) return;
 
 				// Taking hold of the lens keeps the point you grabbed, the way a
 				// scrollbar does; pressing the track jumps its middle there and drags on
@@ -206,19 +240,20 @@ export const DiffMinimap: FC<{
 				// it can shrink to doesn't have to be repeated here.
 				const marker = markerRef.current?.getBoundingClientRect();
 				const held = marker && event.clientY >= marker.top && event.clientY <= marker.bottom;
-				const viewport = getMinimapViewport(viewer);
-				grabRef.current = held ? fraction - viewport.top : viewport.height / 2;
+				grabRef.current = held
+					? event.clientY - marker.top
+					: (marker?.height ?? MARKER_MIN_HEIGHT) / 2;
 
 				event.currentTarget.setPointerCapture(event.pointerId);
 				// Taking hold shouldn't move anything; pressing the track jumps.
-				if (!held) dragTo(fraction);
+				if (!held) dragTo(event);
 			}}
 			onPointerMove={(event) => {
 				const fraction = fractionAt(event);
 				if (fraction === null) return;
 
 				describe(fraction);
-				if (event.currentTarget.hasPointerCapture(event.pointerId)) dragTo(fraction);
+				if (event.currentTarget.hasPointerCapture(event.pointerId)) dragTo(event);
 			}}
 			onPointerLeave={() => setHovered(null)}
 		>

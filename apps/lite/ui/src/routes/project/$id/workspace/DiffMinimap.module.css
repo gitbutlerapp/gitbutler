@@ -58,12 +58,6 @@
 	   reads as added or removed. */
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
 
-	--minimap-view-min: 14px;
-	/* Clamped here rather than in the geometry, which works in fractions and has
-	   no idea how tall the ruler ended up. */
-	--minimap-view-top: min(var(--minimap-marker-top, 0%), calc(100% - var(--minimap-view-min)));
-	--minimap-view-height: max(var(--minimap-marker-height, 0%), var(--minimap-view-min));
-
 	position: relative;
 	width: 56px;
 	/* Stronger than the panel's other hairlines: the marks run right to this
@@ -93,8 +87,10 @@
 	z-index: 2;
 	position: absolute;
 	inset-inline: 0;
-	top: var(--minimap-view-top);
-	height: var(--minimap-view-height);
+	/* Written in pixels by the ruler, which is the only place that knows how tall
+	   the track ended up — and so how much of it a lens at its floor takes. */
+	top: var(--minimap-marker-top, 0px);
+	height: var(--minimap-marker-height, 0px);
 	border-radius: 2px;
 	background-color: color-mix(in srgb, var(--fill-gray-bg) 16%, transparent);
 	pointer-events: none;

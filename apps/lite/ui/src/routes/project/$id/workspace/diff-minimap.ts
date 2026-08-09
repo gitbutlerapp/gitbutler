@@ -492,24 +492,39 @@ export const getMinimapOverlays = ({
 	return { pins, band };
 };
 
-/** The visible window, as fractions of the content. */
+/**
+ * The visible window: how much of the content it covers, and how far through
+ * the scrollable range it sits.
+ *
+ * Progress rather than a top, because the lens is held to a minimum height and
+ * one wider than the window it stands for travels a track shortened by the
+ * difference — the arithmetic every scrollbar does. Where the lens is its true
+ * size the two agree exactly, so only a diff long enough to floor it moves.
+ */
 export const getMinimapViewport = (
 	viewer: CodeView<Annotation>,
-): { top: number; height: number } => {
+): { height: number; progress: number } => {
 	const total = contentHeight(viewer);
-	if (total <= 0) return { top: 0, height: 1 };
+	if (total <= 0) return { height: 1, progress: 0 };
 
-	return { top: viewer.getScrollTop() / total, height: viewer.getHeight() / total };
+	const scrollable = scrollableHeight(viewer);
+	const progress = scrollable <= 0 ? 0 : viewer.getScrollTop() / scrollable;
+
+	return { height: viewer.getHeight() / total, progress: Math.min(Math.max(progress, 0), 1) };
 };
 
-/** Scroll so the top of the viewport sits at `fraction` of the content. */
-export const scrollMinimapTo = (viewer: CodeView<Annotation>, fraction: number): void => {
+/** How far the diff can scroll: everything below the window it doesn't fill. */
+const scrollableHeight = (viewer: CodeView<Annotation>): number =>
+	Math.max(contentHeight(viewer) - viewer.getHeight(), 0);
+
+/** Scroll `progress` of the way through the range, 0 being the top and 1 the end. */
+export const scrollMinimapTo = (viewer: CodeView<Annotation>, progress: number): void => {
 	viewer.scrollTo({
 		type: "position",
 		// CodeView lifts a position target by the sticky header, so the row you
 		// asked for isn't left under it. The minimap is placing the viewport rather
 		// than a row, so add it back or every drag sits a header too high.
-		position: fraction * contentHeight(viewer) + codeViewItemMetrics.diffHeaderHeight,
+		position: progress * scrollableHeight(viewer) + codeViewItemMetrics.diffHeaderHeight,
 		behavior: "instant",
 	});
 };
