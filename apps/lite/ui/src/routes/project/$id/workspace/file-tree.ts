@@ -16,10 +16,6 @@ export type FileTreeRow<T> = {
 	path: string;
 	/** Indent depth, counted from zero. Every list-mode row sits at zero. */
 	depth: number;
-	/** Position among the rows sharing this parent, 1-based, for `aria-posinset`. */
-	positionInLevel: number;
-	/** How many rows share this parent, for `aria-setsize`. */
-	levelSize: number;
 } & (
 	| {
 			_tag: "Directory";
@@ -79,7 +75,7 @@ const soleChild = <T>(directory: Directory<T>): NamedDirectory<T> | null => {
 const foldSoleChildren = <T>(name: string, directory: Directory<T>): NamedDirectory<T> => {
 	let folded: NamedDirectory<T> = { name, directory };
 
-	for (let child = soleChild(directory); child !== null; child = soleChild(child.directory))
+	for (let child = soleChild(folded.directory); child !== null; child = soleChild(folded.directory))
 		folded = { name: `${folded.name}/${child.name}`, directory: child.directory };
 
 	return folded;
@@ -93,62 +89,45 @@ const sortedDirectories = <T>(directory: Directory<T>): Array<NamedDirectory<T>>
 const sortedItems = <T extends { path: string }>(directory: Directory<T>): Array<T> =>
 	[...directory.items].sort((a, b) => compareNames(fileName(a.path), fileName(b.path)));
 
-const directoryFilePaths = <T extends { path: string }>(directory: Directory<T>): Array<string> => [
-	...sortedDirectories(directory).flatMap(({ directory: child }) => directoryFilePaths(child)),
-	...sortedItems(directory).map((item) => item.path),
-];
+/** One directory's worth of rows, and every file path below it. */
+type Collected<T> = { rows: Array<FileTreeRow<T>>; filePaths: Array<string> };
 
 const collectRows = <T extends { path: string }>({
 	directory,
 	prefix,
 	depth,
 	collapsedDirectories,
-	rows,
 }: {
 	directory: Directory<T>;
 	prefix: string;
 	depth: number;
 	collapsedDirectories: Record<string, true>;
-	rows: Array<FileTreeRow<T>>;
-}): void => {
-	const directories = sortedDirectories(directory);
-	const items = sortedItems(directory);
-	const levelSize = directories.length + items.length;
+}): Collected<T> => {
+	const rows: Array<FileTreeRow<T>> = [];
+	const filePaths: Array<string> = [];
 
-	for (const [index, { name, directory: child }] of directories.entries()) {
+	for (const { name, directory: child } of sortedDirectories(directory)) {
 		const path = prefix === "" ? name : `${prefix}/${name}`;
-
-		rows.push({
-			_tag: "Directory",
-			path,
-			name,
-			depth,
-			positionInLevel: index + 1,
-			levelSize,
-			filePaths: directoryFilePaths(child),
+		// Walked whether or not it is collapsed: collapsing keeps a directory's rows
+		// out of the list, but it still answers for its files at its own checkbox.
+		const below = collectRows({
+			directory: child,
+			prefix: path,
+			depth: depth + 1,
+			collapsedDirectories,
 		});
 
-		if (collapsedDirectories[path] !== true) {
-			collectRows({
-				directory: child,
-				prefix: path,
-				depth: depth + 1,
-				collapsedDirectories,
-				rows,
-			});
-		}
+		rows.push({ _tag: "Directory", path, name, depth, filePaths: below.filePaths });
+		if (collapsedDirectories[path] !== true) rows.push(...below.rows);
+		filePaths.push(...below.filePaths);
 	}
 
-	for (const [index, item] of items.entries()) {
-		rows.push({
-			_tag: "File",
-			path: item.path,
-			item,
-			depth,
-			positionInLevel: directories.length + index + 1,
-			levelSize,
-		});
+	for (const item of sortedItems(directory)) {
+		rows.push({ _tag: "File", path: item.path, item, depth });
+		filePaths.push(item.path);
 	}
+
+	return { rows, filePaths };
 };
 
 export const buildFileTreeRows = <T extends { path: string }>({
@@ -160,23 +139,13 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	mode: FileDisplayMode;
 	collapsedDirectories: Record<string, true>;
 }): Array<FileTreeRow<T>> => {
-	if (mode === "list") {
-		return items.map((item, index) => ({
-			_tag: "File",
-			path: item.path,
-			item,
-			depth: 0,
-			positionInLevel: index + 1,
-			levelSize: items.length,
-		}));
-	}
+	if (mode === "list")
+		return items.map((item) => ({ _tag: "File", path: item.path, item, depth: 0 }));
 
 	const root = emptyDirectory<T>();
 	for (const item of items) insert(root, item);
 
-	const rows: Array<FileTreeRow<T>> = [];
-	collectRows({ directory: root, prefix: "", depth: 0, collapsedDirectories, rows });
-	return rows;
+	return collectRows({ directory: root, prefix: "", depth: 0, collapsedDirectories }).rows;
 };
 
 export const fileTreeNavigationIndex = <T>(

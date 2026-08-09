@@ -1194,7 +1194,6 @@ const Diff: FC<{
 										onRowSelection={activateRow}
 										projectId={projectId}
 										rows={filesRows}
-										mode={fileDisplayMode}
 										collapsedDirectories={filesCollapsedDirectories}
 										onToggleDirectoryCollapsed={(path) =>
 											dispatch(

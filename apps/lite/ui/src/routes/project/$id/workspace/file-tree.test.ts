@@ -79,18 +79,6 @@ describe("buildFileTreeRows", () => {
 			filePaths: ["src/ui/row.ts", "src/app.ts"],
 		});
 	});
-
-	test("counts siblings per level for assistive technology", () => {
-		const rows = tree(["src/app.ts", "docs/guide.md", "readme.md"]);
-
-		expect(rows.map((row) => `${row.positionInLevel}/${row.levelSize}`)).toEqual([
-			"1/3",
-			"1/1",
-			"2/3",
-			"1/1",
-			"3/3",
-		]);
-	});
 });
 
 describe("selectedFilePath", () => {

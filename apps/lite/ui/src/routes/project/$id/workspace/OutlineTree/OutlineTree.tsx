@@ -352,7 +352,6 @@ const UncommittedChanges: FC<{
 					}
 					fileParent={uncommittedChangesFileParent}
 					rows={fileRows}
-					mode={fileDisplayMode}
 					collapsedDirectories={collapsedDirectories}
 					onToggleDirectoryCollapsed={(path) =>
 						dispatch(
