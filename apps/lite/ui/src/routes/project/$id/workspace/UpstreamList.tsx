@@ -137,19 +137,30 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
  * A workspace branch positioned against the target line. It carries its name
  * and nothing else — the rows exist to show where the workspace's branches
  * fork from the target, and everything actionable about a branch lives on the
- * workspace tab.
+ * workspace tab — except for having landed, which the rail's colour and a
+ * second line both report.
  */
 const UpstreamBranchRow: FC<{ item: UpstreamBranchItem; glyph: GraphSegmentGlyph }> = ({
 	item,
 	glyph,
 }) => (
 	<Row interactive={false}>
-		<GraphSegment glyph={glyph} status="LocalOnly" />
-		<RowLabelContainer>
-			<RowLabel heading singleLine title={item.name}>
-				{item.name}
-			</RowLabel>
-		</RowLabelContainer>
+		<GraphSegment glyph={glyph} status={item.integrated ? "Integrated" : "LocalOnly"} />
+		<div className={styles.label}>
+			<RowLabelContainer>
+				<RowLabel heading singleLine title={item.name}>
+					{item.name}
+				</RowLabel>
+			</RowLabelContainer>
+
+			{/* The rail's colour is easy to miss on a branch that has landed, so
+			    the state is spelled out on the second line as well. */}
+			{item.integrated && (
+				<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
+					<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>integrated</span>
+				</RowLabelFooter>
+			)}
+		</div>
 	</Row>
 );
 

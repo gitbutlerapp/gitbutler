@@ -37,7 +37,7 @@
 	   as a glyph's own box, and anything outside one reads as a break in the
 	   rail. It is added as drawn rail instead; see `.expanderGlyph` and
 	   `.railStub`. */
-	--expander-glyph-air: 8px;
+	--expander-glyph-air: 4px;
 
 	display: flex;
 	flex-direction: column;
