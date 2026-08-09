@@ -14,6 +14,7 @@ use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
 use snapbox::IntoData;
 
+use crate::ref_info::head_info;
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
@@ -2964,12 +2965,10 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
 }
 
 #[test]
-fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result<()> {
+fn content_integrates_squashed_two_commit_direct_checkout_without_review_hint() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("review-hint-squash-integrated-direct-checkout")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let review_head = repo.rev_parse_single("A")?.detach();
-
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
@@ -3014,7 +3013,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 
     let project_meta = workspace.graph.project_meta.clone();
 
-    let out = integrate_upstream_with_hints(
+    let out = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
@@ -3022,10 +3021,6 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
-        }],
-        &[ReviewIntegrationHint {
-            head_commit_at_merge: review_head,
-            source_branch: "A".into(),
         }],
     )?;
     out.rebase.materialize(Default::default())?;
@@ -3436,5 +3431,158 @@ fn remove_managed_workspace_ref(repo: &gix::Repository) -> Result<()> {
     if let Some(reference) = repo.try_find_reference(but_core::WORKSPACE_REF_NAME)? {
         reference.delete()?;
     }
+    Ok(())
+}
+
+#[test]
+fn content_integrates_shared_bottom_without_consuming_net_zero_live_head() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "squash-integrated-shared-bottom-with-live-heads",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    assert_eq!(
+        repo.rev_parse_single("right^{tree}")?.detach(),
+        repo.rev_parse_single("bottom^{tree}")?.detach(),
+        "fixture must make the right head content-equal to bottom through an add and revert",
+    );
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack_with_segments(&mut meta, 1, "left", StackState::InWorkspace, &["bottom"]);
+    add_stack_with_segments(&mut meta, 2, "right", StackState::InWorkspace, &["bottom"]);
+    let info = head_info(
+        &repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            project_meta: project_meta.clone(),
+            expensive_commit_info: true,
+            ..Default::default()
+        },
+    )?;
+    let right = info
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .find_map(|segment| {
+            (segment
+                .ref_info
+                .as_ref()
+                .is_some_and(|info| info.ref_name.as_bstr() == b"refs/heads/right".as_bstr()))
+            .then_some(&segment.commits)
+        })
+        .context("right segment should be present")?;
+    assert_eq!(right.len(), 2, "right should contain its add and revert");
+    assert!(
+        right.iter().all(|commit| matches!(
+            commit.relation,
+            but_workspace::ref_info::LocalCommitRelation::LocalOnly
+        )),
+        "RefInfo should keep the net-zero right segment local"
+    );
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("bottom^")?.detach()),
+        }],
+    )?;
+
+    assert!(
+        repo.try_find_reference("bottom")?.is_none(),
+        "shared content-equivalent bottom should leave both stacks",
+    );
+    assert_eq!(
+        repo.rev_parse_single("right~2")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "right's add and revert commits should remain above the squash",
+    );
+    assert_eq!(
+        repo.rev_parse_single("left^")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "left should be rebased directly onto the squash",
+    );
+    for name in ["left", "right"] {
+        let commit = repo.find_commit(repo.rev_parse_single(name)?.detach())?;
+        assert!(
+            !Commit::from_id(commit.id.attach(&repo))?.is_conflicted(),
+            "live head {name} should remain unconflicted",
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn content_does_not_integrate_near_match_and_preserves_real_conflict() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "review-hint-squash-integrated-two-commit-stack-with-sibling",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    git(&repo)
+        .args(["checkout", "--detach", "origin/main"])
+        .run();
+    std::fs::write(
+        repo.workdir()
+            .context("fixture repositories should have a worktree")?
+            .join("A2.txt"),
+        "different upstream content\n",
+    )?;
+    git(&repo).args(["add", "A2.txt"]).run();
+    git(&repo).args(["commit", "--amend", "--no-edit"]).run();
+    git(&repo)
+        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git(&repo).args(["checkout", "gitbutler/workspace"]).run();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+    )?;
+
+    assert!(
+        repo.try_find_reference("A")?.is_some(),
+        "one differing blob must keep the local branch",
+    );
+    assert!(
+        Commit::from_id(repo.rev_parse_single("A")?)?.is_conflicted(),
+        "a genuine overlapping difference must still be reported as a conflict",
+    );
+    assert!(
+        repo.try_find_reference("B")?.is_some(),
+        "near-match handling must not affect the sibling",
+    );
+
     Ok(())
 }

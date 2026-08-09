@@ -932,6 +932,40 @@ f5b02d3 A        state=integrated
     Ok(())
 }
 
+/// Aggregate CONTENT integration: neither local commit matches the upstream squash by itself,
+/// but their branch-owned prefix does. The detailed projection must agree with upstream
+/// integration and mark both commits and branch `A` integrated while leaving sibling `B` local.
+#[test]
+fn integration_status_marks_squash_integrated_branch() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "review-hint-squash-integrated-two-commit-stack-with-sibling",
+        "origin",
+        "main",
+        "main",
+        |meta| {
+            add_stack(meta, 1, "A", StackState::InWorkspace);
+            add_stack(meta, 2, "B", StackState::InWorkspace);
+        },
+    )?;
+    // The projection should classify the same branch-owned aggregate that upstream integration
+    // removes when updating this fixture.
+    snapbox::assert_data_eq!(
+        render_statuses(&detailed),
+        snapbox::str![[r#"
+# Stack 0
+refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
+
+# Stack 0
+[..] add A2   state=integrated
+[..] add A1   state=integrated
+[..] add B1   state=local
+"#]]
+    );
+    Ok(())
+}
+
 /// Commit state via HISTORICAL integration: `A` and `B` are reachable from the
 /// target ref through the merge commit on `origin/master`.
 #[test]

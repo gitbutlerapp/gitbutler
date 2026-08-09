@@ -1,6 +1,8 @@
 //! A collection of tests that build on top of each other, like a progression of steps a user could take.
 use but_meta::VirtualBranchesTomlMetadata;
+use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::visualize_commit_graph_all;
+use but_workspace::{BottomUpdate, BottomUpdateKind, integrate_upstream};
 use snapbox::prelude::*;
 
 use crate::ref_info::{
@@ -1410,6 +1412,49 @@ Ok(
 
 "#]]
         .raw()
+    );
+
+    let project_meta = crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta.clone(),
+        but_graph::init::Options {
+            extra_target_commit_id: project_meta.target_commit_id,
+            ..but_graph::init::Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let outcome = integrate_upstream(
+        &mut workspace,
+        &mut *meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("local-bottom")?.detach()),
+        }],
+    )?;
+    let preview = outcome.rebase.overlayed_graph()?;
+    for name in ["refs/heads/local", "refs/heads/local-bottom"] {
+        let name: gix::refs::FullName = name.try_into()?;
+        assert!(
+            preview.segment_by_ref_name(name.as_ref()).is_none(),
+            "the squash-integrated segment {name} should leave the workspace"
+        );
+    }
+    for name in ["local", "local-bottom"] {
+        assert!(
+            preview
+                .segment_by_commit_id(repo.rev_parse_single(name)?.detach())
+                .is_err(),
+            "the squash-integrated commit {name} should not be replayed"
+        );
+    }
+    let s1: gix::refs::FullName = "refs/heads/S1".try_into()?;
+    assert!(
+        preview.segment_by_ref_name(s1.as_ref()).is_some(),
+        "the unrelated stack should remain"
     );
     Ok(())
 }
