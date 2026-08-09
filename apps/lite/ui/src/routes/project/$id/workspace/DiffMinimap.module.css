@@ -116,7 +116,7 @@
 	/* Clear the rule itself, so it runs unbroken behind the badge. */
 	margin-top: 1px;
 	background: linear-gradient(to bottom right, var(--bg-1) 50%, transparent 50%);
-	pointer-events: none;
+	cursor: pointer;
 
 	& > svg {
 		width: 14px;

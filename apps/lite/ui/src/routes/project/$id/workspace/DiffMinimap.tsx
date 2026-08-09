@@ -226,15 +226,28 @@ export const DiffMinimap: FC<{
 			<div ref={markerRef} className={styles.marker} />
 
 			{badges.map(({ index, top }) => {
-				const path = files[index]?.path;
+				const file = files[index];
 
 				return (
-					path !== undefined && (
+					file !== undefined && (
 						<FileIcon
-							key={path}
-							fileName={path}
+							key={file.path}
+							fileName={file.path}
 							className={styles.badge}
 							style={{ top: `${top}px` }}
+							// Pressing the track puts the point you pressed in the middle of
+							// the viewport; a badge is a file rather than a position, so it
+							// opens that file at the top instead. Kept off the ruler's own
+							// handler so it doesn't also start a drag.
+							onPointerDown={(event) => {
+								event.stopPropagation();
+								viewerRef.current?.getInstance()?.scrollTo({
+									type: "item",
+									id: file.itemId,
+									align: "start",
+									behavior: "instant",
+								});
+							}}
 						/>
 					)
 				);
