@@ -1,3 +1,4 @@
+import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
 import { useOpenInProgram, useSaveGUISettings } from "#ui/api/mutations.ts";
@@ -71,7 +72,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./Details.module.css";
 import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -1169,7 +1170,7 @@ const Diff: FC<{
 							id={"files-panel" satisfies PanelId}
 							className={styles.panel}
 							defaultSize={320}
-							minSize={180}
+							minSize={220}
 							groupResizeBehavior="preserve-pixel-size"
 						>
 							<div className={styles.filesPanelContent} ref={filesPanelRef}>
@@ -1213,7 +1214,7 @@ const Diff: FC<{
 								</Scroller>
 							</div>
 						</Panel>
-						<Separator className={styles.resizeHandle} />
+						<ResizeHandle />
 					</>
 				)}
 

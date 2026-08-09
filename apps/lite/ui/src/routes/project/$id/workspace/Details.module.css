@@ -66,7 +66,7 @@
 	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 10px;
 	gap: 12px;
-	border-bottom: 1px solid var(--border-3);
+	border-bottom: 1px solid var(--border-section);
 
 	/* No files panel to the left, so align with the panel padding. */
 	&.filesHidden {
@@ -87,7 +87,7 @@
 }
 
 .panels {
-	border-top: 1px solid var(--border-3);
+	border-top: 1px solid var(--border-section);
 
 	/* No header above in the lone layout; the border would shift content down 1px. */
 	.containerLone & {
@@ -100,16 +100,6 @@
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
-}
-
-.resizeHandle {
-	width: 1px;
-	background-color: var(--border-3);
-
-	&[data-separator="hover"],
-	&[data-separator="active"] {
-		background-color: var(--border-2);
-	}
 }
 
 .loadingTab {
@@ -177,8 +167,8 @@
 
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
-		border-top: 1px solid var(--border-3);
-		border-bottom: 1px solid var(--border-3);
+		border-top: 1px solid var(--border-section);
+		border-bottom: 1px solid var(--border-section);
 
 		/* Hide the first diff's top border so it doesn't double up with the container above. */
 		&:first-child {

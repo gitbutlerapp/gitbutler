@@ -5,16 +5,6 @@
 	}
 }
 
-.resizeHandle {
-	height: 1px;
-	background-color: var(--border-3);
-
-	&[data-separator="hover"],
-	&[data-separator="active"] {
-		background-color: var(--border-2);
-	}
-}
-
 .uncommittedChangesOuterPanel {
 	/* Stretch/shrink single child element to fit this element. */
 	display: grid;

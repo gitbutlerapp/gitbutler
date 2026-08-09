@@ -188,7 +188,9 @@ export const SectionHeaderRow: FC<
 > = ({ label, actions, children, ...props }) => (
 	<Row {...props} className={classes(props.className, styles.sectionHeader)} interactive={false}>
 		<RowLabelContainer>
-			<RowLabel heading>{label}</RowLabel>
+			<RowLabel heading singleLine>
+				{label}
+			</RowLabel>
 
 			{children}
 		</RowLabelContainer>

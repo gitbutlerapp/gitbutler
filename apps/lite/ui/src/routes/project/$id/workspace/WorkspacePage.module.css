@@ -36,13 +36,3 @@
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 }
-
-.resizeHandle {
-	width: 1px;
-	background-color: var(--border-3);
-
-	&[data-separator="hover"],
-	&[data-separator="active"] {
-		background-color: var(--border-2);
-	}
-}
