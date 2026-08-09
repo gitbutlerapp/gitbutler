@@ -937,17 +937,26 @@ const Diff: FC<{
 
 	const activeFilePath = selection._tag === "File" ? selection.path : filesSelection;
 
-	const diffViewSansAnno = useMemo(() => {
-		const selectedFileIdx = changes.findIndex((change) => change.path === activeFilePath);
+	// Keyed on the file's index, not its path: scrolling moves the selection, so
+	// keying on path reparsed every file per boundary crossed. `null` is
+	// render-all, distinct from the -1 of a path matching no file.
+	const shownFileIndex = renderAllFiles
+		? null
+		: changes.findIndex((change) => change.path === activeFilePath);
 
-		return getDiffView({
-			fileParent,
-			changes: renderAllFiles ? changes : changes.slice(selectedFileIdx, selectedFileIdx + 1),
-			treeChangeDiffs: renderAllFiles
-				? treeChangeDiffs
-				: treeChangeDiffs.slice(selectedFileIdx, selectedFileIdx + 1),
-		});
-	}, [fileParent, renderAllFiles, activeFilePath, changes, treeChangeDiffs]);
+	const diffViewSansAnno = useMemo(
+		() =>
+			getDiffView({
+				fileParent,
+				changes:
+					shownFileIndex === null ? changes : changes.slice(shownFileIndex, shownFileIndex + 1),
+				treeChangeDiffs:
+					shownFileIndex === null
+						? treeChangeDiffs
+						: treeChangeDiffs.slice(shownFileIndex, shownFileIndex + 1),
+			}),
+		[fileParent, shownFileIndex, changes, treeChangeDiffs],
+	);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
