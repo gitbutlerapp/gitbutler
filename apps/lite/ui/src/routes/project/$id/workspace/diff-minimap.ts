@@ -372,6 +372,15 @@ export const getMinimapGeometry = (
 };
 
 /**
+ * One scratch context for measuring text. A fresh canvas per call costs many
+ * times the measurement itself and leaves a backing store behind, which matters
+ * because the measuring runs on every resize.
+ */
+let textContext: CanvasRenderingContext2D | null = null;
+const measuringContext = (): CanvasRenderingContext2D | null =>
+	(textContext ??= document.createElement("canvas").getContext("2d"));
+
+/**
  * Columns a code line gets before the viewer wraps it, read off a rendered one,
  * or null while nothing is rendered yet. The gutter grows with a file's line
  * numbers, so this is the measured file's width and a digit or two out on the
@@ -389,9 +398,12 @@ export const measureWrapColumns = (viewer: CodeView<Annotation>): number | null 
 		line.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
 	if (!(width > 0)) return null;
 
-	const context = document.createElement("canvas").getContext("2d");
+	const context = measuringContext();
 	if (!context) return null;
 
+	// Built from the longhands rather than taken from `style.font`, which computes
+	// to an empty string here — and empty leaves the context on its own default
+	// font, quietly measuring something else entirely.
 	context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
 	const sample = "0".repeat(50);
 	const advance = context.measureText(sample).width / sample.length;
