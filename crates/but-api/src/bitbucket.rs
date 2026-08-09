@@ -17,9 +17,9 @@ use tracing::instrument;
 ///
 /// # Returns
 ///
-/// * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+/// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::BitbucketAuthStatusResponseSensitive)]
+#[but_api(napi, json::BitbucketAuthStatusResponse)]
 #[instrument(err(Debug))]
 pub async fn store_bitbucket_api_token(
     email: String,

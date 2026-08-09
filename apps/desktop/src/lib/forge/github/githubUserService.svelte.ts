@@ -4,7 +4,7 @@ import type { BackendApi } from "$lib/state/backendApi";
 import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type {
 	GithubAccountIdentifier,
-	GithubAuthStatusResponseSensitive,
+	GithubAuthStatusResponse,
 	GithubAuthenticatedUserSensitive,
 } from "@gitbutler/but-sdk";
 
@@ -169,7 +169,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				},
 				query: () => ({}),
 			}),
-			checkAuthStatus: build.mutation<GithubAuthStatusResponseSensitive, { deviceCode: string }>({
+			checkAuthStatus: build.mutation<GithubAuthStatusResponse, { deviceCode: string }>({
 				extraOptions: {
 					command: "check_github_auth_status",
 					actionName: "Check GitHub Auth Status",
@@ -204,7 +204,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: () => ({}),
 				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
-			storeGitHubPat: build.mutation<GithubAuthStatusResponseSensitive, { accessToken: string }>({
+			storeGitHubPat: build.mutation<GithubAuthStatusResponse, { accessToken: string }>({
 				extraOptions: {
 					command: "store_github_pat",
 					actionName: "Store GitHub PAT",
@@ -213,7 +213,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			storeGithuibEnterprisePat: build.mutation<
-				GithubAuthStatusResponseSensitive,
+				GithubAuthStatusResponse,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {

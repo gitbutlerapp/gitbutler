@@ -6,7 +6,7 @@ import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import type { ForgeUserQuery } from "$lib/forge/interface/types";
-import type { Code, GithubAccountIdentifier } from "@gitbutler/but-sdk";
+import type { GithubAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 type GitHubPreferences = {
@@ -51,42 +51,6 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 	return {
 		preferredGitHubAccount: reactive(() => preferredUser),
 		githubAccounts: reactive(() => githubAccounts),
-	};
-}
-
-type GitHubAccess = {
-	host: Reactive<string | undefined>;
-	accessToken: Reactive<string | undefined>;
-	isLoading: Reactive<boolean>;
-	error: Reactive<{ code?: Code; message: string } | undefined>;
-	isError: Reactive<boolean>;
-};
-
-/**
- * Return the GitHub access token for the given project ID, based on the preferred GitHub username.
- */
-export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess {
-	const githubUserService = inject(GITHUB_USER_SERVICE);
-	const { preferredGitHubAccount } = usePreferredGitHubUsername(projectId);
-	const ghUserResponse = $derived.by(() => {
-		if (preferredGitHubAccount.current === undefined) return undefined;
-		return githubUserService.authenticatedUser(preferredGitHubAccount.current);
-	});
-	const aceessToken = $derived(ghUserResponse?.response?.accessToken);
-	const host = $derived.by(() => {
-		if (preferredGitHubAccount.current?.type === "enterprise") {
-			return preferredGitHubAccount.current.info.host;
-		}
-		return undefined;
-	});
-	return {
-		host: reactive(() => host),
-		accessToken: reactive(() => aceessToken),
-		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false),
-		error: reactive(
-			() => ghUserResponse?.result.error as { code?: Code; message: string } | undefined,
-		),
-		isError: reactive(() => ghUserResponse?.result.isError ?? false),
 	};
 }
 

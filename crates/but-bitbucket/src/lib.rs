@@ -226,32 +226,29 @@ pub mod json {
 
     use crate::{AuthStatusResponse, AuthenticatedUser};
 
-    /// Serializable version of [`AuthStatusResponse`] with exposed access token.
+    /// Serializable version of [`AuthStatusResponse`], without the access token.
+    ///
+    /// The credential is stored by the backend as part of the call, so the caller is told
+    /// who authenticated and nothing more. Field names are camelCase for JSON.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
-    pub struct BitbucketAuthStatusResponseSensitive {
-        /// The Bitbucket access token as a plain string (sensitive data).
-        pub access_token: String,
-        /// The Bitbucket username.
+    pub struct BitbucketAuthStatusResponse {
         pub username: String,
-        /// The user's display name, if available.
         pub name: Option<String>,
-        /// The Atlassian account email used for authentication.
         pub email: Option<String>,
     }
 
-    impl From<AuthStatusResponse> for BitbucketAuthStatusResponseSensitive {
+    impl From<AuthStatusResponse> for BitbucketAuthStatusResponse {
         fn from(
             AuthStatusResponse {
-                access_token,
                 username,
                 name,
                 email,
+                ..
             }: AuthStatusResponse,
         ) -> Self {
-            BitbucketAuthStatusResponseSensitive {
-                access_token: access_token.0,
+            BitbucketAuthStatusResponse {
                 username,
                 name,
                 email,
@@ -260,7 +257,7 @@ pub mod json {
     }
 
     #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(BitbucketAuthStatusResponseSensitive);
+    but_schemars::register_sdk_type!(BitbucketAuthStatusResponse);
 
     /// Serializable version of [`AuthenticatedUser`] with exposed access token.
     #[derive(Debug, Serialize)]

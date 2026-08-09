@@ -244,38 +244,32 @@ pub mod json {
 
     use crate::{AuthStatusResponse, AuthenticatedUser};
 
-    /// Serializable version of [`AuthStatusResponse`] with exposed access token.
+    /// Serializable version of [`AuthStatusResponse`], without the access token.
     ///
-    /// This struct is used for API responses where the access token needs to be
-    /// sent as a plain string. Field names are converted to camelCase for JSON.
+    /// The credential is stored by the backend as part of the call, so the caller is told
+    /// who authenticated and nothing more. Field names are camelCase for JSON.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
-    pub struct GitlabAuthStatusResponseSensitive {
-        /// The GitLab access token as a plain string (sensitive data).
-        pub access_token: String,
-        /// The GitLab username.
+    pub struct GitlabAuthStatusResponse {
         pub username: String,
-        /// The user's display name, if available.
         pub name: Option<String>,
-        /// The user's email address, if available.
         pub email: Option<String>,
-        /// The self-hosted GitLab host, if this is a self-hosted instance.
+        /// The enterprise or self-hosted host, when there is one.
         pub host: Option<String>,
     }
 
-    impl From<AuthStatusResponse> for GitlabAuthStatusResponseSensitive {
+    impl From<AuthStatusResponse> for GitlabAuthStatusResponse {
         fn from(
             AuthStatusResponse {
-                access_token,
                 username,
                 name,
                 email,
                 host,
+                ..
             }: AuthStatusResponse,
         ) -> Self {
-            GitlabAuthStatusResponseSensitive {
-                access_token: access_token.0,
+            GitlabAuthStatusResponse {
                 username,
                 name,
                 email,
@@ -285,7 +279,7 @@ pub mod json {
     }
 
     #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(GitlabAuthStatusResponseSensitive);
+    but_schemars::register_sdk_type!(GitlabAuthStatusResponse);
 
     /// Serializable version of [`AuthenticatedUser`] with exposed access token.
     ///

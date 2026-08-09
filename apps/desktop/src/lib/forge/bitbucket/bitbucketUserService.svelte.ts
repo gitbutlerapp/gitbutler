@@ -4,7 +4,7 @@ import type { BackendApi } from "$lib/state/backendApi";
 import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type {
 	BitbucketAccountIdentifier,
-	BitbucketAuthStatusResponseSensitive,
+	BitbucketAuthStatusResponse,
 	BitbucketAuthenticatedUserSensitive,
 } from "@gitbutler/but-sdk";
 
@@ -146,7 +146,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				invalidatesTags: [providesList(ReduxTag.BitbucketUserList)],
 			}),
 			storeBitbucketApiToken: build.mutation<
-				BitbucketAuthStatusResponseSensitive,
+				BitbucketAuthStatusResponse,
 				{ email: string; accessToken: string }
 			>({
 				extraOptions: {

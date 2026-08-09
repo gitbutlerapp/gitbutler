@@ -15,9 +15,9 @@ use tracing::instrument;
 ///
 /// # Returns
 ///
-/// * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+/// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::GitlabAuthStatusResponseSensitive)]
+#[but_api(napi, json::GitlabAuthStatusResponse)]
 #[instrument(err(Debug))]
 pub async fn store_gitlab_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -36,9 +36,9 @@ pub async fn store_gitlab_pat(access_token: Sensitive<String>) -> Result<AuthSta
 ///
 /// # Returns
 ///
-/// * `Ok(AuthStatusResponse)` - Token is valid, contains user details and host
+/// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid, host is unreachable, or storage fails
-#[but_api(json::GitlabAuthStatusResponseSensitive)]
+#[but_api(json::GitlabAuthStatusResponse)]
 #[instrument(err(Debug))]
 pub async fn store_gitlab_selfhosted_pat(
     access_token: Sensitive<String>,

@@ -5,7 +5,7 @@ import type { BackendApi } from "$lib/state/backendApi";
 import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type {
 	GitlabAccountIdentifier,
-	GitlabAuthStatusResponseSensitive,
+	GitlabAuthStatusResponse,
 	GitlabAuthenticatedUserSensitive,
 } from "@gitbutler/but-sdk";
 
@@ -184,7 +184,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: () => ({}),
 				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
-			storeGitLabPat: build.mutation<GitlabAuthStatusResponseSensitive, { accessToken: string }>({
+			storeGitLabPat: build.mutation<GitlabAuthStatusResponse, { accessToken: string }>({
 				extraOptions: {
 					command: "store_gitlab_pat",
 					actionName: "Store GitLab PAT",
@@ -193,7 +193,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			storeGitLabEnterprisePat: build.mutation<
-				GitlabAuthStatusResponseSensitive,
+				GitlabAuthStatusResponse,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {
