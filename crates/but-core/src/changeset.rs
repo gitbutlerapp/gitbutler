@@ -92,8 +92,28 @@ impl<T: ChangesetCommit + ?Sized> ChangesetCommit for &T {
 
 /// Similarity matches between workspace commits and upstream commits, computed from commit IDs.
 pub struct SimilarityByCommitIds {
-    /// Upstream commit IDs keyed by the workspace commit ID that matched them.
+    /// Upstream commit IDs keyed by workspace commits proven integrated individually or by range.
     pub matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
+    upstream_lut: Identity,
+    time_used: Duration,
+}
+
+impl SimilarityByCommitIds {
+    /// Return the upstream commit whose changeset matches `base` to `tip`.
+    ///
+    /// Range matching is content-only: unlike individual commit matching, commit metadata and
+    /// change IDs cannot prove that a cumulative range was integrated.
+    pub fn matching_changeset(
+        &mut self,
+        repo: &gix::Repository,
+        base: gix::ObjectId,
+        tip: gix::ObjectId,
+    ) -> anyhow::Result<Option<gix::ObjectId>> {
+        Ok(
+            range_changeset_identifier(repo, Some(base), tip, &mut self.time_used)?
+                .and_then(|identifier| self.upstream_lut.get(&identifier).copied()),
+        )
+    }
 }
 
 /// Compute upstream similarity for the provided workspace commits.
@@ -137,6 +157,8 @@ pub fn compute_similarity_by_commit_ids(
 
     Ok(SimilarityByCommitIds {
         matches_by_workspace_commit,
+        upstream_lut,
+        time_used,
     })
 }
 
@@ -151,12 +173,23 @@ pub fn changeset_identifier<C: ChangesetCommit>(
     let Some(commit) = commit else {
         return Ok(None);
     };
+    range_changeset_identifier(repo, commit.first_parent_id(), commit.id(), elapsed)
+}
+
+/// Return the changeset identity for `base..tip` while sharing the expensive-computation budget
+/// in `elapsed` with other similarity checks.
+pub fn range_changeset_identifier(
+    repo: &gix::Repository,
+    base: Option<gix::ObjectId>,
+    tip: gix::ObjectId,
+    elapsed: &mut Duration,
+) -> anyhow::Result<Option<Identifier>> {
     if *elapsed > MAX_COMPUTE_WALLCLOCK_DURATION {
         return Ok(None);
     }
 
     let start = std::time::Instant::now();
-    let res = id_for_tree_diff(repo, commit.first_parent_id(), commit.id())?;
+    let res = id_for_tree_diff(repo, base, tip)?;
     *elapsed += start.elapsed();
 
     if *elapsed > MAX_COMPUTE_WALLCLOCK_DURATION {
