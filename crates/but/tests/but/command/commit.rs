@@ -2344,6 +2344,9 @@ For more information, try '--help'.
 /// Writes an executable `pre-commit` hook that runs `body`.
 #[cfg(unix)]
 fn write_pre_commit_hook(env: &Sandbox, body: &str) {
+    // A global `core.hooksPath` would otherwise send `but` to the developer's own hooks,
+    // skipping the one written here and running theirs during the test run.
+    env.invoke_git("config core.hooksPath .git/hooks");
     env.invoke_bash(format!(
         "mkdir -p .git/hooks && printf '#!/bin/sh\\n{body}\\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"
     ));
@@ -2406,6 +2409,9 @@ fn no_hooks_commits_past_a_failing_pre_commit_hook() {
 /// shifting every line below it and so invalidating hunk headers computed before it ran.
 #[cfg(unix)]
 fn write_line_shifting_hook(env: &Sandbox) {
+    // A global `core.hooksPath` would otherwise send `but` to the developer's own hooks,
+    // skipping the one written here and running theirs during the test run.
+    env.invoke_git("config core.hooksPath .git/hooks");
     // `sed -i` is spelled differently on BSD and GNU, so splice the line with head/tail instead.
     env.invoke_bash(
         "mkdir -p .git/hooks && cat > .git/hooks/pre-commit <<'HOOK'\n\
