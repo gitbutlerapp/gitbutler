@@ -1,5 +1,10 @@
 import type { GUISettings } from "#electron/settings.ts";
-import { getMinimapScale, type MinimapFile, type MinimapGeometry } from "./diff-minimap.ts";
+import {
+	getMinimapScale,
+	type MinimapFile,
+	type MinimapGeometry,
+	type MinimapSide,
+} from "./diff-minimap.ts";
 
 /** The channel between the two lanes in side-by-side. */
 const LANE_SPLIT = 1;
@@ -9,8 +14,6 @@ const RULE_MIN_GAP = 6;
 
 /** Height a file's section needs before it is badged with its type icon. */
 const ICON_MIN_SECTION = 24;
-
-type Side = "additions" | "deletions";
 
 /**
  * Per device pixel: line widths and indents summed against how much of the
@@ -49,14 +52,14 @@ const resolveLanes = ({
 	geometry: MinimapGeometry;
 	rows: number;
 	scale: number;
-}): Record<Side, Lane> => {
+}): Record<MinimapSide, Lane> => {
 	const lane = (): Lane => ({
 		widths: new Float32Array(rows),
 		indents: new Float32Array(rows),
 		coverage: new Float32Array(rows),
 		content: new Float32Array(rows),
 	});
-	const lanes = { deletions: lane(), additions: lane() };
+	const lanes = { context: lane(), deletions: lane(), additions: lane() };
 
 	for (const [index, file] of files.entries()) {
 		const block = geometry.blocks[index];
@@ -179,6 +182,7 @@ export const paintMinimap = (
 
 	const palette = getComputedStyle(canvas);
 	const fills = {
+		context: palette.getPropertyValue("--minimap-context"),
 		deletions: palette.getPropertyValue("--minimap-deletions"),
 		additions: palette.getPropertyValue("--minimap-additions"),
 	};
@@ -191,28 +195,29 @@ export const paintMinimap = (
 	const rows = deviceHeight;
 	const lanes = resolveLanes({ files, geometry, rows, scale: scale * ratio });
 
-	// Unified stacks both sides in one lane, so past a line per pixel a removal
-	// and an addition can land on the same one. Give it to whichever fills more
-	// of it, rather than letting the second side painted cover part of the first
-	// and read as a line that changes colour.
-	if (!split) {
-		for (let row = 0; row < rows; row++) {
-			const removed = lanes.deletions.coverage[row] ?? 0;
-			const added = lanes.additions.coverage[row] ?? 0;
-			if (removed === 0 || added === 0) continue;
+	for (let row = 0; row < rows; row++) {
+		const removed = lanes.deletions.coverage[row] ?? 0;
+		const added = lanes.additions.coverage[row] ?? 0;
 
-			// Ties go to removals, which come first within a change.
-			const losing = added > removed ? lanes.deletions : lanes.additions;
-			losing.coverage[row] = 0;
-		}
+		// A row carrying a change is described by that change, not by whatever
+		// unchanged code shares the pixel with it.
+		if (removed > 0 || added > 0) lanes.context.coverage[row] = 0;
+
+		// Unified stacks both sides in one lane, so past a line per pixel a removal
+		// and an addition can land on the same one. Give it to whichever fills more
+		// of it, rather than letting the second side painted cover part of the first
+		// and read as a line that changes colour. Ties go to removals, which come
+		// first within a change.
+		if (split || removed === 0 || added === 0) continue;
+		const losing = added > removed ? lanes.deletions : lanes.additions;
+		losing.coverage[row] = 0;
 	}
 
 	// Leading whitespace is left unpainted, so indentation reads as the gap
 	// before a line's code. Every line grows from its own lane's left edge, the
 	// way the text does in the column it stands for.
-	for (const [side, lane] of Object.entries(lanes) as Array<[Side, Lane]>) {
-		const origin = split && side === "additions" ? laneWidth + LANE_SPLIT : 0;
-		context.fillStyle = fills[side];
+	const drawLane = (lane: Lane, origin: number, fill: string): void => {
+		context.fillStyle = fill;
 
 		for (let row = 0; row < rows; row++) {
 			if ((lane.coverage[row] ?? 0) === 0) continue;
@@ -228,7 +233,14 @@ export const paintMinimap = (
 
 			context.fillRect(origin + inner, row / ratio, outer - inner, thinnest);
 		}
-	}
+	};
+
+	const right = laneWidth + LANE_SPLIT;
+	// Unchanged code is the same on both sides, so split shows it in both columns.
+	drawLane(lanes.context, 0, fills.context);
+	if (split) drawLane(lanes.context, right, fills.context);
+	drawLane(lanes.deletions, 0, fills.deletions);
+	drawLane(lanes.additions, split ? right : 0, fills.additions);
 
 	// Drawn last and opaque, so a rule reads over the marks it crosses rather
 	// than tinting with them.

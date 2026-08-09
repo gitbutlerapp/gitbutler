@@ -38,7 +38,14 @@ const MIN_VIEWPORTS = 2;
 const REFERENCE_COLUMNS = 100;
 
 /**
- * A run of added or removed lines, in pixels from the top of its file.
+ * Context is the unchanged code a hunk carries with it. Drawn under the two
+ * change lanes so a file reads as code with changes in it, rather than as marks
+ * floating in an empty column.
+ */
+export type MinimapSide = "additions" | "deletions" | "context";
+
+/**
+ * A run of lines from one side, in pixels from the top of its file.
  *
  * Widths are per line rather than averaged, so the ruler can resolve individual
  * lines wherever it has the pixels for them, and each carries its leading
@@ -48,7 +55,7 @@ const REFERENCE_COLUMNS = 100;
 type MinimapMark = {
 	top: number;
 	height: number;
-	side: "additions" | "deletions";
+	side: MinimapSide;
 	widths: Uint8Array;
 	indents: Uint8Array;
 	/** Rendered rows per line, or null when nothing here wraps and each takes one. */
@@ -194,7 +201,7 @@ export const getMinimapFiles = ({
 		for (const [hunkIndex, hunk] of fileDiff.hunks.entries()) {
 			if (hunk.collapsedBefore > 0) top += hunkIndex === 0 ? SEPARATOR_LEADING : SEPARATOR_BETWEEN;
 
-			const mark = (side: MinimapMark["side"], offset: number, metrics: RunMetrics): void => {
+			const mark = (side: MinimapSide, offset: number, metrics: RunMetrics): void => {
 				marks.push({
 					top: top + offset * ROW_HEIGHT,
 					height: metrics.rowCount * ROW_HEIGHT,
@@ -211,16 +218,21 @@ export const getMinimapFiles = ({
 
 			for (const part of hunk.hunkContent) {
 				if (part.type === "context") {
-					// Unchanged lines wrap too, so their rows have to be counted even
-					// though nothing is drawn for them.
-					row += runMetrics(
-						fileDiff.additionLines.slice(
-							part.additionLineIndex,
-							part.additionLineIndex + part.lines,
-						),
-						tabSize,
-						wrapColumns,
-					).rowCount;
+					if (part.lines > 0) {
+						// Unchanged, so the two sides hold the same text and either reads it.
+						const context = runMetrics(
+							fileDiff.additionLines.slice(
+								part.additionLineIndex,
+								part.additionLineIndex + part.lines,
+							),
+							tabSize,
+							wrapColumns,
+						);
+
+						mark("context", row, context);
+						row += context.rowCount;
+					}
+
 					unwrapped += part.lines;
 					continue;
 				}

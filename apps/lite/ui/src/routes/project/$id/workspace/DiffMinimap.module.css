@@ -15,6 +15,12 @@
 	initial-value: transparent;
 }
 
+@property --minimap-context {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
 @property --minimap-file-rule {
 	syntax: "<color>";
 	inherits: true;
@@ -26,9 +32,13 @@
 	   just further, since a mark can be a single pixel tall. */
 	--minimap-additions: color-mix(in lab, var(--bg-1) 62%, var(--fill-safe-bg));
 	--minimap-deletions: color-mix(in lab, var(--bg-1) 62%, var(--fill-danger-bg));
+	/* Recessive enough to read as the page the changes are written on, not as a
+	   third kind of change. */
+	--minimap-context: color-mix(in lab, var(--bg-1) 88%, var(--fill-gray-bg));
 	/* Mixed into the background rather than towards transparent, so a rule covers
-	   the marks it crosses instead of tinting with them. */
-	--minimap-file-rule: color-mix(in srgb, var(--fill-gray-bg) 14%, var(--bg-1));
+	   the marks it crosses instead of tinting with them. Stronger than the context
+	   it now runs through, which is grey in the same way. */
+	--minimap-file-rule: color-mix(in srgb, var(--fill-gray-bg) 26%, var(--bg-1));
 
 	--minimap-view-min: 14px;
 	/* Clamped here rather than in the geometry, which works in fractions and has
