@@ -1,3 +1,4 @@
+import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import type { GUISettings } from "#electron/settings.ts";
 import type { CodeViewHandle } from "@pierre/diffs/react";
@@ -12,9 +13,11 @@ import {
 import type { Annotation } from "./diff-view.ts";
 import {
 	getMinimapGeometry,
+	getMinimapOverlays,
 	getMinimapViewport,
 	type MinimapFile,
 	type MinimapGeometry,
+	type MinimapSelection,
 	scrollMinimapTo,
 } from "./diff-minimap.ts";
 import { type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
@@ -34,13 +37,15 @@ export const DiffMinimap: FC<{
 	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	files: Array<MinimapFile>;
 	diffStyle: GUISettings["diffStyle"];
-}> = ({ viewerRef, files, diffStyle }) => {
+	annotationsByPath: LocalAnnotationsByPath;
+	selection: MinimapSelection | null;
+}> = ({ viewerRef, files, diffStyle, annotationsByPath, selection }) => {
 	const rulerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const markerRef = useRef<HTMLDivElement>(null);
 	/** Where the pointer took hold of the thumb, as a fraction of the content. */
 	const grabRef = useRef(0);
-	const dataRef = useRef({ files, diffStyle });
+	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection });
 	const geometryRef = useRef<MinimapGeometry | null>(null);
 	const resyncRef = useRef<(() => void) | null>(null);
 	const [navigable, setNavigable] = useState(false);
@@ -57,7 +62,7 @@ export const DiffMinimap: FC<{
 		let lastScrollHeight: number | null = null;
 
 		const draw = (): void => {
-			const { files, diffStyle } = dataRef.current;
+			const { files, diffStyle, annotationsByPath, selection } = dataRef.current;
 			const geometry = getMinimapGeometry(
 				viewer,
 				files.map((file) => file.itemId),
@@ -67,7 +72,8 @@ export const DiffMinimap: FC<{
 			setNavigable(geometry !== null);
 			if (!geometry) return;
 
-			setBadges(paintMinimap(canvas, { files, geometry, diffStyle }));
+			const overlays = getMinimapOverlays({ files, geometry, annotationsByPath, selection });
+			setBadges(paintMinimap(canvas, { files, geometry, diffStyle, overlays }));
 		};
 
 		const sync = (force: boolean): void => {
@@ -137,9 +143,14 @@ export const DiffMinimap: FC<{
 	// Guarded so renders driven by hover don't repaint the canvas.
 	useLayoutEffect(() => {
 		const previous = dataRef.current;
-		if (previous.files === files && previous.diffStyle === diffStyle) return;
+		const changed =
+			previous.files !== files ||
+			previous.diffStyle !== diffStyle ||
+			previous.annotationsByPath !== annotationsByPath ||
+			previous.selection !== selection;
+		if (!changed) return;
 
-		dataRef.current = { files, diffStyle };
+		dataRef.current = { files, diffStyle, annotationsByPath, selection };
 		resyncRef.current?.();
 	});
 
@@ -215,15 +226,28 @@ export const DiffMinimap: FC<{
 			<div ref={markerRef} className={styles.marker} />
 
 			{badges.map(({ index, top }) => {
-				const path = files[index]?.path;
+				const file = files[index];
 
 				return (
-					path !== undefined && (
+					file !== undefined && (
 						<FileIcon
-							key={path}
-							fileName={path}
+							key={file.path}
+							fileName={file.path}
 							className={styles.badge}
 							style={{ top: `${top}px` }}
+							// Pressing the track puts the point you pressed in the middle of
+							// the viewport; a badge is a file rather than a position, so it
+							// opens that file at the top instead. Kept off the ruler's own
+							// handler so it doesn't also start a drag.
+							onPointerDown={(event) => {
+								event.stopPropagation();
+								viewerRef.current?.getInstance()?.scrollTo({
+									type: "item",
+									id: file.itemId,
+									align: "start",
+									behavior: "instant",
+								});
+							}}
 						/>
 					)
 				);

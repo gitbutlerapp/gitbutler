@@ -1,5 +1,11 @@
 import type { GUISettings } from "#electron/settings.ts";
-import { getMinimapScale, type MinimapFile, type MinimapGeometry } from "./diff-minimap.ts";
+import {
+	getMinimapScale,
+	type MinimapFile,
+	type MinimapGeometry,
+	type MinimapOverlays,
+	type MinimapSide,
+} from "./diff-minimap.ts";
 
 /** The channel between the two lanes in side-by-side. */
 const LANE_SPLIT = 1;
@@ -7,10 +13,12 @@ const LANE_SPLIT = 1;
 /** Vertical room a file rule needs before the next one is drawn. */
 const RULE_MIN_GAP = 6;
 
+/** How far a comment pin reaches in from the ruler's right edge. */
+const PIN_WIDTH = 5;
+const PIN_HEIGHT = 3;
+
 /** Height a file's section needs before it is badged with its type icon. */
 const ICON_MIN_SECTION = 24;
-
-type Side = "additions" | "deletions";
 
 /**
  * Per device pixel: line widths and indents summed against how much of the
@@ -49,14 +57,14 @@ const resolveLanes = ({
 	geometry: MinimapGeometry;
 	rows: number;
 	scale: number;
-}): Record<Side, Lane> => {
+}): Record<MinimapSide, Lane> => {
 	const lane = (): Lane => ({
 		widths: new Float32Array(rows),
 		indents: new Float32Array(rows),
 		coverage: new Float32Array(rows),
 		content: new Float32Array(rows),
 	});
-	const lanes = { deletions: lane(), additions: lane() };
+	const lanes = { context: lane(), deletions: lane(), additions: lane() };
 
 	for (const [index, file] of files.entries()) {
 		const block = geometry.blocks[index];
@@ -69,10 +77,14 @@ const resolveLanes = ({
 
 		for (const mark of file.marks) {
 			const lane = lanes[mark.side];
-			const lineHeight = (mark.height * correction) / mark.widths.length;
+			// One rendered row, which is also each line's height unless wrapping gave
+			// some of them more than one.
+			const rowHeight = (mark.height * correction) / mark.rowCount;
 			let y = origin + mark.top * correction;
 
 			for (const [line, width] of mark.widths.entries()) {
+				const lineHeight = (mark.rows?.[line] ?? 1) * rowHeight;
+
 				// A line owns the pixels it covers, and one thinner than a pixel owns
 				// only the one its middle lands in — otherwise a removal and the
 				// addition under it would both claim the boundary between them.
@@ -152,10 +164,12 @@ export const paintMinimap = (
 		files,
 		geometry,
 		diffStyle,
+		overlays,
 	}: {
 		files: Array<MinimapFile>;
 		geometry: MinimapGeometry;
 		diffStyle: GUISettings["diffStyle"];
+		overlays: MinimapOverlays;
 	},
 ): Array<MinimapBadge> => {
 	const { width, height } = canvas.getBoundingClientRect();
@@ -175,8 +189,11 @@ export const paintMinimap = (
 
 	const palette = getComputedStyle(canvas);
 	const fills = {
+		context: palette.getPropertyValue("--minimap-context"),
 		deletions: palette.getPropertyValue("--minimap-deletions"),
 		additions: palette.getPropertyValue("--minimap-additions"),
+		pin: palette.getPropertyValue("--minimap-pin"),
+		selection: palette.getPropertyValue("--minimap-selection"),
 	};
 
 	const split = diffStyle === "split";
@@ -187,28 +204,29 @@ export const paintMinimap = (
 	const rows = deviceHeight;
 	const lanes = resolveLanes({ files, geometry, rows, scale: scale * ratio });
 
-	// Unified stacks both sides in one lane, so past a line per pixel a removal
-	// and an addition can land on the same one. Give it to whichever fills more
-	// of it, rather than letting the second side painted cover part of the first
-	// and read as a line that changes colour.
-	if (!split) {
-		for (let row = 0; row < rows; row++) {
-			const removed = lanes.deletions.coverage[row] ?? 0;
-			const added = lanes.additions.coverage[row] ?? 0;
-			if (removed === 0 || added === 0) continue;
+	for (let row = 0; row < rows; row++) {
+		const removed = lanes.deletions.coverage[row] ?? 0;
+		const added = lanes.additions.coverage[row] ?? 0;
 
-			// Ties go to removals, which come first within a change.
-			const losing = added > removed ? lanes.deletions : lanes.additions;
-			losing.coverage[row] = 0;
-		}
+		// A row carrying a change is described by that change, not by whatever
+		// unchanged code shares the pixel with it.
+		if (removed > 0 || added > 0) lanes.context.coverage[row] = 0;
+
+		// Unified stacks both sides in one lane, so past a line per pixel a removal
+		// and an addition can land on the same one. Give it to whichever fills more
+		// of it, rather than letting the second side painted cover part of the first
+		// and read as a line that changes colour. Ties go to removals, which come
+		// first within a change.
+		if (split || removed === 0 || added === 0) continue;
+		const losing = added > removed ? lanes.deletions : lanes.additions;
+		losing.coverage[row] = 0;
 	}
 
 	// Leading whitespace is left unpainted, so indentation reads as the gap
 	// before a line's code. Every line grows from its own lane's left edge, the
 	// way the text does in the column it stands for.
-	for (const [side, lane] of Object.entries(lanes) as Array<[Side, Lane]>) {
-		const origin = split && side === "additions" ? laneWidth + LANE_SPLIT : 0;
-		context.fillStyle = fills[side];
+	const drawLane = (lane: Lane, origin: number, fill: string): void => {
+		context.fillStyle = fill;
 
 		for (let row = 0; row < rows; row++) {
 			if ((lane.coverage[row] ?? 0) === 0) continue;
@@ -224,13 +242,40 @@ export const paintMinimap = (
 
 			context.fillRect(origin + inner, row / ratio, outer - inner, thinnest);
 		}
+	};
+
+	// Laid down before the marks so a selected hunk still reads as added or
+	// removed, with the wash showing through the gaps between its lines.
+	if (overlays.band) {
+		context.fillStyle = fills.selection;
+		context.fillRect(
+			0,
+			overlays.band.top * scale,
+			width,
+			Math.max(overlays.band.height * scale, thinnest),
+		);
 	}
+
+	const right = laneWidth + LANE_SPLIT;
+	// Unchanged code is the same on both sides, so split shows it in both columns.
+	drawLane(lanes.context, 0, fills.context);
+	if (split) drawLane(lanes.context, right, fills.context);
+	drawLane(lanes.deletions, 0, fills.deletions);
+	drawLane(lanes.additions, split ? right : 0, fills.additions);
 
 	// Drawn last and opaque, so a rule reads over the marks it crosses rather
 	// than tinting with them.
 	const rules = resolveRules({ geometry, scale, limit: height - thinnest });
 	context.fillStyle = palette.getPropertyValue("--minimap-file-rule");
 	for (const rule of rules) context.fillRect(0, rule.y, width, thinnest);
+
+	// Pinned to the right edge, opposite the file badges, so a commented line is
+	// findable without covering the marks it belongs to.
+	context.fillStyle = fills.pin;
+	for (const pin of overlays.pins) {
+		const top = Math.min(Math.max(pin * scale - PIN_HEIGHT / 2, 0), height - PIN_HEIGHT);
+		context.fillRect(width - PIN_WIDTH, top, PIN_WIDTH, PIN_HEIGHT);
+	}
 
 	const first = geometry.blocks[0];
 	const opening = first && first.height * scale >= ICON_MIN_SECTION ? [{ index: 0, top: 0 }] : [];

@@ -1,3 +1,4 @@
+import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
 import { weakFileIdentityKey, type FileParent } from "#ui/operands.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
@@ -38,7 +39,14 @@ const MIN_VIEWPORTS = 2;
 const REFERENCE_COLUMNS = 100;
 
 /**
- * A run of added or removed lines, in pixels from the top of its file.
+ * Context is the unchanged code a hunk carries with it. Drawn under the two
+ * change lanes so a file reads as code with changes in it, rather than as marks
+ * floating in an empty column.
+ */
+export type MinimapSide = "additions" | "deletions" | "context";
+
+/**
+ * A run of lines from one side, in pixels from the top of its file.
  *
  * Widths are per line rather than averaged, so the ruler can resolve individual
  * lines wherever it has the pixels for them, and each carries its leading
@@ -48,9 +56,32 @@ const REFERENCE_COLUMNS = 100;
 type MinimapMark = {
 	top: number;
 	height: number;
-	side: "additions" | "deletions";
+	side: MinimapSide;
 	widths: Uint8Array;
 	indents: Uint8Array;
+	/** Rendered rows per line, or null when nothing here wraps and each takes one. */
+	rows: Uint16Array | null;
+	/** Rows the run spans — its line count unless wrapping stretched it. */
+	rowCount: number;
+};
+
+type RunMetrics = Omit<MinimapMark, "top" | "height" | "side">;
+
+/** The two sides a file line can be numbered on. Context lines are on both. */
+type ChangeSide = Exclude<MinimapSide, "context">;
+
+/**
+ * A run of consecutive file lines and the pixels it occupies, which is what
+ * turns a comment's line number — or a selected range — into a ruler position.
+ * Interpolating within the run is exact until wrapping makes lines uneven, and
+ * a line or so out is below what the ruler can draw anyway.
+ */
+type MinimapAnchor = {
+	side: ChangeSide;
+	start: number;
+	lines: number;
+	top: number;
+	height: number;
 };
 
 export type MinimapFile = {
@@ -59,6 +90,7 @@ export type MinimapFile = {
 	/** Modelled height of the whole file block, used to correct the marks. */
 	contentHeight: number;
 	marks: Array<MinimapMark>;
+	anchors: Array<MinimapAnchor>;
 };
 
 /** Scroll-content pixels, the space every position here is measured in. */
@@ -96,9 +128,12 @@ const share = (columns: number): number =>
 const runMetrics = (
 	lines: Array<string>,
 	tabSize: number,
-): { widths: Uint8Array; indents: Uint8Array } => {
+	wrapColumns: number | null,
+): RunMetrics => {
 	const widths = new Uint8Array(lines.length);
 	const indents = new Uint8Array(lines.length);
+	const rows = wrapColumns === null ? null : new Uint16Array(lines.length);
+	let rowCount = 0;
 
 	for (const [index, line] of lines.entries()) {
 		const { indent, columns } = lineColumns(line, tabSize);
@@ -107,9 +142,39 @@ const runMetrics = (
 		// Never wider than the line it sits in, which also leaves a line that is
 		// nothing but whitespace with the two equal — how a blank one is spotted.
 		indents[index] = Math.min(share(indent), widths[index]);
+
+		// The viewer breaks on word boundaries where it can, so a line can take one
+		// row more than its length demands. Under-counting leaves the rest of the
+		// file's own correction to absorb; guessing high would push marks past it.
+		const lineRows = wrapColumns === null ? 1 : Math.max(Math.ceil(columns / wrapColumns), 1);
+		if (rows) rows[index] = lineRows;
+		rowCount += lineRows;
 	}
 
-	return { widths, indents };
+	return { widths, indents, rows, rowCount };
+};
+
+const sumRows = (rows: Uint16Array): number => rows.reduce((total, count) => total + count, 0);
+
+/**
+ * Split lays each removal beside its addition, so the two share a row and the
+ * taller wrap sets its height. Left alone, each side would count only its own
+ * rows and the shorter one would drift up the file.
+ */
+const pairSplitRows = (deletions: RunMetrics, additions: RunMetrics): void => {
+	if (!deletions.rows || !additions.rows) return;
+
+	const removed = deletions.rows.length;
+	const added = additions.rows.length;
+	const paired = new Uint16Array(Math.max(removed, added));
+
+	for (let index = 0; index < paired.length; index++)
+		paired[index] = Math.max(deletions.rows[index] ?? 1, additions.rows[index] ?? 1);
+
+	deletions.rows = paired.subarray(0, removed);
+	additions.rows = paired.subarray(0, added);
+	deletions.rowCount = sumRows(deletions.rows);
+	additions.rowCount = sumRows(additions.rows);
 };
 
 /**
@@ -128,12 +193,15 @@ export const getMinimapFiles = ({
 	treeChangeDiffs,
 	diffStyle,
 	tabSize,
+	wrapColumns,
 }: {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
 	diffStyle: GUISettings["diffStyle"];
 	tabSize: number;
+	/** Columns a line gets before it wraps, or null when the viewer scrolls instead. */
+	wrapColumns: number | null;
 }): Array<MinimapFile> => {
 	const changedLines = treeChangeDiffs.reduce(
 		(total, diff) =>
@@ -147,53 +215,116 @@ export const getMinimapFiles = ({
 	return changes.map((change, changeIndex) => {
 		const { fileDiff } = parseChangeDiff(change, treeChangeDiffs[changeIndex] ?? null);
 		const marks: Array<MinimapMark> = [];
+		const anchors: Array<MinimapAnchor> = [];
 		let top = codeViewItemMetrics.diffHeaderHeight;
 
 		for (const [hunkIndex, hunk] of fileDiff.hunks.entries()) {
 			if (hunk.collapsedBefore > 0) top += hunkIndex === 0 ? SEPARATOR_LEADING : SEPARATOR_BETWEEN;
 
+			type Placement = { top: number; height: number };
+
+			const mark = (side: MinimapSide, offset: number, metrics: RunMetrics): Placement => {
+				const placement = {
+					top: top + offset * ROW_HEIGHT,
+					height: metrics.rowCount * ROW_HEIGHT,
+				};
+
+				marks.push({ ...placement, side, ...metrics });
+				return placement;
+			};
+
+			const anchor = (
+				side: ChangeSide,
+				start: number,
+				lines: number,
+				placement: Placement,
+			): void => {
+				if (lines > 0) anchors.push({ side, start, lines, ...placement });
+			};
+
+			// Rendered rows, and the same walk as if nothing wrapped. Only their
+			// difference is taken from this walk — the hunk's own total comes from the
+			// viewer, so a part shape we don't recognise can't shift the file.
 			let row = 0;
+			let unwrapped = 0;
+			// The hunk header numbers its first line on each side; every part after
+			// that carries the count on from there.
+			let additionLine = hunk.additionStart;
+			let deletionLine = hunk.deletionStart;
+
 			for (const part of hunk.hunkContent) {
 				if (part.type === "context") {
-					row += part.lines;
+					if (part.lines > 0) {
+						// Unchanged, so the two sides hold the same text and either reads it.
+						const context = runMetrics(
+							fileDiff.additionLines.slice(
+								part.additionLineIndex,
+								part.additionLineIndex + part.lines,
+							),
+							tabSize,
+							wrapColumns,
+						);
+
+						const placement = mark("context", row, context);
+						anchor("additions", additionLine, part.lines, placement);
+						anchor("deletions", deletionLine, part.lines, placement);
+						row += context.rowCount;
+					}
+
+					additionLine += part.lines;
+					deletionLine += part.lines;
+					unwrapped += part.lines;
 					continue;
 				}
 
-				if (part.deletions > 0) {
-					marks.push({
-						top: top + row * ROW_HEIGHT,
-						height: part.deletions * ROW_HEIGHT,
-						side: "deletions",
-						...runMetrics(
-							fileDiff.deletionLines.slice(
-								part.deletionLineIndex,
-								part.deletionLineIndex + part.deletions,
-							),
-							tabSize,
-						),
-					});
-				}
-				if (part.additions > 0) {
-					marks.push({
-						// Split puts both sides on the same rows; unified stacks the
-						// removals above the additions.
-						top: top + (split ? row : row + part.deletions) * ROW_HEIGHT,
-						height: part.additions * ROW_HEIGHT,
-						side: "additions",
-						...runMetrics(
-							fileDiff.additionLines.slice(
-								part.additionLineIndex,
-								part.additionLineIndex + part.additions,
-							),
-							tabSize,
-						),
-					});
+				const deletions =
+					part.deletions > 0
+						? runMetrics(
+								fileDiff.deletionLines.slice(
+									part.deletionLineIndex,
+									part.deletionLineIndex + part.deletions,
+								),
+								tabSize,
+								wrapColumns,
+							)
+						: null;
+				const additions =
+					part.additions > 0
+						? runMetrics(
+								fileDiff.additionLines.slice(
+									part.additionLineIndex,
+									part.additionLineIndex + part.additions,
+								),
+								tabSize,
+								wrapColumns,
+							)
+						: null;
+
+				if (split && deletions && additions) pairSplitRows(deletions, additions);
+
+				if (deletions)
+					anchor("deletions", deletionLine, part.deletions, mark("deletions", row, deletions));
+
+				if (additions) {
+					// Split puts both sides on the same rows; unified stacks the removals
+					// above the additions.
+					const offset = split ? row : row + (deletions?.rowCount ?? 0);
+					anchor("additions", additionLine, part.additions, mark("additions", offset, additions));
 				}
 
-				row += split ? Math.max(part.deletions, part.additions) : part.deletions + part.additions;
+				additionLine += part.additions;
+				deletionLine += part.deletions;
+
+				row += split
+					? Math.max(deletions?.rowCount ?? 0, additions?.rowCount ?? 0)
+					: (deletions?.rowCount ?? 0) + (additions?.rowCount ?? 0);
+				unwrapped += split
+					? Math.max(part.deletions, part.additions)
+					: part.deletions + part.additions;
 			}
 
-			top += (split ? hunk.splitLineCount : hunk.unifiedLineCount) * ROW_HEIGHT;
+			const lines = split ? hunk.splitLineCount : hunk.unifiedLineCount;
+			top += (lines + (row - unwrapped)) * ROW_HEIGHT;
 		}
 
 		return {
@@ -201,6 +332,7 @@ export const getMinimapFiles = ({
 			path: change.path,
 			contentHeight: top + codeViewItemMetrics.paddingBottom,
 			marks,
+			anchors,
 		};
 	});
 };
@@ -240,12 +372,125 @@ export const getMinimapGeometry = (
 };
 
 /**
+ * One scratch context for measuring text. A fresh canvas per call costs many
+ * times the measurement itself and leaves a backing store behind, which matters
+ * because the measuring runs on every resize.
+ */
+let textContext: CanvasRenderingContext2D | null = null;
+const measuringContext = (): CanvasRenderingContext2D | null =>
+	(textContext ??= document.createElement("canvas").getContext("2d"));
+
+/**
+ * Columns a code line gets before the viewer wraps it, read off a rendered one,
+ * or null while nothing is rendered yet. The gutter grows with a file's line
+ * numbers, so this is the measured file's width and a digit or two out on the
+ * rest — worth far less than the wrapping it lets us model at all.
+ *
+ * The font is monospace, so one character's advance scales to any line length.
+ */
+export const measureWrapColumns = (viewer: CodeView<Annotation>): number | null => {
+	const host = viewer.getContainerElement()?.querySelector("diffs-container");
+	const line = host?.shadowRoot?.querySelector("[data-content] > [data-line]");
+	if (!line) return null;
+
+	const style = getComputedStyle(line);
+	const width =
+		line.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+	if (!(width > 0)) return null;
+
+	const context = measuringContext();
+	if (!context) return null;
+
+	// Built from the longhands rather than taken from `style.font`, which computes
+	// to an empty string here — and empty leaves the context on its own default
+	// font, quietly measuring something else entirely.
+	context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+	const sample = "0".repeat(50);
+	const advance = context.measureText(sample).width / sample.length;
+
+	return advance > 0 ? Math.max(Math.floor(width / advance), 1) : null;
+};
+
+/**
  * How far a file's modelled height is from the one CodeView actually laid out.
  * Scaling its marks by this squashes them along with the file when wrapped
  * lines — or a library change to a row or bar — make the model too tall.
  */
 export const getMinimapScale = (file: MinimapFile, block: { height: number }): number =>
 	file.contentHeight <= 0 ? 0 : block.height / file.contentHeight;
+
+/** Where a file line sits inside its own block, or null if no hunk renders it. */
+const lineTop = (file: MinimapFile, side: ChangeSide, line: number): number | null => {
+	for (const anchor of file.anchors) {
+		if (anchor.side !== side) continue;
+		if (line < anchor.start || line >= anchor.start + anchor.lines) continue;
+
+		return anchor.top + ((line - anchor.start) / anchor.lines) * anchor.height;
+	}
+
+	return null;
+};
+
+/** The range the diff currently has selected, in file line numbers. */
+export type MinimapSelection = { itemId: string; side: ChangeSide; start: number; end: number };
+
+export type MinimapOverlays = {
+	/** Comment positions, in scroll-content pixels. */
+	pins: Array<number>;
+	band: { top: number; height: number } | null;
+};
+
+/**
+ * Comment pins and the selected range, in the same scroll-content pixels as the
+ * geometry — resolved here rather than in the painter, which knows about ink
+ * and not about which line a comment hangs off.
+ */
+export const getMinimapOverlays = ({
+	files,
+	geometry,
+	annotationsByPath,
+	selection,
+}: {
+	files: Array<MinimapFile>;
+	geometry: MinimapGeometry;
+	annotationsByPath: LocalAnnotationsByPath;
+	selection: MinimapSelection | null;
+}): MinimapOverlays => {
+	const pins: Array<number> = [];
+	let band: { top: number; height: number } | null = null;
+
+	for (const [index, file] of files.entries()) {
+		const block = geometry.blocks[index];
+		if (!block) continue;
+
+		const scale = getMinimapScale(file, block);
+		const place = (side: ChangeSide, line: number): number | null => {
+			const local = lineTop(file, side, line);
+			return local === null ? null : block.top + local * scale;
+		};
+
+		for (const annotation of annotationsByPath.get(file.path) ?? []) {
+			const top = place(annotation.side, annotation.lineNumber);
+			if (top !== null) pins.push(top);
+		}
+
+		if (selection?.itemId !== file.itemId) continue;
+
+		// A hunk that only removes lines carries no addition to number the range
+		// against, and the other way round, so fall through to whichever side has it.
+		const other = selection.side === "additions" ? "deletions" : "additions";
+		const locate = (line: number): number | null =>
+			place(selection.side, line) ?? place(other, line);
+
+		const start = locate(selection.start);
+		// The band should stop where the line after the range starts; a selection
+		// running to the end of a hunk has no such line to ask for.
+		const end = locate(selection.end + 1) ?? locate(selection.end);
+		if (start !== null) band = { top: start, height: Math.max((end ?? start) - start, 0) };
+	}
+
+	return { pins, band };
+};
 
 /** The visible window, as fractions of the content. */
 export const getMinimapViewport = (

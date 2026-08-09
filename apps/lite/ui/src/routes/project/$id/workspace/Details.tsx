@@ -130,7 +130,7 @@ import {
 	hunkOperandIdentityKey,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
-import { getMinimapFiles } from "./diff-minimap.ts";
+import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -949,6 +949,26 @@ const Diff: FC<{
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
+	// The diff panel resolves this selection for the viewer; the ruler wants it in
+	// file line numbers, which is what the hunk's own range already holds.
+	const diffSelection = useAppSelector((state) =>
+		projectSlice.selectors.selectSelectionDiff(state, projectId, diffViewSansAnno.navigationIndex),
+	);
+	const minimapSelection = useMemo((): MinimapSelection | null => {
+		if (!diffSelection) return null;
+
+		const key = hunkOperandIdentityKey(diffSelection);
+		const selected = diffViewSansAnno.hunkByKey.get(key)?.selectedLines;
+		if (!selected) return null;
+
+		return {
+			itemId: selected.id,
+			side: selected.range.side ?? "additions",
+			start: selected.range.start,
+			end: selected.range.end,
+		};
+	}, [diffSelection, diffViewSansAnno]);
+
 	const activateFile = (selection: string) => {
 		onPassiveFileSelection(selection);
 
@@ -987,6 +1007,11 @@ const Diff: FC<{
 
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
+	const [wrapColumns, setWrapColumns] = useState<number | null>(null);
+
+	// Wrapping stretches a long line over several rows, which the minimap has to
+	// model or its marks drift down the file it is mapping.
+	const wraps = (diffSettings?.diffOverflow ?? defaultSettings.diffOverflow) === "wrap";
 
 	// Split and unified lay hunks out differently, so the minimap has to model
 	// whichever style the viewer is actually rendering.
@@ -1012,8 +1037,9 @@ const Diff: FC<{
 					shownIndex < 0 ? treeChangeDiffs : treeChangeDiffs.slice(shownIndex, shownIndex + 1),
 				diffStyle,
 				tabSize,
+				wrapColumns,
 			}),
-		[shownIndex, fileParent, changes, treeChangeDiffs, diffStyle, tabSize],
+		[shownIndex, fileParent, changes, treeChangeDiffs, diffStyle, tabSize, wrapColumns],
 	);
 
 	useHotkeys([
@@ -1032,21 +1058,34 @@ const Diff: FC<{
 		},
 	]);
 
+	// Both of these are facts about the rendered pane rather than about the diff,
+	// so they are measured on the same resize rather than derived.
 	useLayoutEffect(() => {
 		const el = diffContentsEl.current;
 		if (!el) return;
 
-		const measureCanUseSplitDiff = () => el.getBoundingClientRect().width >= 700;
+		const measure = () => {
+			setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
 
-		setCanUseSplitDiff(measureCanUseSplitDiff());
+			if (!wraps) {
+				setWrapColumns(null);
+				return;
+			}
 
-		const resizeObserver = new ResizeObserver(() => {
-			setCanUseSplitDiff(measureCanUseSplitDiff());
-		});
+			// Held only once it can be read: a resize that lands between renders would
+			// otherwise drop the count and unwrap the whole model for a frame.
+			const viewer = viewerRef.current?.getInstance();
+			const columns = viewer ? measureWrapColumns(viewer) : null;
+			if (columns !== null) setWrapColumns(columns);
+		};
+
+		measure();
+
+		const resizeObserver = new ResizeObserver(measure);
 		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
-	}, [diffContentsEl]);
+	}, [diffContentsEl, viewerRef, wraps, diffViewSansAnno]);
 
 	const layoutId = `project=${projectId}:details`;
 	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
@@ -1181,7 +1220,13 @@ const Diff: FC<{
 							didScrollToViaFileRef={didScrollToViaFileRef}
 						/>
 
-						<DiffMinimap viewerRef={viewerRef} files={minimapFiles} diffStyle={diffStyle} />
+						<DiffMinimap
+							viewerRef={viewerRef}
+							files={minimapFiles}
+							diffStyle={diffStyle}
+							annotationsByPath={annotationsByPath}
+							selection={minimapSelection}
+						/>
 					</div>
 				</Panel>
 			</Group>
