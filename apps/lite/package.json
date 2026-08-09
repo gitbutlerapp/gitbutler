@@ -126,7 +126,7 @@
 		"@base-ui/react": "^1.6.0",
 		"@base-ui/utils": "^0.3.1",
 		"@gitbutler/but-sdk": "workspace:*",
-		"@gitbutler/design-core": "3.10.8",
+		"@gitbutler/design-core": "3.11.2",
 		"@pierre/diffs": "^1.2.12",
 		"@pierre/theming": "^0.0.2",
 		"@reduxjs/toolkit": "catalog:redux",
