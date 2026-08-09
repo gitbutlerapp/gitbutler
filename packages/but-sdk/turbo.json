@@ -3,7 +3,19 @@
 	"extends": ["//"],
 	"tasks": {
 		"build": {
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"!src/generated/**",
+				"$TURBO_ROOT$/crates/**/*.rs",
+				"$TURBO_ROOT$/crates/**/Cargo.toml",
+				"$TURBO_ROOT$/Cargo.toml",
+				"$TURBO_ROOT$/Cargo.lock",
+				"$TURBO_ROOT$/rust-toolchain.toml"
+			],
 			"outputs": ["src/generated/**"]
+		},
+		"package": {
+			"inputs": ["$TURBO_DEFAULT$", "!src/generated/**"]
 		}
 	}
 }
