@@ -123,10 +123,14 @@ import {
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import {
 	type Annotation,
+	codeViewItemMetrics,
+	codeViewLayout,
 	type DiffView,
 	getDiffView,
 	hunkOperandIdentityKey,
 } from "./diff-view.ts";
+import { DiffMinimap } from "./DiffMinimap.tsx";
+import { getMinimapFiles } from "./diff-minimap.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -591,22 +595,14 @@ const DiffContents: FC<{
 				onLineLeave: ({ numberElement }) => {
 					numberElement.querySelector(':scope > slot[name="gutter-utility-slot"]')?.remove();
 				},
-				layout: {
-					paddingTop: 0,
-					// Match --panel-padding-block.
-					paddingBottom: 12,
-					gap: 10,
-				},
+				layout: codeViewLayout,
 				// This appears to validate before our custom header has been slotted, in which case - if
 				// our metrics are correct - we should see deltas in multiples of our custom header height
 				// as defined in the metrics. We'll see an additional set of logs if there are other issues
 				// with our metrics.
 				__devOnlyValidateItemHeights: false,
 				onPostRender: handleHunkPostRender,
-				itemMetrics: {
-					diffHeaderHeight: 38,
-					paddingBottom: 9,
-				},
+				itemMetrics: codeViewItemMetrics,
 				unsafeCSS: `
           :host {
             background-color: transparent;
@@ -938,9 +934,10 @@ const Diff: FC<{
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
+	const activeFilePath = selection._tag === "File" ? selection.path : filesSelection;
+
 	const diffViewSansAnno = useMemo(() => {
-		const selectedFile = selection._tag === "File" ? selection.path : filesSelection;
-		const selectedFileIdx = changes.findIndex((change) => change.path === selectedFile);
+		const selectedFileIdx = changes.findIndex((change) => change.path === activeFilePath);
 
 		return getDiffView({
 			fileParent,
@@ -949,7 +946,7 @@ const Diff: FC<{
 				? treeChangeDiffs
 				: treeChangeDiffs.slice(selectedFileIdx, selectedFileIdx + 1),
 		});
-	}, [fileParent, renderAllFiles, selection, filesSelection, changes, treeChangeDiffs]);
+	}, [fileParent, renderAllFiles, activeFilePath, changes, treeChangeDiffs]);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
 
@@ -983,6 +980,7 @@ const Diff: FC<{
 			diffBackground: cfg.diffBackground,
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
+			diffTabSize: cfg.diffTabSize,
 		}),
 	});
 
@@ -990,6 +988,34 @@ const Diff: FC<{
 
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
+
+	// Split and unified lay hunks out differently, so the minimap has to model
+	// whichever style the viewer is actually rendering.
+	const diffStyle = canUseSplitDiff
+		? (diffSettings?.diffStyle ?? diffDefaults.diffStyle)
+		: "unified";
+
+	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
+
+	// The minimap maps whatever the viewer holds — every file, or the one file
+	// shown at a time. Keyed on that file's index rather than its path so the
+	// map doesn't rebuild as scrolling moves the selection through the list.
+	const shownIndex = renderAllFiles
+		? -1
+		: changes.findIndex((change) => change.path === activeFilePath);
+
+	const minimapFiles = useMemo(
+		() =>
+			getMinimapFiles({
+				fileParent,
+				changes: shownIndex < 0 ? changes : changes.slice(shownIndex, shownIndex + 1),
+				treeChangeDiffs:
+					shownIndex < 0 ? treeChangeDiffs : treeChangeDiffs.slice(shownIndex, shownIndex + 1),
+				diffStyle,
+				tabSize,
+			}),
+		[shownIndex, fileParent, changes, treeChangeDiffs, diffStyle, tabSize],
+	);
 
 	useHotkeys([
 		{
@@ -1150,11 +1176,13 @@ const Diff: FC<{
 							annotationsByPath={annotationsByPath}
 							diffBackgrounds={diffSettings?.diffBackground}
 							diffOverflow={diffSettings?.diffOverflow}
-							diffStyle={canUseSplitDiff ? diffSettings?.diffStyle : "unified"}
+							diffStyle={diffStyle}
 							selectionScopeRef={selectionScopeRef}
 							viewerRef={viewerRef}
 							didScrollToViaFileRef={didScrollToViaFileRef}
 						/>
+
+						<DiffMinimap viewerRef={viewerRef} files={minimapFiles} diffStyle={diffStyle} />
 					</div>
 				</Panel>
 			</Group>

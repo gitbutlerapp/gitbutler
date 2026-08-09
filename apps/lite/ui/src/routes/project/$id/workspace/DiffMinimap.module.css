@@ -1,0 +1,136 @@
+/*
+ * Registered so the computed value is a resolved colour rather than the
+ * unevaluated light-dark() token — the canvas samples these and cannot
+ * evaluate CSS itself.
+ */
+@property --minimap-additions {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+@property --minimap-deletions {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+@property --minimap-file-rule {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+.minimap {
+	/* Mixed towards the background the way the diff tints its own changed rows,
+	   just further, since a mark can be a single pixel tall. */
+	--minimap-additions: color-mix(in lab, var(--bg-1) 62%, var(--fill-safe-bg));
+	--minimap-deletions: color-mix(in lab, var(--bg-1) 62%, var(--fill-danger-bg));
+	/* Mixed into the background rather than towards transparent, so a rule covers
+	   the marks it crosses instead of tinting with them. */
+	--minimap-file-rule: color-mix(in srgb, var(--fill-gray-bg) 14%, var(--bg-1));
+
+	--minimap-view-min: 14px;
+	/* Clamped here rather than in the geometry, which works in fractions and has
+	   no idea how tall the ruler ended up. */
+	--minimap-view-top: min(var(--minimap-marker-top, 0%), calc(100% - var(--minimap-view-min)));
+	--minimap-view-height: max(var(--minimap-marker-height, 0%), var(--minimap-view-min));
+
+	position: relative;
+	width: 56px;
+	/* Stronger than the panel's other hairlines: the marks run right to this
+	   edge, and a deletion-heavy diff puts near-identical pinks on both sides. */
+	border-left: 1px solid var(--border-2);
+	background-color: var(--bg-1);
+	cursor: default;
+}
+
+/* Nothing worth mapping: no files, or the diff is barely taller than the pane. */
+.minimap[data-minimap-navigable="false"] {
+	display: none;
+}
+
+.canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/*
+ * A lens over the marks showing what the viewport covers. A flat fill with no
+ * edge, kept light enough to read as an overlay rather than shading them — and
+ * above the badges, since a file's icon is part of what it covers.
+ */
+.marker {
+	z-index: 2;
+	position: absolute;
+	inset-inline: 0;
+	top: var(--minimap-view-top);
+	height: var(--minimap-view-height);
+	border-radius: 2px;
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 16%, transparent);
+	pointer-events: none;
+}
+
+/*
+ * Tucked into the corner its file opens from, against the rule above it. The
+ * backdrop is opaque only across that corner — a hard stop at the halfway point
+ * makes the boundary a clean diagonal — so the icon reads over the marks at its
+ * top left while the rest of them stay visible past it.
+ */
+.badge {
+	z-index: 1;
+	position: absolute;
+	left: 0;
+	place-items: start;
+	width: 22px;
+	height: 22px;
+	/* Clear the rule itself, so it runs unbroken behind the badge. */
+	margin-top: 1px;
+	background: linear-gradient(to bottom right, var(--bg-1) 50%, transparent 50%);
+	pointer-events: none;
+
+	& > svg {
+		width: 14px;
+		height: 14px;
+	}
+}
+
+.hint {
+	display: flex;
+	z-index: 3;
+	position: absolute;
+	top: clamp(16px, var(--minimap-hint-top, 0%), calc(100% - 16px));
+	/* The ruler is the window's right edge, so the label opens inward. */
+	right: calc(100% + 8px);
+	align-items: center;
+	max-width: 420px;
+	padding: 6px 8px;
+	gap: 6px;
+	translate: 0 -50%;
+	border-radius: var(--radius-button);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-tooltip);
+	color: var(--text-1);
+	font-size: 12px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.hintIcon {
+	flex: none;
+	width: 14px;
+	height: 14px;
+}
+
+.hintName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.hintDirectory {
+	overflow: hidden;
+	color: var(--text-2);
+	direction: rtl;
+	text-overflow: ellipsis;
+}

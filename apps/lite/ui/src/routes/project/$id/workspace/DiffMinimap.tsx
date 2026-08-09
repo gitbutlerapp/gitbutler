@@ -1,0 +1,248 @@
+import { FileIcon } from "#ui/components/FileIcon.tsx";
+import type { GUISettings } from "#electron/settings.ts";
+import type { CodeViewHandle } from "@pierre/diffs/react";
+import {
+	type FC,
+	type PointerEvent,
+	type RefObject,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
+import type { Annotation } from "./diff-view.ts";
+import {
+	getMinimapGeometry,
+	getMinimapViewport,
+	type MinimapFile,
+	type MinimapGeometry,
+	scrollMinimapTo,
+} from "./diff-minimap.ts";
+import { type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
+import styles from "./DiffMinimap.module.css";
+
+/**
+ * A scroll ruler for the diff: every added and removed run drawn where it
+ * actually sits in the scroll extent, as wide as its lines are long, with a
+ * rule between files.
+ *
+ * Painted to a canvas from CodeView's live layout rather than rendered from
+ * React state, so the file list stays off the scroll path — which matters
+ * because the diff panel already re-renders on scroll, as the file under the
+ * viewport top drives the selection — and a dense diff costs no DOM.
+ */
+export const DiffMinimap: FC<{
+	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
+	files: Array<MinimapFile>;
+	diffStyle: GUISettings["diffStyle"];
+}> = ({ viewerRef, files, diffStyle }) => {
+	const rulerRef = useRef<HTMLDivElement>(null);
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const markerRef = useRef<HTMLDivElement>(null);
+	/** Where the pointer took hold of the thumb, as a fraction of the content. */
+	const grabRef = useRef(0);
+	const dataRef = useRef({ files, diffStyle });
+	const geometryRef = useRef<MinimapGeometry | null>(null);
+	const resyncRef = useRef<(() => void) | null>(null);
+	const [navigable, setNavigable] = useState(false);
+	const [hovered, setHovered] = useState<string | null>(null);
+	const [badges, setBadges] = useState<Array<MinimapBadge>>([]);
+
+	useLayoutEffect(() => {
+		const viewer = viewerRef.current?.getInstance();
+		const canvas = canvasRef.current;
+		if (!viewer || !canvas) return;
+
+		let frame: number | null = null;
+		let forced = false;
+		let lastScrollHeight: number | null = null;
+
+		const draw = (): void => {
+			const { files, diffStyle } = dataRef.current;
+			const geometry = getMinimapGeometry(
+				viewer,
+				files.map((file) => file.itemId),
+			);
+
+			geometryRef.current = geometry;
+			setNavigable(geometry !== null);
+			if (!geometry) return;
+
+			setBadges(paintMinimap(canvas, { files, geometry, diffStyle }));
+		};
+
+		const sync = (force: boolean): void => {
+			// Item heights start out estimated and firm up as virtualization renders
+			// them, which moves every file below. Total height moves with them, so it
+			// doubles as a cheap "the layout shifted" check on the scroll path.
+			const scrollHeight = viewer.getScrollHeight();
+			if (force || scrollHeight !== lastScrollHeight) {
+				lastScrollHeight = scrollHeight;
+				draw();
+			}
+
+			const ruler = rulerRef.current;
+			if (!ruler) return;
+
+			const viewport = getMinimapViewport(viewer);
+			ruler.style.setProperty("--minimap-marker-top", `${viewport.top * 100}%`);
+			ruler.style.setProperty("--minimap-marker-height", `${viewport.height * 100}%`);
+		};
+
+		// A forced pass has to outlive being folded into a pending scroll one,
+		// which would otherwise drop the repaint it was asked for.
+		const schedule = (force: boolean) => () => {
+			forced ||= force;
+			if (frame !== null) return;
+
+			frame = requestAnimationFrame(() => {
+				frame = null;
+				const repaint = forced;
+				forced = false;
+				sync(repaint);
+			});
+		};
+
+		const redraw = schedule(true);
+		resyncRef.current = redraw;
+		sync(true);
+
+		const unsubscribe = viewer.subscribeToScroll(schedule(false));
+
+		const resizeObserver = new ResizeObserver(redraw);
+		resizeObserver.observe(canvas);
+		const root = viewer.getContainerElement();
+		if (root) {
+			resizeObserver.observe(root);
+			// CodeView sizes this scaffold to the full content height, so watching it
+			// catches folds, annotations and settling measurements — none of which
+			// emit a scroll event.
+			if (root.firstElementChild) resizeObserver.observe(root.firstElementChild);
+		}
+
+		// Canvas colours are sampled, not live CSS, so they need repainting when
+		// the tokens behind them resolve differently.
+		const scheme = globalThis.matchMedia("(prefers-color-scheme: dark)");
+		scheme.addEventListener("change", redraw);
+
+		return () => {
+			resyncRef.current = null;
+			if (frame !== null) cancelAnimationFrame(frame);
+			unsubscribe();
+			resizeObserver.disconnect();
+			scheme.removeEventListener("change", redraw);
+		};
+	}, [viewerRef]);
+
+	// Republish what the paint loop reads, since it owns its data outside React.
+	// Guarded so renders driven by hover don't repaint the canvas.
+	useLayoutEffect(() => {
+		const previous = dataRef.current;
+		if (previous.files === files && previous.diffStyle === diffStyle) return;
+
+		dataRef.current = { files, diffStyle };
+		resyncRef.current?.();
+	});
+
+	const fractionAt = (event: PointerEvent<HTMLDivElement>): number | null => {
+		const { height, top } = event.currentTarget.getBoundingClientRect();
+		if (height === 0) return null;
+
+		// A captured pointer travels outside the ruler, and this is a fraction of
+		// it — so keep it one rather than leaving every caller to cope.
+		return Math.min(Math.max((event.clientY - top) / height, 0), 1);
+	};
+
+	const dragTo = (fraction: number): void => {
+		const viewer = viewerRef.current?.getInstance();
+		if (viewer) scrollMinimapTo(viewer, fraction - grabRef.current);
+	};
+
+	// The label's position is written straight to the DOM, so following the
+	// pointer costs no renders; only naming a different file does.
+	const describe = (fraction: number): void => {
+		const geometry = geometryRef.current;
+		const ruler = rulerRef.current;
+		if (!geometry || !ruler) return;
+
+		ruler.style.setProperty("--minimap-hint-top", `${fraction * 100}%`);
+
+		const offset = fraction * geometry.contentHeight;
+		const index = geometry.blocks.findLastIndex((block) => block.top <= offset);
+		const path = dataRef.current.files[index]?.path ?? null;
+		if (path !== hovered) setHovered(path);
+	};
+
+	return (
+		<div
+			ref={rulerRef}
+			// The files tree and the diff hotkeys are the accessible route through the
+			// same content; this is a pointer shortcut over it.
+			aria-hidden
+			className={styles.minimap}
+			// Read by the diff panel's CSS to drop the native scrollbar only while
+			// this is standing in for it.
+			data-minimap-navigable={navigable}
+			onPointerDown={(event) => {
+				event.preventDefault();
+
+				const viewer = viewerRef.current?.getInstance();
+				const fraction = fractionAt(event);
+				if (!viewer || fraction === null) return;
+
+				// Taking hold of the lens keeps the point you grabbed, the way a
+				// scrollbar does; pressing the track jumps its middle there and drags on
+				// from the middle. Its own rect is the hit test, so the minimum height
+				// it can shrink to doesn't have to be repeated here.
+				const marker = markerRef.current?.getBoundingClientRect();
+				const held = marker && event.clientY >= marker.top && event.clientY <= marker.bottom;
+				const viewport = getMinimapViewport(viewer);
+				grabRef.current = held ? fraction - viewport.top : viewport.height / 2;
+
+				event.currentTarget.setPointerCapture(event.pointerId);
+				// Taking hold shouldn't move anything; pressing the track jumps.
+				if (!held) dragTo(fraction);
+			}}
+			onPointerMove={(event) => {
+				const fraction = fractionAt(event);
+				if (fraction === null) return;
+
+				describe(fraction);
+				if (event.currentTarget.hasPointerCapture(event.pointerId)) dragTo(fraction);
+			}}
+			onPointerLeave={() => setHovered(null)}
+		>
+			<canvas ref={canvasRef} className={styles.canvas} />
+			<div ref={markerRef} className={styles.marker} />
+
+			{badges.map(({ index, top }) => {
+				const path = files[index]?.path;
+
+				return (
+					path !== undefined && (
+						<FileIcon
+							key={path}
+							fileName={path}
+							className={styles.badge}
+							style={{ top: `${top}px` }}
+						/>
+					)
+				);
+			})}
+
+			{hovered !== null && <MinimapHint path={hovered} />}
+		</div>
+	);
+};
+
+const MinimapHint: FC<{ path: string }> = ({ path }) => {
+	const separator = path.lastIndexOf("/");
+	const name = separator === -1 ? path : path.slice(separator + 1);
+
+	return (
+		<div className={styles.hint}>
+			<FileIcon fileName={name} className={styles.hintIcon} />
+			<span className={styles.hintName}>{name}</span>
+			{separator !== -1 && <span className={styles.hintDirectory}>{path.slice(0, separator)}</span>}
+		</div>
+	);
+};
