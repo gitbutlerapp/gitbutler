@@ -124,7 +124,7 @@ const useFilesTreeHotkeys = ({
 				dryRun: false,
 			});
 		} else if (fileParent._tag === "UncommittedChanges") {
-			discardWorktreeChanges({ projectId, changes });
+			discardWorktreeChanges({ projectId, worktreeChanges: changes });
 		}
 	};
 

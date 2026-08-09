@@ -59,7 +59,11 @@
 		"./src/generated/linear/*.node",
 		"./src/generated/graph/index.js",
 		"./src/generated/graph/index.d.ts",
-		"./src/generated/graph/*.node"
+		"./src/generated/graph/*.node",
+		"./src/generated/linear/apiParamNames.js",
+		"./src/generated/linear/apiParamNames.d.ts",
+		"./src/generated/graph/apiParamNames.js",
+		"./src/generated/graph/apiParamNames.d.ts"
 	],
 	"exports": {
 		".": {
@@ -102,6 +106,34 @@
 			"require": {
 				"types": "./src/generated/graph/index.d.ts",
 				"default": "./src/generated/graph/index.js"
+			}
+		},
+		"./api-param-names": {
+			"browser": {
+				"types": "./src/generated/linear/apiParamNames.d.ts",
+				"default": "./src/generated/linear/apiParamNames.js"
+			},
+			"import": {
+				"types": "./src/generated/linear/apiParamNames.d.ts",
+				"default": "./src/generated/linear/apiParamNames.js"
+			},
+			"require": {
+				"types": "./src/generated/linear/apiParamNames.d.ts",
+				"default": "./src/generated/linear/apiParamNames.js"
+			}
+		},
+		"./graph/api-param-names": {
+			"browser": {
+				"types": "./src/generated/graph/apiParamNames.d.ts",
+				"default": "./src/generated/graph/apiParamNames.js"
+			},
+			"import": {
+				"types": "./src/generated/graph/apiParamNames.d.ts",
+				"default": "./src/generated/graph/apiParamNames.js"
+			},
+			"require": {
+				"types": "./src/generated/graph/apiParamNames.d.ts",
+				"default": "./src/generated/graph/apiParamNames.js"
 			}
 		}
 	}

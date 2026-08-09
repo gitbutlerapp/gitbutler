@@ -1,13 +1,4 @@
-import type {
-	AbsorptionPlanParams,
-	BranchDetailsParams,
-	BranchDiffParams,
-	CommitDetailsWithLineStatsParams,
-	GetReviewParams,
-	ListCiChecksParams,
-	ListReviewsParams,
-	TreeChangeDiffParams,
-} from "#electron/ipc.ts";
+import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
@@ -51,13 +42,13 @@ export type QueryKey =
 	| "workspaceTargetCommits"
 	| "workspaceTargetCommitsOlder";
 
-export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
+export const branchDetailsQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDetails">) =>
 	queryOptions({
 		queryKey: ["branchDetails" satisfies QueryKey, projectId, params],
 		queryFn: () => window.lite.branchDetails({ projectId, ...params }),
 	});
 
-export const branchDiffQueryOptions = ({ projectId, ...params }: BranchDiffParams) =>
+export const branchDiffQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDiff">) =>
 	queryOptions({
 		queryKey: ["branchDiff" satisfies QueryKey, projectId, params],
 		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
@@ -72,7 +63,12 @@ export const branchListQueryOptions = (projectId: string) =>
 export const changesInWorktreeQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["changesInWorktree" satisfies QueryKey, projectId],
-		queryFn: () => window.lite.changesInWorktree(projectId),
+		queryFn: () =>
+			window.lite.changesInWorktree({
+				projectId,
+				changesSource: { type: "head" },
+				computeDepsAndAssignments: true,
+			}),
 	});
 
 export const commentsQueryOptions = (projectId: string) =>
@@ -84,7 +80,7 @@ export const commentsQueryOptions = (projectId: string) =>
 export const commitDetailsWithLineStatsQueryOptions = ({
 	projectId,
 	...params
-}: CommitDetailsWithLineStatsParams) =>
+}: PayloadFor<"commitDetailsWithLineStats">) =>
 	queryOptions({
 		queryKey: ["commitDetailsWithLineStats" satisfies QueryKey, projectId, params],
 		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
@@ -102,7 +98,7 @@ export const headInfoQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.headInfo(projectId),
 	});
 
-export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>
 	queryOptions({
 		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
@@ -206,7 +202,10 @@ export const workspaceFetchQueryOptions = (
 };
 
 /** This query should be gated by PR capability lest it fail. */
-export const listReviewCommentsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const listReviewCommentsQueryOptions = ({
+	projectId,
+	reviewId,
+}: PayloadFor<"listReviewComments">) =>
 	queryOptions({
 		queryKey: ["reviewComments" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.listReviewComments({ projectId, reviewId }),
@@ -243,7 +242,10 @@ export const reviewerCandidatesQueryOptions = (projectId: string) =>
 	});
 
 /** This query should be gated by PR capability lest it fail. */
-export const listReviewSubmissionsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const listReviewSubmissionsQueryOptions = ({
+	projectId,
+	reviewId,
+}: PayloadFor<"getReview">) =>
 	queryOptions({
 		queryKey: ["reviewSubmissions" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.listReviewSubmissions({ projectId, reviewId }),
@@ -253,7 +255,10 @@ export const listReviewSubmissionsQueryOptions = ({ projectId, reviewId }: GetRe
 	});
 
 /** This query should be gated by PR capability lest it fail. */
-export const listReviewTimelineEventsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const listReviewTimelineEventsQueryOptions = ({
+	projectId,
+	reviewId,
+}: PayloadFor<"getReview">) =>
 	queryOptions({
 		queryKey: ["reviewTimelineEvents" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.listReviewTimelineEvents({ projectId, reviewId }),
@@ -263,7 +268,7 @@ export const listReviewTimelineEventsQueryOptions = ({ projectId, reviewId }: Ge
 	});
 
 /** This query should be gated by PR capability lest it fail. */
-export const listReviewReactionsQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const listReviewReactionsQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>
 	queryOptions({
 		queryKey: ["reviewReactions" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.listReviewReactions({ projectId, reviewId }),
@@ -290,7 +295,10 @@ export const listCommentReactionsQueryOptions = ({
 		staleTime: 60_000,
 	});
 
-export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+export const getReviewMergeStatusQueryOptions = ({
+	projectId,
+	reviewId,
+}: PayloadFor<"getReview">) =>
 	queryOptions({
 		queryKey: ["reviewMergeStatus" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
@@ -303,7 +311,7 @@ export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetRev
 	});
 
 /** This query should be gated by PR capability lest it fail. */
-export const listReviewsQueryOptions = ({ projectId, ...params }: ListReviewsParams) =>
+export const listReviewsQueryOptions = ({ projectId, ...params }: PayloadFor<"listReviews">) =>
 	queryOptions({
 		queryKey: ["reviews" satisfies QueryKey, projectId, params],
 		queryFn: () => window.lite.listReviews({ projectId, ...params }),
@@ -340,7 +348,7 @@ export const listCIChecksQueryOptions = ({
 	projectId,
 	reference,
 	polling,
-}: Omit<ListCiChecksParams, "cacheConfig"> & {
+}: Omit<PayloadFor<"listCiChecks">, "cacheConfig"> & {
 	polling: "passive" | "priority";
 }) =>
 	queryOptions({
@@ -399,13 +407,13 @@ export const listCIChecksQueryOptions = ({
 		},
 	});
 
-export const treeChangeDiffsQueryOptions = ({ projectId, change }: TreeChangeDiffParams) =>
+export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"treeChangeDiffs">) =>
 	queryOptions({
 		queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId, change],
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
 	});
 
-export const absorptionPlanQueryOptions = ({ projectId, target }: AbsorptionPlanParams) =>
+export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>
 	queryOptions({
 		queryKey: ["absorptionPlan" satisfies QueryKey, projectId, target],
 		queryFn: () => window.lite.absorptionPlan({ projectId, target }),
