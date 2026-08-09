@@ -1,7 +1,6 @@
 import {
-	useCommitDiscardChanges,
 	useCommitUncommitChanges,
-	useDiscardWorktreeChanges,
+	useDiscardFileChanges,
 	useOpenInProgram,
 } from "#ui/api/mutations.ts";
 import {
@@ -18,7 +17,7 @@ import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -48,10 +47,22 @@ export const useFileMenuItems = ({
 
 	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
 		useCommitUncommitChanges();
-	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
-		useCommitDiscardChanges();
-	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
-		useDiscardWorktreeChanges();
+	const { canDiscard, discard } = useDiscardFileChanges({
+		projectId,
+		fileParent: operand.parent,
+	});
+	// A file's actions apply to the checked set when the file is part of it, as dragging it does.
+	const isChecked = useAppSelector((state) =>
+		projectSlice.selectors.selectOperandChecked(state, projectId, fileOperand(operand)),
+	);
+	// Gated on the set being wholly ours, as the discard is, so the label can't overstate it.
+	const discardFileCount = useAppSelector((state) =>
+		isChecked && projectSlice.selectors.selectCanCheckFiles(state, projectId, operand.parent)
+			? projectSlice.selectors.selectCheckedOperandCount(state, projectId)
+			: 1,
+	);
+	const discardLabel =
+		discardFileCount > 1 ? `Discard Changes in ${discardFileCount} Files` : "Discard Changes";
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 	const cutFile = () => {
 		dispatch(
@@ -135,13 +146,6 @@ export const useFileMenuItems = ({
 								changes: [createDiffSpec(change, [])],
 								dryRun: false,
 							});
-						const discard = () =>
-							commitDiscardChanges({
-								projectId,
-								commitId: operand.parent.commitId,
-								changes: [createDiffSpec(change, [])],
-								dryRun: false,
-							});
 
 						return [
 							[
@@ -152,10 +156,10 @@ export const useFileMenuItems = ({
 									onSelect: uncommit,
 								}),
 								nativeMenuItem({
-									label: "Discard Changes",
-									enabled: !isCommitDiscardChangesPending,
+									label: discardLabel,
+									enabled: canDiscard,
 									accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
-									onSelect: discard,
+									onSelect: () => discard({ change, extendToCheckedFiles: isChecked }),
 								}),
 							],
 						];
@@ -177,11 +181,6 @@ export const useFileMenuItems = ({
 							);
 							focusSelectionScope("outline");
 						};
-						const discard = () =>
-							discardWorktreeChanges({
-								projectId,
-								worktreeChanges: [createDiffSpec(change, [])],
-							});
 
 						return [
 							[
@@ -191,10 +190,10 @@ export const useFileMenuItems = ({
 									onSelect: absorb,
 								}),
 								nativeMenuItem({
-									label: "Discard Changes",
-									enabled: !isDiscardWorktreeChangesPending,
+									label: discardLabel,
+									enabled: canDiscard,
 									accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
-									onSelect: discard,
+									onSelect: () => discard({ change, extendToCheckedFiles: isChecked }),
 								}),
 							],
 						];

@@ -14,24 +14,28 @@ import {
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitOperand } from "#ui/operands.ts";
+import { commitOperand, filesUnder, type FileParent } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
+import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Toast } from "@base-ui/react";
+import { Match } from "effect";
 import type {
 	CommitAbsorption,
+	DiffSpec,
 	ForgeReview,
 	ForgeReviewComment,
 	ForgeReviewReaction,
 	ForgeReviewUser,
 	Snapshot,
+	TreeChange,
 } from "@gitbutler/but-sdk";
-import { type QueryClient, useMutation } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 
@@ -1013,6 +1017,87 @@ export const useDiscardWorktreeChanges = () => {
 			});
 		},
 	});
+};
+
+/** Discards a file's changes, whichever of the two discards its parent calls for. */
+export const useDiscardFileChanges = ({
+	projectId,
+	fileParent,
+}: {
+	projectId: string;
+	fileParent: FileParent;
+}) => {
+	const store = useAppStore();
+	const queryClient = useQueryClient();
+	const toastManager = Toast.useToastManager();
+	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
+		useCommitDiscardChanges();
+	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
+		useDiscardWorktreeChanges();
+
+	const canDiscard = Match.value(fileParent).pipe(
+		Match.tagsExhaustive({
+			Commit: () => !isCommitDiscardChangesPending,
+			UncommittedChanges: () => !isDiscardWorktreeChangesPending,
+			// We currently don't support any operations on branch files.
+			Branch: () => false,
+		}),
+	);
+
+	const runDiscard = (changes: Array<DiffSpec>): void =>
+		Match.value(fileParent).pipe(
+			Match.tagsExhaustive({
+				Commit: ({ commitId }) => {
+					commitDiscardChanges({ projectId, commitId, changes, dryRun: false });
+				},
+				UncommittedChanges: () => {
+					discardWorktreeChanges({ projectId, worktreeChanges: changes });
+				},
+				Branch: () => {},
+			}),
+		);
+
+	/**
+	 * Discard `change`, extended to the checked files when `extendToCheckedFiles` — a row's menu
+	 * passes its own checked state, as dragging does; a list hotkey passes true, as cut and move do.
+	 */
+	const discard = async ({
+		change,
+		extendToCheckedFiles,
+	}: {
+		change: TreeChange;
+		extendToCheckedFiles: boolean;
+	}): Promise<void> => {
+		// A checked set belonging to another list says nothing about this file, so the subject then
+		// stands alone, as it does when nothing is checked at all.
+		const checkedFiles = extendToCheckedFiles
+			? filesUnder(
+					projectSlice.selectors.selectCheckedOperands(store.getState(), projectId),
+					fileParent,
+				)
+			: [];
+		if (checkedFiles.length === 0) return runDiscard([createDiffSpec(change, [])]);
+
+		// Checked files carry only paths, so their changes have to be looked up.
+		try {
+			const changes = await resolveDiffSpecs({ projectId, queryClient, sources: checkedFiles });
+			// One of them gone stale fails resolution for the whole set — the reconciler is about to
+			// uncheck it — and discarding the subject instead is not what was asked for.
+			if (changes) runDiscard(changes);
+		} catch (error) {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to discard changes",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		}
+	};
+
+	return { canDiscard, discard };
 };
 
 export const useCommitInsertBlank = () => {
