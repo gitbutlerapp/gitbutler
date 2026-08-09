@@ -69,10 +69,14 @@ const resolveLanes = ({
 
 		for (const mark of file.marks) {
 			const lane = lanes[mark.side];
-			const lineHeight = (mark.height * correction) / mark.widths.length;
+			// One rendered row, which is also each line's height unless wrapping gave
+			// some of them more than one.
+			const rowHeight = (mark.height * correction) / mark.rowCount;
 			let y = origin + mark.top * correction;
 
 			for (const [line, width] of mark.widths.entries()) {
+				const lineHeight = (mark.rows?.[line] ?? 1) * rowHeight;
+
 				// A line owns the pixels it covers, and one thinner than a pixel owns
 				// only the one its middle lands in — otherwise a removal and the
 				// addition under it would both claim the boundary between them.

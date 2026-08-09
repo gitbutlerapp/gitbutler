@@ -51,7 +51,13 @@ type MinimapMark = {
 	side: "additions" | "deletions";
 	widths: Uint8Array;
 	indents: Uint8Array;
+	/** Rendered rows per line, or null when nothing here wraps and each takes one. */
+	rows: Uint16Array | null;
+	/** Rows the run spans — its line count unless wrapping stretched it. */
+	rowCount: number;
 };
+
+type RunMetrics = Omit<MinimapMark, "top" | "height" | "side">;
 
 export type MinimapFile = {
 	itemId: string;
@@ -96,9 +102,12 @@ const share = (columns: number): number =>
 const runMetrics = (
 	lines: Array<string>,
 	tabSize: number,
-): { widths: Uint8Array; indents: Uint8Array } => {
+	wrapColumns: number | null,
+): RunMetrics => {
 	const widths = new Uint8Array(lines.length);
 	const indents = new Uint8Array(lines.length);
+	const rows = wrapColumns === null ? null : new Uint16Array(lines.length);
+	let rowCount = 0;
 
 	for (const [index, line] of lines.entries()) {
 		const { indent, columns } = lineColumns(line, tabSize);
@@ -107,9 +116,39 @@ const runMetrics = (
 		// Never wider than the line it sits in, which also leaves a line that is
 		// nothing but whitespace with the two equal — how a blank one is spotted.
 		indents[index] = Math.min(share(indent), widths[index]);
+
+		// The viewer breaks on word boundaries where it can, so a line can take one
+		// row more than its length demands. Under-counting leaves the rest to the
+		// file's own correction to absorb; guessing high would push marks past it.
+		const lineRows = wrapColumns === null ? 1 : Math.max(Math.ceil(columns / wrapColumns), 1);
+		if (rows) rows[index] = lineRows;
+		rowCount += lineRows;
 	}
 
-	return { widths, indents };
+	return { widths, indents, rows, rowCount };
+};
+
+const sumRows = (rows: Uint16Array): number => rows.reduce((total, count) => total + count, 0);
+
+/**
+ * Split lays each removal beside its addition, so the two share a row and the
+ * taller wrap sets its height. Left alone, each side would count only its own
+ * rows and the shorter one would drift up the file.
+ */
+const pairSplitRows = (deletions: RunMetrics, additions: RunMetrics): void => {
+	if (!deletions.rows || !additions.rows) return;
+
+	const removed = deletions.rows.length;
+	const added = additions.rows.length;
+	const paired = new Uint16Array(Math.max(removed, added));
+
+	for (let index = 0; index < paired.length; index++)
+		paired[index] = Math.max(deletions.rows[index] ?? 1, additions.rows[index] ?? 1);
+
+	deletions.rows = paired.subarray(0, removed);
+	additions.rows = paired.subarray(0, added);
+	deletions.rowCount = sumRows(deletions.rows);
+	additions.rowCount = sumRows(additions.rows);
 };
 
 /**
@@ -128,12 +167,15 @@ export const getMinimapFiles = ({
 	treeChangeDiffs,
 	diffStyle,
 	tabSize,
+	wrapColumns,
 }: {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
 	diffStyle: GUISettings["diffStyle"];
 	tabSize: number;
+	/** Columns a line gets before it wraps, or null when the viewer scrolls instead. */
+	wrapColumns: number | null;
 }): Array<MinimapFile> => {
 	const changedLines = treeChangeDiffs.reduce(
 		(total, diff) =>
@@ -152,48 +194,77 @@ export const getMinimapFiles = ({
 		for (const [hunkIndex, hunk] of fileDiff.hunks.entries()) {
 			if (hunk.collapsedBefore > 0) top += hunkIndex === 0 ? SEPARATOR_LEADING : SEPARATOR_BETWEEN;
 
+			const mark = (side: MinimapMark["side"], offset: number, metrics: RunMetrics): void => {
+				marks.push({
+					top: top + offset * ROW_HEIGHT,
+					height: metrics.rowCount * ROW_HEIGHT,
+					side,
+					...metrics,
+				});
+			};
+
+			// Rendered rows, and the same walk as if nothing wrapped. Only their
+			// difference is taken from this walk — the hunk's own total comes from the
+			// viewer, so a part shape we don't recognise can't shift the file.
 			let row = 0;
+			let unwrapped = 0;
+
 			for (const part of hunk.hunkContent) {
 				if (part.type === "context") {
-					row += part.lines;
+					// Unchanged lines wrap too, so their rows have to be counted even
+					// though nothing is drawn for them.
+					row += runMetrics(
+						fileDiff.additionLines.slice(
+							part.additionLineIndex,
+							part.additionLineIndex + part.lines,
+						),
+						tabSize,
+						wrapColumns,
+					).rowCount;
+					unwrapped += part.lines;
 					continue;
 				}
 
-				if (part.deletions > 0) {
-					marks.push({
-						top: top + row * ROW_HEIGHT,
-						height: part.deletions * ROW_HEIGHT,
-						side: "deletions",
-						...runMetrics(
-							fileDiff.deletionLines.slice(
-								part.deletionLineIndex,
-								part.deletionLineIndex + part.deletions,
-							),
-							tabSize,
-						),
-					});
-				}
-				if (part.additions > 0) {
-					marks.push({
-						// Split puts both sides on the same rows; unified stacks the
-						// removals above the additions.
-						top: top + (split ? row : row + part.deletions) * ROW_HEIGHT,
-						height: part.additions * ROW_HEIGHT,
-						side: "additions",
-						...runMetrics(
-							fileDiff.additionLines.slice(
-								part.additionLineIndex,
-								part.additionLineIndex + part.additions,
-							),
-							tabSize,
-						),
-					});
-				}
+				const deletions =
+					part.deletions > 0
+						? runMetrics(
+								fileDiff.deletionLines.slice(
+									part.deletionLineIndex,
+									part.deletionLineIndex + part.deletions,
+								),
+								tabSize,
+								wrapColumns,
+							)
+						: null;
+				const additions =
+					part.additions > 0
+						? runMetrics(
+								fileDiff.additionLines.slice(
+									part.additionLineIndex,
+									part.additionLineIndex + part.additions,
+								),
+								tabSize,
+								wrapColumns,
+							)
+						: null;
 
-				row += split ? Math.max(part.deletions, part.additions) : part.deletions + part.additions;
+				if (split && deletions && additions) pairSplitRows(deletions, additions);
+
+				if (deletions) mark("deletions", row, deletions);
+				// Split puts both sides on the same rows; unified stacks the removals
+				// above the additions.
+				if (additions) mark("additions", split ? row : row + (deletions?.rowCount ?? 0), additions);
+
+				row += split
+					? Math.max(deletions?.rowCount ?? 0, additions?.rowCount ?? 0)
+					: (deletions?.rowCount ?? 0) + (additions?.rowCount ?? 0);
+				unwrapped += split
+					? Math.max(part.deletions, part.additions)
+					: part.deletions + part.additions;
 			}
 
-			top += (split ? hunk.splitLineCount : hunk.unifiedLineCount) * ROW_HEIGHT;
+			const lines = split ? hunk.splitLineCount : hunk.unifiedLineCount;
+			top += (lines + (row - unwrapped)) * ROW_HEIGHT;
 		}
 
 		return {
@@ -237,6 +308,34 @@ export const getMinimapGeometry = (
 	}
 
 	return { contentHeight: total, blocks };
+};
+
+/**
+ * Columns a code line gets before the viewer wraps it, read off a rendered one,
+ * or null while nothing is rendered yet. The gutter grows with a file's line
+ * numbers, so this is the measured file's width and a digit or two out on the
+ * rest — worth far less than the wrapping it lets us model at all.
+ *
+ * The font is monospace, so one character's advance scales to any line length.
+ */
+export const measureWrapColumns = (viewer: CodeView<Annotation>): number | null => {
+	const host = viewer.getContainerElement()?.querySelector("diffs-container");
+	const line = host?.shadowRoot?.querySelector("[data-content] > [data-line]");
+	if (!line) return null;
+
+	const style = getComputedStyle(line);
+	const width =
+		line.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+	if (!(width > 0)) return null;
+
+	const context = document.createElement("canvas").getContext("2d");
+	if (!context) return null;
+
+	context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+	const sample = "0".repeat(50);
+	const advance = context.measureText(sample).width / sample.length;
+
+	return advance > 0 ? Math.max(Math.floor(width / advance), 1) : null;
 };
 
 /**
