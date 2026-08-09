@@ -23,6 +23,7 @@ const guiSettingsV1 = type({
 	"diffStyle?": '"unified" | "split"',
 	"diffTabSize?": "number",
 	"editorId?": "string",
+	"fileDisplayMode?": "'list' | 'tree'",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"pathFirst?": "boolean",
 	"terminalId?": "string",

@@ -7,3 +7,47 @@
 		outline: none;
 	}
 }
+
+/* Shared by both row kinds, which is why it lives with the tree rather than
+   with either of them: it anchors the hover rules below, and carries the
+   indent that puts a row under its directory. List mode leaves depth at 0. */
+.row.row {
+	padding-inline-start: calc(8px + var(--file-tree-depth, 0) * 12px);
+}
+
+/* The mark and the checkbox share one cell: the mark says what the row is, and
+   gives way to the checkbox once the row is worth acting on. */
+.leading {
+	display: grid;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.leadingMark {
+	align-self: center;
+	color: var(--text-3);
+}
+
+.fileCount {
+	flex-shrink: 0;
+	align-self: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Opaque, so a checked box covers the mark it shares a cell with. */
+.leadingCheckbox {
+	opacity: 0;
+
+	&[data-checked],
+	&[data-indeterminate],
+	.row:hover &,
+	&:focus {
+		opacity: 1;
+	}
+
+	&[data-disabled] {
+		display: none;
+	}
+}

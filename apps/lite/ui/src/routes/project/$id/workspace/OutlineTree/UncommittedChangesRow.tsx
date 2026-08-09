@@ -19,6 +19,7 @@ import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
+import { FileDisplayModeToggle } from "../FileDisplayModeToggle.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 
@@ -96,13 +97,17 @@ export const UncommittedChangesRow: FC<{
 						render={<RowToolbar forceVisible />}
 					>
 						{changes.length > 0 && (
-							<Toolbar.Button
-								aria-label="Filter files"
-								onClick={onOpenFilter}
-								className={getRowButtonClassName({ size: "regular", iconOnly: true })}
-							>
-								<Icon name="search" />
-							</Toolbar.Button>
+							<>
+								<FileDisplayModeToggle />
+
+								<Toolbar.Button
+									aria-label="Filter files"
+									onClick={onOpenFilter}
+									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+								>
+									<Icon name="search" />
+								</Toolbar.Button>
+							</>
 						)}
 
 						<Toolbar.Button

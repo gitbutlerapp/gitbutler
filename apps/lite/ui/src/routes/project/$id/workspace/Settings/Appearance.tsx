@@ -95,10 +95,32 @@ export const Appearance: FC = () => {
 			</Section>
 
 			<Section heading="Files">
+				<Row label="Layout" labelId="file-display-mode" hint="Also on each file list's header.">
+					<ToggleGroup
+						aria-labelledby="file-display-mode"
+						value={[settings.fileDisplayMode ?? defaultSettings.fileDisplayMode]}
+						onValueChange={([fileDisplayMode]) => {
+							if (fileDisplayMode !== undefined) {
+								saveGUISettings({
+									fileDisplayMode: fileDisplayMode as GUISettings["fileDisplayMode"],
+								});
+							}
+						}}
+						render={<ToggleGroupStyles />}
+					>
+						<Toggle render={<ToggleStyles />} value="list">
+							List
+						</Toggle>
+						<Toggle render={<ToggleStyles />} value="tree">
+							Tree
+						</Toggle>
+					</ToggleGroup>
+				</Row>
+
 				<Row
 					label="File path first"
 					labelId="path-first"
-					hint="Lead each row with the directory rather than the file name."
+					hint="Lead each row with the directory rather than the file name. The tree names the directory once, on its own row, so this applies to the list."
 				>
 					<Switch
 						aria-labelledby="path-first"

@@ -12,6 +12,7 @@ import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
 import type { ComponentProps, FC } from "react";
 import styles from "./FileRow.module.css";
+import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
@@ -28,8 +29,11 @@ export const FileRow: FC<
 		canCheck: boolean;
 		isChecked: boolean;
 		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
-		/** Lead with the directory instead of the file name. Resolved by the list, not here. */
-		pathFirst: boolean;
+		/**
+		 * Where the directory goes: leading the file name, trailing it, or nowhere
+		 * — the tree already says which directory this is. Resolved by the list.
+		 */
+		pathDisplay: "lead" | "trail" | "hidden";
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({
 	item,
@@ -39,7 +43,7 @@ export const FileRow: FC<
 	canCheck,
 	isChecked,
 	checkFile,
-	pathFirst,
+	pathDisplay,
 	id,
 	...restProps
 }) => {
@@ -70,15 +74,15 @@ export const FileRow: FC<
 					<Row
 						{...restProps}
 						isChecked={isChecked}
-						className={classes(restProps.className, styles.row)}
+						className={classes(restProps.className, treeStyles.row)}
 						onContextMenu={(event) => {
 							void showNativeContextMenu(event, menuItems);
 						}}
 					/>
 				}
 			>
-				<div className={styles.iconWithCheckbox}>
-					<FileIcon fileName={fileName} className={styles.icon} />
+				<div className={treeStyles.leading}>
+					<FileIcon fileName={fileName} className={treeStyles.leadingMark} />
 					<Tooltip.Root
 						// This gets in the way when the user tries to move their hover to a
 						// sibling row.
@@ -88,7 +92,7 @@ export const FileRow: FC<
 							disabled={!isDefaultMode || !canCheck}
 							aria-label={`Check file ${relativePath}`}
 							checked={isChecked}
-							className={styles.checkbox}
+							className={treeStyles.leadingCheckbox}
 							nativeButton
 							render={<Tooltip.Trigger />}
 							onCheckedChange={(_checked, { event }) => {
@@ -117,13 +121,13 @@ export const FileRow: FC<
 						/>
 					)}
 					<RowLabel singleLine>
-						{directoryPath !== null && pathFirst && (
+						{directoryPath !== null && pathDisplay === "lead" && (
 							<span className={classes(styles.pathLead, rowStyles.fadedText)}>
 								{directoryPath}/
 							</span>
 						)}
 						{fileName}
-						{directoryPath !== null && !pathFirst && (
+						{directoryPath !== null && pathDisplay === "trail" && (
 							<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 						)}
 					</RowLabel>
