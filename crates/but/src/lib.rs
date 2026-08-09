@@ -133,7 +133,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     matches
                 }
                 // Retired syntax we cannot safely translate (e.g.
-                // `--no-hooks`): teach the new form, then report the
+                // `--message-file`): teach the new form, then report the
                 // original error.
                 None => {
                     print_err_infallible(retired_syntax::hint(agent_detected));

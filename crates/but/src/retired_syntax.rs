@@ -193,7 +193,6 @@ pub(crate) fn translate_commit(args: &[OsString]) -> Translation {
     let unsupported = message_file.is_some()
         || before.is_some()
         || after.is_some()
-        || no_hooks
         || ai.is_some()
         || diff
         || no_diff;
@@ -224,6 +223,10 @@ pub(crate) fn translate_commit(args: &[OsString]) -> Translation {
     }
     if status_after {
         translated.push("--status-after".into());
+    }
+    if no_hooks {
+        // Spelled the same in both grammars, so it carries over as it stands.
+        translated.push("--no-hooks".into());
     }
     if let Some(branch) = &branch {
         // The `=`-attached form binds unambiguously to the optional-value flag.
@@ -715,14 +718,27 @@ mod tests {
     #[test]
     fn retired_flags_without_modern_equivalent_are_refused() {
         for retired in [
-            &["commit", "my-branch", "-c", "--no-hooks", "-m", "msg"][..],
-            &["commit", "my-branch", "-c", "-m", "msg", "--before", "ab"],
+            &["commit", "my-branch", "-c", "-m", "msg", "--before", "ab"][..],
             &["commit", "my-branch", "--changes", "ab", "--ai"],
             &["commit", "my-branch", "--changes", "ab", "-i=prompt"],
             &["commit", "my-branch", "-c", "--diff"],
         ] {
             assert_eq!(translate(retired), Translation::Refused, "{retired:?}");
         }
+    }
+
+    #[test]
+    fn retired_no_hooks_carries_over() {
+        // Spelled the same in both grammars since `but commit` runs hooks again, so the
+        // retired form translates rather than being refused.
+        let translated = translate(&["commit", "b", "-c", "-m", "msg", "--no-hooks"]);
+        let Translation::Translated(args) = translated else {
+            panic!("expected a translation, got {translated:?}");
+        };
+        assert!(
+            args.iter().any(|arg| arg == "--no-hooks"),
+            "the flag reaches the modern command line: {args:?}"
+        );
     }
 
     #[test]

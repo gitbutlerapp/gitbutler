@@ -2318,9 +2318,9 @@ fn retired_syntax_without_modern_equivalent_hints_and_fails() {
 
     env.file("one", "one content");
 
-    // `--no-hooks` has no modern equivalent, so the command still fails with
+    // `--message-file` has no modern equivalent, so the command still fails with
     // the original error — but the hint teaches the new syntax first.
-    env.but("commit my-branch -c -m 'add one' --no-hooks --changes one")
+    env.but("commit my-branch -c -m 'add one' --message-file msg.txt --changes one")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
