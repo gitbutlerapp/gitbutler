@@ -200,12 +200,12 @@ export declare function changesInWorktreeWithPerm(projectId: string, changesSour
  *
  * # Returns
  *
- * * `Ok(AuthStatusResponse)` - User is authenticated, contains access token and user details
+ * * `Ok(_)` - The user completed the flow; the account and its token are stored
  * * `Err(_)` - If the authorization is pending, denied, or the request fails
  *
  * For lower-level implementation details, see [`but_github::check_github_auth_status()`].
  */
-export declare function checkGithubAuthStatus(deviceCode: string): Promise<GithubAuthStatusResponseSensitive>
+export declare function checkGithubAuthStatus(deviceCode: string): Promise<GithubAuthStatusResponse>
 
 export declare function checkSigningSettings(projectId: string): Promise<boolean>
 
@@ -905,10 +905,10 @@ export declare function setTargetRefAndInitProject(projectId: string, targetRef:
  *
  * # Returns
  *
- * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Ok(_)` - The token is valid and stored
  * * `Err(_)` - If the token is invalid or storage fails
  */
-export declare function storeBitbucketApiToken(email: string, accessToken: string): Promise<BitbucketAuthStatusResponseSensitive>
+export declare function storeBitbucketApiToken(email: string, accessToken: string): Promise<BitbucketAuthStatusResponse>
 
 /**
  * Stores a GitHub Personal Access Token (PAT) for github.com.
@@ -922,10 +922,10 @@ export declare function storeBitbucketApiToken(email: string, accessToken: strin
  *
  * # Returns
  *
- * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Ok(_)` - The token is valid and stored
  * * `Err(_)` - If the token is invalid or storage fails
  */
-export declare function storeGithubPat(accessToken: string): Promise<GithubAuthStatusResponseSensitive>
+export declare function storeGithubPat(accessToken: string): Promise<GithubAuthStatusResponse>
 
 /**
  * Stores a GitLab Personal Access Token (PAT) for gitlab.com.
@@ -939,10 +939,10 @@ export declare function storeGithubPat(accessToken: string): Promise<GithubAuthS
  *
  * # Returns
  *
- * * `Ok(AuthStatusResponse)` - Token is valid, contains user details
+ * * `Ok(_)` - The token is valid and stored
  * * `Err(_)` - If the token is invalid or storage fails
  */
-export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthStatusResponseSensitive>
+export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthStatusResponse>
 
 /**
  * Tears off a branch using the behavior described by [`tear_off_branch_with_perm()`].
@@ -1360,15 +1360,15 @@ export type BitbucketAccountIdentifier = {
   };
 };
 
-/** Serializable version of [`AuthStatusResponse`] with exposed access token. */
-export type BitbucketAuthStatusResponseSensitive = {
-  /** The Bitbucket access token as a plain string (sensitive data). */
-  accessToken: string;
-  /** The Bitbucket username. */
+/**
+ * Serializable version of [`AuthStatusResponse`], without the access token.
+ *
+ * The credential is stored by the backend as part of the call, so the caller is told
+ * who authenticated and nothing more. Field names are camelCase for JSON.
+ */
+export type BitbucketAuthStatusResponse = {
   username: string;
-  /** The user's display name, if available. */
   name: string | null;
-  /** The Atlassian account email used for authentication. */
   email: string | null;
 };
 
@@ -2423,21 +2423,16 @@ export type GithubAccountIdentifier = {
 };
 
 /**
- * Serializable version of [`AuthStatusResponse`] with exposed access token.
+ * Serializable version of [`AuthStatusResponse`], without the access token.
  *
- * This struct is used for API responses where the access token needs to be
- * sent as a plain string. Field names are converted to camelCase for JSON.
+ * The credential is stored by the backend as part of the call, so the caller is told
+ * who authenticated and nothing more. Field names are camelCase for JSON.
  */
-export type GithubAuthStatusResponseSensitive = {
-  /** The GitHub access token as a plain string (sensitive data). */
-  accessToken: string;
-  /** The GitHub username/login. */
+export type GithubAuthStatusResponse = {
   login: string;
-  /** The user's display name, if available. */
   name: string | null;
-  /** The user's email address, if available. */
   email: string | null;
-  /** The GitHub Enterprise host, if this is an enterprise account. */
+  /** The enterprise or self-hosted host, when there is one. */
   host: string | null;
 };
 
@@ -2474,21 +2469,16 @@ export type GitlabAccountIdentifier = {
 };
 
 /**
- * Serializable version of [`AuthStatusResponse`] with exposed access token.
+ * Serializable version of [`AuthStatusResponse`], without the access token.
  *
- * This struct is used for API responses where the access token needs to be
- * sent as a plain string. Field names are converted to camelCase for JSON.
+ * The credential is stored by the backend as part of the call, so the caller is told
+ * who authenticated and nothing more. Field names are camelCase for JSON.
  */
-export type GitlabAuthStatusResponseSensitive = {
-  /** The GitLab access token as a plain string (sensitive data). */
-  accessToken: string;
-  /** The GitLab username. */
+export type GitlabAuthStatusResponse = {
   username: string;
-  /** The user's display name, if available. */
   name: string | null;
-  /** The user's email address, if available. */
   email: string | null;
-  /** The self-hosted GitLab host, if this is a self-hosted instance. */
+  /** The enterprise or self-hosted host, when there is one. */
   host: string | null;
 };
 
