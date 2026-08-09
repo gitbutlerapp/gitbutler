@@ -58,7 +58,12 @@ const stretchableGlyphs = new Set<GraphSegmentGlyph>([
 	"joinBoth",
 ]);
 
-export type GraphSegmentStatus = "Diverged" | CommitState["type"];
+/**
+ * `Upstream` has no counterpart in {@link CommitState}: it describes the target
+ * branch's own line — commits that are on the target and not in the workspace
+ * at all, rather than commits of ours in some state against it.
+ */
+export type GraphSegmentStatus = "Diverged" | "Upstream" | CommitState["type"];
 
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GraphSegmentGlyph;

@@ -1,27 +1,10 @@
-import {
-	headInfoQueryOptions,
-	olderTargetCommitsInfiniteQueryOptions,
-	workspaceTargetCommitsQueryOptions,
-} from "#ui/api/queries.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { headInfoQueryOptions, workspaceTargetCommitsQueryOptions } from "#ui/api/queries.ts";
+import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import type { RefInfo, TargetCommit } from "@gitbutler/but-sdk";
-import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
-
-/**
- * The expansion key of the shared-history segment below the deepest fork
- * point, whose contents page through older target history.
- */
-const OLDER_SEGMENT_ID = "older";
-
-/**
- * The expansion key of the incoming-commits run. Unlike the shared-history
- * segments it shows by default, and hiding it keeps the integrated branch
- * rows attached to it visible.
- */
-export const INCOMING_SEGMENT_ID = "incoming";
+import { useQueries } from "@tanstack/react-query";
 
 // Stable empties for the inactive-tab result, so consumers' identities do not
 // churn while the tab is hidden.
@@ -56,9 +39,8 @@ export type UpstreamCommitItem = TargetCommit & { type: "commit" };
 export type UpstreamBranchItem = {
 	type: "branch";
 	name: string;
-	refBytes: Array<number>;
+	/** Matched against a landed review to place the branch; never displayed. */
 	prNumber: number | null;
-	commitCount: number;
 	integrated: boolean;
 	/**
 	 * Identifies the stack the branch belongs to, so adjacent segments of one
@@ -71,16 +53,20 @@ export type UpstreamListItem =
 	| UpstreamCommitItem
 	| UpstreamBranchItem
 	/**
-	 * A toggle revealing a shared-history segment: the target commits between
-	 * two fork points (`count` known), or — below the deepest fork point —
-	 * older target history paged on demand (`count` null).
+	 * A toggle revealing the shared history between two fork points: target
+	 * commits the workspace already has, whose count measures how much older
+	 * one stack's base is than the one above it.
 	 */
-	| { type: "expander"; segmentId: string; count: number | null; expanded: boolean }
-	/** Fetches the next page of older target history. */
-	| { type: "more" };
+	| { type: "expander"; segmentId: string; count: number; expanded: boolean };
 
 export type UpstreamOutline = {
 	items: Array<UpstreamListItem>;
+	/**
+	 * How many leading items are incoming commits. The list draws its divider
+	 * here, so everything after it is the workspace's own branches and the
+	 * shared history between them.
+	 */
+	incomingItemCount: number;
 	/** The target's display label, like `origin/main`, or `null` without a target. */
 	targetLabel: string | null;
 	/**
@@ -122,9 +108,7 @@ const workspaceStackBranches = (headInfo: RefInfo | undefined): Array<WorkspaceS
 							{
 								type: "branch",
 								name: segment.refName.displayName,
-								refBytes: segment.refName.fullNameBytes,
 								prNumber: segment.metadata?.review.pullRequest ?? null,
-								commitCount: segment.commits.length,
 								integrated: segment.pushStatus === "integrated",
 								stackKey,
 							},
@@ -153,14 +137,17 @@ const workspaceStackBranches = (headInfo: RefInfo | undefined): Array<WorkspaceS
  * below the boundary, the previous workspace update would have removed it —
  * so it sits at the bottom of that range, right above the boundary. Fork
  * points missing from the (possibly clipped) list trail at the end.
+ *
+ * Returns the boundary along with the items: the walk crosses it exactly once,
+ * and it cannot be recovered from the items afterwards, because an integrated
+ * branch attached to the last incoming commit and one parked at the boundary
+ * land in the same place.
  */
 const buildItems = (
 	commits: Array<UpstreamCommitItem>,
 	stacks: Array<WorkspaceStackBranches>,
 	expanded: Record<string, true>,
-	incoming: { count: number; hidden: boolean },
-	older: { available: boolean; commits: Array<UpstreamCommitItem>; showMore: boolean },
-): Array<UpstreamListItem> => {
+): { items: Array<UpstreamListItem>; incomingItemCount: number } => {
 	const stubsByBase = new Map<string, Array<UpstreamBranchItem>>();
 	const strandedStubs: Array<UpstreamBranchItem> = [];
 	for (const stack of stacks) {
@@ -194,21 +181,12 @@ const buildItems = (
 	const unmatchedIntegrated = () => allIntegrated.filter((branch) => !matched.has(branch));
 
 	const items: Array<UpstreamListItem> = [];
-	// The incoming commits are always the prefix of the walk, so their
-	// expander leads the list. Hiding them keeps the integrated branch rows
-	// they landed visible below.
-	if (incoming.count > 0) {
-		items.push({
-			type: "expander",
-			segmentId: INCOMING_SEGMENT_ID,
-			count: incoming.count,
-			expanded: !incoming.hidden,
-		});
-	}
 
 	// Commits already in the workspace are not shown outright — the tab is
-	// about what's upstream — but each run of them between fork points becomes
-	// an expandable shared-history segment.
+	// about what's upstream — but each run of them *between* fork points
+	// becomes an expandable shared-history segment. The run trailing the
+	// deepest fork point has no fork point below it to measure against, so it
+	// is dropped rather than flushed: target history simply continues there.
 	let gap: Array<UpstreamCommitItem> = [];
 	const flushGap = () => {
 		const first = gap[0];
@@ -221,6 +199,9 @@ const buildItems = (
 	};
 
 	let boundarySeen = false;
+	// Everything pushed before the walk crosses into the workspace is the
+	// target section, integrated branches attached to those commits included.
+	let incomingItemCount = 0;
 	for (const commit of commits) {
 		const attachedStubs = stubsByBase.get(commit.commit.id);
 		if (attachedStubs !== undefined) stubsByBase.delete(commit.commit.id);
@@ -228,59 +209,26 @@ const buildItems = (
 
 		if (commit.inWorkspace && !boundarySeen) {
 			boundarySeen = true;
+			incomingItemCount = items.length;
 			items.push(...unmatchedIntegrated());
 		}
 		if (attachedStubs !== undefined || landed !== undefined) flushGap();
 		if (attachedStubs !== undefined) items.push(...attachedStubs);
-		if (!commit.inWorkspace) {
-			if (!incoming.hidden) items.push(commit);
-		} else {
-			gap.push(commit);
-		}
+		if (commit.inWorkspace) gap.push(commit);
+		else items.push(commit);
 		if (landed !== undefined) items.push(...landed);
 	}
+	// Without a boundary commit in the list the walk never left the target, so
+	// everything listed so far belongs to it.
+	if (!boundarySeen) incomingItemCount = items.length;
+
 	for (const stranded of stubsByBase.values()) items.push(...stranded);
 	items.push(...strandedStubs);
 	// Without a boundary commit in the list there is no anchor; keep the
 	// integrated branches visible at the end instead of dropping them.
 	if (!boundarySeen) items.push(...unmatchedIntegrated());
 
-	// The trailing shared history below the deepest fork point continues into
-	// older target commits, paged on demand through the same expander.
-	if (commits.length > 0 && older.available) {
-		const olderExpanded = expanded[OLDER_SEGMENT_ID] === true;
-		items.push({
-			type: "expander",
-			segmentId: OLDER_SEGMENT_ID,
-			count: null,
-			expanded: olderExpanded,
-		});
-		if (olderExpanded) {
-			items.push(...gap);
-			items.push(...older.commits);
-			if (older.showMore) items.push({ type: "more" });
-		}
-	}
-
-	return items;
-};
-
-/**
- * The pages of target history older than the deepest fork point, continued
- * below the last commit of the base listing with a commit-id cursor. Shared
- * by the outline (which merges the pages into the items) and the show-more
- * row (which drives fetching) so the two cannot disagree about the query.
- */
-export const useOlderTargetCommits = (projectId: string, enabled: boolean) => {
-	const { data: olderFrom = null } = useQuery({
-		...workspaceTargetCommitsQueryOptions(projectId),
-		enabled,
-		select: (page) => (page.hasMore ? null : (page.commits.at(-1)?.commit.id ?? null)),
-	});
-	return useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom),
-		enabled,
-	});
+	return { items, incomingItemCount };
 };
 
 /**
@@ -297,20 +245,11 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 	const expandedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectExpandedUpstreamSegments(state, projectId),
 	);
-	const incomingHidden = useAppSelector((state) =>
-		projectSlice.selectors.selectUpstreamIncomingHidden(state, projectId),
-	);
-
-	const olderExpanded = expandedSegments[OLDER_SEGMENT_ID] === true;
-	const olderQuery = useOlderTargetCommits(projectId, active && olderExpanded);
-	const olderPages = olderQuery.data;
-	const olderShowMore = olderExpanded && (olderPages === undefined || olderQuery.hasNextPage);
-
 	// The whole derivation lives in `combine` so its result keeps a stable
 	// identity: react-query caches it on the query results and the `combine`
 	// reference — which itself only changes when a captured input like the
-	// expansion map or a fetched page does — so the items and navigation index
-	// are not rebuilt on unrelated renders.
+	// expansion map does — so the items and navigation index are not rebuilt
+	// on unrelated renders.
 	return useQueries({
 		queries: [
 			{ ...workspaceTargetCommitsQueryOptions(projectId), enabled: active },
@@ -337,6 +276,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			if (!active) {
 				return {
 					items: noItems,
+					incomingItemCount: 0,
 					targetLabel,
 					incomingCount,
 					hasIntegrated: false,
@@ -349,17 +289,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 
 			const stacks = workspaceStackBranches(headInfo);
 			const commits = targetCommits.map(asItem);
-			const items = buildItems(
-				commits,
-				stacks,
-				expandedSegments,
-				{ count: incomingCount, hidden: incomingHidden },
-				{
-					available: targetPage?.hasMore === false,
-					commits: olderPages?.pages.flatMap((page) => page.commits).map(asItem) ?? [],
-					showMore: olderShowMore,
-				},
-			);
+			const { items, incomingItemCount } = buildItems(commits, stacks, expandedSegments);
 
 			const navigationItems = items.flatMap((item): Array<Operand> => {
 				switch (item.type) {
@@ -372,10 +302,10 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 								changeId: item.commit.changeId ?? item.commit.id,
 							}),
 						];
+					// Branch rows carry only their name and are not selectable, so
+					// they stay out of the navigation index.
 					case "branch":
-						return [branchOperand({ branchRef: item.refBytes })];
 					case "expander":
-					case "more":
 						return [];
 					default:
 						return item satisfies never;
@@ -384,6 +314,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 
 			return {
 				items,
+				incomingItemCount,
 				targetLabel,
 				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),

@@ -17,19 +17,34 @@
 	padding-block: var(--panel-padding-block);
 }
 
-.heading {
-	display: flex;
-	column-gap: 6px;
-	align-items: center;
-	color: var(--text-2);
+/* The heading names the tree for screen readers; the target's own row heads
+   the card visually, so a second visible heading would only repeat it. */
+.srOnly {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	white-space: nowrap;
+	clip-path: inset(50%);
 }
 
-/* The tree holds only the commit group, so the heading and empty-state message
-   above it stay out of the ARIA tree. */
-.tree {
+/* The target history and the workspace's branches are two regions of one
+   graph, so they share a single card and are divided rather than boxed apart. */
+.card {
+	/* The one knob for how much room a shared-history run gets: above its
+	   toggle, and below the last commit it reveals. Padding cannot supply that
+	   room — the graph line is drawn by the glyphs, so it only reaches as far
+	   as a glyph's own box, and anything outside one reads as a break in the
+	   rail. It is added as drawn rail instead; see `.expanderGlyph` and
+	   `.railStub`. */
+	--expander-glyph-air: 4px;
+
 	display: flex;
-	row-gap: 8px;
 	flex-direction: column;
+	padding: 6px;
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-card);
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
@@ -37,13 +52,36 @@
 	}
 }
 
-.card {
+/* Spans the card's full width, so it reads as a division of the card rather
+   than of the rows inset within it. The rail tail above supplies its own gap,
+   so the divider only insets below. */
+.divider {
+	margin-inline: -6px;
+	margin-block: 0 6px;
+	border-block-start: 1px dashed var(--border-3);
+}
+
+/* Carries a rail past the last row of its region: the glyph is clipped to a
+   stub so only the top of its vertical line shows, and the negative inset lets
+   it run out through the card's own padding to the floor. */
+.railTail {
 	display: flex;
-	flex-direction: column;
-	padding: 6px;
-	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-card);
+	height: 14px;
+	margin-block-end: -6px;
+	padding-inline: 8px;
+	overflow: hidden;
+}
+
+/* The target's stub ends at the divider instead, which supplies the gap below
+   it. */
+.railTailBridge {
+	margin-block-end: 0;
+}
+
+.message {
+	padding-inline: 8px;
+	padding-block: 2px;
+	color: var(--text-2);
 }
 
 .label {
@@ -67,46 +105,69 @@
 	gap: 4px;
 }
 
-/* Target history flows bare on the panel background; the inset keeps its
-   rows aligned with the contents of the branch cards. */
-.commitRun {
-	display: flex;
-	flex-direction: column;
-	padding-inline: 6px;
-}
-
+/* Sits on the rail like a row, so the graph line runs through it rather than
+   breaking around the control. */
 .expanderRow {
-	padding-inline-start: 12px;
-	padding-block: 2px;
-	border: none;
-	background: none;
-	color: inherit;
-	text-align: start;
-	cursor: pointer;
-
-	&:hover {
-		color: var(--text-1);
-	}
-
-	&:disabled {
-		cursor: default;
-	}
-}
-
-.statePill {
-	flex-shrink: 0;
-	align-self: center;
-	white-space: nowrap;
-}
-
-.footer {
 	display: flex;
-	row-gap: 8px;
-	flex-direction: column;
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block);
+	column-gap: 8px;
+	padding-inline: 8px;
 }
 
-.footerText {
-	color: var(--text-2);
+/* Stacks the glyph over a stub of rail. That stub is the only way to add space
+   *below* the glyph: a segment has a single stretch band, and the reversed
+   column above has already spent it. */
+.expanderRail {
+	display: flex;
+	flex-direction: column;
+}
+
+/* Closes an expanded run, so the space under its last commit answers the space
+   above its toggle. Aligned like a row so its rail lands on the same line. */
+.runTail {
+	display: flex;
+	padding-inline: 8px;
+}
+
+/* Reversing the column puts the plain stretch band above the glyph, where it
+   goes on drawing the rail through the space it opens.
+
+   The 32px is where the group glyph centres its rings rather than a chosen
+   number: they sit at 3–17 of its 26px canvas, which leaves 9px of tail below
+   them, so the band above has to come out to the same 9px. Growing past that
+   is what the tail stub is for. Doubled selector because this has to beat
+   GraphSegment's own `flex-direction`, equally specific and otherwise decided
+   by import order. */
+.expanderGlyph.expanderGlyph {
+	flex-direction: column-reverse;
+	height: calc(32px + var(--expander-glyph-air));
+}
+
+/* A clipped length of plain rail, used wherever the graph has to keep drawing
+   through space no glyph covers. */
+.railStub {
+	height: var(--expander-glyph-air);
+	overflow: hidden;
+}
+
+/* Sized by the button itself; this only keeps it from stretching. */
+.expanderButton {
+	align-self: center;
+}
+
+/* Hangs off the target rail below the incoming commits, so the prose and the
+   button read as acting on them. */
+.updateBlock {
+	display: flex;
+	column-gap: 8px;
+	padding-inline: 8px;
+}
+
+.updateBlockBody {
+	display: flex;
+	row-gap: 12px;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+	padding-block-start: 12px;
+	padding-block-end: 6px;
 }

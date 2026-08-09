@@ -16,6 +16,10 @@
 		--commit-status-color: var(--commit-integrated);
 	}
 
+	&[data-status="Upstream"] {
+		--commit-status-color: var(--commit-upstream);
+	}
+
 	&[data-status="Diverged"] {
 		--commit-status-color: var(--commit-local);
 	}

@@ -1,14 +1,15 @@
 import rowStyles from "./Row.module.css";
 import { Scroller } from "#ui/components/Scroller.tsx";
-import { forgeInfoOptions } from "#ui/api/queries.ts";
 import { commitTitle } from "#ui/commit.ts";
-import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import {
+	GraphSegment,
+	type GraphSegmentGlyph,
+	type GraphSegmentStatus,
+} from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
-import { prForgeUrl } from "#ui/pr.ts";
+import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
 	useAutofocusSelectionScope,
@@ -17,8 +18,8 @@ import {
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useQuery } from "@tanstack/react-query";
 import {
 	type ComponentProps,
 	type FC,
@@ -34,18 +35,34 @@ import {
 	treeItemId,
 	useIsSelected as useIsSelectedInList,
 } from "./Row-utils.ts";
-import {
-	INCOMING_SEGMENT_ID,
-	useOlderTargetCommits,
-	type UpstreamBranchItem,
-	type UpstreamCommitItem,
-	type UpstreamListItem,
-	type UpstreamOutline,
+import type {
+	UpstreamBranchItem,
+	UpstreamCommitItem,
+	UpstreamListItem,
+	UpstreamOutline,
 } from "./useUpstreamOutline.ts";
 import styles from "./UpstreamList.module.css";
 
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
 	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryUpstreamSelection);
+
+/**
+ * The target branch the incoming commits below it belong to. It heads the card
+ * the way a stack's own name heads a stack card, and starts the target rail
+ * the commit rows hang off.
+ */
+const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
+	// Presentational within the tree: only the commit rows are `treeitem`s, so
+	// everything else the card draws is excluded from the tree's children.
+	<Row role="none" interactive={false}>
+		<GraphSegment glyph="forkRight" status="Upstream" />
+		<RowLabelContainer>
+			<RowLabel heading singleLine title={label}>
+				{label}
+			</RowLabel>
+		</RowLabelContainer>
+	</Row>
+);
 
 const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 	projectId,
@@ -77,10 +94,13 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 				dispatch(projectSlice.actions.selectUpstream({ projectId, selection: operand }))
 			}
 		>
-			<GraphSegment glyph="commit" status={inWorkspace ? "Integrated" : "LocalAndRemote"} />
+			<GraphSegment glyph="commit" status={inWorkspace ? "Integrated" : "Upstream"} />
 			<div className={styles.label}>
 				<RowLabelContainer>
-					<RowLabel singleLine className={inWorkspace ? rowStyles.fadedText : undefined}>
+					{/* Commits the workspace already has are not dimmed: the row is
+					    selectable like any other, and the rail's colour already
+					    says which side of the boundary the commit is on. */}
+					<RowLabel singleLine>
 						{title === undefined ? (
 							<span className={rowStyles.fadedText}>(no message)</span>
 						) : (
@@ -116,200 +136,182 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 };
 
 /**
- * A workspace branch positioned against the target line, with the same row
- * anatomy as the workspace tab's branch rows: bold name, meta footer, and PR
- * link. Branch rows deliberately stay off the commit line — the state pill
- * alone carries their relation to the upstream.
+ * A workspace branch positioned against the target line. It carries its name
+ * and nothing else — the rows exist to show where the workspace's branches
+ * fork from the target, and everything actionable about a branch lives on the
+ * workspace tab — except for having landed, which the rail's colour and a
+ * second line both report.
  */
-const UpstreamBranchRow: FC<{ projectId: string; item: UpstreamBranchItem }> = ({
-	projectId,
+const UpstreamBranchRow: FC<{ item: UpstreamBranchItem; glyph: GraphSegmentGlyph }> = ({
 	item,
-}) => {
-	const dispatch = useAppDispatch();
-	const operand = branchOperand({ branchRef: item.refBytes });
-	const isSelected = useIsSelected(projectId, operand);
+	glyph,
+}) => (
+	<Row role="none" interactive={false}>
+		<GraphSegment glyph={glyph} status={item.integrated ? "Integrated" : "LocalOnly"} />
+		<div className={styles.label}>
+			<RowLabelContainer>
+				<RowLabel heading singleLine title={item.name}>
+					{item.name}
+				</RowLabel>
+			</RowLabelContainer>
 
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	const mforgeUrl =
-		item.prNumber !== null ? forgeInfo && prForgeUrl(item.prNumber, forgeInfo) : null;
-
-	const openPRInBrowser = async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt.preventDefault();
-
-		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
-	};
-
-	return (
-		<Row
-			id={treeItemId(operand)}
-			role="treeitem"
-			aria-label={item.name}
-			aria-selected={isSelected}
-			isSelected={isSelected}
-			onSelect={() =>
-				dispatch(projectSlice.actions.selectUpstream({ projectId, selection: operand }))
-			}
-		>
-			<GraphSegment glyph="space" status="LocalOnly" />
-			<div className={styles.label}>
-				<RowLabelContainer>
-					<RowLabel heading singleLine title={item.name}>
-						{item.name}
-					</RowLabel>
-				</RowLabelContainer>
-				{/* Always rendered so integrated and unintegrated rows share the
-				    same height regardless of what the footer carries. */}
+			{/* The rail's colour is easy to miss on a branch that has landed, so
+			    the state is spelled out on the second line as well. */}
+			{item.integrated && (
 				<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
-					{item.commitCount > 0 && (
-						<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
-							<Icon name="commit" />
-							{item.commitCount}
-						</span>
-					)}
-
-					{mforgeUrl != null && (
-						<a
-							href={mforgeUrl}
-							onClick={(evt) => void openPRInBrowser(evt)}
-							className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-						>
-							<Icon name="pr" size={14} />
-							PR
-						</a>
-					)}
+					<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>integrated</span>
 				</RowLabelFooter>
-			</div>
-			{item.integrated ? (
-				<Badge
-					variant="integrated"
-					className={styles.statePill}
-					title="Merged into the target branch; updating the workspace cleans it up."
-				>
-					Integrated
-				</Badge>
-			) : (
-				<Badge
-					variant="lightGray"
-					className={styles.statePill}
-					title="Branching off here; not part of the target branch yet."
-				>
-					In workspace
-				</Badge>
 			)}
-		</Row>
-	);
-};
-
-type CommitRunItem = Exclude<UpstreamListItem, UpstreamBranchItem>;
-
-type ItemGroup =
-	/** Adjacent segments of one stack share a card, like on the workspace tab. */
-	| { branches: Array<UpstreamBranchItem>; rows?: undefined }
-	| { branches?: undefined; rows: Array<CommitRunItem> };
+		</div>
+	</Row>
+);
 
 /**
- * Split the flat listing into stack cards and the bare commit runs flowing
- * between them, so the workspace's branches read as their own objects rather
- * than part of the target history.
+ * A toggle for the shared history between two fork points: target commits the
+ * workspace already has, whose count measures how much older one stack's base
+ * is than the one above it.
  */
-const groupItems = (items: Array<UpstreamListItem>): Array<ItemGroup> => {
-	const groups: Array<ItemGroup> = [];
-	for (const item of items) {
-		const last = groups.at(-1);
-		if (item.type === "branch") {
-			if (last?.branches !== undefined && last.branches[0]?.stackKey === item.stackKey)
-				last.branches.push(item);
-			else groups.push({ branches: [item] });
-			continue;
-		}
-		if (last?.rows !== undefined) last.rows.push(item);
-		else groups.push({ rows: [item] });
-	}
-	return groups;
-};
-
-const groupKey = (rows: Array<CommitRunItem>): string => {
-	const first = rows[0];
-	if (first === undefined) return "empty";
-	switch (first.type) {
-		case "commit":
-			return first.commit.id;
-		case "expander":
-			return `expander-${first.segmentId}`;
-		case "more":
-			return "more";
-		default:
-			return first satisfies never;
-	}
-};
-
 const SegmentExpanderRow: FC<{
 	projectId: string;
 	segmentId: string;
-	count: number | null;
+	count: number;
 	expanded: boolean;
 }> = ({ projectId, segmentId, count, expanded }) => {
 	const dispatch = useAppDispatch();
-	const incoming = segmentId === INCOMING_SEGMENT_ID;
 
 	return (
-		<button
-			type="button"
-			// The tree's active-descendant navigation skips expanders, but as
-			// direct children of the tree they still need the treeitem role for
-			// the structure to stay valid.
-			role="treeitem"
-			aria-expanded={expanded}
-			className={classes("text-13", rowStyles.fadedText, styles.expanderRow)}
-			title={
-				incoming
-					? "The commits an update would bring into the workspace."
-					: count !== null
-						? "Shared target commits between these fork points."
-						: "Target history below this fork point."
-			}
-			onClick={() =>
-				dispatch(
-					incoming
-						? projectSlice.actions.toggleUpstreamIncoming({ projectId })
-						: projectSlice.actions.toggleUpstreamSegment({ projectId, segmentId }),
-				)
-			}
-		>
-			⋮{" "}
-			{expanded
-				? "hide"
-				: count !== null
-					? `${count} ${count === 1 ? "commit" : "commits"}`
-					: "older commits…"}
-		</button>
+		<div role="none" className={styles.expanderRow}>
+			<div className={styles.expanderRail}>
+				{/* The stacked rings stand in for the commits while they are folded
+				    away; once they are on screen the rail just runs past the toggle. */}
+				<GraphSegment
+					className={styles.expanderGlyph}
+					glyph={expanded ? "parent" : "group"}
+					status="LocalOnly"
+				/>
+				<GraphSegment className={styles.railStub} glyph="parent" status="LocalOnly" />
+			</div>
+			<Button
+				aria-expanded={expanded}
+				className={classes(
+					// Filled while the run it reveals is on screen, so the toggle
+					// reads as pressed rather than as another thing to click.
+					getButtonClassName({ variant: expanded ? "gray" : "outline", size: "small" }),
+					styles.expanderButton,
+				)}
+				title="Target commits your workspace already has, between these two fork points."
+				onClick={() =>
+					dispatch(projectSlice.actions.toggleUpstreamSegment({ projectId, segmentId }))
+				}
+			>
+				{expanded ? "hide commits" : `${count} shared ${count === 1 ? "commit" : "commits"}`}
+			</Button>
+		</div>
 	);
 };
 
-const OlderCommitsMoreRow: FC<{ projectId: string }> = ({ projectId }) => {
-	// Shares the pages the outline hook merges into the list; this instance
-	// only drives fetching. Only rendered while the older segment is expanded.
-	const { fetchNextPage, isFetching, isError } = useOlderTargetCommits(projectId, true);
+/**
+ * The prose and the button that act on the whole target section, drawn inside
+ * the card against the target rail so they read as belonging to the commits
+ * above them rather than to the panel.
+ */
+const UpdateBlock: FC<{
+	incomingCount: number;
+	hasIntegrated: boolean;
+	canUpdate: boolean;
+	isUpdatePending: boolean;
+	onUpdateWorkspace: () => void;
+}> = ({ incomingCount, hasIntegrated, canUpdate, isUpdatePending, onUpdateWorkspace }) => {
+	const messageClassName = classes("text-12", "text-body", rowStyles.fadedText);
 
 	return (
-		<button
-			type="button"
-			// Same as the segment expanders: a treeitem in structure, though
-			// active-descendant navigation skips it.
-			role="treeitem"
-			className={classes("text-13", rowStyles.fadedText, styles.expanderRow)}
-			disabled={isFetching}
-			onClick={() => void fetchNextPage()}
-		>
-			{isFetching ? (
-				<Icon name="spinner" />
-			) : isError ? (
-				"⋮ couldn't load older commits — retry"
-			) : (
-				"⋮ show more…"
-			)}
-		</button>
+		<div role="none" className={styles.updateBlock}>
+			<GraphSegment glyph="parent" status="Upstream" />
+			<div className={styles.updateBlockBody}>
+				{incomingCount > 0 ? (
+					<p className={messageClassName}>
+						Your workspace is {incomingCount} {incomingCount === 1 ? "commit" : "commits"} behind
+						the upstream.
+						<br />
+						Rebase to update all stacks at once.
+					</p>
+				) : hasIntegrated ? (
+					<p className={messageClassName}>
+						Integrated branches can be cleaned up by updating the workspace.
+					</p>
+				) : (
+					<p className={messageClassName}>Your workspace is up to date.</p>
+				)}
+				<button
+					type="button"
+					className={getButtonClassName({ variant: "gray" })}
+					disabled={!canUpdate}
+					onClick={onUpdateWorkspace}
+				>
+					{isUpdatePending
+						? "Updating…"
+						: incomingCount > 0
+							? "Rebase all stacks"
+							: "Update workspace"}
+				</button>
+			</div>
+		</div>
 	);
+};
+
+/**
+ * A clipped stub carrying a rail past the last row of its region, so the graph
+ * runs out into the space below rather than stopping dead at the content edge.
+ * The target's stub bridges the divider; the workspace's supplies the card's
+ * floor.
+ */
+const RailTail: FC<{ status: GraphSegmentStatus; bridge?: boolean }> = ({ status, bridge }) => (
+	<div aria-hidden className={classes(styles.railTail, bridge && styles.railTailBridge)}>
+		<GraphSegment glyph="parent" status={status} />
+	</div>
+);
+
+/**
+ * The air closing an expanded shared-history run, answering the space its
+ * toggle gets above it so the run reads as one block rather than as commits
+ * crowding the branch below.
+ */
+const RunTail: FC = () => (
+	<div aria-hidden className={styles.runTail}>
+		<GraphSegment className={styles.railStub} glyph="parent" status="LocalOnly" />
+	</div>
+);
+
+const listItem = (
+	projectId: string,
+	item: UpstreamListItem,
+	/** The first branch row opens the workspace rail; the rest join it. */
+	isFirstBranch: boolean,
+) => {
+	switch (item.type) {
+		case "commit":
+			return <TargetCommitRow key={item.commit.id} projectId={projectId} item={item} />;
+		case "branch":
+			return (
+				<UpstreamBranchRow
+					key={`${item.stackKey}/${item.name}`}
+					item={item}
+					glyph={isFirstBranch ? "forkRight" : "joinRight"}
+				/>
+			);
+		case "expander":
+			return (
+				<SegmentExpanderRow
+					key={`expander-${item.segmentId}`}
+					projectId={projectId}
+					segmentId={item.segmentId}
+					count={item.count}
+					expanded={item.expanded}
+				/>
+			);
+		default:
+			return item satisfies never;
+	}
 };
 
 export const UpstreamList: FC<
@@ -331,8 +333,16 @@ export const UpstreamList: FC<
 	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
-	const { items, targetLabel, incomingCount, hasIntegrated, navigationIndex, isPending, isError } =
-		outline;
+	const {
+		items,
+		incomingItemCount,
+		targetLabel,
+		incomingCount,
+		hasIntegrated,
+		navigationIndex,
+		isPending,
+		isError,
+	} = outline;
 
 	const selection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUpstream(state, projectId, navigationIndex),
@@ -364,111 +374,87 @@ export const UpstreamList: FC<
 	const hasIncoming = incomingCount > 0;
 	const canUpdate = canUpdateWorkspace && (hasIncoming || hasIntegrated);
 
+	const targetItems = items.slice(0, incomingItemCount);
+	const workspaceItems = items.slice(incomingItemCount);
+	const firstBranch = workspaceItems.find((item) => item.type === "branch");
+
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<Scroller className={styles.listArea} viewportClassName={styles.list}>
-				<h4 id={headingId} className={classes("text-13", styles.heading)}>
-					<span>
-						Incoming changes
-						{targetLabel !== null && (
-							<span className={rowStyles.fadedText}> from {targetLabel}</span>
-						)}
-					</span>
-					{hasIncoming && <Badge variant="fillGray">{incomingCount}</Badge>}
+				<h4 id={headingId} className={styles.srOnly}>
+					Incoming changes{targetLabel !== null && <> from {targetLabel}</>}
 				</h4>
 
-				{isError && (
-					<p className={classes("text-13", styles.heading)}>Unable to load incoming commits.</p>
-				)}
-
-				{!isError && isPending && items.length === 0 && (
-					<p className={classes("text-13", styles.heading)}>Loading incoming commits…</p>
-				)}
-
-				{!isError && !isPending && targetLabel === null && (
-					<p className={classes("text-13", styles.heading)}>
-						No target branch is configured for this project.
-					</p>
-				)}
-
-				{!isError && !isPending && targetLabel !== null && !hasIncoming && (
-					<p className={classes("text-13", styles.heading)}>Your workspace is up to date.</p>
-				)}
-
+				{/* The whole outline is one card: the target and the workspace's
+				    branches are two regions of a single graph, divided rather than
+				    boxed apart. */}
 				<div
 					tabIndex={0}
 					role="tree"
 					aria-labelledby={headingId}
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-selection-scope={"outline" satisfies SelectionScope}
-					className={styles.tree}
+					className={styles.card}
 					onFocus={() =>
 						dispatch(projectSlice.actions.setDetailsSelectionScope({ projectId, scope: "outline" }))
 					}
 					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 				>
-					{groupItems(items).map((group) =>
-						group.branches !== undefined ? (
-							// The card surface matches the workspace tab's stack cards: the
-							// workspace's own stacks are carded objects, target history
-							// flows bare around them.
-							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
-							<div key={group.branches[0]?.name ?? "stack"} role="group" className={styles.card}>
-								{group.branches.map((branch) => (
-									<UpstreamBranchRow key={branch.name} projectId={projectId} item={branch} />
-								))}
-							</div>
-						) : (
-							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A commit run is an ARIA group of tree items.
-							<div key={groupKey(group.rows)} role="group" className={styles.commitRun}>
-								{group.rows.map((item) =>
-									item.type === "commit" ? (
-										<TargetCommitRow key={item.commit.id} projectId={projectId} item={item} />
-									) : item.type === "expander" ? (
-										<SegmentExpanderRow
-											key={`expander-${item.segmentId}`}
-											projectId={projectId}
-											segmentId={item.segmentId}
-											count={item.count}
-											expanded={item.expanded}
-										/>
-									) : (
-										<OlderCommitsMoreRow key="more" projectId={projectId} />
-									),
-								)}
-							</div>
-						),
+					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}
+
+					{isError && (
+						<p role="none" className={classes("text-13", styles.message)}>
+							Unable to load incoming commits.
+						</p>
 					)}
+
+					{!isError && isPending && items.length === 0 && (
+						<p role="none" className={classes("text-13", styles.message)}>
+							Loading incoming commits…
+						</p>
+					)}
+
+					{!isError && !isPending && targetLabel === null && (
+						<p role="none" className={classes("text-13", styles.message)}>
+							No target branch is configured for this project.
+						</p>
+					)}
+
+					{targetItems.map((item) => listItem(projectId, item, false))}
+
+					{!isError && !isPending && targetLabel !== null && (
+						<UpdateBlock
+							incomingCount={incomingCount}
+							hasIntegrated={hasIntegrated}
+							canUpdate={canUpdate}
+							isUpdatePending={isUpdatePending}
+							onUpdateWorkspace={onUpdateWorkspace}
+						/>
+					)}
+
+					{targetLabel !== null && <RailTail status="Upstream" bridge />}
+
+					{workspaceItems.length > 0 && <div role="none" className={styles.divider} />}
+
+					{workspaceItems.flatMap((item, index) => {
+						const row = listItem(projectId, item, item === firstBranch);
+						// Commits only appear here as the body of an expanded run, so
+						// the last one before anything else is where a run closes.
+						const next = workspaceItems[index + 1];
+						return item.type === "commit" && next !== undefined && next.type !== "commit"
+							? [row, <RunTail key={`${item.commit.id}-tail`} />]
+							: [row];
+					})}
+
+					{workspaceItems.length > 0 && <RailTail status="LocalOnly" />}
 				</div>
+
 				{outline.truncated && (
-					<p className={classes("text-13", rowStyles.fadedText, styles.heading)}>
+					<p className={classes("text-13", rowStyles.fadedText, styles.message)}>
 						Only the most recent target history is shown.
 					</p>
 				)}
 			</Scroller>
-
-			<footer className={styles.footer}>
-				{hasIncoming ? (
-					<p className={classes("text-13", styles.footerText)}>
-						Your workspace is {incomingCount} {incomingCount === 1 ? "commit" : "commits"} behind
-						the upstream. Update to rebase all stacks at once.
-					</p>
-				) : (
-					hasIntegrated && (
-						<p className={classes("text-13", styles.footerText)}>
-							Integrated branches can be cleaned up by updating the workspace.
-						</p>
-					)
-				)}
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canUpdate}
-					onClick={onUpdateWorkspace}
-				>
-					{isUpdatePending ? "Updating…" : "Update workspace"}
-				</button>
-			</footer>
 		</div>
 	);
 };
