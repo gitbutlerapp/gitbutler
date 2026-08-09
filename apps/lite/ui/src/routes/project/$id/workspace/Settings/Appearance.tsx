@@ -98,7 +98,7 @@ export const Appearance: FC = () => {
 				<Row
 					label="File path first"
 					labelId="path-first"
-					hint="Lead each row with the directory rather than the file name."
+					hint="Lead each row with the directory rather than the file name. The tree gives the directory a row of its own, so this is for the list."
 				>
 					<Switch
 						aria-labelledby="path-first"

@@ -15,7 +15,7 @@
 	box-shadow: inset 0 0 0 var(--border-width) var(--border-2);
 	color: var(--text-2);
 
-	&:not([data-checked], :disabled, [data-disabled]) {
+	&:not([data-checked], [data-indeterminate], :disabled, [data-disabled]) {
 		&:hover {
 			box-shadow: inset 0 0 0 var(--border-width) var(--border-1);
 
@@ -25,7 +25,9 @@
 		}
 	}
 
-	&[data-checked] {
+	/* Indeterminate reads as filled like a checked box: it stands for a folder
+	   with some of its files checked, so it belongs on the checked side. */
+	&:is([data-checked], [data-indeterminate]) {
 		background-color: var(--fill-pop-bg);
 		box-shadow: inset 0 0 0 var(--border-width) var(--fill-pop-bg);
 		color: var(--fill-pop-fg);
@@ -46,7 +48,7 @@
 	&[data-disabled] {
 		cursor: not-allowed;
 
-		&:not([data-checked]) {
+		&:not([data-checked], [data-indeterminate]) {
 			background-color: color-mix(
 				in srgb,
 				var(--border-2) var(--disabled-opacity),
@@ -56,7 +58,7 @@
 				color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--resolved-bg));
 		}
 
-		&[data-checked] {
+		&:is([data-checked], [data-indeterminate]) {
 			background-color: color-mix(
 				in srgb,
 				var(--fill-pop-bg) var(--disabled-opacity),
@@ -80,4 +82,9 @@
 	transition:
 		opacity 0.08s ease,
 		transform 0.08s ease;
+}
+
+.checkbox:not([data-indeterminate]) .checkboxDash,
+.checkbox[data-indeterminate] .checkboxTick {
+	display: none;
 }

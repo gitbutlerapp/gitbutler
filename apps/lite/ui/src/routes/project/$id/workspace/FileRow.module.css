@@ -33,32 +33,6 @@
 	}
 }
 
-.iconWithCheckbox {
-	display: grid;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
-}
-
-.icon {
-	align-self: center;
-}
-
-.checkbox {
-	opacity: 0;
-
-	&[data-checked],
-	.row:hover &,
-	&:focus {
-		opacity: 1;
-	}
-
-	&[data-disabled] {
-		display: none;
-	}
-}
-
 .conflictIcon {
 	flex-shrink: 0;
 	margin-right: 2px;

@@ -12,6 +12,8 @@ export const defaultSettings = {
 	diffOverflow: "scroll",
 	diffStyle: "split",
 	diffTabSize: 4,
+	// Lite has always shown a flat list; the tree is the mode you opt into.
+	fileDisplayMode: "list",
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Lite has always led with the file name; desktop leads with the path.

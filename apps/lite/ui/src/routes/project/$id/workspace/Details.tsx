@@ -92,10 +92,17 @@ import {
 	pathMatchesFilter,
 	type FileRowItem,
 } from "./file-row.ts";
+import {
+	buildFileTreeRows,
+	fileTreeNavigationIndex,
+	selectedFilePath,
+	type FileDisplayMode,
+	type FileTreeRow,
+} from "./file-tree.ts";
+import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { FileFilterRow } from "./FileFilterRow.tsx";
 import { useFileFilter } from "./useFileFilter.ts";
 import { contiguousSelectionByLine, wholeHunkSelectionByLine } from "#ui/hunk.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -848,6 +855,31 @@ const DiffStyleToggleGroup: FC<
 	);
 };
 
+/**
+ * Kept whole and out of the component so the compiler can memoise the layout on
+ * its inputs; derived in render, the rows — and the navigation index built from
+ * them — take a fresh identity every time anything else about the pane changes.
+ *
+ * The filter narrows the file list only; the diff itself keeps every file, so
+ * the list stays a way of reaching a file rather than a way of hiding one.
+ */
+const buildFilesRows = ({
+	filesItems,
+	filter,
+	mode,
+	collapsedDirectories,
+}: {
+	filesItems: Array<FileRowItem>;
+	filter: string | null;
+	mode: FileDisplayMode;
+	collapsedDirectories: Record<string, true>;
+}): Array<FileTreeRow<FileRowItem>> =>
+	buildFileTreeRows({
+		items: filesItems.filter((item) => pathMatchesFilter(item.path, filter)),
+		mode,
+		collapsedDirectories,
+	});
+
 const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
@@ -893,14 +925,24 @@ const Diff: FC<{
 	const filesFilter = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesFilter(state, projectId),
 	);
-	// The filter narrows the file list only; the diff itself keeps every file, so
-	// the list stays a way of reaching a file rather than a way of hiding one.
-	const filteredFilesItems = filesItems.filter((item) => pathMatchesFilter(item.path, filesFilter));
-	const files = filteredFilesItems.map((item) => item.path);
-	const filesNavigationIndex: NavigationIndex<string> = {
-		items: files,
-		indexByKey: buildIndexByKey(files, (path) => path),
-	};
+	const fileDisplayMode = useFileDisplayMode();
+	const filesCollapsedDirectories = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesCollapsedDirectories(state, projectId),
+	);
+	// As with `fileParent` below, the compiler leaves this derivation outside its
+	// memo blocks here, and the rows carry the identity the file list and its
+	// navigation index are keyed on — so it is memoised by hand.
+	const filesRows = useMemo(
+		() =>
+			buildFilesRows({
+				filesItems,
+				filter: filesFilter,
+				mode: fileDisplayMode,
+				collapsedDirectories: filesCollapsedDirectories,
+			}),
+		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories],
+	);
+	const filesNavigationIndex = useMemo(() => fileTreeNavigationIndex(filesRows), [filesRows]);
 	const filesSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
 	);
@@ -935,7 +977,10 @@ const Diff: FC<{
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
 
-	const activeFilePath = selection._tag === "File" ? selection.path : filesSelection;
+	// A directory row stands for the first file below it, so the diff has
+	// something to show while the cursor rests on a folder.
+	const activeFilePath =
+		selection._tag === "File" ? selection.path : selectedFilePath(filesRows, filesSelection);
 
 	// Keyed on the file's index, not its path: scrolling moves the selection, so
 	// keying on path reparsed every file per boundary crossed. `null` is
@@ -980,10 +1025,11 @@ const Diff: FC<{
 		};
 	}, [diffSelection, diffViewSansAnno]);
 
-	const activateFile = (selection: string) => {
+	const activateRow = (selection: string) => {
 		onPassiveFileSelection(selection);
 
-		const file = diffViewSansAnno.fileByPath.get(selection);
+		const path = selectedFilePath(filesRows, selection);
+		const file = path === null ? undefined : diffViewSansAnno.fileByPath.get(path);
 		if (!file) return;
 
 		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
@@ -997,8 +1043,8 @@ const Diff: FC<{
 		inputId: "files-filter-input",
 		scope: "files",
 		selection: filesSelection,
-		firstPath: filteredFilesItems[0]?.path,
-		onEnterList: activateFile,
+		firstPath: filesRows[0]?.path,
+		onEnterList: activateRow,
 		panelRef: filesPanelRef,
 		listRef: filesTreeRef,
 		enabled: filesVisible && changes.length > 0,
@@ -1145,9 +1191,15 @@ const Diff: FC<{
 								>
 									<FilesTree
 										data-selection-scope={"files" satisfies SelectionScope}
-										onFileSelection={activateFile}
+										onRowSelection={activateRow}
 										projectId={projectId}
-										items={filteredFilesItems}
+										rows={filesRows}
+										collapsedDirectories={filesCollapsedDirectories}
+										onToggleDirectoryCollapsed={(path) =>
+											dispatch(
+												projectSlice.actions.toggleFilesDirectoryCollapsed({ projectId, path }),
+											)
+										}
 										selection={filesSelection}
 										navigationIndex={filesNavigationIndex}
 										fileParent={fileParent}

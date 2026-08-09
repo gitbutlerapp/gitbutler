@@ -67,7 +67,9 @@ import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { FileFilterRow } from "../FileFilterRow.tsx";
 import { useFileFilter } from "../useFileFilter.ts";
-import { getChangesFileRowItems, pathMatchesFilter } from "../file-row.ts";
+import { getChangesFileRowItems, pathMatchesFilter, type FileRowItem } from "../file-row.ts";
+import { buildFileTreeRows, type FileDisplayMode, type FileTreeRow } from "../file-tree.ts";
+import { useFileDisplayMode } from "../useFileDisplayMode.ts";
 import {
 	canRemoveBranchReference,
 	downstackPushStatusesFromSegments,
@@ -237,6 +239,30 @@ const OperandC: FC<
 	});
 };
 
+/**
+ * Laid out from the same source and settings as the navigation index the page
+ * builds, so the rows and the keys that move between them stay in step. Kept
+ * out of the component so the compiler memoises it on those inputs.
+ */
+const buildUncommittedFileRows = ({
+	worktreeChanges,
+	filter,
+	mode,
+	collapsedDirectories,
+}: {
+	worktreeChanges: WorktreeChanges | undefined;
+	filter: string | null;
+	mode: FileDisplayMode;
+	collapsedDirectories: Record<string, true>;
+}): Array<FileTreeRow<FileRowItem>> =>
+	buildFileTreeRows({
+		items: (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter((item) =>
+			pathMatchesFilter(item.path, filter),
+		),
+		mode,
+		collapsedDirectories,
+	});
+
 const UncommittedChanges: FC<{
 	navigationIndex: NavigationIndex<string>;
 	commitTarget: CommitTargetComboboxItem | null;
@@ -261,9 +287,16 @@ const UncommittedChanges: FC<{
 	const filter = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
 	);
-	const fileRowItems = (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter(
-		(item) => pathMatchesFilter(item.path, filter),
+	const fileDisplayMode = useFileDisplayMode();
+	const collapsedDirectories = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesCollapsedDirectories(state, projectId),
 	);
+	const fileRows = buildUncommittedFileRows({
+		worktreeChanges,
+		filter,
+		mode: fileDisplayMode,
+		collapsedDirectories,
+	});
 
 	const fileSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionUncommittedFiles(state, projectId, navigationIndex),
@@ -278,7 +311,7 @@ const UncommittedChanges: FC<{
 		inputId: "uncommitted-files-filter-input",
 		scope: "uncommitted-files",
 		selection: fileSelection,
-		firstPath: fileRowItems[0]?.path,
+		firstPath: fileRows[0]?.path,
 		onEnterList: onActiveFileSelection,
 		panelRef,
 		listRef: fileListRef,
@@ -318,9 +351,15 @@ const UncommittedChanges: FC<{
 							: "Nothing to commit"
 					}
 					fileParent={uncommittedChangesFileParent}
-					items={fileRowItems}
+					rows={fileRows}
+					collapsedDirectories={collapsedDirectories}
+					onToggleDirectoryCollapsed={(path) =>
+						dispatch(
+							projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({ projectId, path }),
+						)
+					}
 					navigationIndex={navigationIndex}
-					onFileSelection={onActiveFileSelection}
+					onRowSelection={onActiveFileSelection}
 					projectId={projectId}
 					ref={useMergedRefs(fileListRef, useAutofocusSelectionScope())}
 					selection={fileSelection}

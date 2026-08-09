@@ -18,7 +18,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, useRef } from "react";
+import { type ComponentProps, type CSSProperties, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -28,7 +28,10 @@ import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow } from "./FileRow.tsx";
+import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
+import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
+import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import {
 	useCommitUncommitChanges,
@@ -39,23 +42,31 @@ import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
 const useFilesTreeHotkeys = ({
-	checkFile,
+	checkRow,
 	navigationIndex,
-	onFileSelection,
+	onRowSelection,
 	projectId,
 	ref,
 	fileParent,
+	rows,
 	selection,
+	selectedRow,
 	selectedChange,
+	toggleDirectoryCollapsed,
+	collapsedDirectories,
 }: {
-	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
+	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
 	navigationIndex: NavigationIndex<string>;
-	onFileSelection: (selection: string) => void;
+	onRowSelection: (selection: string) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 	fileParent: FileParent;
+	rows: Array<FileTreeRow<FileRowItem>>;
 	selection: string | null;
+	selectedRow: FileTreeRow<FileRowItem> | undefined;
 	selectedChange: TreeChange | null;
+	toggleDirectoryCollapsed: (path: string) => void;
+	collapsedDirectories: Record<string, true>;
 }) => {
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
@@ -76,6 +87,12 @@ const useFilesTreeHotkeys = ({
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 	const selectedUncommittedChange =
 		fileParent._tag === "UncommittedChanges" ? selectedChange : null;
+
+	const selectedDirectory = selectedRow?._tag === "Directory" ? selectedRow : null;
+
+	// Only the two moves below want a position rather than a row, and only once a
+	// key is pressed — so the scan for it stays off the render path.
+	const rowIndex = (path: string): number => rows.findIndex((row) => row.path === path);
 
 	const absorbSelectedFile = () => {
 		if (selectedUncommittedChange === null) return;
@@ -99,14 +116,14 @@ const useFilesTreeHotkeys = ({
 		focusSelectionScope("outline");
 	};
 
-	const toggleSelectedFileChecked = (event: KeyboardEvent) => {
+	const toggleSelectedRowChecked = (event: KeyboardEvent) => {
 		if (selection === null) return;
 		// Leave activation of a directly focused checkbox to the checkbox itself.
 		if (event.target !== ref.current) return;
 
 		event.preventDefault();
 		event.stopPropagation();
-		checkFile({ path: selection, shiftKey: event.shiftKey });
+		checkRow({ path: selection, shiftKey: event.shiftKey });
 	};
 
 	const discardSelectedFile = () => {
@@ -128,6 +145,32 @@ const useFilesTreeHotkeys = ({
 		});
 	};
 
+	/** Open a collapsed directory, else step into it. A file has nowhere to go. */
+	const expandSelectedRow = () => {
+		if (selectedDirectory === null) return;
+
+		if (collapsedDirectories[selectedDirectory.path] === true) {
+			toggleDirectoryCollapsed(selectedDirectory.path);
+			return;
+		}
+
+		const child = rows[rowIndex(selectedDirectory.path) + 1];
+		if (child !== undefined && child.depth > selectedDirectory.depth) onRowSelection(child.path);
+	};
+
+	/** Close an open directory, else step out to the one this row sits in. */
+	const collapseSelectedRow = () => {
+		if (selectedDirectory !== null && collapsedDirectories[selectedDirectory.path] !== true) {
+			toggleDirectoryCollapsed(selectedDirectory.path);
+			return;
+		}
+
+		if (selectedRow === undefined) return;
+
+		const parent = parentDirectoryRow(rows, rowIndex(selectedRow.path));
+		if (parent !== null) onRowSelection(parent.path);
+	};
+
 	const canDiscardSelectedFile = selectedChange !== null && canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
@@ -147,7 +190,7 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.checkFile.hotkey,
-			callback: toggleSelectedFileChecked,
+			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
 				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
@@ -169,7 +212,7 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: "Shift+Space",
-			callback: toggleSelectedFileChecked,
+			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
 				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
@@ -211,13 +254,49 @@ const useFilesTreeHotkeys = ({
 				meta: changesFileHotkeys.uncommit.meta,
 			},
 		},
+		{
+			hotkey: "ArrowRight",
+			callback: expandSelectedRow,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedDirectory !== null,
+				target: ref,
+			},
+		},
+		{
+			hotkey: "L",
+			callback: expandSelectedRow,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedDirectory !== null,
+				target: ref,
+			},
+		},
+		{
+			hotkey: "ArrowLeft",
+			callback: collapseSelectedRow,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedRow !== undefined,
+				target: ref,
+			},
+		},
+		{
+			hotkey: "H",
+			callback: collapseSelectedRow,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedRow !== undefined,
+				target: ref,
+			},
+		},
 	]);
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		projectId,
 		group: "File",
-		select: onFileSelection,
+		select: onRowSelection,
 		selection,
 		ref,
 		getKey: (path) => path,
@@ -235,17 +314,21 @@ const useFilesTreeHotkeys = ({
 export const FilesTree: FC<
 	{
 		projectId: string;
-		items: Array<FileRowItem>;
+		rows: Array<FileTreeRow<FileRowItem>>;
+		collapsedDirectories: Record<string, true>;
+		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
-		onFileSelection: (selection: string) => void;
+		onRowSelection: (selection: string) => void;
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
 		emptyLabel?: string;
 	} & ComponentProps<"div">
 > = ({
-	items,
+	rows,
+	collapsedDirectories,
+	onToggleDirectoryCollapsed,
 	selection,
-	onFileSelection,
+	onRowSelection,
 	projectId,
 	navigationIndex,
 	fileParent,
@@ -264,6 +347,7 @@ export const FilesTree: FC<
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.pathFirst ?? defaultSettings.pathFirst,
 	});
+	const mode = useFileDisplayMode();
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
@@ -277,29 +361,76 @@ export const FilesTree: FC<
 
 	const fileCheckRangeAnchor = useRef<string>(null);
 	const fileCheckRangeEnd = useRef<string>(null);
-	const selectedItem =
-		selection === null ? undefined : items.find((item) => item.path === selection);
+	const rowByPath = new Map(rows.map((row) => [row.path, row]));
+	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
+	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
 	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
+
+	// The tree already names the directory a row sits under, so repeating it on
+	// the row itself would say it twice.
+	const pathDisplay =
+		mode === "tree" ? "hidden" : (pathFirst ?? defaultSettings.pathFirst) ? "lead" : "trail";
+
+	const isFileChecked = (path: string): boolean =>
+		checkedOperandKeys.has(operandIdentityKey(fileOperand({ parent: fileParent, path })));
+
+	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
+		const checkedCount = filePaths.filter((path) => isFileChecked(path)).length;
+		if (checkedCount === 0) return "unchecked";
+		return checkedCount === filePaths.length ? "checked" : "indeterminate";
+	};
 
 	const rangeResolver = navigationIndexRange<string, string>({
 		navigationIndex,
 		getKey: (path) => path,
-		filterMap: (path) => path,
+		// Range-checking runs over files; a directory caught in the middle of a
+		// range is passed over rather than checked as a path of its own.
+		filterMap: (path) => (rowByPath.get(path)?._tag === "Directory" ? null : path),
 	});
 	const getCheckedRange = checkedRange(rangeResolver);
 
-	const checkFile = ({ path, shiftKey }: { path: string; shiftKey: boolean }): void => {
+	const checkedFilePaths = (): Set<string> => {
 		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
 			store.getState(),
 			projectId,
 		);
-		const checkedFilePaths = new Set(
+		return new Set(
 			checkedOperands.flatMap((operand) =>
 				operand._tag === "File" && operandEquals(operand.parent, fileParent) ? operand.path : [],
 			),
 		);
+	};
+
+	const applyCheckedFiles = ({
+		previous,
+		next,
+	}: {
+		previous: Set<string>;
+		next: Set<string>;
+	}): void => {
+		const operands = (paths: Set<string>) =>
+			Array.from(paths, (path) => fileOperand({ parent: fileParent, path }));
+
+		dispatch(
+			projectSlice.actions.checkOperands({
+				projectId,
+				operands: operands(next.difference(previous)),
+				checked: true,
+			}),
+		);
+		dispatch(
+			projectSlice.actions.checkOperands({
+				projectId,
+				operands: operands(previous.difference(next)),
+				checked: false,
+			}),
+		);
+	};
+
+	const checkFile = ({ path, shiftKey }: { path: string; shiftKey: boolean }): void => {
+		const previous = checkedFilePaths();
 		const nextFileRange = getCheckedRange({
-			checked: checkedFilePaths,
+			checked: previous,
 			rangeAnchor: fileCheckRangeAnchor.current,
 			rangeEnd: fileCheckRangeEnd.current,
 		})({
@@ -310,33 +441,50 @@ export const FilesTree: FC<
 		fileCheckRangeAnchor.current = nextFileRange.rangeAnchor;
 		fileCheckRangeEnd.current = nextFileRange.rangeEnd;
 
-		const checkedFiles = nextFileRange.checked.difference(checkedFilePaths);
-		const uncheckedFiles = checkedFilePaths.difference(nextFileRange.checked);
-		dispatch(
-			projectSlice.actions.checkOperands({
-				projectId,
-				operands: Array.from(checkedFiles, (path) => fileOperand({ parent: fileParent, path })),
-				checked: true,
-			}),
-		);
-		dispatch(
-			projectSlice.actions.checkOperands({
-				projectId,
-				operands: Array.from(uncheckedFiles, (path) => fileOperand({ parent: fileParent, path })),
-				checked: false,
-			}),
-		);
+		applyCheckedFiles({ previous, next: nextFileRange.checked });
+	};
+
+	const checkDirectory = ({ path, checked }: { path: string; checked: boolean }): void => {
+		const row = rowByPath.get(path);
+		if (row?._tag !== "Directory") return;
+
+		// A directory stands for a set rather than a point, so it can't anchor a
+		// range the way a file does.
+		fileCheckRangeAnchor.current = null;
+		fileCheckRangeEnd.current = null;
+
+		const previous = checkedFilePaths();
+		const subject = new Set(row.filePaths);
+		applyCheckedFiles({
+			previous,
+			next: checked ? previous.union(subject) : previous.difference(subject),
+		});
+	};
+
+	/** Space and the row checkboxes both land here, whichever kind of row it is. */
+	const checkRow = ({ path, shiftKey }: { path: string; shiftKey: boolean }): void => {
+		const row = rowByPath.get(path);
+		if (row?._tag === "Directory") {
+			checkDirectory({ path, checked: directoryCheckedState(row.filePaths) !== "checked" });
+			return;
+		}
+
+		checkFile({ path, shiftKey });
 	};
 
 	useFilesTreeHotkeys({
-		checkFile,
+		checkRow,
 		navigationIndex,
-		onFileSelection,
+		onRowSelection,
 		projectId,
 		ref,
 		fileParent,
+		rows,
 		selection,
+		selectedRow,
 		selectedChange,
+		toggleDirectoryCollapsed: onToggleDirectoryCollapsed,
+		collapsedDirectories,
 	});
 
 	return (
@@ -348,7 +496,7 @@ export const FilesTree: FC<
 			className={classes(props.className, styles.tree)}
 			ref={useMergedRefs(refProp, ref)}
 		>
-			{items.length === 0 ? (
+			{rows.length === 0 ? (
 				<Row interactive={false}>
 					<RowLabelContainer>
 						<RowLabel className={rowStyles.fadedText}>{emptyLabel}</RowLabel>
@@ -357,18 +505,53 @@ export const FilesTree: FC<
 			) : (
 				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
 				<div role="group">
-					{items.map((item) => {
-						const operand = fileOperand({ parent: fileParent, path: item.path });
+					{rows.map((row) => {
+						const isSelected = selection !== null && selection === row.path;
+
+						if (row._tag === "Directory") {
+							const isCollapsed = collapsedDirectories[row.path] === true;
+
+							return (
+								<TreeItem
+									key={row.path}
+									row={row}
+									isSelected={isSelected}
+									isExpanded={!isCollapsed}
+									aria-label={`Directory ${row.path}`}
+									render={
+										<DirectoryRow
+											projectId={projectId}
+											path={row.path}
+											name={row.name}
+											fileCount={row.filePaths.length}
+											isCollapsed={isCollapsed}
+											isSelected={isSelected}
+											canCheck={canCheck}
+											checkedState={directoryCheckedState(row.filePaths)}
+											checkDirectory={checkDirectory}
+											onSelect={() => {
+												onRowSelection(row.path);
+												onToggleDirectoryCollapsed(row.path);
+											}}
+										/>
+									}
+								/>
+							);
+						}
+
+						const item = row.item;
+						const operand = fileOperand({ parent: fileParent, path: row.path });
+
 						return (
 							<TreeItem
-								key={item.path}
-								isSelected={selection !== null && selection === item.path}
+								key={row.path}
+								row={row}
+								isSelected={isSelected}
 								aria-label={
 									item._tag === "Change"
 										? `${item.change.status.type} ${item.change.path}`
 										: `Conflict ${item.path}`
 								}
-								path={item.path}
 								render={
 									<OperationSourceC
 										projectId={projectId}
@@ -377,11 +560,11 @@ export const FilesTree: FC<
 										render={
 											<FileRow
 												item={item}
-												pathFirst={pathFirst ?? defaultSettings.pathFirst}
-												inert={!navigationIndexIncludes(navigationIndex, item.path, (path) => path)}
-												isSelected={selection !== null && selection === item.path}
+												pathDisplay={pathDisplay}
+												inert={!navigationIndexIncludes(navigationIndex, row.path, (path) => path)}
+												isSelected={isSelected}
 												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}
-												onSelect={() => onFileSelection(item.path)}
+												onSelect={() => onRowSelection(row.path)}
 												canCheck={canCheck}
 												checkFile={checkFile}
 												projectId={projectId}
@@ -405,18 +588,30 @@ export const FilesTree: FC<
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
 
+// Spread so the object type widens to allow the custom property, as `Icon` does.
+const depthStyle = (depth: number): CSSProperties => ({ "--file-tree-depth": depth });
+
+/**
+ * One row of the flattened tree. Depth is reported rather than nested, which is
+ * what `aria-level` and its siblings are for: a screen reader still hears the
+ * shape a `role="group"` per directory would have given it.
+ */
 const TreeItem: FC<
 	{
-		path: string;
+		row: FileTreeRow<FileRowItem>;
 		isSelected: boolean;
+		isExpanded?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ path, isSelected, render, ...props }) =>
+> = ({ row, isSelected, isExpanded, render, ...props }) =>
 	useRender({
 		render,
 		defaultTagName: "div",
 		props: mergeProps<"div">(props, {
-			id: treeItemId(path),
+			id: treeItemId(row.path),
 			role: "treeitem",
 			"aria-selected": isSelected,
+			"aria-expanded": isExpanded,
+			"aria-level": row.depth + 1,
+			style: depthStyle(row.depth),
 		}),
 	});

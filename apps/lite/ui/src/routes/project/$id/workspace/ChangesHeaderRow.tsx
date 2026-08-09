@@ -21,6 +21,7 @@ import { ChangeStats } from "./ChangeStats.tsx";
 import type { LineStats } from "./lineStats.ts";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { RowToolbar, SectionHeaderRow } from "./Row.tsx";
+import { FileDisplayModeToggle } from "./FileDisplayModeToggle.tsx";
 
 export const ChangesHeaderRow: FC<{
 	projectId: string;
@@ -103,13 +104,17 @@ export const ChangesHeaderRow: FC<{
 			actions={
 				<Toolbar.Root aria-label="Changes actions" render={<RowToolbar forceVisible />}>
 					{changes.length > 0 && (
-						<Toolbar.Button
-							aria-label="Filter files"
-							onClick={onOpenFilter}
-							className={getRowButtonClassName({ size: "regular", iconOnly: true })}
-						>
-							<Icon name="search" />
-						</Toolbar.Button>
+						<>
+							<FileDisplayModeToggle />
+
+							<Toolbar.Button
+								aria-label="Filter files"
+								onClick={onOpenFilter}
+								className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+							>
+								<Icon name="search" />
+							</Toolbar.Button>
+						</>
 					)}
 
 					<Toolbar.Button

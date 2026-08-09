@@ -88,6 +88,16 @@ type WorkspaceState = {
 	 */
 	uncommittedFilesFilter: string | null;
 	filesFilter: string | null;
+	/**
+	 * Directories whose contents the tree view hides, keyed by directory path.
+	 *
+	 * Collapsed rather than expanded, as with {@link WorkspaceState.foldedSegments}:
+	 * a tree opens showing everything, so it is the hiding that is worth recording.
+	 * One set per list, as with the filters — the two lists hold different files
+	 * and each is somewhere the user is looking separately.
+	 */
+	uncommittedFilesCollapsedDirectories: Record<string, true>;
+	filesCollapsedDirectories: Record<string, true>;
 };
 
 const createInitialSelectionState = (): SelectionState => ({
@@ -107,6 +117,8 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	selection: createInitialSelectionState(),
 	uncommittedFilesFilter: null,
 	filesFilter: null,
+	uncommittedFilesCollapsedDirectories: {},
+	filesCollapsedDirectories: {},
 });
 
 export type OutlineTab = "workspace" | "upstream" | "branches";
@@ -485,6 +497,16 @@ export const projectReducers = {
 
 		workspaceState.filesFilter = filter;
 	},
+	toggleUncommittedFilesDirectoryCollapsed: (state: ProjectState, { path }: { path: string }) => {
+		const collapsed = state.workspace.uncommittedFilesCollapsedDirectories;
+		if (collapsed[path]) delete collapsed[path];
+		else collapsed[path] = true;
+	},
+	toggleFilesDirectoryCollapsed: (state: ProjectState, { path }: { path: string }) => {
+		const collapsed = state.workspace.filesCollapsedDirectories;
+		if (collapsed[path]) delete collapsed[path];
+		else collapsed[path] = true;
+	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string }) => {
 		branchesReducers.setSearch(state.branches, { search });
 	},
@@ -579,6 +601,10 @@ export const projectSelectors = {
 	selectDetailsSelectionScope: (state: ProjectState) => state.workspace.detailsSelectionScope,
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectFilesFilter: (state: ProjectState) => state.workspace.filesFilter,
+	selectUncommittedFilesCollapsedDirectories: (state: ProjectState) =>
+		state.workspace.uncommittedFilesCollapsedDirectories,
+	selectFilesCollapsedDirectories: (state: ProjectState) =>
+		state.workspace.filesCollapsedDirectories,
 	selectSelectionUncommittedFiles: (
 		state: ProjectState,
 		navigationIndex: NavigationIndex<string>,
