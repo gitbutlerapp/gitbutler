@@ -52,7 +52,9 @@ const useIsSelected = (projectId: string, operand: Operand): boolean =>
  * the commit rows hang off.
  */
 const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
-	<Row interactive={false}>
+	// Presentational within the tree: only the commit rows are `treeitem`s, so
+	// everything else the card draws is excluded from the tree's children.
+	<Row role="none" interactive={false}>
 		<GraphSegment glyph="forkRight" status="Upstream" />
 		<RowLabelContainer>
 			<RowLabel heading singleLine title={label}>
@@ -144,7 +146,7 @@ const UpstreamBranchRow: FC<{ item: UpstreamBranchItem; glyph: GraphSegmentGlyph
 	item,
 	glyph,
 }) => (
-	<Row interactive={false}>
+	<Row role="none" interactive={false}>
 		<GraphSegment glyph={glyph} status={item.integrated ? "Integrated" : "LocalOnly"} />
 		<div className={styles.label}>
 			<RowLabelContainer>
@@ -178,7 +180,7 @@ const SegmentExpanderRow: FC<{
 	const dispatch = useAppDispatch();
 
 	return (
-		<div className={styles.expanderRow}>
+		<div role="none" className={styles.expanderRow}>
 			<div className={styles.expanderRail}>
 				{/* The stacked rings stand in for the commits while they are folded
 				    away; once they are on screen the rail just runs past the toggle. */}
@@ -223,7 +225,7 @@ const UpdateBlock: FC<{
 	const messageClassName = classes("text-12", "text-body", rowStyles.fadedText);
 
 	return (
-		<div className={styles.updateBlock}>
+		<div role="none" className={styles.updateBlock}>
 			<GraphSegment glyph="parent" status="Upstream" />
 			<div className={styles.updateBlockBody}>
 				{incomingCount > 0 ? (
@@ -292,7 +294,7 @@ const listItem = (
 		case "branch":
 			return (
 				<UpstreamBranchRow
-					key={item.name}
+					key={`${item.stackKey}/${item.name}`}
 					item={item}
 					glyph={isFirstBranch ? "forkRight" : "joinRight"}
 				/>
@@ -401,15 +403,19 @@ export const UpstreamList: FC<
 					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}
 
 					{isError && (
-						<p className={classes("text-13", styles.message)}>Unable to load incoming commits.</p>
+						<p role="none" className={classes("text-13", styles.message)}>
+							Unable to load incoming commits.
+						</p>
 					)}
 
 					{!isError && isPending && items.length === 0 && (
-						<p className={classes("text-13", styles.message)}>Loading incoming commits…</p>
+						<p role="none" className={classes("text-13", styles.message)}>
+							Loading incoming commits…
+						</p>
 					)}
 
 					{!isError && !isPending && targetLabel === null && (
-						<p className={classes("text-13", styles.message)}>
+						<p role="none" className={classes("text-13", styles.message)}>
 							No target branch is configured for this project.
 						</p>
 					)}
