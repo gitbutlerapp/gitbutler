@@ -1,0 +1,17 @@
+.resizeHandle {
+	background-color: var(--border-section);
+
+	/* A horizontal group (side-by-side panels) reports a vertical separator. */
+	&[aria-orientation="vertical"] {
+		width: 1px;
+	}
+
+	&[aria-orientation="horizontal"] {
+		height: 1px;
+	}
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-1);
+	}
+}

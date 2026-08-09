@@ -18,6 +18,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
+import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -32,7 +33,7 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Activity, useDeferredValue, useRef } from "react";
-import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
@@ -653,7 +654,7 @@ const WorkspacePage: FC = () => {
 							onActiveFileSelection={onActiveUncommittedFileSelection}
 						/>
 					</Panel>
-					<Separator className={styles.resizeHandle} />
+					<ResizeHandle />
 				</Activity>
 
 				<Panel
