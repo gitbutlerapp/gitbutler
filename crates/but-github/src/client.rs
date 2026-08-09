@@ -1251,17 +1251,6 @@ impl GitHubClient {
             variables: &'a V,
         }
 
-        #[derive(Deserialize)]
-        struct GraphQlError {
-            message: String,
-        }
-
-        #[derive(Deserialize)]
-        struct GraphQlResponse<T> {
-            data: Option<T>,
-            errors: Option<Vec<GraphQlError>>,
-        }
-
         let url = graphql_endpoint_from_base_url(&self.base_url);
 
         let response = self
@@ -1275,23 +1264,47 @@ impl GitHubClient {
             bail!("GitHub GraphQL request failed: {}", response.status());
         }
 
-        let payload: GraphQlResponse<T> = response.json().await?;
-
-        if let Some(errors) = payload.errors {
-            let messages = errors
-                .into_iter()
-                .map(|error| error.message)
-                .collect::<Vec<_>>()
-                .join("; ");
-            bail!("GitHub GraphQL returned errors: {messages}");
-        }
-
-        let Some(data) = payload.data else {
-            bail!("GitHub GraphQL response did not include data");
-        };
-
-        Ok(data)
+        decode_graphql_response(&response.bytes().await?)
     }
+}
+
+/// Decode a GraphQL response body into `T`.
+///
+/// `data` is typed only once `errors` has been ruled out. GitHub reports a
+/// refused mutation as a null field *inside* `data` alongside `errors`, so
+/// typing the two together fails on that null and loses the message saying
+/// why it was refused.
+fn decode_graphql_response<T>(body: &[u8]) -> Result<T>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    #[derive(Deserialize)]
+    struct GraphQlError {
+        message: String,
+    }
+
+    #[derive(Deserialize)]
+    struct GraphQlResponse {
+        data: Option<serde_json::Value>,
+        errors: Option<Vec<GraphQlError>>,
+    }
+
+    let payload: GraphQlResponse = serde_json::from_slice(body)?;
+
+    if let Some(errors) = payload.errors {
+        let messages = errors
+            .into_iter()
+            .map(|error| error.message)
+            .collect::<Vec<_>>()
+            .join("; ");
+        bail!("GitHub GraphQL returned errors: {messages}");
+    }
+
+    let Some(data) = payload.data else {
+        bail!("GitHub GraphQL response did not include data");
+    };
+
+    Ok(serde_json::from_value(data)?)
 }
 
 pub struct PullRequestNodeId {
@@ -2003,6 +2016,54 @@ mod tests {
             err.downcast_ref::<HttpStatusError>().is_some(),
             "token-expiry classification reads the status through the body context"
         );
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct AutoMergePayload {
+        #[serde(rename = "enablePullRequestAutoMerge")]
+        #[allow(dead_code)]
+        enable_pull_request_auto_merge: PullRequestRef,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct PullRequestRef {
+        id: String,
+    }
+
+    #[test]
+    fn graphql_refusal_reports_githubs_message_not_a_decoding_failure() {
+        // How GitHub refuses a mutation: the field it would have returned is
+        // null, and the reason is in `errors`.
+        let body = br#"{"data":{"enablePullRequestAutoMerge":null},"errors":[{"message":"Pull request Auto merge is not allowed for this repository"}]}"#;
+
+        let err = decode_graphql_response::<AutoMergePayload>(body)
+            .expect_err("a refused mutation is an error");
+
+        assert_eq!(
+            err.to_string(),
+            "GitHub GraphQL returned errors: Pull request Auto merge is not allowed for this repository",
+            "the reason reaches the caller instead of `invalid type: null, expected struct`"
+        );
+    }
+
+    #[test]
+    fn graphql_success_still_decodes_into_the_payload_type() {
+        let body = br#"{"data":{"enablePullRequestAutoMerge":{"pullRequest":{"id":"PR_1"}}}}"#;
+
+        #[derive(Deserialize)]
+        struct Wrapper {
+            #[serde(rename = "enablePullRequestAutoMerge")]
+            inner: Inner,
+        }
+        #[derive(Deserialize)]
+        struct Inner {
+            #[serde(rename = "pullRequest")]
+            pull_request: PullRequestRef,
+        }
+
+        let decoded: Wrapper =
+            decode_graphql_response(body).expect("a successful mutation decodes");
+        assert_eq!(decoded.inner.pull_request.id, "PR_1");
     }
 
     #[test]
