@@ -16,7 +16,7 @@ use but_core::{
     ui::{CommitState, PushStatus},
 };
 use but_graph::workspace::commit::is_managed_workspace_by_message;
-use gix::prelude::ObjectIdExt;
+use gix::{prelude::ObjectIdExt, refs::FullNameRef};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
@@ -270,10 +270,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 
     /// The target commit's node, if a target is configured and present.
-    fn target_selector(&self) -> Option<Selector> {
+    pub fn target_selector(&self) -> Option<Selector> {
         let target = self.workspace.graph.project_meta.target_commit_id?;
         let selector = self.try_select_commit(target)?;
         self.history.normalize_selector(selector).ok()
+    }
+
+    /// The target ref.
+    pub fn target_ref(&self) -> Option<&FullNameRef> {
+        self.workspace
+            .graph
+            .project_meta
+            .target_ref
+            .as_ref()
+            .map(|r| r.as_ref())
     }
 
     /// Compute the per-reference status for every local-branch reference in the
