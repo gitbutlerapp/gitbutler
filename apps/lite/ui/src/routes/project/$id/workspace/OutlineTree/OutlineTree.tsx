@@ -337,7 +337,7 @@ const UncommittedChanges: FC<{
 				viewportClassName={styles.uncommittedChangesTree}
 			>
 				<FilesTree
-					data-selection-scope={"uncommitted-files" satisfies SelectionScope}
+					selectionScope="uncommitted-files"
 					onFocus={() =>
 						dispatch(
 							projectSlice.actions.setDetailsSelectionScope({

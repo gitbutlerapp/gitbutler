@@ -35,7 +35,7 @@ export const TreeStepsToggle: FC<{ isCollapsed: boolean } & ComponentProps<"butt
 	<button
 		type="button"
 		// The tree moves with the arrow keys rather than Tab, and the same fold is
-		// on ArrowLeft/ArrowRight, so this stays out of the tab order.
+		// on the z hotkey, so this stays out of the tab order.
 		tabIndex={-1}
 		{...props}
 		aria-expanded={!isCollapsed}

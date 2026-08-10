@@ -22,7 +22,11 @@ import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import {
+	focusSelectionScope,
+	useNavigationIndexHotkeys,
+	type SelectionScope,
+} from "#ui/selection-scopes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -53,7 +57,6 @@ const useFilesTreeHotkeys = ({
 	selectedRow,
 	selectedChange,
 	toggleDirectoryCollapsed,
-	collapsedDirectories,
 }: {
 	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
 	navigationIndex: NavigationIndex<string>;
@@ -66,11 +69,11 @@ const useFilesTreeHotkeys = ({
 	selectedRow: FileTreeRow<FileRowItem> | undefined;
 	selectedChange: TreeChange | null;
 	toggleDirectoryCollapsed: (path: string) => void;
-	collapsedDirectories: Record<string, true>;
 }) => {
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
+	const mode = useFileDisplayMode();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...guiSettingsQueryOptions,
@@ -87,12 +90,6 @@ const useFilesTreeHotkeys = ({
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 	const selectedUncommittedChange =
 		fileParent._tag === "UncommittedChanges" ? selectedChange : null;
-
-	const selectedDirectory = selectedRow?._tag === "Directory" ? selectedRow : null;
-
-	// Only the two moves below want a position rather than a row, and only once a
-	// key is pressed — so the scan for it stays off the render path.
-	const rowIndex = (path: string): number => rows.findIndex((row) => row.path === path);
 
 	const absorbSelectedFile = () => {
 		if (selectedUncommittedChange === null) return;
@@ -145,30 +142,26 @@ const useFilesTreeHotkeys = ({
 		});
 	};
 
-	/** Open a collapsed directory, else step into it. A file has nowhere to go. */
-	const expandSelectedRow = () => {
-		if (selectedDirectory === null) return;
-
-		if (collapsedDirectories[selectedDirectory.path] === true) {
-			toggleDirectoryCollapsed(selectedDirectory.path);
-			return;
-		}
-
-		const child = rows[rowIndex(selectedDirectory.path) + 1];
-		if (child !== undefined && child.depth > selectedDirectory.depth) onRowSelection(child.path);
-	};
-
-	/** Close an open directory, else step out to the one this row sits in. */
-	const collapseSelectedRow = () => {
-		if (selectedDirectory !== null && collapsedDirectories[selectedDirectory.path] !== true) {
-			toggleDirectoryCollapsed(selectedDirectory.path);
-			return;
-		}
-
+	/**
+	 * A directory row folds or unfolds itself; a file row folds the directory it
+	 * sits in, handing it the selection so the selection stays visible. A file at
+	 * the tree root has nothing to fold.
+	 */
+	const toggleFoldSelectedRow = () => {
 		if (selectedRow === undefined) return;
 
-		const parent = parentDirectoryRow(rows, rowIndex(selectedRow.path));
-		if (parent !== null) onRowSelection(parent.path);
+		if (selectedRow._tag === "Directory") {
+			toggleDirectoryCollapsed(selectedRow.path);
+			return;
+		}
+
+		const parent = parentDirectoryRow(
+			rows,
+			rows.findIndex((row) => row.path === selectedRow.path),
+		);
+		if (parent === null) return;
+		onRowSelection(parent.path);
+		toggleDirectoryCollapsed(parent.path);
 	};
 
 	const canDiscardSelectedFile = selectedChange !== null && canDiscard;
@@ -255,39 +248,15 @@ const useFilesTreeHotkeys = ({
 			},
 		},
 		{
-			hotkey: "ArrowRight",
-			callback: expandSelectedRow,
+			hotkey: changesFileHotkeys.toggleFoldDirectory.hotkey,
+			callback: toggleFoldSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedDirectory !== null,
+				// Folding is a view operation, so it stays available in every outline
+				// mode. Flat list mode has no directory rows, nothing to fold.
+				enabled: mode === "tree" && selectedRow !== undefined,
 				target: ref,
-			},
-		},
-		{
-			hotkey: "L",
-			callback: expandSelectedRow,
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedDirectory !== null,
-				target: ref,
-			},
-		},
-		{
-			hotkey: "ArrowLeft",
-			callback: collapseSelectedRow,
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedRow !== undefined,
-				target: ref,
-			},
-		},
-		{
-			hotkey: "H",
-			callback: collapseSelectedRow,
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedRow !== undefined,
-				target: ref,
+				meta: changesFileHotkeys.toggleFoldDirectory.meta,
 			},
 		},
 	]);
@@ -321,6 +290,8 @@ export const FilesTree: FC<
 		onRowSelection: (selection: string) => void;
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
+		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
+		selectionScope: SelectionScope;
 		emptyLabel?: string;
 	} & ComponentProps<"div">
 > = ({
@@ -332,6 +303,7 @@ export const FilesTree: FC<
 	projectId,
 	navigationIndex,
 	fileParent,
+	selectionScope,
 	emptyLabel = "No changes.",
 	ref: refProp,
 	...props
@@ -484,12 +456,12 @@ export const FilesTree: FC<
 		selectedRow,
 		selectedChange,
 		toggleDirectoryCollapsed: onToggleDirectoryCollapsed,
-		collapsedDirectories,
 	});
 
 	return (
 		<div
 			{...props}
+			data-selection-scope={selectionScope}
 			tabIndex={0}
 			role="tree"
 			aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
@@ -526,11 +498,24 @@ export const FilesTree: FC<
 											fileCount={row.filePaths.length}
 											depth={row.depth}
 											isCollapsed={isCollapsed}
-											onToggleCollapsed={() => onToggleDirectoryCollapsed(row.path)}
+											onToggleCollapsed={() => {
+												// Collapsing over the selection hides it, and it would
+												// fall back to the first row: hand it to the directory
+												// row, as the z hotkey does. Other toggles leave the
+												// selection (and the details pane it drives) alone.
+												if (
+													!isCollapsed &&
+													selection !== null &&
+													(selection === row.path || selection.startsWith(`${row.path}/`))
+												)
+													onRowSelection(row.path);
+												onToggleDirectoryCollapsed(row.path);
+											}}
 											isSelected={isSelected}
 											canCheck={canCheck}
 											checkedState={directoryCheckedState(row.filePaths)}
 											checkDirectory={checkDirectory}
+											selectionScope={selectionScope}
 											onSelect={() => onRowSelection(row.path)}
 										/>
 									}
@@ -569,6 +554,7 @@ export const FilesTree: FC<
 												checkFile={checkFile}
 												projectId={projectId}
 												fileParent={fileParent}
+												selectionScope={selectionScope}
 												branchNameByCommitId={(commitId) =>
 													headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
 														?.displayName

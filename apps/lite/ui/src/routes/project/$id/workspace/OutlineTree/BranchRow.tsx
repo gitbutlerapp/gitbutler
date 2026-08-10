@@ -9,6 +9,7 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	forgeInfoOptions,
+	headInfoQueryOptions,
 	listCIChecksQueryOptions,
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -34,7 +35,8 @@ import {
 import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import {
@@ -46,6 +48,7 @@ import {
 	RowToolbar,
 } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
+import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
@@ -127,6 +130,10 @@ export const BranchRow: FC<
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const { data: reviews } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
@@ -146,6 +153,7 @@ export const BranchRow: FC<
 		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const branchOperandV: BranchOperand = {
 		branchRef: refName.fullNameBytes,
 	};
@@ -315,7 +323,39 @@ export const BranchRow: FC<
 			? "Force Push Branch"
 			: "Push Branch";
 
+	const foldLabel = isFolded ? "Unfold commits" : "Fold commits";
+	const toggleFolded = () => {
+		// Hand the selection over only when folding would hide it — the selected
+		// commit sits in this segment. Unrelated selections (and the details pane
+		// they drive) stay put.
+		const stored = projectSlice.selectors.selectPrimaryOutlineSelection(
+			store.getState(),
+			projectId,
+		);
+		const storedSegmentRef =
+			stored?._tag === "Commit"
+				? headInfoIndex?.commitContextByCommitId(stored.commitId)?.segment.refName
+				: undefined;
+		const foldHidesSelection =
+			!isFolded &&
+			storedSegmentRef != null &&
+			decodeBytes(storedSegmentRef.fullNameBytes) === branchRef;
+
+		toggleFoldedSegment(dispatch, {
+			projectId,
+			branchRefBytes: refName.fullNameBytes,
+			select: foldHidesSelection,
+		});
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: isFolded ? "Unfold Commits" : "Fold Commits",
+			enabled: commitCount > 0,
+			accelerator: toElectronAccelerator(outlineHotkeys.toggleFoldBranch.hotkey),
+			onSelect: toggleFolded,
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: pushMenuLabel,
 			enabled: !workspaceBranchAndAncestorsPushDisabled,
@@ -389,19 +429,37 @@ export const BranchRow: FC<
 			}}
 		>
 			{commitCount > 0 ? (
-				<RowFoldToggle
-					folded={isFolded}
-					aria-label={isFolded ? "Unfold commits" : "Fold commits"}
-					onClick={() =>
-						dispatch(projectSlice.actions.toggleSegmentFolded({ projectId, branchRef }))
-					}
-					glyph={
-						// The glyph describes where the branch sits in the stack, so it
-						// does not change with fold state.
-						<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
-					}
-					foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
-				/>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						aria-label={foldLabel}
+						onClick={toggleFolded}
+						render={
+							<RowFoldToggle
+								folded={isFolded}
+								glyph={
+									// The glyph describes where the branch sits in the stack, so it
+									// does not change with fold state.
+									<GraphSegment
+										glyph={isTopSegment ? "forkRight" : "joinRight"}
+										status={graphStatus}
+									/>
+								}
+								foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
+							/>
+						}
+					/>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={4}>
+							<Tooltip.Popup
+								render={
+									<TooltipPopup kbd={outlineHotkeys.toggleFoldBranch.hotkey} kbdScope="outline" />
+								}
+							>
+								{foldLabel}
+							</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
 			) : (
 				<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
 			)}
@@ -524,6 +582,7 @@ export const BranchRow: FC<
 													render={
 														<TooltipPopup
 															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+															kbdScope="outline"
 														/>
 													}
 												>
