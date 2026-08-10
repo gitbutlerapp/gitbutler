@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_api::resolve::{
-    FileResolution, HunkResolution, ResolutionResponse, resolve_commit_conflicts_with,
+    FileResolution, HunkContent, ResolutionResponse, resolve_commit_conflicts_with,
 };
 use but_core::DryRun;
 use gitbutler_oplog::OplogExt as _;
@@ -14,15 +14,18 @@ fn conflicted_context() -> Result<(but_ctx::Context, gix::ObjectId, tempfile::Te
     Ok((ctx, conflicted_commit, tmp))
 }
 
-fn merged_response(path: &str, content: &str) -> ResolutionResponse {
+fn merged_response(path: &str, contents: &[&str]) -> ResolutionResponse {
     ResolutionResponse {
-        summary: Some("### Conflicting changes\nBoth sides changed line two.".into()),
+        summary: Some("### Conflicting changes\nBoth sides changed lines two and six.".into()),
         resolutions: vec![FileResolution {
             path: path.into(),
-            hunks: vec![HunkResolution {
-                resolved_content: content.into(),
-            }],
-            reasoning: "Combined both changes of line two.".into(),
+            hunks: contents
+                .iter()
+                .map(|content| HunkContent {
+                    resolved_content: (*content).into(),
+                })
+                .collect(),
+            reasoning: "Combined both sides of each change.".into(),
         }],
     }
 }
@@ -36,7 +39,7 @@ fn resolves_conflicted_commit_and_rebases_descendants() -> Result<()> {
             assert_eq!(request.files.len(), 1, "one conflicted file expected");
             let file = &request.files[0];
             assert_eq!(file.path, "conflict");
-            assert_eq!(file.hunks.len(), 1, "one conflict hunk expected");
+            assert_eq!(file.hunks.len(), 2, "two conflict hunks expected");
             let hunk = &file.hunks[0];
             assert_eq!(hunk.ours, "line two changed by the new base");
             assert_eq!(hunk.theirs, "line two changed by this commit");
@@ -45,10 +48,14 @@ fn resolves_conflicted_commit_and_rebases_descendants() -> Result<()> {
                 Some("line two"),
                 "diff3 markers should carry the common ancestor"
             );
+            assert_eq!(file.hunks[1].ours, "line six changed by the new base");
             assert!(request.commit_message.contains("Change line two"));
             Ok(merged_response(
                 "conflict",
-                "line two changed by both sides",
+                &[
+                    "line two changed by both sides",
+                    "line six changed by both sides",
+                ],
             ))
         })?;
 
@@ -73,7 +80,7 @@ fn resolves_conflicted_commit_and_rebases_descendants() -> Result<()> {
             .object()?;
         assert_eq!(
             resolved_blob.data.as_slice(),
-            b"line one\nline two changed by both sides\nline three\n"
+            b"line one\nline two changed by both sides\nline three\nline four\nline five\nline six changed by both sides\nline seven\n"
         );
         let untouched_blob = repo
             .rev_parse_single(format!("{}:file", result.new_commit).as_str())?
@@ -99,7 +106,7 @@ fn resolves_conflicted_commit_and_rebases_descendants() -> Result<()> {
             .object()?;
         assert_eq!(
             descendant_conflict.data.as_slice(),
-            b"line one\nline two changed by both sides\nline three\n",
+            b"line one\nline two changed by both sides\nline three\nline four\nline five\nline six changed by both sides\nline seven\n",
             "the descendant must inherit the resolution"
         );
         let descendant_later = repo
@@ -135,14 +142,14 @@ fn invalid_response_is_retried_once_then_fails_without_changes() -> Result<()> {
     let err = resolve_commit_conflicts_with(&mut ctx, conflicted_commit, DryRun::No, |_request| {
         calls.set(calls.get() + 1);
         // Wrong path: never matches the requested file.
-        Ok(merged_response("wrong-path", "content"))
+        Ok(merged_response("wrong-path", &["content", "content"]))
     })
     .unwrap_err();
 
     assert_eq!(calls.get(), 2, "the model must be retried exactly once");
     assert!(
-        err.to_string().contains("conflict"),
-        "error should name the file: {err}"
+        err.to_string().contains("wrong-path"),
+        "error should name the unrequested path: {err}"
     );
 
     let repo = ctx.repo.get()?;
@@ -161,7 +168,10 @@ fn resolution_with_leaked_markers_is_rejected() -> Result<()> {
     let err = resolve_commit_conflicts_with(&mut ctx, conflicted_commit, DryRun::No, |_request| {
         Ok(merged_response(
             "conflict",
-            "<<<<<<< ours\nstill conflicted\n=======\noops\n>>>>>>> theirs",
+            &[
+                "<<<<<<< ours\nstill conflicted\n=======\noops\n>>>>>>> theirs",
+                "fine",
+            ],
         ))
     })
     .unwrap_err();

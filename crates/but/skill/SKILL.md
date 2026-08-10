@@ -163,11 +163,26 @@ If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a 
 
 **NEVER use `git add`, `git commit`, `git checkout --theirs/--ours`, or any git write command during resolution.** Only `but resolve` commands plus direct file edits.
 
-1. Find conflicted commits: history-editing commands (`move`, `discard`, …) warn about newly conflicted commits in their output, and the `but pull` summary lists them oldest-first; otherwise `but status` marks them.
-2. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
-3. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
-4. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status.
-5. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
+Conflicts do not interrupt operations in GitButler: a rebase always completes, and commits that conflicted are marked `{conflicted}` in `but status`. Find them from the warning that history-editing commands (`move`, `discard`, …) print, from the `but pull` summary, or from `but status`. Resolve them one conflict at a time, without entering any mode. Work through one branch at a time, oldest commit first — the loop is:
+
+1. `but resolve conflicts <branch>` — shows the conflicts of that branch's oldest conflicted commit, numbered per file. Each conflict has three sections: `ours` (the new base the commit was rebased onto), `base` (common ancestor), and `theirs` (the commit's own version). Without a branch it picks the first conflicted branch and tells you which; the output also says when other conflicted commits exist.
+2. Apply one resolution per command:
+   - Merged/mixed content (the common case — combine the intent of both sides): pipe it to `but resolve apply <path>:<N>` via stdin (heredoc) or pass `--file <f>`. The content replaces the whole conflicted region; never include conflict markers.
+   - Take a side entirely: `but resolve apply <path>:<N> --ours` or `--theirs` (bare `<path>` applies the side to all conflicts in that file).
+   - Delegate one conflict to the configured AI model: `but resolve apply <path>:<N> --ai` — prefer your own merged content when you have the context.
+   - `apply` targets the same default commit as `conflicts`; when more than one branch is conflicted, pin it with `--commit <branch>`.
+3. Go back to step 1 until it reports no conflicts. Commit ids are not stable here — every apply rewrites the commit — but branch names are, so address everything by branch and never bookkeep commit ids. Partial progress is fine: a commit with unresolved conflicts left stays `{conflicted}` with exactly those conflicts.
+
+A wrong resolution is reverted with `but undo`.
+
+`but resolve <commit-id> --ai` resolves a whole commit with the configured AI model in one shot, and `but resolve --ai` without a commit resolves every conflicted commit, oldest first — acceptable as a fallback, but you usually have better context than that model does, so prefer resolving the conflicts yourself with `apply`.
+
+**Use edit mode only when you must run code against the resolution** (build/tests at that commit):
+
+1. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
+2. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
+3. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Cancel instead with `but resolve cancel`.
+4. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
 
 ### Conflicts in uncommitted files
 

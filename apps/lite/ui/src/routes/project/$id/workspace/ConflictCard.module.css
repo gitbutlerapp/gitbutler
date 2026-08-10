@@ -1,0 +1,59 @@
+.wrapper {
+	display: flex;
+	flex-direction: column;
+	max-width: 100ch;
+	margin: 12px;
+	padding: 18px;
+	gap: 12px;
+	border-radius: var(--radius-card);
+	border-top-left-radius: 0;
+	background: var(--bg-1);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.title {
+	font-weight: bold;
+}
+
+.side {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: 4px;
+}
+
+.label {
+	color: var(--text-2);
+}
+
+.content {
+	margin: 0;
+	padding: 8px 10px;
+	overflow-x: auto;
+	border-radius: var(--radius-m);
+	background: var(--bg-2);
+	white-space: pre;
+}
+
+/* Shiki wraps its output in its own <pre> with an inline background. Keep its
+   token colours, drop the frame — the card already provides one. */
+.content :global(pre) {
+	margin: 0;
+	padding: 0;
+	background: transparent !important;
+}
+
+.hint {
+	color: var(--text-2);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}

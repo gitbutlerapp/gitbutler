@@ -1356,6 +1356,51 @@ export const useCommitReword = () => {
 	});
 };
 
+/**
+ * Resolve some of a conflicted commit's conflicts. Every apply rewrites the
+ * commit, so the reply carries the replaced ids that `syncCoreCaches` feeds to
+ * the store — selection and checked operands follow the new commit on their own,
+ * and the conflicts query re-reads under the new id.
+ */
+export const useResolveCommitConflictHunks = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.resolveCommitConflictHunks,
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			// The conflicts that remain renumber, so a check made against the old
+			// numbering would address a different conflict from the one clicked.
+			dispatch(projectSlice.actions.clearCheckedConflicts({ projectId: input.projectId }));
+
+			// A commit with a manual-only file left is still conflicted, however
+			// many hunks were resolved, so both lists must be empty to be done.
+			if (response.remaining.length === 0 && response.manual.length === 0) {
+				toastManager.add({
+					type: "success",
+					title: "All conflicts resolved",
+					description: response.commitEmptied
+						? "The commit keeps nothing of its own now, so it no longer changes anything. Undo from the operations history if that wasn't the intent."
+						: "The commit is no longer conflicted.",
+					priority: "low",
+				});
+			}
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to resolve the conflict",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 export const useCommitUncommit = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
