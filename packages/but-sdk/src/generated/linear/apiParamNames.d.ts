@@ -9,6 +9,7 @@ export declare const apiParamNames: {
 	readonly apply: readonly ["projectId", "existingBranch"];
 	readonly applyBranchIntegration: readonly ["projectId", "branch", "integration", "dryRun"];
 	readonly assignHunk: readonly ["projectId", "assignments"];
+	readonly branchCannedName: readonly ["projectId"];
 	readonly branchCheckout: readonly ["projectId", "branch"];
 	readonly branchCheckoutNew: readonly ["projectId", "name"];
 	readonly branchCreate: readonly ["projectId", "newRef", "placement"];

@@ -9,6 +9,7 @@ export const apiParamNames = {
 	apply: ["projectId", "existingBranch"],
 	applyBranchIntegration: ["projectId", "branch", "integration", "dryRun"],
 	assignHunk: ["projectId", "assignments"],
+	branchCannedName: ["projectId"],
 	branchCheckout: ["projectId", "branch"],
 	branchCheckoutNew: ["projectId", "name"],
 	branchCreate: ["projectId", "newRef", "placement"],
