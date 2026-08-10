@@ -1,4 +1,4 @@
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FC } from "react";
 import {
 	bitbucketAccountsQueryOptions,
@@ -181,9 +181,13 @@ const githubKind = (type: string): string =>
 	type === "oAuthUsername" ? "OAuth" : type === "enterprise" ? "Enterprise" : "Access token";
 
 export const Integrations: FC = () => {
-	const { data: github } = useSuspenseQuery(githubAccountsQueryOptions);
-	const { data: gitlab } = useSuspenseQuery(gitlabAccountsQueryOptions);
-	const { data: bitbucket } = useSuspenseQuery(bitbucketAccountsQueryOptions);
+	const [{ data: github }, { data: gitlab }, { data: bitbucket }] = useSuspenseQueries({
+		queries: [
+			githubAccountsQueryOptions,
+			gitlabAccountsQueryOptions,
+			bitbucketAccountsQueryOptions,
+		],
+	});
 
 	const forgetGithub = useForgetGithubAccount();
 	const forgetGitlab = useForgetGitlabAccount();

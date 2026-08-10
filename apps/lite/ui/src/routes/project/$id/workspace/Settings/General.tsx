@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FC } from "react";
 import {
@@ -6,6 +6,7 @@ import {
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
 	terminalsQueryOptions,
+	userProfileQueryOptions,
 } from "#ui/api/queries.ts";
 import { useDeleteAllData, useSaveGUISettings } from "#ui/api/mutations.ts";
 import { AccountSection } from "./Account.tsx";
@@ -16,10 +17,21 @@ import styles from "./General.module.css";
 import { Row, Section } from "./Section.tsx";
 
 export const General: FC = () => {
-	const { data: editors } = useSuspenseQuery(listEditorsQueryOptions);
-	const { data: terminals } = useSuspenseQuery(terminalsQueryOptions);
-	const { data: settings } = useSuspenseQuery(guiSettingsQueryOptions);
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const [
+		{ data: editors },
+		{ data: terminals },
+		{ data: settings },
+		{ data: projects },
+		{ data: profile },
+	] = useSuspenseQueries({
+		queries: [
+			listEditorsQueryOptions,
+			terminalsQueryOptions,
+			guiSettingsQueryOptions,
+			listProjectsQueryOptions,
+			userProfileQueryOptions,
+		],
+	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 	const { isPending: isRemoving, mutate: deleteAllData } = useDeleteAllData();
 	const navigate = useNavigate();
@@ -34,7 +46,7 @@ export const General: FC = () => {
 
 	return (
 		<>
-			<AccountSection />
+			<AccountSection profile={profile} />
 
 			<Section>
 				<Row label="Default editor" htmlFor="editor">
