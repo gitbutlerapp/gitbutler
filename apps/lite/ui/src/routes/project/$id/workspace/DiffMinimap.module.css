@@ -41,7 +41,9 @@
 
 .minimap {
 	/* Mixed towards the background the way the diff tints its own changed rows,
-	   just further, since a mark can be a single pixel tall. */
+	   just further, since a mark can be a single pixel tall. This is the colour
+	   at full coverage — a pixel every line reaches — and coverage fades from
+	   here as fewer of them do. */
 	--minimap-additions: color-mix(in lab, var(--bg-1) 62%, var(--fill-safe-bg));
 	--minimap-deletions: color-mix(in lab, var(--bg-1) 62%, var(--fill-danger-bg));
 	/* Recessive enough to read as the page the changes are written on, not as a

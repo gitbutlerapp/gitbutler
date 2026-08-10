@@ -1059,6 +1059,7 @@ const Diff: FC<{
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
 			diffTabSize: cfg.diffTabSize,
+			minimap: cfg.minimap,
 		}),
 	});
 
@@ -1087,18 +1088,32 @@ const Diff: FC<{
 		? -1
 		: changes.findIndex((change) => change.path === activeFilePath);
 
+	const minimapShown = diffSettings?.minimap ?? defaultSettings.minimap;
+	// Modelling the map reads every line of the diff, so a ruler nobody asked for
+	// shouldn't be parsed for either.
 	const minimapFiles = useMemo(
 		() =>
-			getMinimapFiles({
-				fileParent,
-				changes: shownIndex < 0 ? changes : changes.slice(shownIndex, shownIndex + 1),
-				treeChangeDiffs:
-					shownIndex < 0 ? treeChangeDiffs : treeChangeDiffs.slice(shownIndex, shownIndex + 1),
-				diffStyle,
-				tabSize,
-				wrapColumns,
-			}),
-		[shownIndex, fileParent, changes, treeChangeDiffs, diffStyle, tabSize, wrapColumns],
+			minimapShown
+				? getMinimapFiles({
+						fileParent,
+						changes: shownIndex < 0 ? changes : changes.slice(shownIndex, shownIndex + 1),
+						treeChangeDiffs:
+							shownIndex < 0 ? treeChangeDiffs : treeChangeDiffs.slice(shownIndex, shownIndex + 1),
+						diffStyle,
+						tabSize,
+						wrapColumns,
+					})
+				: [],
+		[
+			minimapShown,
+			shownIndex,
+			fileParent,
+			changes,
+			treeChangeDiffs,
+			diffStyle,
+			tabSize,
+			wrapColumns,
+		],
 	);
 
 	useHotkeys([
@@ -1287,13 +1302,15 @@ const Diff: FC<{
 							didScrollToViaFileRef={didScrollToViaFileRef}
 						/>
 
-						<DiffMinimap
-							viewerRef={viewerRef}
-							files={minimapFiles}
-							diffStyle={diffStyle}
-							annotationsByPath={annotationsByPath}
-							selection={minimapSelection}
-						/>
+						{minimapShown && (
+							<DiffMinimap
+								viewerRef={viewerRef}
+								files={minimapFiles}
+								diffStyle={diffStyle}
+								annotationsByPath={annotationsByPath}
+								selection={minimapSelection}
+							/>
+						)}
 					</div>
 				</Panel>
 			</Group>
