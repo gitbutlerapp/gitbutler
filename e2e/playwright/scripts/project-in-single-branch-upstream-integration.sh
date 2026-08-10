@@ -53,6 +53,23 @@ case "$scenario" in
     ;;
   rebase)
     ;;
+  empty-integrated)
+    git checkout -b empty-integrated-branch
+    echo "empty integrated branch" > empty_integrated_branch.txt
+    git add empty_integrated_branch.txt
+    git commit -m "empty-integrated: branch commit"
+    git checkout master
+    git merge --no-ff -m "empty-integrated: merge branch" empty-integrated-branch
+    ;;
+  local-only-empty)
+    git checkout -b local-only-empty-source
+    echo "local only empty branch" > local_only_empty_branch.txt
+    git add local_only_empty_branch.txt
+    git commit -m "local-only-empty: branch commit"
+    git checkout master
+    git merge --no-ff -m "local-only-empty: merge branch" local-only-empty-source
+    git branch -D local-only-empty-source
+    ;;
   *)
     echo "Unknown scenario: $scenario" >&2
     exit 1
@@ -94,6 +111,15 @@ case "$scenario" in
   rebase)
     "$BUT" apply rebased-single-branch
     git checkout rebased-single-branch
+    ;;
+  empty-integrated)
+    "$BUT" apply empty-integrated-branch
+    git checkout empty-integrated-branch
+    ;;
+  local-only-empty)
+    git branch local-only-empty-branch master^2
+    "$BUT" apply local-only-empty-branch
+    git checkout local-only-empty-branch
     ;;
 esac
 popd
