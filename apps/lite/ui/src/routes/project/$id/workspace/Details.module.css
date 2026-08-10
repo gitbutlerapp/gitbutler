@@ -351,6 +351,9 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
+	/* Match the branch header's tabs row (regular button height) so both
+	   header variants end at the same line. */
+	min-height: 28px;
 	gap: 8px;
 	color: var(--text-3);
 }
