@@ -41,6 +41,8 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 
+const pluralRules = new Intl.PluralRules("en");
+
 // oxlint-disable-next-line typescript/no-explicit-any
 type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
 type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
@@ -1447,7 +1449,7 @@ export const useWorkspaceIntegrateUpstream = () => {
 
 			toastManager.add({
 				type: "error",
-				title: input.updates.length === 1 ? "Failed to update stack" : "Failed to update stacks",
+				title: `Failed to update stack${pluralRules.select(input.updates.length) === "one" ? "" : "s"}`,
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

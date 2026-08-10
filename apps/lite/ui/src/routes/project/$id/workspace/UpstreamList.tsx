@@ -43,6 +43,8 @@ import type {
 } from "./useUpstreamOutline.ts";
 import styles from "./UpstreamList.module.css";
 
+const pluralRules = new Intl.PluralRules("en");
+
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
 	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryUpstreamSelection);
 
@@ -204,7 +206,9 @@ const SegmentExpanderRow: FC<{
 					dispatch(projectSlice.actions.toggleUpstreamSegment({ projectId, segmentId }))
 				}
 			>
-				{expanded ? "hide commits" : `${count} ${count === 1 ? "commit" : "commits"} between`}
+				{expanded
+					? "hide commits"
+					: `${count} commit${pluralRules.select(count) === "one" ? "" : "s"} between`}
 			</Button>
 		</div>
 	);
@@ -230,8 +234,8 @@ const UpdateBlock: FC<{
 			<div className={styles.updateBlockBody}>
 				{incomingCount > 0 ? (
 					<p className={messageClassName}>
-						Your workspace is {incomingCount} {incomingCount === 1 ? "commit" : "commits"} behind
-						the upstream.
+						Your workspace is {incomingCount} commit
+						{pluralRules.select(incomingCount) === "one" ? "" : "s"} behind the upstream.
 						<br />
 						Rebase to update all stacks at once.
 					</p>

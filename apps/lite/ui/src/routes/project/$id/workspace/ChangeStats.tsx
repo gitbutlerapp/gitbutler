@@ -6,7 +6,7 @@ import type { FC } from "react";
 import styles from "./ChangeStats.module.css";
 import type { LineStats } from "./lineStats.ts";
 
-const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+const pluralRules = new Intl.PluralRules("en");
 
 /**
  * File count and added/removed line totals for a set of changes.
@@ -21,10 +21,18 @@ export const ChangeStats: FC<{
 	// The file count is the only genuinely ambiguous number — a green +N next to a red -N reads
 	// as added/removed lines on sight — so the tooltip only explains that one. Screen readers
 	// get the full wording instead, since the colours carry no meaning for them.
-	const description = `${plural(fileCount, "file")} changed`;
+	const description = `${fileCount} file${pluralRules.select(fileCount) === "one" ? "" : "s"} changed`;
 	const spoken = [description];
-	if (lineStats.linesAdded > 0) spoken.push(`${plural(lineStats.linesAdded, "line")} added`);
-	if (lineStats.linesRemoved > 0) spoken.push(`${plural(lineStats.linesRemoved, "line")} removed`);
+	if (lineStats.linesAdded > 0) {
+		spoken.push(
+			`${lineStats.linesAdded} line${pluralRules.select(lineStats.linesAdded) === "one" ? "" : "s"} added`,
+		);
+	}
+	if (lineStats.linesRemoved > 0) {
+		spoken.push(
+			`${lineStats.linesRemoved} line${pluralRules.select(lineStats.linesRemoved) === "one" ? "" : "s"} removed`,
+		);
+	}
 
 	return (
 		<Tooltip.Root>
