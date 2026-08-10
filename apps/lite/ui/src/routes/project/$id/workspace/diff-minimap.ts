@@ -585,7 +585,14 @@ export const getMinimapLayout = (
 	const window = viewer.getHeight();
 	const scale = mapScale(total, track);
 	const mapHeight = total * scale;
-	const lensHeight = Math.min(Math.max(window * scale, LENS_MIN_HEIGHT), track);
+	// Against the ruler, which ends where the map does, rather than against the
+	// pane: a diff shorter than the window maps to less than a window's worth of
+	// ruler, and a lens taller than the ruler it sits in would hang out of the
+	// box and set the pane scrolling.
+	const lensHeight = Math.min(
+		Math.max(window * scale, LENS_MIN_HEIGHT),
+		Math.min(track, mapHeight),
+	);
 
 	// A map with room to spare keeps the lens over its own place on it; one
 	// taller than the track keeps the lens on the track and winds the map under.
