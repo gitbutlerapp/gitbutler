@@ -29,7 +29,7 @@ import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx"
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesOutline } from "#ui/routes/project/$id/workspace/useBranchesOutline.ts";
-import { ProjectFolderIcon } from "#ui/routes/project/$id/workspace/ProjectFolderIcon.tsx";
+import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
 import type { UpstreamOutline } from "#ui/routes/project/$id/workspace/useUpstreamOutline.ts";
 import { assert } from "#ui/assert.ts";
@@ -320,7 +320,7 @@ export const Outline: FC<{
 								)}
 								onClick={openProjectPicker}
 							>
-								<ProjectFolderIcon className={styles.workspaceNameFolder} />
+								<FolderIcon className={styles.workspaceNameFolder} />
 								<span className={styles.workspaceNameLabel}>{project.title}</span>
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
