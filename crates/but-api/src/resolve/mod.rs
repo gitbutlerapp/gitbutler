@@ -34,7 +34,7 @@ mod context;
 mod prompt;
 
 pub use apply::normalize_path;
-pub use context::{ConflictHunk, FileConflict, ResolutionRequest};
+pub use context::{ConflictHunk, FileConflict, ManualConflict, ResolutionRequest};
 pub use prompt::{FileResolution, HunkContent, ResolutionResponse, SYSTEM_PROMPT};
 
 /// The conflicts of a conflicted commit, as per-file hunks.
@@ -42,8 +42,12 @@ pub use prompt::{FileResolution, HunkContent, ResolutionResponse, SYSTEM_PROMPT}
 pub struct CommitConflicts {
     /// The conflicted commit.
     pub commit_id: gix::ObjectId,
-    /// The conflicted files, sorted by path.
+    /// The conflicted files that decompose into hunks, sorted by path.
     pub files: Vec<ConflictedFile>,
+    /// Conflicted files that have no hunk representation and so cannot be
+    /// resolved through this API at all. They need edit mode, and the commit
+    /// stays conflicted until they are dealt with there.
+    pub manual: Vec<ManualConflict>,
 }
 
 /// One conflicted file and its conflicts, in file order.
@@ -53,11 +57,11 @@ pub struct CommitConflicts {
 pub struct ConflictedFile {
     /// The repo-relative path of the file.
     pub path: String,
-    /// The file's change from the current base's version (*ours*) to the
-    /// commit's own version (*theirs*). Regular commit diffs are computed
-    /// against the auto-resolution, which keeps the base's version wherever
-    /// there is a conflict — so this is the change to diff to actually see
-    /// the conflicted content.
+    /// The file's change from the commit's parent to its intended result: the
+    /// merge with every conflict taking the commit's side. The old side is the
+    /// parent's actual content, so clean edits attribute as in any diff; the
+    /// new side is not applied — the commit fell back to the parent at every
+    /// conflict — which the caller should say next to each conflict hunk.
     pub change: but_core::ui::TreeChange,
     /// The conflicts of the file; hunks are addressed by their 1-based
     /// position in this list.
@@ -76,7 +80,7 @@ but_schemars::register_sdk_type!(ConflictedFile);
 /// result. Fails for commits whose conflicts have no hunk representation
 /// (deletions/renames, binaries, oversized files, marker-like content) — those
 /// need manual resolution in edit mode.
-#[but_api(try_from = crate::resolve::json::CommitConflicts)]
+#[but_api(napi, try_from = crate::resolve::json::CommitConflicts)]
 #[instrument(err(Debug))]
 pub fn commit_conflicts(
     ctx: &but_ctx::Context,
@@ -89,21 +93,49 @@ pub fn commit_conflicts(
     // A non-conflicted commit has no conflicts — a valid answer for a read
     // API. Clients routinely race a query against a commit that was just
     // resolved, and that must not surface as an error.
-    if !but_core::Commit::from_id(commit_id.attach(&repo))?.is_conflicted() {
+    let commit = but_core::Commit::from_id(commit_id.attach(&repo))?;
+    if !commit.is_conflicted() {
         return Ok(CommitConflicts {
             commit_id,
             files: Vec::new(),
+            manual: Vec::new(),
         });
     }
     let request = context::build_request(&repo, commit_id)?;
     let ours_tree = repo.find_tree(request.ours_tree_id)?;
     let theirs_tree = repo.find_tree(request.theirs_tree_id)?;
+    // No resolutions picked: every conflict keeps the requested side.
+    let no_picks = std::collections::BTreeMap::new();
     let files = request
         .files
         .into_iter()
         .map(|file| {
-            let previous_state = conflict_side_state(&ours_tree, &file.rela_path)?;
-            let state = conflict_side_state(&theirs_tree, &file.rela_path)?;
+            // Both sides are present for every file build_request() returns;
+            // side deletions bail to manual resolution there.
+            let previous_state =
+                conflict_side_state(&ours_tree, &file.rela_path)?.with_context(|| {
+                    format!(
+                        "Conflicted path {:?} is missing from the parent's tree",
+                        file.rela_path
+                    )
+                })?;
+            let theirs_state =
+                conflict_side_state(&theirs_tree, &file.rela_path)?.with_context(|| {
+                    format!(
+                        "Conflicted path {:?} is missing from the commit's tree",
+                        file.rela_path
+                    )
+                })?;
+            // The intended result: the merge with every conflict taking the
+            // commit's side. Against the parent, clean edits by either side
+            // cancel or attribute correctly, each conflict reads fallback →
+            // intended, anchors count lines in it, and — blob for blob — it is
+            // what the file becomes if every conflict resolves to `Theirs`.
+            let intended = apply::synthesize_side(&file, &no_picks, apply::SideKind::Theirs)?;
+            let state = but_core::ui::ChangeState {
+                id: repo.write_blob(intended.as_bytes())?.detach(),
+                kind: theirs_state.kind,
+            };
             let flags = match (previous_state.kind, state.kind) {
                 (EntryKind::Blob, EntryKind::BlobExecutable) => {
                     Some(but_core::ui::ModeFlags::ExecutableBitAdded)
@@ -131,23 +163,21 @@ pub fn commit_conflicts(
     Ok(CommitConflicts {
         commit_id: request.commit_id,
         files,
+        manual: request.manual,
     })
 }
 
-/// The blob of a conflicted path on one side of the conflict. Both sides are
-/// present for every file that [`context::build_request()`] returns — side
-/// deletions bail to manual resolution there.
+/// The blob of a conflicted path in one of the conflict's trees, if present.
 fn conflict_side_state(
     tree: &gix::Tree<'_>,
     rela_path: &bstr::BString,
-) -> anyhow::Result<but_core::ui::ChangeState> {
-    let entry = tree
+) -> anyhow::Result<Option<but_core::ui::ChangeState>> {
+    Ok(tree
         .lookup_entry(rela_path.split(|byte| *byte == b'/'))?
-        .with_context(|| format!("Conflicted path {rela_path:?} is missing from a side tree"))?;
-    Ok(but_core::ui::ChangeState {
-        id: entry.object_id(),
-        kind: entry.mode().kind(),
-    })
+        .map(|entry| but_core::ui::ChangeState {
+            id: entry.object_id(),
+            kind: entry.mode().kind(),
+        }))
 }
 
 /// How to resolve a single conflict hunk.
@@ -213,9 +243,13 @@ pub struct HunkResolutionResult {
     /// Whether the fully resolved commit ended up with the same tree as its
     /// parent — the resolutions dropped all of its changes.
     pub commit_emptied: bool,
-    /// The conflicts that remain, per file. Empty when the commit is fully
-    /// resolved.
+    /// The conflicts that remain, per file. Empty when every hunk-addressable
+    /// conflict is resolved.
     pub remaining: Vec<RemainingConflicts>,
+    /// Conflicted files this API cannot address at all. The commit stays
+    /// conflicted while this is non-empty, however many hunks were resolved,
+    /// so a caller reporting "fully resolved" must check both lists.
+    pub manual: Vec<ManualConflict>,
     /// Workspace state after the apply.
     pub workspace: WorkspaceState,
 }
@@ -231,7 +265,7 @@ pub struct HunkResolutionResult {
 /// [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
 /// worktree lock is held during the model call); AI configuration is only
 /// required when such a spec is present.
-#[but_api(try_from = crate::resolve::json::HunkResolutionResult)]
+#[but_api(napi, try_from = crate::resolve::json::HunkResolutionResult)]
 #[instrument(skip(specs), err(Debug))]
 pub fn resolve_commit_conflict_hunks(
     ctx: &mut but_ctx::Context,
@@ -308,6 +342,7 @@ pub fn resolve_commit_conflict_hunks_with(
         resolved,
         commit_emptied: applied.commit_emptied,
         remaining: applied.remaining,
+        manual: request.manual,
         workspace: applied.workspace,
     })
 }
@@ -349,6 +384,8 @@ fn resolve_ai_specs(
         base_tree_id: request.base_tree_id,
         ours_tree_id: request.ours_tree_id,
         theirs_tree_id: request.theirs_tree_id,
+        // The model only ever sees the hunks it was asked to merge.
+        manual: Vec::new(),
         files: targets_per_file
             .iter()
             .map(|(&file_index, targets)| {
@@ -476,6 +513,17 @@ pub fn resolve_commit_conflicts_with(
         let repo = ctx.repo.get()?;
         context::build_request(&repo, commit_id)?
     };
+    // This path promises a fully resolved commit, so a file the model cannot be
+    // shown is a hard stop rather than something to leave behind — unlike
+    // `resolve_commit_conflict_hunks()`, which resolves what it is asked to and
+    // leaves the rest conflicted by design.
+    if let Some(file) = request.manual.first() {
+        bail!(
+            "The conflict in \"{}\" cannot be resolved automatically: {} Resolve this commit in edit mode instead.",
+            file.path,
+            file.reason
+        );
+    }
 
     // The model call happens without any worktree lock; the request is plain
     // data and the apply step below re-reads the workspace under the exclusive
@@ -624,8 +672,10 @@ pub mod json {
         /// The conflicted commit.
         #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         pub commit_id: HexHash,
-        /// The conflicted files, sorted by path.
+        /// The conflicted files that decompose into hunks, sorted by path.
         pub files: Vec<super::ConflictedFile>,
+        /// Conflicted files that need manual resolution in edit mode.
+        pub manual: Vec<super::ManualConflict>,
     }
 
     #[cfg(feature = "export-schema")]
@@ -635,10 +685,15 @@ pub mod json {
         type Error = anyhow::Error;
 
         fn try_from(value: super::CommitConflicts) -> Result<Self, Self::Error> {
-            let super::CommitConflicts { commit_id, files } = value;
+            let super::CommitConflicts {
+                commit_id,
+                files,
+                manual,
+            } = value;
             Ok(Self {
                 commit_id: commit_id.into(),
                 files,
+                manual,
             })
         }
     }
@@ -661,6 +716,8 @@ pub mod json {
         pub commit_emptied: bool,
         /// The conflicts that remain, per file.
         pub remaining: Vec<super::RemainingConflicts>,
+        /// Conflicted files that need manual resolution in edit mode.
+        pub manual: Vec<super::ManualConflict>,
         /// Workspace state after the apply.
         pub workspace: crate::json::WorkspaceState,
     }
@@ -678,6 +735,7 @@ pub mod json {
                 resolved,
                 commit_emptied,
                 remaining,
+                manual,
                 workspace,
             } = value;
             Ok(Self {
@@ -686,6 +744,7 @@ pub mod json {
                 resolved,
                 commit_emptied,
                 remaining,
+                manual,
                 workspace: workspace.try_into()?,
             })
         }

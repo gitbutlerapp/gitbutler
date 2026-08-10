@@ -31,7 +31,9 @@ pub(crate) struct AppliedResolution {
     /// Whether the fully resolved commit ended up with the same tree as its
     /// parent, i.e. the resolutions dropped all of its changes.
     pub commit_emptied: bool,
-    /// The conflicts that remain per file; empty when fully resolved.
+    /// The conflicts that remain per file; empty when every addressable
+    /// conflict is resolved. The commit can still be conflicted with `manual`
+    /// files even when this is empty.
     pub remaining: Vec<RemainingConflicts>,
     /// Workspace state after the apply.
     pub workspace: WorkspaceState,
@@ -96,7 +98,23 @@ pub(crate) fn locate_hunk(
 ) -> anyhow::Result<(usize, usize)> {
     let &file_index = files_by_path
         .get(&normalize_path(path))
-        .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
+        .with_context(|| {
+            // Naming the reason matters here: the file *is* conflicted, it just
+            // has no hunks to address, so "not a conflicted file" would read as
+            // a caller mistake rather than a property of the conflict.
+            let normalized = normalize_path(path);
+            match request
+                .manual
+                .iter()
+                .find(|file| normalize_path(&file.path) == normalized)
+            {
+                Some(file) => format!(
+                    "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
+                    file.reason
+                ),
+                None => format!("\"{path}\" is not a conflicted file of this commit"),
+            }
+        })?;
     let file = &request.files[file_index];
     if hunk == 0 || hunk > file.hunks.len() {
         bail!(
@@ -159,7 +177,7 @@ pub fn normalize_path(path: &str) -> String {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum SideKind {
+pub(crate) enum SideKind {
     Ours,
     Theirs,
 }
@@ -172,7 +190,7 @@ enum SideKind {
 /// untouched outside resolved regions. Inserted custom-content lines use the
 /// file's dominant EOL, and a single trailing newline on such content is
 /// dropped since the block's own terminator is preserved.
-fn synthesize_side(
+pub(crate) fn synthesize_side(
     file: &FileConflict,
     picks: &BTreeMap<usize, HunkPick>,
     side: SideKind,
@@ -335,7 +353,9 @@ pub(crate) fn apply(
             })
         })
         .collect();
-    if unresolved && remaining.is_empty() {
+    // Only holds when every conflict was hunk-addressable: a file in `manual`
+    // is never narrowed, so it keeps conflicting however many hunks were resolved.
+    if unresolved && remaining.is_empty() && request.manual.is_empty() {
         bail!(
             "BUG: all conflicts of commit {} were resolved, yet re-merging the narrowed trees still conflicts",
             request.commit_id
@@ -524,6 +544,7 @@ mod tests {
             ours_tree_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
             theirs_tree_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
             files,
+            manual: Vec::new(),
         }
     }
 

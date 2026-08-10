@@ -9,7 +9,7 @@ fn conflicted_context() -> Result<(but_ctx::Context, gix::ObjectId, tempfile::Te
     let (repo, tmp) = crate::support::writable_scenario("resolve-ai-conflicted-commit");
     crate::support::persist_default_target(&repo)?;
     let conflicted_commit = repo.rev_parse_single("refs/tags/conflicted")?.detach();
-    let ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+    let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     Ok((ctx, conflicted_commit, tmp))
 }
 
@@ -38,7 +38,9 @@ fn conflicts_are_listed_without_entering_edit_mode() -> Result<()> {
     assert_eq!(file.hunks[1].ours, "line six changed by the new base");
     assert_eq!(file.hunks[1].context_after, "line seven\n");
 
-    // The synthetic change diffs the base's version against the commit's own.
+    // The synthetic change is parent → the intended result: the removed side
+    // is what is applied, the added side is what the commit meant and could
+    // not apply.
     let repo = ctx.repo.get()?;
     assert_eq!(file.change.path, "conflict");
     let but_core::ui::TreeStatus::Modification {
@@ -52,8 +54,14 @@ fn conflicts_are_listed_without_entering_edit_mode() -> Result<()> {
     let content = |id: gix::ObjectId| -> Result<String> {
         Ok(String::from_utf8(repo.find_blob(id)?.data.clone())?)
     };
-    assert!(content(previous_state.id)?.contains("changed by the new base"));
-    assert!(content(state.id)?.contains("changed by this commit"));
+    let previous = content(previous_state.id)?;
+    assert!(
+        previous.contains("changed by the new base"),
+        "the removed side is the parent, i.e. what is actually applied: {previous:?}"
+    );
+    let intended = content(state.id)?;
+    assert!(intended.contains("changed by this commit"));
+    assert!(!intended.contains("<<<<<<<"), "never marker text");
 
     // Read-only: the commit and the workspace are untouched.
     let commit = but_core::Commit::from_id(conflicted_commit.attach(&repo))?;
@@ -316,5 +324,99 @@ fn conflicts_of_a_normal_commit_are_empty_not_an_error() -> Result<()> {
     let conflicts = commit_conflicts(&ctx, normal_commit)?;
     assert_eq!(conflicts.commit_id, normal_commit);
     assert!(conflicts.files.is_empty());
+    Ok(())
+}
+
+fn mixed_conflicted_context() -> Result<(but_ctx::Context, gix::ObjectId, tempfile::TempDir)> {
+    let (repo, tmp) = crate::support::writable_scenario("resolve-mixed-conflicted-commit");
+    crate::support::persist_default_target(&repo)?;
+    let conflicted_commit = repo.rev_parse_single("refs/tags/conflicted")?.detach();
+    let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    Ok((ctx, conflicted_commit, tmp))
+}
+
+/// A conflict with no hunk representation used to fail the whole request, which
+/// hid every other conflict in the commit behind it — and left a caller with no
+/// edit mode, like lite, with nothing at all to show.
+#[test]
+fn a_conflict_without_hunks_is_reported_not_fatal() -> Result<()> {
+    let (ctx, conflicted_commit, _tmp) = mixed_conflicted_context()?;
+
+    let conflicts = commit_conflicts(&ctx, conflicted_commit)?;
+
+    // The text conflict is still fully addressable.
+    assert_eq!(
+        conflicts.files.len(),
+        1,
+        "the binary must not suppress the file that does decompose into hunks"
+    );
+    assert_eq!(conflicts.files[0].path, "conflict");
+    assert_eq!(conflicts.files[0].hunks.len(), 2);
+
+    // The binary is named, with a reason to show the user.
+    assert_eq!(conflicts.manual.len(), 1);
+    assert_eq!(conflicts.manual[0].path, "binary");
+    assert!(
+        conflicts.manual[0].reason.contains("binary"),
+        "reason should say why, got {:?}",
+        conflicts.manual[0].reason
+    );
+    Ok(())
+}
+
+/// Resolving every addressable hunk still leaves the commit conflicted when a
+/// manual-only file remains, so the result must say so rather than reporting a
+/// clean commit — and must not trip the "all resolved yet still conflicting"
+/// invariant, which only holds when every conflict was addressable.
+#[test]
+fn resolving_every_hunk_leaves_a_manual_conflict_behind() -> Result<()> {
+    let (mut ctx, conflicted_commit, _tmp) = mixed_conflicted_context()?;
+
+    let result = resolve_commit_conflict_hunks(
+        &mut ctx,
+        conflicted_commit,
+        vec![
+            spec("conflict", 1, HunkResolution::Theirs),
+            spec("conflict", 2, HunkResolution::Theirs),
+        ],
+    )?;
+
+    assert_eq!(result.resolved, 2);
+    assert!(
+        result.remaining.is_empty(),
+        "every hunk-addressable conflict was resolved"
+    );
+    assert_eq!(
+        result.manual.len(),
+        1,
+        "the binary is still unresolved, so the commit is not done"
+    );
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        but_core::Commit::from_id(result.new_commit.attach(&repo))?.is_conflicted(),
+        "a commit with a manual conflict left stays conflicted"
+    );
+    Ok(())
+}
+
+/// Addressing a file that has no hunks should explain why rather than claim the
+/// path is not conflicted at all, which reads as a caller mistake.
+#[test]
+fn addressing_a_manual_conflict_explains_why() -> Result<()> {
+    let (mut ctx, conflicted_commit, _tmp) = mixed_conflicted_context()?;
+
+    let err = resolve_commit_conflict_hunks(
+        &mut ctx,
+        conflicted_commit,
+        vec![spec("binary", 1, HunkResolution::Ours)],
+    )
+    .unwrap_err();
+
+    let message = format!("{err:#}");
+    assert!(
+        message.contains("binary") && message.contains("edit mode"),
+        "error should name the reason and the way out, got {message:?}"
+    );
     Ok(())
 }

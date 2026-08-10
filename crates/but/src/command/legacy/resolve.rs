@@ -637,14 +637,14 @@ enum CommitOrBranch {
 
 /// Resolve a user-provided identifier to a commit or a branch.
 fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBranch> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
     let matches = id_map.parse_using_context(target, ctx)?;
     match matches.as_slice() {
         [] => bail!(
             "\"{target}\" is neither a commit nor a branch. Try running 'but status' to see what is available."
         ),
-        [CliId::Commit { commit_id, .. }] => Ok(CommitOrBranch::Commit(*commit_id)),
-        [CliId::Branch { name, .. }] => Ok(CommitOrBranch::Branch(name.clone())),
+        [CliId::Commit { commit, .. }] => Ok(CommitOrBranch::Commit(commit.commit_id)),
+        [CliId::Branch(branch)] => Ok(CommitOrBranch::Branch(branch.name.clone())),
         [_] => bail!("\"{target}\" does not refer to a commit or a branch"),
         _ => bail!(
             "\"{target}\" is ambiguous. Please provide more characters to uniquely identify it."
@@ -670,7 +670,7 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
     };
 
     let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
-    if conflicts.files.is_empty() {
+    if conflicts.files.is_empty() && conflicts.manual.is_empty() {
         if let Some(human_out) = out.for_human() {
             let repo = ctx.repo.get()?;
             writeln!(
@@ -686,6 +686,7 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
             json_out.write_value(serde_json::json!({
                 "commit_id": target.commit_oid.to_string(),
                 "files": [],
+                "manual": [],
             }))?;
         }
         return Ok(());
@@ -730,6 +731,18 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
                 writeln!(human_out, "{}", hunk.theirs)?;
             }
         }
+        for file in &conflicts.manual {
+            writeln!(human_out)?;
+            writeln!(human_out, "{}", t.attention.paint(&file.path))?;
+            writeln!(
+                human_out,
+                "{}",
+                t.hint.paint(format!(
+                    "Can only be resolved in edit mode (`but resolve <commit>`): {}",
+                    file.reason
+                ))
+            )?;
+        }
         writeln!(human_out)?;
         if target.other_conflicted > 0 {
             writeln!(
@@ -764,6 +777,7 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
             "commit_id": conflicts.commit_id.to_string(),
             "branch": target.branch,
             "files": conflicts.files,
+            "manual": conflicts.manual,
         }))?;
     }
 
@@ -854,12 +868,22 @@ fn apply_resolutions(
         (Some(hunk), _) => vec![hunk],
         (None, _) => {
             let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
-            if conflicts.files.is_empty() {
+            if conflicts.files.is_empty() && conflicts.manual.is_empty() {
                 bail!("Commit {commit_oid} is not conflicted.");
             }
             // Match with the same normalization the API applies, so spellings
             // it would accept (`./`, backslashes, duplicate slashes) resolve.
             let lookup = but_api::resolve::normalize_path(path);
+            if let Some(manual) = conflicts
+                .manual
+                .iter()
+                .find(|file| but_api::resolve::normalize_path(&file.path) == lookup)
+            {
+                bail!(
+                    "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
+                    manual.reason
+                );
+            }
             let total_hunks = conflicts
                 .files
                 .iter()
@@ -906,7 +930,7 @@ fn apply_resolutions(
             t.commit_id
                 .paint(shorten_object_id(&repo, result.new_commit)),
         )?;
-        if result.remaining.is_empty() {
+        if result.remaining.is_empty() && result.manual.is_empty() {
             writeln!(
                 human_out,
                 "{}",
@@ -945,6 +969,16 @@ fn apply_resolutions(
                     ))
                 )?;
             }
+            for manual in &result.manual {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention.paint(format!(
+                        "{} can only be resolved in edit mode (`but resolve <commit>`): {}",
+                        manual.path, manual.reason,
+                    ))
+                )?;
+            }
         }
         writeln!(
             human_out,
@@ -961,6 +995,7 @@ fn apply_resolutions(
             "resolved": result.resolved,
             "commit_emptied": result.commit_emptied,
             "remaining": result.remaining,
+            "manual": result.manual,
         }))?;
     }
 

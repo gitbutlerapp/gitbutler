@@ -38,9 +38,12 @@ fn merge_labels() -> gix::merge::blob::builtin_driver::text::Labels<'static> {
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictHunk {
-    /// The 1-based line in the commit's auto-resolved content of this file
-    /// where the conflicted region starts. Anchors the conflict within diffs
-    /// of the commit, which are computed against the auto-resolution.
+    /// The 1-based line where the conflicted region starts, counted in the
+    /// intended result — the merge with every conflict taking the commit's
+    /// side, the new side of [`ConflictedFile::change`] — so anchors land in
+    /// the diff the caller renders.
+    ///
+    /// [`ConflictedFile::change`]: super::ConflictedFile::change
     pub line: u32,
     /// Unconflicted lines directly before the conflict, clamped to the previous conflict.
     pub context_before: String,
@@ -87,15 +90,35 @@ pub struct ResolutionRequest {
     pub ours_tree_id: gix::ObjectId,
     /// The commit's stored *theirs* tree, i.e. its own version.
     pub theirs_tree_id: gix::ObjectId,
-    /// All conflicted files, sorted by path.
+    /// All conflicted files that decompose into hunks, sorted by path.
     pub files: Vec<FileConflict>,
+    /// Conflicted files that have no hunk representation, sorted by path.
+    /// They cannot be addressed through this API at all, so a commit is only
+    /// fully resolved once this is empty.
+    pub manual: Vec<ManualConflict>,
 }
+
+/// A conflicted file with no hunk representation — a side deletion or rename, a
+/// non-blob entry, a binary, or one too large to splice — which therefore needs
+/// manual resolution in edit mode.
+#[derive(Debug, Clone, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ManualConflict {
+    /// The repo-relative path of the file.
+    pub path: String,
+    /// Why it cannot be resolved automatically, for display to the user.
+    pub reason: String,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ManualConflict);
 
 /// Re-merge the conflict trees of `commit_id` and extract all conflict hunks.
 ///
-/// Fails with a "resolve manually" style error for conflicts that have no
-/// marker block to splice a resolution into: side deletions, non-blob entries,
-/// binary or oversized files.
+/// Conflicts with no marker block to splice a resolution into — side deletions,
+/// non-blob entries, binary or oversized files — are reported in `manual`
+/// rather than failing the request, so the rest of the commit stays workable.
 pub fn build_request(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -160,12 +183,24 @@ pub fn build_request(
 
     let merged_tree = repo.find_tree(merged_tree_id)?;
     let mut files = Vec::with_capacity(sides_by_path.len());
+    let mut manual = Vec::new();
+    // A file with no hunk representation is reported rather than failing the
+    // whole commit: the conflicts that *can* be addressed stay addressable, and
+    // the commit simply remains conflicted until this one is resolved in edit
+    // mode. Failing outright would hide every other conflict behind one binary.
+    macro_rules! needs_manual_resolution {
+        ($path:expr, $reason:expr) => {{
+            manual.push(ManualConflict {
+                path: $path,
+                reason: $reason,
+            });
+            continue;
+        }};
+    }
     for (rela_path, sides) in sides_by_path {
         let path = rela_path.to_str_lossy().into_owned();
         if !(sides.ours && sides.theirs) {
-            bail!(
-                "The conflict in \"{path}\" involves a deletion or rename and cannot be resolved automatically. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The conflict involves a deletion or rename.".into());
         }
         let entry = merged_tree
             .lookup_entry(rela_path.split(|b| *b == b'/'))?
@@ -177,23 +212,16 @@ pub fn build_request(
             entry_kind,
             gix::objs::tree::EntryKind::Blob | gix::objs::tree::EntryKind::BlobExecutable
         ) {
-            bail!(
-                "The conflict in \"{path}\" is not a regular file and cannot be resolved automatically. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The conflict is not a regular file.".into());
         }
         let blob = entry.object()?.into_blob();
         if blob.data.len() > MAX_FILE_SIZE {
-            bail!(
-                "The conflicted file \"{path}\" exceeds the 1MB size limit for automatic resolution. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The file exceeds the 1MB size limit.".into());
         }
-        let merged_text = std::str::from_utf8(&blob.data)
-            .map_err(|_| {
-                anyhow::anyhow!(
-                    "The conflicted file \"{path}\" is binary or not valid UTF-8 and cannot be resolved automatically. Resolve this commit manually instead."
-                )
-            })?
-            .to_owned();
+        let Ok(merged_text) = std::str::from_utf8(&blob.data) else {
+            needs_manual_resolution!(path, "The file is binary or not valid UTF-8.".into());
+        };
+        let merged_text = merged_text.to_owned();
         let lines = split_lines(&merged_text);
         let blocks = scan_conflict_blocks(&lines);
         // Content that merely looks like a conflict marker cannot open or
@@ -201,14 +229,13 @@ pub fn build_request(
         // would confuse the section decomposition or any later marker-based
         // reader of the resolved file, so hand such files to manual resolution.
         if let Some(line) = find_ambiguous_marker_line(&lines, &blocks) {
-            bail!(
-                "The conflicted file \"{path}\" contains content that is ambiguous with conflict markers ({line:?}) and cannot be resolved automatically. Resolve this commit manually instead."
+            needs_manual_resolution!(
+                path,
+                format!("The file contains content ambiguous with conflict markers ({line:?}).")
             );
         }
         if blocks.is_empty() {
-            bail!(
-                "No conflict markers were found in the conflicted file \"{path}\". Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "No conflict markers were found in the file.".into());
         }
         let hunks = extract_hunks(&lines, &blocks);
         files.push(FileConflict {
@@ -220,7 +247,7 @@ pub fn build_request(
         });
     }
 
-    if files.is_empty() {
+    if files.is_empty() && manual.is_empty() {
         bail!("Commit {commit_id} has no conflicted files to resolve");
     }
 
@@ -232,6 +259,7 @@ pub fn build_request(
         ours_tree_id: ours,
         theirs_tree_id: theirs,
         files,
+        manual,
     })
 }
 
@@ -375,9 +403,10 @@ pub(crate) fn scan_conflict_blocks(lines: &[&str]) -> Vec<ConflictBlock> {
 fn extract_hunks(lines: &[&str], blocks: &[ConflictBlock]) -> Vec<ConflictHunk> {
     let join = |range: std::ops::Range<usize>| lines[range].join("\n");
 
-    // The auto-resolution is the merged text with each block replaced by its
-    // ours lines, so a block's line therein is its merged-text line minus
-    // everything earlier blocks contribute beyond their ours lines.
+    // Anchors count lines in the intended result — the merged text with each
+    // block replaced by its theirs lines. A block's line there is its
+    // merged-text line minus everything earlier blocks contribute beyond
+    // their theirs lines.
     let mut removed_before = 0;
     let mut hunks = Vec::with_capacity(blocks.len());
     for (index, block) in blocks.iter().enumerate() {
@@ -401,7 +430,7 @@ fn extract_hunks(lines: &[&str], blocks: &[ConflictBlock]) -> Vec<ConflictHunk> 
             theirs: join(block.theirs.clone()),
             context_after: join((block.end + 1)..context_after_end),
         });
-        removed_before += (block.end - block.start + 1) - block.ours.len();
+        removed_before += (block.end - block.start + 1) - block.theirs.len();
     }
     hunks
 }
@@ -454,14 +483,26 @@ mod tests {
         assert_eq!(hunks[1].context_before, "b");
     }
 
-    /// The line anchors point into the auto-resolved content, i.e. the merged
-    /// text with each block replaced by its ours lines.
+    /// The line anchors count lines in the intended result, i.e. the merged
+    /// text with each block replaced by its theirs lines.
     #[test]
-    fn hunk_lines_anchor_into_the_auto_resolution() {
-        // Auto-resolution: start, ours, end — the conflict starts at line 2.
+    fn hunk_lines_anchor_into_the_intended_result() {
+        // Intended result: start, theirs, end — the conflict starts at line 2.
         assert_eq!(extract_hunks(DIFF3)[0].line, 2);
-        // Auto-resolution: a, 1, b, 3, c — conflicts at lines 2 and 4.
+        // Intended result: a, 2, b, 4, c — conflicts at lines 2 and 4.
         let text = "a\n<<<<<<< gitbutler-resolve-ours\n1\n=======\n2\n>>>>>>> gitbutler-resolve-theirs\nb\n<<<<<<< gitbutler-resolve-ours\n3\n=======\n4\n>>>>>>> gitbutler-resolve-theirs\nc\n";
+        let hunks = extract_hunks(text);
+        assert_eq!(hunks[0].line, 2);
+        assert_eq!(hunks[1].line, 4);
+    }
+
+    /// The sides can differ in length, which is the only case where anchoring
+    /// to the wrong one shows: in ours coordinates the second conflict would
+    /// be line 5.
+    #[test]
+    fn anchors_follow_theirs_when_the_sides_differ_in_length() {
+        // Intended result: a, t1, b, t2, c.
+        let text = "a\n<<<<<<< gitbutler-resolve-ours\no1\no2\n=======\nt1\n>>>>>>> gitbutler-resolve-theirs\nb\n<<<<<<< gitbutler-resolve-ours\no3\n=======\nt2\n>>>>>>> gitbutler-resolve-theirs\nc\n";
         let hunks = extract_hunks(text);
         assert_eq!(hunks[0].line, 2);
         assert_eq!(hunks[1].line, 4);

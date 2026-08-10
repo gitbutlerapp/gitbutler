@@ -1,0 +1,32 @@
+.bar {
+	display: flex;
+	align-items: center;
+	/* Fixed, so gaining the actions on the first check cannot resize the bar and
+	   shift the diff under the pointer. */
+	min-height: 44px;
+	padding: 0 12px;
+	gap: 10px;
+	border-bottom: 1px solid var(--border-2);
+	background: var(--bg-warn);
+	color: var(--text-warn);
+}
+
+.status {
+	font-weight: bold;
+}
+
+.manual {
+	margin-right: auto;
+	opacity: 0.85;
+}
+
+/* Without a manual notice to push them, the actions still sit at the far end. */
+.status:last-of-type {
+	margin-right: auto;
+}
+
+.actions {
+	display: flex;
+	margin-left: auto;
+	gap: 8px;
+}
