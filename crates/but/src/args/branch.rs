@@ -16,6 +16,7 @@ pub enum IntegrationStrategy {
 }
 
 #[derive(Debug, clap::Parser)]
+#[clap(after_help = "To rename an applied branch, use `but reword <branch> -m <new-name>`.")]
 pub struct Platform {
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,

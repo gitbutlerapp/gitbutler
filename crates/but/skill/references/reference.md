@@ -83,6 +83,8 @@ but branch list --empty  # Include empty branches
 but branch list --review  # Fetch and display review information
 ```
 
+To rename an applied branch, use `but reword <branch> -m "new-name"` (unapplied branches cannot be renamed).
+
 ### `but branch new [name]`
 
 Create a new branch.
@@ -294,6 +296,7 @@ Reword commit message or rename branch.
 
 ```bash
 but reword <id> -m "new"          # Always pass -m; without it an editor opens and blocks
+but reword <branch> -m "new-name" # Rename a branch (applied branches only)
 but reword <id> --fix-formatting  # Format to 72-char wrapping
 ```
 
