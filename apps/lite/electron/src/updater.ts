@@ -56,6 +56,7 @@ let autoUpdateEnabled = true;
 
 export const setAutoUpdateEnabled = (enabled: boolean): void => {
 	autoUpdateEnabled = enabled;
+	if (!updaterRegistered) return;
 	// Only affects a download that has not started; one already downloaded still
 	// installs on quit, which is what electron-updater has already committed to.
 	getAutoUpdater().autoDownload = enabled;

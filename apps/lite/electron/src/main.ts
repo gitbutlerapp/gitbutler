@@ -41,6 +41,9 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
 
+const isHeadless = process.env.GITBUTLER_LITE_HEADLESS === "true";
+if (isHeadless && process.platform === "darwin") app.setActivationPolicy("accessory");
+
 // Do this early before any APIs that depend upon it are called. Likewise take care in imported
 // modules.
 if (!app.isPackaged) app.setName("GitButler Lite Dev");
@@ -423,6 +426,7 @@ const createMainWindow = async (): Promise<void> => {
 	const mainWindow = new BrowserWindow({
 		width: 1024,
 		height: 768,
+		show: !isHeadless,
 		minWidth: 545,
 		minHeight: 400,
 		icon,
@@ -487,11 +491,11 @@ void app.whenReady().then(async () => {
 			});
 		});
 	} else {
-		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
+		if (!isHeadless) {
+			await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
 
-		if (process.platform === "darwin") {
 			const dockIcon = getMacDockIcon();
-			if (dockIcon !== undefined && app.dock) app.dock.setIcon(dockIcon);
+			if (dockIcon !== undefined) app.dock?.setIcon(dockIcon);
 		}
 
 		// Loose dev CSP to allow for hot reload and development tools. This could be tightened with

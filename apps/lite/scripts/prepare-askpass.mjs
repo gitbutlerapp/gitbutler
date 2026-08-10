@@ -7,10 +7,11 @@ const scriptPath = fileURLToPath(import.meta.url);
 const liteRoot = path.resolve(path.dirname(scriptPath), "..");
 const repoRoot = path.resolve(liteRoot, "../..");
 const release =
-	process.argv.includes("--release") ||
-	process.env.CI === "true" ||
-	process.env.CHANNEL === "nightly" ||
-	process.env.CHANNEL === "release";
+	!process.argv.includes("--debug") &&
+	(process.argv.includes("--release") ||
+		process.env.CI === "true" ||
+		process.env.CHANNEL === "nightly" ||
+		process.env.CHANNEL === "release");
 const profile = release ? "release" : "debug";
 const exeExtension = process.platform === "win32" ? ".exe" : "";
 const binName = `gitbutler-git-askpass${exeExtension}`;
