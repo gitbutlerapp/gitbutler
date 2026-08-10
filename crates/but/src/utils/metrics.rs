@@ -501,11 +501,12 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
     };
     // Without an intact workspace commit stack segments aren't reliable, and without a
     // lower bound they extend into unrelated history and would count historical branches.
-    if !ws.kind.has_managed_commit() || ws.lower_bound.is_none() {
+    if !ws.kind().has_managed_commit() || ws.lower_bound().is_none() {
         return;
     }
     let branches_per_lane: Vec<usize> = ws
-        .stacks
+        .display_stacks()
+        .unwrap_or_default()
         .iter()
         .map(|stack| {
             stack
@@ -536,14 +537,13 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_data_dir(),
     )
     .ok()?;
-    let graph = but_graph::Graph::from_head(
+    but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta().ok()?,
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )
-    .ok()?;
-    graph.into_workspace().ok()
+    .ok()
 }
 
 #[derive(Debug, Clone)]

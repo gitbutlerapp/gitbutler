@@ -1,4 +1,4 @@
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
@@ -62,10 +62,10 @@ fn multiple_branches_preserves_state() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
@@ -279,12 +279,12 @@ fn two_dangling_commits_different_branches() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* fc13bfb (HEAD -> gitbutler/workspace) add FileForB
-* 091c8f9 add FileForA
-*   c128bce GitButler Workspace Commit
+* 56624bb (HEAD -> gitbutler/workspace) add FileForB
+* e021d42 add FileForA
+*   8e93f22 GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
@@ -311,8 +311,8 @@ Exiting GitButler mode...
 
 Attempting to fix workspace stacks...
 → Checking for dangling commits...
-→ Resetting gitbutler/workspace to c128bce
-  ✓ gitbutler/workspace reset to c128bce
+→ Resetting gitbutler/workspace to 8e93f22
+  ✓ gitbutler/workspace reset to 8e93f22
 
   ⚠ Non-GitButler created commits found.
   ⚠ Undoing these commits but keeping the changes in your working directory.
@@ -404,24 +404,11 @@ fn json_output_with_dangling_commits() {
 }
 
 #[test]
-fn teardown_informs_of_checkout_to_when_there_are_no_stacks() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-    env.but("unapply A").assert().success();
-
-    env.but("teardown")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.
-
-"#]]);
-}
-
-#[test]
 fn teardown_checks_out_to_branch_override() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
     env.but("unapply A").assert().success();
 
     env.but("--json teardown")
@@ -453,7 +440,9 @@ fn teardown_checks_out_to_branch_override() {
 #[test]
 fn teardown_checks_out_to_branch_override_with_qualified_ref_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
     env.but("unapply A").assert().success();
 
     env.but("--json teardown")

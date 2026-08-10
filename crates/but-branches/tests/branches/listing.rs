@@ -179,9 +179,8 @@ fn ordinary_repository_without_workspace() -> anyhow::Result<()> {
     );
 
     let listing = but_branches::list(&repo, &*meta, options_with_target(&repo)?)?;
-    // Stacks come back purely by recency regardless of status, so the workspace ones
-    // land last here on the oldest commits; counts are each branch's exclusive
-    // commits, ahead-counts are relative to the target.
+    // `main` lists as the target rather than as applied: nothing is applied in a
+    // repository that has no workspace, and `main` is the target's local branch.
     snapbox::assert_data_eq!(
         listing_snapshot(&listing),
         snapbox::str![[r#"
@@ -190,7 +189,7 @@ Standalone [A]
   A (local) e5d0542 commits=0 target(+0)
 Standalone [B]
   B (local) e5d0542 commits=0 target(+0)
-Applied [main]
+Target [main]
   main (local+remote: refs/remotes/origin/main) e5d0542 commits=0 target(+0)
 
 "#]]

@@ -77,7 +77,8 @@ fn resolve_stack_id(ctx: &but_ctx::Context, stack: &str) -> Result<StackId> {
     }
 
     let (_guard, _repo, workspace, _db) = ctx.workspace_and_db()?;
-    let mut matches = workspace.stacks.iter().filter_map(|workspace_stack| {
+    let display_stacks = workspace.display_stacks()?;
+    let mut matches = display_stacks.iter().filter_map(|workspace_stack| {
         stack_matches(workspace_stack, stack)
             .then_some(workspace_stack.id)
             .flatten()

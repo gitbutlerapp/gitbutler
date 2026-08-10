@@ -12,10 +12,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
-use but_rebase::graph_rebase::{
-    Editor, Step, SuccessfulRebase,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, RebasedEditor, anchor::Anchor, mutate::InsertSide};
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
     squash_commits::MessageCombinationStrategy,
@@ -115,14 +112,14 @@ where
 
         let db_tx = db.transaction()?;
 
-        let editor = Editor::create(&mut ws, meta, &repo)?;
+        let editor = Editor::for_workspace(&ws, meta, &repo)?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {
             rebase: Some(rebase),
+            workspace: ws.clone(),
             db_tx,
             commit_mappings: CommitMappings::default(),
-            pending_metadata_removals: Vec::new(),
             pending_metadata_updates: Vec::new(),
             pending_created_independent_refs: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
@@ -145,9 +142,9 @@ where
 
         let Inner {
             mut rebase,
+            workspace: _,
             db_tx,
             commit_mappings: _,
-            pending_metadata_removals,
             pending_metadata_updates,
             pending_created_independent_refs,
             mut pending_ref_changes,
@@ -159,9 +156,9 @@ where
         let should_rollback = callback_outcome.should_rollback();
         let outcome = callback_outcome.maybe_commit(
             &repo,
+            &mut ws,
             rebase,
             db_tx,
-            pending_metadata_removals,
             pending_metadata_updates,
             pending_created_independent_refs,
             dry_run,
@@ -210,9 +207,10 @@ where
 {
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
-    rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
+    rebase: Option<RebasedEditor<'rebase, M>>,
+    // The workspace the transaction started from, used as the base for overlay previews.
+    workspace: but_graph::Workspace,
     db_tx: but_db::Transaction<'rebase>,
-    pending_metadata_removals: Vec<FullName>,
     pending_metadata_updates: Vec<PendingMetadataUpdate>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     pending_ref_changes: PendingRefChanges,
@@ -255,10 +253,7 @@ where
         how_to_combine_messages: MessageCombinationStrategy,
     ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
-            let SquashCommitsOutcome {
-                rebase,
-                commit_selector,
-            } = but_workspace::commit::squash_commits(
+            let SquashCommitsOutcome { rebase, commit } = but_workspace::commit::squash_commits(
                 editor,
                 subjects
                     .into_iter()
@@ -267,7 +262,7 @@ where
                 commit_mappings.map(target),
                 how_to_combine_messages,
             )?;
-            let new_commit = rebase.lookup_commit(commit_selector)?;
+            let new_commit = rebase.identifiers_of(commit)?;
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
         })
     }
@@ -278,9 +273,10 @@ where
         message: &BStr,
     ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
-            let (rebase, edited_commit_selector) =
-                but_workspace::commit::reword(editor, commit_mappings.map(commit), message)?;
-            let new_commit = rebase.lookup_commit(edited_commit_selector)?;
+            let commit = editor.select_commit(commit_mappings.map(commit))?;
+            let (rebase, edited_commit_handle) =
+                but_workspace::commit::reword(editor, commit, message)?;
+            let new_commit = rebase.identifiers_of(edited_commit_handle)?;
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
         })
     }
@@ -322,25 +318,20 @@ where
     ) -> anyhow::Result<CommitIdentifiers> {
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings, _| {
-            let but_workspace::commit::UncommitChangesOutcome {
-                rebase,
-                commit_selector,
-            } = but_workspace::commit::uncommit_changes(
-                editor,
-                commit_mappings.map(source),
-                changes,
-                context_lines,
-            )?;
+            let but_workspace::commit::UncommitChangesOutcome { rebase, commit } = {
+                let source = editor.select_commit(commit_mappings.map(source))?;
+                but_workspace::commit::uncommit_changes(editor, source, changes, context_lines)?
+            };
 
-            let new_commit = rebase.lookup_commit(commit_selector)?;
+            let new_commit = rebase.identifiers_of(commit)?;
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
         })
     }
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|mut editor, _, _| {
-            let selector = editor.select_reference(ref_name)?;
-            editor.replace(selector, but_rebase::graph_rebase::Step::None)?;
+            let handle = editor.select_reference(ref_name)?;
+            editor.remove_reference(handle)?;
             let rebase = editor.rebase()?;
             Ok(((), MaterializeWithoutCheckout::Either, rebase))
         })?;
@@ -348,9 +339,24 @@ where
         self.inner
             .pending_ref_changes
             .remove_eagerly_created_ref(&repo, ref_name)?;
+        // Cancel metadata this transaction recorded for the name: an eagerly created ref
+        // leaves no delete edit behind, so nothing else would stop the pending write —
+        // branch updates drop, recorded workspace listings lose the segment. Refs that
+        // existed on disk need no entry here — materialize retires the metadata of every
+        // name its ref transaction deletes.
         self.inner
-            .pending_metadata_removals
-            .push(ref_name.to_owned());
+            .pending_metadata_updates
+            .retain_mut(|update| match update {
+                PendingMetadataUpdate::Branch(branch) => branch.as_ref() != ref_name,
+                PendingMetadataUpdate::Workspace(workspace) => {
+                    workspace.value.remove_segment(ref_name);
+                    true
+                }
+                PendingMetadataUpdate::BranchStackOrder(branches) => {
+                    branches.retain(|branch| branch.as_ref() != ref_name);
+                    !branches.is_empty()
+                }
+            });
         Ok(())
     }
 
@@ -368,8 +374,14 @@ where
         source_branch: &FullNameRef,
         target_branch: &FullNameRef,
     ) -> anyhow::Result<()> {
+        let workspace = self.inner.workspace.clone();
         let (ws_meta, new_tip, branch_stack_order) = self.rebase(|editor, _, _| {
-            let outcome = but_workspace::branch::move_branch(editor, source_branch, target_branch)?;
+            let outcome = but_workspace::branch::move_branch(
+                editor,
+                &workspace,
+                source_branch,
+                target_branch,
+            )?;
             Ok((
                 (outcome.ws_meta, outcome.new_tip, outcome.branch_stack_order),
                 MaterializeWithoutCheckout::No,
@@ -388,8 +400,10 @@ where
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
+        let workspace = self.inner.workspace.clone();
         let ws_meta = self.rebase(|editor, _, _| {
-            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, None)?;
+            let outcome =
+                but_workspace::branch::tear_off_branch(editor, &workspace, source_branch, None)?;
             Ok((
                 outcome.ws_meta,
                 MaterializeWithoutCheckout::No,
@@ -410,13 +424,13 @@ where
             return Ok(());
         };
 
-        let workspace = self
-            .inner
-            .rebase
-            .as_ref()
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
+        let workspace = but_workspace::workspace::overlayed_workspace(
+            &self.inner.workspace,
+            self.inner
+                .rebase
+                .as_ref()
+                .expect("rebase is always Some(_)"),
+        )?;
 
         let ref_name = workspace
             .ref_name()
@@ -449,24 +463,23 @@ where
             .try_find_reference(ref_name)?
             .map(|reference| reference.target().into());
 
-        let graph = self
-            .inner
-            .rebase
-            .as_ref()
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?;
-        let workspace = graph.into_workspace()?;
+        let workspace = but_workspace::workspace::overlayed_workspace(
+            &self.inner.workspace,
+            self.inner
+                .rebase
+                .as_ref()
+                .expect("rebase is always Some(_)"),
+        )?;
         let (anchor, anchor_segment_oldest_commit_id) = match anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                 ref_name,
                 position,
             }) => {
-                let (_, segment) =
-                    workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
+                let (_, segment) = workspace.try_find_branch(ref_name.as_ref())?;
                 if matches!(
                     position,
                     but_workspace::branch::create_reference::Position::Below
-                ) && segment.commits.is_empty()
+                ) && segment.tip().is_none()
                 {
                     (
                         Some(
@@ -478,21 +491,21 @@ where
                         None,
                     )
                 } else {
-                    let oldest_commit_id = segment
-                        .commits
-                        .last()
-                        .map(|commit| commit.id)
-                        .or_else(|| {
-                            workspace
-                                .tip_commit_by_segment_id(segment.id)
-                                .map(|commit| commit.id)
-                        })
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "Cannot position reference below unborn segment '{}'",
-                                ref_name.shorten()
-                            )
-                        })?;
+                    let oldest_commit_id = match segment.commits.last().copied() {
+                        Some(id) => id,
+                        // `segment` came from the derivation above, so its resting commit
+                        // must come from there too. Falling back to the display answered the same
+                        // question from a pruned view, which would let display policy decide where
+                        // a reference is anchored.
+                        None => workspace
+                            .try_branch_resting_commit_id(ref_name.as_ref())
+                            .with_context(|| {
+                                format!(
+                                    "Cannot position reference below unborn segment '{}'",
+                                    ref_name.shorten()
+                                )
+                            })?,
+                    };
                     (
                         Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                             ref_name,
@@ -522,7 +535,7 @@ where
         let (_, persisted_meta) = rebase.repo_and_meta_mut();
         let mut meta = RecordingMetadata {
             persisted_meta,
-            workspace_name: workspace.ref_name().map(ToOwned::to_owned),
+            workspace_name: workspace.ref_name_owned(),
             workspace: workspace.metadata.clone(),
             branch_stack_orders,
             updates: Vec::new(),
@@ -563,14 +576,14 @@ where
                 .find_reference(ref_name)?
                 .peel_to_id()?
                 .detach();
-            let reference = Step::new_reference(ref_name.to_owned());
+            let reference = ref_name.to_owned();
 
             match anchor {
                 Some(but_workspace::branch::create_reference::Anchor::AtCommit {
                     commit_id,
                     position: but_workspace::branch::create_reference::Position::Below,
                 }) => {
-                    editor.insert(
+                    editor.insert_reference(
                         editor.select_commit(commit_id)?,
                         reference,
                         InsertSide::Below,
@@ -580,7 +593,7 @@ where
                     ref_name: anchor_ref,
                     position: but_workspace::branch::create_reference::Position::Above,
                 }) => {
-                    editor.insert(
+                    editor.insert_reference(
                         editor.select_reference(anchor_ref.as_ref())?,
                         reference,
                         InsertSide::Above,
@@ -592,7 +605,7 @@ where
                 }) => {
                     let anchor_oldest_commit = anchor_segment_oldest_commit_id
                         .expect("AtSegment anchor always has oldest commit resolved");
-                    editor.insert(
+                    editor.insert_reference(
                         editor.select_commit(anchor_oldest_commit)?,
                         reference,
                         InsertSide::Below,
@@ -610,7 +623,7 @@ where
                             InsertSide::Below
                         }
                     };
-                    editor.insert(
+                    editor.insert_reference(
                         editor.select_reference(anchor_ref.as_ref())?,
                         reference,
                         side,
@@ -622,8 +635,8 @@ where
                 })
                 | None => {
                     let target = editor.select_commit(target_id)?;
-                    let reference = editor.add_step(reference)?;
-                    editor.add_edge(reference, target, 0)?;
+                    let reference = editor.add_reference(reference)?;
+                    editor.insert_parent(reference, target, 0)?;
                 }
             }
             Ok(((), MaterializeWithoutCheckout::No, editor.rebase()?))
@@ -637,7 +650,7 @@ where
     /// operation that could change what the worktree is based on.
     pub fn create_commit(
         &mut self,
-        relative_to: RelativeTo,
+        relative_to: Anchor,
         side: InsertSide,
         changes: Vec<DiffSpec>,
         message: String,
@@ -646,13 +659,13 @@ where
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings, _| {
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
-                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+                Anchor::Commit(object_id) => Anchor::Commit(commit_mappings.map(object_id)),
+                other => other,
             };
 
             let but_workspace::commit::CommitCreateOutcome {
                 rebase,
-                commit_selector,
+                commit,
                 rejected_specs,
             } = but_workspace::commit::commit_create(
                 editor,
@@ -664,8 +677,8 @@ where
                 source,
             )?;
 
-            let new_commit = commit_selector
-                .map(|commit_selector| rebase.lookup_commit(commit_selector))
+            let new_commit = commit
+                .map(|commit| rebase.identifiers_of(commit))
                 .transpose()?;
 
             Ok((
@@ -681,18 +694,18 @@ where
 
     pub fn insert_blank_commit(
         &mut self,
-        relative_to: RelativeTo,
+        relative_to: Anchor,
         side: InsertSide,
     ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings, _| {
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
-                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+                Anchor::Commit(object_id) => Anchor::Commit(commit_mappings.map(object_id)),
+                other => other,
             };
 
-            let (rebase, blank_commit_selector) =
-                but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
-            let new_commit = rebase.lookup_commit(blank_commit_selector)?;
+            let (rebase, blank_commit_handle) =
+                but_workspace::commit::insert_blank_commit(editor, relative_to, side)?;
+            let new_commit = rebase.identifiers_of(blank_commit_handle)?;
 
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
         })
@@ -708,7 +721,7 @@ where
     pub fn cherry_pick_commits(
         &mut self,
         source_commit_ids: impl IntoIterator<Item = ObjectId>,
-        relative_to: RelativeTo,
+        relative_to: Anchor,
         side: InsertSide,
         order_commits_by_parentage: bool,
     ) -> anyhow::Result<Vec<CommitIdentifiers>> {
@@ -718,18 +731,19 @@ where
                 .map(|commit| commit_mappings.map(commit))
                 .collect::<Vec<_>>();
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
-                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+                Anchor::Commit(object_id) => Anchor::Commit(commit_mappings.map(object_id)),
+                other => other,
             };
 
             let source_commit_ids = if order_commits_by_parentage {
+                let commits = source_commit_ids
+                    .iter()
+                    .map(|id| editor.select_commit(*id))
+                    .collect::<anyhow::Result<Vec<_>>>()?;
                 editor
-                    .order_commit_selectors_by_parentage(source_commit_ids)?
+                    .order_by_parentage(commits)?
                     .into_iter()
-                    .map(|selector| -> anyhow::Result<_> {
-                        let (_, commit) = editor.find_selectable_commit(selector)?;
-                        Ok(commit.id)
-                    })
+                    .map(|commit| editor.id_of(commit))
                     .collect::<anyhow::Result<Vec<_>>>()?
             } else {
                 source_commit_ids
@@ -743,7 +757,7 @@ where
             )?;
             let new_commits = inserted_selectors
                 .into_iter()
-                .map(|selector| rebase.lookup_commit(selector))
+                .map(|handle| rebase.identifiers_of(handle))
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
             Ok((new_commits, MaterializeWithoutCheckout::No, rebase))
@@ -753,7 +767,7 @@ where
     pub fn move_commits(
         &mut self,
         subject_commit_ids: impl IntoIterator<Item = ObjectId>,
-        relative_to: RelativeTo,
+        relative_to: Anchor,
         side: InsertSide,
     ) -> anyhow::Result<()> {
         self.rebase(|editor, commit_mappings, _| {
@@ -761,8 +775,8 @@ where
                 .into_iter()
                 .map(|commit| commit_mappings.map(commit));
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
-                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+                Anchor::Commit(object_id) => Anchor::Commit(commit_mappings.map(object_id)),
+                other => other,
             };
 
             let rebase =
@@ -785,18 +799,15 @@ where
         self.rebase(|editor, commit_mappings, _| {
             let but_workspace::commit::CommitAmendOutcome {
                 rebase,
-                commit_selector,
+                commit,
                 rejected_specs,
-            } = but_workspace::commit::commit_amend(
-                editor,
-                commit_mappings.map(target),
-                changes,
-                context_lines,
-                source,
-            )?;
+            } = {
+                let target = editor.select_commit(commit_mappings.map(target))?;
+                but_workspace::commit::commit_amend(editor, target, changes, context_lines, source)?
+            };
 
-            let new_commit = commit_selector
-                .map(|commit_selector| rebase.lookup_commit(commit_selector))
+            let new_commit = commit
+                .map(|commit| rebase.identifiers_of(commit))
                 .transpose()?;
 
             Ok((
@@ -818,12 +829,12 @@ where
     ) -> anyhow::Result<CommitIdentifiers> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings, _| {
-            let source = commit_mappings.map(source);
-            let target = commit_mappings.map(target);
+            let source = editor.select_commit(commit_mappings.map(source))?;
+            let target = editor.select_commit(commit_mappings.map(target))?;
 
             let MoveChangesOutcome {
                 rebase,
-                destination_selector,
+                destination,
                 ..
             } = but_workspace::commit::move_changes_between_commits(
                 editor,
@@ -834,7 +845,7 @@ where
             )?;
 
             let new_commit = rebase
-                .lookup_commit(destination_selector)
+                .identifiers_of(destination)
                 .context("failed to find rebased commit")?;
 
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
@@ -864,14 +875,11 @@ where
     fn rebase<F, T>(&mut self, f: F) -> anyhow::Result<T>
     where
         F: FnOnce(
-            Editor<'rebase, 'rebase, M>,
+            Editor<'rebase, M>,
             &CommitMappings,
             &mut but_db::Transaction<'rebase>,
-        ) -> anyhow::Result<(
-            T,
-            MaterializeWithoutCheckout,
-            SuccessfulRebase<'rebase, 'rebase, M>,
-        )>,
+        )
+            -> anyhow::Result<(T, MaterializeWithoutCheckout, RebasedEditor<'rebase, M>)>,
     {
         let editor = self
             .inner
@@ -900,7 +908,7 @@ where
             MaterializeWithoutCheckout::Either => {}
         }
 
-        self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
+        self.inner.commit_mappings = CommitMappings(new_rebase.commit_mappings());
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
     }
@@ -1165,9 +1173,9 @@ pub trait TransactionOutcome: sealed::Sealed {
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: RebasedEditor<'_, M>,
         db_tx: but_db::Transaction<'_>,
-        pending_metadata_removals: Vec<FullName>,
         pending_metadata_updates: Vec<PendingMetadataUpdate>,
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
@@ -1186,9 +1194,9 @@ impl TransactionOutcome for () {
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: RebasedEditor<'_, M>,
         db_tx: but_db::Transaction<'_>,
-        pending_metadata_removals: Vec<FullName>,
         pending_metadata_updates: Vec<PendingMetadataUpdate>,
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
@@ -1197,7 +1205,7 @@ impl TransactionOutcome for () {
         let ws = workspace_state_from_rebase(
             rebase,
             repo,
-            pending_metadata_removals,
+            workspace,
             pending_metadata_updates,
             pending_created_independent_refs,
             dry_run,
@@ -1225,9 +1233,9 @@ impl<T> TransactionOutcome for Rollback<T> {
     fn maybe_commit<M: RefMetadata>(
         self,
         _repo: &gix::Repository,
-        _rebase: SuccessfulRebase<'_, '_, M>,
+        _workspace: &mut but_graph::Workspace,
+        _rebase: RebasedEditor<'_, M>,
         _db_tx: but_db::Transaction<'_>,
-        _pending_metadata_removals: Vec<FullName>,
         _pending_metadata_updates: Vec<PendingMetadataUpdate>,
         _pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         _dry_run: DryRun,
@@ -1252,9 +1260,9 @@ impl<T> TransactionOutcome for Commit<T> {
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: RebasedEditor<'_, M>,
         db_tx: but_db::Transaction<'_>,
-        pending_metadata_removals: Vec<FullName>,
         pending_metadata_updates: Vec<PendingMetadataUpdate>,
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
@@ -1263,7 +1271,7 @@ impl<T> TransactionOutcome for Commit<T> {
         let workspace = workspace_state_from_rebase(
             rebase,
             repo,
-            pending_metadata_removals,
+            workspace,
             pending_metadata_updates,
             pending_created_independent_refs,
             dry_run,
@@ -1294,9 +1302,9 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: RebasedEditor<'_, M>,
         db_tx: but_db::Transaction<'_>,
-        pending_metadata_removals: Vec<FullName>,
         pending_metadata_updates: Vec<PendingMetadataUpdate>,
         pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
         dry_run: DryRun,
@@ -1307,7 +1315,7 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
                 let workspace = workspace_state_from_rebase(
                     rebase,
                     repo,
-                    pending_metadata_removals,
+                    workspace,
                     pending_metadata_updates,
                     pending_created_independent_refs,
                     dry_run,
@@ -1323,10 +1331,11 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn workspace_state_from_rebase<M: RefMetadata>(
-    rebase: SuccessfulRebase<'_, '_, M>,
+    rebase: RebasedEditor<'_, M>,
     repo: &gix::Repository,
-    pending_metadata_removals: Vec<FullName>,
+    workspace: &mut but_graph::Workspace,
     pending_metadata_updates: Vec<PendingMetadataUpdate>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     dry_run: DryRun,
@@ -1334,62 +1343,51 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
         return WorkspaceState::from_successful_rebase_without_pr_associations(
-            rebase, repo, dry_run,
+            workspace, rebase, repo, dry_run,
         );
     }
 
-    let materialized = if materialize_without_checkout {
+    let commit_mappings = rebase.commit_mappings();
+    let (graph, meta) = if materialize_without_checkout {
         rebase.materialize_without_checkout()?
     } else {
-        rebase.materialize(Default::default())?
+        rebase.materialize()?
     };
+    workspace.refresh_from_commit_graph(graph, repo, meta)?;
     for branch in pending_created_independent_refs {
-        if materialized
-            .workspace
-            .find_segment_and_stack_by_refname(branch.name.as_ref())
-            .is_some()
-        {
+        if workspace.find_branch(branch.name.as_ref()).is_some() {
             continue;
         }
         let outcome = but_workspace::branch::apply(
             branch.name.as_ref(),
-            materialized.workspace.clone(),
+            workspace,
             repo,
-            materialized.meta,
+            meta,
             but_workspace::branch::apply::Options {
                 order: branch.order,
                 ..Default::default()
             },
         )?;
-        *materialized.workspace = outcome.workspace;
+        *workspace = outcome.workspace;
     }
     for update in pending_metadata_updates {
         match update {
             PendingMetadataUpdate::Workspace(workspace) => {
-                let mut handle = materialized.meta.workspace(workspace.as_ref())?;
+                let mut handle = meta.workspace(workspace.as_ref())?;
                 *handle = workspace.value;
-                materialized.meta.set_workspace(&handle)?;
+                meta.set_workspace(&handle)?;
             }
             PendingMetadataUpdate::Branch(branch) => {
-                let mut handle = materialized.meta.branch(branch.as_ref())?;
+                let mut handle = meta.branch(branch.as_ref())?;
                 *handle = branch.value;
-                materialized.meta.set_branch(&handle)?;
+                meta.set_branch(&handle)?;
             }
             PendingMetadataUpdate::BranchStackOrder(branches) => {
-                materialized.meta.set_branch_stack_order(&branches)?;
+                meta.set_branch_stack_order(&branches)?;
             }
         }
     }
-    for ref_name in pending_metadata_removals {
-        materialized.meta.remove(ref_name.as_ref())?;
-    }
-
-    WorkspaceState::from_workspace_without_pr_associations(
-        materialized.workspace,
-        materialized.meta,
-        repo,
-        materialized.history.commit_mappings(),
-    )
+    WorkspaceState::from_workspace_without_pr_associations(workspace, meta, repo, commit_mappings)
 }
 
 /// Intermediate outcome after creating a commit.

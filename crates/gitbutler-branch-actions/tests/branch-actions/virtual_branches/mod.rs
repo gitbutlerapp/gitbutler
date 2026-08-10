@@ -5,7 +5,6 @@ use std::{fs, path::PathBuf, str::FromStr};
 use but_core::{RepositoryExt as _, ref_metadata::StackId};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::{AnyhowContextExt as _, Code};
-use but_rebase::graph_rebase::LookupStep as _;
 use but_settings::AppSettings;
 use but_testsupport::{
     gix_testtools::{Creation, scripted_fixture_writable_with_args},
@@ -329,7 +328,7 @@ pub fn create_commit(
             &repo,
             &meta,
             &ctx.project_meta()?,
-            ctx.graph_options(but_graph::init::Options::limited())?,
+            ctx.graph_options(but_graph::walk::Options::limited())?,
             but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )?
@@ -348,23 +347,29 @@ pub fn create_commit(
     let full_ref_name: gix::refs::FullName =
         format!("refs/heads/{stack_branch_name}").try_into()?;
     let outcome = {
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+        let editor = but_rebase::graph_rebase::Editor::create(
+            ws.commit_graph(),
+            ws.project_meta(),
+            &mut meta,
+            &repo,
+        )?;
         but_workspace::commit::commit_create(
             editor,
             file_changes,
-            but_rebase::graph_rebase::mutate::RelativeToRef::Reference(full_ref_name.as_ref()),
+            but_rebase::graph_rebase::anchor::Anchor::Reference(full_ref_name.clone()),
             but_rebase::graph_rebase::mutate::InsertSide::Below,
             message,
             ctx.settings.context_lines,
             but_workspace::commit::ChangeSource::Head,
         )
         .and_then(|outcome| {
-            let selector = outcome.commit_selector;
-            let materialized = outcome.rebase.materialize(Default::default())?;
-            selector
-                .map(|selector| materialized.lookup_pick(selector))
-                .transpose()
+            let picked = outcome
+                .commit
+                .map(|handle| outcome.rebase.id_of(handle))
+                .transpose()?;
+            outcome.rebase.materialize()?;
+            Ok(picked)
         })
     };
     let _ = snapshot_tree.and_then(|snapshot_tree| {

@@ -6,10 +6,7 @@ use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::{Context, ThreadSafeContext};
 use but_rebase::{
     RebaseOutput,
-    graph_rebase::{
-        Editor, LookupStep as _,
-        mutate::{InsertSide, RelativeToRef},
-    },
+    graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide},
 };
 use but_workspace::{
     commit_engine,
@@ -28,7 +25,7 @@ use crate::json::HexHash;
 #[but_api(napi, try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::walk::Options::limited())?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
@@ -102,8 +99,8 @@ pub(crate) fn stacks_v3_from_ctx(
     // `gitbutler/edit`, querying stacks from HEAD would produce entries without stack IDs
     // because the edit branch itself is not part of the workspace metadata.
     let traversal = match workspace_ref {
-        Some(_) => but_graph::init::Options::limited(),
-        None => ctx.graph_options(but_graph::init::Options::limited())?,
+        Some(_) => but_graph::walk::Options::limited(),
+        None => ctx.graph_options(but_graph::walk::Options::limited())?,
     };
     but_workspace::legacy::stacks_v3(
         &repo,
@@ -119,12 +116,20 @@ pub(crate) fn stacks_v3_from_ctx(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
-    let mut options = ctx.graph_options(but_graph::init::Options::limited())?;
+    let mut options = ctx.graph_options(but_graph::walk::Options::limited())?;
     options.collect_tags = true;
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, options)?;
-    graph.open_as_svg();
+    let graph = but_graph::Workspace::from_head(
+        &repo,
+        &meta,
+        ctx.project_meta()?,
+        but_graph::walk::Options {
+            collect_tags: true,
+            ..but_graph::walk::Options::limited()
+        },
+    )?;
+    graph.open_graph_as_svg();
     Ok(())
 }
 
@@ -135,7 +140,7 @@ pub fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::walk::Options::limited())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.meta()?;
@@ -341,33 +346,30 @@ pub fn stash_into_branch(
 
     let outcome = {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
-            commit_selector,
+            commit,
             rejected_specs,
         } = but_workspace::commit::commit_create(
             editor,
             worktree_changes,
-            RelativeToRef::Reference(full_ref_name.as_ref()),
+            Anchor::Reference(full_ref_name.clone()),
             InsertSide::Below,
             "Mo-Stashed changes",
             ctx.settings.context_lines,
             but_workspace::commit::ChangeSource::Head,
         )?;
 
-        let new_commit = commit_selector
-            .map(|selector| rebase.lookup_pick(selector))
-            .transpose()?;
+        let new_commit = commit.map(|handle| rebase.id_of(handle)).transpose()?;
         let rebase_output = if let Some(new_commit) = new_commit {
-            let materialized = rebase.materialize(Default::default())?;
-            let commit_mapping: Vec<_> = materialized
-                .history
+            let commit_mapping: Vec<_> = rebase
                 .commit_mappings()
                 .into_iter()
                 .map(|(old, new)| (None, old, new))
                 .collect();
+            rebase.materialize()?;
             (!commit_mapping.is_empty()).then_some(RebaseOutput {
                 top_commit: new_commit,
                 references: Vec::new(),
@@ -523,7 +525,7 @@ pub fn workspace_branch_and_ancestors_push_only(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<gitbutler_git::PushResult> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::walk::Options::limited())?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);

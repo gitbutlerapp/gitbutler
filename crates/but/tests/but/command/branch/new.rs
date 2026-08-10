@@ -38,8 +38,10 @@ Created branch 'my-anchored-feature' above commit tpm
 
 #[test]
 fn rejects_anchor_outside_workspace() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks, so unapplying one leaves the workspace standing: a workspace cannot be
+    // emptied by unapplying its last branch.
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.but("unapply A").assert().success();
 
     env.but("branch new --above A new-branch")
@@ -120,7 +122,9 @@ Error: A branch named 'A' is already applied
 #[test]
 fn rejects_name_that_exists_outside_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
     env.but("unapply A").assert().success();
 
     env.but("branch new A")
@@ -204,8 +208,8 @@ Created branch 'middle'
 
 "#]]);
 
-    // NOTE: the fact that `┊●   ply add init` suddenly shows up appears to be a bug in but-graph.
-    // At least according to gpt-5.6-sol
+    // The base commit is listed once, as the common base — it used to also appear inside the
+    // lane after creating a branch (flagged as a but-graph bug when this test was written).
     env.but("status")
         .assert()
         .success()
@@ -217,7 +221,6 @@ Created branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -248,7 +251,6 @@ Created branch 'bottom' below branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -281,7 +283,6 @@ Created branch 'top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -316,7 +317,6 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -392,7 +392,6 @@ Created branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -428,7 +427,6 @@ Created branch 'top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -467,7 +465,6 @@ Created branch 'bottom' below branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -509,7 +506,6 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -974,10 +970,8 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┴ 55165db (common base) 2000-01-02 merge document-but-pr-skill
 
-Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -1003,10 +997,8 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ┊├┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┴ 55165db (common base) 2000-01-02 merge document-but-pr-skill
 
-Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -1088,6 +1080,30 @@ Hint: run `but branch new` to create a new branch to work on
 ┊├┄ mi [middle] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn creates_new_branches_on_top_beside_existing_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch new one").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

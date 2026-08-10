@@ -44,7 +44,7 @@ export function bottomUpdateForStack(stack: Stack): BottomUpdate | undefined {
 	if (bottomCommit) {
 		return {
 			kind: "rebase",
-			selector: {
+			anchor: {
 				type: "commit",
 				subject: bottomCommit.id,
 			},
@@ -54,7 +54,7 @@ export function bottomUpdateForStack(stack: Stack): BottomUpdate | undefined {
 	if (segment.refName) {
 		return {
 			kind: "rebase",
-			selector: {
+			anchor: {
 				type: "referenceBytes",
 				subject: segment.refName.fullNameBytes,
 			},

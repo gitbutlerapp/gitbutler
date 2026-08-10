@@ -155,11 +155,11 @@ pub fn create_reference_with_perm(
         snapshot.commit(ctx, perm).ok();
     }
 
-    let stack_id = new_ws
-        .find_segment_and_stack_by_refname(new_ref.as_ref())
+    // The display boundary: the context cache holds the pruned display workspace.
+    ws.adopt(new_ws);
+    let stack_id = ws
+        .find_branch(new_ref.as_ref())
         .and_then(|(stack, _)| stack.id);
-
-    *ws = new_ws.into_owned();
     Ok((stack_id, new_ref))
 }
 
@@ -251,7 +251,9 @@ pub fn create_branch(
         .ok();
 
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-    let stack = ws.try_find_stack_by_id(stack_id)?;
+    let stacks = ws.display_stacks()?;
+    let stack = but_graph::workspace::find_stack_by_id(&stacks, stack_id)
+        .with_context(|| format!("Couldn't find stack with id {stack_id:?} in workspace"))?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
             "BUG: cannot have preceding head name set - let's use the new API instead"
@@ -273,8 +275,9 @@ pub fn create_branch(
                     },
                 )
                 .or_else(|| {
+                    // An anonymous segment exists to hold commits, so its tip is right here.
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
+                        commit_id: segment.commits.first()?.id,
                         position: Above,
                     })
                 })
@@ -292,7 +295,8 @@ pub fn create_branch(
         None, // order - not used for dependent branches
     )?;
 
-    *ws = new_ws.into_owned();
+    // The display boundary: the context cache holds the pruned display workspace.
+    ws.adopt(new_ws);
     Ok(())
 }
 
@@ -321,9 +325,7 @@ pub fn remove_branch_only(
         },
     )?;
 
-    if let Some(new_ws) = new_ws {
-        *ws = new_ws;
-    }
+    ws.adopt(new_ws);
     Ok(())
 }
 

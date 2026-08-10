@@ -1,13 +1,13 @@
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_rebase::graph_rebase::RebasedEditor;
 
 /// Outcome of moving branches between or out of stacks.
 ///
 /// Returned by [function::move_branch()].
 #[derive(Debug)]
-pub struct Outcome<'ws, 'meta, M: RefMetadata> {
+pub struct Outcome<'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: RebasedEditor<'meta, M>,
     /// The updated workspace metadata that accompanies the move operation.
     /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
@@ -24,22 +24,161 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     pub branch_stack_order: Option<Vec<gix::refs::FullName>>,
 }
 
+/// What remains after [`Outcome::apply()`]: the pieces callers still need once the move is
+/// on disk and the workspace refreshed.
+pub struct Applied<'meta, M: RefMetadata> {
+    /// The metadata entry, released by materialization.
+    pub meta: &'meta mut M,
+    /// Every commit rewritten by the move, old id to new id.
+    pub commit_mappings: std::collections::BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// See [`Outcome::new_tip`]: the reference the caller should check out in single-branch
+    /// mode, `None` when the tip is unchanged. Applying does NOT move `HEAD`.
+    pub new_tip: Option<gix::refs::FullName>,
+}
+
+impl<'meta, M: RefMetadata> Outcome<'meta, M> {
+    /// Apply the move for real, in one step: materialize the rebase to disk, persist the
+    /// branch order and workspace metadata it decided, and refresh `ws` from the result.
+    ///
+    /// Metadata and refs move together here — persisting one without the other leaves a
+    /// projection that disagrees with disk. Dry runs preview via
+    /// [`RebasedEditor::overlay_with`] instead and never call
+    /// this.
+    pub fn apply(
+        self,
+        ws: &mut but_graph::Workspace,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Applied<'meta, M>> {
+        let Outcome {
+            rebase,
+            ws_meta,
+            new_tip,
+            branch_stack_order,
+        } = self;
+        let commit_mappings = rebase.commit_mappings();
+        let (graph, meta) = rebase.materialize()?;
+        if let Some(order) = branch_stack_order.as_deref() {
+            meta.set_branch_stack_order(order)?;
+        }
+        ws.refresh_from_commit_graph(graph, repo, meta)?;
+        if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
+            let mut md = meta.workspace(ref_name)?;
+            *md = ws_meta;
+            meta.set_workspace(&md)?;
+        }
+        Ok(Applied {
+            commit_mappings,
+            meta,
+            new_tip,
+        })
+    }
+}
+
 pub(super) mod function {
 
     use but_core::RefMetadata;
     use but_core::ref_metadata::StackId;
-    use but_rebase::graph_rebase::mutate::SomeSelectors;
-
-    use crate::graph_manipulation::DisconnectParameters;
-    use crate::graph_manipulation::get_disconnect_parameters;
+    use but_graph::workspace::{Segment, SegmentStack};
+    use but_rebase::graph_rebase::anchor::{Connect, Cut, Range};
+    use but_rebase::graph_rebase::mutate::{InsertSide, Reconnect};
 
     use super::Outcome;
     use anyhow::Context;
     use anyhow::bail;
     use but_graph::workspace::WorkspaceKind;
     use but_rebase::graph_rebase::Editor;
-    use but_rebase::graph_rebase::SuccessfulRebase;
+    use but_rebase::graph_rebase::EditorIndex;
+    use but_rebase::graph_rebase::RebasedEditor;
     use gix::refs::FullNameRef;
+
+    /// What a segment move lifts: the segment's editor-graph `range` (its reference down to
+    /// its bottom commit — the reference alone when the branch is empty), and which children
+    /// sever at its top seam — the one thing the projection knows stands directly above:
+    /// the workspace commit, the child segment's bottom commit, or that segment's reference
+    /// when it is empty (this names where a shared reference group splits). The base below
+    /// is the editor's own rule ([`Editor::move_range`](but_rebase::graph_rebase::Editor::move_range)).
+    struct MoveBounds {
+        /// The bounds of the segment to move.
+        range: Range,
+        /// Which children of the range's child-most bound sever.
+        children: Cut,
+    }
+
+    /// The [`MoveBounds`] of `subject_segment` within `source_stack`.
+    fn move_bounds<'meta, M: RefMetadata>(
+        editor: &Editor<'meta, M>,
+        source_stack: &SegmentStack,
+        subject_segment: &Segment,
+        workspace_head: Option<gix::ObjectId>,
+    ) -> anyhow::Result<MoveBounds> {
+        let index_of_segment = source_stack
+            .segments
+            .iter()
+            .position(|segment| {
+                segment.ref_name == subject_segment.ref_name
+                    && segment.tip() == subject_segment.tip()
+            })
+            .context("BUG: Unable to find subject segment on source stack.")?;
+
+        let subject_segment_ref_name = subject_segment
+            .ref_name()
+            .context("Subject segment doesn't have a ref name.")?;
+        let child: EditorIndex = editor
+            .select_reference(subject_segment_ref_name)
+            .context("Failed to find subject reference in graph.")?
+            .into();
+        let parent: EditorIndex = match subject_segment.commits.last() {
+            Some(bottom) => editor
+                .select_commit(*bottom)
+                .context("Failed to find last commit in subject segment in graph.")?
+                .into(),
+            // An empty branch is just its reference.
+            None => child,
+        };
+        let range = Range { child, parent };
+
+        if index_of_segment == 0 {
+            // Managed workspaces have a workspace commit above the top-most segment. Ad-hoc
+            // workspaces do not have such a child, so there is no child seam to sever there.
+            let children = workspace_head
+                .map(|workspace_head| -> anyhow::Result<Cut> {
+                    let workspace_head_entry = editor
+                        .select_commit(workspace_head)
+                        .context("Failed to find workspace head in graph.")?;
+                    Ok(Cut::only([workspace_head_entry]))
+                })
+                .transpose()?
+                .unwrap_or(Cut::Nothing);
+
+            return Ok(MoveBounds { range, children });
+        }
+
+        // Segment on top of the subject segment in the stack.
+        let child_segment = source_stack.segments.get(index_of_segment - 1).context(
+            "BUG: Unable to find child segment of subject segment but expected it to exist.",
+        )?;
+
+        // The seam is the child segment's bottom commit — or its reference when that segment
+        // is empty, naming where the shared reference group splits.
+        let child_entry: EditorIndex = match child_segment.commits.last() {
+            Some(bottom) => editor
+                .select_commit(*bottom)
+                .context("Failed to find last commit of child segment in graph.")
+                .map(EditorIndex::from),
+            None => {
+                let child_segment_ref_name = child_segment
+                    .ref_name()
+                    .context("Child segment doesn't have a ref name.")?;
+                editor
+                    .select_reference(child_segment_ref_name)
+                    .context("Failed to find child segment reference in graph.")
+                    .map(EditorIndex::from)
+            }
+        }?;
+        let children = Cut::only([child_entry]);
+
+        Ok(MoveBounds { range, children })
+    }
 
     /// Remove a branch out of a stack, creating a new stack out of it, in memory.
     ///
@@ -55,15 +194,17 @@ pub(super) mod function {
     ///     Mainly used for testing purposes.
     ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch<'meta, M: RefMetadata>(
+        editor: Editor<'meta, M>,
+        current_workspace: &but_graph::Workspace,
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace =
+            crate::workspace::overlayed_workspace(current_workspace, &successful_rebase)?;
         let mut editor = successful_rebase.into_editor();
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+        let Some(source) = workspace.find_branch(subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
@@ -72,7 +213,7 @@ pub(super) mod function {
         // We're currently stopping the move branch operations imperatively at this stage, in order to
         // reduce the scope of this first iteration of moving the branches.
         // TODO: Enable and test that we can move branches in any kind of workspace.
-        match &workspace.kind {
+        match workspace.kind() {
             WorkspaceKind::Managed { .. } => {}
             WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
                 bail!("Moving branches currently need a workspace commit")
@@ -96,51 +237,32 @@ pub(super) mod function {
             });
         }
 
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
+        let Some(workspace_head) = workspace.tip_commit_id() else {
             bail!("Couldn't find workspace head.")
         };
-        let head_selector = editor
+        let head_entry = editor
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
-        let Some(lower_bound_ref) = workspace
-            .lower_bound_segment_id
-            .map(|segment_id| &workspace.graph[segment_id])
-            .and_then(|segment| segment.ref_name())
-        else {
+        let Some(lower_bound_ref) = workspace.lower_bound_ref_name() else {
             bail!("Tearing off a branch requires a workspace common base");
         };
 
-        let target_selector = editor
+        let target_entry = editor
             .select_reference(lower_bound_ref)
             .context("Failed to find target reference in graph.")?;
 
-        let DisconnectParameters {
-            delimiter: subject_delimiter,
-            children_to_disconnect,
-            parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            source_stack,
-            subject_segment,
-            Some(workspace_head),
-        )?;
-
-        editor.disconnect_segment_from(
-            subject_delimiter.clone(),
-            children_to_disconnect,
-            parents_to_disconnect,
-            false,
-        )?;
-
-        let selectors = SomeSelectors::new(vec![head_selector])?;
-
-        editor.insert_segment_into(
-            target_selector,
+        let MoveBounds {
+            range: subject_delimiter,
+            children,
+        } = move_bounds(&editor, source_stack, subject_segment, Some(workspace_head))?;
+        editor.move_range(
             subject_delimiter,
+            children,
+            target_entry,
             but_rebase::graph_rebase::mutate::InsertSide::Above,
-            Some(selectors),
-            but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
+            Connect::only([head_entry]),
+            Reconnect::Heal,
         )?;
 
         // Update the workspace meta in order to create a new stack containing the
@@ -177,27 +299,29 @@ pub(super) mod function {
     /// branch on top of.
     ///
     /// Returns an [outcome](Outcome) for potential materialisation.
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch<'meta, M: RefMetadata>(
+        editor: Editor<'meta, M>,
+        current_workspace: &but_graph::Workspace,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
         if subject_branch_name == target_branch_name {
             bail!("Cannot move branch {subject_branch_name} onto itself");
         }
 
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace =
+            crate::workspace::overlayed_workspace(current_workspace, &successful_rebase)?;
 
         let (source, destination) =
             retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;
 
         // Each kind of workspace has a very different notion of what "moving a branch" means, so we
         // dispatch into a dedicated handler for each one.
-        match &workspace.kind {
+        match workspace.kind() {
             WorkspaceKind::AdHoc => move_branch_in_single_branch_mode(
                 successful_rebase,
-                workspace,
+                workspace.ref_name_owned(),
                 source,
                 destination,
                 subject_branch_name,
@@ -226,29 +350,31 @@ pub(super) mod function {
     /// The reordered chain is returned in [`Outcome::branch_stack_order`] for the caller to persist
     /// (via [`RefMetadata::set_branch_stack_order`]) rather than being written here, so callers can
     /// skip persistence for dry-run previews.
-    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
-        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
-        workspace: but_graph::Workspace,
+    fn move_branch_in_single_branch_mode<'meta, M: RefMetadata>(
+        mut successful_rebase: RebasedEditor<'meta, M>,
+        entrypoint: Option<gix::refs::FullName>,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
         let (source_stack, subject_segment) = &source;
         let (destination_stack, _) = &destination;
-        let entrypoint = workspace.ref_name().map(ToOwned::to_owned);
         // A branch that owns commits can only be reordered within its current stack in
         // single-branch mode. Moving it across stacks would change commit ownership and needs a
         // real rebase.
-        if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
+        if subject_segment.tip().is_some() && !same_stack(source_stack, destination_stack) {
             bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
-        // Reordering same-target empty refs only changes which empty segment is displayed first.
-        // If their targets differ, however, the subject crosses commit-owning segments and its ref
-        // must move with it or those commits would be projected as belonging to the empty branch.
-        let move_requires_graph_update = !subject_segment.commits.is_empty()
-            || successful_rebase.reference_target(subject_branch_name)?
-                != successful_rebase.reference_target(target_branch_name)?;
+        // Reordering same-target empty refs only changes which empty segment is displayed first —
+        // metadata alone covers it. Everything else needs the editor: the crossed refs (and
+        // possibly commits) must move to match the new order, or the projection would disagree
+        // with what was persisted.
+        let subject_shares_target_commit = successful_rebase
+            .reference_target(subject_branch_name)?
+            == successful_rebase.reference_target(target_branch_name)?;
+        let move_requires_graph_update =
+            subject_segment.tip().is_some() || !subject_shares_target_commit;
         let existing_order = {
             let (_repo, meta) = successful_rebase.repo_and_meta_mut();
             if !meta.can_persist_branch_stack_order() {
@@ -297,32 +423,63 @@ pub(super) mod function {
         }
 
         if move_requires_graph_update {
-            let (_, target_segment) = destination;
-            let target_segment_ref_name = target_segment
-                .ref_name()
-                .context("Target segment doesn't have a ref")?;
+            // The subject's commits relocate only when the move crosses another commit owner.
+            // Crossing empties alone moves no commit: the subject's range already rests where
+            // it lands, and only the empty refs need re-pointing (the reconcile pass below).
+            let crossed = crossed_segments(source_stack, subject_branch_name, target_branch_name)?;
+            let needs_commit_surgery = subject_segment.tip().is_some()
+                && crossed.iter().any(|segment| segment.tip().is_some());
+
             let mut editor = successful_rebase.into_editor();
-            let target_selector = editor
-                .select_reference(target_segment_ref_name)
-                .context("Failed to find target reference in graph.")?;
 
-            let DisconnectParameters {
-                delimiter: subject_delimiter,
-                children_to_disconnect,
-                parents_to_disconnect,
-            } = get_disconnect_parameters(&editor, source_stack, subject_segment, None)?;
+            if needs_commit_surgery {
+                let target_entry = editor
+                    .select_reference(target_branch_name)
+                    .context("Failed to find target reference in graph.")?;
+                let MoveBounds {
+                    range: subject_delimiter,
+                    children,
+                } = move_bounds(&editor, source_stack, subject_segment, None)?;
+                editor.move_range(
+                    subject_delimiter,
+                    children,
+                    target_entry,
+                    InsertSide::Above,
+                    Connect::Splice,
+                    Reconnect::Heal,
+                )?;
+            }
 
-            editor.disconnect_segment_from(
-                subject_delimiter.clone(),
-                children_to_disconnect,
-                parents_to_disconnect,
-                false,
-            )?;
-            editor.insert_segment(
-                target_selector,
-                subject_delimiter,
-                but_rebase::graph_rebase::mutate::InsertSide::Above,
-            )?;
+            // Reconcile pass: re-anchor every empty ref of this stack directly above its
+            // below-neighbor per the new order, bottom to top. This is the one mechanism all
+            // empty-crossing shapes reduce to — empties dropping below a lifted subject,
+            // lifting above a lowered one, an empty subject relocating itself, and empties
+            // that rode a surgically moved commit — so refs always land where the persisted
+            // order says.
+            let mut anchor_ref: Option<gix::refs::FullName> = None;
+            for name in new_order.iter().rev() {
+                let is_empty_segment = segment_index_in(source_stack, name.as_ref())
+                    .and_then(|index| source_stack.segments.get(index))
+                    .map(|segment| segment.tip().is_none());
+                if is_empty_segment != Some(true) {
+                    // A commit owner, or a segment this stack doesn't know: a fixed anchor.
+                    anchor_ref = Some(name.clone());
+                    continue;
+                }
+                let anchor = anchor_ref.as_ref().with_context(|| {
+                    format!(
+                        "Unsupported reorder: empty branch '{}' would sit below the bottom branch",
+                        name.as_bstr()
+                    )
+                })?;
+                let anchor = editor.select_reference(anchor.as_ref())?;
+                editor.move_reference(
+                    editor.select_reference(name.as_ref())?,
+                    anchor,
+                    InsertSide::Above,
+                )?;
+                anchor_ref = Some(name.clone());
+            }
 
             return Ok(Outcome {
                 rebase: editor.rebase()?,
@@ -341,24 +498,34 @@ pub(super) mod function {
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
-    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
-        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_managed_workspace<'meta, M: RefMetadata>(
+        successful_rebase: RebasedEditor<'meta, M>,
         workspace: but_graph::Workspace,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
+        let Some(workspace_head) = workspace.tip_commit_id() else {
             bail!("Couldn't find workspace head.")
         };
 
         let mut ws_meta = workspace.metadata.clone();
 
         let (source_stack, subject_segment) = source;
-        let (_, target_segment) = destination;
-        if subject_segment.commits.is_empty()
-            && target_segment.commits.is_empty()
+        let (destination_stack, target_segment) = destination;
+        // Same-commit empty refs within ONE stack reorder purely in metadata. Empties on
+        // different commits are a real move (the subject's ref must re-point), and a
+        // same-commit move ACROSS stacks must still merge the subject into the target's
+        // chain in the editor — a metadata-only edit leaves the subject's old chain in
+        // the layout, and the next materialize builds a stale workspace parent from it.
+        let subject_shares_target_commit = successful_rebase
+            .reference_target(subject_branch_name)?
+            == successful_rebase.reference_target(target_branch_name)?;
+        if subject_segment.tip().is_none()
+            && target_segment.tip().is_none()
+            && subject_shares_target_commit
+            && same_stack(&source_stack, &destination_stack)
             && ws_meta.is_some()
         {
             if let Some(ws_meta) = ws_meta.as_mut() {
@@ -372,36 +539,100 @@ pub(super) mod function {
             });
         }
 
+        // A commit-owning subject crossing only empties within its stack relocates nothing:
+        // its range already rests where it lands. Running the pick surgery anyway is the
+        // degenerate self-move — it disconnects the range from the workspace commit and never
+        // reconnects it, expelling the subject's commits from the workspace. Re-anchor the
+        // crossed empty refs around the unchanged range instead.
+        if subject_segment.tip().is_some() && same_stack(&source_stack, &destination_stack) {
+            let crossed = crossed_segments(&source_stack, subject_branch_name, target_branch_name)?;
+            let target_index = segment_index_in(&source_stack, target_branch_name)
+                .context("BUG: target segment missing from the source stack")?;
+            let subject_index = segment_index_in(&source_stack, subject_branch_name)
+                .context("BUG: subject segment missing from its source stack")?;
+            if crossed.iter().all(|segment| segment.tip().is_none()) {
+                let mut editor = successful_rebase.into_editor();
+                if target_index < subject_index {
+                    // The subject lifts above the crossed empties: they drop below its
+                    // bottom-most commit, keeping their order.
+                    let mut anchor: EditorIndex = editor
+                        .select_commit(
+                            subject_segment
+                                .commits
+                                .last()
+                                .copied()
+                                .context("BUG: non-empty subject has no commits")?,
+                        )?
+                        .into();
+                    for segment in crossed {
+                        let empty_ref = segment
+                            .ref_name()
+                            .context("Empty segment doesn't have a ref")?;
+                        editor.move_reference(
+                            editor.select_reference(empty_ref)?,
+                            anchor,
+                            InsertSide::Below,
+                        )?;
+                        anchor = editor.select_reference(empty_ref)?.into();
+                    }
+                } else {
+                    // The subject drops below the crossed empties: they lift above its tip
+                    // ref, keeping their order.
+                    let mut anchor_ref = subject_branch_name.to_owned();
+                    for segment in crossed.iter().rev() {
+                        let empty_ref = segment
+                            .ref_name()
+                            .context("Empty segment doesn't have a ref")?;
+                        let anchor = editor.select_reference(anchor_ref.as_ref())?;
+                        editor.move_reference(
+                            editor.select_reference(empty_ref)?,
+                            anchor,
+                            InsertSide::Above,
+                        )?;
+                        anchor_ref = empty_ref.to_owned();
+                    }
+                }
+                if let Some(ws_meta) = ws_meta.as_mut() {
+                    move_branch_in_metadata(ws_meta, subject_branch_name, target_branch_name);
+                }
+                return Ok(Outcome {
+                    rebase: editor.rebase()?,
+                    ws_meta,
+                    new_tip: None,
+                    branch_stack_order: None,
+                });
+            }
+        }
+
         let mut editor = successful_rebase.into_editor();
         let target_segment_ref_name = target_segment
             .ref_name()
             .context("Target segment doesn't have a ref")?;
-        let target_selector = editor
+        let target_entry = editor
             .select_reference(target_segment_ref_name)
             .context("Failed to find target reference in graph.")?;
 
-        let DisconnectParameters {
-            delimiter: subject_delimiter,
-            children_to_disconnect,
-            parents_to_disconnect,
-        } = get_disconnect_parameters(
+        let MoveBounds {
+            range: subject_delimiter,
+            children,
+        } = move_bounds(
             &editor,
             &source_stack,
             &subject_segment,
             Some(workspace_head),
         )?;
-
-        let skip_reconnect_step = source_stack.segments.len() == 1;
-        editor.disconnect_segment_from(
-            subject_delimiter.clone(),
-            children_to_disconnect,
-            parents_to_disconnect,
-            skip_reconnect_step,
-        )?;
-        editor.insert_segment(
-            target_selector,
+        let reconnect = if source_stack.segments.len() == 1 {
+            Reconnect::Skip
+        } else {
+            Reconnect::Heal
+        };
+        editor.move_range(
             subject_delimiter,
+            children,
+            target_entry,
             but_rebase::graph_rebase::mutate::InsertSide::Above,
+            Connect::Splice,
+            reconnect,
         )?;
 
         // Keep workspace metadata aligned with the graph move outcome for all move cases.
@@ -418,41 +649,77 @@ pub(super) mod function {
         })
     }
 
+    /// The position of the segment named `name` within `stack`, if any.
+    fn segment_index_in(
+        stack: &but_graph::workspace::SegmentStack,
+        name: &FullNameRef,
+    ) -> Option<usize> {
+        stack
+            .segments
+            .iter()
+            .position(|segment| segment.ref_name() == Some(name))
+    }
+
+    /// The segments a reorder of `subject` onto `target` crosses within `stack`, in stack
+    /// order: always exclusive of `subject`; `target` is included when the subject lifts
+    /// above it, and excluded when the subject drops to sit on top of it. Shared by both
+    /// move modes.
+    fn crossed_segments<'a>(
+        stack: &'a but_graph::workspace::SegmentStack,
+        subject_branch_name: &FullNameRef,
+        target_branch_name: &FullNameRef,
+    ) -> anyhow::Result<&'a [but_graph::workspace::Segment]> {
+        let subject_index = segment_index_in(stack, subject_branch_name)
+            .context("BUG: subject segment missing from its source stack")?;
+        let target_index = segment_index_in(stack, target_branch_name)
+            .context("BUG: target segment missing from the source stack")?;
+        Ok(if target_index < subject_index {
+            stack
+                .segments
+                .get(target_index..subject_index)
+                .unwrap_or(&[])
+        } else {
+            stack
+                .segments
+                .get(subject_index + 1..target_index)
+                .unwrap_or(&[])
+        })
+    }
+
     /// A segment and its container stack.
     type WorkspaceSegmentContext = (
-        but_graph::workspace::Stack,
-        but_graph::workspace::StackSegment,
+        but_graph::workspace::SegmentStack,
+        but_graph::workspace::Segment,
     );
 
     type WorkspaceSegmentContextRef<'a> = (
-        &'a but_graph::workspace::Stack,
-        &'a but_graph::workspace::StackSegment,
+        &'a but_graph::workspace::SegmentStack,
+        &'a but_graph::workspace::Segment,
     );
 
     fn own_context<'a>(ctx: WorkspaceSegmentContextRef<'a>) -> WorkspaceSegmentContext {
         (ctx.0.to_owned(), ctx.1.to_owned())
     }
 
-    fn same_stack(left: &but_graph::workspace::Stack, right: &but_graph::workspace::Stack) -> bool {
+    fn same_stack(
+        left: &but_graph::workspace::SegmentStack,
+        right: &but_graph::workspace::SegmentStack,
+    ) -> bool {
         left.segments.len() == right.segments.len()
             && left
                 .segments
                 .iter()
                 .zip(&right.segments)
-                .all(|(left, right)| left.id == right.id)
+                .all(|(left, right)| left.ref_name() == right.ref_name())
     }
 
-    fn stack_branch_order(stack: &but_graph::workspace::Stack) -> Vec<gix::refs::FullName> {
-        stack
-            .segments
-            .iter()
-            .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
-            .collect()
+    fn stack_branch_order(stack: &but_graph::workspace::SegmentStack) -> Vec<gix::refs::FullName> {
+        stack.segment_names().map(ToOwned::to_owned).collect()
     }
 
     fn reordered_entrypoint(
         entrypoint: Option<&FullNameRef>,
-        stack: &but_graph::workspace::Stack,
+        stack: &but_graph::workspace::SegmentStack,
         new_order: &[gix::refs::FullName],
     ) -> Option<gix::refs::FullName> {
         let entrypoint = entrypoint?;
@@ -494,14 +761,13 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<(WorkspaceSegmentContext, WorkspaceSegmentContext)> {
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+        let Some(source) = workspace.find_branch(subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
         };
 
-        let Some(destination) = workspace.find_segment_and_stack_by_refname(target_branch_name)
-        else {
+        let Some(destination) = workspace.find_branch(target_branch_name) else {
             bail!(
                 "Couldn't find target branch to move in workspace with reference name: {target_branch_name}"
             );
@@ -513,7 +779,7 @@ pub(super) mod function {
     ///
     /// Mirrors the [`Position::Above`](crate::branch::create_reference::Position) case of
     /// `create_reference`'s `insert_into_branch_stack_order`: `subject` is removed and re-inserted
-    /// at `target`'s slot, pushing `target` (and everything below it) down.
+    /// at `target`'s position, pushing `target` (and everything below it) down.
     ///
     /// If `target` isn't tracked yet (stale or empty metadata) it is appended first, so that a move
     /// where *both* branches are missing adds them both - `subject` on top of `target` - instead of

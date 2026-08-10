@@ -47,11 +47,11 @@ function makeDetails(
 			remoteTrackingRefName: null,
 			commits: (b.commits ?? []) as any,
 			commitsOnRemote: (b.upstreamCommits ?? []) as any,
-			commitsOutside: null,
 			metadata: null,
 			isEntrypoint: false,
 			pushStatus: "nothingToPush",
 			base: null,
+			advancedOutside: [],
 		})),
 	} as unknown as Stack;
 }

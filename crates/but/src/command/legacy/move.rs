@@ -7,7 +7,7 @@ use but_api::{
 };
 use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_rebase::graph_rebase::anchor::Anchor as GraphAnchor;
 use but_transaction::Transaction;
 use but_workspace::branch::create_reference::Anchor;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -303,7 +303,7 @@ impl MoveCommitsRelativeToOperation {
     ) -> anyhow::Result<Option<FullName>> {
         let (relative_to, side, new_branch_name) = match self.target {
             MoveTarget::Commit { commit, side } => {
-                (RelativeTo::Commit(commit.commit_id), side.into(), None)
+                (GraphAnchor::Commit(commit.commit_id), side.into(), None)
             }
             MoveTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
@@ -315,13 +315,13 @@ impl MoveCommitsRelativeToOperation {
                     Some(0),
                 )?;
                 (
-                    RelativeTo::Reference(new_branch_name.clone()),
+                    GraphAnchor::Reference(new_branch_name.clone()),
                     Side::Below.into(),
                     Some(new_branch_name),
                 )
             }
             MoveTarget::BranchTip { name } => {
-                (RelativeTo::Reference(name), Side::Below.into(), None)
+                (GraphAnchor::Reference(name), Side::Below.into(), None)
             }
         };
 
@@ -352,7 +352,7 @@ impl MoveCommitsToNewBranchOperation {
         )?;
         tx.move_commits(
             self.sources.iter().map(|c| c.commit_id),
-            RelativeTo::Reference(new_branch_name.clone()),
+            GraphAnchor::Reference(new_branch_name.clone()),
             Side::Below.into(),
         )?;
         Ok(new_branch_name)
@@ -379,7 +379,7 @@ impl MoveChangesRelativeToOperation {
 
         let (relative_to, side, new_branch_name) = match target {
             MoveTarget::Commit { commit, side } => {
-                (RelativeTo::Commit(commit.commit_id), side.into(), None)
+                (GraphAnchor::Commit(commit.commit_id), side.into(), None)
             }
             MoveTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
@@ -391,13 +391,13 @@ impl MoveChangesRelativeToOperation {
                     Some(0),
                 )?;
                 (
-                    RelativeTo::Reference(new_branch_name.clone()),
+                    GraphAnchor::Reference(new_branch_name.clone()),
                     Side::Below.into(),
                     Some(new_branch_name),
                 )
             }
             MoveTarget::BranchTip { name } => {
-                (RelativeTo::Reference(name), Side::Below.into(), None)
+                (GraphAnchor::Reference(name), Side::Below.into(), None)
             }
         };
 
@@ -444,7 +444,7 @@ impl MoveChangesToNewBranchOperation {
         )?;
 
         let empty_commit_id = tx.insert_blank_commit(
-            RelativeTo::Reference(new_branch_name.clone()),
+            GraphAnchor::Reference(new_branch_name.clone()),
             Side::Below.into(),
         )?;
         let new_commit = tx.move_committed_changes_between(

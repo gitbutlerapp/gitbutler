@@ -12,7 +12,8 @@ use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::anchor::Anchor;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::ui::{BranchDetails, StackDetails};
 use gitbutler_oplog::{
     OplogExt,
@@ -438,7 +439,7 @@ fn ensure_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            RelativeTo::Reference(branch.reference.clone()),
+            Anchor::Reference(branch.reference.clone()),
             InsertSide::Below,
             DryRun::No,
             perm,
@@ -474,7 +475,7 @@ fn ensure_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            RelativeTo::Reference(branch.reference.clone()),
+            Anchor::Reference(branch.reference.clone()),
             InsertSide::Below,
             DryRun::No,
             perm,

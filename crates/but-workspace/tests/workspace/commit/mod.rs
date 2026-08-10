@@ -12,9 +12,9 @@ mod uncommit_changes;
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
     use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
-    use but_graph::init::{Options, Overlay};
+    use but_graph::walk::{Options, Overlay};
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
-    use but_workspace::{WorkspaceCommit, commit::merge::Tip};
+    use but_workspace::{WorkspaceCommit, commit::merge::Seed};
     use gix::{prelude::ObjectIdExt, refs::Target};
     use snapbox::prelude::*;
 
@@ -43,7 +43,7 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -52,7 +52,7 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             None,
         )?;
@@ -111,7 +111,7 @@ f53c910
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -120,7 +120,7 @@ f53c910
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             Some("refs/heads/has-no-effect-outside-conflicts".try_into()?),
         )?;
@@ -215,7 +215,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 "#]]
         );
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -223,13 +223,12 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         )?;
 
         let add_c_ref = "refs/heads/add-C".try_into()?;
-        let (segment, commit) = graph
-            .segment_and_commit_by_ref_name(add_c_ref)
+        let commit_id = ws
+            .commit_id_by_ref_name(add_c_ref)
             .expect("add-C is visible in the graph");
-        let anon_c_tip = Tip {
+        let anon_c_tip = Seed {
             name: None,
-            commit_id: commit.id,
-            segment_idx: segment.id,
+            commit_id,
         };
 
         let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);
@@ -241,7 +240,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &stacks,
             [(2, anon_c_tip)],
-            &graph,
+            &ws,
             &repo,
             None,
         )?;
@@ -300,7 +299,7 @@ Outcome {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -310,7 +309,7 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             Some("refs/heads/conflict-hero".try_into()?),
         )?;
@@ -318,13 +317,12 @@ Outcome {
             out.to_debug(),
             snapbox::str![[r#"
 Outcome {
-    workspace_commit_id: Sha1(b8ba7bd37ac1a1f9a0e7f29ddf83acc249d7b866),
+    workspace_commit_id: Sha1(ba096ca317cc83bb5301175fa568f2e550e76479),
     stacks: [
         Stack { tip: d3cce74, name: "clean-A" },
         Stack { tip: 115e41b, name: "clean-B" },
         Stack { tip: 34c4591, name: "clean-C" },
         Stack { tip: 4bbb93c, name: "conflict-hero" },
-        Stack { tip: d3cce74, name: "clean-A" },
     ],
     missing_stacks: [],
     conflicting_stacks: [
@@ -364,7 +362,7 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             None,
         )?;
@@ -372,14 +370,13 @@ Outcome {
             out.to_debug(),
             snapbox::str![[r#"
 Outcome {
-    workspace_commit_id: Sha1(e444bfa38570217271f5df56c3fe26ed57a7e023),
+    workspace_commit_id: Sha1(1fb82aaec4db079c4d5c3467875d16d8557d8da7),
     stacks: [
         Stack { tip: d3cce74, name: "clean-A" },
         Stack { tip: bf09eae, name: "conflict-F1" },
         Stack { tip: 115e41b, name: "clean-B" },
         Stack { tip: f2ce66d, name: "conflict-F2" },
         Stack { tip: 34c4591, name: "clean-C" },
-        Stack { tip: d3cce74, name: "clean-A" },
     ],
     missing_stacks: [],
     conflicting_stacks: [
@@ -399,7 +396,7 @@ Outcome {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description) =
+        let (_tmp, ws, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -432,7 +429,7 @@ Outcome {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        let ws = ws.rederive_with(
             &repo,
             &meta,
             Overlay::default().with_references_if_new([
@@ -450,7 +447,7 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             None,
         )?;
@@ -513,7 +510,7 @@ Outcome {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -523,7 +520,7 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             None,
         )?;
@@ -600,7 +597,7 @@ fc2bf71
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            &ws,
             &repo,
             Some("refs/heads/conflict-C2".try_into()?),
         )?;
@@ -677,7 +674,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(["conflict-C2", "conflict-C2", "conflict-C1", "clean-A"]),
             None,
-            &graph,
+            &ws,
             &repo,
             Some("refs/heads/conflict-C1".try_into()?),
         )?;
@@ -692,12 +689,6 @@ Outcome {
     ],
     missing_stacks: [],
     conflicting_stacks: [
-        ConflictingStack {
-            tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
-            ref_name: FullName(
-                "refs/heads/conflict-C2",
-            ),
-        },
         ConflictingStack {
             tip: Sha1(f8392d239500de94b23f42c8ab5508dae1b3b657),
             ref_name: FullName(
@@ -762,6 +753,7 @@ Outcome {
                             .to_full_name(short_name)
                             .expect("known good short ref name"),
                         archived: false,
+                        parents: None,
                     }],
                 })
                 .collect()

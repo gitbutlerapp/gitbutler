@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context as _, anyhow};
 use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_db::DbHandle;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_rebase::graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide};
 
 use crate::Outcome;
 
@@ -114,11 +111,11 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws.commit_graph(), ws.project_meta(), meta, repo)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,
-            RelativeToRef::Reference(full_ref_name.as_ref()),
+            Anchor::Reference(full_ref_name.clone()),
             InsertSide::Below,
             &commit_message,
             context_lines,
@@ -133,11 +130,11 @@ pub(crate) fn handle_changes(
         }
 
         if let Some(new_commit) = outcome
-            .commit_selector
-            .map(|selector| outcome.rebase.lookup_pick(selector))
+            .commit
+            .map(|handle| outcome.rebase.id_of(handle))
             .transpose()?
         {
-            outcome.rebase.materialize(Default::default())?;
+            outcome.rebase.materialize()?;
             updated_branches.push(crate::UpdatedBranch {
                 stack_id,
                 branch_name: stack_branch_name,
@@ -176,9 +173,10 @@ fn stacks_creating_if_none(
         |_| StackId::generate(),
         None,
     )?;
-    *ws = new_ws.into_owned();
-    let stack = ws
-        .stacks
+    // The display boundary: the context cache holds the pruned display workspace.
+    ws.adopt(new_ws);
+    let display_stacks = ws.display_stacks()?;
+    let stack = display_stacks
         .iter()
         .find(|stack| stack.ref_name() == Some(branch_name.as_ref()))
         .context("BUG: need to find stack that was just created")?;
@@ -196,7 +194,8 @@ fn stacks_creating_if_none(
 /// Stacks without an ID or reference name are skipped because the action needs both values to map
 /// assignments to a branch and report the resulting update.
 fn stack_info(ws: &but_graph::Workspace) -> Vec<StackForAction> {
-    ws.stacks
+    ws.display_stacks()
+        .expect("displayable")
         .iter()
         .filter_map(|stack| {
             let id = stack.id?;

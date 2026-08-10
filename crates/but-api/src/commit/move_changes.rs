@@ -54,17 +54,24 @@ pub fn commit_move_changes_between_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
 
+    let source = editor.select_commit(source_commit_id)?;
+    let destination = editor.select_commit(destination_commit_id)?;
     let outcome = but_workspace::commit::move_changes_between_commits(
         editor,
-        source_commit_id,
-        destination_commit_id,
+        source,
+        destination,
         changes,
         context_lines,
     )?;
-    let workspace =
-        WorkspaceState::from_successful_rebase_with_db(outcome.rebase, &repo, dry_run, &db)?;
+    let workspace = WorkspaceState::from_successful_rebase_with_db(
+        &mut ws,
+        outcome.rebase,
+        &repo,
+        dry_run,
+        &db,
+    )?;
 
     Ok(MoveChangesResult { workspace })
 }

@@ -5,16 +5,13 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RefMetadata,
-    ref_metadata::{StackId, StackKind, WorkspaceStack},
+    ref_metadata::{StackId, StackKind},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{
-    Editor,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_rebase::graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide};
 use but_workspace::branch::unapply::WorkspaceDisposition;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -65,10 +62,13 @@ pub fn create_virtual_branch(
             branch.order,
         )?;
 
-        let (stack_idx, segment_idx) = new_ws
-            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
-            .context("BUG: didn't find a stack that was just created")?;
-        let stack = &new_ws.stacks[stack_idx];
+        // The display boundary: the entry summary and the context cache read the pruned display.
+        ws.adopt(new_ws);
+        let stacks = ws.display_stacks()?;
+        let (stack_idx, segment_idx) =
+            but_graph::workspace::find_segment_owner_indexes_by_refname(&stacks, new_ref.as_ref())
+                .context("BUG: didn't find a stack that was just created")?;
+        let stack = &stacks[stack_idx];
         let tip = stack.segments[segment_idx]
             .tip()
             .unwrap_or(repo.object_hash().null());
@@ -77,7 +77,7 @@ pub fn create_virtual_branch(
             .as_ref()
             .and_then(|meta| meta.review.pull_request);
 
-        let out = StackEntryNoOpt {
+        StackEntryNoOpt {
             id: stack
                 .id
                 .context("BUG: all new stacks are created with an ID")?,
@@ -90,10 +90,7 @@ pub fn create_virtual_branch(
             tip,
             order: Some(stack_idx),
             is_checked_out: false,
-        };
-
-        *ws = new_ws.into_owned();
-        out
+        }
     };
     Ok(stack_entry)
 }
@@ -121,7 +118,7 @@ pub fn delete_local_branch(
         bail_precondition!("Cannot delete a branch that is applied in workspace");
     }
 
-    if let Some(new_ws) = but_workspace::branch::remove_reference(
+    let updated = but_workspace::branch::remove_reference(
         branch_refname.as_ref(),
         &repo,
         &ws,
@@ -130,9 +127,10 @@ pub fn delete_local_branch(
             avoid_anonymous_stacks: false,
             keep_metadata: false,
         },
-    )? {
-        *ws = new_ws;
-    } else {
+    )?;
+    let removed_from_workspace = updated.is_some();
+    ws.adopt(updated);
+    if !removed_from_workspace {
         if let Some(reference) = repo.try_find_reference(branch_refname.as_ref())? {
             let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
             let outcome = safe_delete.delete_reference(&reference)?;
@@ -294,7 +292,10 @@ pub fn update_stack_order_with_perm(
         meta.set_workspace(&workspace_metadata)?;
         meta.set_changed_to_necessitate_write();
         ws.metadata = Some(updated_metadata);
-        sort_projected_stacks_like_metadata(&mut ws.stacks, &workspace_metadata.stacks);
+        // Stack ORDER is stamped from the declared metadata at build time: rebuild the cached
+        // workspace from the just-persisted truth instead of hand-patching its display.
+        let project_meta = ws.project_meta().clone();
+        ws.refresh_from_head(&_repo, &meta, project_meta)?;
     }
 
     Ok(())
@@ -352,24 +353,6 @@ fn apply_stack_order_updates(
         .iter()
         .map(|stack| stack.id)
         .ne(original_stack_ids))
-}
-
-fn sort_projected_stacks_like_metadata(
-    stacks: &mut [but_graph::workspace::Stack],
-    metadata_stacks: &[WorkspaceStack],
-) {
-    let stack_orders = metadata_stacks
-        .iter()
-        .enumerate()
-        .map(|(order, stack)| (stack.id, order))
-        .collect::<HashMap<_, _>>();
-
-    stacks.sort_by_key(|stack| {
-        stack
-            .id
-            .and_then(|stack_id| stack_orders.get(&stack_id).copied())
-            .unwrap_or(usize::MAX)
-    });
 }
 
 #[cfg(test)]
@@ -454,6 +437,7 @@ mod tests {
                 ref_name: gix::refs::FullName::try_from(format!("refs/heads/{name}"))
                     .expect("valid test ref name"),
                 archived: false,
+                parents: None,
             }],
         }
     }
@@ -572,6 +556,20 @@ fn unapply_stack_v3_with_perm(
     } else {
         WorkspaceDisposition::KeepWorkspaceCommit
     };
+    // NEVER STRAND THE USER (see but-workspace's crate docs). Unapply is one of the two ways to end
+    // up with nothing; integration is the other, and mints a stand-in instead. Here refusal is the
+    // right answer because the user is taking something away rather than landing it.
+    //
+    // It sits at this entry, not in `branch::unapply()`, because two of that function's dispositions
+    // exist to empty a workspace and the op fuzzers depend on them. Reaching it is unusual anyway:
+    // with the v3 disposition, unapplying the second-to-last stack dissolves the workspace onto the
+    // branch that remains.
+    if ws.kind().has_managed_commit() && ws.stacks.len() <= 1 {
+        bail_precondition!(
+            "Cannot unapply the only branch in the workspace — apply another branch first, \
+             or run `but teardown` to leave the workspace altogether"
+        );
+    }
     let outcome = but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
@@ -581,7 +579,8 @@ fn unapply_stack_v3_with_perm(
             workspace_disposition,
         },
     )?;
-    *ws = outcome.workspace.into_owned();
+    // The display boundary: the context cache holds the pruned display workspace.
+    ws.adopt(outcome.workspace);
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;
@@ -598,7 +597,8 @@ fn stack_branch_names(
     perm: &mut RepoExclusive,
 ) -> Result<Vec<gix::refs::FullName>> {
     let (_repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let Some(stack) = ws.stacks.iter().find(|stack| stack.id == Some(stack_id)) else {
+    let stacks = ws.display_stacks()?;
+    let Some(stack) = stacks.iter().find(|stack| stack.id == Some(stack_id)) else {
         return Err(
             anyhow!("branch with ID {stack_id} not found").context(but_error::Code::BranchNotFound)
         );
@@ -657,12 +657,12 @@ fn commit_assigned_diffspec(
     }
 
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
-        RelativeToRef::Reference(branch),
+        Anchor::Reference(branch.to_owned()),
         InsertSide::Below,
         "WIP Assignments",
         ctx.settings.context_lines,
@@ -674,8 +674,8 @@ fn commit_assigned_diffspec(
             "Failed to commit at least one hunk"
         );
     }
-    if outcome.commit_selector.is_some() {
-        outcome.rebase.materialize(Default::default())?;
+    if outcome.commit.is_some() {
+        outcome.rebase.materialize()?;
         drop((repo, ws));
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }

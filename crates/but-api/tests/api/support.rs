@@ -146,7 +146,7 @@ pub fn workspace_graph(ctx: &but_ctx::Context) -> anyhow::Result<String> {
 
 #[cfg(not(feature = "graph-workspace"))]
 pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::RefInfo> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let _traversal = ctx.graph_options(but_graph::walk::Options::limited())?;
     let project_meta = ctx.project_meta()?;
     let meta = ctx.meta()?;
     let repo = ctx.repo.get()?;
@@ -155,7 +155,7 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
         &meta,
         but_workspace::ref_info::Options {
             project_meta,
-            traversal,
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()
         },
@@ -173,6 +173,5 @@ pub fn fresh_graph_workspace(
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
-    let mut ws = ws.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut ws, &mut meta, &repo).map(Into::into)
+    but_workspace::workspace::detailed_graph_workspace(&ws, &mut meta, &repo).map(Into::into)
 }

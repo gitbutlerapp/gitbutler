@@ -1,7 +1,8 @@
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::anchor::Anchor;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use tracing::instrument;
 
 use crate::WorkspaceState;
@@ -20,7 +21,7 @@ use super::types::CommitMoveResult;
 pub fn commit_move_only(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitMoveResult> {
@@ -45,19 +46,21 @@ pub fn commit_move_only(
 pub fn commit_move_only_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = but_rebase::graph_rebase::Editor::for_workspace(&ws, &mut meta, &repo)?;
     let rebase =
         but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?,
+        workspace: WorkspaceState::from_successful_rebase_with_db(
+            &mut ws, rebase, &repo, dry_run, &db,
+        )?,
     })
 }
 
@@ -74,7 +77,7 @@ pub fn commit_move_only_with_perm(
 pub fn commit_move(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitMoveResult> {
@@ -100,7 +103,7 @@ pub fn commit_move(
 pub fn commit_move_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,

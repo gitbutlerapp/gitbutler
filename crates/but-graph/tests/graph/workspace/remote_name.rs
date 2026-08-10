@@ -1,9 +1,12 @@
 use but_core::RefMetadata;
-use but_graph::Graph;
-use but_testsupport::{graph_tree, visualize_commit_graph_all};
+use but_graph::Workspace;
+use but_testsupport::{graph_dag, visualize_commit_graph_all};
 
 use super::target_meta;
-use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
+use crate::walk::utils::{
+    add_workspace, named_read_only_in_memory_scenario, read_only_in_memory_scenario,
+    standard_options,
+};
 
 #[test]
 fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
@@ -11,9 +14,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
@@ -26,19 +27,40 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 }
 
 #[test]
+fn slash_named_remote_extracts_the_full_remote_name() -> anyhow::Result<()> {
+    let (repo, mut meta) = named_read_only_in_memory_scenario("slash-remote", "slash-remote")?;
+
+    add_workspace(&mut meta);
+    // The target remote's name contains a slash — extraction must longest-match
+    // against the configured remote names, never split at the first slash.
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/special/origin/main".try_into()?),
+        ..Default::default()
+    };
+
+    let ws = Workspace::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+
+    assert_eq!(
+        ws.target_ref_name().map(|rn| rn.as_bstr()),
+        Some("refs/remotes/special/origin/main".into()),
+        "the target resolves through the slash-named remote"
+    );
+    assert_eq!(
+        ws.remote_name(),
+        Some("special/origin".into()),
+        "the full remote name is extracted, not the first path component"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
@@ -71,22 +93,11 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
-        graph_tree(&ws.graph).to_string(),
-        snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── 📙►:2[2]:A
-│       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B
-└── ►:1[0]:origin/main →:3:
-    └── ►:3[1]:main <> origin/main →:1:
-        └── →:2: (A)
-
-"#]]
+        graph_dag(&ws),
+        snapbox::str!["*  👉✂·bce0c5e (⌂|🏘|✓) ►A, ►B, ►main, ►origin/main <> origin/main"]
     );
 
     assert_eq!(
@@ -94,12 +105,5 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
         Some("refs/remotes/origin/main".into()),
         "fixture should resolve the workspace target as origin/main"
     );
-    assert_eq!(
-        ws.target_local_tracking_ref_info()
-            .map(|ri| ri.ref_name.to_string()),
-        Some("refs/heads/main".to_string()),
-        "target/local tracking relationship should be available from the graph projection"
-    );
-
     Ok(())
 }

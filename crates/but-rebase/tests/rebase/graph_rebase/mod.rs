@@ -9,19 +9,20 @@ mod change_id;
 mod cherry_pick;
 mod conflictable_restriction;
 mod disconnect;
-mod edge;
 mod editor_creation;
 mod graph_workspace;
 mod insert;
-mod insert_segment;
 mod materialize;
 mod merge_commit_changes;
+mod move_riders;
 mod multiple_operations;
-mod order_commit_selectors_by_parentage;
+mod order_by_parentage;
+mod parent_entry;
 mod rebase_identities;
 mod replace;
 mod sha256;
 mod signing_preferences;
+mod tour;
 mod workspace_commit_behaviour;
 
 // Add parameters as needed.
