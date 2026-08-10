@@ -2651,6 +2651,61 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
 }
 
 #[test]
+fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "merged-branch-below-empty-branch-direct-checkout",
+    )?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let bottom_tip = repo.rev_parse_single("bottom")?.detach();
+    let top_tip = repo.rev_parse_single("top")?.detach();
+    assert_eq!(
+        top_tip, bottom_tip,
+        "the checked-out top branch should initially be empty above bottom"
+    );
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_tip),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let out = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(bottom_tip),
+        }],
+    )?;
+    out.rebase.materialize(Default::default())?;
+
+    assert!(
+        repo.try_find_reference("bottom")?.is_none(),
+        "the integrated bottom branch should be deleted"
+    );
+    assert_eq!(
+        repo.find_reference("top")?.id(),
+        target_tip,
+        "the empty top branch should advance to the target tip"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/top")?),
+        "the empty top branch should remain checked out"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
