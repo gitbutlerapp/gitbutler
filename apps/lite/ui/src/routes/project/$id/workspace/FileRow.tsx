@@ -4,6 +4,7 @@ import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import type { SelectionScope } from "#ui/selection-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -37,6 +38,7 @@ export const FileRow: FC<
 		 * — the tree already says which directory this is. Resolved by the list.
 		 */
 		pathDisplay: "lead" | "trail" | "hidden";
+		selectionScope: SelectionScope;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({
 	item,
@@ -48,6 +50,7 @@ export const FileRow: FC<
 	checkFile,
 	depth,
 	pathDisplay,
+	selectionScope,
 	id,
 	...restProps
 }) => {
@@ -110,7 +113,14 @@ export const FileRow: FC<
 						/>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup kbd={changesFileHotkeys.checkFile.hotkey} />}>
+								<Tooltip.Popup
+									render={
+										<TooltipPopup
+											kbd={changesFileHotkeys.checkFile.hotkey}
+											kbdScope={selectionScope}
+										/>
+									}
+								>
 									{changesFileHotkeys.checkFile.meta.name}
 								</Tooltip.Popup>
 							</Tooltip.Positioner>

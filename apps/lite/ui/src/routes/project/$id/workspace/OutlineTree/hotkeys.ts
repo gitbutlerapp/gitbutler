@@ -32,6 +32,7 @@ import { type UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import type { RefObject } from "react";
+import { toggleFoldedSegment } from "./fold.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import {
 	canRemoveBranchReference,
@@ -88,17 +89,23 @@ export const useOutlineTreeHotkeys = ({
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
 
-	const selectionStack = Match.value(selection).pipe(
+	const selectionContext = Match.value(selection).pipe(
 		Match.tags({
-			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef)?.stack,
-			Commit: (commit) => headInfoIndex?.commitContextByCommitId(commit.commitId)?.stack,
+			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef),
+			Commit: (commit) => headInfoIndex?.commitContextByCommitId(commit.commitId),
 		}),
 		Match.orElse(() => undefined),
 	);
+	const selectionStack = selectionContext?.stack;
 	const selectedBranchSegment =
-		selection?._tag === "Branch"
-			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segment
-			: undefined;
+		selection?._tag === "Branch" ? selectionContext?.segment : undefined;
+	// Only a segment with a branch reference and commits to hide can be folded.
+	const foldableSegmentRef =
+		selectionContext !== undefined &&
+		selectionContext.segment.refName !== null &&
+		selectionContext.segment.commits.length > 0
+			? selectionContext.segment.refName
+			: null;
 
 	const selectedCommit =
 		selection?._tag === "Commit"
@@ -307,6 +314,19 @@ export const useOutlineTreeHotkeys = ({
 		});
 	};
 
+	const toggleFoldSelected = () => {
+		if (foldableSegmentRef === null) return;
+
+		toggleFoldedSegment(dispatch, {
+			projectId,
+			branchRefBytes: foldableSegmentRef.fullNameBytes,
+			// A selected commit implies the segment is unfolded, so this is the
+			// folding case and the selection needs the hand-off; a selected branch
+			// row keeps its selection either way.
+			select: selection?._tag === "Commit",
+		});
+	};
+
 	const uncommitSelectedCommit = () => {
 		if (!selection || selection._tag !== "Commit") return;
 
@@ -318,12 +338,7 @@ export const useOutlineTreeHotkeys = ({
 		});
 	};
 
-	const selectedSegmentIndex =
-		selection?._tag === "Branch"
-			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
-			: selection?._tag === "Commit"
-				? headInfoIndex?.commitContextByCommitId(selection.commitId)?.segmentIndex
-				: undefined;
+	const selectedSegmentIndex = selectionContext?.segmentIndex;
 
 	const selectedPushContext =
 		selectionStack && selectedSegmentIndex !== undefined
@@ -547,6 +562,16 @@ export const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitUncommitPending,
 				target: ref,
 				meta: outlineHotkeys.uncommitCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.toggleFoldBranch.hotkey,
+			callback: toggleFoldSelected,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && foldableSegmentRef !== null,
+				target: ref,
+				meta: outlineHotkeys.toggleFoldBranch.meta,
 			},
 		},
 		{

@@ -1,3 +1,4 @@
+import { assert } from "#ui/assert.ts";
 import { hash } from "#ui/hash.ts";
 import {
 	contiguousSelectionsFromHunk,
@@ -13,7 +14,7 @@ import {
 	type HunkOperand,
 	weakFileIdentityKey,
 } from "#ui/operands.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	processFile,
@@ -221,4 +222,29 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 		hunkByKey,
 		navigationIndex,
 	};
+};
+
+/**
+ * The navigation index with folded files' hunks removed — except each folded
+ * file's first hunk, which stands in for the file the way a folded branch
+ * keeps its branch row. j/k then stop once per folded file instead of walking
+ * its hidden hunks, and z can unfold from the keyboard.
+ */
+export const withoutFoldedHunks = (
+	navigationIndex: NavigationIndex<HunkOperand>,
+	hunkByKey: DiffView["hunkByKey"],
+	collapsedItems: Set<string>,
+): NavigationIndex<HunkOperand> => {
+	if (collapsedItems.size === 0) return navigationIndex;
+
+	const items = navigationIndex.items.filter((hunk) => {
+		const key = hunkOperandIdentityKey(hunk);
+		const file = hunkByKey.get(key)?.file;
+		return (
+			file === undefined ||
+			!collapsedItems.has(file.item.id) ||
+			hunkOperandIdentityKey(assert(file.hunks[0]).operand) === key
+		);
+	});
+	return { items, indexByKey: buildIndexByKey(items, hunkOperandIdentityKey) };
 };

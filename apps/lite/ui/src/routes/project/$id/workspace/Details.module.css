@@ -282,6 +282,28 @@
 	}
 }
 
+/* A folded file's header stands in for its hidden, selected hunks. A plain
+   accent bar marks it for now; positioned absolutely so the layout is
+   untouched. */
+.fileHeaderSelected {
+	position: relative;
+
+	&::before {
+		position: absolute;
+		width: 3px;
+		inset: 4px auto 4px 0;
+		border-radius: 0 2px 2px 0;
+		/* The row-selection fill, dimmed like row selections in a blurred
+		   panel; full strength while the diff pane owns focus. */
+		background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+		content: "";
+	}
+
+	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within &::before {
+		background-color: var(--fill-gray-bg);
+	}
+}
+
 .fileHeaderActions {
 	display: flex;
 }

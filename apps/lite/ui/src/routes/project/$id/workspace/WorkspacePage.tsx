@@ -106,6 +106,22 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		projectId,
 	});
 
+	// Shared by the arrow keys and their h/l aliases so the pairs cannot diverge.
+	const focusPane = (offset: -1 | 1) => {
+		focusHorizontalSelectionScope({
+			filesVisible,
+			offset,
+			outlineSelectionScope,
+			outlineVisible,
+		});
+	};
+	const focusPaneLeft = () => {
+		focusPane(-1);
+	};
+	const focusPaneRight = () => {
+		focusPane(1);
+	};
+
 	useHotkeys([
 		{
 			hotkey: globalHotkeys.redo.hotkey,
@@ -193,28 +209,30 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		),
 		{
 			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeLeft.hotkey,
-			callback: () => {
-				focusHorizontalSelectionScope({
-					filesVisible,
-					offset: -1,
-					outlineSelectionScope,
-					outlineVisible,
-				});
+			callback: focusPaneLeft,
+			options: {
+				conflictBehavior: "allow",
+				meta: workspaceHotkeys.focusHorizontalSelectionScopeLeft.meta,
 			},
+		},
+		{
+			hotkey: "H",
+			callback: focusPaneLeft,
 			options: {
 				conflictBehavior: "allow",
 			},
 		},
 		{
 			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeRight.hotkey,
-			callback: () => {
-				focusHorizontalSelectionScope({
-					filesVisible,
-					offset: 1,
-					outlineSelectionScope,
-					outlineVisible,
-				});
+			callback: focusPaneRight,
+			options: {
+				conflictBehavior: "allow",
+				meta: workspaceHotkeys.focusHorizontalSelectionScopeRight.meta,
 			},
+		},
+		{
+			hotkey: "L",
+			callback: focusPaneRight,
 			options: {
 				conflictBehavior: "allow",
 			},

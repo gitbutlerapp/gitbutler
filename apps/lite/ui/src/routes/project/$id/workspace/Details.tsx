@@ -45,7 +45,7 @@ import {
 	PullRequestForm,
 	PullRequestPrimaryAction,
 } from "#ui/routes/project/$id/workspace/PullRequestTab.tsx";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type { CommitDetails, TreeChange } from "@gitbutler/but-sdk";
@@ -138,6 +138,7 @@ import {
 	type DiffView,
 	getDiffView,
 	hunkOperandIdentityKey,
+	withoutFoldedHunks,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
 import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
@@ -249,6 +250,7 @@ const DiffContents: FC<{
 	didScrollToViaFileRef,
 }) => {
 	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
+	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
 	const { mutate: createComment } = useCommentCreate();
@@ -267,15 +269,26 @@ const DiffContents: FC<{
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
+	const store = useAppStore();
 
 	const diffSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionDiff(state, projectId, navigationIndex),
+		projectSlice.selectors.selectSelectionDiff(state, projectId, visibleNavigationIndex),
+	);
+	const hasStoredDiffSelection = useAppSelector(
+		(state) => projectSlice.selectors.selectStoredDiffSelection(state, projectId) !== null,
 	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
 	const selectedRange = diffSelection
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
+	// A primitive, null while the selection sits on a visible hunk, so the item
+	// list and header closures below only pick up new identities when a folded
+	// file gains or loses the selection — not on every j/k move.
+	const selectedFoldedFileId =
+		diffSelectionHunk != null && collapsedItems.has(diffSelectionHunk.file.item.id)
+			? diffSelectionHunk.file.item.id
+			: null;
 
 	useLayoutEffect(() => {
 		if (!diffSelectionHunk) return;
@@ -304,7 +317,7 @@ const DiffContents: FC<{
 	};
 
 	useNavigationIndexHotkeys({
-		navigationIndex,
+		navigationIndex: visibleNavigationIndex,
 		projectId,
 		group: "Diff",
 		select: selectDiff,
@@ -320,25 +333,22 @@ const DiffContents: FC<{
 
 	useHotkeys([
 		{
-			hotkey: diffHotkeys.foldFile.hotkey,
-			callback: () =>
-				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(true),
-			options: {
-				enabled: !!diffSelectionHunk && !collapsedItems.has(diffSelectionHunk.file.item.id),
-				conflictBehavior: "allow",
-				target: selectionScopeRef,
-				meta: diffHotkeys.foldFile.meta,
+			hotkey: diffHotkeys.toggleFoldFile.hotkey,
+			callback: () => {
+				if (!diffSelectionHunk) return;
+
+				handleSetCollapsed(diffSelectionHunk.file.item.id)(
+					!collapsedItems.has(diffSelectionHunk.file.item.id),
+				);
 			},
-		},
-		{
-			hotkey: diffHotkeys.unfoldFile.hotkey,
-			callback: () =>
-				!!diffSelectionHunk && handleSetCollapsed(diffSelectionHunk.file.item.id)(false),
 			options: {
-				enabled: !!diffSelectionHunk && collapsedItems.has(diffSelectionHunk.file.item.id),
+				// A stored selection, not the resolver's first-hunk fallback: after
+				// scrolling with nothing selected, folding the fallback would fold a
+				// file far off-screen. j/k (which stores a selection) is the way in.
+				enabled: hasStoredDiffSelection && !!diffSelectionHunk,
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
-				meta: diffHotkeys.unfoldFile.meta,
+				meta: diffHotkeys.toggleFoldFile.meta,
 			},
 		},
 		{
@@ -472,16 +482,49 @@ const DiffContents: FC<{
 		else s.delete(itemId);
 
 		setCollapsedItems(s);
+
+		if (!collapsed) return;
+
+		// Folding hides the selected hunk's lines; hand the selection to the
+		// file's first hunk, which stands in for the folded file, and keep the
+		// header in view. The stored selection is read off the store rather than
+		// captured, so this callback's identity does not churn with j/k moves.
+		const stored = projectSlice.selectors.selectStoredDiffSelection(store.getState(), projectId);
+		const storedFile = stored && hunkByKey.get(hunkOperandIdentityKey(stored))?.file;
+		if (storedFile?.item.id !== itemId) return;
+
+		dispatch(
+			projectSlice.actions.selectDiff({
+				projectId,
+				selection: assert(storedFile.hunks[0]).operand,
+			}),
+		);
+		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "nearest" });
 	};
 
 	// We must change the version for updates to the collapsed property to be respected. The versions
-	// should be as stable as possible, collapsed or not, for performance.
-	const enhanceCollapsed = <T,>(item: CodeViewDiffItem<T>): CodeViewDiffItem<T> => ({
+	// should be as stable as possible, collapsed or not, for performance. The selected flag is
+	// hashed in so the header re-renders when the selection enters or leaves a folded file.
+	const enhanceCollapsed = <T,>(
+		item: CodeViewDiffItem<T>,
+		selected: boolean,
+	): CodeViewDiffItem<T> => ({
 		...item,
 		collapsed: true,
 		// We always use versions.
-		version: combineHashes(assert(item.version), 1),
+		version: combineHashes(assert(item.version), selected ? 2 : 1),
 	});
+
+	// Hoisted from the JSX so the rebuild runs when folds or the folded
+	// selection change, not on every render of this component.
+	const displayItems =
+		collapsedItems.size === 0
+			? items
+			: items.map((item) =>
+					collapsedItems.has(item.id)
+						? enhanceCollapsed(item, item.id === selectedFoldedFileId)
+						: item,
+				);
 
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
@@ -504,6 +547,7 @@ const DiffContents: FC<{
 						change={file.change}
 						hasDiff={item.fileDiff.hunks.length !== 0}
 						collapsed={item.collapsed ?? false}
+						selected={item.id === selectedFoldedFileId}
 						setCollapsed={handleSetCollapsed(item.id)}
 					/>
 				);
@@ -575,11 +619,7 @@ const DiffContents: FC<{
 			}}
 			onScroll={selectFileAtViewportTop}
 			className={styles.diffContents}
-			items={
-				collapsedItems.size === 0
-					? items
-					: items.map((item) => (collapsedItems.has(item.id) ? enhanceCollapsed(item) : item))
-			}
+			items={displayItems}
 			selectedLines={selectedRange}
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
@@ -653,6 +693,8 @@ type DiffFileHeaderProps = {
 	change: TreeChange;
 	hasDiff: boolean;
 	collapsed: boolean;
+	/** Whether the folded file's stand-in hunk holds the diff selection. */
+	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
 };
 
@@ -668,8 +710,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
-	const collapseHotkey = p.collapsed ? diffHotkeys.unfoldFile : diffHotkeys.foldFile;
-	const collapseLabel = collapseHotkey.meta.name;
+	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
 
 	return (
 		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)} outline="inside">
@@ -677,7 +718,11 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
-				className={classes(styles.fileHeader, (p.collapsed || !p.hasDiff) && styles.lone)}
+				className={classes(
+					styles.fileHeader,
+					(p.collapsed || !p.hasDiff) && styles.lone,
+					p.selected && styles.fileHeaderSelected,
+				)}
 			>
 				<Tooltip.Root>
 					<Tooltip.Trigger
@@ -690,7 +735,9 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Tooltip.Trigger>
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup kbd={collapseHotkey.hotkey} />}>
+							<Tooltip.Popup
+								render={<TooltipPopup kbd={diffHotkeys.toggleFoldFile.hotkey} kbdScope="diff" />}
+							>
 								{collapseLabel}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
@@ -1212,7 +1259,7 @@ const Diff: FC<{
 									viewportClassName={styles.diffFiles}
 								>
 									<FilesTree
-										data-selection-scope={"files" satisfies SelectionScope}
+										selectionScope="files"
 										onRowSelection={activateRow}
 										projectId={projectId}
 										rows={filesRows}

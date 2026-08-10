@@ -646,6 +646,8 @@ export const projectSelectors = {
 			state.workspace.selection.diff,
 			hunkOperandIdentityKey,
 		),
+	/** The diff selection as stored, without resolving it against a navigation index. */
+	selectStoredDiffSelection: (state: ProjectState) => state.workspace.selection.diff,
 	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
 	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
 	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
