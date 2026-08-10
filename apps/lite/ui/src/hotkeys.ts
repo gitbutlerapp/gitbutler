@@ -118,10 +118,12 @@ export const workspaceHotkeys = {
 		},
 	},
 	focusHorizontalSelectionScopeLeft: {
-		hotkey: "Mod+Alt+ArrowLeft",
+		hotkey: "ArrowLeft",
+		meta: { group: "Workspace", name: "Focus pane to the left" },
 	},
 	focusHorizontalSelectionScopeRight: {
-		hotkey: "Mod+Alt+ArrowRight",
+		hotkey: "ArrowRight",
+		meta: { group: "Workspace", name: "Focus pane to the right" },
 	},
 	focusVerticalSelectionScopeUp: {
 		hotkey: "Mod+Alt+ArrowUp",
