@@ -146,6 +146,17 @@
 	text-overflow: ellipsis;
 }
 
+/* Marks a branch name that doesn't exist yet: committing is what creates it. */
+.targetTriggerBadge {
+	margin-inline-start: 4px;
+	padding-inline: 4px;
+	border-radius: var(--radius-xs);
+	background-color: color-mix(in srgb, var(--text-1) 10%, transparent);
+	color: color-mix(in srgb, var(--text-1) 60%, transparent);
+	font-size: 10px;
+	text-transform: uppercase;
+}
+
 .targetPopup {
 	display: flex;
 	flex-direction: column;

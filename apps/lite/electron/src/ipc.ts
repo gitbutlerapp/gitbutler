@@ -41,6 +41,7 @@ export const exposedEndpoints = [
 	"apply",
 	"applyBranchIntegration",
 	"assignHunk",
+	"branchCannedName",
 	"branchCheckout",
 	"branchCheckoutNew",
 	"branchCreate",

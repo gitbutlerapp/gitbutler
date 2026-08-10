@@ -1,6 +1,6 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { commitAmendMutationKey, useCommitCreate } from "#ui/api/mutations.ts";
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { commitAmendMutationKey, useBranchCreate, useCommitCreate } from "#ui/api/mutations.ts";
+import { branchCannedNameQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -100,6 +100,13 @@ export const CommitForm: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
+	/**
+	 * Whether the workspace holds no branch to commit onto. Committing is still
+	 * allowed — the branch is created on submit — so this is deliberately kept
+	 * apart from `commitTarget`, whose items carry an `Operand` that drives the
+	 * outline selection and which a branch that doesn't exist yet cannot have.
+	 */
+	hasNoBranches: boolean;
 	startCommitButtonId: string;
 	commitMessageInputId: string;
 	onAmendCommit: (commitId: string) => void;
@@ -110,6 +117,7 @@ export const CommitForm: FC<{
 	projectId,
 	commitTarget,
 	targetComboboxItems,
+	hasNoBranches,
 	startCommitButtonId,
 	commitMessageInputId,
 	onAmendCommit,
@@ -120,6 +128,7 @@ export const CommitForm: FC<{
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
+	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -136,7 +145,18 @@ export const CommitForm: FC<{
 		select: getHeadInfoIndex,
 	});
 	const isAmendCommitPending = useIsMutating({ mutationKey: commitAmendMutationKey }) > 0;
-	const isCommitOrAmendPending = isCommitCreatePending || isAmendCommitPending;
+	// The branch creation is the first half of a commit here, so it keeps the
+	// form read-only for its duration and rules out a double submit.
+	const isCommitOrAmendPending =
+		isCommitCreatePending || isAmendCommitPending || isBranchCreatePending;
+
+	// Only meaningful without a branch to commit onto, and pointless to fetch
+	// otherwise: with branches present the target comes from the combobox.
+	const { data: cannedBranchName } = useQuery({
+		...branchCannedNameQueryOptions(projectId),
+		enabled: hasNoBranches,
+	});
+	const draftBranchLabel = cannedBranchName ?? "New branch";
 
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
@@ -162,7 +182,10 @@ export const CommitForm: FC<{
 	};
 
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
-	const canCommit = canCommitOrAmendBase;
+	// Without branches there is no target to pick, but the commit creates one, so
+	// it must not be blocked. Amending still needs a commit that already exists.
+	const canCommit =
+		canCommitOrAmendBase || (isDefaultMode && hasNoBranches && !isCommitOrAmendPending);
 	const amendTargetCommitId =
 		commitTarget && headInfoIndex
 			? resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo })
@@ -175,8 +198,8 @@ export const CommitForm: FC<{
 		setOpen(false);
 	};
 
-	const createCommit = () => {
-		if (!commitTarget || !worktreeChanges) return;
+	const commitOnto = (relativeTo: RelativeTo) => {
+		if (!worktreeChanges) return;
 
 		const checkedUncommittedFilePaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
 			store.getState(),
@@ -186,14 +209,14 @@ export const CommitForm: FC<{
 			{
 				projectId,
 				message: commitTextareaRef.current?.value ?? draftMessage ?? "",
-				relativeTo: commitTarget.relativeTo,
+				relativeTo,
 				changes: worktreeChanges.changes.flatMap((change) =>
 					checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path)
 						? [createDiffSpec(change, [])]
 						: [],
 				),
 				changesSource: { type: "head" },
-				side: Match.value(commitTarget.relativeTo).pipe(
+				side: Match.value(relativeTo).pipe(
 					Match.withReturnType<InsertSide>(),
 					Match.when({ type: "commit" }, () => "above"),
 					Match.when({ type: "reference" }, () => "below"),
@@ -209,6 +232,34 @@ export const CommitForm: FC<{
 					if (commitTextareaRef.current) commitTextareaRef.current.value = "";
 
 					persistDraftMessage({ projectId, message: "" });
+				},
+			},
+		);
+	};
+
+	const createCommit = () => {
+		if (commitTarget) {
+			commitOnto(commitTarget.relativeTo);
+			return;
+		}
+
+		// An empty workspace has nothing to commit onto, so the branch is created
+		// first — lazily, so that merely opening the commit form writes no ref. On
+		// failure `useBranchCreate` toasts and no commit is attempted, leaving the
+		// form and its draft message untouched.
+		if (!hasNoBranches || !worktreeChanges) return;
+
+		branchCreate(
+			{ projectId, newRef: null, placement: { type: "independent" } },
+			{
+				onSuccess: (response) => {
+					dispatch(
+						projectSlice.actions.selectOutline({
+							projectId,
+							selection: { _tag: "Branch", branchRef: response.newRef.fullNameBytes },
+						}),
+					);
+					commitOnto({ type: "referenceBytes", subject: response.newRef.fullNameBytes });
 				},
 			},
 		);
@@ -246,7 +297,7 @@ export const CommitForm: FC<{
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
-				enabled: isDefaultMode && !isCommitOrAmendPending,
+				enabled: isDefaultMode && !isCommitOrAmendPending && !hasNoBranches,
 			},
 		},
 		{
@@ -301,7 +352,7 @@ export const CommitForm: FC<{
 					open={open}
 					onOpenChange={setOpen}
 					onValueChange={selectBranch}
-					disabled={!isDefaultMode || isCommitOrAmendPending}
+					disabled={!isDefaultMode || isCommitOrAmendPending || hasNoBranches}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
@@ -309,7 +360,9 @@ export const CommitForm: FC<{
 								getButtonClassName({ variant: "outline" }),
 								styles.collapsedTargetTrigger,
 							)}
-							aria-label="Select commit target"
+							aria-label={
+								hasNoBranches ? `Will create branch ${draftBranchLabel}` : "Select commit target"
+							}
 							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 						>
 							<Icon name="bullseye" size={14} />
@@ -321,9 +374,18 @@ export const CommitForm: FC<{
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4}>
 								<Tooltip.Popup
-									render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
+									render={
+										<TooltipPopup
+											kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
+										/>
+									}
 								>
-									{commitTarget ? (
+									{hasNoBranches ? (
+										<span className={styles.tooltipTarget}>
+											<span className={styles.tooltipTargetLabel}>Will create branch:</span>
+											<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
+										</span>
+									) : commitTarget ? (
 										<span className={styles.tooltipTarget}>
 											<span className={styles.tooltipTargetLabel}>Target:</span>
 											<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
@@ -406,12 +468,14 @@ export const CommitForm: FC<{
 					open={open}
 					onOpenChange={setOpen}
 					onValueChange={selectBranch}
-					disabled={!isDefaultMode || isCommitOrAmendPending}
+					disabled={!isDefaultMode || isCommitOrAmendPending || hasNoBranches}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
 							className={classes("text-13 text-semibold", styles.targetTrigger)}
-							aria-label="Select commit target"
+							aria-label={
+								hasNoBranches ? `Will create branch ${draftBranchLabel}` : "Select commit target"
+							}
 							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 						>
 							<Icon
@@ -419,15 +483,28 @@ export const CommitForm: FC<{
 								size={14}
 							/>
 							<span className={styles.targetTriggerLabel}>
-								<Combobox.Value placeholder="Select commit target" />
+								{hasNoBranches ? (
+									<>
+										{draftBranchLabel}
+										<span className={styles.targetTriggerBadge}>new</span>
+									</>
+								) : (
+									<Combobox.Value placeholder="Select commit target" />
+								)}
 							</span>
 						</Combobox.Trigger>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4}>
 								<Tooltip.Popup
-									render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
+									render={
+										<TooltipPopup
+											kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
+										/>
+									}
 								>
-									Select commit target
+									{hasNoBranches
+										? `Will create branch ${draftBranchLabel}`
+										: "Select commit target"}
 								</Tooltip.Popup>
 							</Tooltip.Positioner>
 						</Tooltip.Portal>

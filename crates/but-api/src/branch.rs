@@ -899,6 +899,22 @@ pub fn apply_with_perm(
     res
 }
 
+/// Returns an unused short branch name derived from the configured Git author,
+/// like `jd-branch-1`.
+///
+/// This is the very name [`branch_create()`] falls back to when `new_ref` is
+/// omitted, so callers can show the branch they are about to create before it
+/// exists. Uniqueness only holds at the time of the call: the name is
+/// deduplicated against local branches and the short names of remote-tracking
+/// branches, both of which can change afterwards.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
+    let _guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?;
+    Ok(unique_canned_refname(&repo)?.shorten().to_string())
+}
+
 /// Creates a new branch named `new_ref` at `placement`.
 ///
 /// This acquires exclusive worktree access from `ctx`, creates the branch,

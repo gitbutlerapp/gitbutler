@@ -10,6 +10,7 @@ import * as ms from "ms";
  * invalidate a whole query root holding nothing but a project id.
  */
 export type ProjectQueryKey =
+	| "branchCannedName"
 	| "branchDetails"
 	| "branchDiff"
 	| "branchList"
@@ -49,6 +50,17 @@ type GlobalQueryKey =
 	| "guiSettings";
 
 export type QueryKey = ProjectQueryKey | GlobalQueryKey;
+
+/**
+ * The name the backend would generate for a branch created right now. Used to
+ * name the branch a commit is about to create before it exists, so it goes
+ * stale as soon as any branch is created — see `refreshedBy` in `watcher.ts`.
+ */
+export const branchCannedNameQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["branchCannedName" satisfies QueryKey, projectId],
+		queryFn: () => window.lite.branchCannedName(projectId),
+	});
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDetails">) =>
 	queryOptions({

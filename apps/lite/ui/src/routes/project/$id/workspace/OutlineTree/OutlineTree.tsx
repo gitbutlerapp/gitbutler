@@ -273,6 +273,7 @@ const UncommittedChanges: FC<{
 	commitTarget: CommitTargetComboboxItem | null;
 	projectId: string;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
+	hasNoBranches: boolean;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onActiveFileSelection: (selection: string) => void;
@@ -283,6 +284,7 @@ const UncommittedChanges: FC<{
 	commitTarget,
 	projectId,
 	targetComboboxItems,
+	hasNoBranches,
 	onAmendCommit,
 	canAmendCommit,
 	onActiveFileSelection,
@@ -378,6 +380,7 @@ const UncommittedChanges: FC<{
 				projectId={projectId}
 				commitTarget={commitTarget}
 				targetComboboxItems={targetComboboxItems}
+				hasNoBranches={hasNoBranches}
 				startCommitButtonId={startCommitButtonId}
 				commitMessageInputId={commitMessageInputId}
 				className={styles.commitForm}
@@ -773,6 +776,9 @@ export const OutlineTree: FC<
 		items: commitTargetComboboxItems,
 		outlineSelection,
 	});
+	// Undefined `headInfo` is still loading, which is not the same as "empty" —
+	// treating it as empty would flash the draft-branch affordance on every open.
+	const hasNoBranches = headInfo !== undefined && headInfo.stacks.length === 0;
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
@@ -908,6 +914,7 @@ export const OutlineTree: FC<
 											commitTarget={commitTarget}
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}
+											hasNoBranches={hasNoBranches}
 											onAmendCommit={amendCommit}
 											canAmendCommit={canAmendCommit}
 											onActiveFileSelection={onActiveFileSelection}

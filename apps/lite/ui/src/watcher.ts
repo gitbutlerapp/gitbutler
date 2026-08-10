@@ -10,6 +10,9 @@ type WatcherEventType = WatcherEvent["payload"]["type"];
  */
 const refreshedBy: Record<ProjectQueryKey, ReadonlyArray<WatcherEventType>> = {
 	absorptionPlan: ["gitActivity", "workspaceActivity", "worktreeChanges"],
+	// The generated name is deduped against local branches and the short names of
+	// remote-tracking branches, so anything that moves a ref can invalidate it.
+	branchCannedName: ["gitFetch", "gitActivity", "workspaceActivity"],
 	// A fetch changes no local commit, but it moves remote-tracking refs.
 	branchDetails: ["gitFetch", "gitActivity", "workspaceActivity"],
 	branchDiff: ["gitFetch", "gitActivity", "workspaceActivity"],
