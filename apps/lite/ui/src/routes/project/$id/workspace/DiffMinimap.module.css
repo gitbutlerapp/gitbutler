@@ -142,7 +142,9 @@
 	/* The ruler is the window's right edge, so the label opens inward. */
 	right: calc(100% + 8px);
 	align-items: center;
-	max-width: 420px;
+	/* Enough for a name and the end of the path it sits under. A label that runs
+	   most of the way across the diff covers the code it is naming. */
+	max-width: 280px;
 	padding: 6px 8px;
 	gap: 6px;
 	translate: 0 -50%;
@@ -161,12 +163,22 @@
 	height: 14px;
 }
 
+/* The name is what the pointer is asking about, so it doesn't give way at all
+   while the path still has something to give. Only a name that fills the label
+   on its own is cut, and then by the label's own width rather than by sharing. */
 .hintName {
+	flex: none;
+	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
+/* All of the shrinking, down to nothing if that is what the name needs. Read
+   from the right, so what survives of a long path is the part that tells the
+   file apart from its neighbours rather than the root it shares with them. */
 .hintDirectory {
+	flex: 0 1 auto;
+	min-width: 0;
 	overflow: hidden;
 	color: var(--text-2);
 	direction: rtl;
