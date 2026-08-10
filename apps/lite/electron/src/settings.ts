@@ -25,6 +25,7 @@ const guiSettingsV1 = type({
 	"editorId?": "string",
 	"fileDisplayMode?": "'list' | 'tree'",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
+	"minimap?": "boolean",
 	"pathFirst?": "boolean",
 	"terminalId?": "string",
 	"syntaxHighlighting?": {

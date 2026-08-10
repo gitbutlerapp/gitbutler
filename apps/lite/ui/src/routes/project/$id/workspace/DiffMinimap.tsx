@@ -54,15 +54,25 @@ export const DiffMinimap: FC<{
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const markerRef = useRef<HTMLDivElement>(null);
 	/**
-	 * The lens as it was when the pointer took hold: where on it the grab landed,
-	 * and the mapping to invert. Frozen for the length of the drag because
-	 * CodeView's content height is an estimate that firms up as it renders, and a
-	 * mapping recomputed under the pointer slides the diff while you hold it.
+	 * Where the pointer took hold and what the diff was showing at the time. The
+	 * drag is a delta from here at the map's own scale — a pixel down the ruler is
+	 * a pixel of map — so it carries on winding once the lens has run out of
+	 * ruler, and CodeView's content height firming up mid-drag can't slide the
+	 * diff under the pointer.
 	 */
-	const grabRef = useRef<{ offset: number; layout: MinimapLayout } | null>(null);
+	const grabRef = useRef<{
+		y: number;
+		scrollTop: number;
+		scale: number;
+		scrollable: number;
+	} | null>(null);
 	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection });
 	const geometryRef = useRef<MinimapGeometry | null>(null);
 	const layoutRef = useRef<MinimapLayout | null>(null);
+	/** Where the map is wound to, which it keeps until the lens runs out of ruler. */
+	const offsetRef = useRef(0);
+	/** Wound by hand, and so allowed to show a part of the diff the window is not on. */
+	const freeRef = useRef(false);
 	const resyncRef = useRef<(() => void) | null>(null);
 	const [navigable, setNavigable] = useState(false);
 	const [hovered, setHovered] = useState<string | null>(null);
@@ -77,6 +87,7 @@ export const DiffMinimap: FC<{
 		let forced = false;
 		let lastScrollHeight: number | null = null;
 		let lastOffset: number | null = null;
+		let lastScrollTop: number | null = null;
 
 		const draw = (layout: MinimapLayout): void => {
 			const { files, diffStyle, annotationsByPath, selection } = dataRef.current;
@@ -97,13 +108,21 @@ export const DiffMinimap: FC<{
 			const ruler = rulerRef.current;
 			if (!ruler) return;
 
-			// Measured to the sub-pixel, as the drag is: a track rounded here and not
-			// there puts the two a fraction of a percent apart, which at this scale is
-			// a good many lines. Zero while the ruler is collapsed, which it is until
-			// a draw finds something to map — so the draw has to come first, or it
-			// waits on the height that only it can bring about.
+			// Sub-pixel: rounded here and not in the drag, the two would sit a fraction
+			// of a percent apart, which at this scale is a good many lines.
 			const track = availableTrack(ruler);
-			const layout = getMinimapLayout(viewer, track);
+
+			// A pointer on the ruler is pointing at the map, so it holds still and the
+			// lens moves instead; a map wound by hand keeps where it was put until the
+			// diff moves again.
+			const scrollTop = viewer.getScrollTop();
+			const scrolled = lastScrollTop !== null && scrollTop !== lastScrollTop;
+			lastScrollTop = scrollTop;
+			if (scrolled) freeRef.current = false;
+
+			const moved = scrolled && !grabRef.current ? "draws" : freeRef.current ? "free" : "holds";
+			const layout = getMinimapLayout(viewer, track, scrollTop, offsetRef.current, moved);
+			offsetRef.current = layout.offset;
 
 			// The ruler stops where the map does, so its own height can't be what the
 			// map was scaled against — that would be a box sized from what it holds
@@ -122,8 +141,8 @@ export const DiffMinimap: FC<{
 				draw(layout);
 			}
 
-			// The canvas the draw just sized is what gives the ruler its height, so
-			// the pass that opens it measures nothing and the resize brings us back.
+			// Nothing to place a lens along yet; the resize that gives the pane a
+			// height brings us back.
 			if (track === 0) return;
 
 			layoutRef.current = layout;
@@ -162,6 +181,22 @@ export const DiffMinimap: FC<{
 			if (root.firstElementChild) resizeObserver.observe(root.firstElementChild);
 		}
 
+		// Winds the map rather than the diff. Bound natively rather than through
+		// React, which listens passively and so could not keep the wheel from
+		// reaching whatever is behind it.
+		const ruler = rulerRef.current;
+		const onWheel = (event: WheelEvent): void => {
+			const layout = layoutRef.current;
+			const limit = ruler && layout ? layout.mapHeight - availableTrack(ruler) : 0;
+			if (!layout || limit <= 0) return;
+
+			event.preventDefault();
+			freeRef.current = true;
+			offsetRef.current = Math.min(Math.max(offsetRef.current + event.deltaY, 0), limit);
+			redraw();
+		};
+		ruler?.addEventListener("wheel", onWheel, { passive: false });
+
 		// Canvas colours are sampled, not live CSS, so they need repainting when
 		// the tokens behind them resolve differently.
 		const scheme = globalThis.matchMedia("(prefers-color-scheme: dark)");
@@ -190,6 +225,7 @@ export const DiffMinimap: FC<{
 			resizeObserver.disconnect();
 			scheme.removeEventListener("change", redraw);
 			pixels?.removeEventListener("change", onPixels);
+			ruler?.removeEventListener("wheel", onWheel);
 		};
 	}, [viewerRef]);
 
@@ -229,19 +265,15 @@ export const DiffMinimap: FC<{
 	const dragTo = (event: PointerEvent<HTMLDivElement>): void => {
 		const viewer = viewerRef.current?.getInstance();
 		const grab = grabRef.current;
-		if (!viewer || !grab) return;
+		if (!viewer || !grab || grab.scale === 0) return;
 
-		const top = rulerOffset(event) - grab.offset;
-		const reach = grab.layout.travel === 0 ? 0 : top / grab.layout.travel;
-		const progress = Math.min(Math.max(reach, 0), 1);
+		const moved = (rulerOffset(event) - grab.y) / grab.scale;
+		// The end can grow as the drag scrolls into parts the viewer has only
+		// estimated, so ask again rather than stopping short of a diff that got
+		// longer under you.
+		const scrollable = Math.max(grab.scrollable, getMinimapScrollable(viewer));
 
-		// The estimate the mapping was frozen against firms up as the drag scrolls
-		// through it, and the far end is the one place that shows: stopping short of
-		// a diff that grew under you reads as the lens failing to reach the bottom.
-		// So the last of the travel goes wherever the end is now.
-		const scrollable = progress === 1 ? getMinimapScrollable(viewer) : grab.layout.scrollable;
-
-		scrollMinimapTo(viewer, progress * scrollable);
+		scrollMinimapTo(viewer, Math.min(Math.max(grab.scrollTop + moved, 0), scrollable));
 	};
 
 	// The label's position is written straight to the DOM, so following the
@@ -286,9 +318,18 @@ export const DiffMinimap: FC<{
 				// scrollbar does, and moves nothing until you do. Its own rect is the hit
 				// test, so the minimum height it can shrink to doesn't have to be
 				// repeated here.
+				const hold = (scrollTop: number): void => {
+					grabRef.current = {
+						y: rulerOffset(event),
+						scrollTop,
+						scale: layout.scale,
+						scrollable: layout.scrollable,
+					};
+				};
+
 				const marker = markerRef.current?.getBoundingClientRect();
 				if (marker && event.clientY >= marker.top && event.clientY <= marker.bottom) {
-					grabRef.current = { offset: event.clientY - marker.top, layout };
+					hold(viewer.getScrollTop());
 					return;
 				}
 
@@ -296,15 +337,10 @@ export const DiffMinimap: FC<{
 				// of the whole diff: the map is a picture at a fixed scale, so read the
 				// position back out of it the way the hint does and bring it into the
 				// middle of the window.
-				const landing = jumpTo((rulerOffset(event) + layout.offset) / layout.scale);
-
-				// The map may have wound on under the pointer, taking the lens with it,
-				// so the drag carries on from where the lens has landed. Worked out from
-				// the landing rather than read back off the viewer, which goes on
-				// reporting the old position for a frame yet — long enough for the first
-				// move to teleport by the difference.
-				const landed = getMinimapLayout(viewer, availableTrack(event.currentTarget), landing);
-				grabRef.current = { offset: rulerOffset(event) - landed.lensTop, layout: landed };
+				// Worked out from where the jump lands rather than read back off the
+				// viewer, which goes on reporting the old position for a frame yet —
+				// long enough for the first move of a drag to teleport by the difference.
+				hold(jumpTo((rulerOffset(event) + layout.offset) / layout.scale));
 			}}
 			onPointerMove={(event) => {
 				describe(event);

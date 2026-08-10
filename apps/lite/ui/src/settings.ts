@@ -16,6 +16,7 @@ export const defaultSettings = {
 	fileDisplayMode: "list",
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
+	minimap: true,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
 	terminalId: "",
