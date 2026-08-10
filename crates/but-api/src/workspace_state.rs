@@ -102,6 +102,7 @@ impl WorkspaceState {
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, usize>,
+        checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
         #[cfg(not(feature = "graph-workspace"))]
         {
@@ -125,6 +126,7 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 head_info,
+                checkout_conflict_occurred,
             })
         }
         #[cfg(feature = "graph-workspace")]
@@ -139,6 +141,7 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 graph_workspace: graph_workspace.into(),
+                checkout_conflict_occurred,
             })
         }
     }
@@ -154,8 +157,16 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
-        Self::from_workspace(workspace, meta, repo, replaced_commits, &HashMap::new())
+        Self::from_workspace(
+            workspace,
+            meta,
+            repo,
+            replaced_commits,
+            &HashMap::new(),
+            checkout_conflict_occurred,
+        )
     }
 
     /// Build a [`WorkspaceState`] from an already-prepared overlayed graph.
@@ -171,7 +182,7 @@ impl WorkspaceState {
         db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_workspace(workspace, meta, repo, replaced_commits, &prs_by_head)
+        Self::from_workspace(workspace, meta, repo, replaced_commits, &prs_by_head, false)
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -189,7 +200,7 @@ impl WorkspaceState {
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
         let (repo, meta) = rebase.repo_and_meta_mut();
-        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head)
+        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head, false)
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -233,6 +244,7 @@ impl WorkspaceState {
             repo,
             materialized.history.commit_mappings(),
             prs_by_head,
+            materialized.checkout_conflict_occurred,
         )
     }
 

@@ -1389,6 +1389,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),
+        materialized.checkout_conflict_occurred,
     )
 }
 

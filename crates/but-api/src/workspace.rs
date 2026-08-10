@@ -595,13 +595,14 @@ pub fn workspace_integrate_upstream_only_with_perm(
             materialized.meta.set_workspace(&md)?;
         }
 
-        let workspace_state = WorkspaceState::from_workspace_with_db(
+        let mut workspace_state = WorkspaceState::from_workspace_with_db(
             materialized.workspace,
             materialized.meta,
             &repo,
             materialized.history.commit_mappings(),
             &db,
         )?;
+        workspace_state.checkout_conflict_occurred = materialized.checkout_conflict_occurred;
         (workspace_state, worktree_conflicts)
     };
     ctx.invalidate_workspace_cache()?;
