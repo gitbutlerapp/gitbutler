@@ -349,19 +349,24 @@ export const getMinimapFiles = ({
  */
 export const getMinimapGeometry = (
 	viewer: CodeView<Annotation>,
-	itemIds: Array<string>,
+	files: Array<MinimapFile>,
 ): MinimapGeometry | null => {
 	const total = contentHeight(viewer);
-	if (itemIds.length === 0) return null;
+	const first = files[0];
+	if (first === undefined) return null;
 
 	const blocks: Array<{ top: number; height: number }> = [];
 
-	for (const [index, itemId] of itemIds.entries()) {
-		const top = viewer.getTopForItem(itemId);
+	// Each file's own top is the one the file before it measured to, so ask once
+	// per file rather than once per boundary — this runs on every paint, and a
+	// wound map repaints per frame.
+	let top = viewer.getTopForItem(first.itemId);
+
+	for (let index = 0; index < files.length; index++) {
 		// CodeView can hold a stale item list for a frame after the diff changes.
 		if (top === undefined) return null;
 
-		const nextId = itemIds[index + 1];
+		const nextId = files[index + 1]?.itemId;
 		const nextTop = nextId === undefined ? undefined : viewer.getTopForItem(nextId);
 		if (nextId !== undefined && nextTop === undefined) return null;
 
@@ -369,9 +374,29 @@ export const getMinimapGeometry = (
 			nextTop === undefined ? total - codeViewLayout.paddingBottom : nextTop - codeViewLayout.gap;
 
 		blocks.push({ top, height: Math.max(bottom - top, 0) });
+		top = nextTop;
 	}
 
 	return { contentHeight: total, blocks };
+};
+
+/**
+ * Whether two readings describe the same layout. Cheap next to what a caller
+ * would otherwise redo on every frame: the blocks only move while CodeView's
+ * estimated item heights are still firming up, and stand still after that.
+ */
+export const sameMinimapGeometry = (
+	left: MinimapGeometry | null,
+	right: MinimapGeometry | null,
+): boolean => {
+	if (left === null || right === null) return left === right;
+	if (left.contentHeight !== right.contentHeight) return false;
+	if (left.blocks.length !== right.blocks.length) return false;
+
+	return left.blocks.every((block, index) => {
+		const other = right.blocks[index];
+		return other !== undefined && block.top === other.top && block.height === other.height;
+	});
 };
 
 /**
