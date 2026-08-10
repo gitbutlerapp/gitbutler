@@ -21,6 +21,23 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
+/// * `provides = [CacheTag, ..]`
+///     - Use it on a read like `but_api(napi, provides = [Reviews])` to declare which tags its
+///       result is made of. Clients refresh their cache of it whenever a mutation or a watcher
+///       event invalidates one of those tags.
+///     - Omitting it means "not classified yet", which stays distinguishable from `[]`, meaning
+///       "no tag — nothing refreshes this".
+/// * `invalidates = [CacheTag, ..]`
+///     - Use it on a mutation like `but_api(napi, invalidates = [Reviews])` to declare which tags
+///       it makes stale, so clients drop those caches when the call succeeds.
+///     - Only for state the repository watcher cannot observe: forge, app, and config writes. A
+///       mutation that writes to the repository declares nothing — the watcher reports the change
+///       and the event carries the invalidation.
+///
+/// An endpoint either provides or invalidates, never both. Naming a tag that does not exist in
+/// `crate::tags::CacheTag` is a compile error. The SDK exports both maps (`apiProvides`,
+/// `apiInvalidates`) together with the event table as `cache-tags`.
+///
 /// # Parameter Attributes
 ///
 /// Function parameters may use `#[but_api(TransportType)]` to keep the implementation
@@ -319,15 +336,44 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         .collect();
     let js_name_str = js_name.clone().unwrap_or_else(|| fn_name.to_string());
 
+    // `None` stays distinguishable from an empty list: unclassified is not the
+    // same answer as "no tag".
+    let tag_list_value = |tags: &Option<Vec<syn::Ident>>| match tags {
+        None => quote! { None },
+        Some(tags) => {
+            let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
+            quote! { Some(&[#(#names),*]) }
+        }
+    };
+    let provides_value = tag_list_value(&opts.provides);
+    let invalidates_value = tag_list_value(&opts.invalidates);
+
+    // Naming a tag that does not exist fails here rather than shipping a name
+    // nothing ever matches.
+    let tag_checks = opts
+        .provides
+        .iter()
+        .chain(opts.invalidates.iter())
+        .flatten()
+        .map(|tag| {
+            quote! {
+                const _: crate::tags::CacheTag = crate::tags::CacheTag::#tag;
+            }
+        });
+
     // Registered whenever the attribute opts into napi, deliberately not
     // behind `cfg(feature = "napi")`: but-ts reads this registry and builds
     // but-api without that feature. The entry is inert metadata either way.
     let napi_registry_entry = if opts.napi {
         quote! {
+            #(#tag_checks)*
+
             ::but_schemars::internal_submit! {
                 ::but_schemars::ApiFnEntry {
                     js_name: #js_name_str,
                     params: &[#(#napi_param_js_names),*],
+                    provides: #provides_value,
+                    invalidates: #invalidates_value,
                 }
             }
         }
@@ -1105,6 +1151,16 @@ struct Options {
     /// If `true`, generate a `_napi` function for Node.js bindings.
     /// Enabled by writing `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
     napi: bool,
+    /// `CacheTag` variants this read's result is made of, written
+    /// `#[but_api(napi, provides = [Reviews])]`.
+    ///
+    /// `None` means unclassified; `Some([])` means classified as "no tag".
+    /// Consumers need to tell those apart.
+    provides: Option<Vec<syn::Ident>>,
+    /// `CacheTag` variants this mutation makes stale, written
+    /// `#[but_api(napi, invalidates = [Reviews])]`. Mutually exclusive with
+    /// `provides`.
+    invalidates: Option<Vec<syn::Ident>>,
 }
 
 struct ResultConversion {
@@ -1124,15 +1180,50 @@ fn parse_options(
 ) -> syn::Result<Options> {
     let mut napi = false;
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
+    let mut provides: Option<Vec<syn::Ident>> = None;
+    let mut invalidates: Option<Vec<syn::Ident>> = None;
+    let mut tag_list_ident: Option<syn::Ident> = None;
 
     while !input.is_empty() {
         if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
-            // try_from = Path
+            // try_from = Path, or provides/invalidates = [Tag, ..]
             let ident: syn::Ident = input.parse()?;
+            if ident == "provides" || ident == "invalidates" {
+                input.parse::<syn::Token![=]>()?;
+                let content;
+                syn::bracketed!(content in input);
+                let tags =
+                    syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(
+                        &content,
+                    )?;
+                let list = if ident == "provides" {
+                    &mut provides
+                } else {
+                    &mut invalidates
+                };
+                if list.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        &ident,
+                        format!("Only one `{ident}` list may be specified"),
+                    ));
+                }
+                *list = Some(tags.into_iter().collect());
+                if provides.is_some() && invalidates.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        &ident,
+                        "An endpoint either provides tags or invalidates them, not both",
+                    ));
+                }
+                tag_list_ident = Some(ident);
+                if !input.is_empty() {
+                    input.parse::<syn::Token![,]>()?;
+                }
+                continue;
+            }
             if ident != "try_from" {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected `try_from = Type`; only `try_from` is supported as a key",
+                    "Expected `try_from = Type`, `provides = [Tag, ..]`, or `invalidates = [Tag, ..]`",
                 ));
             }
             input.parse::<syn::Token![=]>()?;
@@ -1164,6 +1255,16 @@ fn parse_options(
         }
     }
 
+    // `napi` may follow the list in the attribute, so this can only be judged here.
+    if let Some(ident) = &tag_list_ident
+        && !napi
+    {
+        return Err(syn::Error::new_spanned(
+            ident,
+            format!("`{ident}` requires `napi`: tag declarations are read from the napi registry"),
+        ));
+    }
+
     let result_conversion = conversion_path.map(|(mode, p)| {
         let base_ty = syn::Type::Path(syn::TypePath {
             qself: None,
@@ -1185,6 +1286,8 @@ fn parse_options(
     Ok(Options {
         result_conversion,
         napi,
+        provides,
+        invalidates,
     })
 }
 

@@ -1,0 +1,5 @@
+error: Only one `provides` list may be specified
+ --> tests/ui/fail/napi_provides_duplicated.rs:8:39
+  |
+8 | #[but_api(napi, provides = [Reviews], provides = [Checks])]
+  |                                       ^^^^^^^^

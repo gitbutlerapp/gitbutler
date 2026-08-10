@@ -1,0 +1,5 @@
+error: `provides` requires `napi`: tag declarations are read from the napi registry
+  --> tests/ui/fail/base_provides_requires_napi.rs:10:11
+   |
+10 | #[but_api(provides = [Reviews])]
+   |           ^^^^^^^^

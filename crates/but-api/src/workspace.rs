@@ -64,7 +64,7 @@ impl TryFrom<but_db::FetchStatus> for WorkspaceFetchStatus {
 /// reacts to updated remote refs. Within this process, overlapping fetch calls for the same
 /// repository serialize among themselves so concurrent `git fetch` runs cannot trip over Git's
 /// per-ref locks; fetches from other processes are not affected.
-#[but_api(napi)]
+#[but_api(napi, provides = [])]
 #[instrument(skip_all, err(Debug))]
 pub fn workspace_fetch_from_remotes(
     ctx: &mut but_ctx::Context,
@@ -180,7 +180,7 @@ pub(crate) fn prune_missing_branch_stack_order(ctx: &but_ctx::Context) -> anyhow
 ///
 /// A project that hasn't used the workspace fetch API returns an empty status. Legacy fetch state
 /// is intentionally not imported.
-#[but_api(napi)]
+#[but_api(napi, provides = [FetchStatus])]
 #[instrument(skip_all, err(Debug))]
 pub fn workspace_fetch_status(ctx: &but_ctx::Context) -> anyhow::Result<WorkspaceFetchStatus> {
     ctx.db

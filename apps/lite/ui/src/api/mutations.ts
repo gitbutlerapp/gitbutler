@@ -3,18 +3,15 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	currentForgeLoginQueryOptions,
-	gbConfigQueryOptions,
-	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
 	guiSettingsQueryOptions,
-	signingSettingsQueryOptions,
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
 	listReviewReactionsQueryOptions,
 	workspaceFetchQueryOptions,
-	type QueryKey,
 } from "#ui/api/queries.ts";
+import { apiMutation, type DeclaredMutation } from "#ui/api/tags.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
@@ -177,12 +174,7 @@ export const usePublishReview = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.publishReview,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["reviews" satisfies QueryKey, input.projectId],
-			});
-		},
+		...apiMutation("publishReview"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -201,18 +193,7 @@ export const useUpdateReview = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.updateReview,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
-						.queryKey,
-				}),
-			]);
-		},
+		...apiMutation("updateReview"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -231,17 +212,7 @@ export const useAddReviewLabels = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.addReviewLabels,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-			]);
-		},
+		...apiMutation("addReviewLabels"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -260,17 +231,7 @@ export const useRemoveReviewLabel = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.removeReviewLabel,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-			]);
-		},
+		...apiMutation("removeReviewLabel"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -337,7 +298,7 @@ export const useAddReviewReaction = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.addReviewReaction,
+		...apiMutation("addReviewReaction"),
 		onMutate: async (input, ctx) => {
 			const key = listReviewReactionsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -354,10 +315,13 @@ export const useAddReviewReaction = () => {
 
 			return prev;
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: listReviewReactionsQueryOptions(input).queryKey }),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
 			if (prev) ctx.client.setQueryData(listReviewReactionsQueryOptions(input).queryKey, prev);
+			void ctx.client.invalidateQueries({
+				queryKey: listReviewReactionsQueryOptions(input).queryKey,
+			});
 
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -376,7 +340,7 @@ export const useRemoveReviewReaction = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.removeReviewReaction,
+		...apiMutation("removeReviewReaction"),
 		onMutate: async (input, ctx) => {
 			const key = listReviewReactionsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -388,10 +352,13 @@ export const useRemoveReviewReaction = () => {
 
 			return prev;
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: listReviewReactionsQueryOptions(input).queryKey }),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
 			if (prev) ctx.client.setQueryData(listReviewReactionsQueryOptions(input).queryKey, prev);
+			void ctx.client.invalidateQueries({
+				queryKey: listReviewReactionsQueryOptions(input).queryKey,
+			});
 
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -415,6 +382,7 @@ export const useAddCommentReaction = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
+		...apiMutation("addCommentReaction"),
 		// `reviewId` keys the cache below; the forge addresses comments by id,
 		// so it is not part of what the endpoint takes.
 		mutationFn: ({
@@ -446,14 +414,15 @@ export const useAddCommentReaction = () => {
 
 			return { prevReactions, prevComments };
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			Promise.all([
-				ctx.client.invalidateQueries({
-					queryKey: listCommentReactionsQueryOptions(input).queryKey,
-				}),
-				ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
-			]),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic writes back, then refetch: the rollback
+			// snapshots may themselves be stale by now.
+			void ctx.client.invalidateQueries({
+				queryKey: listCommentReactionsQueryOptions(input).queryKey,
+			});
+			void ctx.client.invalidateQueries({
+				queryKey: listReviewCommentsQueryOptions(input).queryKey,
+			});
 			if (prev?.prevReactions) {
 				ctx.client.setQueryData(
 					listCommentReactionsQueryOptions(input).queryKey,
@@ -511,14 +480,15 @@ export const useRemoveCommentReaction = () => {
 
 			return { prevReactions, prevComments };
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			Promise.all([
-				ctx.client.invalidateQueries({
-					queryKey: listCommentReactionsQueryOptions(input).queryKey,
-				}),
-				ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
-			]),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic writes back, then refetch: the rollback
+			// snapshots may themselves be stale by now.
+			void ctx.client.invalidateQueries({
+				queryKey: listCommentReactionsQueryOptions(input).queryKey,
+			});
+			void ctx.client.invalidateQueries({
+				queryKey: listReviewCommentsQueryOptions(input).queryKey,
+			});
 			if (prev?.prevReactions) {
 				ctx.client.setQueryData(
 					listCommentReactionsQueryOptions(input).queryKey,
@@ -545,20 +515,7 @@ export const useRequestReview = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.requestReview,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["reviewTimelineEvents" satisfies QueryKey, input.projectId],
-				}),
-			]);
-		},
+		...apiMutation("requestReview"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -577,17 +534,7 @@ export const useWithdrawReviewRequest = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.withdrawReviewRequest,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-			]);
-		},
+		...apiMutation("withdrawReviewRequest"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -606,7 +553,7 @@ export const useCreateReviewComment = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.createReviewComment,
+		...apiMutation("createReviewComment"),
 		onMutate: async (input, ctx) => {
 			const key = listReviewCommentsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -628,10 +575,13 @@ export const useCreateReviewComment = () => {
 
 			return prev;
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			ctx.client.invalidateQueries({ queryKey: listReviewCommentsQueryOptions(input).queryKey }),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
 			if (prev) ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev);
+			void ctx.client.invalidateQueries({
+				queryKey: listReviewCommentsQueryOptions(input).queryKey,
+			});
 
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -652,16 +602,12 @@ export const useUpdateReviewComment = () => {
 	return useMutation({
 		// `reviewId` keys the cache below; the forge addresses comments by id,
 		// so it is not part of what the endpoint takes.
+		...apiMutation("updateReviewComment"),
 		mutationFn: ({
 			reviewId: _reviewId,
 			...params
 		}: PayloadFor<"updateReviewComment"> & { reviewId: number }) =>
 			window.lite.updateReviewComment(params),
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
-			});
-		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -682,16 +628,12 @@ export const useDeleteReviewComment = () => {
 	return useMutation({
 		// `reviewId` keys the cache below; the forge addresses comments by id,
 		// so it is not part of what the endpoint takes.
+		...apiMutation("deleteReviewComment"),
 		mutationFn: ({
 			reviewId: _reviewId,
 			...params
 		}: PayloadFor<"deleteReviewComment"> & { reviewId: number }) =>
 			window.lite.deleteReviewComment(params),
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["reviewComments" satisfies QueryKey, input.projectId, input.reviewId],
-			});
-		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -710,9 +652,9 @@ export const useSetReviewAutoMerge = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.setReviewAutoMerge,
+		...apiMutation("setReviewAutoMerge"),
 		onMutate: async (input, ctx) => {
-			const reviewsPrefix = ["reviews" satisfies QueryKey, input.projectId];
+			const reviewsPrefix = ["listReviews", input.projectId] as const;
 			await ctx.client.cancelQueries({ queryKey: reviewsPrefix });
 
 			// The flag lives on every reviews listing (the key varies by cache
@@ -735,17 +677,12 @@ export const useSetReviewAutoMerge = () => {
 
 			return { prev, prevSingle };
 		},
-		onSettled: (_response, _err, input, _prev, ctx) =>
-			Promise.all([
-				ctx.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				ctx.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-			]),
 		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic writes back, then refetch: the rollback
+			// snapshots may themselves be stale by now.
 			for (const [key, data] of prev?.prev ?? []) ctx.client.setQueryData(key, data);
+			void ctx.client.invalidateQueries({ queryKey: ["listReviews", input.projectId] });
+			void ctx.client.invalidateQueries({ queryKey: ["getReview", input.projectId] });
 			if (prev?.prevSingle) {
 				ctx.client.setQueryData(
 					getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId }).queryKey,
@@ -770,24 +707,13 @@ export const useMergeReview = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.mergeReview,
+		...apiMutation("mergeReview"),
 		onSuccess: async (_response, input, _context, mutation) => {
-			// Checks 422 once the branch is merged; refetch so the badge clears.
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["reviewMergeStatus" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["ciChecks" satisfies QueryKey, input.projectId],
-				}),
-			]);
-
+			// The merge moved the target branch on the remote, but nothing local, so
+			// the branch keeps looking un-integrated until remote-tracking refs catch
+			// up. Fetch through the shared query (dedupes with auto-fetch), then
+			// re-read head info rather than waiting on watcher delivery. A failed
+			// fetch is not a failed merge, so neither reaches onError.
 			await mutation.client
 				.fetchQuery({ ...workspaceFetchQueryOptions(input.projectId), staleTime: 0 })
 				.then(() =>
@@ -816,24 +742,7 @@ export const useSetReviewDraftiness = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.setReviewDraftiness,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
-						.queryKey,
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: getReviewMergeStatusQueryOptions({
-						projectId: input.projectId,
-						reviewId: input.reviewId,
-					}).queryKey,
-				}),
-			]);
-		},
+		...apiMutation("setReviewDraftiness"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -852,19 +761,7 @@ export const useSetGbConfig = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.setGbConfig,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: gbConfigQueryOptions(input.projectId).queryKey,
-				}),
-				// The stored settings are what signing was checked against, so a change
-				// retires the previous verdict.
-				mutation.client.invalidateQueries({
-					queryKey: signingSettingsQueryOptions(input.projectId).queryKey,
-				}),
-			]);
-		},
+		...apiMutation("setGbConfig"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -883,12 +780,7 @@ export const useDeleteAllData = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.deleteAllData,
-		onSuccess: async (_response, _input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["projects" satisfies QueryKey],
-			});
-		},
+		...apiMutation("deleteAllData"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -903,28 +795,17 @@ export const useDeleteAllData = () => {
 	});
 };
 
-/**
- * Every forge's accounts live under one key root, so any change to any of them
- * refreshes the lot — and the per-project login they resolve to.
- */
-const invalidateForgeAccounts = async (client: QueryClient): Promise<void> => {
-	await Promise.all([
-		client.invalidateQueries({ queryKey: ["forgeAccounts" satisfies QueryKey] }),
-		client.invalidateQueries({ queryKey: ["currentForgeLogin" satisfies QueryKey] }),
-	]);
-};
-
-const useForgeAccountMutation = <TInput>(
-	mutationFn: (input: TInput) => Promise<unknown>,
+const useForgeAccountMutation = <Input>(
+	mutation: {
+		mutationKey: readonly [DeclaredMutation];
+		mutationFn: (input: Input) => Promise<unknown>;
+	},
 	failureTitle: string,
 ) => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn,
-		onSuccess: async (_response, _input, _context, mutation) => {
-			await invalidateForgeAccounts(mutation.client);
-		},
+		...mutation,
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -940,33 +821,28 @@ const useForgeAccountMutation = <TInput>(
 };
 
 export const useForgetGithubAccount = () =>
-	useForgeAccountMutation(window.lite.forgetGithubAccount, "Failed to forget account");
+	useForgeAccountMutation(apiMutation("forgetGithubAccount"), "Failed to forget account");
 
 export const useForgetGitlabAccount = () =>
-	useForgeAccountMutation(window.lite.forgetGitlabAccount, "Failed to forget account");
+	useForgeAccountMutation(apiMutation("forgetGitlabAccount"), "Failed to forget account");
 
 export const useForgetBitbucketAccount = () =>
-	useForgeAccountMutation(window.lite.forgetBitbucketAccount, "Failed to forget account");
+	useForgeAccountMutation(apiMutation("forgetBitbucketAccount"), "Failed to forget account");
 
 export const useStoreGithubPat = () =>
-	useForgeAccountMutation(window.lite.storeGithubPat, "Failed to add GitHub account");
+	useForgeAccountMutation(apiMutation("storeGithubPat"), "Failed to add GitHub account");
 
 export const useStoreGitlabPat = () =>
-	useForgeAccountMutation(window.lite.storeGitlabPat, "Failed to add GitLab account");
+	useForgeAccountMutation(apiMutation("storeGitlabPat"), "Failed to add GitLab account");
 
 export const useStoreBitbucketApiToken = () =>
-	useForgeAccountMutation(window.lite.storeBitbucketApiToken, "Failed to add Bitbucket account");
+	useForgeAccountMutation(apiMutation("storeBitbucketApiToken"), "Failed to add Bitbucket account");
 
 export const useDeleteProject = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.deleteProject,
-		onSuccess: async (_response, _input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["projects" satisfies QueryKey],
-			});
-		},
+		...apiMutation("deleteProject"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -985,12 +861,7 @@ export const useUpdateProjectSettings = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.updateProjectSettings,
-		onSuccess: async (_response, _input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: ["projects" satisfies QueryKey],
-			});
-		},
+		...apiMutation("updateProjectSettings"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -1451,31 +1322,7 @@ export const useWorkspaceBranchAndAncestorsPush = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.workspaceBranchAndAncestorsPush,
-		onSuccess: async (_response, input, _context, mutation) => {
-			// A push moves the review's head, so the cached reviews, their mergeability,
-			// and the checks for the new sha are all stale.
-			await Promise.all([
-				mutation.client.invalidateQueries({
-					queryKey: ["headInfo" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["reviews" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["review" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["reviewMergeStatus" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["ciChecks" satisfies QueryKey, input.projectId],
-				}),
-				mutation.client.invalidateQueries({
-					queryKey: ["reviewTimelineEvents" satisfies QueryKey, input.projectId],
-				}),
-			]);
-		},
+		...apiMutation("workspaceBranchAndAncestorsPush"),
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

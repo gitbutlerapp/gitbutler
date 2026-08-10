@@ -58,7 +58,7 @@ pub fn comment_create_with_perm(
 /// List all unarchived comments, re-anchored against the current diffs.
 ///
 /// See [`but_comments::list_comments`] for the re-anchoring and auto-archiving semantics.
-#[but_api(napi)]
+#[but_api(napi, provides = [Comments])]
 #[instrument(skip(ctx), err(Debug))]
 pub fn comments_list(ctx: &Context) -> anyhow::Result<Vec<DiffComment>> {
     let guard = ctx.shared_worktree_access();

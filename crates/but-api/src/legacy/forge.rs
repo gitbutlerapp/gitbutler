@@ -104,7 +104,7 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
 /// Per-project forge display + URL config. Lets the renderer build
 /// commit/PR URLs and pick labels without branching on forge name.
 /// Returns no value when the project has no target yet or its target forge is unknown.
-#[but_api(napi)]
+#[but_api(napi, provides = [ForgeInfo])]
 #[instrument(err(Debug))]
 pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
     let project_meta = ctx.project_meta()?;
@@ -265,7 +265,7 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     repo.set_git_settings(&git_config)
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [Reviews])]
 #[instrument(err(Debug))]
 pub fn list_reviews(
     ctx: &Context,
@@ -692,7 +692,7 @@ pub async fn get_review_base_repo_url(
 }
 
 /// List the top-level conversation comments on a review, oldest first.
-#[but_api(napi)]
+#[but_api(napi, provides = [ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn list_review_comments(
     ctx: ThreadSafeContext,
@@ -704,7 +704,7 @@ pub async fn list_review_comments(
 }
 
 /// List the individual reactions (with who reacted) on a review itself.
-#[but_api(napi)]
+#[but_api(napi, provides = [ReviewReactions])]
 #[instrument(err(Debug))]
 pub async fn list_review_reactions(
     ctx: ThreadSafeContext,
@@ -716,7 +716,7 @@ pub async fn list_review_reactions(
 }
 
 /// List the individual reactions (with who reacted) on one comment.
-#[but_api(napi)]
+#[but_api(napi, provides = [CommentReactions])]
 #[instrument(err(Debug))]
 pub async fn list_comment_reactions(
     ctx: ThreadSafeContext,
@@ -733,7 +733,7 @@ pub async fn list_comment_reactions(
 }
 
 /// Add the caller's reaction to a review itself.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ReviewReactions])]
 #[instrument(err(Debug))]
 pub async fn add_review_reaction(
     ctx: ThreadSafeContext,
@@ -752,7 +752,7 @@ pub async fn add_review_reaction(
 }
 
 /// Remove one of the caller's reactions from a review itself.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ReviewReactions])]
 #[instrument(err(Debug))]
 pub async fn remove_review_reaction(
     ctx: ThreadSafeContext,
@@ -771,7 +771,7 @@ pub async fn remove_review_reaction(
 }
 
 /// Add the caller's reaction to one comment.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [CommentReactions, ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn add_comment_reaction(
     ctx: ThreadSafeContext,
@@ -790,7 +790,7 @@ pub async fn add_comment_reaction(
 }
 
 /// Remove one of the caller's reactions from one comment.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [CommentReactions, ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn remove_comment_reaction(
     ctx: ThreadSafeContext,
@@ -809,7 +809,7 @@ pub async fn remove_comment_reaction(
 }
 
 /// List the pushed commits and review requests on a review's timeline.
-#[but_api(napi)]
+#[but_api(napi, provides = [ReviewTimeline])]
 #[instrument(err(Debug))]
 pub async fn list_review_timeline_events(
     ctx: ThreadSafeContext,
@@ -826,7 +826,7 @@ pub async fn list_review_timeline_events(
 }
 
 /// List the submitted reviews (approvals, change requests) on a review.
-#[but_api(napi)]
+#[but_api(napi, provides = [ReviewSubmissions])]
 #[instrument(err(Debug))]
 pub async fn list_review_submissions(
     ctx: ThreadSafeContext,
@@ -838,7 +838,7 @@ pub async fn list_review_submissions(
 }
 
 /// Edit a top-level conversation comment on a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn update_review_comment(
     ctx: ThreadSafeContext,
@@ -857,7 +857,7 @@ pub async fn update_review_comment(
 }
 
 /// Delete a top-level conversation comment on a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn delete_review_comment(ctx: ThreadSafeContext, comment_id: i64) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
@@ -872,7 +872,7 @@ pub async fn delete_review_comment(ctx: ThreadSafeContext, comment_id: i64) -> R
 
 /// The login this project's forge calls authenticate as, if any account is
 /// configured. Resolved from stored accounts; no network.
-#[but_api(napi)]
+#[but_api(napi, provides = [ForgeLogin])]
 #[instrument(err(Debug))]
 pub fn current_forge_login(ctx: &Context) -> Result<Option<String>> {
     let project_meta = ctx.project_meta()?;
@@ -891,7 +891,7 @@ pub fn current_forge_login(ctx: &Context) -> Result<Option<String>> {
 }
 
 /// List the labels defined on the repository backing this project's reviews.
-#[but_api(napi)]
+#[but_api(napi, provides = [RepoLabels])]
 #[instrument(err(Debug))]
 pub async fn list_repo_labels(ctx: ThreadSafeContext) -> Result<Vec<but_forge::ForgeReviewLabel>> {
     let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
@@ -899,7 +899,7 @@ pub async fn list_repo_labels(ctx: ThreadSafeContext) -> Result<Vec<but_forge::F
 }
 
 /// Add labels to a review; returns the resulting label set.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn add_review_labels(
     ctx: ThreadSafeContext,
@@ -918,7 +918,7 @@ pub async fn add_review_labels(
 }
 
 /// Remove one label from a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn remove_review_label(
     ctx: ThreadSafeContext,
@@ -937,7 +937,7 @@ pub async fn remove_review_label(
 }
 
 /// List users who can be requested to review on this project's repository.
-#[but_api(napi)]
+#[but_api(napi, provides = [ReviewerCandidates])]
 #[instrument(err(Debug))]
 pub async fn list_reviewer_candidates(
     ctx: ThreadSafeContext,
@@ -947,7 +947,7 @@ pub async fn list_reviewer_candidates(
 }
 
 /// Request reviews from the given users on a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews, ReviewTimeline])]
 #[instrument(err(Debug))]
 pub async fn request_review(
     ctx: ThreadSafeContext,
@@ -966,7 +966,7 @@ pub async fn request_review(
 }
 
 /// Withdraw review requests for the given users on a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn withdraw_review_request(
     ctx: ThreadSafeContext,
@@ -985,7 +985,7 @@ pub async fn withdraw_review_request(
 }
 
 /// Post a top-level conversation comment on a review.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ReviewComments])]
 #[instrument(err(Debug))]
 pub async fn create_review_comment(
     ctx: ThreadSafeContext,
@@ -1003,7 +1003,7 @@ pub async fn create_review_comment(
     .await
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [MergeStatus])]
 #[instrument(err(Debug))]
 pub async fn get_review_merge_status(
     ctx: ThreadSafeContext,
@@ -1014,7 +1014,7 @@ pub async fn get_review_merge_status(
         .await
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [Reviews])]
 #[instrument(err(Debug))]
 pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
@@ -1063,7 +1063,7 @@ pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo
     .await
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [Checks])]
 #[instrument(skip(ctx), err(Debug))]
 pub fn list_ci_checks(
     ctx: &Context,
@@ -1101,7 +1101,7 @@ pub fn list_ci_checks_for_ref(
     )
 }
 
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -1194,7 +1194,7 @@ pub async fn publish_review_only(
 }
 
 /// Merge a review on the forge.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews, MergeStatus, Checks])]
 #[instrument(err(Debug))]
 pub async fn merge_review(
     ctx: ThreadSafeContext,
@@ -1214,7 +1214,7 @@ pub async fn merge_review(
 }
 
 /// Enable or disable a review's auto-merge.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
@@ -1234,7 +1234,7 @@ pub async fn set_review_auto_merge(
 }
 
 /// Set a review to draft or ready-for-review
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews, MergeStatus])]
 #[instrument(err(Debug))]
 pub async fn set_review_draftiness(
     ctx: ThreadSafeContext,
@@ -1266,7 +1266,7 @@ pub async fn set_review_draftiness(
 
 /// Update arbitrary fields of a single review (title, body, state, target base).
 /// Each `None` leaves that field unchanged on the forge.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Reviews])]
 #[instrument(err(Debug))]
 pub async fn update_review(
     ctx: ThreadSafeContext,

@@ -58,7 +58,7 @@ pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusR
 ///
 /// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::GithubAuthStatusResponse)]
+#[but_api(napi, json::GithubAuthStatusResponse, invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub async fn store_github_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -101,7 +101,7 @@ pub async fn store_github_enterprise_pat(
 /// # Returns
 ///
 /// * `Ok(())` - Always succeeds, even if no token was found
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

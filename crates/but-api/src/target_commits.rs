@@ -38,7 +38,7 @@ const TARGET_COMMITS_PAGE_SIZE: usize = 50;
 /// the forge reports them; it reads only the local cache and performs no
 /// network requests or diffs, and enrichment failures degrade to unannotated
 /// commits.
-#[but_api(napi, json::TargetCommitPage)]
+#[but_api(napi, json::TargetCommitPage, provides = [TargetCommits])]
 #[instrument(err(Debug))]
 pub fn workspace_target_commits(
     ctx: &but_ctx::Context,

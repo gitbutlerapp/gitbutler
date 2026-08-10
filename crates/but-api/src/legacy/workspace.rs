@@ -25,7 +25,7 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi, try_from = but_workspace::ui::RefInfo)]
+#[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
@@ -222,7 +222,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [Branches])]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
@@ -427,7 +427,7 @@ pub fn target_commits(
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.
-#[but_api(napi, json::PushResult)]
+#[but_api(napi, json::PushResult, invalidates = [Workspace, Reviews, MergeStatus, Checks, ReviewTimeline])]
 #[instrument(err(Debug))]
 pub async fn workspace_branch_and_ancestors_push(
     ctx: ThreadSafeContext,

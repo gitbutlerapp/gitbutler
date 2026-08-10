@@ -907,7 +907,7 @@ pub fn apply_with_perm(
 /// exists. Uniqueness only holds at the time of the call: the name is
 /// deduplicated against local branches and the short names of remote-tracking
 /// branches, both of which can change afterwards.
-#[but_api(napi)]
+#[but_api(napi, provides = [Branches])]
 #[instrument(err(Debug))]
 pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
     let _guard = ctx.shared_worktree_access();
@@ -1665,7 +1665,7 @@ fn checkout_ref_with_perm(
 /// `branch` is resolved by name in the repository referenced by `ctx`, and the
 /// diff is computed against the current workspace state. For lower-level
 /// implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
-#[but_api(napi)]
+#[but_api(napi, provides = [Branches])]
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
@@ -1682,7 +1682,7 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 /// ordered most recently updated first; group by `status` to lead with the
 /// workspace-related ones. Ahead-counts are relative to the
 /// project's configured target branch, which clients know from the project APIs.
-#[but_api(napi, json::ListedStack)]
+#[but_api(napi, json::ListedStack, provides = [Branches])]
 #[instrument(err(Debug))]
 pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
     let meta = ctx.meta()?;

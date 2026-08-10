@@ -80,7 +80,7 @@ but_schemars::register_sdk_type!(ConflictedFile);
 /// result. Fails for commits whose conflicts have no hunk representation
 /// (deletions/renames, binaries, oversized files, marker-like content) — those
 /// need manual resolution in edit mode.
-#[but_api(napi, try_from = crate::resolve::json::CommitConflicts)]
+#[but_api(napi, try_from = crate::resolve::json::CommitConflicts, provides = [])]
 #[instrument(err(Debug))]
 pub fn commit_conflicts(
     ctx: &but_ctx::Context,

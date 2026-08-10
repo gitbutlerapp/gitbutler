@@ -2,6 +2,7 @@
 //!
 //! These are intended for export into type bindings for e.g. the but-sdk.
 
+use crate::tags::CacheTag;
 use but_hunk_assignment::WorktreeChanges;
 use gitbutler_operating_modes::OperatingMode;
 use schemars::JsonSchema;
@@ -26,6 +27,75 @@ pub enum WatcherPayload {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherPayload);
+
+/// Which watcher event happened, without the payload it carried.
+///
+/// Each kind declares the tags it makes stale in [`WatcherEventKind::invalidates`];
+/// the SDK exports that table so clients can derive invalidation from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatcherEventKind {
+    /// See [`WatcherPayload::GitFetch`].
+    GitFetch,
+    /// See [`WatcherPayload::GitHead`].
+    GitHead,
+    /// See [`WatcherPayload::GitActivity`].
+    GitActivity,
+    /// See [`WatcherPayload::WorktreeChanges`].
+    WorktreeChanges,
+    /// See [`WatcherPayload::WorkspaceActivity`].
+    WorkspaceActivity,
+}
+
+impl WatcherEventKind {
+    /// Every kind, for the SDK generator to enumerate.
+    pub const ALL: &'static [WatcherEventKind] = &[
+        WatcherEventKind::GitFetch,
+        WatcherEventKind::GitHead,
+        WatcherEventKind::GitActivity,
+        WatcherEventKind::WorktreeChanges,
+        WatcherEventKind::WorkspaceActivity,
+    ];
+
+    /// The event's name as clients see it, matching the payload's serde tag.
+    pub fn name(self) -> &'static str {
+        match self {
+            WatcherEventKind::GitFetch => "gitFetch",
+            WatcherEventKind::GitHead => "gitHead",
+            WatcherEventKind::GitActivity => "gitActivity",
+            WatcherEventKind::WorktreeChanges => "worktreeChanges",
+            WatcherEventKind::WorkspaceActivity => "workspaceActivity",
+        }
+    }
+
+    /// The tags this event makes stale.
+    ///
+    /// This is the event-side third of the tag declarations — see
+    /// [`crate::tags`]. A fetch moves remote-tracking refs and refreshes the
+    /// forge cache; activity means the repository changed; worktree changes
+    /// mean the files did.
+    pub fn invalidates(self) -> &'static [CacheTag] {
+        use CacheTag as T;
+        match self {
+            WatcherEventKind::GitFetch => {
+                &[T::Branches, T::TargetCommits, T::FetchStatus, T::Reviews]
+            }
+            WatcherEventKind::GitHead => &[],
+            WatcherEventKind::GitActivity | WatcherEventKind::WorkspaceActivity => &[
+                T::Branches,
+                T::TargetCommits,
+                T::Workspace,
+                T::Commits,
+                T::Diffs,
+                T::WorktreeChanges,
+                T::AbsorptionPlan,
+                T::Comments,
+            ],
+            WatcherEventKind::WorktreeChanges => {
+                &[T::Diffs, T::WorktreeChanges, T::AbsorptionPlan, T::Comments]
+            }
+        }
+    }
+}
 
 /// Git fetch event
 #[derive(Debug, Clone, Serialize, JsonSchema)]

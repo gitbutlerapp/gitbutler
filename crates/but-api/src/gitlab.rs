@@ -17,7 +17,7 @@ use tracing::instrument;
 ///
 /// * `Ok(_)` - The token is valid and stored
 /// * `Err(_)` - If the token is invalid or storage fails
-#[but_api(napi, json::GitlabAuthStatusResponse)]
+#[but_api(napi, json::GitlabAuthStatusResponse, invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub async fn store_gitlab_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -60,7 +60,7 @@ pub async fn store_gitlab_selfhosted_pat(
 /// # Returns
 ///
 /// * `Ok(())` - Always succeeds, even if no token was found
-#[but_api(napi)]
+#[but_api(napi, invalidates = [ForgeAccounts, ForgeLogin])]
 #[instrument(err(Debug))]
 pub fn forget_gitlab_account(account: but_gitlab::GitlabAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
