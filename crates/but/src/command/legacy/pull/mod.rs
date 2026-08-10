@@ -2,8 +2,7 @@ mod json;
 
 use std::fmt::Write;
 
-use anyhow::bail;
-use bstr::ByteSlice;
+use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
@@ -77,9 +76,10 @@ pub async fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
     check_only: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<WorkspaceState>> {
     if check_only {
-        handle_check(ctx, out).await
+        handle_check(ctx, out).await?;
+        Ok(None)
     } else {
         handle_pull(ctx, out).await
     }
@@ -230,7 +230,10 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
     Ok(())
 }
 
-async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+async fn handle_pull(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+) -> anyhow::Result<Option<WorkspaceState>> {
     let t = theme::get();
     let mut pull_result = PullResult {
         status: String::new(),
@@ -337,13 +340,13 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
         if let Some(out) = out.for_json() {
             out.write_value(&pull_result)?;
         }
-        return Ok(());
+        return Ok(None);
     }
 
     // Step 2: Dry-run integration and derive statuses from the preview, like the desktop app.
     let upstream::IntegrationPreview {
         current: current_head_info,
-        outcome: preview,
+        outcome: _preview,
         statuses,
     } = upstream::dry_run_integration(ctx)?;
 
@@ -355,52 +358,10 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
         if let Some(out) = out.for_json() {
             out.write_value(&pull_result)?;
         }
-        return Ok(());
+        return Ok(None);
     }
 
-    let statuses_to_apply = if !preview.worktree_conflicts.is_empty() {
-        pull_result.status = "worktree_conflicts".to_string();
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "\n{}",
-                t.error.paint(
-                    "There are uncommitted changes in the worktree that conflict with the updates:"
-                )
-            )?;
-            for path in &preview.worktree_conflicts {
-                writeln!(out, "  {}", t.attention.paint(path.to_str_lossy()))?;
-            }
-            writeln!(
-                out,
-                "{}",
-                t.important
-                    .paint("To update anyway, park them on a temporary commit first:")
-            )?;
-            writeln!(
-                out,
-                "  1. Run {} with the files listed above ({} shows their IDs)",
-                t.command_suggestion
-                    .paint("`but commit -b <branch> -m \"wip\" <file-id...>`"),
-                t.command_suggestion.paint("`but diff`")
-            )?;
-            writeln!(
-                out,
-                "  2. Run {} again; the parked commit may come back conflicted, ready for {}",
-                t.command_suggestion.paint("`but pull`"),
-                t.command_suggestion.paint("`but resolve`")
-            )?;
-            writeln!(
-                out,
-                "  3. Run {} afterwards to make those changes uncommitted again",
-                t.command_suggestion.paint("`but uncommit <commit>`")
-            )?;
-        }
-        if let Some(out) = out.for_json() {
-            out.write_value(&pull_result)?;
-        }
-        bail!("nothing was updated; uncommitted changes conflict with the incoming updates");
-    } else {
+    let statuses_to_apply = {
         pull_result.status = "updating".to_string();
 
         let mut branches_to_update = 0;
@@ -652,6 +613,7 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
                 if let Some(out) = out.for_json() {
                     out.write_value(&pull_result)?;
                 }
+                return Ok(Some(outcome.workspace_state));
             }
             Err(e) => {
                 pull_result.status = "error".to_string();
@@ -667,7 +629,7 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
         }
     }
 
-    Ok(())
+    Ok(None)
 }
 
 fn check_branch_statuses(statuses: &[PullBranchStatusInfo]) -> Vec<BranchStatusInfo> {

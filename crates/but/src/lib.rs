@@ -1049,12 +1049,9 @@ async fn match_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pull { check } => {
-            command::legacy::pull::handle(&mut ctx, out, check)
-                .await
-                .emit_metrics(metrics_ctx)?;
-            None
-        }
+        Subcommands::Pull { check } => command::legacy::pull::handle(&mut ctx, out, check)
+            .await
+            .emit_metrics(metrics_ctx)?,
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
             use std::fmt::Write;
@@ -1068,8 +1065,7 @@ async fn match_subcommand(
             )?;
             command::legacy::pull::handle(&mut ctx, out, true)
                 .await
-                .emit_metrics(metrics_ctx)?;
-            None
+                .emit_metrics(metrics_ctx)?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {

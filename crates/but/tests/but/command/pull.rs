@@ -674,17 +674,38 @@ fn pull_reports_worktree_conflict_paths() {
     // to `shared.txt` on the resulting workspace head.
     env.file("shared.txt", "dirty local\nmore local work\n");
 
-    env.but("pull").assert().failure().stdout_eq(str![[r#"
+    env.but("pull").assert().success().stdout_eq(str![[r#"
 
 Found 1 upstream commits on origin/main
    [..] upstream change
 
-There are uncommitted changes in the worktree that conflict with the updates:
-  shared.txt
-To update anyway, park them on a temporary commit first:
-  1. Run `but commit -b <branch> -m "wip" <file-id...>` with the files listed above (`but diff` shows their IDs)
-  2. Run `but pull` again; the parked commit may come back conflicted, ready for `but resolve`
-  3. Run `but uncommit <commit>` afterwards to make those changes uncommitted again
+Updating 1 active branches...
+
+Rebase successful
+
+Summary
+────────
+  A - rebased
+
+To undo this operation:
+  Run `but undo`
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted]
+┊    shared.txt {conflicted}
+┊
+┊╭┄ g0 [A]
+┊◐   zyx add A
+├╯
+┊
+┴ 7f73771 (common base) 2000-01-02 upstream change
+⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
