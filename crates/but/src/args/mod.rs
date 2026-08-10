@@ -332,6 +332,8 @@ pub enum Subcommands {
     ///
     /// To apply or unapply branches, use `but apply` and `but unapply`.
     ///
+    /// To rename an applied branch, use `but reword <branch> -m <new-name>`.
+    ///
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
