@@ -61,20 +61,12 @@
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
 	position: relative;
 
-	/* Placed rather than left to the flow: the pane draws the column's edge into
-	   this same cell, and auto-placement won't share a cell with something put
-	   there by hand. */
-	grid-area: 1 / 2;
 	/* Ends where the map does rather than stretching past it. At a fixed scale a
 	   short diff simply doesn't reach the foot of the pane, and ruler below the
 	   last line is ruler the lens can never travel to. */
 	align-self: start;
 	width: 56px;
 	height: var(--minimap-track-height, 100%);
-	/* Stronger than the panel's other hairlines: the marks run right to this
-	   edge, and a deletion-heavy diff puts near-identical pinks on both sides. */
-	border-left: 1px solid var(--border-2);
-	background-color: var(--bg-1);
 	cursor: default;
 }
 
