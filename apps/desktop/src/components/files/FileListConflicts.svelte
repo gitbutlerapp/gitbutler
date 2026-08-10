@@ -30,10 +30,19 @@
 		conflictEntries?: ConflictEntriesObj;
 		ancestorMostConflictedCommitId?: string;
 		draggable?: boolean;
+		/// When set, clicking a conflicted file calls this (e.g. to open the
+		/// commit's diff preview) instead of offering to enter edit mode.
+		onFileClick?: (path: string) => void;
 	};
 
-	const { projectId, stackId, conflictEntries, ancestorMostConflictedCommitId, draggable }: Props =
-		$props();
+	const {
+		projectId,
+		stackId,
+		conflictEntries,
+		ancestorMostConflictedCommitId,
+		draggable,
+		onFileClick,
+	}: Props = $props();
 
 	const controller = getFileListContext();
 	const modeService = injectOptional(MODE_SERVICE, undefined);
@@ -89,7 +98,11 @@
 				isLast={!ancestorMostConflictedCommitId && i === entries.length - 1}
 				onclick={(e) => {
 					e.stopPropagation();
-					showEditPatchConfirmation(path);
+					if (onFileClick) {
+						onFileClick(path);
+					} else {
+						showEditPatchConfirmation(path);
+					}
 				}}
 			/>
 		{/each}

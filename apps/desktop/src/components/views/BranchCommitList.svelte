@@ -458,10 +458,7 @@
 											draggableFiles
 											selectionId={createCommitSelection({ commitId: commitId, stackId })}
 											persistId={`commit-${commitId}`}
-											changes={changesResult.changes.filter(
-												(change) =>
-													!(change.path in (changesResult.conflictEntries?.entries ?? {})),
-											)}
+											changes={changesResult.changes}
 											stats={changesResult.stats ?? undefined}
 											conflictEntries={changesResult.conflictEntries}
 											ancestorMostConflictedCommitId={firstConflictedCommitId}
@@ -482,6 +479,15 @@
 													});
 												}
 												controller.jumpToIndex(index);
+											}}
+											onConflictedFileClick={(path) => {
+												controller.selection.set({
+													branchName,
+													commitId,
+													upstream: false,
+													previewOpen: true,
+												});
+												controller.jumpToPath(path);
 											}}
 										/>
 									{/snippet}
