@@ -157,43 +157,6 @@ export function requiresPush(status: PushStatus): boolean {
 	);
 }
 
-export type AnchorPosition = "Above" | "Below";
-
-export type AtCommitAnchor = {
-	type: "atCommit";
-	subject: {
-		readonly commit_id: string;
-		readonly position: AnchorPosition;
-	};
-};
-
-export type AtSegmentAnchor = {
-	type: "atSegment";
-	subject: {
-		readonly short_name: string;
-		readonly position: AnchorPosition;
-	};
-};
-
-/**
- * Unlike `AtSegmentAnchor`, the new reference always points at the same commit
- * as the anchor reference - `position` only determines their ordering.
- */
-export type AtReferenceAnchor = {
-	type: "atReference";
-	subject: {
-		readonly short_name: string;
-		readonly position: AnchorPosition;
-	};
-};
-
-export type CreateRefAnchor = AtCommitAnchor | AtSegmentAnchor | AtReferenceAnchor;
-
-export type CreateRefRequest = {
-	newName: string;
-	anchor: CreateRefAnchor;
-};
-
 /**
  * Converts an unapplied-stack count into a `DropResult` warning if stacks were unapplied.
  */

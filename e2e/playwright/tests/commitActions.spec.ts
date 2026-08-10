@@ -18,6 +18,7 @@ import {
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
 import { expect, type Page } from "@playwright/test";
+import { execFileSync } from "child_process";
 import { copyFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -44,6 +45,37 @@ test("should be able to amend a file to a commit", async ({ page, gitbutler }) =
 	await expect(commitRow(page)).toHaveCount(2);
 	await expect(getByTestId(page, "stack-push-button")).toBeDisabled();
 });
+
+for (const side of ["above", "below"] as const) {
+	test(`can create a branch ${side} a commit`, async ({ page, gitbutler }) => {
+		await gitbutler.runScript("project-with-remote-branches.sh");
+		await applyUpstream(gitbutler, "branch1");
+		await openWorkspace(page);
+
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		const branchesBefore = new Set(localBranches(localClone));
+		const anchorCommit = git(localClone, ["rev-parse", "branch1"]);
+		const expectedTarget =
+			side === "above" ? anchorCommit : git(localClone, ["rev-parse", `${anchorCommit}^`]);
+
+		await commitRow(page, "branch1: second commit").click({ button: "right" });
+		await page.getByRole("menuitem", { name: "Create branch" }).click();
+		await page.getByRole("button", { name: `Add branch ${side}` }).click();
+
+		await expect
+			.poll(() => localBranches(localClone).filter((name) => !branchesBefore.has(name)), {
+				message: `Expected one branch to be created ${side} the commit`,
+				intervals: [100, 200, 500, 1000],
+			})
+			.toHaveLength(1);
+		const createdBranch = localBranches(localClone).find((name) => !branchesBefore.has(name))!;
+
+		expect(git(localClone, ["rev-parse", createdBranch])).toBe(expectedTarget);
+		const branchHeaders = getByTestId(page, "branch-header");
+		await expect(branchHeaders).toHaveCount(2);
+		await expect(branchHeaders.filter({ hasText: createdBranch })).toBeVisible();
+	});
+}
 
 test("should be able to commit a bunch of times in a row and edit their message", async ({
 	page,
@@ -169,6 +201,19 @@ async function startCommittingAndCancel(page: Page, index: number) {
 	await clickByTestId(page, "commit-drawer-cancel-button");
 
 	await expect(commitRow(page, title)).toHaveCount(0);
+}
+
+function localBranches(pathToRepo: string): string[] {
+	return git(pathToRepo, ["for-each-ref", "--format=%(refname:short)", "refs/heads"])
+		.split("\n")
+		.filter(Boolean);
+}
+
+function git(pathToRepo: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd: pathToRepo,
+		encoding: "utf8",
+	}).trim();
 }
 
 async function amendCommitMessageMultipleTimes(TIMES: number, page: Page) {
