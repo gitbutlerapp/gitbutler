@@ -9,22 +9,21 @@ import {
 	uncommittedChangesOperand,
 } from "#ui/operands.ts";
 import type { Placement } from "#ui/operations/operation.ts";
-import type { SelectionState } from "#ui/projects/project.ts";
-import type { SelectionScope } from "#ui/selection-scopes.ts";
+import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 
 /** @public */
 export type AbsorbMode = {
 	source: Operand;
 	sourceTarget: AbsorptionTarget;
-	restoreSelection: SelectionState;
+	restoreSelection: WorkspaceCursorSnapshot;
 };
 
 /** @public */
 export type KeyboardTransferMode = {
 	sources: Array<Operand>;
 	placement: Placement;
-	restoreSelection: SelectionState;
+	restoreSelection: WorkspaceCursorSnapshot;
 };
 
 /** @public */
@@ -66,16 +65,16 @@ export const pointerTransferMode = ({
 export const getTransferTarget = (
 	mode: TransferMode,
 	outlineSelection: Operand | null,
-	detailsSelectionScope: SelectionScope | null,
+	workspaceList: "stacks" | "uncommitted",
 ): Operand | null =>
 	Match.value(mode).pipe(
 		Match.tagsExhaustive({
 			Pointer: (mode) => mode.target,
 			Keyboard: () =>
-				Match.value(detailsSelectionScope).pipe(
-					Match.when("uncommitted-files", () => uncommittedChangesOperand),
-					Match.when("outline", () => outlineSelection),
-					Match.orElse(() => null),
+				Match.value(workspaceList).pipe(
+					Match.when("uncommitted", () => uncommittedChangesOperand),
+					Match.when("stacks", () => outlineSelection),
+					Match.exhaustive,
 				),
 		}),
 	);

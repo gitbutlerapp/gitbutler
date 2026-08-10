@@ -30,12 +30,20 @@ export const MyComponent: FC<Props> = (p) => {
 # State
 
 Share machinery, not state: when a new surface (a tab, pane, or mode) has its
-own selection or lifecycle, give it its own sub-state with its own
+own configuration or lifecycle, give it its own sub-state with its own
 reducers/selectors (see `ui/src/projects/branches.ts`), even when it reuses the
 same operand/navigation machinery. Don't multiplex an existing state container
 behind mode conditionals — the tell is an `if (tab === ...)` guard, or a
 comment explaining a special case, in code that shouldn't know that mode
 exists.
+
+List cursors are the ratified exception: every list's cursor lives in the one
+`cursors` table (`ui/src/cursors.ts`) because the entries are structurally
+uniform — one identity-keyed value per named list, resolved against what the
+list currently shows. That uniformity is the license. The moment an entry
+needs a list-specific conditional inside the shared machinery
+(`if (list === ...)`), it has stopped being an instance of the concept —
+eject it back into its own sub-state.
 
 # Verifying your work
 

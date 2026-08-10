@@ -446,6 +446,10 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply(apply::Platform),
 
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Open(open::Platform),
+
     /// Push changes in a branch to remote.
     ///
     /// `but push` will update the remote with the latest commits from the
@@ -1083,6 +1087,8 @@ pub mod discard;
 pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod r#move;
+#[cfg(feature = "legacy")]
+pub mod open;
 #[cfg(feature = "legacy")]
 pub mod pick;
 #[cfg(feature = "legacy")]

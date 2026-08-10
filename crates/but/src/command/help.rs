@@ -133,6 +133,8 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Apply => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Open => Group::Inspection,
+                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Clean => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pick => Group::BranchingAndCommitting,
@@ -373,6 +375,7 @@ Inspection:
   status       Overview of the project workspace state
   diff         Displays the diff of changes in the repo
   show         Shows detailed information about a commit or branch
+  open         Open the project in GitButler
 
 Branching and Committing:
   commit       Create a commit

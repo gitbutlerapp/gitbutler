@@ -1,4 +1,5 @@
 import { decodeBytes } from "#ui/api/bytes.ts";
+import { setCursor } from "#ui/use-cursor.ts";
 import { branchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { AppDispatch } from "#ui/store.ts";
@@ -20,14 +21,8 @@ export const toggleFoldedSegment = (
 		select,
 	}: { projectId: string; branchRefBytes: Array<number>; select: boolean },
 ) => {
-	if (select) {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand({ branchRef: branchRefBytes }),
-			}),
-		);
-	}
+	if (select) setCursor("stacks", branchOperand({ branchRef: branchRefBytes }));
+
 	dispatch(
 		projectSlice.actions.toggleSegmentFolded({
 			projectId,

@@ -1,4 +1,5 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
+import { setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
@@ -21,11 +22,14 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { ForgeReview } from "@gitbutler/but-sdk";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
 	branchIdentityKey,
+	type BranchOperand,
+	branchOperand,
 	commitFileParent,
 	type FileOperand,
 	fileOperand,
@@ -34,6 +38,7 @@ import {
 	type FileParent,
 	type HunkOperand,
 	type Operand,
+	uncommittedChangesFileParent,
 	weakCommitIdentityKey,
 	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
@@ -305,8 +310,8 @@ const DiffContents: FC<{
 	canUncommit,
 	uncommit,
 }) => {
-	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
+	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const { mutate: createComment } = useCommentCreate();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: settings } = useQuery({
@@ -347,11 +352,9 @@ const DiffContents: FC<{
 	);
 	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
 
-	const diffSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionDiff(state, projectId, visibleNavigationIndex),
-	);
+	const diffSelection = useResolvedCursor("diff", visibleNavigationIndex);
 	const hasStoredDiffSelection = useAppSelector(
-		(state) => projectSlice.selectors.selectStoredDiffSelection(state, projectId) !== null,
+		(state) => projectSlice.selectors.selectDiffCursor(state, projectId) !== null,
 	);
 	const canCheckHunks = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
@@ -384,7 +387,7 @@ const DiffContents: FC<{
 	}, []);
 
 	const selectDiff = (selection: HunkOperand) => {
-		dispatch(projectSlice.actions.selectDiff({ projectId, selection }));
+		setCursor("diff", selection);
 
 		const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
 		if (!selectedRange) return;
@@ -399,7 +402,6 @@ const DiffContents: FC<{
 
 	useNavigationIndexHotkeys({
 		navigationIndex: visibleNavigationIndex,
-		projectId,
 		group: "Diff",
 		select: selectDiff,
 		selection: diffSelection,
@@ -528,7 +530,7 @@ const DiffContents: FC<{
 
 	// We currently only support selecting contiguous blocks.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return void dispatch(projectSlice.actions.selectDiff({ projectId, selection: null }));
+		if (!sel) return setCursor("diff", null);
 
 		const file = fileByItemId.get(sel.id);
 		if (!file) throw new Error("Could not get file by item ID");
@@ -545,19 +547,14 @@ const DiffContents: FC<{
 		});
 		if (!selection) return;
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: {
-					parent: {
-						parent: fileParent,
-						path: file.change.path,
-					},
-					...selection,
-					isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
-				},
-			}),
-		);
+		setCursor("diff", {
+			parent: {
+				parent: fileParent,
+				path: file.change.path,
+			},
+			...selection,
+			isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+		});
 	};
 
 	const getHunkOperandAtLine = ({
@@ -666,16 +663,11 @@ const DiffContents: FC<{
 		// file's first hunk, which stands in for the folded file, and keep the
 		// header in view. The stored selection is read off the store rather than
 		// captured, so this callback's identity does not churn with j/k moves.
-		const stored = projectSlice.selectors.selectStoredDiffSelection(store.getState(), projectId);
+		const stored = projectSlice.selectors.selectDiffCursor(store.getState(), projectId);
 		const storedFile = stored && hunkByKey.get(hunkOperandIdentityKey(stored))?.file;
 		if (storedFile?.item.id !== itemId) return;
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: assert(storedFile.hunks[0]).operand,
-			}),
-		);
+		setCursor("diff", assert(storedFile.hunks[0]).operand);
 		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "nearest" });
 	};
 
@@ -1235,9 +1227,7 @@ const Diff: FC<{
 		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
 	});
 
-	const canShowFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanShowFiles(state, projectId),
-	);
+	const canShowFiles = useCanShowFiles();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
@@ -1266,9 +1256,7 @@ const Diff: FC<{
 		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories],
 	);
 	const filesNavigationIndex = useMemo(() => fileTreeNavigationIndex(filesRows), [filesRows]);
-	const filesSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
-	);
+	const filesSelection = useResolvedCursor("files", filesNavigationIndex);
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
 	// the outline selection, even with the helpers inlined, hence manual memoisation.
@@ -1387,9 +1375,7 @@ const Diff: FC<{
 
 	// The diff panel resolves this selection for the viewer; the ruler wants it in
 	// file line numbers, which is what the hunk's own range already holds.
-	const diffSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionDiff(state, projectId, diffViewSansAnno.navigationIndex),
-	);
+	const diffSelection = useResolvedCursor("diff", diffViewSansAnno.navigationIndex);
 	const minimapSelection = useMemo((): MinimapSelection | null => {
 		if (!diffSelection) return null;
 
@@ -1788,14 +1774,11 @@ const CommitDetails: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
-	const canShowFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanShowFiles(state, projectId),
-	);
+	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const commitBodyId = useId();
@@ -1845,7 +1828,7 @@ const CommitDetails: FC<{
 	const body = commitBody(commitDetails.commit.message);
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+		setCursor("files", selection);
 	};
 
 	return (
@@ -1952,26 +1935,266 @@ const CommitDetails: FC<{
 	);
 };
 
-const BranchDetails: FC<{
-	selection: Extract<Operand, { _tag: "Branch" }>;
+/** A branch's own changes, whatever the branch's standing. */
+const BranchDiff: FC<BranchDetailsProps> = ({
+	branch,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const filesVisibleState = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesVisible(state, projectId),
+	);
+	const canShowFiles = useCanShowFiles();
+	const filesVisible = canShowFiles && filesVisibleState;
+
+	const selectFile = (selection: string) => {
+		setCursor("files", selection);
+	};
+
+	return (
+		<SuspenseQuery
+			{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branch.branchRef) })}
+		>
+			{({ data: branchDiff }) => (
+				<Diff
+					changes={branchDiff.changes}
+					filesVisible={filesVisible}
+					filesItems={branchDiff.changes.map((change) =>
+						changeFileRowItem({
+							change,
+							path: change.path,
+							dependencyCommitIds: [],
+						}),
+					)}
+					onPassiveFileSelection={selectFile}
+					selection={branchOperand(branch)}
+					projectId={projectId}
+					onActiveFileSelection={onActiveFileSelection}
+					viewerRef={viewerRef}
+					didScrollToViaFileRef={didScrollToViaFileRef}
+				/>
+			)}
+		</SuspenseQuery>
+	);
+};
+
+const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	return (
+		<div className={styles.titleRow}>
+			{detailsFullWindow && <TopLeftControls />}
+
+			<div className={styles.title}>
+				<SelectionScopeKbd hotkey="0" scope="details" />
+				<Icon name="branch" />
+				<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
+			</div>
+		</div>
+	);
+};
+
+/** The Diff / Pull Request toggle, for a branch with both to show. */
+const BranchTabToggle: FC<{ branchTab: BranchTab; setBranchTab: (tab: BranchTab) => void }> = ({
+	branchTab,
+	setBranchTab,
+}) => (
+	<ToggleGroup
+		render={<ToggleGroupStyles />}
+		value={[branchTab]}
+		onValueChange={(value: Array<BranchTab>) => {
+			const head = value[0];
+			if (head === undefined) return;
+			setBranchTab(head);
+		}}
+		aria-label="Branch tab"
+	>
+		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+			Diff
+		</Toggle>
+		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
+			Pull Request
+		</Toggle>
+	</ToggleGroup>
+);
+
+/** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */
+const useBranchTabHotkeys = ({
+	branchTab,
+	setBranchTab,
+	target,
+	enabled = true,
+}: {
+	branchTab: BranchTab;
+	setBranchTab: (tab: BranchTab) => void;
+	target: RefObject<HTMLElement | null>;
+	enabled?: boolean;
+}) => {
+	const toggle = () => {
+		switch (branchTab) {
+			case "diff": {
+				setBranchTab("pr");
+				break;
+			}
+			case "pr": {
+				setBranchTab("diff");
+				break;
+			}
+			default:
+				branchTab satisfies never;
+		}
+	};
+
+	useHotkeys(
+		(["[", "]"] as const).map((hotkey) => ({
+			hotkey,
+			callback: toggle,
+			options: { conflictBehavior: "allow" as const, enabled, target },
+		})),
+	);
+};
+
+/**
+ * An existing review: its description, the conversation and the side panel.
+ * Editing is the applied branch's affordance — the branches tab shows a review,
+ * it does not work on one.
+ */
+const ReviewView: FC<{
+	projectId: string;
+	sourceBranch: string;
+	review: ForgeReview;
+	editing?: { active: boolean; onDone: () => void };
+}> = ({ projectId, sourceBranch, review, editing }) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+
+	return (
+		<div className={styles.prLayout}>
+			<div className={styles.prMain}>
+				<PullRequestDescription
+					key={review.number}
+					body={review.body}
+					projectId={projectId}
+					reviewId={review.number}
+					sourceBranch={sourceBranch}
+					title={review.title}
+					canSubmit={editing !== undefined}
+					editing={editing?.active ?? false}
+					onDoneEditing={() => editing?.onDone()}
+				/>
+
+				{forgeInfo?.capabilities.reviewComments !== false && (
+					<PullRequestComments projectId={projectId} review={review} />
+				)}
+			</div>
+
+			<PullRequestPanel projectId={projectId} review={review} />
+		</div>
+	);
+};
+
+/** What every details view threads through to its Diff. */
+type DetailsViewProps = {
 	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
+};
+
+type BranchDetailsProps = { branch: BranchOperand } & DetailsViewProps;
+
+/**
+ * A branch the workspace does not hold, as the branches tab lists them: its
+ * changes, and its review when one already exists. Opening a review is not
+ * offered — the base comes from a branch's position in a workspace stack, which
+ * this branch has not got, so `publish_review` refuses it.
+ */
+const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
+	branch,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const branchName = branchDetailsParams(decodeBytes(branch.branchRef)).branchName;
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	// Same query key as the applied branch's, so the two share one listing
+	// rather than polling the forge twice. Reviews are keyed by branch name,
+	// which says nothing about whether the branch is applied.
+	const { data: review } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		enabled: forgeInfo?.capabilities.prService === true,
+		select: (reviews) => reviews.find((review) => review.sourceBranch === branchName) ?? null,
+	});
+
+	const branchTab = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
+	);
+	const setBranchTab = (tab: BranchTab) => {
+		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
+	};
+
+	const ref = useRef<HTMLDivElement>(null);
+	// The review is the only second tab on offer here, so the toggle and the keys
+	// that drive it both wait for one to exist.
+	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: !!review });
+
+	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+
+	return (
+		<div className={styles.container} ref={ref}>
+			<div className={styles.headerWrap}>
+				<BranchTitleRow branchName={branchName} />
+
+				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
+					{review && <BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />}
+
+					<div className={styles.tabsRowRight}>
+						<button
+							type="button"
+							className={getButtonClassName({ variant: "pop" })}
+							disabled={isApplyPending}
+							onClick={() => apply(decodeBytes(branch.branchRef))}
+						>
+							{isApplyPending && <Icon name="spinner" />}
+							Apply to workspace
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
+				{review && branchTab === "pr" ? (
+					<div className={styles.prTab}>
+						<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+					</div>
+				) : (
+					<BranchDiff
+						branch={branch}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+					/>
+				)}
+			</Suspense>
+		</div>
+	);
+};
+
+/** A branch applied to the workspace: its changes, and the review of them. */
+const AppliedBranchDetails: FC<BranchDetailsProps> = ({
+	branch,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 	const dispatch = useAppDispatch();
-	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	const filesVisibleState = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
-	const canShowFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanShowFiles(state, projectId),
-	);
-	const filesVisible = canShowFiles && filesVisibleState;
-	const branchRef = decodeBytes(selection.branchRef);
+	const branchRef = decodeBytes(branch.branchRef);
 	const branchName = branchDetailsParams(branchRef).branchName;
 	const branchTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
@@ -1991,65 +2214,11 @@ const BranchDetails: FC<{
 	};
 
 	const ref = useRef<HTMLDivElement>(null);
-
-	useHotkeys([
-		{
-			hotkey: "[",
-			callback: () => {
-				switch (branchTab) {
-					case "diff": {
-						setBranchTab("pr");
-						break;
-					}
-					case "pr": {
-						setBranchTab("diff");
-						break;
-					}
-					default:
-						branchTab satisfies never;
-				}
-			},
-			options: {
-				conflictBehavior: "allow",
-				target: ref,
-			},
-		},
-		{
-			hotkey: "]",
-			callback: () => {
-				switch (branchTab) {
-					case "diff": {
-						setBranchTab("pr");
-						break;
-					}
-					case "pr": {
-						setBranchTab("diff");
-						break;
-					}
-					default:
-						branchTab satisfies never;
-				}
-			},
-			options: {
-				conflictBehavior: "allow",
-				target: ref,
-			},
-		},
-	]);
-
-	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
-	};
-
-	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
 	// Use push status of segment, not branch details; something about remote
 	// tracking refs.
-	const branchCtx = headInfoIndex?.branchContextByRefBytes(selection.branchRef);
-	// Appliedness is a workspace fact: applied iff head info resolves the ref to
-	// a segment. Unknown until head info loads, so the apply affordance stays
-	// hidden rather than flashing on applied branches.
-	const unapplied = headInfo !== undefined && branchCtx === undefined;
+	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
 	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
 	const targetBranch =
 		!parentSegment || parentSegment.pushStatus === "integrated"
@@ -2061,48 +2230,10 @@ const BranchDetails: FC<{
 	return (
 		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<SelectionScopeKbd hotkey="0" scope="details" />
-						<Icon name="branch" />
-						<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
-					</div>
-				</div>
+				<BranchTitleRow branchName={branchName} />
 
 				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
-					<ToggleGroup
-						render={<ToggleGroupStyles />}
-						value={[branchTab]}
-						onValueChange={(value: Array<BranchTab>) => {
-							const head = value[0];
-							if (head === undefined) return;
-							setBranchTab(head);
-						}}
-						aria-label="Branch tab"
-					>
-						<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
-							Diff
-						</Toggle>
-						<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
-							Pull Request
-						</Toggle>
-					</ToggleGroup>
-
-					{unapplied && (
-						<div className={styles.tabsRowRight}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "pop" })}
-								disabled={isApplyPending}
-								onClick={() => apply(branchRef)}
-							>
-								{isApplyPending && <Icon name="spinner" />}
-								Apply to workspace
-							</button>
-						</div>
-					)}
+					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
 						<Suspense>
@@ -2171,54 +2302,24 @@ const BranchDetails: FC<{
 											canSubmit
 										/>
 									) : (
-										<div className={styles.prLayout}>
-											<div className={styles.prMain}>
-												<PullRequestDescription
-													key={review.number}
-													body={review.body}
-													projectId={projectId}
-													reviewId={review.number}
-													sourceBranch={branchName}
-													title={review.title}
-													canSubmit
-													editing={prEditing}
-													onDoneEditing={() => setPrEditing(false)}
-												/>
-
-												{forgeInfo.capabilities.reviewComments !== false && (
-													<PullRequestComments projectId={projectId} review={review} />
-												)}
-											</div>
-
-											<PullRequestPanel projectId={projectId} review={review} />
-										</div>
+										<ReviewView
+											projectId={projectId}
+											sourceBranch={branchName}
+											review={review}
+											editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
+										/>
 									);
 								}}
 							</SuspenseQuery>
 						)}
 					</div>
 				) : (
-					<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: branchRef })}>
-						{({ data: branchDiff }) => (
-							<Diff
-								changes={branchDiff.changes}
-								filesVisible={filesVisible}
-								filesItems={branchDiff.changes.map((change) =>
-									changeFileRowItem({
-										change,
-										path: change.path,
-										dependencyCommitIds: [],
-									}),
-								)}
-								onPassiveFileSelection={selectFile}
-								selection={selection}
-								projectId={projectId}
-								onActiveFileSelection={onActiveFileSelection}
-								viewerRef={viewerRef}
-								didScrollToViaFileRef={didScrollToViaFileRef}
-							/>
-						)}
-					</SuspenseQuery>
+					<BranchDiff
+						branch={branch}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+					/>
 				)}
 			</Suspense>
 		</div>
@@ -2248,29 +2349,24 @@ const FileDetailsSkeleton: FC = () => {
 };
 
 const FileDetails: FC<{
-	selection: Extract<Operand, { _tag: "File" }> & {
-		parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
-	};
+	path: string;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
+}> = ({ path, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
-	const canShowFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanShowFiles(state, projectId),
-	);
+	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const filesItems = getChangesFileRowItems(worktreeChanges);
 	const changes = filesItems.flatMap((item) => (item._tag === "Change" ? [item.change] : []));
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+		setCursor("uncommitted", selection);
 	};
 
 	const title = (
@@ -2293,7 +2389,7 @@ const FileDetails: FC<{
 					filesVisible={filesVisible}
 					filesItems={filesItems}
 					onPassiveFileSelection={selectFile}
-					selection={selection}
+					selection={fileOperand({ parent: uncommittedChangesFileParent, path })}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
@@ -2309,47 +2405,69 @@ const FileDetails: FC<{
 	);
 };
 
-export const Details: FC<{
-	selection: Operand | null;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
-	viewerRef: RefObject<DiffViewerHandle | null>;
-	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
-	if (!selection) return;
+/**
+ * One details component per outline page, as the outline has one list per
+ * page: the component tree, not a tag on the selection, carries where a
+ * selection came from. Each dispatches over the operands its own page can
+ * select, so a branch is applied or unapplied by which page shows it.
+ */
+type OutlineDetailsProps = { selection: Operand | null } & DetailsViewProps;
 
-	return Match.value(selection).pipe(
+/** A commit selection is shown the same way whichever page selected it. */
+const commitDetails = (
+	commit: Extract<Operand, { _tag: "Commit" }>,
+	viewProps: DetailsViewProps,
+): ReactNode => (
+	<Suspense fallback={<CommitDetailsSkeleton />}>
+		<CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} {...viewProps} />
+	</Suspense>
+);
+
+/** The details pane for the workspace tab: branches here are applied. */
+export const WorkspaceDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
+	selection &&
+	Match.value(selection).pipe(
 		Match.tags({
-			Commit: (commit) => (
-				<Suspense fallback={<CommitDetailsSkeleton />}>
-					<CommitDetails
-						key={weakCommitIdentityKey(commit)}
-						selection={commit}
-						onActiveFileSelection={onActiveFileSelection}
-						viewerRef={viewerRef}
-						didScrollToViaFileRef={didScrollToViaFileRef}
-					/>
-				</Suspense>
-			),
 			Branch: (branch) => (
-				<BranchDetails
-					key={branchIdentityKey(branch)}
-					selection={branch}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-				/>
+				<AppliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 			),
+			Commit: (commit) => commitDetails(commit, viewProps),
 		}),
-		Match.when({ _tag: "File", parent: { _tag: "UncommittedChanges" } }, (file) => (
-			<Suspense fallback={<FileDetailsSkeleton />}>
-				<FileDetails
-					selection={file}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-				/>
-			</Suspense>
-		)),
-		Match.orElseAbsurd,
+		Match.orElse(() => null),
 	);
-};
+
+/**
+ * The details pane for the upstream tab. Only commits are selectable there;
+ * its branch rows carry no operand.
+ */
+export const UpstreamDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
+	selection &&
+	Match.value(selection).pipe(
+		Match.tags({
+			Commit: (commit) => commitDetails(commit, viewProps),
+		}),
+		Match.orElse(() => null),
+	);
+
+/**
+ * The details pane for the branches tab, which lists what the workspace does
+ * not hold: its branches are unapplied.
+ */
+export const BranchesDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
+	selection &&
+	Match.value(selection).pipe(
+		Match.tags({
+			Branch: (branch) => (
+				<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
+			),
+			Commit: (commit) => commitDetails(commit, viewProps),
+		}),
+		Match.orElse(() => null),
+	);
+
+/** The details pane for the uncommitted-files scope. */
+export const UncommittedFilesDetails: FC<{ path: string } & DetailsViewProps> = (p) => (
+	<Suspense fallback={<FileDetailsSkeleton />}>
+		<FileDetails {...p} />
+	</Suspense>
+);

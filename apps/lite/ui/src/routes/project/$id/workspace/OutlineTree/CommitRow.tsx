@@ -1,4 +1,5 @@
 import rowStyles from "../Row.module.css";
+import { enterKeyboardTransfer, setCursor, startRewordCommit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
 	useCommitDiscard,
@@ -137,14 +138,7 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({
-								branchRef: response.newRef.fullNameBytes,
-							}),
-						}),
-					);
+					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -182,12 +176,7 @@ export const CommitRow: FC<
 						});
 					}
 
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: latestSelectionAfterDiscard,
-						}),
-					);
+					setCursor("stacks", latestSelectionAfterDiscard);
 				},
 			},
 		);
@@ -199,12 +188,7 @@ export const CommitRow: FC<
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [operand];
 
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				sources,
-			}),
-		);
+		enterKeyboardTransfer({ sources });
 		focusSelectionScope("outline");
 	};
 
@@ -223,12 +207,12 @@ export const CommitRow: FC<
 	};
 
 	const startEditing = () => {
-		dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: commitOperandV }));
+		startRewordCommit(commitOperandV);
 	};
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
+		setCursor("stacks", operand);
 		focusSelectionScope("outline");
 	};
 
@@ -353,7 +337,6 @@ export const CommitRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			projectId={projectId}
 			operand={operand}
 			isChecked={isChecked}
 			isHighlighted={isHighlighted}

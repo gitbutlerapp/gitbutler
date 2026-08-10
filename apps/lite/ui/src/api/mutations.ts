@@ -1,4 +1,5 @@
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
+import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	currentForgeLoginQueryOptions,
@@ -118,6 +119,8 @@ export const syncCoreCaches = (
 			replacedCommits: workspace.replacedCommits,
 		}),
 	);
+	// Same tick as the headInfo push, so a `commit:` URL param never dangles.
+	remapSearchCommits(workspace.replacedCommits);
 };
 
 export const useAbsorb = ({ projectId }: { projectId: string }) =>
@@ -665,13 +668,11 @@ export const useCommitCreate = () => {
 				const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
 
 				if (newCommitCtx) {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId: input.projectId,
-							selection: commitOperand({
-								commitId: response.newCommit,
-								changeId: newCommitCtx.commit.changeId,
-							}),
+					setCursor(
+						"stacks",
+						commitOperand({
+							commitId: response.newCommit,
+							changeId: newCommitCtx.commit.changeId,
 						}),
 					);
 				}
@@ -817,13 +818,11 @@ export const useCommitInsertBlank = () => {
 			const newCommitCtx = headInfoIndex.commitContextByCommitId(response.newCommit);
 
 			if (newCommitCtx) {
-				dispatch(
-					projectSlice.actions.selectOutline({
-						projectId: input.projectId,
-						selection: commitOperand({
-							commitId: response.newCommit,
-							changeId: newCommitCtx.commit.changeId,
-						}),
+				setCursor(
+					"stacks",
+					commitOperand({
+						commitId: response.newCommit,
+						changeId: newCommitCtx.commit.changeId,
 					}),
 				);
 			}
@@ -1049,6 +1048,7 @@ export const useBranchRename = () => {
 					},
 				}),
 			);
+			remapSearchBranch(decodeBytes(input.refName), decodeBytes(response.newRef.fullNameBytes));
 
 			await moveDraftPR({
 				queryClient: mutation.client,

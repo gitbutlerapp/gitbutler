@@ -3,6 +3,10 @@ import type { HunkLineSelection } from "#ui/hunk.ts";
 
 export type Operand =
 	| { _tag: "UncommittedChanges" }
+	/**
+	 * Applied to the workspace: no operation can act on an unapplied branch, and
+	 * `operandLabel` asserts the ref resolves to a segment.
+	 */
 	| ({ _tag: "Branch" } & BranchOperand)
 	| ({ _tag: "Commit" } & CommitOperand)
 	| ({ _tag: "File" } & FileOperand)
@@ -37,7 +41,9 @@ export const uncommittedChangesOperand: Operand = {
 	_tag: "UncommittedChanges",
 };
 
-export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
+export const branchOperand = ({
+	branchRef,
+}: BranchOperand): Extract<Operand, { _tag: "Branch" }> => ({
 	_tag: "Branch",
 	branchRef,
 });

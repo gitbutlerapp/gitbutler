@@ -1,4 +1,5 @@
 import rowStyles from "./Row.module.css";
+import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -16,25 +17,13 @@ import {
 	useNavigationIndexHotkeys,
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import {
-	type ComponentProps,
-	type FC,
-	type MouseEvent,
-	useEffect,
-	useId,
-	useRef,
-	useState,
-} from "react";
+import { type ComponentProps, type FC, type MouseEvent, useId, useRef, useState } from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "./Row.tsx";
-import {
-	selectionOutOfSync,
-	treeItemId,
-	useIsSelected as useIsSelectedInList,
-} from "./Row-utils.ts";
+import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
 	UpstreamBranchItem,
 	UpstreamCommitItem,
@@ -46,7 +35,7 @@ import styles from "./UpstreamList.module.css";
 const pluralRules = new Intl.PluralRules("en");
 
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryUpstreamSelection);
+	useIsSelectedInList(projectId, operand, "upstream");
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -70,7 +59,6 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 	projectId,
 	item,
 }) => {
-	const dispatch = useAppDispatch();
 	const { commit, review, inWorkspace } = item;
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
 	const isSelected = useIsSelected(projectId, operand);
@@ -92,9 +80,7 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() =>
-				dispatch(projectSlice.actions.selectUpstream({ projectId, selection: operand }))
-			}
+			onSelect={() => setCursor("upstream", operand)}
 		>
 			<GraphSegment glyph="commit" status={inWorkspace ? "Integrated" : "Upstream"} />
 			<div className={styles.label}>
@@ -349,7 +335,6 @@ export const UpstreamList: FC<
 	onUpdateWorkspace,
 	...restProps
 }) => {
-	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
 	const {
@@ -363,28 +348,16 @@ export const UpstreamList: FC<
 		isError,
 	} = outline;
 
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionUpstream(state, projectId, navigationIndex),
-	);
-	const storedSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectPrimaryUpstreamSelection(state, projectId),
-	);
-
-	const outOfSyncSelection = selectionOutOfSync(selection, storedSelection);
-	useEffect(() => {
-		if (outOfSyncSelection !== null)
-			dispatch(projectSlice.actions.selectUpstream({ projectId, selection: outOfSyncSelection }));
-	}, [dispatch, outOfSyncSelection, projectId]);
+	const selection = useResolvedCursor("upstream", navigationIndex);
+	useCursorWriteBack("upstream", navigationIndex);
 
 	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		projectId,
 		group: "Outline",
-		select: (newItem) =>
-			dispatch(projectSlice.actions.selectUpstream({ projectId, selection: newItem })),
+		select: (newItem) => setCursor("upstream", newItem),
 		selection,
 		ref: hotkeysRef,
 		getKey: operandIdentityKey,
@@ -420,9 +393,6 @@ export const UpstreamList: FC<
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-selection-scope={"outline" satisfies SelectionScope}
 					className={styles.card}
-					onFocus={() =>
-						dispatch(projectSlice.actions.setDetailsSelectionScope({ projectId, scope: "outline" }))
-					}
 					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 				>
 					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}

@@ -1,4 +1,5 @@
 import { type Operand, operandEquals } from "#ui/operands.ts";
+import { cancelMode } from "#ui/use-cursor.ts";
 import { getOperationSources, pointerTransferMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
 import { operandsLabel } from "./operandLabel.ts";
@@ -96,7 +97,7 @@ export const OperationSourceC: FC<
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				dispatch(projectSlice.actions.cancelMode({ projectId }));
+				cancelMode();
 			},
 		});
 	}, [dispatch, projectId]);

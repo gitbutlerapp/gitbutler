@@ -1,4 +1,5 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
+import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -13,7 +14,7 @@ import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppSelector } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";
 import type { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
@@ -42,9 +43,8 @@ export const UncommittedChangesRow: FC<{
 		useDiscardWorktreeChanges();
 	const fileDisplayModeMenuItems = useFileDisplayModeMenuItems();
 
-	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		dispatch(projectSlice.actions.enterAbsorbMode({ projectId, source, sourceTarget }));
+		enterAbsorb({ source, sourceTarget });
 	};
 
 	const absorb = () => {
@@ -52,12 +52,7 @@ export const UncommittedChangesRow: FC<{
 	};
 
 	const cutChanges = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				sources: [operand],
-			}),
-		);
+		enterKeyboardTransfer({ sources: [operand] });
 		focusSelectionScope("outline");
 	};
 

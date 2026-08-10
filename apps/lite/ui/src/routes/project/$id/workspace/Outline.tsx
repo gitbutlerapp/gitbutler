@@ -1,4 +1,5 @@
 import { useBranchCreate, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
+import { setCursor, setPage, usePage } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
@@ -131,24 +132,17 @@ export const Outline: FC<{
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
-	const outlineTab = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineTab(state, projectId),
-	);
+	const outlineTab = usePage();
 
 	const selectOutlineTab = (value: Array<OutlineTab>) => {
 		const head = value[0];
 		if (head === undefined) return;
 
-		dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: head }));
+		setPage(head);
 	};
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		setCursor("stacks", branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
@@ -268,12 +262,7 @@ export const Outline: FC<{
 		{
 			hotkey: "[",
 			callback: () => {
-				dispatch(
-					projectSlice.actions.setOutlineTab({
-						projectId,
-						tab: adjacentOutlineTab(outlineTab, -1),
-					}),
-				);
+				setPage(adjacentOutlineTab(outlineTab, -1));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -283,9 +272,7 @@ export const Outline: FC<{
 		{
 			hotkey: "]",
 			callback: () => {
-				dispatch(
-					projectSlice.actions.setOutlineTab({ projectId, tab: adjacentOutlineTab(outlineTab, 1) }),
-				);
+				setPage(adjacentOutlineTab(outlineTab, 1));
 			},
 			options: {
 				conflictBehavior: "allow",

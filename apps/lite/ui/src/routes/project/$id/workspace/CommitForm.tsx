@@ -1,4 +1,5 @@
 import uiStyles from "#ui/components/ui.module.css";
+import { setCursor } from "#ui/use-cursor.ts";
 import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
 	aiConfigurationQueryOptions,
@@ -23,7 +24,7 @@ import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
+import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
@@ -134,7 +135,6 @@ export const CommitForm: FC<{
 	worktreeChanges,
 	className,
 }) => {
-	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
@@ -219,8 +219,7 @@ export const CommitForm: FC<{
 	const canAmend = canCommitOrAmendBase && canAmendCommit && amendTargetCommitId !== null;
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		if (option)
-			dispatch(projectSlice.actions.selectOutline({ projectId, selection: option.operand }));
+		if (option) setCursor("stacks", option.operand);
 		setOpen(false);
 	};
 
@@ -279,12 +278,10 @@ export const CommitForm: FC<{
 			{ projectId, newRef: null, placement: { type: "independent" } },
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: { _tag: "Branch", branchRef: response.newRef.fullNameBytes },
-						}),
-					);
+					setCursor("stacks", {
+						_tag: "Branch",
+						branchRef: response.newRef.fullNameBytes,
+					});
 					commitOnto({ type: "referenceBytes", subject: response.newRef.fullNameBytes });
 				},
 			},
