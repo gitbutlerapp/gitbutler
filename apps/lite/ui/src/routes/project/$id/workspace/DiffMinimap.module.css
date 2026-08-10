@@ -59,8 +59,12 @@
 	/* Behind the marks it covers rather than over them, so a selected hunk still
 	   reads as added or removed. */
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
-
 	position: relative;
+
+	/* Placed rather than left to the flow: the pane draws the column's edge into
+	   this same cell, and auto-placement won't share a cell with something put
+	   there by hand. */
+	grid-area: 1 / 2;
 	/* Ends where the map does rather than stretching past it. At a fixed scale a
 	   short diff simply doesn't reach the foot of the pane, and ruler below the
 	   last line is ruler the lens can never travel to. */

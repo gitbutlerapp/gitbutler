@@ -147,6 +147,18 @@
 	   nothing to map. */
 	grid-template-columns: minmax(0, 1fr) auto;
 
+	/* The ruler ends where its map does, so its own edge can't be the column's:
+	   a map shorter than the pane would leave the rest of the gutter unruled and
+	   the code running into it. Placed into the ruler's cell, which is the full
+	   row whatever the ruler does with it, and behind it — the two borders land
+	   on the same pixel. */
+	&:has([data-minimap-navigable="true"])::before {
+		grid-area: 1 / 2;
+		border-left: 1px solid var(--border-2);
+		background-color: var(--bg-1);
+		content: "";
+	}
+
 	/* Drop the native scrollbar only while the minimap is showing, so a diff too
 	   short to map keeps one. */
 	&:has([data-minimap-navigable="true"]) .diffContents {
