@@ -12,6 +12,7 @@ import {
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
 	listReviewReactionsQueryOptions,
+	workspaceFetchQueryOptions,
 	type QueryKey,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
@@ -786,6 +787,16 @@ export const useMergeReview = () => {
 					queryKey: ["ciChecks" satisfies QueryKey, input.projectId],
 				}),
 			]);
+
+			await mutation.client
+				.fetchQuery({ ...workspaceFetchQueryOptions(input.projectId), staleTime: 0 })
+				.then(() =>
+					mutation.client.fetchQuery({
+						...headInfoQueryOptions(input.projectId),
+						staleTime: 0,
+					}),
+				)
+				.catch(() => undefined);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
