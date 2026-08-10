@@ -49,6 +49,7 @@ const useFilesTreeHotkeys = ({
 	checkRow,
 	navigationIndex,
 	onRowSelection,
+	onEdgeSpill,
 	projectId,
 	ref,
 	fileParent,
@@ -61,6 +62,7 @@ const useFilesTreeHotkeys = ({
 	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
 	navigationIndex: NavigationIndex<string>;
 	onRowSelection: (selection: string) => void;
+	onEdgeSpill?: (offset: -1 | 1) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 	fileParent: FileParent;
@@ -268,6 +270,7 @@ const useFilesTreeHotkeys = ({
 		select: onRowSelection,
 		selection,
 		ref,
+		onEdgeSpill,
 		getKey: (path) => path,
 		operationSourcesForItem: (path) => {
 			const operand = fileOperand({ parent: fileParent, path });
@@ -288,6 +291,8 @@ export const FilesTree: FC<
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
 		onRowSelection: (selection: string) => void;
+		/** See {@link useNavigationIndexHotkeys}'s option of the same name. */
+		onEdgeSpill?: (offset: -1 | 1) => void;
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
@@ -300,6 +305,7 @@ export const FilesTree: FC<
 	onToggleDirectoryCollapsed,
 	selection,
 	onRowSelection,
+	onEdgeSpill,
 	projectId,
 	navigationIndex,
 	fileParent,
@@ -448,6 +454,7 @@ export const FilesTree: FC<
 		checkRow,
 		navigationIndex,
 		onRowSelection,
+		onEdgeSpill,
 		projectId,
 		ref,
 		fileParent,
