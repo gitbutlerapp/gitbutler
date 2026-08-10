@@ -5,7 +5,11 @@ import type { ForgeReview } from "@gitbutler/but-sdk";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import * as ms from "ms";
 
-export type QueryKey =
+/**
+ * Keyed `[key, projectId, ...]`. The fixed position is what lets `handleWatcher`
+ * invalidate a whole query root holding nothing but a project id.
+ */
+export type ProjectQueryKey =
 	| "branchDetails"
 	| "branchDiff"
 	| "branchList"
@@ -26,20 +30,25 @@ export type QueryKey =
 	| "reviewMergeStatus"
 	| "reviewerCandidates"
 	| "reviews"
-	| "editors"
-	| "terminals"
-	| "forgeAccounts"
-	| "userProfile"
 	| "gbConfig"
-	| "projects"
 	| "signingSettings"
 	| "treeChangeDiffs"
 	| "absorptionPlan"
 	| "dryRun"
-	| "guiSettings"
 	| "workspaceFetch"
 	| "workspaceFetchStatus"
 	| "workspaceTargetCommits";
+
+/** Keyed without a project id, so no project event can invalidate them. */
+type GlobalQueryKey =
+	| "editors"
+	| "terminals"
+	| "forgeAccounts"
+	| "userProfile"
+	| "projects"
+	| "guiSettings";
+
+export type QueryKey = ProjectQueryKey | GlobalQueryKey;
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDetails">) =>
 	queryOptions({
