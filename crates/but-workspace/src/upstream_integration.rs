@@ -208,10 +208,32 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .map(|update| Ok((update.selector.to_selector(&editor)?, update.kind)))
         .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
-    // Empty projected branches are selected by reference rather than by commit. Include the
-    // checked-out reference in the collected graph only for that API shape, leaving ordinary
-    // non-empty direct checkouts on the existing commit-based path.
-    let direct_checkout_update_ref_selector =
+    let direct_checkout_head_ref_selector = direct_checkout_head_ref_name
+        .as_ref()
+        .map(|head_ref_name| head_ref_name.to_selector(&editor))
+        .transpose()?;
+    let mut direct_checkout_head_shares_tip_with_local_ref = false;
+    if let Some(head_ref_selector) = direct_checkout_head_ref_selector {
+        for selector in editor.step_references(head_commit_id)? {
+            if selector != head_ref_selector
+                && matches!(
+                    editor.lookup_step(selector)?,
+                    Step::Reference { refname, .. }
+                        if refname.category() == Some(gix::refs::Category::LocalBranch)
+                )
+            {
+                direct_checkout_head_shares_tip_with_local_ref = true;
+                break;
+            }
+        }
+    }
+
+    // Select an empty checked-out branch by reference so same-tip local refs retain their distinct
+    // identities. A direct reference update has the same requirement; ordinary non-empty direct
+    // checkouts stay on the existing commit-based path.
+    let direct_checkout_ref_selector = if direct_checkout_head_shares_tip_with_local_ref {
+        direct_checkout_head_ref_selector
+    } else {
         direct_checkout_head_ref_name
             .as_ref()
             .and_then(|head_ref_name| {
@@ -226,7 +248,8 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                         }
                         _ => None,
                     })
-            });
+            })
+    };
 
     let target_ref_selector = target_ref.ref_name.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
@@ -239,7 +262,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut stacks = collect_stacks(
         head_commit,
         head_is_workspace_commit,
-        direct_checkout_update_ref_selector,
+        direct_checkout_ref_selector,
         &editor,
         from_target_sha,
         from_target_ref,
@@ -516,7 +539,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
-    direct_checkout_update_ref_selector: Option<Selector>,
+    direct_checkout_ref_selector: Option<Selector>,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
@@ -538,7 +561,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             })
             .collect()
     } else {
-        let c = match direct_checkout_update_ref_selector {
+        let c = match direct_checkout_ref_selector {
             Some(selector) => selector,
             None => editor.select_commit(head_commit.id)?,
         };
