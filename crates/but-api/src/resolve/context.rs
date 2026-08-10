@@ -87,15 +87,35 @@ pub struct ResolutionRequest {
     pub ours_tree_id: gix::ObjectId,
     /// The commit's stored *theirs* tree, i.e. its own version.
     pub theirs_tree_id: gix::ObjectId,
-    /// All conflicted files, sorted by path.
+    /// All conflicted files that decompose into hunks, sorted by path.
     pub files: Vec<FileConflict>,
+    /// Conflicted files that have no hunk representation, sorted by path.
+    /// They cannot be addressed through this API at all, so a commit is only
+    /// fully resolved once this is empty.
+    pub manual: Vec<ManualConflict>,
 }
+
+/// A conflicted file with no hunk representation — a side deletion or rename, a
+/// non-blob entry, a binary, or one too large to splice — which therefore needs
+/// manual resolution in edit mode.
+#[derive(Debug, Clone, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ManualConflict {
+    /// The repo-relative path of the file.
+    pub path: String,
+    /// Why it cannot be resolved automatically, for display to the user.
+    pub reason: String,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ManualConflict);
 
 /// Re-merge the conflict trees of `commit_id` and extract all conflict hunks.
 ///
-/// Fails with a "resolve manually" style error for conflicts that have no
-/// marker block to splice a resolution into: side deletions, non-blob entries,
-/// binary or oversized files.
+/// Conflicts with no marker block to splice a resolution into — side deletions,
+/// non-blob entries, binary or oversized files — are reported in `manual`
+/// rather than failing the request, so the rest of the commit stays workable.
 pub fn build_request(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -160,12 +180,24 @@ pub fn build_request(
 
     let merged_tree = repo.find_tree(merged_tree_id)?;
     let mut files = Vec::with_capacity(sides_by_path.len());
+    let mut manual = Vec::new();
+    // A file with no hunk representation is reported rather than failing the
+    // whole commit: the conflicts that *can* be addressed stay addressable, and
+    // the commit simply remains conflicted until this one is resolved in edit
+    // mode. Failing outright would hide every other conflict behind one binary.
+    macro_rules! needs_manual_resolution {
+        ($path:expr, $reason:expr) => {{
+            manual.push(ManualConflict {
+                path: $path,
+                reason: $reason,
+            });
+            continue;
+        }};
+    }
     for (rela_path, sides) in sides_by_path {
         let path = rela_path.to_str_lossy().into_owned();
         if !(sides.ours && sides.theirs) {
-            bail!(
-                "The conflict in \"{path}\" involves a deletion or rename and cannot be resolved automatically. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The conflict involves a deletion or rename.".into());
         }
         let entry = merged_tree
             .lookup_entry(rela_path.split(|b| *b == b'/'))?
@@ -177,23 +209,16 @@ pub fn build_request(
             entry_kind,
             gix::objs::tree::EntryKind::Blob | gix::objs::tree::EntryKind::BlobExecutable
         ) {
-            bail!(
-                "The conflict in \"{path}\" is not a regular file and cannot be resolved automatically. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The conflict is not a regular file.".into());
         }
         let blob = entry.object()?.into_blob();
         if blob.data.len() > MAX_FILE_SIZE {
-            bail!(
-                "The conflicted file \"{path}\" exceeds the 1MB size limit for automatic resolution. Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "The file exceeds the 1MB size limit.".into());
         }
-        let merged_text = std::str::from_utf8(&blob.data)
-            .map_err(|_| {
-                anyhow::anyhow!(
-                    "The conflicted file \"{path}\" is binary or not valid UTF-8 and cannot be resolved automatically. Resolve this commit manually instead."
-                )
-            })?
-            .to_owned();
+        let Ok(merged_text) = std::str::from_utf8(&blob.data) else {
+            needs_manual_resolution!(path, "The file is binary or not valid UTF-8.".into());
+        };
+        let merged_text = merged_text.to_owned();
         let lines = split_lines(&merged_text);
         let blocks = scan_conflict_blocks(&lines);
         // Content that merely looks like a conflict marker cannot open or
@@ -201,14 +226,13 @@ pub fn build_request(
         // would confuse the section decomposition or any later marker-based
         // reader of the resolved file, so hand such files to manual resolution.
         if let Some(line) = find_ambiguous_marker_line(&lines, &blocks) {
-            bail!(
-                "The conflicted file \"{path}\" contains content that is ambiguous with conflict markers ({line:?}) and cannot be resolved automatically. Resolve this commit manually instead."
+            needs_manual_resolution!(
+                path,
+                format!("The file contains content ambiguous with conflict markers ({line:?}).")
             );
         }
         if blocks.is_empty() {
-            bail!(
-                "No conflict markers were found in the conflicted file \"{path}\". Resolve this commit manually instead."
-            );
+            needs_manual_resolution!(path, "No conflict markers were found in the file.".into());
         }
         let hunks = extract_hunks(&lines, &blocks);
         files.push(FileConflict {
@@ -220,7 +244,7 @@ pub fn build_request(
         });
     }
 
-    if files.is_empty() {
+    if files.is_empty() && manual.is_empty() {
         bail!("Commit {commit_id} has no conflicted files to resolve");
     }
 
@@ -232,6 +256,7 @@ pub fn build_request(
         ours_tree_id: ours,
         theirs_tree_id: theirs,
         files,
+        manual,
     })
 }
 

@@ -637,14 +637,14 @@ enum CommitOrBranch {
 
 /// Resolve a user-provided identifier to a commit or a branch.
 fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBranch> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
     let matches = id_map.parse_using_context(target, ctx)?;
     match matches.as_slice() {
         [] => bail!(
             "\"{target}\" is neither a commit nor a branch. Try running 'but status' to see what is available."
         ),
-        [CliId::Commit { commit_id, .. }] => Ok(CommitOrBranch::Commit(*commit_id)),
-        [CliId::Branch { name, .. }] => Ok(CommitOrBranch::Branch(name.clone())),
+        [CliId::Commit { commit, .. }] => Ok(CommitOrBranch::Commit(commit.commit_id)),
+        [CliId::Branch(branch)] => Ok(CommitOrBranch::Branch(branch.name.clone())),
         [_] => bail!("\"{target}\" does not refer to a commit or a branch"),
         _ => bail!(
             "\"{target}\" is ambiguous. Please provide more characters to uniquely identify it."

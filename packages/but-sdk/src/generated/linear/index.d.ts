@@ -264,6 +264,19 @@ export declare function commitAmend(projectId: string, commitId: string, changes
 export declare function commitCherryPick(projectId: string, sourceCommitIds: Array<string>, relativeTo: RelativeTo, side: InsertSide, dryRun: boolean): Promise<CommitCherryPickResult>
 
 /**
+ * Return the conflicts of the conflicted commit `commit_id` without entering
+ * edit mode or touching the working tree.
+ *
+ * Hunks are identified by `(path, 1-based index)`; the extraction is
+ * deterministic, so the same commit id always yields the same hunks and
+ * `resolve_commit_conflict_hunks()` can be called with indices from this
+ * result. Fails for commits whose conflicts have no hunk representation
+ * (deletions/renames, binaries, oversized files, marker-like content) — those
+ * need manual resolution in edit mode.
+ */
+export declare function commitConflicts(projectId: string, commitId: string): Promise<CommitConflicts>
+
+/**
  * Insert a new commit built from the `changes` of `changes_source` and record
  * an oplog snapshot on success.
  *
@@ -845,6 +858,21 @@ export declare function removeReviewReaction(projectId: string, reviewId: number
 
 /** Request reviews from the given users on a review. */
 export declare function requestReview(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
+
+/**
+ * Apply `specs` to the conflicted commit `commit_id` and rebase descendants.
+ *
+ * Resolving a subset of the conflicts rewrites the commit into a conflicted
+ * commit with only the remaining conflicts; resolving all of them rewrites it
+ * into a normal commit. Either way the commit id changes — address follow-up
+ * resolutions to the returned `new_commit`. An oplog snapshot records an undo
+ * point. Nothing is written if any spec fails validation.
+ *
+ * [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
+ * worktree lock is held during the model call); AI configuration is only
+ * required when such a spec is present.
+ */
+export declare function resolveCommitConflictHunks(projectId: string, commitId: string, specs: Array<ResolutionSpec>): Promise<HunkResolutionResult>
 
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
@@ -1799,6 +1827,16 @@ export type CommitCherryPickResult = {
   workspace: WorkspaceState;
 };
 
+/** JSON transport type for the conflicts of a conflicted commit. */
+export type CommitConflicts = {
+  /** The conflicted commit. */
+  commitId: string;
+  /** The conflicted files that decompose into hunks, sorted by path. */
+  files: Array<ConflictedFile>;
+  /** Conflicted files that need manual resolution in edit mode. */
+  manual: Array<ManualConflict>;
+};
+
 /** JSON transport type for creating a commit in the rebase graph. */
 export type CommitCreateResult = {
   /** The new commit if one was created. */
@@ -2717,6 +2755,8 @@ export type HunkResolutionResult = {
   commitEmptied: boolean;
   /** The conflicts that remain, per file. */
   remaining: Array<RemainingConflicts>;
+  /** Conflicted files that need manual resolution in edit mode. */
+  manual: Array<ManualConflict>;
   /** Workspace state after the apply. */
   workspace: WorkspaceState;
 };
@@ -2949,6 +2989,18 @@ export type LoginToken = {
   expires: string;
   /** The full URL to redirect the user's browser to for login. */
   url: string;
+};
+
+/**
+ * A conflicted file with no hunk representation — a side deletion or rename, a
+ * non-blob entry, a binary, or one too large to splice — which therefore needs
+ * manual resolution in edit mode.
+ */
+export type ManualConflict = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /** Why it cannot be resolved automatically, for display to the user. */
+  reason: string;
 };
 
 /**
@@ -3282,6 +3334,19 @@ export type RepoPermissions = {
   push: boolean;
   triage: boolean;
   pull: boolean;
+};
+
+/**
+ * One conflict to resolve, addressed by path and 1-based hunk index as
+ * returned by `commit_conflicts()`.
+ */
+export type ResolutionSpec = {
+  /** The repo-relative path of the conflicted file. */
+  path: string;
+  /** The 1-based index of the conflict within the file. */
+  hunk: number;
+  /** How to resolve it. */
+  resolution: HunkResolution;
 };
 
 /** How one conflicted file was resolved, for display to the user. */

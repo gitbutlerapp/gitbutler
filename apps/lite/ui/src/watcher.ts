@@ -22,6 +22,10 @@ const refreshedBy: Record<ProjectQueryKey, ReadonlyArray<WatcherEventType>> = {
 	ciChecks: [],
 	commentReactions: [],
 	comments: ["gitActivity", "workspaceActivity", "worktreeChanges"],
+	// Derived from the trees the commit itself carries, so nothing outside it
+	// can change the answer. Resolving rewrites the commit, which moves the
+	// query to a new key rather than staling this one.
+	commitConflicts: [],
 	commitDetailsWithLineStats: ["gitActivity", "workspaceActivity"],
 	currentForgeLogin: [],
 	dryRun: ["gitActivity", "workspaceActivity", "worktreeChanges"],
