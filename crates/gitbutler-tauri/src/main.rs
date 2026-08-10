@@ -286,7 +286,6 @@ fn main() -> anyhow::Result<()> {
                 branch::tauri_apply::apply,
                 branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
                 branch::tauri_apply_branch_integration::apply_branch_integration,
-                legacy::stack::tauri_create_reference::create_reference,
                 legacy::stack::tauri_create_branch::create_branch,
                 legacy::stack::tauri_remove_branch::remove_branch,
                 legacy::stack::tauri_update_branch_name::update_branch_name,

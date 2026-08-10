@@ -675,10 +675,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         )
         .route("/message_hook", but_post(legacy::repo::message_hook_cmd))
         .route("/create_branch", but_post(legacy::stack::create_branch_cmd))
-        .route(
-            "/create_reference",
-            but_post(legacy::stack::create_reference_cmd),
-        )
         .route("/remove_branch", but_post(legacy::stack::remove_branch_cmd))
         .route(
             "/update_branch_name",

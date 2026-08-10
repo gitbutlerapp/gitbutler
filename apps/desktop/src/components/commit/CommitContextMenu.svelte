@@ -70,7 +70,6 @@
 		KebabButton,
 		TestId,
 	} from "@gitbutler/ui";
-	import type { AnchorPosition } from "$lib/stacks/stack";
 
 	type Props = {
 		showOnHover?: boolean;
@@ -94,7 +93,7 @@
 	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const aiService = inject(AI_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit.useMutation();
-	const [createRef, refCreation] = stackService.createReference;
+	const [createBranch, branchCreation] = stackService.branchCreate;
 	const [resolveConflictsAi, aiResolution] = stackService.resolveCommitConflictsAi;
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
@@ -137,23 +136,16 @@
 		});
 	}
 
-	async function handleCreateNewRef(
-		stackId: string | undefined,
-		commitId: string,
-		position: AnchorPosition,
-	) {
+	async function handleCreateNewRef(commitId: string, side: "above" | "below") {
 		const newName = await stackService.fetchNewBranchName(projectId);
-		await createRef({
+		await createBranch({
 			projectId,
-			stackId,
-			request: {
-				newName,
-				anchor: {
-					type: "atCommit",
-					subject: {
-						commit_id: commitId,
-						position,
-					},
+			newRef: `refs/heads/${newName}`,
+			placement: {
+				type: "dependent",
+				subject: {
+					relativeTo: { type: "commit", subject: commitId },
+					side,
 				},
 			},
 		});
@@ -350,8 +342,6 @@
 						{/snippet}
 					</ContextMenuItemSubmenu>
 					{#if isLocal}
-						{@const stackId = contextData.stackId}
-
 						<ContextMenuItemSubmenu label="Add empty commit" icon="commit-plus">
 							{#snippet submenu({ close: closeSubmenu })}
 								<ContextMenuSection>
@@ -381,10 +371,10 @@
 								<ContextMenuSection>
 									<ContextMenuItem
 										label="Add branch above"
-										disabled={isReadOnly || refCreation.current.isLoading}
+										disabled={isReadOnly || branchCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
-												await handleCreateNewRef(stackId, commitId, "Above");
+												await handleCreateNewRef(commitId, "above");
 												closeSubmenu();
 												close();
 											}
@@ -392,10 +382,10 @@
 									/>
 									<ContextMenuItem
 										label="Add branch below"
-										disabled={isReadOnly || refCreation.current.isLoading}
+										disabled={isReadOnly || branchCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
-												await handleCreateNewRef(stackId, commitId, "Below");
+												await handleCreateNewRef(commitId, "below");
 												closeSubmenu();
 												close();
 											}

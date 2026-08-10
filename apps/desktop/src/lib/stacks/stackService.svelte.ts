@@ -919,10 +919,6 @@ export class StackService {
 		});
 	}
 
-	get createReference() {
-		return this.backendApi.endpoints.createReference.useMutation();
-	}
-
 	get absorb() {
 		return this.backendApi.endpoints.absorb.useMutation();
 	}

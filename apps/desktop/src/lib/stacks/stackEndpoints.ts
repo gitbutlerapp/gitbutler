@@ -16,7 +16,7 @@ import {
 	ReduxTag,
 } from "$lib/state/tags";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { Stack, CreateRefRequest, GerritPushFlag } from "$lib/stacks/stack";
+import type { Stack, GerritPushFlag } from "$lib/stacks/stack";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type {
 	AbsorptionTarget,
@@ -973,22 +973,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			transformResponse: (commits: Commit[]) =>
 				commitAdapter.addMany(commitAdapter.getInitialState(), commits),
-		}),
-		createReference: build.mutation<
-			void,
-			{ projectId: string; stackId?: string; request: CreateRefRequest }
-		>({
-			extraOptions: {
-				command: "create_reference",
-				actionName: "Create Reference",
-			},
-			query: (args) => ({ projectId: args.projectId, request: args.request }),
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.StackDetails),
-				invalidatesList(ReduxTag.BranchListing),
-				...(args.stackId ? [invalidatesItem(ReduxTag.StackDetails, args.stackId)] : []),
-			],
 		}),
 		templates: build.query<string[], { projectId: string; forge: string }>({
 			extraOptions: { command: "pr_templates" },
