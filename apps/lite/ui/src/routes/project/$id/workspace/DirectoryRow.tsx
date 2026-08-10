@@ -1,4 +1,4 @@
-import { Icon } from "#ui/components/Icon.tsx";
+import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -6,6 +6,7 @@ import type { ComponentProps, FC } from "react";
 import styles from "./FilesTree.module.css";
 import rowStyles from "./Row.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer } from "./Row.tsx";
+import { TreeSteps, TreeStepsToggle } from "./TreeSteps.tsx";
 
 /** Whether every file below a directory is checked, some of them, or none. */
 export type DirectoryCheckedState = "checked" | "indeterminate" | "unchecked";
@@ -17,7 +18,9 @@ export const DirectoryRow: FC<
 		/** The trailing path segments this row stands for, e.g. `src/lib`. */
 		name: string;
 		fileCount: number;
+		depth: number;
 		isCollapsed: boolean;
+		onToggleCollapsed: () => void;
 		canCheck: boolean;
 		checkedState: DirectoryCheckedState;
 		checkDirectory: (evt: { path: string; checked: boolean }) => void;
@@ -27,7 +30,9 @@ export const DirectoryRow: FC<
 	path,
 	name,
 	fileCount,
+	depth,
 	isCollapsed,
+	onToggleCollapsed,
 	canCheck,
 	checkedState,
 	checkDirectory,
@@ -43,14 +48,18 @@ export const DirectoryRow: FC<
 			isChecked={checkedState === "checked"}
 			className={classes(restProps.className, styles.row)}
 		>
-			{/* The chevron reports the state the row's own click toggles, so it is a
-			    mark rather than a control — the checkbox is what takes clicks here. */}
-			<div className={styles.leading}>
-				<Icon
-					size={14}
-					className={styles.leadingMark}
-					name={isCollapsed ? "chevron-right" : "chevron-down"}
+			<TreeSteps depth={depth}>
+				<TreeStepsToggle
+					isCollapsed={isCollapsed}
+					aria-label={`${isCollapsed ? "Expand" : "Collapse"} directory ${path}`}
+					onClick={onToggleCollapsed}
 				/>
+			</TreeSteps>
+
+			{/* The folder stands where a file's type icon stands, and gives way to the
+			    checkbox on the same terms. */}
+			<div className={styles.leading}>
+				<FolderIcon className={styles.leadingMark} />
 				<RowCheckbox
 					disabled={!isDefaultMode || !canCheck}
 					aria-label={`Check directory ${path}`}
@@ -70,7 +79,7 @@ export const DirectoryRow: FC<
 
 			{/* Collapsed, the count is the only sign of what the row is holding. */}
 			{isCollapsed && (
-				<span className={classes(styles.fileCount, rowStyles.fadedText, "text-13")}>
+				<span className={classes(styles.fileCount, rowStyles.fadedText, "text-11")}>
 					{fileCount}
 				</span>
 			)}

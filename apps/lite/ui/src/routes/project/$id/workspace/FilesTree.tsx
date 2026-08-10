@@ -18,7 +18,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type CSSProperties, type FC, useRef } from "react";
+import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -524,15 +524,14 @@ export const FilesTree: FC<
 											path={row.path}
 											name={row.name}
 											fileCount={row.filePaths.length}
+											depth={row.depth}
 											isCollapsed={isCollapsed}
+											onToggleCollapsed={() => onToggleDirectoryCollapsed(row.path)}
 											isSelected={isSelected}
 											canCheck={canCheck}
 											checkedState={directoryCheckedState(row.filePaths)}
 											checkDirectory={checkDirectory}
-											onSelect={() => {
-												onRowSelection(row.path);
-												onToggleDirectoryCollapsed(row.path);
-											}}
+											onSelect={() => onRowSelection(row.path)}
 										/>
 									}
 								/>
@@ -560,6 +559,7 @@ export const FilesTree: FC<
 										render={
 											<FileRow
 												item={item}
+												depth={row.depth}
 												pathDisplay={pathDisplay}
 												inert={!navigationIndexIncludes(navigationIndex, row.path, (path) => path)}
 												isSelected={isSelected}
@@ -588,9 +588,6 @@ export const FilesTree: FC<
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
 
-// Spread so the object type widens to allow the custom property, as `Icon` does.
-const depthStyle = (depth: number): CSSProperties => ({ "--file-tree-depth": depth });
-
 /**
  * One row of the flattened tree. Depth is reported rather than nested, which is
  * what `aria-level` and its siblings are for: a screen reader still hears the
@@ -612,6 +609,5 @@ const TreeItem: FC<
 			"aria-selected": isSelected,
 			"aria-expanded": isExpanded,
 			"aria-level": row.depth + 1,
-			style: depthStyle(row.depth),
 		}),
 	});
