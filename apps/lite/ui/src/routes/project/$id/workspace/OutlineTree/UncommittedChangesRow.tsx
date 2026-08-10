@@ -19,7 +19,7 @@ import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
-import { FileDisplayModeToggle } from "../FileDisplayModeToggle.tsx";
+import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 
@@ -39,6 +39,7 @@ export const UncommittedChangesRow: FC<{
 	);
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
+	const fileDisplayModeMenuItems = useFileDisplayModeMenuItems();
 
 	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
@@ -82,6 +83,8 @@ export const UncommittedChangesRow: FC<{
 			enabled: changes.length > 0 && !isDiscardWorktreeChangesPending,
 			onSelect: discardChanges,
 		}),
+		nativeMenuSeparator,
+		...fileDisplayModeMenuItems,
 	];
 
 	return (
@@ -97,17 +100,13 @@ export const UncommittedChangesRow: FC<{
 						render={<RowToolbar forceVisible />}
 					>
 						{changes.length > 0 && (
-							<>
-								<FileDisplayModeToggle />
-
-								<Toolbar.Button
-									aria-label="Filter files"
-									onClick={onOpenFilter}
-									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
-								>
-									<Icon name="search" />
-								</Toolbar.Button>
-							</>
+							<Toolbar.Button
+								aria-label="Filter files"
+								onClick={onOpenFilter}
+								className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+							>
+								<Icon name="search" />
+							</Toolbar.Button>
 						)}
 
 						<Toolbar.Button

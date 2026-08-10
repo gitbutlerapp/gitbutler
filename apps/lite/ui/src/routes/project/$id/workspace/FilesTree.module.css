@@ -8,11 +8,49 @@
 	}
 }
 
-/* Shared by both row kinds, which is why it lives with the tree rather than
-   with either of them: it anchors the hover rules below, and carries the
-   indent that puts a row under its directory. List mode leaves depth at 0. */
-.row.row {
-	padding-inline-start: calc(8px + var(--file-tree-depth, 0) * 12px);
+/* `.row` is carried by both row kinds and only anchors the hover rules below —
+   the indent is drawn by `.steps` rather than padded in, so the lines a step
+   carries have somewhere to sit. */
+
+.steps {
+	display: flex;
+	column-gap: 4px;
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+/* One directory's worth of indent. */
+.step {
+	display: flex;
+	position: relative;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+}
+
+/* Runs the full height of the row so the segments in the rows above and below
+   join up into one line under the directory they all sit in. It ends of its own
+   accord: the first row shallower than this step doesn't draw one. */
+.stepLine::before {
+	position: absolute;
+	width: 1px;
+	inset-block: 0;
+	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	content: "";
+}
+
+.stepToggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		color: var(--text-2);
+	}
 }
 
 /* The mark and the checkbox share one cell: the mark says what the row is, and

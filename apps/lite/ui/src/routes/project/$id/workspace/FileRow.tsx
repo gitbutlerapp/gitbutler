@@ -19,6 +19,7 @@ import { DependencyIndicator } from "#ui/routes/project/$id/workspace/Dependency
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
+import { TreeSteps } from "./TreeSteps.tsx";
 
 export const FileRow: FC<
 	{
@@ -29,6 +30,8 @@ export const FileRow: FC<
 		canCheck: boolean;
 		isChecked: boolean;
 		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
+		/** How many directories this row sits inside. Zero in list mode. */
+		depth: number;
 		/**
 		 * Where the directory goes: leading the file name, trailing it, or nowhere
 		 * — the tree already says which directory this is. Resolved by the list.
@@ -43,6 +46,7 @@ export const FileRow: FC<
 	canCheck,
 	isChecked,
 	checkFile,
+	depth,
 	pathDisplay,
 	id,
 	...restProps
@@ -81,6 +85,8 @@ export const FileRow: FC<
 					/>
 				}
 			>
+				<TreeSteps depth={depth} />
+
 				<div className={treeStyles.leading}>
 					<FileIcon fileName={fileName} className={treeStyles.leadingMark} />
 					<Tooltip.Root
