@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Context as _;
 use but_api::{
     WorkspaceState,
@@ -9,6 +11,7 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
+use but_graph::workspace::WorkspaceKind;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
@@ -272,6 +275,7 @@ pub fn run(
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
+    let checkout_after_create = commit_op.checkout_after_create();
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -323,6 +327,10 @@ pub fn run(
         },
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
+
+    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &branch_name {
+        but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
+    }
 
     Ok((
         CommitOutcome {
@@ -381,6 +389,7 @@ pub fn route_commit_operation(
     target: CommitOperationTargetIsh,
     merged: &MergedUpstream,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
+    let stack_on_head = matches!(ws.kind, WorkspaceKind::AdHoc);
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
             let side = Side::Above;
@@ -415,12 +424,16 @@ pub fn route_commit_operation(
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
+                        stack_on_head,
                     },
                 ))
             }
         }
         CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
-            CommitToNewBranchOperation { branch_name: None },
+            CommitToNewBranchOperation {
+                branch_name: None,
+                stack_on_head,
+            },
         )),
         CommitOperationTargetIsh::Default => {
             // Branches that have landed upstream are not sensible default targets;
@@ -438,7 +451,10 @@ pub fn route_commit_operation(
 
             match &stacks[..] {
                 [] => Ok(CommitOperation::CommitToNewBranch(
-                    CommitToNewBranchOperation { branch_name: None },
+                    CommitToNewBranchOperation {
+                        branch_name: None,
+                        stack_on_head,
+                    },
                 )),
                 [stack] => {
                     let ref_info = stack
@@ -494,7 +510,10 @@ pub fn route_commit_operation(
                             }))
                         }
                         PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
-                            CommitToNewBranchOperation { branch_name: None },
+                            CommitToNewBranchOperation {
+                                branch_name: None,
+                                stack_on_head,
+                            },
                         )),
                     }
                 }
@@ -573,6 +592,16 @@ pub enum CommitOperation {
 }
 
 impl CommitOperation {
+    pub(crate) fn checkout_after_create(&self) -> bool {
+        matches!(
+            self,
+            CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+                stack_on_head: true,
+                ..
+            })
+        )
+    }
+
     /// What the operation targets, for explaining rejected changes after a
     /// rollback.
     fn rejection_target(&self) -> rejection::Target {
@@ -608,6 +637,7 @@ impl CommitOperation {
 
 pub struct CommitToNewBranchOperation {
     pub branch_name: Option<FullName>,
+    pub stack_on_head: bool,
 }
 
 impl CommitToNewBranchOperation {
@@ -616,15 +646,7 @@ impl CommitToNewBranchOperation {
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let Self { branch_name } = self;
-
-        let branch_name = if let Some(branch_name) = branch_name {
-            branch_name
-        } else {
-            but_core::branch::unique_canned_refname(tx.repo())?
-        };
-
-        tx.create_reference(branch_name.as_ref(), None, |_| StackId::generate(), Some(0))?;
+        let branch_name = self.create_reference(tx)?;
 
         let commit_create_result = tx.create_commit(
             RelativeTo::Reference(branch_name.clone()),
@@ -638,6 +660,46 @@ impl CommitToNewBranchOperation {
             commit_create_result,
             Some(BranchNameTarget::New(branch_name)),
         ))
+    }
+
+    pub(crate) fn create_reference(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<FullName> {
+        let Self {
+            branch_name,
+            stack_on_head,
+        } = self;
+
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            but_core::branch::unique_canned_refname(tx.repo())?
+        };
+
+        let anchor = stack_on_head
+            .then(|| -> anyhow::Result<_> {
+                let head_name = tx
+                    .repo()
+                    .head()?
+                    .referent_name()
+                    .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+                    .context("single-branch commit requires HEAD to be a local branch")?
+                    .to_owned();
+                Ok(Anchor::AtReference {
+                    ref_name: Cow::Owned(head_name),
+                    position: but_workspace::branch::create_reference::Position::Above,
+                })
+            })
+            .transpose()?;
+        tx.create_reference(
+            branch_name.as_ref(),
+            anchor,
+            |_| StackId::generate(),
+            Some(0),
+        )?;
+
+        Ok(branch_name)
     }
 }
 

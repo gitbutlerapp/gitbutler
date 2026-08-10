@@ -4,7 +4,6 @@ use but_api::{
 };
 use but_core::{
     DryRun, RefMetadata,
-    ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -23,8 +22,8 @@ use crate::{
     },
     bad_input,
     command::legacy::commit::{
-        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, CommitToNewBranchOperation,
-        RouteCommitOperationError, route_commit_operation,
+        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, RouteCommitOperationError,
+        route_commit_operation,
     },
     id::CommitId,
     theme::{self, Theme},
@@ -244,6 +243,7 @@ pub fn run(
         commit_op,
         order_commits_by_parentage,
     } = pick_op;
+    let checkout_after_create = commit_op.checkout_after_create();
 
     let snapshot_details =
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());
@@ -255,19 +255,8 @@ pub fn run(
         DryRun::No,
         |mut tx| {
             let (new_commits, branch_name_target) = match commit_op {
-                CommitOperation::CommitToNewBranch(CommitToNewBranchOperation { branch_name }) => {
-                    let branch_name = if let Some(branch_name) = branch_name {
-                        branch_name
-                    } else {
-                        but_core::branch::unique_canned_refname(tx.repo())?
-                    };
-
-                    tx.create_reference(
-                        branch_name.as_ref(),
-                        None,
-                        |_| StackId::generate(),
-                        Some(0),
-                    )?;
+                CommitOperation::CommitToNewBranch(operation) => {
+                    let branch_name = operation.create_reference(&mut tx)?;
 
                     let new_commits = tx.cherry_pick_commits(
                         sources.iter().copied(),
@@ -294,6 +283,10 @@ pub fn run(
             Ok(but_transaction::Commit((new_commits, branch_name_target)))
         },
     )?;
+
+    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &branch_name_target {
+        but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
+    }
 
     let new_commits = new_commits.into_iter().map(Into::into).collect();
 

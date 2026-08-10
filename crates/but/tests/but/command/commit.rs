@@ -1,4 +1,105 @@
-use crate::utils::Sandbox;
+use super::util::{find_branch, status_json_with_files};
+use crate::utils::{CommandExt as _, Sandbox};
+
+#[test]
+fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.file("ad-hoc.txt", "content\n");
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted]
+┊   xt A ad-hoc.txt
+┊
+┊╭┄ ma [main]
+┊●   nmy M (no changes)
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    let diff = env
+        .but("--json diff")
+        .allow_json()
+        .output()
+        .expect("diff should succeed");
+    let diff: serde_json::Value =
+        serde_json::from_slice(&diff.stdout).expect("diff output should be JSON");
+    let changes = diff["changes"]
+        .as_array()
+        .expect("diff.changes should be an array");
+    assert_eq!(changes.len(), 1, "the dirty file should be the only change");
+    assert_eq!(changes[0]["path"], "ad-hoc.txt");
+    let change_id = changes[0]["id"]
+        .as_str()
+        .expect("the dirty file should have a CLI ID");
+
+    env.but(format!(
+        "commit -b feature -m 'add ad-hoc file' {change_id}"
+    ))
+    .assert()
+    .success()
+    .stderr_eq(snapbox::str![])
+    .stdout_eq(snapbox::str![[r#"
+Created commit 1 on new branch 'feature'
+
+"#]]);
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ at [feature]
+┊●   1 add ad-hoc file
+┊│     1:x A ad-hoc.txt
+┊│
+┊├┄ ma [main]
+┊●   nmy M (no changes)
+┊●   ply add init
+┊│     ply:k A init
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let status = status_json_with_files(&env);
+    assert_eq!(
+        status["uncommittedChanges"].as_array().map(Vec::len),
+        Some(0),
+        "the committed file should no longer be dirty"
+    );
+    let branch = find_branch(&status, "feature");
+    assert_eq!(branch["commits"].as_array().map(Vec::len), Some(1));
+    assert_eq!(branch["commits"][0]["changes"][0]["filePath"], "ad-hoc.txt");
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "feature",
+        "creating the branch should check it out in single-branch mode"
+    );
+    assert_eq!(env.invoke_git("show feature:ad-hoc.txt"), "content");
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the commit journey must remain outside managed workspace mode"
+    );
+}
 
 #[test]
 fn no_message_nothing_to_commit() {

@@ -386,6 +386,7 @@ impl App {
             CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
                 commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
                     branch_name: None,
+                    stack_on_head: false,
                 })
             }
             CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {

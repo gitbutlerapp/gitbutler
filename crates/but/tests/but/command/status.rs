@@ -3,6 +3,61 @@ use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
 #[test]
+fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+
+    let status = status_json(&env);
+    let project_meta = env.project_meta();
+    assert_eq!(
+        project_meta.target_ref.as_ref().map(ToString::to_string),
+        Some("refs/remotes/origin/main".into()),
+        "the inferred target should be persisted"
+    );
+    assert_eq!(
+        project_meta.target_commit_id.map(|id| id.to_string()),
+        Some(env.invoke_git("merge-base HEAD origin/main")),
+        "the inferred merge base should be persisted"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "lazy initialization must not change the checked-out branch"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "lazy initialization must not create a managed workspace"
+    );
+
+    assert_eq!(
+        status_json(&env),
+        status,
+        "reopening the lazily initialized repository should be idempotent"
+    );
+    assert_eq!(
+        env.project_meta(),
+        project_meta,
+        "reopening the repository should preserve its target metadata"
+    );
+
+    let projects_file = env.app_data_dir().join("com.gitbutler.app/projects.json");
+    let projects: serde_json::Value = std::fs::read_to_string(projects_file)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(
+        projects.as_array().map(Vec::len),
+        Some(1),
+        "the repository should be registered exactly once"
+    );
+}
+
+#[test]
 fn worktrees() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
     snapbox::assert_data_eq!(
