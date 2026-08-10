@@ -22,6 +22,9 @@ import type {
 	AbsorptionTarget,
 	AiResolutionResult,
 	BranchLandResult,
+	CommitConflicts,
+	HunkResolutionResult,
+	ResolutionSpec,
 	CommitAbsorption,
 	BranchDetails,
 	BranchReference,
@@ -421,6 +424,16 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				...(stackId ? [invalidatesItem(ReduxTag.StackDetails, stackId)] : []),
 			],
 		}),
+		commitConflicts: build.query<CommitConflicts, { projectId: string; commitId: string }>({
+			// Conflicts are derived from the commit's own trees, so results are
+			// immutable per commit id.
+			keepUnusedDataFor: 60,
+			extraOptions: { command: "commit_conflicts" },
+			query: (args) => args,
+			providesTags: (_result, _error, { commitId }) => [
+				...providesItem(ReduxTag.CommitChanges, commitId),
+			],
+		}),
 		resolveCommitConflictsAi: build.mutation<
 			AiResolutionResult,
 			{ projectId: string; stackId?: string; commitId: string }
@@ -433,6 +446,26 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				projectId,
 				commitId,
 				dryRun: false,
+			}),
+			invalidatesTags: (_result, _error, { stackId }) => [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.BranchChanges),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				...(stackId ? [invalidatesItem(ReduxTag.StackDetails, stackId)] : []),
+			],
+		}),
+		resolveCommitConflictHunks: build.mutation<
+			HunkResolutionResult,
+			{ projectId: string; stackId?: string; commitId: string; specs: ResolutionSpec[] }
+		>({
+			extraOptions: {
+				command: "resolve_commit_conflict_hunks",
+				actionName: "Resolve Conflict",
+			},
+			query: ({ projectId, commitId, specs }) => ({
+				projectId,
+				commitId,
+				specs,
 			}),
 			invalidatesTags: (_result, _error, { stackId }) => [
 				invalidatesList(ReduxTag.HeadSha),

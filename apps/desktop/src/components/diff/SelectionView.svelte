@@ -7,6 +7,7 @@
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readKey, type SelectionId } from "$lib/selection/key";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
@@ -33,6 +34,7 @@
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const diffService = inject(DIFF_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
@@ -49,6 +51,19 @@
 	);
 
 	const selectable = $derived(selectionId?.type === "worktree");
+
+	// For commit selections, offer the selected file's unresolved conflicts
+	// inline in the diff. commit_conflicts returns no files for an unconflicted
+	// commit, so it needs no gate.
+	const selectedCommitId = $derived(
+		selectedFile?.type === "commit" ? selectedFile.commitId : undefined,
+	);
+	const conflictsQuery = $derived(
+		selectedCommitId ? stackService.commitConflicts(projectId, selectedCommitId) : undefined,
+	);
+	const selectedFileConflicts = $derived(
+		conflictsQuery?.response?.files.find((file) => file.path === selectedFile?.path)?.hunks,
+	);
 </script>
 
 <div class="selection-view" data-testid={testId}>
@@ -86,6 +101,7 @@
 								{diff}
 								{selectable}
 								selectionId={selectedFile}
+								conflictHunks={selectedFileConflicts}
 								topPadding={diffOnly}
 							/>
 						</div>
