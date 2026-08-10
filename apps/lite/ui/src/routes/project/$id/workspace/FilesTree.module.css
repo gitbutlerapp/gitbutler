@@ -63,8 +63,11 @@
 	}
 }
 
+/* File and folder marks share one box, so the two kinds of row line up. */
 .leadingMark {
 	align-self: center;
+	width: 14px;
+	height: 14px;
 	color: var(--text-3);
 }
 
