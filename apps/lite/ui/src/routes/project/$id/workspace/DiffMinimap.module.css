@@ -115,20 +115,22 @@
  * top left while the rest of them stay visible past it.
  */
 .badge {
+	display: flex;
 	z-index: 1;
 	position: absolute;
 	left: 0;
-	place-items: start;
-	width: 22px;
-	height: 22px;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
 	/* Clear the rule itself, so it runs unbroken behind the badge. */
 	margin-top: 1px;
-	background: linear-gradient(to bottom right, var(--bg-1) 50%, transparent 50%);
+	background: var(--bg-1);
 	cursor: pointer;
 
 	& > svg {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 	}
 }
 

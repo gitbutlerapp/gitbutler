@@ -151,10 +151,8 @@
 		/* The ruler's edge, drawn from the code's side of it. The ruler ends where
 		   its map does — at a fixed scale a short diff doesn't reach the foot of the
 		   pane — while this column always fills the row, so the line runs unbroken
-		   from here. Stronger than the panel's other hairlines: the marks run right
-		   up to it, and a deletion-heavy diff puts near-identical pinks on both
-		   sides. */
-		border-right: 1px solid var(--border-2);
+		   from here. */
+		border-right: 1px solid var(--border-section);
 		/* Drop the native scrollbar only while the minimap is showing, so a diff too
 		   short to map keeps one. */
 		scrollbar-width: none;
