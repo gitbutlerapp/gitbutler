@@ -113,6 +113,7 @@ import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
+import { compareFilePaths } from "#ui/file-order.ts";
 import { assert } from "#ui/assert.ts";
 import {
 	type DiffLineContextMenuTarget,
@@ -894,7 +895,7 @@ const Diff: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 	headerSlot?: ReactNode;
 }> = ({
-	changes,
+	changes: unsortedChanges,
 	filesVisible,
 	filesItems,
 	onPassiveFileSelection,
@@ -908,6 +909,10 @@ const Diff: FC<{
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const dispatch = useAppDispatch();
+	const changes = useMemo(
+		() => unsortedChanges.toSorted((a, b) => compareFilePaths(a.path, b.path)),
+		[unsortedChanges],
+	);
 
 	const { data: renderAllFiles } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
