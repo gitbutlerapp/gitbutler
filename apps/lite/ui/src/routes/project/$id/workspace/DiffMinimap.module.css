@@ -59,7 +59,12 @@
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
 
 	position: relative;
+	/* Ends where the map does rather than stretching past it. At a fixed scale a
+	   short diff simply doesn't reach the foot of the pane, and ruler below the
+	   last line is ruler the lens can never travel to. */
+	align-self: start;
 	width: 56px;
+	height: var(--minimap-track-height, 100%);
 	/* Stronger than the panel's other hairlines: the marks run right to this
 	   edge, and a deletion-heavy diff puts near-identical pinks on both sides. */
 	border-left: 1px solid var(--border-2);
@@ -72,10 +77,19 @@
 	display: none;
 }
 
+/*
+ * Out of the flow, and sized outright. A canvas carries its bitmap as an
+ * intrinsic size and the bitmap is sized from the box it lands in, which is a
+ * loop this pane has been round before. Taking it out of the flow stops it
+ * sizing the ruler; the explicit height stops the ruler's own inset from
+ * leaving it `auto`, which for a replaced element means that bitmap again.
+ */
 .canvas {
 	display: block;
+	position: absolute;
 	width: 100%;
 	height: 100%;
+	inset: 0;
 }
 
 /*
@@ -124,7 +138,7 @@
 	display: flex;
 	z-index: 3;
 	position: absolute;
-	top: clamp(16px, var(--minimap-hint-top, 0%), calc(100% - 16px));
+	top: clamp(16px, var(--minimap-hint-top, 0px), calc(100% - 16px));
 	/* The ruler is the window's right edge, so the label opens inward. */
 	right: calc(100% + 8px);
 	align-items: center;

@@ -13,10 +13,12 @@ import {
 import type { Annotation } from "./diff-view.ts";
 import {
 	getMinimapGeometry,
+	getMinimapLayout,
 	getMinimapOverlays,
-	getMinimapViewport,
+	getMinimapScrollable,
 	type MinimapFile,
 	type MinimapGeometry,
+	type MinimapLayout,
 	type MinimapSelection,
 	scrollMinimapTo,
 } from "./diff-minimap.ts";
@@ -24,16 +26,12 @@ import { type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
 import styles from "./DiffMinimap.module.css";
 
 /**
- * Height the lens keeps however little of the diff the window holds, so it stays
- * a thing you can take hold of rather than a hairline.
+ * Room the ruler has to work in, which is the pane's rather than its own: it
+ * ends with the map, and a map scaled against that height would be reasoning in
+ * a circle.
  */
-const MARKER_MIN_HEIGHT = 14;
-
-const markerHeight = (share: number, track: number): number =>
-	Math.min(Math.max(share * track, MARKER_MIN_HEIGHT), track);
-
-/** Track left for the lens to move down, once it has taken its own height out. */
-const travel = (track: number, marker: number): number => Math.max(track - marker, 0);
+const availableTrack = (ruler: HTMLElement): number =>
+	ruler.parentElement?.getBoundingClientRect().height ?? 0;
 
 /**
  * A scroll ruler for the diff: every added and removed run drawn where it
@@ -55,10 +53,16 @@ export const DiffMinimap: FC<{
 	const rulerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const markerRef = useRef<HTMLDivElement>(null);
-	/** Where the pointer took hold of the lens, in pixels from its top. */
-	const grabRef = useRef(0);
+	/**
+	 * The lens as it was when the pointer took hold: where on it the grab landed,
+	 * and the mapping to invert. Frozen for the length of the drag because
+	 * CodeView's content height is an estimate that firms up as it renders, and a
+	 * mapping recomputed under the pointer slides the diff while you hold it.
+	 */
+	const grabRef = useRef<{ offset: number; layout: MinimapLayout } | null>(null);
 	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection });
 	const geometryRef = useRef<MinimapGeometry | null>(null);
+	const layoutRef = useRef<MinimapLayout | null>(null);
 	const resyncRef = useRef<(() => void) | null>(null);
 	const [navigable, setNavigable] = useState(false);
 	const [hovered, setHovered] = useState<string | null>(null);
@@ -72,8 +76,9 @@ export const DiffMinimap: FC<{
 		let frame: number | null = null;
 		let forced = false;
 		let lastScrollHeight: number | null = null;
+		let lastOffset: number | null = null;
 
-		const draw = (): void => {
+		const draw = (layout: MinimapLayout): void => {
 			const { files, diffStyle, annotationsByPath, selection } = dataRef.current;
 			const geometry = getMinimapGeometry(
 				viewer,
@@ -85,40 +90,45 @@ export const DiffMinimap: FC<{
 			if (!geometry) return;
 
 			const overlays = getMinimapOverlays({ files, geometry, annotationsByPath, selection });
-			setBadges(paintMinimap(canvas, { files, geometry, diffStyle, overlays }));
+			setBadges(paintMinimap(canvas, { files, geometry, layout, diffStyle, overlays }));
 		};
 
 		const sync = (force: boolean): void => {
-			// Item heights start out estimated and firm up as virtualization renders
-			// them, which moves every file below. Total height moves with them, so it
-			// doubles as a cheap "the layout shifted" check on the scroll path.
-			const scrollHeight = viewer.getScrollHeight();
-			if (force || scrollHeight !== lastScrollHeight) {
-				lastScrollHeight = scrollHeight;
-				draw();
-			}
-
 			const ruler = rulerRef.current;
 			if (!ruler) return;
 
-			// The ruler is collapsed until the first draw finds something to map, and
-			// a lens measured against no track at all would be written away to
-			// nothing. The draw that gives it a height also resizes the canvas, which
-			// brings us straight back here.
-			//
 			// Measured to the sub-pixel, as the drag is: a track rounded here and not
-			// there puts the two a fraction of a percent apart, which on a diff long
-			// enough to floor the lens is thousands of lines.
-			const track = ruler.getBoundingClientRect().height;
+			// there puts the two a fraction of a percent apart, which at this scale is
+			// a good many lines. Zero while the ruler is collapsed, which it is until
+			// a draw finds something to map — so the draw has to come first, or it
+			// waits on the height that only it can bring about.
+			const track = availableTrack(ruler);
+			const layout = getMinimapLayout(viewer, track);
+
+			// The ruler stops where the map does, so its own height can't be what the
+			// map was scaled against — that would be a box sized from what it holds
+			// and holding what it was sized for.
+			ruler.style.setProperty("--minimap-track-height", `${Math.min(track, layout.mapHeight)}px`);
+
+			// Item heights start out estimated and firm up as virtualization renders
+			// them, which moves every file below. Total height moves with them, so it
+			// doubles as a cheap "the layout shifted" check on the scroll path. A map
+			// too tall for the ruler also winds under the lens as the diff scrolls,
+			// and that is a different picture every time it moves.
+			const scrollHeight = viewer.getScrollHeight();
+			if (force || scrollHeight !== lastScrollHeight || layout.offset !== lastOffset) {
+				lastScrollHeight = scrollHeight;
+				lastOffset = layout.offset;
+				draw(layout);
+			}
+
+			// The canvas the draw just sized is what gives the ruler its height, so
+			// the pass that opens it measures nothing and the resize brings us back.
 			if (track === 0) return;
 
-			const viewport = getMinimapViewport(viewer);
-			const marker = markerHeight(viewport.height, track);
-			ruler.style.setProperty(
-				"--minimap-marker-top",
-				`${viewport.progress * travel(track, marker)}px`,
-			);
-			ruler.style.setProperty("--minimap-marker-height", `${marker}px`);
+			layoutRef.current = layout;
+			ruler.style.setProperty("--minimap-marker-top", `${layout.lensTop}px`);
+			ruler.style.setProperty("--minimap-marker-height", `${layout.lensHeight}px`);
 		};
 
 		// A forced pass has to outlive being folded into a pending scroll one,
@@ -157,12 +167,29 @@ export const DiffMinimap: FC<{
 		const scheme = globalThis.matchMedia("(prefers-color-scheme: dark)");
 		scheme.addEventListener("change", redraw);
 
+		// The bitmap is sized from the device pixel ratio, which changes with no
+		// change to the ruler's own box when the window is dragged onto a display
+		// that scales differently — so nothing else here would notice. The query
+		// only asks about the ratio it was built from, so re-arm on every change.
+		let pixels: MediaQueryList | null = null;
+		const watchPixels = (): void => {
+			pixels?.removeEventListener("change", onPixels);
+			pixels = globalThis.matchMedia(`(resolution: ${globalThis.devicePixelRatio}dppx)`);
+			pixels.addEventListener("change", onPixels);
+		};
+		const onPixels = (): void => {
+			watchPixels();
+			redraw();
+		};
+		watchPixels();
+
 		return () => {
 			resyncRef.current = null;
 			if (frame !== null) cancelAnimationFrame(frame);
 			unsubscribe();
 			resizeObserver.disconnect();
 			scheme.removeEventListener("change", redraw);
+			pixels?.removeEventListener("change", onPixels);
 		};
 	}, [viewerRef]);
 
@@ -181,39 +208,57 @@ export const DiffMinimap: FC<{
 		resyncRef.current?.();
 	});
 
-	const fractionAt = (event: PointerEvent<HTMLDivElement>): number | null => {
-		const { height, top } = event.currentTarget.getBoundingClientRect();
-		if (height === 0) return null;
+	/** Where the pointer sits on the ruler, in pixels from its top. */
+	const rulerOffset = (event: PointerEvent<HTMLDivElement>): number =>
+		event.clientY - event.currentTarget.getBoundingClientRect().top;
 
-		// A captured pointer travels outside the ruler, and this is a fraction of
-		// it — so keep it one rather than leaving every caller to cope.
-		return Math.min(Math.max((event.clientY - top) / height, 0), 1);
+	/** Bring a place in the content into the middle of the window, and say where that left it. */
+	const jumpTo = (content: number): number => {
+		const viewer = viewerRef.current?.getInstance();
+		if (!viewer) return 0;
+
+		const middle = content - viewer.getHeight() / 2;
+		const landing = Math.min(Math.max(middle, 0), getMinimapScrollable(viewer));
+		scrollMinimapTo(viewer, landing);
+
+		return landing;
 	};
 
 	// Placing the lens rather than pointing at content: the pointer carries it by
-	// the spot it was taken hold of, over the track its own height leaves.
+	// the spot it was taken hold of, over the room the lens has to move.
 	const dragTo = (event: PointerEvent<HTMLDivElement>): void => {
 		const viewer = viewerRef.current?.getInstance();
-		const { height: track, top: trackTop } = event.currentTarget.getBoundingClientRect();
-		if (!viewer || track === 0) return;
+		const grab = grabRef.current;
+		if (!viewer || !grab) return;
 
-		const room = travel(track, markerHeight(getMinimapViewport(viewer).height, track));
-		const top = event.clientY - trackTop - grabRef.current;
+		const top = rulerOffset(event) - grab.offset;
+		const reach = grab.layout.travel === 0 ? 0 : top / grab.layout.travel;
+		const progress = Math.min(Math.max(reach, 0), 1);
 
-		scrollMinimapTo(viewer, room === 0 ? 0 : Math.min(Math.max(top / room, 0), 1));
+		// The estimate the mapping was frozen against firms up as the drag scrolls
+		// through it, and the far end is the one place that shows: stopping short of
+		// a diff that grew under you reads as the lens failing to reach the bottom.
+		// So the last of the travel goes wherever the end is now.
+		const scrollable = progress === 1 ? getMinimapScrollable(viewer) : grab.layout.scrollable;
+
+		scrollMinimapTo(viewer, progress * scrollable);
 	};
 
 	// The label's position is written straight to the DOM, so following the
 	// pointer costs no renders; only naming a different file does.
-	const describe = (fraction: number): void => {
+	const describe = (event: PointerEvent<HTMLDivElement>): void => {
 		const geometry = geometryRef.current;
+		const layout = layoutRef.current;
 		const ruler = rulerRef.current;
-		if (!geometry || !ruler) return;
+		if (!geometry || !layout || !ruler) return;
 
-		ruler.style.setProperty("--minimap-hint-top", `${fraction * 100}%`);
+		const y = rulerOffset(event);
+		ruler.style.setProperty("--minimap-hint-top", `${y}px`);
 
-		const offset = fraction * geometry.contentHeight;
-		const index = geometry.blocks.findLastIndex((block) => block.top <= offset);
+		// Back through the drawing: the ruler shows the map from `offset` down, at
+		// a fixed scale, so this is the content the pointer is actually over.
+		const content = (y + layout.offset) / layout.scale;
+		const index = geometry.blocks.findLastIndex((block) => block.top <= content);
 		const path = dataRef.current.files[index]?.path ?? null;
 		if (path !== hovered) setHovered(path);
 	};
@@ -232,28 +277,41 @@ export const DiffMinimap: FC<{
 				event.preventDefault();
 
 				const viewer = viewerRef.current?.getInstance();
-				if (!viewer) return;
-
-				// Taking hold of the lens keeps the point you grabbed, the way a
-				// scrollbar does; pressing the track jumps its middle there and drags on
-				// from the middle. Its own rect is the hit test, so the minimum height
-				// it can shrink to doesn't have to be repeated here.
-				const marker = markerRef.current?.getBoundingClientRect();
-				const held = marker && event.clientY >= marker.top && event.clientY <= marker.bottom;
-				grabRef.current = held
-					? event.clientY - marker.top
-					: (marker?.height ?? MARKER_MIN_HEIGHT) / 2;
+				const layout = layoutRef.current;
+				if (!viewer || !layout) return;
 
 				event.currentTarget.setPointerCapture(event.pointerId);
-				// Taking hold shouldn't move anything; pressing the track jumps.
-				if (!held) dragTo(event);
+
+				// Taking hold of the lens keeps the point you grabbed, the way a
+				// scrollbar does, and moves nothing until you do. Its own rect is the hit
+				// test, so the minimum height it can shrink to doesn't have to be
+				// repeated here.
+				const marker = markerRef.current?.getBoundingClientRect();
+				if (marker && event.clientY >= marker.top && event.clientY <= marker.bottom) {
+					grabRef.current = { offset: event.clientY - marker.top, layout };
+					return;
+				}
+
+				// Pressing the track is pointing at the code drawn there, not at a share
+				// of the whole diff: the map is a picture at a fixed scale, so read the
+				// position back out of it the way the hint does and bring it into the
+				// middle of the window.
+				const landing = jumpTo((rulerOffset(event) + layout.offset) / layout.scale);
+
+				// The map may have wound on under the pointer, taking the lens with it,
+				// so the drag carries on from where the lens has landed. Worked out from
+				// the landing rather than read back off the viewer, which goes on
+				// reporting the old position for a frame yet — long enough for the first
+				// move to teleport by the difference.
+				const landed = getMinimapLayout(viewer, availableTrack(event.currentTarget), landing);
+				grabRef.current = { offset: rulerOffset(event) - landed.lensTop, layout: landed };
 			}}
 			onPointerMove={(event) => {
-				const fraction = fractionAt(event);
-				if (fraction === null) return;
-
-				describe(fraction);
+				describe(event);
 				if (event.currentTarget.hasPointerCapture(event.pointerId)) dragTo(event);
+			}}
+			onPointerUp={() => {
+				grabRef.current = null;
 			}}
 			onPointerLeave={() => setHovered(null)}
 		>

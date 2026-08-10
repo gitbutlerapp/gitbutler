@@ -493,38 +493,107 @@ export const getMinimapOverlays = ({
 };
 
 /**
- * The visible window: how much of the content it covers, and how far through
- * the scrollable range it sits.
+ * Ruler pixels a diff row is drawn tall, whatever the diff's length.
  *
- * Progress rather than a top, because the lens is held to a minimum height and
- * one wider than the window it stands for travels a track shortened by the
- * difference — the arithmetic every scrollbar does. Where the lens is its true
- * size the two agree exactly, so only a diff long enough to floor it moves.
+ * Fixed rather than fitted: a map squeezed to the ruler tells you less the more
+ * there is to tell, until a long diff is sub-pixel slivers under a lens too
+ * small to take hold of. At a fixed scale the picture keeps its meaning and a
+ * map with nowhere to go scrolls instead, the way the editor's does.
  */
-export const getMinimapViewport = (
-	viewer: CodeView<Annotation>,
-): { height: number; progress: number } => {
-	const total = contentHeight(viewer);
-	if (total <= 0) return { height: 1, progress: 0 };
+const MAP_ROW_HEIGHT = 1;
 
-	const scrollable = scrollableHeight(viewer);
-	const progress = scrollable <= 0 ? 0 : viewer.getScrollTop() / scrollable;
+/**
+ * Ruler-fulls of map to wind through before rows begin sharing pixels. A map
+ * that scrolls for ever is as hard to place yourself in as one squeezed to
+ * nothing, so past this the rows are averaged down instead of the map growing
+ * — which the painter already does well, it being how a line thinner than a
+ * pixel has always been drawn.
+ */
+const MAX_MAP_TRACKS = 4;
 
-	return { height: viewer.getHeight() / total, progress: Math.min(Math.max(progress, 0), 1) };
+/**
+ * Ruler pixels per scroll-content pixel: a row to the pixel until the map would
+ * outrun the winding above, and thereafter whatever keeps it to that.
+ */
+const mapScale = (total: number, track: number): number => {
+	const fixed = MAP_ROW_HEIGHT / ROW_HEIGHT;
+	if (total <= 0 || track <= 0) return fixed;
+
+	return Math.min(fixed, (track * MAX_MAP_TRACKS) / total);
+};
+
+/**
+ * Height the lens keeps however little of the diff the window holds. At a fixed
+ * scale it is the window's own height scaled down, so it only binds on a pane
+ * too short to draw one — but the travel below is measured against whatever it
+ * ends up being, so a floored lens still ends where the scrolling does.
+ */
+const LENS_MIN_HEIGHT = 14;
+
+/**
+ * Where the map and its lens sit, in ruler pixels.
+ *
+ * The lens travels the track its own height leaves — the arithmetic every
+ * scrollbar does — and the map is then slid so the code under the lens is the
+ * code in the window. Both reach their ends together: at the foot of the
+ * scroll the lens is at the foot of the track and the map at its own last
+ * pixel.
+ */
+export type MinimapLayout = {
+	/** Ruler pixels per content pixel. */
+	scale: number;
+	/** The whole map, which the track may not have room for. */
+	mapHeight: number;
+	/** How far the map is wound on under the lens; zero while it all fits. */
+	offset: number;
+	lensTop: number;
+	lensHeight: number;
+	/** Room the lens has to move, which the drag inverts. */
+	travel: number;
+	/** How far the diff can scroll: everything below the window it doesn't fill. */
+	scrollable: number;
 };
 
 /** How far the diff can scroll: everything below the window it doesn't fill. */
-const scrollableHeight = (viewer: CodeView<Annotation>): number =>
+export const getMinimapScrollable = (viewer: CodeView<Annotation>): number =>
 	Math.max(contentHeight(viewer) - viewer.getHeight(), 0);
 
-/** Scroll `progress` of the way through the range, 0 being the top and 1 the end. */
-export const scrollMinimapTo = (viewer: CodeView<Annotation>, progress: number): void => {
+export const getMinimapLayout = (
+	viewer: CodeView<Annotation>,
+	track: number,
+	/** Where the diff will be, for a caller that has just asked it to move and
+	 * cannot wait to be told: CodeView reports the old position for a frame yet. */
+	scrollTop: number = viewer.getScrollTop(),
+): MinimapLayout => {
+	const total = contentHeight(viewer);
+	const window = viewer.getHeight();
+	const scale = mapScale(total, track);
+	const mapHeight = total * scale;
+	const lensHeight = Math.min(Math.max(window * scale, LENS_MIN_HEIGHT), track);
+
+	const scrollable = getMinimapScrollable(viewer);
+	const progress = scrollable <= 0 ? 0 : Math.min(Math.max(scrollTop / scrollable, 0), 1);
+
+	// A map with room to spare keeps the lens over its own place on it; one
+	// taller than the track keeps the lens on the track and winds the map under.
+	const scrolls = mapHeight > track;
+	const travel = Math.max((scrolls ? track : mapHeight) - lensHeight, 0);
+	const lensTop = progress * travel;
+	const offset = scrolls
+		? Math.min(Math.max(scrollTop * scale - lensTop, 0), mapHeight - track)
+		: 0;
+
+	return { scale, mapHeight, offset, lensTop, lensHeight, travel, scrollable };
+};
+
+/** Scroll so the window's top sits at `position` in the content. */
+export const scrollMinimapTo = (viewer: CodeView<Annotation>, position: number): void => {
 	viewer.scrollTo({
 		type: "position",
 		// CodeView lifts a position target by the sticky header, so the row you
 		// asked for isn't left under it. The minimap is placing the viewport rather
 		// than a row, so add it back or every drag sits a header too high.
-		position: progress * scrollableHeight(viewer) + codeViewItemMetrics.diffHeaderHeight,
+		position: position + codeViewItemMetrics.diffHeaderHeight,
 		behavior: "instant",
 	});
 };
