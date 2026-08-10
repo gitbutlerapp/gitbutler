@@ -17,14 +17,14 @@ const tree = (paths: Array<string>, collapsedDirectories: Record<string, true> =
 	buildFileTreeRows({ items: items(...paths), mode: "tree", collapsedDirectories });
 
 describe("buildFileTreeRows", () => {
-	test("list mode keeps the given order, whole paths, one level", () => {
+	test("list mode follows tree order, with whole paths at one level", () => {
 		const rows = buildFileTreeRows({
 			items: items("src/b.ts", "a.ts", "src/lib/c.ts"),
 			mode: "list",
 			collapsedDirectories: { src: true },
 		});
 
-		expect(layout(rows)).toEqual(["src/b.ts", "a.ts", "src/lib/c.ts"]);
+		expect(layout(rows)).toEqual(["src/lib/c.ts", "src/b.ts", "a.ts"]);
 	});
 
 	test("groups files under their directories, directories first", () => {
@@ -59,9 +59,16 @@ describe("buildFileTreeRows", () => {
 	});
 
 	test("sorts names naturally, case only breaking ties", () => {
-		const rows = tree(["v9.ts", "v10.ts", "Beta.ts", "alpha.ts"]);
+		const rows = tree(["v9.ts", "Outline.tsx", "v10.ts", "Beta.ts", "lineStats.ts", "alpha.ts"]);
 
-		expect(layout(rows)).toEqual(["alpha.ts", "Beta.ts", "v9.ts", "v10.ts"]);
+		expect(layout(rows)).toEqual([
+			"alpha.ts",
+			"Beta.ts",
+			"lineStats.ts",
+			"Outline.tsx",
+			"v9.ts",
+			"v10.ts",
+		]);
 	});
 
 	test("a collapsed directory hides its rows but keeps its own", () => {

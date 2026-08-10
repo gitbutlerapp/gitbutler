@@ -72,8 +72,8 @@ export const Reactions: FC<{
 		myLogin == null ? undefined : reactors?.[kind]?.find((entry) => entry.login === myLogin);
 
 	const known = [...glyphByKind.keys()];
-	const chips = [...reactions]
-		.sort((a, b) => {
+	const chips = reactions
+		.toSorted((a, b) => {
 			const ai = known.indexOf(a.kind);
 			const bi = known.indexOf(b.kind);
 			return (ai === -1 ? known.length : ai) - (bi === -1 ? known.length : bi);

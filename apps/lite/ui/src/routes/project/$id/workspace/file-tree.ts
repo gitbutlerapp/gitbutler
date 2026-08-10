@@ -9,6 +9,7 @@
  */
 
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { compareFilePaths } from "#ui/file-order.ts";
 
 export type FileDisplayMode = "list" | "tree";
 
@@ -33,13 +34,6 @@ type Directory<T> = {
 };
 
 const emptyDirectory = <T>(): Directory<T> => ({ directories: new Map(), items: [] });
-
-// Matches the desktop app's file sorting: digits compare as numbers so `v10`
-// follows `v9`, and case only breaks ties.
-const compareNames = (a: string, b: string): number =>
-	a.localeCompare(b, "en", { numeric: true, caseFirst: "lower", sensitivity: "base" });
-
-const fileName = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
 const insert = <T extends { path: string }>(root: Directory<T>, item: T): void => {
 	const segments = item.path.split("/");
@@ -81,14 +75,6 @@ const foldSoleChildren = <T>(name: string, directory: Directory<T>): NamedDirect
 	return folded;
 };
 
-const sortedDirectories = <T>(directory: Directory<T>): Array<NamedDirectory<T>> =>
-	[...directory.directories]
-		.map(([name, child]) => foldSoleChildren(name, child))
-		.sort((a, b) => compareNames(a.name, b.name));
-
-const sortedItems = <T extends { path: string }>(directory: Directory<T>): Array<T> =>
-	[...directory.items].sort((a, b) => compareNames(fileName(a.path), fileName(b.path)));
-
 /** One directory's worth of rows, and every file path below it. */
 type Collected<T> = { rows: Array<FileTreeRow<T>>; filePaths: Array<string> };
 
@@ -106,23 +92,25 @@ const collectRows = <T extends { path: string }>({
 	const rows: Array<FileTreeRow<T>> = [];
 	const filePaths: Array<string> = [];
 
-	for (const { name, directory: child } of sortedDirectories(directory)) {
-		const path = prefix === "" ? name : `${prefix}/${name}`;
+	for (const [name, child] of directory.directories) {
+		const folded = foldSoleChildren(name, child);
+		const { name: foldedName, directory: foldedDirectory } = folded;
+		const path = prefix === "" ? foldedName : `${prefix}/${foldedName}`;
 		// Walked whether or not it is collapsed: collapsing keeps a directory's rows
 		// out of the list, but it still answers for its files at its own checkbox.
 		const below = collectRows({
-			directory: child,
+			directory: foldedDirectory,
 			prefix: path,
 			depth: depth + 1,
 			collapsedDirectories,
 		});
 
-		rows.push({ _tag: "Directory", path, name, depth, filePaths: below.filePaths });
+		rows.push({ _tag: "Directory", path, name: foldedName, depth, filePaths: below.filePaths });
 		if (collapsedDirectories[path] !== true) rows.push(...below.rows);
 		filePaths.push(...below.filePaths);
 	}
 
-	for (const item of sortedItems(directory)) {
+	for (const item of directory.items) {
 		rows.push({ _tag: "File", path: item.path, item, depth });
 		filePaths.push(item.path);
 	}
@@ -139,11 +127,13 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	mode: FileDisplayMode;
 	collapsedDirectories: Record<string, true>;
 }): Array<FileTreeRow<T>> => {
+	const orderedItems = items.toSorted((a, b) => compareFilePaths(a.path, b.path));
+
 	if (mode === "list")
-		return items.map((item) => ({ _tag: "File", path: item.path, item, depth: 0 }));
+		return orderedItems.map((item) => ({ _tag: "File", path: item.path, item, depth: 0 }));
 
 	const root = emptyDirectory<T>();
-	for (const item of items) insert(root, item);
+	for (const item of orderedItems) insert(root, item);
 
 	return collectRows({ directory: root, prefix: "", depth: 0, collapsedDirectories }).rows;
 };
