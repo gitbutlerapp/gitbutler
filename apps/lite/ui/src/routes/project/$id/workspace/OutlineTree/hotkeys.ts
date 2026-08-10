@@ -69,12 +69,14 @@ export const useOutlineTreeHotkeys = ({
 	ref,
 	checkCommit,
 	focusCommitMessageInput,
+	onEdgeSpill,
 }: {
 	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	focusCommitMessageInput: () => void;
+	onEdgeSpill?: (offset: -1 | 1) => void;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -418,6 +420,7 @@ export const useOutlineTreeHotkeys = ({
 		select: (newItem) =>
 			dispatch(projectSlice.actions.selectOutline({ projectId, selection: newItem })),
 		selection,
+		onEdgeSpill,
 		getKey: operandIdentityKey,
 		operationSourcesForItem: (operand) => {
 			const checkedOperands = projectSlice.selectors.selectCheckedOperands(

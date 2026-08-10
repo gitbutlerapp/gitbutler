@@ -78,7 +78,11 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { useAutofocusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
+import {
+	focusSelectionScope,
+	useAutofocusSelectionScope,
+	type SelectionScope,
+} from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -272,6 +276,7 @@ const UncommittedChanges: FC<{
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onActiveFileSelection: (selection: string) => void;
+	onEdgeSpill: (offset: -1 | 1) => void;
 	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
 	navigationIndex,
@@ -281,6 +286,7 @@ const UncommittedChanges: FC<{
 	onAmendCommit,
 	canAmendCommit,
 	onActiveFileSelection,
+	onEdgeSpill,
 	worktreeChanges,
 }) => {
 	const dispatch = useAppDispatch();
@@ -361,6 +367,7 @@ const UncommittedChanges: FC<{
 					}
 					navigationIndex={navigationIndex}
 					onRowSelection={onActiveFileSelection}
+					onEdgeSpill={onEdgeSpill}
 					projectId={projectId}
 					ref={useMergedRefs(fileListRef, useAutofocusSelectionScope())}
 					selection={fileSelection}
@@ -653,7 +660,8 @@ const Stacks: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-}> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit }) => {
+	onEdgeSpill: (offset: -1 | 1) => void;
+}> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const dispatch = useAppDispatch();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -700,6 +708,7 @@ const Stacks: FC<{
 		ref: hotkeysRef,
 		checkCommit,
 		focusCommitMessageInput,
+		onEdgeSpill,
 	});
 
 	return (
@@ -846,6 +855,25 @@ export const OutlineTree: FC<
 		panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
 	});
 
+	// The two panes stack vertically, so arrow navigation continues across
+	// their boundary: entering a pane selects its item nearest to the border,
+	// while the pane being left keeps its selection. An empty neighbor keeps
+	// focus where it is. Mod+Alt+arrow pane toggling stays selection-neutral.
+	const spillIntoStacks = (offset: -1 | 1) => {
+		if (offset !== 1) return;
+		const item = navigationIndex.items.at(0);
+		if (item === undefined) return;
+		dispatch(projectSlice.actions.selectOutline({ projectId, selection: item }));
+		focusSelectionScope("outline");
+	};
+	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
+		if (offset !== -1) return;
+		const path = uncommittedFilesNavigationIndex.items.at(-1);
+		if (path === undefined) return;
+		onActiveFileSelection(path);
+		focusSelectionScope("uncommitted-files");
+	};
+
 	return (
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
@@ -883,6 +911,7 @@ export const OutlineTree: FC<
 											onAmendCommit={amendCommit}
 											canAmendCommit={canAmendCommit}
 											onActiveFileSelection={onActiveFileSelection}
+											onEdgeSpill={spillIntoStacks}
 											worktreeChanges={worktreeChanges}
 										/>
 									}
@@ -910,6 +939,7 @@ export const OutlineTree: FC<
 								checkCommit={checkCommit}
 								onAmendCommit={amendCommit}
 								canAmendCommit={canAmendCommit}
+								onEdgeSpill={spillIntoUncommittedChanges}
 							/>
 						</Scroller>
 					</Panel>

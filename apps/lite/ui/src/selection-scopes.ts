@@ -162,6 +162,7 @@ export const useNavigationIndexHotkeys = <T>({
 	ref,
 	selectSectionPredicate,
 	operationSourcesForItem,
+	onEdgeSpill,
 	getKey,
 }: {
 	navigationIndex: NavigationIndex<T>;
@@ -173,6 +174,12 @@ export const useNavigationIndexHotkeys = <T>({
 	selectSectionPredicate?: (item: T) => boolean;
 	/** When omitted, the selection operation hotkeys (move, cut) are not registered. */
 	operationSourcesForItem?: (item: T) => Array<Operand>;
+	/**
+	 * Called with the direction when arrow navigation hits the pane's edge (or
+	 * the pane is empty). Wired by whichever component stacks this pane against
+	 * a neighbor, so crossing the boundary can enter the adjacent pane.
+	 */
+	onEdgeSpill?: (offset: -1 | 1) => void;
 	getKey: (item: T) => string;
 }) => {
 	const dispatch = useAppDispatch();
@@ -182,7 +189,10 @@ export const useNavigationIndexHotkeys = <T>({
 			selection === null
 				? navigationIndex.items.at(offset === 1 ? 0 : -1)
 				: getAdjacent({ navigationIndex, selection, offset, getKey });
-		if (newItem === null || newItem === undefined) return;
+		if (newItem === null || newItem === undefined) {
+			onEdgeSpill?.(offset);
+			return;
+		}
 		select(newItem);
 	};
 
