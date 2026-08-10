@@ -3,6 +3,7 @@ import {
 	getMinimapScale,
 	type MinimapFile,
 	type MinimapGeometry,
+	type MinimapLayout,
 	type MinimapOverlays,
 	type MinimapSide,
 } from "./diff-minimap.ts";
@@ -52,11 +53,13 @@ const resolveLanes = ({
 	geometry,
 	rows,
 	scale,
+	offset,
 }: {
 	files: Array<MinimapFile>;
 	geometry: MinimapGeometry;
 	rows: number;
 	scale: number;
+	offset: number;
 }): Record<MinimapSide, Lane> => {
 	const lane = (): Lane => ({
 		widths: new Float32Array(rows),
@@ -73,14 +76,22 @@ const resolveLanes = ({
 		// Straight off the file's own marks: a scaled copy of every one of them,
 		// on every paint, is a lot of garbage for two multiplications.
 		const correction = getMinimapScale(file, block) * scale;
-		const origin = block.top * scale;
+		const origin = block.top * scale - offset;
+
+		// A wound-on map leaves most of the diff off either end of the ruler, and
+		// the whole point of drawing at a fixed scale is that there can be a great
+		// deal of it. Whole files first, then runs within the file that survives.
+		if (origin > rows || origin + block.height * scale < 0) continue;
 
 		for (const mark of file.marks) {
 			const lane = lanes[mark.side];
+			const markTop = origin + mark.top * correction;
+			if (markTop > rows) break;
+			if (markTop + mark.height * correction < 0) continue;
 			// One rendered row, which is also each line's height unless wrapping gave
 			// some of them more than one.
 			const rowHeight = (mark.height * correction) / mark.rowCount;
-			let y = origin + mark.top * correction;
+			let y = markTop;
 
 			for (const [line, width] of mark.widths.entries()) {
 				const lineHeight = (mark.rows?.[line] ?? 1) * rowHeight;
@@ -117,30 +128,33 @@ const resolveLanes = ({
 };
 
 /**
- * One rule per file, snapped to a whole pixel. Where two would collide the
- * taller section keeps the slot, so a sliver can't take it from the file after
- * it. The first file gets none — the ruler's top edge is already where it
- * starts, and the toolbar above draws its own border there.
+ * One rule per file boundary that falls on the ruler, snapped to a whole pixel.
+ * Where two would collide the taller section keeps the slot, so a sliver can't
+ * take it from the file after it.
+ *
+ * A boundary off either end draws nothing, which is also why the first file
+ * needs no special case: at rest its top sits on the ruler's own top edge,
+ * where the toolbar above already draws a border.
  */
 const resolveRules = ({
 	geometry,
 	scale,
+	offset,
 	limit,
 }: {
 	geometry: MinimapGeometry;
 	scale: number;
+	offset: number;
 	limit: number;
 }): Array<{ index: number; y: number; height: number }> => {
 	const rules: Array<{ index: number; y: number; height: number }> = [];
 
 	for (const [index, block] of geometry.blocks.entries()) {
-		if (index === 0) continue;
+		const y = Math.round(block.top * scale - offset);
+		if (y <= 0) continue;
+		if (y > limit) break;
 
-		const rule = {
-			index,
-			y: Math.min(Math.round(block.top * scale), limit),
-			height: block.height * scale,
-		};
+		const rule = { index, y, height: block.height * scale };
 		const previous = rules.at(-1);
 
 		if (previous && rule.y - previous.y < RULE_MIN_GAP) {
@@ -154,6 +168,28 @@ const resolveRules = ({
 };
 
 /**
+ * The file the top of the ruler falls inside, so it can be badged there the way
+ * the files below are badged against their rules. Only worth an icon if enough
+ * of it is left on the ruler to hang one on.
+ */
+const resolveOpening = ({
+	geometry,
+	scale,
+	offset,
+}: {
+	geometry: MinimapGeometry;
+	scale: number;
+	offset: number;
+}): Array<MinimapBadge> => {
+	const index = geometry.blocks.findLastIndex((block) => block.top * scale - offset <= 0);
+	const block = geometry.blocks[index];
+	if (!block) return [];
+
+	const remaining = (block.top + block.height) * scale - offset;
+	return remaining >= ICON_MIN_SECTION ? [{ index, top: 0 }] : [];
+};
+
+/**
  * Paint the ruler, and report which files have room for a type icon. Badges are
  * only offered for files that kept a rule, so one always sits the same distance
  * under the line opening its section rather than measuring to one further up.
@@ -163,11 +199,13 @@ export const paintMinimap = (
 	{
 		files,
 		geometry,
+		layout,
 		diffStyle,
 		overlays,
 	}: {
 		files: Array<MinimapFile>;
 		geometry: MinimapGeometry;
+		layout: MinimapLayout;
 		diffStyle: GUISettings["diffStyle"];
 		overlays: MinimapOverlays;
 	},
@@ -200,9 +238,15 @@ export const paintMinimap = (
 	const laneWidth = Math.max(split ? (width - LANE_SPLIT) / 2 : width, 1);
 	// One device pixel, in the CSS units the context is scaled to.
 	const thinnest = 1 / ratio;
-	const scale = height / geometry.contentHeight;
+	const { scale, offset } = layout;
 	const rows = deviceHeight;
-	const lanes = resolveLanes({ files, geometry, rows, scale: scale * ratio });
+	const lanes = resolveLanes({
+		files,
+		geometry,
+		rows,
+		scale: scale * ratio,
+		offset: offset * ratio,
+	});
 
 	for (let row = 0; row < rows; row++) {
 		const removed = lanes.deletions.coverage[row] ?? 0;
@@ -250,7 +294,7 @@ export const paintMinimap = (
 		context.fillStyle = fills.selection;
 		context.fillRect(
 			0,
-			overlays.band.top * scale,
+			overlays.band.top * scale - offset,
 			width,
 			Math.max(overlays.band.height * scale, thinnest),
 		);
@@ -265,23 +309,28 @@ export const paintMinimap = (
 
 	// Drawn last and opaque, so a rule reads over the marks it crosses rather
 	// than tinting with them.
-	const rules = resolveRules({ geometry, scale, limit: height - thinnest });
+	const rules = resolveRules({ geometry, scale, offset, limit: height - thinnest });
 	context.fillStyle = palette.getPropertyValue("--minimap-file-rule");
 	for (const rule of rules) context.fillRect(0, rule.y, width, thinnest);
 
 	// Pinned to the right edge, opposite the file badges, so a commented line is
-	// findable without covering the marks it belongs to.
+	// findable without covering the marks it belongs to. Nudged inside the ends
+	// rather than clamped to them, so one just off the wound-on map stays off it.
 	context.fillStyle = fills.pin;
 	for (const pin of overlays.pins) {
-		const top = Math.min(Math.max(pin * scale - PIN_HEIGHT / 2, 0), height - PIN_HEIGHT);
-		context.fillRect(width - PIN_WIDTH, top, PIN_WIDTH, PIN_HEIGHT);
+		const top = pin * scale - offset - PIN_HEIGHT / 2;
+		if (top < -PIN_HEIGHT || top > height) continue;
+
+		context.fillRect(
+			width - PIN_WIDTH,
+			Math.min(Math.max(top, 0), height - PIN_HEIGHT),
+			PIN_WIDTH,
+			PIN_HEIGHT,
+		);
 	}
 
-	const first = geometry.blocks[0];
-	const opening = first && first.height * scale >= ICON_MIN_SECTION ? [{ index: 0, top: 0 }] : [];
-
 	return [
-		...opening,
+		...resolveOpening({ geometry, scale, offset }),
 		...rules
 			.filter((rule) => rule.height >= ICON_MIN_SECTION)
 			.map(({ index, y }) => ({ index, top: y })),
