@@ -1478,6 +1478,66 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
 }
 
 #[test]
+fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
+    remove_managed_workspace_ref(&repo)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("branch.topic.merge", "refs/heads/pushed-topic")?;
+    git(&repo)
+        .args(["update-ref", "-d", "refs/remotes/origin/topic"])
+        .run();
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let topic_tip = repo.rev_parse_single("topic")?.detach();
+    assert_ne!(
+        topic_tip, target_tip,
+        "the colliding review head must differ from the checked-out branch tip"
+    );
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: target_tip,
+            source_branch: "pushed-topic".into(),
+        }],
+    )?;
+    out.rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.find_reference("topic")?.id(),
+        target_tip,
+        "a same-named review for another head must not delete the local branch"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/topic")?),
+        "the preserved branch should remain checked out"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() -> Result<()> {
     let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
         "fully-integrated-single-branch-target-advanced-through-merge",

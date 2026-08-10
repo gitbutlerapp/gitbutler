@@ -525,6 +525,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     target_ref_commit: gix::ObjectId,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<Vec<Stack>> {
+    let direct_checkout_head_commit_id = head_commit.id;
     let mut stacks = if head_is_workspace_commit {
         editor
             .direct_parents(head_commit.id)?
@@ -717,7 +718,11 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 let review_integrated =
                     configured_tracking_branch_short_name(editor.repo(), r_name.as_ref())
                         .is_some_and(|pushed_branch| {
-                            review_hints_match_pushed_branch(review_hints, &pushed_branch)
+                            review_hints_match_pushed_branch(
+                                review_hints,
+                                &pushed_branch,
+                                direct_checkout_head_commit_id,
+                            )
                         });
                 node.reference_integrated =
                     (remote_tip_integrated || review_integrated).then_some(r_name.clone());
@@ -749,23 +754,26 @@ fn configured_tracking_branch_short_name(
     short_name.to_str().ok().map(ToOwned::to_owned)
 }
 
-/// Match the forge's source branch against the branch that was actually pushed. A uniquely
+/// Match the forge's source branch and review head against the checked-out branch. A uniquely
 /// matching `owner:branch` fork head is accepted, while ambiguous fork heads remain conservative.
 fn review_hints_match_pushed_branch(
     review_hints: &[ReviewIntegrationHint],
     pushed_branch: &str,
+    branch_tip: gix::ObjectId,
 ) -> bool {
     if review_hints
         .iter()
-        .any(|hint| hint.source_branch == pushed_branch)
+        .any(|hint| hint.source_branch == pushed_branch && hint.head_commit_at_merge == branch_tip)
     {
         return true;
     }
 
     let mut fork_matches = review_hints.iter().filter(|hint| {
-        hint.source_branch
-            .rsplit_once(':')
-            .is_some_and(|(_, branch)| branch == pushed_branch)
+        hint.head_commit_at_merge == branch_tip
+            && hint
+                .source_branch
+                .rsplit_once(':')
+                .is_some_and(|(_, branch)| branch == pushed_branch)
     });
     fork_matches.next().is_some() && fork_matches.next().is_none()
 }
