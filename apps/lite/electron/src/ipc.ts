@@ -149,7 +149,7 @@ export const exposedEndpoints = [
 	"workspaceFetchStatus",
 	"workspaceIntegrateUpstream",
 	"workspaceTargetCommits",
-] as const;
+] satisfies Array<Endpoint>;
 
 /** Members the main process answers itself rather than forwarding to the SDK. */
 export const localEndpoints = [

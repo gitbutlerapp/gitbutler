@@ -57,7 +57,6 @@ export const DirectoryRow: FC<
 					checked={checkedState === "checked"}
 					indeterminate={checkedState === "indeterminate"}
 					className={styles.leadingCheckbox}
-					nativeButton
 					onCheckedChange={(checked) => {
 						checkDirectory({ path, checked });
 					}}
