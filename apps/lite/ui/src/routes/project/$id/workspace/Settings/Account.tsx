@@ -1,4 +1,4 @@
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FC } from "react";
 import type { UserProfile } from "@gitbutler/but-sdk";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
@@ -79,9 +79,7 @@ const SignedOut: FC = () => {
 	);
 };
 
-export const AccountSection: FC = () => {
-	const { data: profile } = useSuspenseQuery(userProfileQueryOptions);
-
+export const AccountSection: FC<{ profile: UserProfile | null }> = ({ profile }) => {
 	if (profile === null) return <SignedOut />;
 
 	// Keyed on the account, so the form's fields seed from it. Signing in swaps the profile

@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react";
-import { useState, type FC } from "react";
+import { Suspense, useState, type FC } from "react";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import styles from "./Settings.module.css";
@@ -116,7 +116,9 @@ export const Settings: FC<Props> = (p) => {
 
 						<div className={styles.content}>
 							<div className={styles.contentColumn}>
-								<Content projectId={p.projectId} />
+								<Suspense fallback={<div className="text-13">Loading…</div>}>
+									<Content projectId={p.projectId} />
+								</Suspense>
 							</div>
 						</div>
 					</Dialog.Popup>
