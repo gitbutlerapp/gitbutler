@@ -204,7 +204,7 @@ const SegmentExpanderRow: FC<{
 					dispatch(projectSlice.actions.toggleUpstreamSegment({ projectId, segmentId }))
 				}
 			>
-				{expanded ? "hide commits" : `${count} shared ${count === 1 ? "commit" : "commits"}`}
+				{expanded ? "hide commits" : `${count} ${count === 1 ? "commit" : "commits"} between`}
 			</Button>
 		</div>
 	);
