@@ -49,12 +49,13 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type { CommitDetails, TreeChange } from "@gitbutler/but-sdk";
-import type {
-	CodeViewDiffItem,
-	CodeView as CodeViewClass,
-	CodeViewLineSelection,
-	GetHoveredLineResult,
-	DiffLineAnnotation,
+import {
+	type CodeViewDiffItem,
+	type CodeView as CodeViewClass,
+	type CodeViewLineSelection,
+	type GetHoveredLineResult,
+	type DiffLineAnnotation,
+	isDiffAnnotation,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -492,7 +493,7 @@ const DiffContents: FC<{
 				const file = fileByItemId.get(item.id);
 
 				// CodeView may briefly hold onto stale snapshots of our data.
-				if (!file) return <div style={{ height: 38 }} />;
+				if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
 
 				return (
 					<DiffFileHeader
@@ -549,7 +550,7 @@ const DiffContents: FC<{
 				);
 			}}
 			renderAnnotation={(anno, item) => {
-				if (!("side" in anno)) throw new Error("Only diff items may be rendered");
+				if (!isDiffAnnotation(anno)) throw new Error("Only diff items may be rendered");
 
 				const file = fileByItemId.get(item.id);
 				if (!file) return null;
