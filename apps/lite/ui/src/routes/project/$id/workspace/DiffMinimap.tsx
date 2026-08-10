@@ -19,10 +19,12 @@ import {
 	type MinimapFile,
 	type MinimapGeometry,
 	type MinimapLayout,
+	type MinimapOverlays,
 	type MinimapSelection,
+	sameMinimapGeometry,
 	scrollMinimapTo,
 } from "./diff-minimap.ts";
-import { type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
+import { forgetMinimapPalette, type MinimapBadge, paintMinimap } from "./diff-minimap-canvas.ts";
 import styles from "./DiffMinimap.module.css";
 
 /**
@@ -83,24 +85,54 @@ export const DiffMinimap: FC<{
 		const canvas = canvasRef.current;
 		if (!viewer || !canvas) return;
 
+		// The cached tokens are only invalidated by the scheme listener below, which
+		// no instance is holding while none is mounted.
+		forgetMinimapPalette();
+
 		let frame: number | null = null;
 		let forced = false;
 		let lastScrollHeight: number | null = null;
 		let lastOffset: number | null = null;
 		let lastScrollTop: number | null = null;
 
+		/**
+		 * What the ruler was last told, so a frame that would repeat itself doesn't
+		 * dirty style for nothing — the paint reads layout back, and a write between
+		 * the two makes that read a synchronous one.
+		 */
+		const written = new Map<string, string>();
+		const write = (ruler: HTMLElement, name: string, value: string): void => {
+			if (written.get(name) === value) return;
+
+			written.set(name, value);
+			ruler.style.setProperty(name, value);
+		};
+
+		// Overlays are in content pixels, so winding the map past them changes
+		// nothing about where they are. They cost a pass over every annotation of
+		// every file, which is not a thing to redo on a scroll.
+		let lastData = dataRef.current;
+		let lastGeometry: MinimapGeometry | null = null;
+		let lastOverlays: MinimapOverlays | null = null;
+
 		const draw = (layout: MinimapLayout): void => {
-			const { files, diffStyle, annotationsByPath, selection } = dataRef.current;
-			const geometry = getMinimapGeometry(
-				viewer,
-				files.map((file) => file.itemId),
-			);
+			const data = dataRef.current;
+			const { files, diffStyle, annotationsByPath, selection } = data;
+			const geometry = getMinimapGeometry(viewer, files);
 
 			geometryRef.current = geometry;
 			setNavigable(geometry !== null);
 			if (!geometry) return;
 
-			const overlays = getMinimapOverlays({ files, geometry, annotationsByPath, selection });
+			const overlays =
+				lastOverlays !== null && lastData === data && sameMinimapGeometry(lastGeometry, geometry)
+					? lastOverlays
+					: getMinimapOverlays({ files, geometry, annotationsByPath, selection });
+
+			lastData = data;
+			lastGeometry = geometry;
+			lastOverlays = overlays;
+
 			setBadges(paintMinimap(canvas, { files, geometry, layout, diffStyle, overlays }));
 		};
 
@@ -127,7 +159,7 @@ export const DiffMinimap: FC<{
 			// The ruler stops where the map does, so its own height can't be what the
 			// map was scaled against — that would be a box sized from what it holds
 			// and holding what it was sized for.
-			ruler.style.setProperty("--minimap-track-height", `${Math.min(track, layout.mapHeight)}px`);
+			write(ruler, "--minimap-track-height", `${Math.min(track, layout.mapHeight)}px`);
 
 			// Item heights start out estimated and firm up as virtualization renders
 			// them, which moves every file below. Total height moves with them, so it
@@ -146,8 +178,8 @@ export const DiffMinimap: FC<{
 			if (track === 0) return;
 
 			layoutRef.current = layout;
-			ruler.style.setProperty("--minimap-marker-top", `${layout.lensTop}px`);
-			ruler.style.setProperty("--minimap-marker-height", `${layout.lensHeight}px`);
+			write(ruler, "--minimap-marker-top", `${layout.lensTop}px`);
+			write(ruler, "--minimap-marker-height", `${layout.lensHeight}px`);
 		};
 
 		// A forced pass has to outlive being folded into a pending scroll one,
@@ -197,10 +229,14 @@ export const DiffMinimap: FC<{
 		};
 		ruler?.addEventListener("wheel", onWheel, { passive: false });
 
-		// Canvas colours are sampled, not live CSS, so they need repainting when
-		// the tokens behind them resolve differently.
+		// Canvas colours are sampled, not live CSS, so they need reading again and
+		// repainting when the tokens behind them resolve differently.
 		const scheme = globalThis.matchMedia("(prefers-color-scheme: dark)");
-		scheme.addEventListener("change", redraw);
+		const onScheme = (): void => {
+			forgetMinimapPalette();
+			redraw();
+		};
+		scheme.addEventListener("change", onScheme);
 
 		// The bitmap is sized from the device pixel ratio, which changes with no
 		// change to the ruler's own box when the window is dragged onto a display
@@ -223,7 +259,7 @@ export const DiffMinimap: FC<{
 			if (frame !== null) cancelAnimationFrame(frame);
 			unsubscribe();
 			resizeObserver.disconnect();
-			scheme.removeEventListener("change", redraw);
+			scheme.removeEventListener("change", onScheme);
 			pixels?.removeEventListener("change", onPixels);
 			ruler?.removeEventListener("wheel", onWheel);
 		};

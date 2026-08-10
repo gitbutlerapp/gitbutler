@@ -147,9 +147,14 @@
 	   nothing to map. */
 	grid-template-columns: minmax(0, 1fr) auto;
 
-	/* Drop the native scrollbar only while the minimap is showing, so a diff too
-	   short to map keeps one. */
 	&:has([data-minimap-navigable="true"]) .diffContents {
+		/* The ruler's edge, drawn from the code's side of it. The ruler ends where
+		   its map does — at a fixed scale a short diff doesn't reach the foot of the
+		   pane — while this column always fills the row, so the line runs unbroken
+		   from here. */
+		border-right: 1px solid var(--border-section);
+		/* Drop the native scrollbar only while the minimap is showing, so a diff too
+		   short to map keeps one. */
 		scrollbar-width: none;
 
 		&::-webkit-scrollbar {

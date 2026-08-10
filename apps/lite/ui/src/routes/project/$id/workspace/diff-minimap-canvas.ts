@@ -269,6 +269,43 @@ const resolveColour = (colour: string): [number, number, number] => {
 };
 
 /**
+ * The tokens the ruler is drawn in. Reading them costs a style recalc, and the
+ * ruler writes its own inline properties just before every paint — so the recalc
+ * is never one the browser has already done. They only move with the colour
+ * scheme, which is a thing the ruler is told about.
+ */
+type MinimapPalette = {
+	context: [number, number, number];
+	deletions: [number, number, number];
+	additions: [number, number, number];
+	pin: string;
+	selection: string;
+	rule: string;
+};
+
+let palette: MinimapPalette | null = null;
+
+/** Drop the cached tokens, for a caller that knows they now resolve differently. */
+export const forgetMinimapPalette = (): void => {
+	palette = null;
+};
+
+const readMinimapPalette = (canvas: HTMLCanvasElement): MinimapPalette => {
+	if (palette) return palette;
+
+	const tokens = getComputedStyle(canvas);
+	palette = {
+		context: resolveColour(tokens.getPropertyValue("--minimap-context")),
+		deletions: resolveColour(tokens.getPropertyValue("--minimap-deletions")),
+		additions: resolveColour(tokens.getPropertyValue("--minimap-additions")),
+		pin: tokens.getPropertyValue("--minimap-pin"),
+		selection: tokens.getPropertyValue("--minimap-selection"),
+		rule: tokens.getPropertyValue("--minimap-file-rule"),
+	};
+	return palette;
+};
+
+/**
  * Paint the ruler, and report which files have room for a type icon. Badges are
  * only offered for files that kept a rule, so one always sits the same distance
  * under the line opening its section rather than measuring to one further up.
@@ -304,14 +341,7 @@ export const paintMinimap = (
 	context.setTransform(ratio, 0, 0, ratio, 0, 0);
 	context.clearRect(0, 0, width, height);
 
-	const palette = getComputedStyle(canvas);
-	const fills = {
-		context: palette.getPropertyValue("--minimap-context"),
-		deletions: palette.getPropertyValue("--minimap-deletions"),
-		additions: palette.getPropertyValue("--minimap-additions"),
-		pin: palette.getPropertyValue("--minimap-pin"),
-		selection: palette.getPropertyValue("--minimap-selection"),
-	};
+	const fills = readMinimapPalette(canvas);
 
 	const split = diffStyle === "split";
 	// One device pixel, in the CSS units the context is scaled to.
@@ -413,15 +443,10 @@ export const paintMinimap = (
 
 		const right = columns + channel;
 		// Unchanged code is the same on both sides, so split shows it in both columns.
-		paintLane(surface.image.data, lanes.context, 0, resolveColour(fills.context));
-		if (split) paintLane(surface.image.data, lanes.context, right, resolveColour(fills.context));
-		paintLane(surface.image.data, lanes.deletions, 0, resolveColour(fills.deletions));
-		paintLane(
-			surface.image.data,
-			lanes.additions,
-			split ? right : 0,
-			resolveColour(fills.additions),
-		);
+		paintLane(surface.image.data, lanes.context, 0, fills.context);
+		if (split) paintLane(surface.image.data, lanes.context, right, fills.context);
+		paintLane(surface.image.data, lanes.deletions, 0, fills.deletions);
+		paintLane(surface.image.data, lanes.additions, split ? right : 0, fills.additions);
 
 		marks.putImageData(surface.image, 0, 0);
 		// Drawn rather than written, so the band beneath shows through the gaps.
@@ -431,7 +456,7 @@ export const paintMinimap = (
 	// Drawn last and opaque, so a rule reads over the marks it crosses rather
 	// than tinting with them.
 	const rules = resolveRules({ geometry, scale, offset, limit: height - thinnest });
-	context.fillStyle = palette.getPropertyValue("--minimap-file-rule");
+	context.fillStyle = fills.rule;
 	for (const rule of rules) context.fillRect(0, rule.y, width, thinnest);
 
 	// Pinned to the right edge, opposite the file badges, so a commented line is

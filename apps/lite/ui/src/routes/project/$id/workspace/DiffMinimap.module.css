@@ -59,18 +59,14 @@
 	/* Behind the marks it covers rather than over them, so a selected hunk still
 	   reads as added or removed. */
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
-
 	position: relative;
+
 	/* Ends where the map does rather than stretching past it. At a fixed scale a
 	   short diff simply doesn't reach the foot of the pane, and ruler below the
 	   last line is ruler the lens can never travel to. */
 	align-self: start;
 	width: 56px;
 	height: var(--minimap-track-height, 100%);
-	/* Stronger than the panel's other hairlines: the marks run right to this
-	   edge, and a deletion-heavy diff puts near-identical pinks on both sides. */
-	border-left: 1px solid var(--border-2);
-	background-color: var(--bg-1);
 	cursor: default;
 }
 
@@ -119,20 +115,22 @@
  * top left while the rest of them stay visible past it.
  */
 .badge {
+	display: flex;
 	z-index: 1;
 	position: absolute;
 	left: 0;
-	place-items: start;
-	width: 22px;
-	height: 22px;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
 	/* Clear the rule itself, so it runs unbroken behind the badge. */
 	margin-top: 1px;
-	background: linear-gradient(to bottom right, var(--bg-1) 50%, transparent 50%);
+	background: var(--bg-1);
 	cursor: pointer;
 
 	& > svg {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 	}
 }
 
@@ -144,7 +142,9 @@
 	/* The ruler is the window's right edge, so the label opens inward. */
 	right: calc(100% + 8px);
 	align-items: center;
-	max-width: 420px;
+	/* Enough for a name and the end of the path it sits under. A label that runs
+	   most of the way across the diff covers the code it is naming. */
+	max-width: 280px;
 	padding: 6px 8px;
 	gap: 6px;
 	translate: 0 -50%;
@@ -163,12 +163,22 @@
 	height: 14px;
 }
 
+/* The name is what the pointer is asking about, so it doesn't give way at all
+   while the path still has something to give. Only a name that fills the label
+   on its own is cut, and then by the label's own width rather than by sharing. */
 .hintName {
+	flex: none;
+	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
+/* All of the shrinking, down to nothing if that is what the name needs. Read
+   from the right, so what survives of a long path is the part that tells the
+   file apart from its neighbours rather than the root it shares with them. */
 .hintDirectory {
+	flex: 0 1 auto;
+	min-width: 0;
 	overflow: hidden;
 	color: var(--text-2);
 	direction: rtl;
