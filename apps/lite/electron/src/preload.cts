@@ -5,8 +5,12 @@ import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
 
 // Sandboxed preloads cannot load local modules. Keep these values in sync with tracing.ts.
 const ipcTraceCompleteChannel = "lite:ipc-trace-complete";
+const ipcTraceWatcherEventChannel = "lite:ipc-trace-watcher-event";
+const ipcTraceWatcherHost = "ipc-watcher.localhost";
 const ipcTracePathPrefix = "/__ipc/";
 const ipcTraceAcceptPrefix = "application/json; trace-id=";
+const ipcTraceStreamAcceptPrefix = "text/event-stream; trace-id=";
+const ipcTraceWatcherEventsPath = `${ipcTracePathPrefix}watcher-events`;
 const maxTraceResponseCharacters = 1_000_000;
 const maxTraceArgsCharacters = 4_000;
 const maxTraceGateMs = 60_000;
@@ -16,6 +20,13 @@ const ipcTraceServerUrl = (() => {
 
 	const url = new URL(devServerUrl);
 	url.hostname = "ipc.localhost";
+	return url;
+})();
+const ipcTraceWatcherServerUrl = (() => {
+	if (ipcTraceServerUrl === undefined) return undefined;
+
+	const url = new URL(ipcTraceServerUrl);
+	url.hostname = ipcTraceWatcherHost;
 	return url;
 })();
 
@@ -202,6 +213,80 @@ const invoke = async (channel: string, ...args: Array<unknown>): Promise<unknown
 	}
 };
 
+interface IpcWatcherTraceStream {
+	streamId: string;
+	connected: boolean;
+	active: boolean;
+	stop: () => void;
+}
+
+let watcherTraceStream: IpcWatcherTraceStream | undefined;
+
+const startWatcherTraceStream = (): void => {
+	if (ipcTraceWatcherServerUrl === undefined || watcherTraceStream?.active === true) return;
+
+	const streamId = crypto.randomUUID();
+	const abortController = new AbortController();
+	const stream: IpcWatcherTraceStream = {
+		streamId,
+		connected: false,
+		active: true,
+		stop: () => {
+			stream.active = false;
+			abortController.abort();
+		},
+	};
+	watcherTraceStream = stream;
+
+	const streamUrl = new URL(ipcTraceWatcherEventsPath, ipcTraceWatcherServerUrl);
+	void fetch(streamUrl, {
+		headers: { Accept: `${ipcTraceStreamAcceptPrefix}${streamId}` },
+		signal: abortController.signal,
+	})
+		.then(async (response) => {
+			if (!response.ok || !stream.active) return;
+			stream.connected = true;
+
+			// Drain incrementally: response.text() would retain the stream's entire lifetime in memory.
+			const reader = response.body?.getReader();
+			if (reader === undefined) return;
+			while (!(await reader.read()).done) {
+				// DevTools records the server-sent events; preload only needs to consume the bytes.
+			}
+		})
+		.catch(() => undefined)
+		.finally(() => {
+			stream.connected = false;
+			stream.active = false;
+		});
+};
+
+const stopWatcherTraceStream = (): void => {
+	watcherTraceStream?.stop();
+	watcherTraceStream = undefined;
+};
+
+const traceWatcherEvent = (
+	projectId: string,
+	subscriptionId: string,
+	event: WatcherEvent,
+): void => {
+	const stream = watcherTraceStream;
+	if (stream?.connected !== true) return;
+
+	void ipcRenderer
+		.invoke(ipcTraceWatcherEventChannel, {
+			streamId: stream.streamId,
+			type: event.payload.type,
+			body: stringifyTracePayload({
+				projectId,
+				subscriptionId,
+				payload: event.payload,
+			}),
+		})
+		.catch(() => undefined);
+};
+
 /**
  * Every forwarded member hands its arguments to the channel of the same
  * name, so they are generated from the lists rather than written out. The
@@ -250,7 +335,9 @@ const api: LiteElectronApi = {
 		const { subscriptionId, eventChannel } = (await invoke("watcherSubscribe", {
 			projectId,
 		})) as WatcherSubscribeResult;
+		startWatcherTraceStream();
 		const listener = (_event: Electron.IpcRendererEvent, payload: WatcherEvent) => {
+			traceWatcherEvent(projectId, subscriptionId, payload);
 			callback(payload);
 		};
 		watcherListenerBySubscription.set(subscriptionId, { eventChannel, listener });
@@ -269,6 +356,7 @@ const api: LiteElectronApi = {
 		if (registration) {
 			ipcRenderer.removeListener(registration.eventChannel, registration.listener);
 			watcherListenerBySubscription.delete(subscriptionId);
+			if (watcherListenerBySubscription.size === 0) stopWatcherTraceStream();
 		}
 		return invoke("watcherUnsubscribe", { subscriptionId }) as Promise<boolean>;
 	},
@@ -282,6 +370,7 @@ const api: LiteElectronApi = {
 			ipcRenderer.removeListener(eventChannel, listener);
 
 		watcherListenerBySubscription.clear();
+		stopWatcherTraceStream();
 		return invoke("watcherStopAll") as Promise<number>;
 	},
 	platform: process.platform,

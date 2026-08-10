@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ipcTraceHost, ipcTracePlugin } from "../electron/src/tracing.js";
+import { ipcTraceHost, ipcTracePlugin, ipcTraceWatcherHost } from "../electron/src/tracing.js";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
@@ -26,7 +26,7 @@ export default defineConfig(({ command }) => ({
 		format: "es",
 	},
 	server: {
-		allowedHosts: [ipcTraceHost],
+		allowedHosts: [ipcTraceHost, ipcTraceWatcherHost],
 		port: 5173,
 		strictPort: true,
 	},
