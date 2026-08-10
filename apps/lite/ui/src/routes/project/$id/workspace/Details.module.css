@@ -138,6 +138,11 @@
 
 .diffContentsContainer {
 	display: grid;
+	/* Bound the row to the pane. Left to size itself, it takes the height of the
+	   ruler's canvas — which has no height of its own but its bitmap's, which the
+	   painter sizes from this row. At a fractional device pixel ratio the rounding
+	   in that loop doesn't cancel and the pane grows a little on every frame. */
+	grid-template-rows: minmax(0, 1fr);
 	/* Code, then the minimap ruler — which collapses the column when it has
 	   nothing to map. */
 	grid-template-columns: minmax(0, 1fr) auto;
