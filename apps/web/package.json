@@ -20,7 +20,7 @@
 		"@gitbutler/design-core": "2.2.2",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
-		"@playwright/test": "1.58.2",
+		"@playwright/test": "catalog:",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@sveltejs/kit": "catalog:svelte",

@@ -2,7 +2,7 @@
 	"name": "@gitbutler/e2e",
 	"type": "module",
 	"devDependencies": {
-		"@playwright/test": "1.58.2",
+		"@playwright/test": "catalog:",
 		"@types/node": "^22.19.11",
 		"@wdio/cli": "^9.26.1",
 		"@wdio/globals": "^9.26.1",

@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@playwright/test':
+      specifier: 1.58.2
+      version: 1.58.2
     '@vitest/browser':
       specifier: 3.2.7
       version: 3.2.7
@@ -15,6 +18,12 @@ catalogs:
     marked:
       specifier: 15.0.12
       version: 15.0.12
+    playwright:
+      specifier: 1.58.2
+      version: 1.58.2
+    playwright-webkit:
+      specifier: 1.58.2
+      version: 1.58.2
     rxjs:
       specifier: 7.8.2
       version: 7.8.2
@@ -354,7 +363,7 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0
       playwright-webkit:
-        specifier: ^1.58.2
+        specifier: 'catalog:'
         version: 1.58.2
       postcss:
         specifier: catalog:postcss
@@ -599,7 +608,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@playwright/test':
-        specifier: 1.58.2
+        specifier: 'catalog:'
         version: 1.58.2
       '@reduxjs/toolkit':
         specifier: catalog:redux
@@ -681,7 +690,7 @@ importers:
         version: 3.0.3
     devDependencies:
       '@playwright/test':
-        specifier: 1.58.2
+        specifier: 'catalog:'
         version: 1.58.2
       '@types/node':
         specifier: ^22.19.11
@@ -1075,7 +1084,7 @@ importers:
         specifier: 'catalog:'
         version: 15.0.12
       playwright:
-        specifier: 1.58.2
+        specifier: 'catalog:'
         version: 1.58.2
       postcss:
         specifier: catalog:postcss

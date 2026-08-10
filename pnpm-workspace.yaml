@@ -5,9 +5,12 @@ packages:
   - e2e
 
 catalog:
+  "@playwright/test": 1.58.2
   "@vitest/browser": 3.2.7
   "@vitest/ui": 3.2.4
   marked: 15.0.12
+  playwright: 1.58.2
+  playwright-webkit: 1.58.2
   rxjs: 7.8.2
   typescript: 5.9.3
   vite: 6.4.3
