@@ -1,12 +1,7 @@
-/*
-    The mark's fill, as two stops of a vertical gradient. Set --folder-icon-top
-    and --folder-icon-bottom on the icon or on any ancestor to recolor it; the
-    fallbacks below are the default teal, so nothing has to be set to get it.
-*/
 .top {
-	stop-color: var(--folder-icon-top, #bce1e2);
+	stop-color: color-mix(in srgb, var(--scale-pop-50), var(--bg-1) 60%);
 }
 
 .bottom {
-	stop-color: var(--folder-icon-bottom, #7bc6c7);
+	stop-color: color-mix(in srgb, var(--scale-pop-50), var(--bg-1) 20%);
 }
