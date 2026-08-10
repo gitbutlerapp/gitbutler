@@ -569,7 +569,14 @@ export const getMinimapLayout = (
 	const window = viewer.getHeight();
 	const scale = mapScale(total, track);
 	const mapHeight = total * scale;
-	const lensHeight = Math.min(Math.max(window * scale, LENS_MIN_HEIGHT), track);
+	// Against the ruler, which ends where the map does, rather than against the
+	// pane: a diff shorter than the window maps to less than a window's worth of
+	// ruler, and a lens taller than the ruler it sits in would hang out of the
+	// box and set the pane scrolling.
+	const lensHeight = Math.min(
+		Math.max(window * scale, LENS_MIN_HEIGHT),
+		Math.min(track, mapHeight),
+	);
 
 	const scrollable = getMinimapScrollable(viewer);
 	const progress = scrollable <= 0 ? 0 : Math.min(Math.max(scrollTop / scrollable, 0), 1);
