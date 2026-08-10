@@ -13,6 +13,8 @@ import { expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 
 const FULLY_INTEGRATED_BRANCH = "fully-integrated-branch";
+const EMPTY_INTEGRATED_BRANCH = "empty-integrated-branch";
+const LOCAL_ONLY_EMPTY_BRANCH = "local-only-empty-branch";
 const PARTIAL_STACK_BASE = "partial-stack-base";
 const PARTIAL_STACK_TOP = "partial-stack-top";
 const REBASED_SINGLE_BRANCH = "rebased-single-branch";
@@ -69,6 +71,15 @@ async function expectLocalBranchNotToExist(pathToRepo: string, branchName: strin
 			intervals: [100, 200, 500, 1000],
 		})
 		.toBe(false);
+}
+
+async function expectBranchTipToBeOriginMaster(pathToRepo: string, branchName: string) {
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", branchName]), {
+			message: `Expected ${branchName} to point to origin/master`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(git(pathToRepo, ["rev-parse", TARGET_REMOTE_BRANCH]));
 }
 
 async function replacementBranchAtTarget(pathToRepo: string): Promise<string> {
@@ -140,6 +151,55 @@ test("creates a new branch on top of the advanced target after branch is fully i
 	expect(git(localClone, ["rev-parse", replacementBranch])).toBe(
 		git(localClone, ["rev-parse", TARGET_REMOTE_BRANCH]),
 	);
+	await assertCleanWorktree(localClone);
+	await expectNoErrorToast(page);
+});
+
+test("replaces an empty checked-out branch when its tracking tip is integrated", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-in-single-branch-upstream-integration.sh", [
+		"empty-integrated",
+	]);
+	await openSingleBranchWorkspace(page);
+
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await assertBranch(EMPTY_INTEGRATED_BRANCH, localClone);
+	await expectCurrentBranchChip(page, EMPTY_INTEGRATED_BRANCH);
+	await expect(commitRow(page, "empty-integrated: branch commit")).toHaveCount(0);
+
+	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
+	await syncAndIntegrateWorkspace(page);
+
+	await expectLocalBranchNotToExist(localClone, EMPTY_INTEGRATED_BRANCH);
+	const replacementBranch = await replacementBranchAtTarget(localClone);
+	await expectCurrentBranchChip(page, replacementBranch);
+	await expectBranchTipToBeOriginMaster(localClone, replacementBranch);
+	await assertCleanWorktree(localClone);
+	await expectNoErrorToast(page);
+});
+
+test("preserves an empty local-only checked-out branch while advancing it", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-in-single-branch-upstream-integration.sh", [
+		"local-only-empty",
+	]);
+	await openSingleBranchWorkspace(page);
+
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await assertBranch(LOCAL_ONLY_EMPTY_BRANCH, localClone);
+	await expectCurrentBranchChip(page, LOCAL_ONLY_EMPTY_BRANCH);
+	await expect(commitRow(page, "local-only-empty: branch commit")).toHaveCount(0);
+
+	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
+	await syncAndIntegrateWorkspace(page);
+
+	await assertBranch(LOCAL_ONLY_EMPTY_BRANCH, localClone);
+	await expectCurrentBranchChip(page, LOCAL_ONLY_EMPTY_BRANCH);
+	await expectBranchTipToBeOriginMaster(localClone, LOCAL_ONLY_EMPTY_BRANCH);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });

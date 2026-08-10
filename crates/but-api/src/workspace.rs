@@ -408,11 +408,19 @@ fn review_integration_hints_from_reviews(
                     .iter()
                     .any(|sha| incoming_commit_ids.contains(sha))
         })
-        .filter_map(|review| gix::ObjectId::from_hex(review.sha.as_bytes()).ok())
-        .filter(|head_commit_at_merge| seen.insert(*head_commit_at_merge))
-        .map(|head_commit_at_merge| ReviewIntegrationHint {
-            head_commit_at_merge,
+        .filter_map(|review| {
+            Some((
+                gix::ObjectId::from_hex(review.sha.as_bytes()).ok()?,
+                review.source_branch,
+            ))
         })
+        .filter(|hint| seen.insert(hint.clone()))
+        .map(
+            |(head_commit_at_merge, source_branch)| ReviewIntegrationHint {
+                head_commit_at_merge,
+                source_branch,
+            },
+        )
         .collect()
 }
 
@@ -851,6 +859,10 @@ mod tests {
             hints[0].head_commit_at_merge.to_hex().to_string(),
             "1234567890abcdef1234567890abcdef12345678",
             "the hint should use the review head SHA reported by the forge"
+        );
+        assert_eq!(
+            hints[0].source_branch, "feature",
+            "the hint should retain the review's source-branch association"
         );
     }
 

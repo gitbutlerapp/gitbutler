@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
+use bstr::ByteSlice;
 
 use but_core::{RefMetadata, branch::unique_canned_refname, ref_metadata::ProjectMeta};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
@@ -38,13 +39,15 @@ pub struct BottomUpdate {
 
 /// A merged-review-derived integration anchor.
 ///
-/// The commit points to the review head that was merged upstream. When that
-/// commit is still present in a local stack, everything reachable beneath it is
-/// considered integrated for workspace upstream integration purposes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The commit points to the review head that was merged upstream. When that commit is still
+/// present in a local stack, everything reachable beneath it is considered integrated. The source
+/// branch associates the review with a reference-only empty stack.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReviewIntegrationHint {
     /// The merged review head commit that should act as an integration anchor.
     pub head_commit_at_merge: gix::ObjectId,
+    /// The forge source branch associated with the merged review.
+    pub source_branch: String,
 }
 
 /// The outcome of integrating upstream
@@ -205,6 +208,26 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .map(|update| Ok((update.selector.to_selector(&editor)?, update.kind)))
         .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
+    // Empty projected branches are selected by reference rather than by commit. Include the
+    // checked-out reference in the collected graph only for that API shape, leaving ordinary
+    // non-empty direct checkouts on the existing commit-based path.
+    let direct_checkout_update_ref_selector =
+        direct_checkout_head_ref_name
+            .as_ref()
+            .and_then(|head_ref_name| {
+                updates
+                    .iter()
+                    .zip(&updates_with_selectors)
+                    .find_map(|(update, (selector, _))| match &update.selector {
+                        RelativeTo::Reference(ref_name)
+                            if ref_name.as_ref() == head_ref_name.as_ref() =>
+                        {
+                            Some(*selector)
+                        }
+                        _ => None,
+                    })
+            });
+
     let target_ref_selector = target_ref.ref_name.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
     let target_ref_commit_selector = target_ref_commit.detach().to_selector(&editor)?;
@@ -216,6 +239,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut stacks = collect_stacks(
         head_commit,
         head_is_workspace_commit,
+        direct_checkout_update_ref_selector,
         &editor,
         from_target_sha,
         from_target_ref,
@@ -449,7 +473,31 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 // We could add back multiple, but it's likely unintentional
                 // that there were two parents in the first place.
                 if let Some(removed) = removed.iter().min() {
-                    editor.add_edge(child, target_ref_selector, *removed)?;
+                    let target_selector = match editor.lookup_step(child)? {
+                        Step::Reference { refname, .. }
+                            if !head_is_workspace_commit
+                                && direct_checkout_head_ref_name.as_ref().is_some_and(
+                                    |head_ref| head_ref.as_ref() == refname.as_ref(),
+                                ) =>
+                        {
+                            // A direct local ref cannot be parented through the target reference
+                            // node when both refs already participate in the same reachable graph.
+                            // Anchor it at the immutable target-tip pick instead.
+                            editor.disconnect_segment_from(
+                                SegmentDelimiter {
+                                    child,
+                                    parent: child,
+                                },
+                                SelectorSet::All,
+                                SelectorSet::All,
+                                false,
+                            )?;
+                            preserve_pick_parents(&mut editor, target_ref_commit_selector)?;
+                            target_ref_commit_selector
+                        }
+                        _ => target_ref_selector,
+                    };
+                    editor.add_edge(child, target_selector, *removed)?;
                 }
             }
         }
@@ -468,6 +516,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
+    direct_checkout_update_ref_selector: Option<Selector>,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
@@ -476,6 +525,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     target_ref_commit: gix::ObjectId,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<Vec<Stack>> {
+    let direct_checkout_head_commit_id = head_commit.id;
     let mut stacks = if head_is_workspace_commit {
         editor
             .direct_parents(head_commit.id)?
@@ -488,7 +538,10 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             })
             .collect()
     } else {
-        let c = editor.select_commit(head_commit.id)?;
+        let c = match direct_checkout_update_ref_selector {
+            Some(selector) => selector,
+            None => editor.select_commit(head_commit.id)?,
+        };
         vec![Stack {
             to_merge: false,
             nodes: HashMap::from([(c, AnnotatedNode::new())]),
@@ -561,13 +614,19 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         }
 
         for (node, attrs) in nodes.iter_mut() {
-            if from_target_ref.contains(node) {
+            let step = editor.lookup_step(*node)?;
+            let is_local_reference = matches!(
+                &step,
+                Step::Reference { refname, .. }
+                    if refname.category() == Some(gix::refs::Category::LocalBranch)
+            );
+            if from_target_ref.contains(node)
+                && !(!head_is_workspace_commit && is_local_reference && stack.heads.contains(node))
+            {
                 attrs.historically_integrated = true;
             }
 
-            let node = editor.lookup_step(*node)?;
-
-            if let Step::Pick(Pick { id, .. }) = node
+            if let Step::Pick(Pick { id, .. }) = step
                 && integration.matches_by_workspace_commit.contains_key(&id)
             {
                 attrs.content_integrated = true;
@@ -648,6 +707,25 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 // the segment is integrated so local work ahead of its tracking
                 // branch is not discarded.
                 node.reference_integrated = all_integrated.then_some(r_name.clone());
+            } else if !head_is_workspace_commit
+                && stack.heads.contains(r_sel)
+                && r_name.category() == Some(gix::refs::Category::LocalBranch)
+            {
+                // A local ref pointing to target-reachable history is not by itself evidence that
+                // the branch was integrated. For an empty local segment, require branch-specific
+                // evidence from its configured remote-tracking ref or its associated merged
+                // review.
+                let review_integrated =
+                    configured_tracking_branch_short_name(editor.repo(), r_name.as_ref())
+                        .is_some_and(|pushed_branch| {
+                            review_hints_match_pushed_branch(
+                                review_hints,
+                                &pushed_branch,
+                                direct_checkout_head_commit_id,
+                            )
+                        });
+                node.reference_integrated =
+                    (remote_tip_integrated || review_integrated).then_some(r_name.clone());
             } else {
                 node.reference_integrated =
                     (node.is_integrated() || remote_tip_integrated).then_some(r_name.clone());
@@ -656,6 +734,48 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     }
 
     Ok(output_stacks)
+}
+
+/// Return the configured remote/pushed branch name without requiring its tracking ref to exist.
+/// Forge hosts commonly delete merged source branches, while the local branch configuration stays.
+fn configured_tracking_branch_short_name(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+) -> Option<String> {
+    let remote_ref_name = repo
+        .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+        .transpose()
+        .ok()
+        .flatten()?;
+    let (_, short_name) = but_core::extract_remote_name_and_short_name(
+        remote_ref_name.as_ref(),
+        &repo.remote_names(),
+    )?;
+    short_name.to_str().ok().map(ToOwned::to_owned)
+}
+
+/// Match the forge's source branch and review head against the checked-out branch. A uniquely
+/// matching `owner:branch` fork head is accepted, while ambiguous fork heads remain conservative.
+fn review_hints_match_pushed_branch(
+    review_hints: &[ReviewIntegrationHint],
+    pushed_branch: &str,
+    branch_tip: gix::ObjectId,
+) -> bool {
+    if review_hints
+        .iter()
+        .any(|hint| hint.source_branch == pushed_branch && hint.head_commit_at_merge == branch_tip)
+    {
+        return true;
+    }
+
+    let mut fork_matches = review_hints.iter().filter(|hint| {
+        hint.head_commit_at_merge == branch_tip
+            && hint
+                .source_branch
+                .rsplit_once(':')
+                .is_some_and(|(_, branch)| branch == pushed_branch)
+    });
+    fork_matches.next().is_some() && fork_matches.next().is_none()
 }
 
 /// Return `true` if an empty local branch can be treated as integrated because

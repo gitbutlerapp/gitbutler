@@ -1300,6 +1300,244 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
 }
 
 #[test]
+fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
+    force_prefixless_canned_branch_name(&mut repo)?;
+    remove_managed_workspace_ref(&repo)?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let topic_tip = repo.rev_parse_single("topic")?.detach();
+    let remote_topic_tip = repo.rev_parse_single("origin/topic")?.detach();
+
+    assert_eq!(
+        topic_tip, remote_topic_tip,
+        "the empty local branch should be classified through its tracking tip"
+    );
+    assert_eq!(
+        repo.merge_base(remote_topic_tip, target_tip)?.detach(),
+        remote_topic_tip,
+        "the tracking tip should be reachable from the target"
+    );
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    assert!(
+        workspace
+            .stacks
+            .first()
+            .and_then(|stack| stack.segments.first())
+            .is_some_and(|segment| segment.commits.is_empty()),
+        "the checked-out branch should be empty in the workspace projection"
+    );
+
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
+        }],
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert!(
+        repo.try_find_reference("topic")?.is_none(),
+        "an empty checked-out branch should be removed when its tracking tip is integrated"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        target_tip,
+        "replacement checkout should land at the latest target tip"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
+    remove_managed_workspace_ref(&repo)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("branch.topic.merge", "refs/heads/pushed-topic")?;
+    git(&repo)
+        .args(["update-ref", "-d", "refs/remotes/origin/topic"])
+        .run();
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: repo.rev_parse_single("topic")?.detach(),
+            source_branch: "topic".into(),
+        }],
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.find_reference("topic")?.id(),
+        target_tip,
+        "an empty local-only branch should ignore a review matching only its local name"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/topic")?),
+        "the preserved local-only branch should remain checked out"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
+    force_prefixless_canned_branch_name(&mut repo)?;
+    remove_managed_workspace_ref(&repo)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("branch.topic.merge", "refs/heads/pushed-topic")?;
+    git(&repo)
+        .args(["update-ref", "-d", "refs/remotes/origin/topic"])
+        .run();
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let review_head = repo.rev_parse_single("topic")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+            source_branch: "pushed-topic".into(),
+        }],
+    )?;
+    out.rebase.materialize(Default::default())?;
+
+    assert!(
+        repo.try_find_reference("topic")?.is_none(),
+        "an empty checked-out branch should be removed when its associated review is merged"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        target_tip,
+        "replacement checkout should land at the latest target tip"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
+    remove_managed_workspace_ref(&repo)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("branch.topic.merge", "refs/heads/pushed-topic")?;
+    git(&repo)
+        .args(["update-ref", "-d", "refs/remotes/origin/topic"])
+        .run();
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let topic_tip = repo.rev_parse_single("topic")?.detach();
+    assert_ne!(
+        topic_tip, target_tip,
+        "the colliding review head must differ from the checked-out branch tip"
+    );
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: target_tip,
+            source_branch: "pushed-topic".into(),
+        }],
+    )?;
+    out.rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.find_reference("topic")?.id(),
+        target_tip,
+        "a same-named review for another head must not delete the local branch"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/topic")?),
+        "the preserved branch should remain checked out"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() -> Result<()> {
     let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
         "fully-integrated-single-branch-target-advanced-through-merge",
@@ -2539,6 +2777,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
     out.rebase.materialize(Default::default())?;
@@ -2623,6 +2862,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
     out.rebase.materialize(Default::default())?;
@@ -2730,6 +2970,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
     out.rebase.materialize(Default::default())?;
@@ -2826,6 +3067,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
 
@@ -2926,6 +3168,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
     rebase.materialize(Default::default())?;
@@ -3016,6 +3259,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         }],
         &[ReviewIntegrationHint {
             head_commit_at_merge: review_head,
+            source_branch: "A".into(),
         }],
     )?;
     out.rebase.materialize(Default::default())?;
