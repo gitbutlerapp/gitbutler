@@ -1,12 +1,11 @@
 use std::collections::HashSet;
 
+use but_api::WorkspaceState;
 use but_core::ref_metadata::StackId;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
+use nonempty::NonEmpty;
 
 use crate::{
+    command::legacy::discard::{self},
     theme::{self, Paint},
     utils::OutputChannel,
 };
@@ -43,10 +42,10 @@ pub fn handle(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     options: CleanOptions,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<WorkspaceState>> {
     let empty_branches = find_empty_branches(ctx, options.include_upstream)?;
 
-    if empty_branches.is_empty() {
+    let Some(empty_branches) = NonEmpty::from_vec(empty_branches) else {
         if let Some(out) = out.for_json() {
             out.write_value(&CleanResult {
                 deleted: &[],
@@ -56,8 +55,8 @@ pub fn handle(
         } else if let Some(out) = out.for_human() {
             writeln!(out, "No empty branches found.")?;
         }
-        return Ok(());
-    }
+        return Ok(None);
+    };
 
     if options.dry_run {
         let cleaned: Vec<CleanedBranch> = empty_branches
@@ -84,43 +83,34 @@ pub fn handle(
                 t.important.paint(count.to_string())
             )?;
         }
-        return Ok(());
+        return Ok(None);
     }
 
-    // Create a single oplog snapshot before performing all deletions.
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::CleanWorkspace),
+    let mut meta = ctx.meta()?;
+    let (_outcome, ws) = discard::run(
+        ctx,
+        &mut meta,
         guard.write_permission(),
-    )
-    .ok();
+        discard::DiscardOperation::Branches(
+            empty_branches
+                .as_ref()
+                .try_map(|b| gix::refs::FullName::try_from(format!("refs/heads/{}", b.1)))?,
+        ),
+        gitbutler_oplog::entry::OperationKind::CleanWorkspace,
+    )?;
 
     let mut deleted = Vec::new();
-    let mut failed = Vec::new();
-
     for (_stack_id, branch_name) in &empty_branches {
-        match but_api::legacy::stack::remove_branch_only(ctx, branch_name, guard.write_permission())
-        {
-            Ok(()) => {
-                deleted.push(CleanedBranch {
-                    name: branch_name.clone(),
-                });
-            }
-            Err(err) => {
-                failed.push(FailedBranch {
-                    name: branch_name.clone(),
-                    error: err.to_string(),
-                });
-            }
-        }
+        deleted.push(CleanedBranch {
+            name: branch_name.clone(),
+        });
     }
-
-    let num_failed = failed.len();
 
     if let Some(out) = out.for_json() {
         out.write_value(&CleanResult {
             deleted: &deleted,
-            failed: &failed,
+            failed: &[],
             dry_run: false,
         })?;
     } else if let Some(out) = out.for_human() {
@@ -140,22 +130,9 @@ pub fn handle(
                 t.important.paint(deleted.len().to_string())
             )?;
         }
-        for f in &failed {
-            writeln!(
-                out,
-                "{} Failed to delete branch '{}': {}",
-                t.sym().error,
-                f.name,
-                f.error
-            )?;
-        }
     }
 
-    if num_failed == 0 {
-        Ok(())
-    } else {
-        anyhow::bail!("failed to delete {num_failed} branch(es)")
-    }
+    Ok(Some(ws))
 }
 
 /// Find all empty branches in the workspace.

@@ -37,10 +37,8 @@ fn removes_empty_branch() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   0e97f4a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/  
-| * 9477ae7 (A) add A
-|/  
+* 7fa7db9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

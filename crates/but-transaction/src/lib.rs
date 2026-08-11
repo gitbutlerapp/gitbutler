@@ -392,8 +392,9 @@ where
                         let mut ok_to_skip = matches!(step, Step::None);
                         if !ok_to_skip
                             && let Some(ref target_local_branch) = target_local_branch
-                            && matches!(step, Step::Reference { refname, .. }
-                                if refname.as_bstr() == target_local_branch)
+                            && matches!(step, Step::Reference { ref refname, .. }
+                                if refname.as_bstr() == target_local_branch ||
+                                    refname.as_bstr() == b"refs/heads/gitbutler/target")
                         {
                             ok_to_skip = true;
                         }

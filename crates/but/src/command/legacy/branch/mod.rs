@@ -45,6 +45,7 @@ pub fn delete(
         &mut meta,
         guard.write_permission(),
         discard::DiscardOperation::Branches(branches),
+        gitbutler_oplog::entry::OperationKind::Discard,
     )?)
 }
 
