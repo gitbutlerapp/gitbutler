@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
-use but_ctx::{Context, access::RepoShared};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
@@ -40,28 +40,29 @@ fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()>
 
 /// Update `gitbutler/workspace` using the current virtual branch state from `ctx`.
 pub fn update_workspace_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     checkout_new_worktree: bool,
 ) -> Result<gix::ObjectId> {
-    let guard = ctx.shared_worktree_access();
-    update_workspace_commit_with_perm(ctx, checkout_new_worktree, guard.read_permission())
+    let mut guard = ctx.exclusive_worktree_access();
+    update_workspace_commit_with_perm(ctx, checkout_new_worktree, guard.write_permission())
 }
 
-/// Update `gitbutler/workspace` while reusing caller-held repository access.
+/// Update `gitbutler/workspace` while reusing caller-held exclusive repository access.
 #[instrument(level = "debug", skip(ctx, perm), err(Debug))]
 pub fn update_workspace_commit_with_perm(
     ctx: &Context,
     checkout_new_worktree: bool,
-    perm: &RepoShared,
+    perm: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
-    let ws = ctx.workspace_from_head_uncached(perm)?;
-    update_workspace_commit_from_workspace(ctx, checkout_new_worktree, &ws)
+    let ws = ctx.workspace_from_head_uncached(perm.read_permission())?;
+    update_workspace_commit_from_workspace(ctx, checkout_new_worktree, &ws, perm)
 }
 
 pub(crate) fn update_workspace_commit_from_workspace(
     ctx: &Context,
     checkout_new_worktree: bool,
     ws: &but_graph::Workspace,
+    _perm: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
     let target_base_oid = ws
         .stored_target_commit_id()

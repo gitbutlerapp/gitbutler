@@ -8,13 +8,12 @@ use gitbutler_operating_modes::{
 /// with the new name.
 #[test]
 fn works_on_integration_branch() -> anyhow::Result<()> {
-    let (ctx, _temp_dir) =
+    let (mut ctx, _temp_dir) =
         crate::driverless::writable_context("for-workspace-migration.sh", "workspace-migration")?;
-    let repo = ctx.repo.get()?;
 
     // Check that we are on the old `gitbutler/integration` branch.
     assert_eq!(
-        repo.head_name()?.map(|name| name.to_string()),
+        ctx.repo.get()?.head_name()?.map(|name| name.to_string()),
         Some(INTEGRATION_BRANCH_REF.to_owned())
     );
 
@@ -22,11 +21,12 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     let guard = ctx.shared_worktree_access();
     let result = ensure_open_workspace_mode(&ctx, guard.read_permission());
     assert!(result.is_ok());
+    drop(guard);
 
     // Updating workspace commit should put us on the workspace branch.
-    update_workspace_commit(&ctx, false)?;
+    update_workspace_commit(&mut ctx, false)?;
     assert_eq!(
-        repo.head_name()?.map(|name| name.to_string()),
+        ctx.repo.get()?.head_name()?.map(|name| name.to_string()),
         Some(WORKSPACE_BRANCH_REF.to_owned())
     );
     Ok(())

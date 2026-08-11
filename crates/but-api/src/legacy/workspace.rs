@@ -393,7 +393,7 @@ pub fn stash_into_branch(
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
-    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm.read_permission())
+    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm)
         .context("failed to update gitbutler workspace")?;
 
     super::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;

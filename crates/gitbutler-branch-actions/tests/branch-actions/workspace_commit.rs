@@ -14,7 +14,7 @@ fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
 
 #[test]
 fn conflicting_stacks_do_not_rewrite_workspace_projection() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("conflicting-stacks")?;
+    let (mut ctx, _temp_dir) = command_ctx("conflicting-stacks")?;
     let stack_ids = |ctx: &Context| -> Result<Vec<_>> {
         let guard = ctx.shared_worktree_access();
         Ok(ctx
@@ -27,7 +27,7 @@ fn conflicting_stacks_do_not_rewrite_workspace_projection() -> Result<()> {
     let before = stack_ids(&ctx)?;
     assert_eq!(before.len(), 2, "both fixture stacks are projected");
 
-    let error = gitbutler_branch_actions::update_workspace_commit(&ctx, false).unwrap_err();
+    let error = gitbutler_branch_actions::update_workspace_commit(&mut ctx, false).unwrap_err();
     assert!(
         error.to_string().contains("Merge conflict"),
         "conflicting projected stacks are rejected: {error:#}"
@@ -43,14 +43,14 @@ fn conflicting_stacks_do_not_rewrite_workspace_projection() -> Result<()> {
 
 #[test]
 fn workspace_commits_ignore_commit_signing_configuration() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let (mut ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
     ctx.repo.get()?.set_git_settings(&GitConfigSettings {
         gitbutler_sign_commits: Some(true),
         signing_key: Some("definitely-no-such-signing-key".into()),
         ..Default::default()
     })?;
 
-    let workspace_commit = gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+    let workspace_commit = gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
     let repo = ctx.repo.get()?;
     assert!(
         repo.find_commit(workspace_commit)?
@@ -65,7 +65,7 @@ fn workspace_commits_ignore_commit_signing_configuration() -> Result<()> {
 
 #[test]
 fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let (mut ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
     let deleted_head = {
         let repo = ctx.repo.get()?;
         let mut reference = repo.find_reference("refs/heads/stack_b")?;
@@ -74,7 +74,7 @@ fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
         deleted_head
     };
 
-    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
 
     let repo = ctx.repo.get()?;
     assert!(
@@ -101,9 +101,9 @@ fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
 /// `remerged_workspace_tree_v2`, which updates the workspace commit.
 #[test]
 fn update_workspace_commit_with_diverged_stacks_preserves_target_content() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("diverged-stacks")?;
+    let (mut ctx, _temp_dir) = command_ctx("diverged-stacks")?;
 
-    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
 
     let repo = ctx.repo.get()?;
     let ws_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;

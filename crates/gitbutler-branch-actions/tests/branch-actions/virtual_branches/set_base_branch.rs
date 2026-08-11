@@ -163,6 +163,80 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
 }
 
 #[test]
+fn switching_a_missing_target_outside_the_workspace_is_rejected() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    let gix_repo = repo.open();
+    let head_id = gix_repo.head_id().unwrap();
+    gix_repo
+        .reference(
+            "refs/remotes/origin/other",
+            head_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )
+        .unwrap();
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+    repo.commit_all("feature");
+    repo.checkout(&"refs/heads/master".parse().unwrap());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Here is the key - the target we try to set later is deleted.
+    gix_repo
+        .find_reference("refs/remotes/origin/master")
+        .unwrap()
+        .delete()
+        .unwrap();
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    let workspace_ref_before = gix_repo
+        .find_reference(but_core::WORKSPACE_REF_NAME)
+        .unwrap()
+        .peel_to_id()
+        .unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let err = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
+
+    assert_eq!(
+        err.custom_context().map(|ctx| ctx.code),
+        Some(Code::PreconditionFailed),
+        "a repaired missing target must still enforce the target-switch precondition"
+    );
+    assert!(
+        ctx.project_meta().unwrap().target_ref.is_none(),
+        "the replacement target must not be persisted"
+    );
+    assert!(
+        stack_details(ctx).is_empty(),
+        "the checked-out branch must not be added to workspace metadata"
+    );
+    assert_eq!(
+        gix_repo
+            .find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .peel_to_id()
+            .unwrap(),
+        workspace_ref_before,
+        "the existing workspace ref must remain unchanged"
+    );
+}
+
+#[test]
 fn fills_missing_target_commit_id_from_existing_target_ref() {
     let Test { repo, ctx, .. } = &mut Test::default();
     let target_ref = "refs/remotes/origin/master";

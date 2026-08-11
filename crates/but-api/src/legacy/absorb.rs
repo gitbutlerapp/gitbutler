@@ -56,7 +56,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
     gitbutler_branch_actions::update_workspace_commit_with_perm(
         ctx,
         false,
-        guard.read_permission(),
+        guard.write_permission(),
     )?;
 
     Ok(total_rejected)

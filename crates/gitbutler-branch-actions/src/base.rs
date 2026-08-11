@@ -5,7 +5,7 @@ use but_core::{
     RefMetadata as _, WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
-    sync::RepoShared,
+    sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
 use but_error::{Code, bail_precondition};
@@ -121,8 +121,9 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
 }
 
 #[instrument(skip(ctx, perm), err(Debug))]
-fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
-    let ws = ctx.workspace_from_ref_uncached(WORKSPACE_REF_NAME.try_into()?, perm)?;
+fn go_back_to_integration(ctx: &Context, perm: &mut RepoExclusive) -> Result<BaseBranch> {
+    let ws =
+        ctx.workspace_from_ref_uncached(WORKSPACE_REF_NAME.try_into()?, perm.read_permission())?;
     {
         let repo = ctx.repo.get()?;
         let workspace_commit_to_checkout =
@@ -139,13 +140,13 @@ fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch
         )?;
     }
 
-    crate::integration::update_workspace_commit_from_workspace(ctx, false, &ws)?;
-    get_base_branch_data(ctx, perm)
+    crate::integration::update_workspace_commit_from_workspace(ctx, false, &ws, perm)?;
+    get_base_branch_data(ctx, perm.read_permission())
 }
 
 pub(crate) fn set_base_branch(
     ctx: &Context,
-    perm: &RepoShared,
+    perm: &mut RepoExclusive,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
@@ -222,7 +223,7 @@ pub(crate) fn set_base_branch(
     if workspace_ref_exists
         && !head_name.to_string().eq(WORKSPACE_REF_NAME)
         && existing_target_ref
-            .is_some_and(|target_ref| target_ref.to_string() != target_branch_ref.to_string())
+            .is_none_or(|target_ref| target_ref.to_string() != target_branch_ref.to_string())
     {
         bail_precondition!(
             "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first"
@@ -274,8 +275,10 @@ pub(crate) fn set_base_branch(
                     gix::refs::transaction::PreviousValue::MustNotExist,
                     "initialize workspace",
                 )?;
-                workspace_to_initialize =
-                    Some(ctx.workspace_from_ref_uncached(WORKSPACE_REF_NAME.try_into()?, perm)?);
+                workspace_to_initialize = Some(ctx.workspace_from_ref_uncached(
+                    WORKSPACE_REF_NAME.try_into()?,
+                    perm.read_permission(),
+                )?);
             }
         }
     }
@@ -283,12 +286,12 @@ pub(crate) fn set_base_branch(
     set_exclude_decoration(ctx)?;
 
     if let Some(workspace) = workspace_to_initialize {
-        crate::integration::update_workspace_commit_from_workspace(ctx, true, &workspace)?;
+        crate::integration::update_workspace_commit_from_workspace(ctx, true, &workspace, perm)?;
     } else {
         crate::integration::update_workspace_commit_with_perm(ctx, true, perm)?;
     }
 
-    get_base_branch_data(ctx, perm)
+    get_base_branch_data(ctx, perm.read_permission())
 }
 
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
