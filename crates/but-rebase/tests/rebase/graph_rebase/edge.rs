@@ -152,7 +152,7 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  8f0d338 base
 "#]]
     );

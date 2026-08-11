@@ -116,13 +116,15 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
-            let mutable = mutable_segments.contains(&sid);
+            let segment_mutable = mutable_segments.contains(&sid);
             let mut nodes = vec![];
 
             if let Some(ref_info) = &segment.ref_info {
                 let refname = ref_info.ref_name.clone();
+                let reference_mutable =
+                    segment_mutable && refname.category() == Some(gix::refs::Category::LocalBranch);
                 // Only mutable references are tracked for potential deletion.
-                if mutable
+                if reference_mutable
                     && ref_info
                         .worktree
                         .as_ref()
@@ -132,7 +134,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 }
                 let ix = graph.add_node(Step::Reference {
                     refname: refname.clone(),
-                    mutable,
+                    mutable: reference_mutable,
                 });
                 reference_to_ix.insert(refname.clone(), ix);
                 if Some(refname.as_ref()) == entrypoint.segment.ref_name() {
@@ -150,7 +152,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
                 for ref_info in &commit.refs {
                     let refname = ref_info.ref_name.clone();
-                    if mutable
+                    let reference_mutable = segment_mutable
+                        && refname.category() == Some(gix::refs::Category::LocalBranch);
+                    if reference_mutable
                         && ref_info
                             .worktree
                             .as_ref()
@@ -160,7 +164,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     }
                     let ix = graph.add_node(Step::Reference {
                         refname: refname.clone(),
-                        mutable,
+                        mutable: reference_mutable,
                     });
                     reference_to_ix.insert(refname, ix);
                     if let Some(previous_ix) = nodes.last() {
@@ -176,7 +180,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     pick.sign_commit = options.default_sign_commit;
                     pick
                 };
-                pick.mutable = mutable;
+                pick.mutable = segment_mutable;
                 let ix = graph.add_node(Step::Pick(pick));
                 commit_to_pick_ix.insert(commit.id, ix);
                 if let Some(previous_ix) = nodes.last() {

@@ -82,7 +82,7 @@ fn merge_in_the_middle() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  8f0d338 base
 "#]]
     );
@@ -136,7 +136,7 @@ fn three_branches_merged() -> Result<()> {
 │   ●  68a2fc3 C: add 10 lines to new file
 │   ●  984fd1c C: new file with 10 lines
 ├───╯
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  8f0d338 base
 "#]]
     );
@@ -258,7 +258,7 @@ fn first_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  8f0d338 base
 "#]]
     );
@@ -329,7 +329,7 @@ fn second_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  8f0d338 base
 "#]]
     );
@@ -672,7 +672,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 │ ●  72614bb new commit 1 on second-parent
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+◎  refs/tags/base (immutable)
 ●  793a434 base
 "#]]
     );
