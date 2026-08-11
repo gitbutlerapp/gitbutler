@@ -11,10 +11,10 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_graph::workspace::WorkspaceKind;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
+use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -224,20 +224,31 @@ fn resolve(
     };
 
     let commit_op = {
+        let operating_mode =
+            but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+                .operating_mode;
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
-            |err| match err {
-                RouteCommitOperationError::NoStackToCommitTo => {
-                    bad_input("Found no stack that could be committed to").into()
-                }
-                RouteCommitOperationError::UnclearTargetCantPrompt => {
-                    bad_input("Unclear where to commit. Found more than one stack")
-                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
-                        .into()
-                }
-                RouteCommitOperationError::Other(cli_error) => cli_error,
-            },
-        )?
+        route_commit_operation(
+            &repo,
+            &ws,
+            &operating_mode,
+            head_info,
+            out,
+            id_map,
+            target_ish,
+            &merged,
+        )
+        .map_err(|err| match err {
+            RouteCommitOperationError::NoStackToCommitTo => {
+                bad_input("Found no stack that could be committed to").into()
+            }
+            RouteCommitOperationError::UnclearTargetCantPrompt => {
+                bad_input("Unclear where to commit. Found more than one stack")
+                    .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                    .into()
+            }
+            RouteCommitOperationError::Other(cli_error) => cli_error,
+        })?
     };
 
     let reword_op = CommitMessageSource::from_args(no_message, message)?;
@@ -380,16 +391,18 @@ impl CommitOperationTargetIsh {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn route_commit_operation(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
+    operating_mode: &OperatingMode,
     head_info: &RefInfo,
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
     merged: &MergedUpstream,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
-    let stack_on_head = matches!(ws.kind, WorkspaceKind::AdHoc);
+    let stack_on_head = should_stack_on_head(operating_mode);
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
             let side = Side::Above;
@@ -520,6 +533,13 @@ pub fn route_commit_operation(
             }
         }
     }
+}
+
+pub(crate) fn should_stack_on_head(operating_mode: &OperatingMode) -> bool {
+    matches!(
+        operating_mode,
+        OperatingMode::OutsideWorkspace(metadata) if metadata.branch_name.is_some()
+    )
 }
 
 #[derive(Debug)]

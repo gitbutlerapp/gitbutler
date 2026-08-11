@@ -102,6 +102,41 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn commits_on_top_of_a_checked_out_managed_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.invoke_git("checkout A");
+    env.file("outside-workspace.txt", "content\n");
+
+    env.but("commit -b feature -m 'commit outside workspace'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on new branch 'feature'
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "feature",
+        "the new branch should be checked out"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse feature^"),
+        env.invoke_git("rev-parse A"),
+        "the new branch should be based on the previously checked-out branch"
+    );
+    assert_eq!(
+        env.invoke_git("show feature:outside-workspace.txt"),
+        "content"
+    );
+}
+
+#[test]
 fn no_message_nothing_to_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
