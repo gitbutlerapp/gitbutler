@@ -593,6 +593,85 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::default();
+    let repo = repo.open_repo();
+    let workspace_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
+    let original_workspace = repo.find_reference(workspace_ref)?.peel_to_id()?.detach();
+    let ad_hoc_ref = gix::refs::FullName::try_from("refs/heads/ad-hoc")?;
+    let ad_hoc_commit = ctx.project_meta()?.target_commit_id_or_err()?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let workspace_snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    but_core::worktree::safe_checkout_from_head(
+        ad_hoc_commit,
+        &repo,
+        but_core::worktree::checkout::Options {
+            skip_head_update: true,
+            ..Default::default()
+        },
+    )?;
+    repo.reference(
+        ad_hoc_ref.as_ref(),
+        ad_hoc_commit,
+        gix::refs::transaction::PreviousValue::Any,
+        "test ad-hoc checkout",
+    )?;
+    but_core::update_head_reference(
+        &repo,
+        gix::refs::Target::Symbolic(ad_hoc_ref.clone()),
+        false,
+        "test",
+        b"leave workspace".as_bstr(),
+        0,
+    )?;
+    repo.find_reference(workspace_ref)?.delete()?;
+
+    let ad_hoc_snapshot = ctx.restore_snapshot(
+        workspace_snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        repo.head_name()?
+            .expect("restored workspace HEAD is symbolic")
+            .as_bstr(),
+        workspace_ref.as_bstr(),
+        "undoing a transition to ad-hoc mode must check out the managed workspace"
+    );
+    assert_eq!(
+        repo.find_reference(workspace_ref)?.peel_to_id()?.detach(),
+        original_workspace,
+        "undoing a transition to ad-hoc mode must recreate the original workspace ref"
+    );
+
+    ctx.restore_snapshot(
+        ad_hoc_snapshot,
+        RestoreKind::RestoreFromSnapshotViaRedo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        repo.head_name()?.expect("restored ad-hoc HEAD is symbolic"),
+        ad_hoc_ref,
+        "redoing the transition must return to the ad-hoc branch"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        ad_hoc_commit,
+        "redoing the transition must restore the ad-hoc commit"
+    );
+    assert!(
+        repo.try_find_reference(workspace_ref)?.is_none(),
+        "redoing a transition that removed the managed workspace must remove that ref again"
+    );
+    Ok(())
+}
+
+#[test]
 fn snapshot_history_orders_and_paginates() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let mut guard = ctx.exclusive_worktree_access();

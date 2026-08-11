@@ -135,7 +135,7 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
     );
     assert_eq!(
         err.to_string(),
-        "cannot change the target while HEAD is outside the GitButler workspace",
+        "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first",
         "the error explains how to satisfy the target-switch precondition"
     );
     assert_eq!(
