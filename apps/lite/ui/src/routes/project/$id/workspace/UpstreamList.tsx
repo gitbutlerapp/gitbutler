@@ -381,6 +381,9 @@ export const UpstreamList: FC<
 	const targetItems = items.slice(0, incomingItemCount);
 	const workspaceItems = items.slice(incomingItemCount);
 	const firstBranch = workspaceItems.find((item) => item.type === "branch");
+	// The rail's tail carries on from the last branch, so it has to be coloured
+	// the same as the segment it continues rather than always as local work.
+	const lastBranch = workspaceItems.findLast((item) => item.type === "branch");
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
@@ -450,7 +453,9 @@ export const UpstreamList: FC<
 							: [row];
 					})}
 
-					{workspaceItems.length > 0 && <RailTail status="LocalOnly" />}
+					{workspaceItems.length > 0 && (
+						<RailTail status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"} />
+					)}
 				</div>
 
 				{outline.truncated && (
