@@ -178,7 +178,9 @@ const SegmentExpanderRow: FC<{
 	segmentId: string;
 	count: number;
 	expanded: boolean;
-}> = ({ projectId, segmentId, count, expanded }) => {
+	/** Set when the row opens the workspace rail, so nothing is drawn above it. */
+	opensRail: boolean;
+}> = ({ projectId, segmentId, count, expanded, opensRail }) => {
 	const dispatch = useAppDispatch();
 
 	return (
@@ -188,7 +190,9 @@ const SegmentExpanderRow: FC<{
 				    away; once they are on screen the rail just runs past the toggle. */}
 				<GraphSegment
 					className={styles.expanderGlyph}
-					glyph={expanded ? "parent" : "group"}
+					glyph={
+						opensRail ? (expanded ? "parentHead" : "groupHead") : expanded ? "parent" : "group"
+					}
 					status="LocalOnly"
 				/>
 				<GraphSegment className={styles.railStub} glyph="parent" status="LocalOnly" />
@@ -289,8 +293,12 @@ const RunTail: FC = () => (
 const listItem = (
 	projectId: string,
 	item: UpstreamListItem,
-	/** The first branch row opens the workspace rail; the rest join it. */
-	isFirstBranch: boolean,
+	/**
+	 * Set on the region's first row, which opens the workspace rail: a branch
+	 * forks it into being rather than joining it, and a fold toggle heads it
+	 * with nothing drawn above the rings.
+	 */
+	opensRail: boolean,
 ) => {
 	switch (item.type) {
 		case "commit":
@@ -300,7 +308,7 @@ const listItem = (
 				<UpstreamBranchRow
 					key={`${item.stackKey}/${item.name}`}
 					item={item}
-					glyph={isFirstBranch ? "forkRight" : "joinRight"}
+					glyph={opensRail ? "forkRight" : "joinRight"}
 				/>
 			);
 		case "expander":
@@ -311,6 +319,7 @@ const listItem = (
 					segmentId={item.segmentId}
 					count={item.count}
 					expanded={item.expanded}
+					opensRail={opensRail}
 				/>
 			);
 		default:
@@ -380,7 +389,12 @@ export const UpstreamList: FC<
 
 	const targetItems = items.slice(0, incomingItemCount);
 	const workspaceItems = items.slice(incomingItemCount);
-	const firstBranch = workspaceItems.find((item) => item.type === "branch");
+	// Whatever comes first opens the workspace rail, fold toggle or branch alike;
+	// everything under it joins a rail that is already running.
+	const railHead = workspaceItems[0];
+	// The rail's tail carries on from the last branch, so it has to be coloured
+	// the same as the segment it continues rather than always as local work.
+	const lastBranch = workspaceItems.findLast((item) => item.type === "branch");
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
@@ -441,7 +455,7 @@ export const UpstreamList: FC<
 					{workspaceItems.length > 0 && <div role="none" className={styles.divider} />}
 
 					{workspaceItems.flatMap((item, index) => {
-						const row = listItem(projectId, item, item === firstBranch);
+						const row = listItem(projectId, item, item === railHead);
 						// Commits only appear here as the body of an expanded run, so
 						// the last one before anything else is where a run closes.
 						const next = workspaceItems[index + 1];
@@ -450,7 +464,9 @@ export const UpstreamList: FC<
 							: [row];
 					})}
 
-					{workspaceItems.length > 0 && <RailTail status="LocalOnly" />}
+					{workspaceItems.length > 0 && (
+						<RailTail status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"} />
+					)}
 				</div>
 
 				{outline.truncated && (
