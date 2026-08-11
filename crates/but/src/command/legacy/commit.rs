@@ -124,6 +124,9 @@ pub fn commit(
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let operating_mode =
+        but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+            .operating_mode;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -134,6 +137,7 @@ pub fn commit(
         &mut meta,
         guard.write_permission(),
         commit_op,
+        should_stack_on_head(&operating_mode),
         commit_selection,
         reword_op,
     )?)
@@ -224,31 +228,20 @@ fn resolve(
     };
 
     let commit_op = {
-        let operating_mode =
-            but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
-                .operating_mode;
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        route_commit_operation(
-            &repo,
-            &ws,
-            &operating_mode,
-            head_info,
-            out,
-            id_map,
-            target_ish,
-            &merged,
-        )
-        .map_err(|err| match err {
-            RouteCommitOperationError::NoStackToCommitTo => {
-                bad_input("Found no stack that could be committed to").into()
-            }
-            RouteCommitOperationError::UnclearTargetCantPrompt => {
-                bad_input("Unclear where to commit. Found more than one stack")
-                    .hint("You can specify where to commit with `--branch [<BRANCH>]`")
-                    .into()
-            }
-            RouteCommitOperationError::Other(cli_error) => cli_error,
-        })?
+        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
+            |err| match err {
+                RouteCommitOperationError::NoStackToCommitTo => {
+                    bad_input("Found no stack that could be committed to").into()
+                }
+                RouteCommitOperationError::UnclearTargetCantPrompt => {
+                    bad_input("Unclear where to commit. Found more than one stack")
+                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                        .into()
+                }
+                RouteCommitOperationError::Other(cli_error) => cli_error,
+            },
+        )?
     };
 
     let reword_op = CommitMessageSource::from_args(no_message, message)?;
@@ -283,10 +276,12 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
+    stack_on_head: bool,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
-    let checkout_after_create = commit_op.checkout_after_create();
+    let checkout_after_create =
+        stack_on_head && matches!(commit_op, CommitOperation::CommitToNewBranch(_));
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -323,7 +318,7 @@ pub fn run(
                     rejected_specs,
                 },
                 branch_name,
-            ) = commit_op.execute(&mut tx, changes)?;
+            ) = commit_op.execute(&mut tx, changes, stack_on_head)?;
 
             if !rejected_specs.is_empty() {
                 return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -391,18 +386,15 @@ impl CommitOperationTargetIsh {
     }
 }
 
-#[expect(clippy::too_many_arguments)]
 pub fn route_commit_operation(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
-    operating_mode: &OperatingMode,
     head_info: &RefInfo,
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
     merged: &MergedUpstream,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
-    let stack_on_head = should_stack_on_head(operating_mode);
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
             let side = Side::Above;
@@ -437,16 +429,12 @@ pub fn route_commit_operation(
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
-                        stack_on_head,
                     },
                 ))
             }
         }
         CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
-            CommitToNewBranchOperation {
-                branch_name: None,
-                stack_on_head,
-            },
+            CommitToNewBranchOperation { branch_name: None },
         )),
         CommitOperationTargetIsh::Default => {
             // Branches that have landed upstream are not sensible default targets;
@@ -464,10 +452,7 @@ pub fn route_commit_operation(
 
             match &stacks[..] {
                 [] => Ok(CommitOperation::CommitToNewBranch(
-                    CommitToNewBranchOperation {
-                        branch_name: None,
-                        stack_on_head,
-                    },
+                    CommitToNewBranchOperation { branch_name: None },
                 )),
                 [stack] => {
                     let ref_info = stack
@@ -523,10 +508,7 @@ pub fn route_commit_operation(
                             }))
                         }
                         PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
-                            CommitToNewBranchOperation {
-                                branch_name: None,
-                                stack_on_head,
-                            },
+                            CommitToNewBranchOperation { branch_name: None },
                         )),
                     }
                 }
@@ -612,16 +594,6 @@ pub enum CommitOperation {
 }
 
 impl CommitOperation {
-    pub(crate) fn checkout_after_create(&self) -> bool {
-        matches!(
-            self,
-            CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
-                stack_on_head: true,
-                ..
-            })
-        )
-    }
-
     /// What the operation targets, for explaining rejected changes after a
     /// rollback.
     fn rejection_target(&self) -> rejection::Target {
@@ -647,9 +619,10 @@ impl CommitOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        stack_on_head: bool,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes),
+            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, stack_on_head),
             CommitOperation::CommitAt(op) => op.execute(tx, changes),
         }
     }
@@ -657,7 +630,6 @@ impl CommitOperation {
 
 pub struct CommitToNewBranchOperation {
     pub branch_name: Option<FullName>,
-    pub stack_on_head: bool,
 }
 
 impl CommitToNewBranchOperation {
@@ -665,8 +637,9 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        stack_on_head: bool,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let branch_name = self.create_reference(tx)?;
+        let branch_name = self.create_reference(tx, stack_on_head)?;
 
         let commit_create_result = tx.create_commit(
             RelativeTo::Reference(branch_name.clone()),
@@ -685,11 +658,9 @@ impl CommitToNewBranchOperation {
     pub(crate) fn create_reference(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        stack_on_head: bool,
     ) -> anyhow::Result<FullName> {
-        let Self {
-            branch_name,
-            stack_on_head,
-        } = self;
+        let Self { branch_name } = self;
 
         let branch_name = if let Some(branch_name) = branch_name {
             branch_name
