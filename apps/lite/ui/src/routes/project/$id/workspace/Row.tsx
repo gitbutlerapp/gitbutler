@@ -178,16 +178,19 @@ export const RowLabel: FC<
  * A non-interactive row that acts as a section header (e.g. "Stacks", "Uncommitted changes").
  *
  * `children` are rendered inside the label container next to the heading (e.g. badges),
- * while `actions` are rendered outside of it (e.g. a toolbar).
+ * while `actions` are rendered outside of it (e.g. a toolbar). `childrenBefore` are rendered before
+ * the heading.
  */
 export const SectionHeaderRow: FC<
-	{ label: ReactNode; actions?: ReactNode } & Omit<
+	{ label: ReactNode; actions?: ReactNode; childrenBefore?: ReactNode } & Omit<
 		ComponentProps<typeof Row>,
 		"interactive" | "onSelect" | "isSelected"
 	>
-> = ({ label, actions, children, ...props }) => (
+> = ({ label, actions, children, childrenBefore, ...props }) => (
 	<Row {...props} className={classes(props.className, styles.sectionHeader)} interactive={false}>
 		<RowLabelContainer>
+			{childrenBefore}
+
 			<RowLabel heading singleLine>
 				{label}
 			</RowLabel>

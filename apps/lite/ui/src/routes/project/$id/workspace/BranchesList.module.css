@@ -46,6 +46,13 @@
 }
 
 .heading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-2);
+}
+
+.msg {
 	color: var(--text-2);
 }
 
