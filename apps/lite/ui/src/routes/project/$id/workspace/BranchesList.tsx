@@ -20,7 +20,6 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -38,7 +37,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import type { Commit, ListedBranch, ListedStack } from "@gitbutler/but-sdk";
+import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
@@ -68,7 +67,7 @@ import {
 	treeItemId,
 	useIsSelected as useIsSelectedInList,
 } from "./Row-utils.ts";
-import { StackCard, StackCardHeader, StackFoldAllButton } from "./StackCard.tsx";
+import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
 import styles from "./BranchesList.module.css";
@@ -145,11 +144,12 @@ const BranchCommits: FC<{ projectId: string; branch: ListedBranch }> = ({ projec
 	));
 };
 
-const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boolean }> = ({
-	projectId,
-	branch,
-	isTopBranch,
-}) => {
+const BranchItem: FC<{
+	projectId: string;
+	branch: ListedBranch;
+	isTopBranch: boolean;
+	isStacked: boolean;
+}> = ({ projectId, branch, isTopBranch, isStacked }) => {
 	const dispatch = useAppDispatch();
 	const branchRef = branch.refName.full;
 	const operand = branchOperand({ branchRef: encodeBytes(branchRef) });
@@ -206,7 +206,9 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boo
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
-			label: "Apply to Workspace",
+			// Branches run from the tip down, so applying the top branch of a stack
+			// brings the whole stack with it — the label says so.
+			label: isTopBranch && isStacked ? "Apply Stack to Workspace" : "Apply to Workspace",
 			enabled: !isApplyPending,
 			onSelect: applyBranch,
 		}),
@@ -321,88 +323,6 @@ const BranchItem: FC<{ projectId: string; branch: ListedBranch; isTopBranch: boo
 				</div>
 			)}
 		</div>
-	);
-};
-
-const BranchStackRow: FC<{ projectId: string; stack: ListedStack }> = ({ projectId, stack }) => {
-	const dispatch = useAppDispatch();
-	// A branch with no commits of its own has nothing to unfold, matching the
-	// affordance on the branch rows themselves.
-	const unfoldableRefs = stack.branches
-		.filter((branch) => !branchIsEmpty(branch))
-		.map((branch) => branch.refName.full);
-	// A plain boolean, so this re-renders only when the stack crosses between
-	// fully folded and not — see useIsSelected for the same reasoning.
-	const anyUnfolded = useAppSelector((state) =>
-		unfoldableRefs.some((branchRef) =>
-			projectSlice.selectors.selectBranchUnfolded(state, projectId, branchRef),
-		),
-	);
-
-	const { isPending: isApplyPending, mutate: apply } = useApply();
-
-	const applyStack = () => {
-		apply(
-			// Branches run from the tip down, so applying the tip applies the
-			// whole stack.
-			{ projectId, existingBranch: assert(stack.branches[0]).refName.full },
-			{
-				onSuccess: (response) => {
-					const appliedRef = response.appliedBranches[0];
-					if (!appliedRef) return;
-
-					dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({ branchRef: encodeBytes(appliedRef.full) }),
-						}),
-					);
-				},
-			},
-		);
-	};
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Apply Stack to Workspace",
-			enabled: !isApplyPending,
-			onSelect: applyStack,
-		}),
-	];
-
-	return (
-		<StackCardHeader
-			toolbarLabel="Stack actions"
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<StackFoldAllButton
-				hasMultipleBranches={stack.branches.length > 1}
-				folded={!anyUnfolded}
-				disabled={unfoldableRefs.length === 0}
-				onToggle={() =>
-					dispatch(
-						projectSlice.actions.setBranchesUnfolded({
-							projectId,
-							branchRefs: unfoldableRefs,
-							unfolded: !anyUnfolded,
-						}),
-					)
-				}
-			/>
-
-			<Toolbar.Button
-				aria-label="Stack menu"
-				onClick={(event) => {
-					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-				}}
-				className={getRowButtonClassName({ iconOnly: true })}
-			>
-				<Icon name="kebab" />
-			</Toolbar.Button>
-		</StackCardHeader>
 	);
 };
 
@@ -543,12 +463,16 @@ export const BranchesList: FC<
 							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
 							role="group"
 							aria-label="Stack"
-							header={<BranchStackRow projectId={projectId} stack={stack} />}
 							bodyClassName={styles.stackBody}
 						>
 							{stack.branches.map((branch, index) => (
 								<Fragment key={branch.refName.full}>
-									<BranchItem projectId={projectId} branch={branch} isTopBranch={index === 0} />
+									<BranchItem
+										projectId={projectId}
+										branch={branch}
+										isTopBranch={index === 0}
+										isStacked={stack.branches.length > 1}
+									/>
 
 									{/* Carries the rail down to the next branch, and past the
 									    last one as the card's floor — as the workspace card's
