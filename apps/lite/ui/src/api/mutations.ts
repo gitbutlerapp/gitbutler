@@ -1,4 +1,3 @@
-import type { PayloadFor } from "#electron/ipc.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -11,7 +10,6 @@ import {
 	listReviewReactionsQueryOptions,
 	workspaceFetchQueryOptions,
 } from "#ui/api/queries.ts";
-import { apiMutation, type DeclaredMutation } from "#ui/api/tags.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
@@ -38,6 +36,18 @@ import type {
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
+
+declare module "@tanstack/react-query" {
+	interface Register {
+		/**
+		 * A mutation's failure toast is declared, not coded: the mutation cache
+		 * logs every error and shows `failureTitle` when one is given. Hooks
+		 * write `onError` only for work of their own, like rolling back an
+		 * optimistic write or wording a title dynamically.
+		 */
+		mutationMeta: { failureTitle?: string };
+	}
+}
 
 const pluralRules = new Intl.PluralRules("en");
 
@@ -70,27 +80,14 @@ export const syncCoreCaches = (
 	);
 };
 
-export const useAbsorb = ({ projectId }: { projectId: string }) => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
+export const useAbsorb = ({ projectId }: { projectId: string }) =>
+	useMutation({
 		mutationFn: (absorptionPlan: Array<CommitAbsorption> | undefined) => {
 			if (!absorptionPlan) return Promise.resolve(null);
 			return window.lite.absorb({ projectId, absorptionPlan });
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to absorb",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to absorb" },
 	});
-};
 
 export const useApply = () => {
 	const dispatch = useAppDispatch();
@@ -133,118 +130,44 @@ export const useApply = () => {
 				});
 			}
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to apply branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to apply branch" },
 	});
 };
 
 export const useBranchCreate = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.branchCreate,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to create branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to create branch" },
 	});
 };
 
-export const usePublishReview = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("publishReview"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to create pull request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const usePublishReview = () =>
+	useMutation({
+		mutationFn: window.lite.publishReview,
+		meta: { failureTitle: "Failed to create pull request" },
 	});
-};
 
-export const useUpdateReview = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("updateReview"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to update pull request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useUpdateReview = () =>
+	useMutation({
+		mutationFn: window.lite.updateReview,
+		meta: { failureTitle: "Failed to update pull request" },
 	});
-};
 
-export const useAddReviewLabels = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("addReviewLabels"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to add label",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useAddReviewLabels = () =>
+	useMutation({
+		mutationFn: window.lite.addReviewLabels,
+		meta: { failureTitle: "Failed to add label" },
 	});
-};
 
-export const useRemoveReviewLabel = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("removeReviewLabel"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove label",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useRemoveReviewLabel = () =>
+	useMutation({
+		mutationFn: window.lite.removeReviewLabel,
+		meta: { failureTitle: "Failed to remove label" },
 	});
-};
 
 /**
  * Optimistic entries carry negative forge ids until the settle refetch
@@ -294,11 +217,10 @@ const withCommentReactionCount = (
 		return { ...comment, reactions };
 	});
 
-export const useAddReviewReaction = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("addReviewReaction"),
+export const useAddReviewReaction = () =>
+	useMutation({
+		mutationFn: window.lite.addReviewReaction,
+		meta: { failureTitle: "Failed to add reaction" },
 		onMutate: async (input, ctx) => {
 			const key = listReviewReactionsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -322,25 +244,13 @@ export const useAddReviewReaction = () => {
 			void ctx.client.invalidateQueries({
 				queryKey: listReviewReactionsQueryOptions(input).queryKey,
 			});
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to add reaction",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
 		},
 	});
-};
 
-export const useRemoveReviewReaction = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("removeReviewReaction"),
+export const useRemoveReviewReaction = () =>
+	useMutation({
+		mutationFn: window.lite.removeReviewReaction,
+		meta: { failureTitle: "Failed to remove reaction" },
 		onMutate: async (input, ctx) => {
 			const key = listReviewReactionsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -359,40 +269,24 @@ export const useRemoveReviewReaction = () => {
 			void ctx.client.invalidateQueries({
 				queryKey: listReviewReactionsQueryOptions(input).queryKey,
 			});
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove reaction",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
 		},
 	});
-};
 
 /**
  * A comment reaction spans two caches — the count summary on the comments
  * listing and the names on the per-comment reactions listing — so the
  * optimistic write and its rollback patch both.
  */
-export const useAddCommentReaction = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("addCommentReaction"),
-		// `reviewId` keys the cache below; the forge addresses comments by id,
-		// so it is not part of what the endpoint takes.
-		mutationFn: ({
-			reviewId: _reviewId,
-			...params
-		}: PayloadFor<"addCommentReaction"> & { reviewId: number }) =>
-			window.lite.addCommentReaction(params),
+export const useAddCommentReaction = ({ reviewId }: { reviewId: number }) =>
+	useMutation({
+		mutationFn: window.lite.addCommentReaction,
+		meta: { failureTitle: "Failed to add reaction" },
 		onMutate: async (input, ctx) => {
 			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
-			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions({
+				projectId: input.projectId,
+				reviewId,
+			}).queryKey;
 			await Promise.all([
 				ctx.client.cancelQueries({ queryKey: reactionsKey }),
 				ctx.client.cancelQueries({ queryKey: commentsKey }),
@@ -415,50 +309,30 @@ export const useAddCommentReaction = () => {
 			return { prevReactions, prevComments };
 		},
 		onError: (error, input, prev, ctx) => {
+			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions({
+				projectId: input.projectId,
+				reviewId,
+			}).queryKey;
 			// Roll the optimistic writes back, then refetch: the rollback
 			// snapshots may themselves be stale by now.
-			void ctx.client.invalidateQueries({
-				queryKey: listCommentReactionsQueryOptions(input).queryKey,
-			});
-			void ctx.client.invalidateQueries({
-				queryKey: listReviewCommentsQueryOptions(input).queryKey,
-			});
-			if (prev?.prevReactions) {
-				ctx.client.setQueryData(
-					listCommentReactionsQueryOptions(input).queryKey,
-					prev.prevReactions,
-				);
-			}
-			if (prev?.prevComments)
-				ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev.prevComments);
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to add reaction",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
+			if (prev?.prevReactions) ctx.client.setQueryData(reactionsKey, prev.prevReactions);
+			if (prev?.prevComments) ctx.client.setQueryData(commentsKey, prev.prevComments);
+			void ctx.client.invalidateQueries({ queryKey: reactionsKey });
+			void ctx.client.invalidateQueries({ queryKey: commentsKey });
 		},
 	});
-};
 
-export const useRemoveCommentReaction = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		// `reviewId` keys the cache below; the forge addresses comments by id,
-		// so it is not part of what the endpoint takes.
-		mutationFn: ({
-			reviewId: _reviewId,
-			...params
-		}: PayloadFor<"removeCommentReaction"> & { reviewId: number }) =>
-			window.lite.removeCommentReaction(params),
+export const useRemoveCommentReaction = ({ reviewId }: { reviewId: number }) =>
+	useMutation({
+		mutationFn: window.lite.removeCommentReaction,
+		meta: { failureTitle: "Failed to remove reaction" },
 		onMutate: async (input, ctx) => {
 			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
-			const commentsKey = listReviewCommentsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions({
+				projectId: input.projectId,
+				reviewId,
+			}).queryKey;
 			await Promise.all([
 				ctx.client.cancelQueries({ queryKey: reactionsKey }),
 				ctx.client.cancelQueries({ queryKey: commentsKey }),
@@ -481,79 +355,36 @@ export const useRemoveCommentReaction = () => {
 			return { prevReactions, prevComments };
 		},
 		onError: (error, input, prev, ctx) => {
+			const reactionsKey = listCommentReactionsQueryOptions(input).queryKey;
+			const commentsKey = listReviewCommentsQueryOptions({
+				projectId: input.projectId,
+				reviewId,
+			}).queryKey;
 			// Roll the optimistic writes back, then refetch: the rollback
 			// snapshots may themselves be stale by now.
-			void ctx.client.invalidateQueries({
-				queryKey: listCommentReactionsQueryOptions(input).queryKey,
-			});
-			void ctx.client.invalidateQueries({
-				queryKey: listReviewCommentsQueryOptions(input).queryKey,
-			});
-			if (prev?.prevReactions) {
-				ctx.client.setQueryData(
-					listCommentReactionsQueryOptions(input).queryKey,
-					prev.prevReactions,
-				);
-			}
-			if (prev?.prevComments)
-				ctx.client.setQueryData(listReviewCommentsQueryOptions(input).queryKey, prev.prevComments);
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove reaction",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
+			if (prev?.prevReactions) ctx.client.setQueryData(reactionsKey, prev.prevReactions);
+			if (prev?.prevComments) ctx.client.setQueryData(commentsKey, prev.prevComments);
+			void ctx.client.invalidateQueries({ queryKey: reactionsKey });
+			void ctx.client.invalidateQueries({ queryKey: commentsKey });
 		},
 	});
-};
 
-export const useRequestReview = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("requestReview"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to request review",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useRequestReview = () =>
+	useMutation({
+		mutationFn: window.lite.requestReview,
+		meta: { failureTitle: "Failed to request review" },
 	});
-};
 
-export const useWithdrawReviewRequest = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("withdrawReviewRequest"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to withdraw review request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useWithdrawReviewRequest = () =>
+	useMutation({
+		mutationFn: window.lite.withdrawReviewRequest,
+		meta: { failureTitle: "Failed to withdraw review request" },
 	});
-};
 
-export const useCreateReviewComment = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("createReviewComment"),
+export const useCreateReviewComment = () =>
+	useMutation({
+		mutationFn: window.lite.createReviewComment,
+		meta: { failureTitle: "Failed to post comment" },
 		onMutate: async (input, ctx) => {
 			const key = listReviewCommentsQueryOptions(input).queryKey;
 			await ctx.client.cancelQueries({ queryKey: key });
@@ -582,77 +413,26 @@ export const useCreateReviewComment = () => {
 			void ctx.client.invalidateQueries({
 				queryKey: listReviewCommentsQueryOptions(input).queryKey,
 			});
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to post comment",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
 		},
 	});
-};
 
-export const useUpdateReviewComment = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		// `reviewId` keys the cache below; the forge addresses comments by id,
-		// so it is not part of what the endpoint takes.
-		...apiMutation("updateReviewComment"),
-		mutationFn: ({
-			reviewId: _reviewId,
-			...params
-		}: PayloadFor<"updateReviewComment"> & { reviewId: number }) =>
-			window.lite.updateReviewComment(params),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to update comment",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useUpdateReviewComment = () =>
+	useMutation({
+		mutationFn: window.lite.updateReviewComment,
+		meta: { failureTitle: "Failed to update comment" },
 	});
-};
 
-export const useDeleteReviewComment = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		// `reviewId` keys the cache below; the forge addresses comments by id,
-		// so it is not part of what the endpoint takes.
-		...apiMutation("deleteReviewComment"),
-		mutationFn: ({
-			reviewId: _reviewId,
-			...params
-		}: PayloadFor<"deleteReviewComment"> & { reviewId: number }) =>
-			window.lite.deleteReviewComment(params),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to delete comment",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useDeleteReviewComment = () =>
+	useMutation({
+		mutationFn: window.lite.deleteReviewComment,
+		meta: { failureTitle: "Failed to delete comment" },
 	});
-};
 
 export const useSetReviewAutoMerge = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		...apiMutation("setReviewAutoMerge"),
+		mutationFn: window.lite.setReviewAutoMerge,
 		onMutate: async (input, ctx) => {
 			const reviewsPrefix = ["listReviews", input.projectId] as const;
 			await ctx.client.cancelQueries({ queryKey: reviewsPrefix });
@@ -681,17 +461,14 @@ export const useSetReviewAutoMerge = () => {
 			// Roll the optimistic writes back, then refetch: the rollback
 			// snapshots may themselves be stale by now.
 			for (const [key, data] of prev?.prev ?? []) ctx.client.setQueryData(key, data);
-			void ctx.client.invalidateQueries({ queryKey: ["listReviews", input.projectId] });
-			void ctx.client.invalidateQueries({ queryKey: ["getReview", input.projectId] });
 			if (prev?.prevSingle) {
 				ctx.client.setQueryData(
 					getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId }).queryKey,
 					prev.prevSingle,
 				);
 			}
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
+			void ctx.client.invalidateQueries({ queryKey: ["listReviews", input.projectId] });
+			void ctx.client.invalidateQueries({ queryKey: ["getReview", input.projectId] });
 
 			toastManager.add({
 				type: "error",
@@ -703,11 +480,9 @@ export const useSetReviewAutoMerge = () => {
 	});
 };
 
-export const useMergeReview = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("mergeReview"),
+export const useMergeReview = () =>
+	useMutation({
+		mutationFn: window.lite.mergeReview,
 		onSuccess: async (_response, input, _context, mutation) => {
 			// The merge moved the target branch on the remote, but nothing local, so
 			// the branch keeps looking un-integrated until remote-tracking refs catch
@@ -724,184 +499,86 @@ export const useMergeReview = () => {
 				)
 				.catch(() => undefined);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to merge pull request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to merge pull request" },
 	});
-};
 
-export const useSetReviewDraftiness = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("setReviewDraftiness"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to update pull request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useSetReviewDraftiness = () =>
+	useMutation({
+		mutationFn: window.lite.setReviewDraftiness,
+		meta: { failureTitle: "Failed to update pull request" },
 	});
-};
 
-export const useSetGbConfig = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("setGbConfig"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to save git settings",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useSetGbConfig = () =>
+	useMutation({
+		mutationFn: window.lite.setGbConfig,
+		meta: { failureTitle: "Failed to save git settings" },
 	});
-};
 
-export const useDeleteAllData = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("deleteAllData"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove projects",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useDeleteAllData = () =>
+	useMutation({
+		mutationFn: window.lite.deleteAllData,
+		meta: { failureTitle: "Failed to remove projects" },
 	});
-};
-
-const useForgeAccountMutation = <Input>(
-	mutation: {
-		mutationKey: readonly [DeclaredMutation];
-		mutationFn: (input: Input) => Promise<unknown>;
-	},
-	failureTitle: string,
-) => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...mutation,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: failureTitle,
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
 
 export const useForgetGithubAccount = () =>
-	useForgeAccountMutation(apiMutation("forgetGithubAccount"), "Failed to forget account");
+	useMutation({
+		mutationFn: window.lite.forgetGithubAccount,
+		meta: { failureTitle: "Failed to forget account" },
+	});
 
 export const useForgetGitlabAccount = () =>
-	useForgeAccountMutation(apiMutation("forgetGitlabAccount"), "Failed to forget account");
+	useMutation({
+		mutationFn: window.lite.forgetGitlabAccount,
+		meta: { failureTitle: "Failed to forget account" },
+	});
 
 export const useForgetBitbucketAccount = () =>
-	useForgeAccountMutation(apiMutation("forgetBitbucketAccount"), "Failed to forget account");
+	useMutation({
+		mutationFn: window.lite.forgetBitbucketAccount,
+		meta: { failureTitle: "Failed to forget account" },
+	});
 
 export const useStoreGithubPat = () =>
-	useForgeAccountMutation(apiMutation("storeGithubPat"), "Failed to add GitHub account");
+	useMutation({
+		mutationFn: window.lite.storeGithubPat,
+		meta: { failureTitle: "Failed to add GitHub account" },
+	});
 
 export const useStoreGitlabPat = () =>
-	useForgeAccountMutation(apiMutation("storeGitlabPat"), "Failed to add GitLab account");
+	useMutation({
+		mutationFn: window.lite.storeGitlabPat,
+		meta: { failureTitle: "Failed to add GitLab account" },
+	});
 
 export const useStoreBitbucketApiToken = () =>
-	useForgeAccountMutation(apiMutation("storeBitbucketApiToken"), "Failed to add Bitbucket account");
-
-export const useDeleteProject = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("deleteProject"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove project",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+	useMutation({
+		mutationFn: window.lite.storeBitbucketApiToken,
+		meta: { failureTitle: "Failed to add Bitbucket account" },
 	});
-};
 
-export const useUpdateProjectSettings = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("updateProjectSettings"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to save project settings",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useDeleteProject = () =>
+	useMutation({
+		mutationFn: window.lite.deleteProject,
+		meta: { failureTitle: "Failed to remove project" },
 	});
-};
 
-export const useOpenInProgram = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: (input: PayloadFor<"openInProgram">) => window.lite.openInProgram(input),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to open in editor",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useUpdateProjectSettings = () =>
+	useMutation({
+		mutationFn: window.lite.updateProjectSettings,
+		meta: { failureTitle: "Failed to save project settings" },
 	});
-};
 
-export const commitAmendMutationKey = ["commitAmend"];
+export const useOpenInProgram = () =>
+	useMutation({
+		mutationFn: window.lite.openInProgram,
+		meta: { failureTitle: "Failed to open in editor" },
+	});
+
 export const useCommitAmend = () => {
 	const toastManager = Toast.useToastManager();
 	const dispatch = useAppDispatch();
 
 	return useMutation({
-		mutationKey: commitAmendMutationKey,
 		mutationFn: window.lite.commitAmend,
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(
@@ -930,17 +607,7 @@ export const useCommitAmend = () => {
 				);
 			}
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to amend commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to amend commit" },
 	});
 };
 
@@ -979,63 +646,29 @@ export const useCommitCreate = () => {
 				);
 			}
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to commit" },
 	});
 };
 
 export const useCommitDiscard = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitDiscard,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to discard commit" },
 	});
 };
 
 export const useCommitDiscardChanges = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitDiscardChanges,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard changes",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to discard changes" },
 	});
 };
 
@@ -1048,17 +681,7 @@ export const useDiscardWorktreeChanges = () => {
 			if (rejectedChanges.length > 0)
 				toastManager.add(discardChangesToastOptions({ rejectedChanges }));
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard changes",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to discard changes" },
 	});
 };
 
@@ -1145,8 +768,6 @@ export const useDiscardFileChanges = ({
 
 export const useCommitInsertBlank = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitInsertBlank,
 		onSuccess: async (response, input, _context, mutation) => {
@@ -1167,63 +788,29 @@ export const useCommitInsertBlank = () => {
 				);
 			}
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to insert commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to insert commit" },
 	});
 };
 
 export const useCommitMove = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitMove,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to move commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to move commit" },
 	});
 };
 
 export const useCommitReword = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitReword,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to reword commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to reword commit" },
 	});
 };
 
@@ -1258,84 +845,37 @@ export const useResolveCommitConflictHunks = () => {
 				});
 			}
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to resolve the conflict",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to resolve the conflict" },
 	});
 };
 
 export const useCommitUncommit = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitUncommit,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to uncommit" },
 	});
 };
 
 export const useCommitUncommitChanges = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.commitUncommitChanges,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to uncommit" },
 	});
 };
 
-export const useWorkspaceBranchAndAncestorsPush = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		...apiMutation("workspaceBranchAndAncestorsPush"),
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to push",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+export const useWorkspaceBranchAndAncestorsPush = () =>
+	useMutation({
+		mutationFn: window.lite.workspaceBranchAndAncestorsPush,
+		meta: { failureTitle: "Failed to push" },
 	});
-};
 
 export const useWorkspaceIntegrateUpstream = () => {
 	const dispatch = useAppDispatch();
@@ -1347,9 +887,6 @@ export const useWorkspaceIntegrateUpstream = () => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error, input) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
 			toastManager.add({
 				type: "error",
 				title: `Failed to update stack${pluralRules.select(input.updates.length) === "one" ? "" : "s"}`,
@@ -1362,24 +899,12 @@ export const useWorkspaceIntegrateUpstream = () => {
 
 export const useBranchRemove = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.branchRemove,
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to delete branch reference",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to delete branch reference" },
 	});
 };
 
@@ -1427,9 +952,6 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onError: (error, direction) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
 			toastManager.add({
 				type: "error",
 				title: `Failed to ${direction}`,
@@ -1442,50 +964,23 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 
 export const useTearOffBranch = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.tearOffBranch,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to tear off branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to tear off branch" },
 	});
 };
 
-export const useUnapplyStack = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
+export const useUnapplyStack = () =>
+	useMutation({
 		mutationFn: window.lite.unapplyStack,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to unapply stack",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to unapply stack" },
 	});
-};
 
 export const useBranchRename = () => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
 	return useMutation({
 		mutationFn: window.lite.branchRename,
 		onSuccess: async (response, input, _context, mutation) => {
@@ -1514,27 +1009,15 @@ export const useBranchRename = () => {
 
 			dispatch(projectSlice.actions.exitMode({ projectId: input.projectId }));
 		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rename branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to rename branch" },
 	});
 };
 
 /**
  * Save GUI settings mutation with partial keys. Settings are spread (shallow).
  */
-export const useSaveGUISettings = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
+export const useSaveGUISettings = () =>
+	useMutation({
 		scope: { id: "guiSettings" },
 		mutationFn: async (cfg: Partial<GUISettings>, ctx) => {
 			// In practice we should always have some cached data at this point.
@@ -1550,16 +1033,5 @@ export const useSaveGUISettings = () => {
 
 			return await window.lite.writeGUISettings(next);
 		},
-		onError: async (err) => {
-			// oxlint-disable-next-line no-console
-			console.error(err);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to save settings",
-				description: errorMessageForToast(err),
-				priority: "high",
-			});
-		},
+		meta: { failureTitle: "Failed to save settings" },
 	});
-};

@@ -15,10 +15,10 @@ import type { QueryClient } from "@tanstack/react-query";
  * Global queries by the tag they provide. The backend cannot know these:
  * they are what lite caches without a project scope, under keys of its own.
  */
-const globalProviders: Partial<Record<CacheTag, ReadonlyArray<QueryKey>>> = {
-	Projects: ["projects"],
-	ForgeAccounts: ["forgeAccounts"],
-};
+const globalProviders: ReadonlyArray<[CacheTag, QueryKey]> = [
+	["Projects", "projects"],
+	["ForgeAccounts", "forgeAccounts"],
+];
 
 /**
  * Every query providing each tag, with the scope its key carries.
@@ -35,17 +35,14 @@ const provide = (tag: CacheTag, query: QueryKey, projectScoped: boolean) => {
 };
 for (const query of projectQueryKeys)
 	for (const tag of apiProvides[query]) provide(tag, query, true);
-for (const [tag, queries] of Object.entries(globalProviders) as Array<
-	[CacheTag, ReadonlyArray<QueryKey>]
->)
-	for (const query of queries) provide(tag, query, false);
+for (const [tag, query] of globalProviders) provide(tag, query, false);
 
 /**
  * Drop every cache providing the given tags. Without a project id,
  * project-scoped queries are invalidated across all projects by key prefix.
  */
 export const invalidateTags = (
-	client: QueryClient,
+	client: Pick<QueryClient, "invalidateQueries">,
 	tags: ReadonlyArray<CacheTag>,
 	projectId?: string,
 ): Promise<unknown> =>
@@ -59,37 +56,34 @@ export const invalidateTags = (
 		),
 	);
 
-/** A mutation endpoint that declared what it invalidates. */
-export type DeclaredMutation = keyof typeof apiInvalidates & keyof typeof window.lite;
-
 /**
- * The mutation options binding an endpoint to its declaration: the key names
- * the endpoint, so on success the endpoint's `invalidates` tags are applied
- * by the mutation cache. Spread it, overriding `mutationFn` when the call
- * needs wrapping.
+ * The endpoint a mutation ran, recognized by the identity of its `mutationFn`.
+ * A wrapped `mutationFn` is invisible here, so an endpoint that declares
+ * `invalidates` must be passed to its mutation unwrapped.
  */
-export const apiMutation = <Endpoint extends DeclaredMutation>(endpoint: Endpoint) => ({
-	mutationKey: [endpoint] as const,
-	mutationFn: window.lite[endpoint],
-});
+export const endpointOf = (mutationFn: unknown): string | undefined => {
+	endpointByFn ??= new Map(Object.entries(window.lite).map(([name, fn]) => [fn, name]));
+	return endpointByFn.get(mutationFn);
+};
+// Built on first use: `window.lite` only exists in the renderer, not in tests.
+let endpointByFn: Map<unknown, string> | undefined;
 
-/** The declarations by endpoint name, since a mutation key arrives as `unknown`. */
+/** The declarations by endpoint name, since an endpoint arrives as `unknown`. */
 const declaredInvalidates = new Map<string, ReadonlyArray<CacheTag>>(
 	Object.entries(apiInvalidates),
 );
 
 /**
  * Apply a finished mutation's declared invalidations. Wired once into the
- * query client's mutation cache; mutations opt in by carrying their endpoint
- * as `mutationKey`, which `apiMutation` arranges.
+ * query client's mutation cache; the endpoint comes from [`endpointOf`], so
+ * any mutation whose `mutationFn` is a declared endpoint is covered.
  */
 export const invalidateDeclared = (
-	client: QueryClient,
-	mutationKey: ReadonlyArray<unknown> | undefined,
+	client: Pick<QueryClient, "invalidateQueries">,
+	endpoint: string | undefined,
 	variables: unknown,
 ): Promise<unknown> => {
-	const endpoint = mutationKey?.[0];
-	const tags = typeof endpoint === "string" ? declaredInvalidates.get(endpoint) : undefined;
+	const tags = endpoint === undefined ? undefined : declaredInvalidates.get(endpoint);
 	if (!tags) return Promise.resolve();
 	const projectId =
 		typeof variables === "object" &&

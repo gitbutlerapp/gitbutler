@@ -3,16 +3,16 @@ import { apiInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
-const declared = apiInvalidates as Record<string, ReadonlyArray<CacheTag>>;
+const declared: Record<string, ReadonlyArray<CacheTag>> = apiInvalidates;
 
 const recording = () => {
 	const invalidated: Array<ReadonlyArray<unknown>> = [];
-	const client = {
-		invalidateQueries: ({ queryKey }: { queryKey: ReadonlyArray<unknown> }) => {
-			invalidated.push(queryKey);
+	const client: Pick<QueryClient, "invalidateQueries"> = {
+		invalidateQueries: (filters) => {
+			invalidated.push(filters?.queryKey ?? []);
 			return Promise.resolve();
 		},
-	} as unknown as QueryClient;
+	};
 	return { client, invalidated };
 };
 
@@ -53,9 +53,9 @@ describe("declared mutations", () => {
 		},
 	);
 
-	it("applies a mutation's declaration from its key", async () => {
+	it("applies a mutation's declaration from its endpoint", async () => {
 		const { client, invalidated } = recording();
-		await invalidateDeclared(client, ["mergeReview"], { projectId: "p1" });
+		await invalidateDeclared(client, "mergeReview", { projectId: "p1" });
 		expect(invalidated).toEqual(
 			expect.arrayContaining([
 				["getReview", "p1"],
@@ -68,7 +68,7 @@ describe("declared mutations", () => {
 
 	it("ignores mutations that declared nothing", async () => {
 		const { client, invalidated } = recording();
-		await invalidateDeclared(client, ["commitCreate"], { projectId: "p1" });
+		await invalidateDeclared(client, "commitCreate", { projectId: "p1" });
 		await invalidateDeclared(client, undefined, { projectId: "p1" });
 		expect(invalidated).toEqual([]);
 	});

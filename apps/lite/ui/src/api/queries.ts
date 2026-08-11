@@ -2,46 +2,20 @@ import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
+import { apiProvides } from "@gitbutler/but-sdk/cache-tags";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import * as ms from "ms";
 
 /**
- * Keyed `[key, projectId, ...]`. The fixed position is what lets `handleWatcher`
- * invalidate a whole query root holding nothing but a project id.
+ * The project queries are the endpoints declaring `provides` in Rust — using a
+ * name the backend doesn't declare is a type error. Keyed `[key, projectId,
+ * ...]`; the fixed position is what lets an invalidation reach a whole query
+ * root holding nothing but a project id.
  */
-export const projectQueryKeys = [
-	"branchCannedName",
-	"branchDetails",
-	"branchDiff",
-	"branchList",
-	"changesInWorktree",
-	"commitConflicts",
-	"listCiChecks",
-	"commentsList",
-	"commitDetailsWithLineStats",
-	"forgeInfo",
-	"headInfo",
-	"currentForgeLogin",
-	"listRepoLabels",
-	"getReview",
-	"listReviewComments",
-	"listReviewSubmissions",
-	"listReviewTimelineEvents",
-	"listReviewReactions",
-	"listCommentReactions",
-	"getReviewMergeStatus",
-	"listReviewerCandidates",
-	"listReviews",
-	"getGbConfig",
-	"checkSigningSettings",
-	"treeChangeDiffs",
-	"absorptionPlan",
-	"workspaceFetchFromRemotes",
-	"workspaceFetchStatus",
-	"workspaceTargetCommits",
-] as const;
+export type ProjectQueryKey = keyof typeof apiProvides;
 
-export type ProjectQueryKey = (typeof projectQueryKeys)[number];
+// `Object.keys` erases key types; the record's keys are exactly these.
+export const projectQueryKeys = Object.keys(apiProvides) as ReadonlyArray<ProjectQueryKey>;
 
 /** Keyed without a project id, so no project event can invalidate them. */
 type GlobalQueryKey =
@@ -242,6 +216,12 @@ export const workspaceFetchQueryOptions = (
 	});
 };
 
+/**
+ * Fresh forge fetch each time; keep a gentle poll while the tab is open so
+ * changes from others appear without a manual refresh.
+ */
+const forgePoll = { staleTime: 60_000, refetchInterval: 60_000 };
+
 /** This query should be gated by PR capability lest it fail. */
 export const listReviewCommentsQueryOptions = ({
 	projectId,
@@ -250,10 +230,7 @@ export const listReviewCommentsQueryOptions = ({
 	queryOptions({
 		queryKey: ["listReviewComments", projectId, reviewId],
 		queryFn: () => window.lite.listReviewComments({ projectId, reviewId }),
-		// Fresh forge fetch each time; keep a gentle poll while the tab is open
-		// so replies from others appear without a manual refresh.
-		staleTime: 60_000,
-		refetchInterval: 60_000,
+		...forgePoll,
 	});
 
 export const gbConfigQueryOptions = (projectId: string) =>
@@ -309,9 +286,7 @@ export const listReviewSubmissionsQueryOptions = ({
 	queryOptions({
 		queryKey: ["listReviewSubmissions", projectId, reviewId],
 		queryFn: () => window.lite.listReviewSubmissions({ projectId, reviewId }),
-		// Same freshness posture as the comments: fresh fetch, gentle poll.
-		staleTime: 60_000,
-		refetchInterval: 60_000,
+		...forgePoll,
 	});
 
 /** This query should be gated by PR capability lest it fail. */
@@ -322,9 +297,7 @@ export const listReviewTimelineEventsQueryOptions = ({
 	queryOptions({
 		queryKey: ["listReviewTimelineEvents", projectId, reviewId],
 		queryFn: () => window.lite.listReviewTimelineEvents({ projectId, reviewId }),
-		// Same freshness posture as the comments: fresh fetch, gentle poll.
-		staleTime: 60_000,
-		refetchInterval: 60_000,
+		...forgePoll,
 	});
 
 /** This query should be gated by PR capability lest it fail. */
@@ -332,9 +305,7 @@ export const listReviewReactionsQueryOptions = ({ projectId, reviewId }: Payload
 	queryOptions({
 		queryKey: ["listReviewReactions", projectId, reviewId],
 		queryFn: () => window.lite.listReviewReactions({ projectId, reviewId }),
-		// Same freshness posture as the comments: fresh fetch, gentle poll.
-		staleTime: 60_000,
-		refetchInterval: 60_000,
+		...forgePoll,
 	});
 
 /**

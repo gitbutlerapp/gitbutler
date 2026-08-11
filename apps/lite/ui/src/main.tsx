@@ -1,7 +1,7 @@
 import { MutationCache, QueryClient, focusManager } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { App } from "#ui/App.tsx";
-import { invalidateDeclared } from "#ui/api/tags.ts";
+import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
 import { routeTree } from "#ui/routeTree.ts";
 import { createRoot } from "react-dom/client";
 import "./global.css";
@@ -21,10 +21,27 @@ const queryClient: QueryClient = new QueryClient({
 		},
 	},
 	// A mutation's cache effects come from its endpoint's `invalidates`
-	// declaration; per-mutation handlers keep only toasts and pushes.
+	// declaration, recognized by the `mutationFn` itself, and its failure
+	// toast from `meta.failureTitle`; per-mutation handlers keep only
+	// rollbacks, pushes, and dynamic wording.
 	mutationCache: new MutationCache({
+		// Returned on purpose: a mutation stays pending until the queries it
+		// invalidated are fresh, so success lands together with the new data.
 		onSuccess: (_data, variables, _context, mutation) =>
-			invalidateDeclared(queryClient, mutation.options.mutationKey, variables),
+			invalidateDeclared(queryClient, endpointOf(mutation.options.mutationFn), variables),
+		onError: (error, _variables, _context, mutation) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			const title = mutation.meta?.failureTitle;
+			if (title === undefined) return;
+			toastManager.add({
+				type: "error",
+				title,
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
 	}),
 });
 
