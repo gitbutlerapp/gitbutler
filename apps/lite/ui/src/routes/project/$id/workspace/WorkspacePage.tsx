@@ -32,12 +32,11 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useDeferredValue, useRef } from "react";
+import { type FC, Activity, useDeferredValue, useMemo, useRef } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
-	fileOperand,
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
@@ -70,6 +69,11 @@ import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import { useUpstreamOutline } from "./useUpstreamOutline.ts";
+import {
+	appliedSelection,
+	unappliedSelection,
+	uncommittedFileSelection,
+} from "./details-selection.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import { defaultSettings } from "#ui/settings.ts";
@@ -608,22 +612,36 @@ const WorkspacePage: FC = () => {
 	const detailsSelectionScope = useAppSelector((state) =>
 		projectSlice.selectors.selectDetailsSelectionScope(state, projectId),
 	);
-	const detailsSelection = Match.value(detailsSelectionScope).pipe(
-		Match.when("outline", () =>
-			Match.value(outlineTab).pipe(
-				Match.when("workspace", () => outlineSelection),
-				Match.when("upstream", () => upstreamSelection),
-				Match.when("branches", () => branchesSelection),
+	// Memoised because `useDeferredValue` compares by identity and React Compiler
+	// will not memoise calls to imported helpers, so a freshly built selection
+	// every render would defer every render.
+	const detailsSelection = useMemo(
+		() =>
+			Match.value(detailsSelectionScope).pipe(
+				Match.when("outline", () =>
+					Match.value(outlineTab).pipe(
+						Match.when("workspace", () => appliedSelection(outlineSelection)),
+						Match.when("upstream", () => appliedSelection(upstreamSelection)),
+						Match.when("branches", () => unappliedSelection(branchesSelection)),
+						Match.exhaustive,
+					),
+				),
+				Match.when("uncommitted-files", () =>
+					uncommittedFilesSelection === null
+						? null
+						: uncommittedFileSelection(uncommittedFilesSelection),
+				),
+				Match.when(null, () => null),
 				Match.exhaustive,
 			),
-		),
-		Match.when("uncommitted-files", () =>
-			uncommittedFilesSelection === null
-				? null
-				: fileOperand({ parent: uncommittedChangesFileParent, path: uncommittedFilesSelection }),
-		),
-		Match.when(null, () => null),
-		Match.exhaustive,
+		[
+			branchesSelection,
+			detailsSelectionScope,
+			outlineSelection,
+			outlineTab,
+			uncommittedFilesSelection,
+			upstreamSelection,
+		],
 	);
 
 	const deferredDetailsSelection = useDeferredValue(detailsSelection);
