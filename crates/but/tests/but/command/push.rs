@@ -24,16 +24,20 @@ fn repo_with_unpushed_branch() -> Sandbox {
     env
 }
 
+fn shell_quote_path(path: &std::path::Path) -> String {
+    shell_words::quote(&path.display().to_string()).into_owned()
+}
+
 fn repo_with_unpushed_single_branch() -> (Sandbox, std::path::PathBuf) {
     let env = Sandbox::open_with_default_settings("one-fork");
     env.but("config feature single-branch enable")
         .assert()
         .success();
 
-    let remote = env.app_data_dir().join("origin.git");
+    let remote = env.app_data_dir().join("origin with spaces.git");
+    let remote_arg = shell_quote_path(&remote);
     env.invoke_bash(format!(
-        "git clone -q --bare . {remote} && git remote set-url origin {remote}",
-        remote = remote.display(),
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}",
     ));
 
     env.file("unpushed.txt", "content\n");
@@ -112,7 +116,7 @@ fn pushes_an_explicit_checked_out_branch_in_single_branch_mode() {
     assert_eq!(
         env.invoke_git(&format!(
             "--git-dir={} rev-parse refs/heads/main",
-            remote.display()
+            shell_quote_path(&remote)
         )),
         local_tip,
         "explicit push should update the checked-out branch on the remote"
@@ -138,7 +142,7 @@ fn bare_push_pushes_the_checked_out_branch_in_single_branch_mode() {
     assert_eq!(
         env.invoke_git(&format!(
             "--git-dir={} rev-parse refs/heads/main",
-            remote.display()
+            shell_quote_path(&remote)
         )),
         local_tip,
         "bare push should select and update the checked-out branch"
