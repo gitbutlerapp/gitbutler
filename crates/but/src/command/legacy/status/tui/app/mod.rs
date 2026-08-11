@@ -1442,6 +1442,7 @@ impl App {
                             name: Category::LocalBranch.to_full_name(&*branch.name)?,
                         },
                     }),
+                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;
@@ -1469,6 +1470,7 @@ impl App {
                             side: Side::Above,
                         },
                     }),
+                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;

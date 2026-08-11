@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Context as _;
 use but_api::{
     WorkspaceState,
@@ -12,6 +14,7 @@ use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
+use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -121,6 +124,9 @@ pub fn commit(
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let operating_mode =
+        but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+            .operating_mode;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -131,6 +137,7 @@ pub fn commit(
         &mut meta,
         guard.write_permission(),
         commit_op,
+        should_stack_on_head(&operating_mode),
         commit_selection,
         reword_op,
     )?)
@@ -269,9 +276,12 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
+    stack_on_head: bool,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
+    let checkout_after_create =
+        stack_on_head && matches!(commit_op, CommitOperation::CommitToNewBranch(_));
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -308,7 +318,7 @@ pub fn run(
                     rejected_specs,
                 },
                 branch_name,
-            ) = commit_op.execute(&mut tx, changes)?;
+            ) = commit_op.execute(&mut tx, changes, stack_on_head)?;
 
             if !rejected_specs.is_empty() {
                 return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -323,6 +333,10 @@ pub fn run(
         },
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
+
+    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &branch_name {
+        but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
+    }
 
     Ok((
         CommitOutcome {
@@ -503,6 +517,13 @@ pub fn route_commit_operation(
     }
 }
 
+pub(crate) fn should_stack_on_head(operating_mode: &OperatingMode) -> bool {
+    matches!(
+        operating_mode,
+        OperatingMode::OutsideWorkspace(metadata) if metadata.branch_name.is_some()
+    )
+}
+
 #[derive(Debug)]
 pub enum RouteCommitOperationError {
     NoStackToCommitTo,
@@ -598,9 +619,10 @@ impl CommitOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        stack_on_head: bool,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes),
+            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, stack_on_head),
             CommitOperation::CommitAt(op) => op.execute(tx, changes),
         }
     }
@@ -615,16 +637,9 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
+        stack_on_head: bool,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let Self { branch_name } = self;
-
-        let branch_name = if let Some(branch_name) = branch_name {
-            branch_name
-        } else {
-            but_core::branch::unique_canned_refname(tx.repo())?
-        };
-
-        tx.create_reference(branch_name.as_ref(), None, |_| StackId::generate(), Some(0))?;
+        let branch_name = self.create_reference(tx, stack_on_head)?;
 
         let commit_create_result = tx.create_commit(
             RelativeTo::Reference(branch_name.clone()),
@@ -638,6 +653,44 @@ impl CommitToNewBranchOperation {
             commit_create_result,
             Some(BranchNameTarget::New(branch_name)),
         ))
+    }
+
+    pub(crate) fn create_reference(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        stack_on_head: bool,
+    ) -> anyhow::Result<FullName> {
+        let Self { branch_name } = self;
+
+        let branch_name = if let Some(branch_name) = branch_name {
+            branch_name
+        } else {
+            but_core::branch::unique_canned_refname(tx.repo())?
+        };
+
+        let anchor = stack_on_head
+            .then(|| -> anyhow::Result<_> {
+                let head_name = tx
+                    .repo()
+                    .head()?
+                    .referent_name()
+                    .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+                    .context("single-branch commit requires HEAD to be a local branch")?
+                    .to_owned();
+                Ok(Anchor::AtReference {
+                    ref_name: Cow::Owned(head_name),
+                    position: but_workspace::branch::create_reference::Position::Above,
+                })
+            })
+            .transpose()?;
+        tx.create_reference(
+            branch_name.as_ref(),
+            anchor,
+            |_| StackId::generate(),
+            Some(0),
+        )?;
+
+        Ok(branch_name)
     }
 }
 

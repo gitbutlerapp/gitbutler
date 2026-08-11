@@ -164,6 +164,43 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 }
 
 #[test]
+fn commit_from_unstaged_changes_to_new_branch_checks_out_branch_in_single_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("checkout A");
+
+    env.file(
+        "editor.sh",
+        format!("printf '{TEST_EDITOR_MESSAGE}\\n' > \"$1\"\n"),
+    );
+    let editor_path = env.projects_root().join("editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let mut tui = test_status_tui(env);
+
+    tui.env().file("test.txt", "content");
+    tui.reload();
+    tui.input('c');
+
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input('b').assert_rendered_term_svg_eq(file![
+            "snapshots/commit_from_unstaged_changes_to_new_branch_checks_out_branch_in_single_branch_mode_final.svg"
+        ]);
+    });
+
+    assert_eq!(
+        tui.env().invoke_git("symbolic-ref --short HEAD"),
+        "c-branch-1",
+        "creating a branch from the TUI should check it out in single-branch mode"
+    );
+    assert_eq!(
+        tui.env().invoke_git("log -1 --format=%s"),
+        TEST_EDITOR_MESSAGE,
+        "the checked-out branch should contain the TUI commit"
+    );
+}
+
+#[test]
 fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
