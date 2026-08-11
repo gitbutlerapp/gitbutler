@@ -269,6 +269,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -350,6 +351,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -435,6 +437,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -548,6 +551,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -747,6 +751,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -862,6 +867,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -973,6 +979,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(4),
     ),
@@ -1071,6 +1078,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -1180,6 +1188,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -1270,6 +1279,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -1377,6 +1387,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -1524,6 +1535,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -1699,6 +1711,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -1857,6 +1870,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -1977,6 +1991,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2074,6 +2089,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2190,6 +2206,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2289,6 +2306,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2413,6 +2431,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2521,6 +2540,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2635,6 +2655,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2646,6 +2667,45 @@ RefInfo {
 
 "#]]
         .raw()
+    );
+    Ok(())
+}
+
+#[test]
+fn target_current_follows_the_recording_not_workspace_content() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+
+    // The tip of `origin/main` already sits inside stack `A`, so `commits_ahead`
+    // is 0 — but the stored target still trails the ref, so an update has work to do.
+    let info = ref_info(repo.find_reference("A")?, &meta, standard_options())?;
+    assert_eq!(
+        info.target_ref.as_ref().map(|tr| tr.commits_ahead),
+        Some(0),
+        "every upstream commit is already contained in a workspace stack"
+    );
+    assert!(
+        !info.is_target_current,
+        "the recording trails the ref, so an update has work to do"
+    );
+
+    // With the stored target at the ref's tip there is nothing to update, even
+    // though the graph drops this target commit (it is not first in its segment).
+    let mut opts = standard_options();
+    opts.project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(
+            repo.find_reference("refs/remotes/origin/main")?
+                .peel_to_id()?
+                .detach(),
+        ),
+        push_remote: None,
+    };
+    let info = ref_info(repo.find_reference("A")?, &meta, opts)?;
+    assert!(
+        info.is_target_current,
+        "the recording is where the ref points, nothing to update"
     );
     Ok(())
 }
@@ -2751,6 +2811,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -2868,6 +2929,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -2971,6 +3033,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -3093,6 +3156,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -3194,6 +3258,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -3290,6 +3355,7 @@ RefInfo {
             segment_index: NodeIndex(0),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(0),
     ),
@@ -3392,6 +3458,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: false,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -3482,6 +3549,7 @@ RefInfo {
             segment_index: NodeIndex(1),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(0),
     ),
@@ -3635,6 +3703,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -3765,6 +3834,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -3895,6 +3965,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -4026,6 +4097,7 @@ RefInfo {
             segment_index: NodeIndex(3),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(3),
     ),
@@ -4118,6 +4190,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -4193,6 +4266,7 @@ RefInfo {
             segment_index: NodeIndex(0),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(0),
     ),
@@ -4249,6 +4323,7 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(2),
     ),
@@ -4318,6 +4393,7 @@ RefInfo {
             segment_index: NodeIndex(0),
         },
     ),
+    is_target_current: true,
     lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,

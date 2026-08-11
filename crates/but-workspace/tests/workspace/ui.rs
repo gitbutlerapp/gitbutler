@@ -341,7 +341,8 @@ TreeChanges {
       "displayName": "main",
       "remoteName": "origin"
     },
-    "commitsAhead": 0
+    "commitsAhead": 0,
+    "isCurrent": true
   },
   "isManagedRef": true,
   "isManagedCommit": true,
@@ -528,7 +529,8 @@ TreeChanges {
       "displayName": "main",
       "remoteName": "origin"
     },
-    "commitsAhead": 0
+    "commitsAhead": 0,
+    "isCurrent": true
   },
   "isManagedRef": true,
   "isManagedCommit": true,
@@ -618,7 +620,8 @@ TreeChanges {
       "displayName": "main",
       "remoteName": "origin"
     },
-    "commitsAhead": 0
+    "commitsAhead": 0,
+    "isCurrent": true
   },
   "isManagedRef": true,
   "isManagedCommit": true,

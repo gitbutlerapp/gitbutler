@@ -202,6 +202,7 @@ RefInfo {
             segment_index: NodeIndex(1),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(1),
     ),
@@ -338,6 +339,7 @@ RefInfo {
             segment_index: NodeIndex(0),
         },
     ),
+    is_target_current: true,
     lower_bound: Some(
         NodeIndex(0),
     ),

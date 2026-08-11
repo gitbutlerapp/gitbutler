@@ -100,6 +100,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -205,6 +206,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -312,6 +314,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -426,6 +429,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -527,6 +531,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -638,6 +643,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -741,6 +747,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -846,6 +853,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(3),
         ),

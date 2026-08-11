@@ -569,6 +569,14 @@ pub fn graph_to_ref_info(
         WorkspaceKind::AdHoc => (graph[*id].ref_info.as_ref(), false, None),
     };
     let is_entrypoint = graph.entrypoint()?.segment.id == *id;
+    // Ask the repo where the ref points and compare the stored id itself: the graph
+    // may drop `target_commit` and may leave the ref's own segment without commits.
+    let is_target_current = match (target_ref, graph.project_meta.target_commit_id) {
+        (Some(tr), Some(stored)) => repo
+            .try_find_reference(tr.ref_name.as_ref())?
+            .is_some_and(|mut r| r.peel_to_id().is_ok_and(|id| id == stored)),
+        _ => false,
+    };
     let mut info = RefInfo {
         workspace_ref_info: workspace_ref_info.cloned(),
         symbolic_remote_names: repo.remote_names().into_iter().collect(),
@@ -579,6 +587,7 @@ pub fn graph_to_ref_info(
             .collect::<anyhow::Result<_>>()?,
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
+        is_target_current,
         is_managed_ref: metadata.is_some(),
         is_managed_commit,
         ancestor_workspace_commit,
