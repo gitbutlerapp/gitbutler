@@ -212,7 +212,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			callback: focusPaneLeft,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusHorizontalSelectionScopeLeft.meta,
 			},
 		},
 		{
@@ -227,7 +226,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			callback: focusPaneRight,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusHorizontalSelectionScopeRight.meta,
 			},
 		},
 		{

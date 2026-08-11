@@ -59,6 +59,7 @@ import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -932,6 +933,7 @@ export const OutlineTree: FC<
 					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
 						<SectionHeaderRow
 							label="Stacks and branches"
+							childrenBefore={<SelectionScopeKbd hotkey="2" scope="outline" />}
 							className={styles.stacksHeader}
 							actions={stacksHeaderActions}
 						/>

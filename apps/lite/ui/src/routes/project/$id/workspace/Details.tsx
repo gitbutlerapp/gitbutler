@@ -40,6 +40,7 @@ import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -1577,6 +1578,7 @@ const CommitDetailsSkeleton: FC = () => {
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
+						<SelectionScopeKbd hotkey="0" scope="details" />
 						<Icon name="commit" />
 						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
 					</div>
@@ -1660,6 +1662,7 @@ const CommitDetails: FC<{
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
+						<SelectionScopeKbd hotkey="0" scope="details" />
 						<Icon name="commit" />
 						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
 							<span className={styles.titleContent}>
@@ -1862,6 +1865,7 @@ const BranchDetails: FC<{
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
+						<SelectionScopeKbd hotkey="0" scope="details" />
 						<Icon name="branch" />
 						<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
 					</div>
@@ -2017,6 +2021,7 @@ const FileDetailsSkeleton: FC = () => {
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
+						<SelectionScopeKbd hotkey="0" scope="details" />
 						<Icon name="file" />
 						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
@@ -2059,6 +2064,7 @@ const FileDetails: FC<{
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
+				<SelectionScopeKbd hotkey="0" scope="details" />
 				<Icon name="file-diff" />
 				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 			</div>

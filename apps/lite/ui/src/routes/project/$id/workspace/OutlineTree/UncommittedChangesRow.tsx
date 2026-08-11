@@ -1,5 +1,6 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	nativeMenuItem,
@@ -90,6 +91,7 @@ export const UncommittedChangesRow: FC<{
 	return (
 		<SectionHeaderRow
 			label="Uncommitted"
+			childrenBefore={<SelectionScopeKbd hotkey="1" scope="uncommitted-files" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

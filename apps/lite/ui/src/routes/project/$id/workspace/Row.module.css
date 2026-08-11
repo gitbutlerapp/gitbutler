@@ -202,6 +202,7 @@
 	display: flex;
 	column-gap: 8px;
 	flex-grow: 1;
+	align-items: center;
 	min-width: 0;
 	margin-right: 2px;
 	padding-block: var(--single-line-row-label-padding-block);
