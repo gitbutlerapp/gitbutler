@@ -743,6 +743,8 @@ jobs:
     permissions:
       contents: read
     env:
+      BUT: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/debug/but
+      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
