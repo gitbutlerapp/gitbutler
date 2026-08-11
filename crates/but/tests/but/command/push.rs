@@ -24,6 +24,71 @@ fn repo_with_unpushed_branch() -> Sandbox {
     env
 }
 
+fn shell_quote_path(path: &std::path::Path) -> String {
+    shell_words::quote(&path.display().to_string()).into_owned()
+}
+
+fn repo_with_unpushed_single_branch() -> (Sandbox, std::path::PathBuf) {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+
+    let remote = env.app_data_dir().join("origin with spaces.git");
+    let remote_arg = shell_quote_path(&remote);
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}",
+    ));
+
+    env.file("unpushed.txt", "content\n");
+    env.but("commit -m 'unpushed work'").assert().success();
+
+    (env, remote)
+}
+
+fn assert_single_branch_status_before_push(env: &Sandbox) {
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ma [main]
+┊●   1 unpushed work
+┊●   nmy M (no changes)
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+fn assert_single_branch_status_after_push(env: &Sandbox) {
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] (merged upstream)
+┊●   1 unpushed work
+┊●   nmy M (no changes)
+┊●   ply add init
+├╯
+┊
+┊● d50ec84 (upstream: origin/main) 2 new commits
+├╯ e31e6ca (common base) 2000-01-02 add init
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+}
+
 fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
     let remote_base = env.invoke_git("rev-parse refs/heads/branchB^");
     let other = env.app_data_dir().join("other.git");
@@ -37,6 +102,58 @@ fn configure_other_tracking_remote(env: &Sandbox) -> std::path::PathBuf {
         other = other.display(),
     ));
     other
+}
+
+#[test]
+fn pushes_an_explicit_checked_out_branch_in_single_branch_mode() {
+    let (env, remote) = repo_with_unpushed_single_branch();
+    let local_tip = env.invoke_git("rev-parse main");
+    assert_single_branch_status_before_push(&env);
+
+    env.but("push main").assert().success();
+    assert_single_branch_status_after_push(&env);
+
+    assert_eq!(
+        env.invoke_git(&format!(
+            "--git-dir={} rev-parse refs/heads/main",
+            shell_quote_path(&remote)
+        )),
+        local_tip,
+        "explicit push should update the checked-out branch on the remote"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "pushing must not create a managed workspace"
+    );
+}
+
+#[test]
+fn bare_push_pushes_the_checked_out_branch_in_single_branch_mode() {
+    let (env, remote) = repo_with_unpushed_single_branch();
+    let local_tip = env.invoke_git("rev-parse main");
+    assert_single_branch_status_before_push(&env);
+
+    env.but("push").assert().success();
+    assert_single_branch_status_after_push(&env);
+
+    assert_eq!(
+        env.invoke_git(&format!(
+            "--git-dir={} rev-parse refs/heads/main",
+            shell_quote_path(&remote)
+        )),
+        local_tip,
+        "bare push should select and update the checked-out branch"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "pushing must not create a managed workspace"
+    );
 }
 
 /// An unreachable remote that is not the target's must not block a dry-run push:
