@@ -1,11 +1,16 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { Scroller } from "#ui/components/Scroller.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
-import { useOpenInProgram, useSaveGUISettings } from "#ui/api/mutations.ts";
+import {
+	useOpenInProgram,
+	useResolveCommitConflictHunks,
+	useSaveGUISettings,
+} from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
+	commitConflictsQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	forgeInfoOptions,
 	guiSettingsQueryOptions,
@@ -48,7 +53,13 @@ import {
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
-import type { CommitDetails, TreeChange } from "@gitbutler/but-sdk";
+import type {
+	CommitDetails,
+	ConflictedFile,
+	ManualConflict,
+	ResolutionSpec,
+	TreeChange,
+} from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
@@ -124,6 +135,8 @@ import type { DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
+import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
+import { ConflictCard } from "#ui/routes/project/$id/workspace/ConflictCard.tsx";
 import {
 	annotationSideToDiffSide,
 	annotationsByPathForScope,
@@ -150,21 +163,33 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 type PanelId = "files-panel" | "diff-panel";
 
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
+const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
+const EMPTY_MANUAL: Array<ManualConflict> = [];
 
 const getCommitFileRowItems = ({
 	commitDetails,
+	manual = EMPTY_MANUAL,
 }: {
 	commitDetails: CommitDetails;
+	/**
+	 * Conflicted files the resolve API cannot address. They have no diff to
+	 * show, which is exactly what a conflict row is — so they keep the commit
+	 * visibly conflicted while pointing at the files that need edit mode.
+	 */
+	manual?: Array<ManualConflict>;
 }): Array<FileRowItem> => {
-	const conflictedPaths = commitDetails.conflictEntries
-		? globalThis.Array.from(
-				new Set([
-					...commitDetails.conflictEntries.ancestorEntries,
-					...commitDetails.conflictEntries.ourEntries,
-					...commitDetails.conflictEntries.theirEntries,
-				]),
-			).toSorted((a, b) => a.localeCompare(b))
-		: [];
+	const conflictedPaths = globalThis.Array.from(
+		new Set([
+			...(commitDetails.conflictEntries
+				? [
+						...commitDetails.conflictEntries.ancestorEntries,
+						...commitDetails.conflictEntries.ourEntries,
+						...commitDetails.conflictEntries.theirEntries,
+					]
+				: []),
+			...manual.map((file) => file.path),
+		]),
+	).toSorted((a, b) => a.localeCompare(b));
 	const conflictedPathSet = new Set(conflictedPaths);
 
 	return [
@@ -208,7 +233,7 @@ const withAnnotations = (
 		// Annotations move when their backend anchor drifts, so the version must cover their
 		// positions and identities, not just their count.
 		const annoHash = hash(
-			annotations.map((a) => `${a.metadata.id}:${a.side}:${a.lineNumber}`).join(),
+			persistedAnnotations.map((a) => `${a.id}:${a.side}:${a.lineNumber}`).join(),
 		);
 
 		const version = item.version;
@@ -222,6 +247,52 @@ const withAnnotations = (
 	}),
 });
 
+/**
+ * Anchor each unresolved conflict at the line its region starts, on the added
+ * side — the intended result — so the card renders directly under it.
+ */
+const withConflictAnnotations = (
+	diffView: DiffView,
+	conflicts: Array<ConflictedFile>,
+): DiffView => {
+	if (conflicts.length === 0) return diffView;
+	const byPath = new Map(conflicts.map((file) => [file.path, file]));
+
+	return {
+		...diffView,
+		items: diffView.items.map((item) => {
+			const file = diffView.fileByItemId.get(item.id);
+			if (!file) throw new Error("Diff view file not found by ID");
+
+			const conflicted = byPath.get(file.operand.path);
+			if (!conflicted || conflicted.hunks.length === 0) return item;
+
+			const annotations: Array<DiffLineAnnotation<Annotation>> = conflicted.hunks.map(
+				(conflict, index) => ({
+					lineNumber: conflict.line,
+					side: "additions",
+					metadata: { _tag: "conflict", path: conflicted.path, hunk: index + 1 },
+				}),
+			);
+
+			// Resolving rewrites the commit, so the conflicts that remain shift.
+			// The version must cover their positions, not just their count.
+			const conflictsHash = hash(
+				conflicted.hunks.map((conflict, index) => `${index + 1}:${conflict.line}`).join(),
+			);
+
+			const version = item.version;
+			if (version === undefined) throw new Error("Diff view item missing base version");
+
+			return {
+				...item,
+				version: combineHashes(version, conflictsHash),
+				annotations: [...(item.annotations ?? []), ...annotations],
+			};
+		}),
+	};
+};
+
 const DiffContents: FC<{
 	localAnnotationFormId: string;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
@@ -230,6 +301,11 @@ const DiffContents: FC<{
 	projectId: string;
 	diffView: DiffView;
 	annotationsByPath: LocalAnnotationsByPath;
+	/** The selected commit's unresolved conflicts, keyed by path. */
+	conflicts: Array<ConflictedFile>;
+	/** Owned by the parent so the batch bar and the cards share one pending state. */
+	onResolveConflict: (specs: Array<ResolutionSpec>) => void;
+	resolvingConflict: boolean;
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
@@ -243,6 +319,9 @@ const DiffContents: FC<{
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByItemId },
 	annotationsByPath,
+	conflicts,
+	onResolveConflict,
+	resolvingConflict,
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
@@ -254,6 +333,7 @@ const DiffContents: FC<{
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
 	const { mutate: createComment } = useCommentCreate();
+	const conflictsByPath = new Map(conflicts.map((file) => [file.path, file]));
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: settings } = useQuery({
 		...guiSettingsQueryOptions,
@@ -265,8 +345,18 @@ const DiffContents: FC<{
 			diffTabSize: cfg.diffTabSize,
 			lineDiffType: cfg.lineDiffType,
 			theme: cfg.theme,
+			syntaxHighlighting: cfg.syntaxHighlighting,
 		}),
 	});
+	// The concrete shiki theme the diff is already rendering with, so the
+	// card's base snippet is highlighted the same way as the code around it.
+	const themeType = settings?.theme ?? defaultSettings.theme;
+	const prefersDark =
+		themeType === "dark" ||
+		(themeType === "system" && globalThis.matchMedia("(prefers-color-scheme: dark)").matches);
+	const codeTheme = prefersDark
+		? (settings?.syntaxHighlighting?.dark ?? defaultSettings.syntaxHighlighting.dark)
+		: (settings?.syntaxHighlighting?.light ?? defaultSettings.syntaxHighlighting.light);
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const store = useAppStore();
@@ -595,13 +685,40 @@ const DiffContents: FC<{
 				);
 			}}
 			renderAnnotation={(anno, item) => {
-				if (!isDiffAnnotation(anno)) throw new Error("Only diff items may be rendered");
+				// Pinned: inference picks one member of the Annotation union and
+				// narrows `metadata` to it, hiding the conflict variant below.
+				if (!isDiffAnnotation<Annotation>(anno)) throw new Error("Only diff items may be rendered");
 
 				const file = fileByItemId.get(item.id);
 				if (!file) return null;
 
+				if (anno.metadata._tag === "conflict") {
+					const { path, hunk } = anno.metadata;
+					const conflicted = conflictsByPath.get(path);
+					const conflict = conflicted?.hunks[hunk - 1];
+					// Each apply rewrites the commit, so a card can briefly
+					// outlive the conflict it was rendered for.
+					if (!conflict || fileParent._tag !== "Commit") return null;
+
+					return (
+						<ConflictCard
+							projectId={projectId}
+							commitId={fileParent.commitId}
+							codeTheme={codeTheme}
+							path={path}
+							hunk={hunk}
+							conflict={conflict}
+							busy={resolvingConflict}
+							onResolve={(path, hunk, resolution) =>
+								onResolveConflict([{ path, hunk, resolution }])
+							}
+						/>
+					);
+				}
+
 				const annotations = annotationsByPath.get(file.operand.path) ?? [];
-				const annotation = annotations.find(({ id }) => id === anno.metadata.id);
+				const annotationId = anno.metadata.id;
+				const annotation = annotations.find(({ id }) => id === annotationId);
 				if (!annotation) return null;
 
 				return (
@@ -934,6 +1051,10 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileRowItem>;
+	/** The selected commit's unresolved conflicts, if it has any. */
+	conflicts?: Array<ConflictedFile>;
+	/** Its conflicted files that can only be resolved in edit mode. */
+	manualConflicts?: Array<ManualConflict>;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	onPassiveFileSelection: (selection: string) => void;
 	selection: Operand;
@@ -945,6 +1066,8 @@ const Diff: FC<{
 	changes: unsortedChanges,
 	filesVisible,
 	filesItems,
+	conflicts = EMPTY_CONFLICTS,
+	manualConflicts = EMPTY_MANUAL,
 	onPassiveFileSelection,
 	selection,
 	projectId,
@@ -956,6 +1079,10 @@ const Diff: FC<{
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const dispatch = useAppDispatch();
+	// One mutation for the batch bar and every card, so `isPending` means "a
+	// resolution is in flight" rather than "this one's is". Each apply rewrites
+	// the commit, and a second started meanwhile would address the id it replaced.
+	const { mutate: resolveConflict, isPending: resolvingConflict } = useResolveCommitConflictHunks();
 	const changes = useMemo(
 		() => unsortedChanges.toSorted((a, b) => compareFilePaths(a.path, b.path)),
 		[unsortedChanges],
@@ -1057,7 +1184,10 @@ const Diff: FC<{
 		[fileParent, shownFileIndex, changes, treeChangeDiffs],
 	);
 
-	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
+	const diffView = withConflictAnnotations(
+		withAnnotations(diffViewSansAnno, annotationsByPath),
+		conflicts,
+	);
 
 	// The diff panel resolves this selection for the viewer; the ruler wants it in
 	// file line numbers, which is what the hunk's own range already holds.
@@ -1332,37 +1462,61 @@ const Diff: FC<{
 						</Toolbar.Root>
 					</div>
 
-					<div
-						data-selection-scope={"diff" satisfies SelectionScope}
-						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-						tabIndex={0}
-						className={styles.diffContentsContainer}
-						ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
-					>
-						<DiffContents
-							localAnnotationFormId={localAnnotationFormId}
-							onViewerFileSelection={onPassiveFileSelection}
-							fileParent={fileParent}
-							projectId={projectId}
-							diffView={diffView}
-							annotationsByPath={annotationsByPath}
-							diffBackgrounds={diffSettings?.diffBackground}
-							diffOverflow={diffSettings?.diffOverflow}
-							diffStyle={diffStyle}
-							selectionScopeRef={selectionScopeRef}
-							viewerRef={viewerRef}
-							didScrollToViaFileRef={didScrollToViaFileRef}
-						/>
-
-						{minimapShown && (
-							<DiffMinimap
-								viewerRef={viewerRef}
-								files={minimapFiles}
-								diffStyle={diffStyle}
-								annotationsByPath={annotationsByPath}
-								selection={minimapSelection}
+					{/* One panel child, so `.panel`'s two-row grid still sizes the
+					    diff: the bar is an auto row inside this, not a third row
+					    that would take the diff's. */}
+					<div className={styles.diffArea}>
+						{fileParent._tag === "Commit" && (
+							<ConflictBar
+								projectId={projectId}
+								commitId={fileParent.commitId}
+								conflicts={conflicts}
+								manual={manualConflicts}
+								busy={resolvingConflict}
+								onResolve={(specs) =>
+									resolveConflict({ projectId, commitId: fileParent.commitId, specs })
+								}
 							/>
 						)}
+
+						<div
+							data-selection-scope={"diff" satisfies SelectionScope}
+							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+							tabIndex={0}
+							className={styles.diffContentsContainer}
+							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
+						>
+							<DiffContents
+								localAnnotationFormId={localAnnotationFormId}
+								onViewerFileSelection={onPassiveFileSelection}
+								fileParent={fileParent}
+								projectId={projectId}
+								diffView={diffView}
+								annotationsByPath={annotationsByPath}
+								conflicts={conflicts}
+								onResolveConflict={(specs) =>
+									fileParent._tag === "Commit" &&
+									resolveConflict({ projectId, commitId: fileParent.commitId, specs })
+								}
+								resolvingConflict={resolvingConflict}
+								diffBackgrounds={diffSettings?.diffBackground}
+								diffOverflow={diffSettings?.diffOverflow}
+								diffStyle={diffStyle}
+								selectionScopeRef={selectionScopeRef}
+								viewerRef={viewerRef}
+								didScrollToViaFileRef={didScrollToViaFileRef}
+							/>
+
+							{minimapShown && (
+								<DiffMinimap
+									viewerRef={viewerRef}
+									files={minimapFiles}
+									diffStyle={diffStyle}
+									annotationsByPath={annotationsByPath}
+									selection={minimapSelection}
+								/>
+							)}
+						</div>
 					</div>
 				</Panel>
 			</Group>
@@ -1453,6 +1607,35 @@ const CommitDetails: FC<{
 
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: selection.commitId }),
+	);
+
+	const { data: conflicts } = useQuery(
+		commitConflictsQueryOptions({
+			projectId,
+			commitId: selection.commitId,
+			enabled: commitDetails.commit.hasConflicts,
+		}),
+	);
+
+	// The commit's real changes diff against its auto-resolution, which falls
+	// back to the parent wherever the merge conflicted — a fully conflicted
+	// file diffs to nothing and is absent here. Append the parent → intended
+	// change the backend synthesises for exactly those files.
+	//
+	// Both arrays are memoised because their identity is load-bearing downstream:
+	// `filesRows` is keyed on `filesItems`, and `getDiffView` re-runs on a fresh
+	// `changes`.
+	const changes = useMemo(() => {
+		const swallowed = conflicts?.files.filter(
+			(file) => !commitDetails.changes.some((change) => change.path === file.path),
+		);
+		if (swallowed === undefined || swallowed.length === 0) return commitDetails.changes;
+		return [...commitDetails.changes, ...swallowed.map((file) => file.change)];
+	}, [commitDetails.changes, conflicts]);
+
+	const filesItems = useMemo(
+		() => getCommitFileRowItems({ commitDetails, manual: conflicts?.manual }),
+		[commitDetails, conflicts],
 	);
 
 	const fmtDate = new Intl.DateTimeFormat(undefined, {
@@ -1556,9 +1739,11 @@ const CommitDetails: FC<{
 			</div>
 
 			<Diff
-				changes={commitDetails.changes}
+				changes={changes}
 				filesVisible={filesVisible}
-				filesItems={getCommitFileRowItems({ commitDetails })}
+				filesItems={filesItems}
+				conflicts={conflicts?.files}
+				manualConflicts={conflicts?.manual}
 				onPassiveFileSelection={selectFile}
 				selection={selection}
 				projectId={projectId}

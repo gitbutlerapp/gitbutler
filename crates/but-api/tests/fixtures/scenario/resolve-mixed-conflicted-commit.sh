@@ -3,7 +3,7 @@
 set -eu -o pipefail
 
 git init
-echo "A workspace whose stack contains a conflicted commit with a descendant" >.git/description
+echo "A conflicted commit mixing a hunk-addressable conflict with a binary one" >.git/description
 
 git config user.name GitButler
 git config user.email gitbutler@example.com
@@ -31,10 +31,17 @@ unrelated_blob=$(git rev-parse HEAD:file)
 base_blob=$(printf "line one\nline two\nline three\nline four\nline five\nline six\nline seven\n" | git hash-object -wt blob --stdin)
 ours_blob=$(printf "line one\nline two changed by the new base\nline three\nline four\nline five\nline six changed by the new base\nline seven\n" | git hash-object -wt blob --stdin)
 theirs_blob=$(printf "line one\nline two changed by this commit\nline three\nline four\nline five\nline six changed by this commit\nline seven\n" | git hash-object -wt blob --stdin)
+# A binary file conflicting on both sides too. It has no marker representation,
+# so it can only ever be resolved in edit mode — the point of the fixture is
+# that its presence must not hide the text conflicts above.
+base_bin=$(printf 'bin\xff\xfe base\n' | git hash-object -wt blob --stdin)
+ours_bin=$(printf 'bin\xff\xfe ours\n' | git hash-object -wt blob --stdin)
+theirs_bin=$(printf 'bin\xff\xfe theirs\n' | git hash-object -wt blob --stdin)
+
 conflict_files_blob=$(git hash-object -wt blob --stdin <<EOF
-ancestorEntries = [ "conflict" ]
-ourEntries = [ "conflict" ]
-theirEntries = [ "conflict" ]
+ancestorEntries = [ "conflict", "binary" ]
+ourEntries = [ "conflict", "binary" ]
+theirEntries = [ "conflict", "binary" ]
 EOF
 )
 
@@ -43,19 +50,24 @@ EOF
 git read-tree --empty
 git update-index --add --cacheinfo 100644 "$unrelated_blob" "file"
 git update-index --add --cacheinfo 100644 "$ours_blob" "conflict"
+git update-index --add --cacheinfo 100644 "$ours_bin" "binary"
 new_base_tree=$(git write-tree)
 new_base_commit=$(git commit-tree "$new_base_tree" -p "$(git rev-parse HEAD)" -m "new base")
 
 git read-tree --empty
 git update-index --add --cacheinfo 100644 "$unrelated_blob" ".auto-resolution/file"
 git update-index --add --cacheinfo 100644 "$ours_blob" ".auto-resolution/conflict"
+git update-index --add --cacheinfo 100644 "$ours_bin" ".auto-resolution/binary"
 git update-index --add --cacheinfo 100644 "$unrelated_blob" ".conflict-base-0/file"
 git update-index --add --cacheinfo 100644 "$base_blob" ".conflict-base-0/conflict"
+git update-index --add --cacheinfo 100644 "$base_bin" ".conflict-base-0/binary"
 git update-index --add --cacheinfo 100644 "$conflict_files_blob" ".conflict-files"
 git update-index --add --cacheinfo 100644 "$unrelated_blob" ".conflict-side-0/file"
 git update-index --add --cacheinfo 100644 "$ours_blob" ".conflict-side-0/conflict"
+git update-index --add --cacheinfo 100644 "$ours_bin" ".conflict-side-0/binary"
 git update-index --add --cacheinfo 100644 "$unrelated_blob" ".conflict-side-1/file"
 git update-index --add --cacheinfo 100644 "$theirs_blob" ".conflict-side-1/conflict"
+git update-index --add --cacheinfo 100644 "$theirs_bin" ".conflict-side-1/binary"
 conflict_tree=$(git write-tree)
 
 conflict_commit=$(git hash-object -wt commit --stdin <<EOF
@@ -81,6 +93,7 @@ later_blob=$(printf "descendant\n" | git hash-object -wt blob --stdin)
 git read-tree --empty
 git update-index --add --cacheinfo 100644 "$unrelated_blob" "file"
 git update-index --add --cacheinfo 100644 "$ours_blob" "conflict"
+git update-index --add --cacheinfo 100644 "$ours_bin" "binary"
 git update-index --add --cacheinfo 100644 "$later_blob" "later"
 descendant_tree=$(git write-tree)
 descendant_commit=$(git commit-tree "$descendant_tree" -p "$conflict_commit" -m "descendant")

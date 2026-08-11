@@ -63,8 +63,19 @@ type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" }>;
 
 export type BranchTab = "diff" | "pr";
 
+/**
+ * A conflict checked for a batch resolution. Keyed by commit as well as
+ * position: resolving rewrites the commit and renumbers the hunks that remain,
+ * so checks must never carry across an apply.
+ */
+type CheckedConflict = { commitId: string; path: string; hunk: number };
+
+const conflictCheckKey = ({ commitId, path, hunk }: CheckedConflict): string =>
+	`${commitId}\u0000${path}\u0000${hunk}`;
+
 type WorkspaceState = {
 	checkedOperands: Record<string, CheckableOperand>;
+	checkedConflicts: Record<string, CheckedConflict>;
 	detailsSelectionScope: DetailsSelectionScope | null;
 	/**
 	 * Branch segments whose commits are hidden, keyed by full ref name.
@@ -109,6 +120,7 @@ const createInitialSelectionState = (): SelectionState => ({
 
 const createInitialWorkspaceState = (): WorkspaceState => ({
 	checkedOperands: {},
+	checkedConflicts: {},
 	detailsSelectionScope: null,
 	foldedSegments: {},
 	highlightedCommitIds: [],
@@ -386,6 +398,18 @@ export const projectReducers = {
 	clearCheckedOperands: (state: ProjectState) => {
 		state.workspace.checkedOperands = {};
 	},
+	checkConflict: (
+		state: ProjectState,
+		{ conflict, checked }: { conflict: CheckedConflict; checked: boolean },
+	) => {
+		const key = conflictCheckKey(conflict);
+		if (checked) state.workspace.checkedConflicts[key] = conflict;
+		else delete state.workspace.checkedConflicts[key];
+	},
+	clearCheckedConflicts: (state: ProjectState) => {
+		if (Object.keys(state.workspace.checkedConflicts).length === 0) return;
+		state.workspace.checkedConflicts = {};
+	},
 	updateRewrittenCommitReferences: (
 		state: ProjectState,
 		{ replacedCommits }: { replacedCommits: Record<string, string> },
@@ -520,6 +544,14 @@ const selectCheckedOperands = createSelector(
 	(checkedOperands): Array<CheckableOperand> => Object.values(checkedOperands),
 );
 
+/** The checks belonging to `commitId`, so a different commit reads as none. */
+const selectCheckedConflictsFor = createSelector(
+	(state: ProjectState) => state.workspace.checkedConflicts,
+	(_state: ProjectState, commitId: string) => commitId,
+	(checkedConflicts, commitId): Array<CheckedConflict> =>
+		Object.values(checkedConflicts).filter((conflict) => conflict.commitId === commitId),
+);
+
 const selectCheckedOperandKeys = createSelector(
 	(state: ProjectState) => state.workspace.checkedOperands,
 	(checkedOperands): Set<string> => new Set(Object.keys(checkedOperands)),
@@ -614,6 +646,10 @@ export const projectSelectors = {
 			state.workspace.selection.uncommittedFiles,
 			(path) => path,
 		),
+	/** A primitive, so checking one conflict re-renders one card. */
+	selectIsConflictChecked: (state: ProjectState, conflict: CheckedConflict): boolean =>
+		conflictCheckKey(conflict) in state.workspace.checkedConflicts,
+	selectCheckedConflicts: selectCheckedConflictsFor,
 	selectIsSelectedOutline: (
 		state: ProjectState,
 		navigationIndex: NavigationIndex<Operand>,

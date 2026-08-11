@@ -86,7 +86,7 @@ pub struct FileResolution {
         description = "An ordered array with one entry per conflict in the file, matching the 'Conflict 1 of N', 'Conflict 2 of N' order from the input."
     )]
     /// The per-conflict resolutions, in input order.
-    pub hunks: Vec<HunkResolution>,
+    pub hunks: Vec<HunkContent>,
     #[schemars(
         description = "Terse, direct prose — enough detail to verify the decision, not a wall of text. State what each side did in this file, what you kept, and any trade-off. Typically 1-4 sentences."
     )]
@@ -97,7 +97,7 @@ pub struct FileResolution {
 /// The replacement content for a single conflict block.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct HunkResolution {
+pub struct HunkContent {
     #[schemars(
         description = "ONLY the merged content that replaces this specific conflict block (the region between <<<<<<< and >>>>>>>). Do NOT include surrounding non-conflicted code — the application splices each resolution into the original file automatically. To accept one side entirely, return that side's content verbatim. For an intentional deletion, use an empty string."
     )]

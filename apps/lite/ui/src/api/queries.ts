@@ -17,6 +17,7 @@ export type ProjectQueryKey =
 	| "changesInWorktree"
 	| "ciChecks"
 	| "comments"
+	| "commitConflicts"
 	| "commitDetailsWithLineStats"
 	| "forgeInfo"
 	| "headInfo"
@@ -104,6 +105,29 @@ export const commitDetailsWithLineStatsQueryOptions = ({
 	queryOptions({
 		queryKey: ["commitDetailsWithLineStats" satisfies QueryKey, projectId, params],
 		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
+	});
+
+/**
+ * A conflicted commit's conflicts, derived from the trees the commit itself
+ * carries — so the answer is immutable per commit id, and an apply that
+ * rewrites the commit lands on a different key rather than invalidating this
+ * one. Enable it only for commits already known to conflict: the backend
+ * answers for any commit, but the round-trip is pure cost otherwise.
+ */
+export const commitConflictsQueryOptions = ({
+	projectId,
+	enabled,
+	...params
+}: PayloadFor<"commitConflicts"> & { enabled: boolean }) =>
+	queryOptions({
+		queryKey: ["commitConflicts" satisfies QueryKey, projectId, params],
+		queryFn: () => window.lite.commitConflicts({ projectId, ...params }),
+		enabled,
+		staleTime: Infinity,
+		// A commit whose conflicts have no hunk representation — a binary, a
+		// deletion, an oversized file — makes the backend reject the whole
+		// commit. That is a property of the commit, so retrying cannot help.
+		retry: false,
 	});
 
 export const forgeInfoOptions = (projectId: string) =>

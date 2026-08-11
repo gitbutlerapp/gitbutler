@@ -264,6 +264,19 @@ export declare function commitAmend(projectId: string, commitId: string, changes
 export declare function commitCherryPick(projectId: string, sourceCommitIds: Array<string>, relativeTo: RelativeTo, side: InsertSide, dryRun: boolean): Promise<CommitCherryPickResult>
 
 /**
+ * Return the conflicts of the conflicted commit `commit_id` without entering
+ * edit mode or touching the working tree.
+ *
+ * Hunks are identified by `(path, 1-based index)`; the extraction is
+ * deterministic, so the same commit id always yields the same hunks and
+ * `resolve_commit_conflict_hunks()` can be called with indices from this
+ * result. Fails for commits whose conflicts have no hunk representation
+ * (deletions/renames, binaries, oversized files, marker-like content) — those
+ * need manual resolution in edit mode.
+ */
+export declare function commitConflicts(projectId: string, commitId: string): Promise<CommitConflicts>
+
+/**
  * Insert a new commit built from the `changes` of `changes_source` and record
  * an oplog snapshot on success.
  *
@@ -845,6 +858,21 @@ export declare function removeReviewReaction(projectId: string, reviewId: number
 
 /** Request reviews from the given users on a review. */
 export declare function requestReview(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
+
+/**
+ * Apply `specs` to the conflicted commit `commit_id` and rebase descendants.
+ *
+ * Resolving a subset of the conflicts rewrites the commit into a conflicted
+ * commit with only the remaining conflicts; resolving all of them rewrites it
+ * into a normal commit. Either way the commit id changes — address follow-up
+ * resolutions to the returned `new_commit`. An oplog snapshot records an undo
+ * point. Nothing is written if any spec fails validation.
+ *
+ * [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
+ * worktree lock is held during the model call); AI configuration is only
+ * required when such a spec is present.
+ */
+export declare function resolveCommitConflictHunks(projectId: string, commitId: string, specs: Array<ResolutionSpec>): Promise<HunkResolutionResult>
 
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
@@ -1799,6 +1827,16 @@ export type CommitCherryPickResult = {
   workspace: WorkspaceState;
 };
 
+/** JSON transport type for the conflicts of a conflicted commit. */
+export type CommitConflicts = {
+  /** The conflicted commit. */
+  commitId: string;
+  /** The conflicted files that decompose into hunks, sorted by path. */
+  files: Array<ConflictedFile>;
+  /** Conflicted files that need manual resolution in edit mode. */
+  manual: Array<ManualConflict>;
+};
+
 /** JSON transport type for creating a commit in the rebase graph. */
 export type CommitCreateResult = {
   /** The new commit if one was created. */
@@ -1883,6 +1921,51 @@ export type ConflictEntryPresence = {
   ours: boolean;
   theirs: boolean;
   ancestor: boolean;
+};
+
+/**
+ * One conflicted region of a file, with the content of each side and a few
+ * lines of surrounding context.
+ */
+export type ConflictHunk = {
+  /**
+   * The 1-based line where the conflicted region starts, counted in the
+   * intended result — the merge with every conflict taking the commit's
+   * side, the new side of [`ConflictedFile::change`] — so anchors land in
+   * the diff the caller renders.
+   *
+   * [`ConflictedFile::change`]: super::ConflictedFile::change
+   */
+  line: number;
+  /** Unconflicted lines directly before the conflict, clamped to the previous conflict. */
+  contextBefore: string;
+  /** The content of the *ours* side, i.e. the new base the commit is rebased onto. */
+  ours: string;
+  /** The content of the common ancestor, if the merge produced diff3-style markers. */
+  base: string | null;
+  /** The content of the *theirs* side, i.e. the conflicted commit's own version. */
+  theirs: string;
+  /** Unconflicted lines directly after the conflict, clamped to the next conflict. */
+  contextAfter: string;
+};
+
+/** One conflicted file and its conflicts, in file order. */
+export type ConflictedFile = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /**
+   * The file's change from the commit's parent to its intended result: the
+   * merge with every conflict taking the commit's side. The old side is the
+   * parent's actual content, so clean edits attribute as in any diff; the
+   * new side is not applied — the commit fell back to the parent at every
+   * conflict — which the caller should say next to each conflict hunk.
+   */
+  change: TreeChange;
+  /**
+   * The conflicts of the file; hunks are addressed by their 1-based
+   * position in this list.
+   */
+  hunks: Array<ConflictHunk>;
 };
 
 /** A stack that conflicted while applying a branch. */
@@ -2648,6 +2731,39 @@ export type HunkLockTarget = {
   type: "unidentified";
 };
 
+/** How to resolve a single conflict hunk. */
+export type HunkResolution = {
+  type: "ours";
+} | {
+  type: "theirs";
+} | {
+  type: "content";
+  subject: string;
+} | {
+  type: "ai";
+};
+
+/** JSON transport type for the outcome of applying per-hunk resolutions. */
+export type HunkResolutionResult = {
+  /** The conflicted commit the resolutions were applied to. */
+  commitId: string;
+  /** The rewritten commit. Still conflicted when `remaining` is non-empty. */
+  newCommit: string;
+  /** How many conflicts were resolved. */
+  resolved: number;
+  /**
+   * Whether the fully resolved commit ended up with the same tree as
+   * its parent — the resolutions dropped all of its changes.
+   */
+  commitEmptied: boolean;
+  /** The conflicts that remain, per file. */
+  remaining: Array<RemainingConflicts>;
+  /** Conflicted files that need manual resolution in edit mode. */
+  manual: Array<ManualConflict>;
+  /** Workspace state after the apply. */
+  workspace: WorkspaceState;
+};
+
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with. */
 export type IgnoredWorktreeChange = {
   /** The worktree-relative path to the change. */
@@ -2879,6 +2995,18 @@ export type LoginToken = {
 };
 
 /**
+ * A conflicted file with no hunk representation — a side deletion or rename, a
+ * non-blob entry, a binary, or one too large to splice — which therefore needs
+ * manual resolution in edit mode.
+ */
+export type ManualConflict = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /** Why it cannot be resolved automatically, for display to the user. */
+  reason: string;
+};
+
+/**
  * An optional full reference name accepted as a string like `refs/heads/main`,
  * for use as a parameter transport via `#[but_api(...)]`.
  *
@@ -2949,7 +3077,7 @@ export type OperatingMode = {
   subject: EditModeMetadata;
 };
 
-export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflicts" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
 
 /** What kind of apply operation completed. */
 export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
@@ -3163,6 +3291,14 @@ export type RelativeTo = {
   subject: Array<number>;
 };
 
+/** Conflicts still unresolved in a file after an apply. */
+export type RemainingConflicts = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /** How many conflicts remain in it. */
+  hunks: number;
+};
+
 export type RemoteCommit = {
   id: string;
   description: string;
@@ -3201,6 +3337,19 @@ export type RepoPermissions = {
   push: boolean;
   triage: boolean;
   pull: boolean;
+};
+
+/**
+ * One conflict to resolve, addressed by path and 1-based hunk index as
+ * returned by `commit_conflicts()`.
+ */
+export type ResolutionSpec = {
+  /** The repo-relative path of the conflicted file. */
+  path: string;
+  /** The 1-based index of the conflict within the file. */
+  hunk: number;
+  /** How to resolve it. */
+  resolution: HunkResolution;
 };
 
 /** How one conflicted file was resolved, for display to the user. */

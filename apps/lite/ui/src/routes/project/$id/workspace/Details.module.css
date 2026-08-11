@@ -386,3 +386,19 @@
 .commitConflictBadge {
 	flex-shrink: 0;
 }
+
+/* Holds the conflict bar above the diff as one child of `.panel`, whose grid
+   sizes exactly two rows — a third child would take the diff's. */
+.diffArea {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+	min-height: 0;
+}
+
+/* Grid items floor at min-content, so without this the diff sizes to its whole
+   length and the row scrolls the minimap away with it instead of the code area
+   scrolling beneath a pinned ruler. */
+.diffArea > * {
+	min-height: 0;
+}
