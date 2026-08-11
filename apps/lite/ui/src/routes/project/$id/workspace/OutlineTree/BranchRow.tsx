@@ -45,6 +45,7 @@ import {
 	RowLabelContainer,
 	RowLabelGroup,
 	RowMeta,
+	RowMetaSeparator,
 	RowToolbar,
 } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
@@ -488,10 +489,13 @@ export const BranchRow: FC<
 						{/* Only while folded: the count stands in for the commits it hides,
 						    so showing it alongside them would just be noise. */}
 						{isFolded && (
-							<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-								<Icon size={14} name="commit" />
-								{commitCount}
-							</span>
+							<>
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+									<Icon size={14} name="commit" />
+									{commitCount}
+								</span>
+								<RowMetaSeparator />
+							</>
 						)}
 
 						<span
@@ -514,24 +518,31 @@ export const BranchRow: FC<
 						</span>
 
 						{mforgeUrl != null && (
-							<a
-								href={mforgeUrl}
-								onClick={(evt) => void openPRInBrowser(evt)}
-								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
-							>
-								<Icon size={14} name="pr" />
-								PR
-							</a>
+							<>
+								<RowMetaSeparator />
+								<a
+									href={mforgeUrl}
+									onClick={(evt) => void openPRInBrowser(evt)}
+									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
+								>
+									<Icon size={14} name="pr" />
+									PR
+								</a>
+							</>
 						)}
 
-						{ciChecks?.aggregate &&
-							(ciURL != null ? (
-								<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+						{ciChecks?.aggregate && (
+							<>
+								<RowMetaSeparator />
+								{ciURL != null ? (
+									<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+										<CIBubble checks={ciChecks.aggregate} />
+									</a>
+								) : (
 									<CIBubble checks={ciChecks.aggregate} />
-								</a>
-							) : (
-								<CIBubble checks={ciChecks.aggregate} />
-							))}
+								)}
+							</>
+						)}
 
 						{downstackPushStatus.anyRequiresPush &&
 							(() => {

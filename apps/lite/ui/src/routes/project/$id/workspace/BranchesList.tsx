@@ -59,6 +59,7 @@ import {
 	RowLabelContainer,
 	RowLabelGroup,
 	RowMeta,
+	RowMetaSeparator,
 	RowToolbar,
 } from "./Row.tsx";
 import {
@@ -223,6 +224,14 @@ const BranchItem: FC<{
 
 	const lastAuthorName = branch.lastAuthor?.name;
 
+	const showsAuthorMeta = lastAuthorName !== undefined || branch.updatedAtMs !== null;
+	/* The branch's own commits, matching what unfolding reveals.
+	   commitsAheadOfTarget would also count the branches below it in a stack, so
+	   every row above the bottom would overstate. Only while folded: the count
+	   stands in for the commits it hides, so showing it alongside them would just
+	   be noise. */
+	const showsCommitCount = !unfolded && branch.commitCount !== null && branch.commitCount > 0;
+
 	return (
 		<div
 			id={treeItemId(operand)}
@@ -262,19 +271,7 @@ const BranchItem: FC<{
 					</RowLabelContainer>
 
 					<RowMeta>
-						{/* The branch's own commits, matching what unfolding reveals.
-						    commitsAheadOfTarget would also count the branches below it
-						    in a stack, so every row above the bottom would overstate.
-						    Only while folded: the count stands in for the commits it
-						    hides, so showing it alongside them would just be noise. */}
-						{!unfolded && branch.commitCount !== null && branch.commitCount > 0 && (
-							<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-								<Icon size={14} name="commit" />
-								{branch.commitCount}
-							</span>
-						)}
-
-						{(lastAuthorName !== undefined || branch.updatedAtMs !== null) && (
+						{showsAuthorMeta && (
 							<span
 								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 								title={branch.lastAuthor?.email}
@@ -286,17 +283,30 @@ const BranchItem: FC<{
 							</span>
 						)}
 
+						{showsCommitCount && (
+							<>
+								{showsAuthorMeta && <RowMetaSeparator />}
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+									<Icon size={14} name="commit" />
+									{branch.commitCount}
+								</span>
+							</>
+						)}
+
 						{review !== null && (
-							<a
-								href={review.htmlUrl}
-								title={review.title}
-								onClick={(evt) => void openReviewInBrowser(evt)}
-								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
-							>
-								<Icon size={14} name="pr" />
-								{review.unitSymbol}
-								{review.number}
-							</a>
+							<>
+								{(showsAuthorMeta || showsCommitCount) && <RowMetaSeparator />}
+								<a
+									href={review.htmlUrl}
+									title={review.title}
+									onClick={(evt) => void openReviewInBrowser(evt)}
+									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
+								>
+									<Icon size={14} name="pr" />
+									{review.unitSymbol}
+									{review.number}
+								</a>
+							</>
 						)}
 
 						{isApplyPending && <Icon name="spinner" />}
