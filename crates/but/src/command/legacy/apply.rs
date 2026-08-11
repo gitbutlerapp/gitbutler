@@ -101,6 +101,7 @@ impl CliOutput for ApplyOutcome {
             applied_branches: Vec<String>,
             workspace_ref_created: bool,
             conflicting_stacks: Vec<String>,
+            target_conflicts: Vec<String>,
         }
 
         impl From<but_workspace::branch::apply::Outcome> for Output {
@@ -118,6 +119,11 @@ impl CliOutput for ApplyOutcome {
                         .conflicting_stacks
                         .into_iter()
                         .map(|stack| stack.ref_name.to_string())
+                        .collect(),
+                    target_conflicts: value
+                        .target_conflicts
+                        .into_iter()
+                        .map(|path| path.to_string())
                         .collect(),
                 }
             }
@@ -153,6 +159,19 @@ impl std::fmt::Display for ConflictAbortedOutcome {
                 f,
                 "'{short_name}' conflicts with existing stack: {conflicting_stack_names}"
             )
+        } else if matches!(self.outcome.status, OutcomeStatus::ConflictsWithTarget) {
+            let short_name = self.requested_branch.shorten();
+            write!(
+                f,
+                "'{short_name}' is behind the workspace target and conflicts with it; update the branch with the target changes instead of unapplying stacks"
+            )?;
+            if !self.outcome.target_conflicts.is_empty() {
+                write!(f, "\nConflicting files:")?;
+                for path in &self.outcome.target_conflicts {
+                    write!(f, "\n  {path}")?;
+                }
+            }
+            Ok(())
         } else if matches!(self.outcome.status, OutcomeStatus::ConflictAborted) {
             let short_name = self.requested_branch.shorten();
             write!(
@@ -218,7 +237,7 @@ pub fn run(
             requested_branch: reference.name,
             outcome,
         }),
-        OutcomeStatus::ConflictAborted => {
+        OutcomeStatus::ConflictAborted | OutcomeStatus::ConflictsWithTarget => {
             Ok(ApplyOutcome::ConflictAborted(ConflictAbortedOutcome {
                 requested_branch: reference.name,
                 outcome,

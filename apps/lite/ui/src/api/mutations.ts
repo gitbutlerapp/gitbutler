@@ -102,7 +102,19 @@ export const useApply = () => {
 	return useMutation({
 		mutationFn: window.lite.apply,
 		onSuccess: async (response, input, _context, mutation) => {
-			if (response.conflictingStacks.length > 0) {
+			if (response.status === "conflictsWithTarget") {
+				const files = response.targetConflicts;
+				const fileList =
+					files.length > 0
+						? `\n\nConflicting files:\n${files.map((f) => `- ${f}`).join("\n")}`
+						: "";
+				toastManager.add({
+					type: "error",
+					title: "Failed to apply branch",
+					description: `'${input.existingBranch}' is behind the workspace target and conflicts with it. Update the branch with the latest target changes, then try applying again.${fileList}`,
+					priority: "high",
+				});
+			} else if (response.conflictingStacks.length > 0) {
 				const toastId = toastManager.add({
 					type: "error",
 					title: "Failed to apply branch",

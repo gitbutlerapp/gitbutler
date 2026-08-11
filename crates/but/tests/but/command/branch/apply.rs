@@ -198,7 +198,8 @@ fn local_branch_with_json_output() {
     "refs/heads/feature-branch"
   ],
   "workspaceRefCreated": false,
-  "conflictingStacks": []
+  "conflictingStacks": [],
+  "targetConflicts": []
 }
 
 "#]])
@@ -562,6 +563,39 @@ Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
 }
 
 #[test]
+fn apply_branch_behind_conflicting_target_blames_target_not_stacks() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
+        "apply-hero-behind-conflicting-target",
+    );
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8f9e28f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 177a12f (origin/main, origin/HEAD, main, lane-2, lane-1) target: change shared.txt
+| * ab2bd4c (hero) hero: change shared.txt
+|/  
+* d6bfd03 M1
+
+"#]]
+    );
+
+    env.setup_metadata(&["lane-1", "lane-2"]);
+
+    // The conflict is with the target delta the branch is based behind - the empty lanes
+    // must not be blamed nor unapplied.
+    env.but("apply hero")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch: 'hero' is behind the workspace target and conflicts with it; update the branch with the target changes instead of unapplying stacks
+Conflicting files:
+  shared.txt
+
+"#]])
+        .stdout_eq(str![""]);
+}
+
+#[test]
 fn apply_branch_conflicting_with_workspace_reports_json_error() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     snapbox::assert_data_eq!(
@@ -599,7 +633,8 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
   "workspaceRefCreated": false,
   "conflictingStacks": [
     "refs/heads/A"
-  ]
+  ],
+  "targetConflicts": []
 }
 
 "#]])

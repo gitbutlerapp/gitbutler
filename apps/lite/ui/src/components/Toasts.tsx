@@ -20,7 +20,7 @@ export const Toasts: FC = () => {
 									// Default is `p` which restricts content elements.
 									<div />
 								}
-								className="text-13"
+								className={classes("text-13", styles.description)}
 							/>
 							<div className={styles.actions}>
 								{toast.actionProps && <Toast.Action className={getButtonClassName({})} />}

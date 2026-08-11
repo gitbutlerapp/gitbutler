@@ -98,12 +98,17 @@ pub mod json {
         pub workspace_changed: bool,
         /// Branches activated or recorded by the operation.
         ///
-        /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
+        /// This is empty for `alreadyApplied`, `conflictAborted` and `conflictsWithTarget`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
         /// Stacks that conflicted while applying the branch.
         pub conflicting_stacks: Vec<ConflictingStack>,
+        /// Worktree-relative paths at which the branch conflicts with the workspace target.
+        ///
+        /// Only populated for `conflictsWithTarget`.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+        pub target_conflicts: Vec<but_serde::BStringForFrontend>,
     }
 
     /// A stack that conflicted while applying a branch.
@@ -131,6 +136,7 @@ pub mod json {
                 workspace_ref_created,
                 workspace_merge: _,
                 conflicting_stacks,
+                target_conflicts,
             } = value;
 
             ApplyOutcome {
@@ -138,6 +144,7 @@ pub mod json {
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
+                target_conflicts: target_conflicts.into_iter().map(Into::into).collect(),
                 conflicting_stacks: conflicting_stacks
                     .into_iter()
                     .map(|stack| {

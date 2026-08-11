@@ -4837,6 +4837,98 @@ Outcome {
 }
 
 #[test]
+fn apply_hero_behind_conflicting_target_blames_target_not_empty_stacks() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "hero-behind-target-with-empty-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "lane-1", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "lane-2", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let initial_commits = visualize_commit_graph_all(&repo)?;
+    snapbox::assert_data_eq!(
+        initial_commits.clone(),
+        snapbox::str![[r#"
+* 00b2e41 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 870e585 (origin/main, main, lane-2, lane-1) target: change shared files
+| * c477c76 (hero-clean) add unrelated.txt
+|/  
+| * 9d63ce1 (hero) hero: change shared files
+|/  
+* dbb6f12 M1
+
+"#]]
+    );
+
+    let ws = graph.into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 870e585
+├── ≡📙:3:lane-1 on 870e585 {1}
+│   └── 📙:3:lane-1
+└── ≡📙:4:lane-2 on 870e585 {2}
+    └── 📙:4:lane-2
+
+"#]]
+    );
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/hero"), ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::ConflictsWithTarget,
+        "the conflict is with the target delta the hero is based behind, not with any stack"
+    );
+    assert!(
+        out.conflicting_stacks.is_empty(),
+        "empty lanes have no content of their own and must never be blamed"
+    );
+    assert_eq!(
+        out.target_conflicts,
+        ["shared.txt", "shared2.txt"],
+        "all paths conflicting with the target are reported, not just the first"
+    );
+    assert!(
+        out.workspace_merge.is_none(),
+        "no workspace merge was attempted"
+    );
+    // Nothing was persisted.
+    snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, initial_commits.clone());
+
+    // A branch equally behind the target but without conflicting content still applies normally.
+    let out = but_workspace::branch::apply(
+        r("refs/heads/hero-clean"),
+        out.workspace,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "clean drift behind the target must not be refused"
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&out.workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on dbb6f12
+├── ≡📙:5:lane-1 on 870e585 {1}
+│   └── 📙:5:lane-1
+├── ≡📙:6:lane-2 on 870e585 {2}
+│   └── 📙:6:lane-2
+└── ≡📙:3:hero-clean on dbb6f12 {3de}
+    └── 📙:3:hero-clean
+        └── ·c477c76 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     let (_tmp, _graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(

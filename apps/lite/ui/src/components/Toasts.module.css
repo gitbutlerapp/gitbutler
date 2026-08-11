@@ -29,6 +29,11 @@
 	gap: 12px;
 }
 
+.description {
+	/* Descriptions may carry line-separated lists, e.g. conflicting files. */
+	white-space: pre-line;
+}
+
 .actions {
 	display: flex;
 	flex-wrap: wrap;
