@@ -1,4 +1,5 @@
 use super::*;
+use but_core::RefMetadata as _;
 use gitbutler_oplog::OplogExt as _;
 
 #[test]
@@ -70,6 +71,94 @@ fn switching_the_target_is_observed_within_the_same_context() {
     assert_eq!(
         project_meta.target_ref.map(|name| name.to_string()),
         Some("refs/remotes/origin/other".to_string())
+    );
+}
+
+#[test]
+fn switching_the_target_outside_the_workspace_does_not_partially_update_the_project() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    let gix_repo = repo.open();
+    {
+        let head_id = gix_repo.head_id().unwrap();
+        gix_repo
+            .reference(
+                "refs/remotes/origin/other",
+                head_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "test",
+            )
+            .unwrap();
+    }
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+    repo.commit_all("feature");
+    repo.checkout(&"refs/heads/master".parse().unwrap());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+
+    let project_meta_before = ctx.project_meta().unwrap();
+    let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+    let workspace_meta_before = (*ctx
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref.as_ref())
+        .unwrap())
+    .clone();
+    let workspace_ref_before = gix_repo
+        .find_reference(&workspace_ref)
+        .unwrap()
+        .peel_to_id()
+        .unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let err = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
+
+    assert_eq!(
+        err.custom_context().map(|ctx| ctx.code),
+        Some(Code::PreconditionFailed),
+        "changing targets outside the managed workspace is an unsupported project state"
+    );
+    assert_eq!(
+        err.to_string(),
+        "cannot change the target while HEAD is outside the GitButler workspace",
+        "the error explains how to satisfy the target-switch precondition"
+    );
+    assert_eq!(
+        ctx.project_meta().unwrap(),
+        project_meta_before,
+        "rejecting the target switch must preserve the configured project target"
+    );
+    assert_eq!(
+        *ctx.meta()
+            .unwrap()
+            .workspace(workspace_ref.as_ref())
+            .unwrap(),
+        workspace_meta_before,
+        "rejecting the target switch must preserve stack metadata"
+    );
+    assert_eq!(
+        gix_repo
+            .find_reference(&workspace_ref)
+            .unwrap()
+            .peel_to_id()
+            .unwrap(),
+        workspace_ref_before,
+        "rejecting the target switch must preserve the existing workspace ref"
     );
 }
 

@@ -8,7 +8,7 @@ use but_core::{
     sync::RepoShared,
 };
 use but_ctx::Context;
-use but_error::Code;
+use but_error::{Code, bail_precondition};
 use but_graph::FirstParent;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -149,21 +149,27 @@ pub(crate) fn set_base_branch(
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
+    let workspace_ref_exists = repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some();
 
-    let existing_target_ref_matches = if let Ok(mut project_meta) = ctx.project_meta() {
+    let (existing_target_ref_matches, existing_target_ref) = if let Ok(mut project_meta) =
+        ctx.project_meta()
+    {
         let repaired_project_meta =
             but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
         if repaired_project_meta != project_meta {
             ctx.set_project_meta(repaired_project_meta.clone())?;
             project_meta = repaired_project_meta;
         }
-        repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
-            && project_meta.target_commit_id.is_some()
-            && project_meta
-                .target_ref
-                .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
+        let target_ref_matches = project_meta
+            .target_ref
+            .as_ref()
+            .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string());
+        (
+            workspace_ref_exists && project_meta.target_commit_id.is_some() && target_ref_matches,
+            project_meta.target_ref,
+        )
     } else {
-        false
+        (false, None)
     };
 
     // if target exists, and it is the same as the requested branch, we should go back
@@ -203,7 +209,6 @@ pub(crate) fn set_base_branch(
         push_remote: None,
     };
     project_meta.remote_url_with_fallback(&repo)?;
-    ctx.set_project_meta(project_meta)?;
 
     // TODO: make sure this is a real branch
     let head_name: Refname = current_head
@@ -214,6 +219,17 @@ pub(crate) fn set_base_branch(
                 .expect("BUG: we have to avoid using these legacy types")
         })
         .context("Failed to get HEAD reference name")?;
+    if workspace_ref_exists
+        && !head_name.to_string().eq(WORKSPACE_REF_NAME)
+        && existing_target_ref
+            .is_some_and(|target_ref| target_ref.to_string() != target_branch_ref.to_string())
+    {
+        bail_precondition!(
+            "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first"
+        );
+    }
+    ctx.set_project_meta(project_meta)?;
+
     let mut workspace_to_initialize = None;
     if !head_name.to_string().eq(WORKSPACE_REF_NAME) {
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
