@@ -38,6 +38,11 @@ vendored, or fixture data unless the task is specifically about that code.
 - When an API offers both action-only and timeline-recording behavior, keep the
   `*_only*` function free of oplog side effects; prepare a best-effort oplog
   snapshot in the wrapper and commit it only after the mutation succeeds.
+- New user-facing mutations should participate in undo: record an oplog
+  snapshot via the existing `SnapshotDetails`/`OperationKind` wrapper pattern,
+  and call out any mutation intentionally left out of the timeline rather than
+  omitting it silently. Undo is snapshot-based; do not design bespoke inverse
+  operations for it.
 - Before changing or reviewing code that derives graph/workspace/branch/stack/commit
   relationships, reachability, dependencies, ordering, operation targets, or Git
   graph/history/ref-placement mutations, use `crates/WORKSPACE_MODEL.md` as the
