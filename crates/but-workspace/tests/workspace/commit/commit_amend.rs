@@ -40,6 +40,7 @@ fn worktree_changes_as_specs_with_hunks(
 
 #[test]
 fn amend_commit_smoke_test() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
@@ -49,7 +50,7 @@ fn amend_commit_smoke_test() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_amend(
         editor,
         two_id,
@@ -84,6 +85,7 @@ fn amend_commit_smoke_test() -> Result<()> {
 /// After amend, there should be no remaining uncommitted changes.
 #[test]
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("amend-with-partial-commit", |_| {})?;
 
@@ -105,7 +107,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 
     let context_lines = 0;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(
         editor,
         save_1_id,
@@ -141,6 +143,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 /// After amend, b-file.txt must still appear as a deleted uncommitted change.
 #[test]
 fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("amend-two-stacks-with-deletions", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
@@ -182,7 +185,7 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     let a_commit_id = repo.rev_parse_single("A")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -249,21 +252,13 @@ mod from_worktree {
     fn graph_with_worktree_tips(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
-    ) -> Result<Graph> {
+    ) -> Result<(Graph, but_db::DbHandle)> {
         let mut options = but_graph::init::Options::limited();
-        options.worktree_tips = vec![
-            but_graph::init::WorktreeTip {
-                name: "wt".into(),
-                ref_name: Some("refs/heads/feat".try_into()?),
-                id: repo.find_reference("feat")?.peel_to_id()?.detach(),
-            },
-            but_graph::init::WorktreeTip {
-                name: "wt-detached".into(),
-                ref_name: None,
-                id: detached_tip(repo)?,
-            },
-        ];
-        Graph::from_head(repo, meta, Default::default(), options)?.validated()
+        let mut db = but_testsupport::worktree_db(repo, &["wt", "wt-detached"])?;
+        options.worktrees = true;
+        let graph =
+            Graph::from_head(repo, meta, Default::default(), options, &mut db)?.validated()?;
+        Ok((graph, db))
     }
 
     fn detached_tip(repo: &gix::Repository) -> Result<gix::ObjectId> {
@@ -290,9 +285,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -346,9 +341,9 @@ mod from_worktree {
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
         std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let change = but_core::diff::worktree_changes(&wt_repo)?
             .changes
@@ -400,9 +395,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
             git_status_at_dir(repo.workdir().unwrap())?,
@@ -489,9 +484,9 @@ mod from_worktree {
     #[test]
     fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
         // The detached worktree's commit is in the graph, but no branch points at
@@ -517,9 +512,9 @@ mod from_worktree {
     #[test]
     fn amend_from_an_unknown_worktree_fails_without_moving_refs() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -552,9 +547,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
+        let (graph, mut db) = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
 

@@ -46,6 +46,7 @@ fn head_info(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
+    let mut db = but_testsupport::in_memory_db()?;
     but_workspace::head_info_and_workspace(
         repo,
         meta,
@@ -54,6 +55,7 @@ fn head_info(
             expensive_commit_info: true,
             ..Default::default()
         },
+        &mut db,
     )
 }
 

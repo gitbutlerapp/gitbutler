@@ -23,10 +23,17 @@ use crate::utils::{fixture_writable, standard_options};
 /// resolved against the repo) and render its [`Editor::graph_workspace`]
 /// projection. All borrows stay local so callers just snapshot the string.
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
 
     // The projection bounds stacks at the target commit, so wire it onto the
@@ -37,7 +44,7 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
             .transpose()?,
         ..Default::default()
     };
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     editor.graph_workspace_ascii()
 }

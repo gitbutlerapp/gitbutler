@@ -257,27 +257,18 @@ impl WorkspaceExt for but_graph::Workspace {
 /// Gerrit even when there is no normal remote-tracking branch update for
 /// `refs/for/*` pushes, and lets the UI link commits back to their Gerrit
 /// reviews.
-#[derive(Default)]
-pub enum GerritMode<'db> {
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum GerritMode {
     /// Use only the standard graph-derived `head_info()` data.
     #[default]
     Disabled,
     /// Apply Gerrit metadata from the cache database to commits and push status.
-    Enabled(but_db::GerritMetadataHandle<'db>),
-}
-
-impl std::fmt::Debug for GerritMode<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GerritMode::Disabled => f.write_str("Disabled"),
-            GerritMode::Enabled(_) => f.write_str("Enabled(..)"),
-        }
-    }
+    Enabled,
 }
 
 /// Options for the [`ref_info()`](crate::ref_info()) call.
 #[derive(Default, Debug)]
-pub struct Options<'db> {
+pub struct Options {
     /// Project-scoped metadata used to resolve target refs and push remotes.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
@@ -287,7 +278,7 @@ pub struct Options<'db> {
     /// Note that less expensive checks are still performed.
     pub expensive_commit_info: bool,
     /// Configure whether Gerrit metadata should augment the standard graph-derived result.
-    pub gerrit_mode: GerritMode<'db>,
+    pub gerrit_mode: GerritMode,
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
@@ -434,9 +425,10 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 pub fn head_info(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
-    opts: Options<'_>,
+    opts: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<RefInfo> {
-    head_info_and_workspace(repo, meta, opts).map(|a| a.0)
+    head_info_and_workspace(repo, meta, opts, db).map(|a| a.0)
 }
 
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
@@ -446,16 +438,18 @@ pub fn head_info(
 pub fn head_info_and_workspace(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
-    opts: Options<'_>,
+    opts: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
     let graph = Graph::from_head(
         repo,
         meta,
         opts.project_meta.clone(),
         opts.traversal.clone(),
+        db,
     )?;
     let ws = graph.into_workspace()?;
-    Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
+    Ok((graph_to_ref_info(&ws, repo, opts, db)?, ws))
 }
 
 /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
@@ -470,7 +464,8 @@ pub fn head_info_and_workspace(
 pub fn ref_info(
     mut existing_ref: gix::Reference<'_>,
     meta: &impl but_core::RefMetadata,
-    opts: Options<'_>,
+    opts: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
     let repo = id.repo;
@@ -480,8 +475,9 @@ pub fn ref_info(
         meta,
         opts.project_meta.clone(),
         opts.traversal.clone(),
+        db,
     )?;
-    graph_to_ref_info(&graph.into_workspace()?, repo, opts)
+    graph_to_ref_info(&graph.into_workspace()?, repo, opts, db)
 }
 
 pub(crate) fn find_ancestor_workspace_commit(
@@ -539,7 +535,8 @@ fn ancestor_workspace_commit_if_outside(
 pub fn graph_to_ref_info(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
-    opts: Options<'_>,
+    opts: Options,
+    db: &but_db::DbHandle,
 ) -> anyhow::Result<RefInfo> {
     if workspace.graph.hard_limit_hit() {
         tracing::warn!(hard_limit=?opts.traversal.hard_limit,
@@ -612,8 +609,8 @@ pub fn graph_to_ref_info(
         bail!("{msg}");
     }
     info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
-    if let GerritMode::Enabled(metadata) = opts.gerrit_mode {
-        info.apply_gerrit_metadata(metadata)?;
+    if opts.gerrit_mode == GerritMode::Enabled {
+        info.apply_gerrit_metadata(db.gerrit_metadata())?;
     }
     Ok(info)
 }

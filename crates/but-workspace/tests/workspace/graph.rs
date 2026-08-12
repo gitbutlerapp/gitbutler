@@ -33,6 +33,7 @@ fn detailed(
     fixture: &str,
     target: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
+    let mut db = but_testsupport::in_memory_db()?;
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
     let mut meta = VirtualBranchesTomlMetadata::from_path(
         repo.path()
@@ -48,9 +49,9 @@ fn detailed(
             .transpose()?,
         ..Default::default()
     };
-    let graph = Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((repo, detailed))
 }
 
@@ -63,6 +64,7 @@ fn detailed_writable(
     target_rev: &str,
     mut configure_stacks: impl FnMut(&mut VirtualBranchesTomlMetadata),
 ) -> Result<(TempDir, DetailedGraphWorkspace)> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (tmp, repo, mut meta, _desc) = named_writable_scenario_with_description(fixture)?;
     let target_sha = repo.rev_parse_single(target_rev)?.detach();
     configure_stacks(&mut meta);
@@ -80,9 +82,10 @@ fn detailed_writable(
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
+        &mut db,
     )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
 }
 
@@ -1138,6 +1141,7 @@ f0c6d1c add foo.txt state=local/remote(identity)
 /// commits stay local-only.
 #[test]
 fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     use crate::ref_info::with_workspace_commit::utils::{
         StackState, add_stack, project_meta, read_only_in_memory_scenario,
     };
@@ -1158,9 +1162,10 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
+        &mut db,
     )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
+    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),
         snapbox::str![[r#"

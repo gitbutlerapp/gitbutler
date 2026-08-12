@@ -35,6 +35,7 @@ pub(crate) fn apply(
             order: None,
             new_stack_id: None,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?;
 
     writeln!(out, "{outcome:#?}")?;
@@ -63,6 +64,7 @@ pub(crate) fn unapply(
         but_workspace::branch::unapply::Options {
             workspace_disposition: mutation_args.disposition.into(),
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?;
 
     writeln!(out, "{outcome:#?}")?;

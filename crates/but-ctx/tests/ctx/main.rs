@@ -729,7 +729,7 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
             .map(|err| err.to_string())
             .unwrap_or_default(),
         snapbox::str![
-            "worktree state must be read from the main worktree - a linked-worktree context has its own database, letting adoption and archived state diverge"
+            "worktree state must be read from the main worktree - a linked worktree has its own database, letting adoption and archived state diverge"
         ]
     );
 
@@ -818,15 +818,19 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     }
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    let options = ctx.graph_options(Default::default())?;
-    assert_eq!(
-        options
+    let worktree_tip_names = |ctx: &Context| -> anyhow::Result<Vec<String>> {
+        let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
+        Ok(ws
+            .graph
             .worktree_tips
             .iter()
             .map(|tip| tip.name.to_string())
-            .collect::<Vec<_>>(),
+            .collect())
+    };
+    assert_eq!(
+        worktree_tip_names(&ctx)?,
         ["wt-b"],
-        "graph options preserve the stable name of each active worktree"
+        "the graph records the stable name of each active worktree it was seeded with"
     );
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
@@ -838,6 +842,52 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
             └── 🏁·85efbe4 (⌂|1)
 
 "#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn refresh_from_head_re_reads_the_worktrees() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
+    let mut ctx = Context::from_repo_for_testing(repo)?;
+    ctx.settings.feature_flags.worktree_manipulation = true;
+
+    let repo = ctx.repo.get()?;
+    let meta = ctx.meta()?;
+    let options = ctx.graph_options(Default::default());
+    let mut ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        ctx.project_meta()?,
+        options,
+        &mut *ctx.db.get_cache_mut()?,
+    )?
+    .into_workspace()?;
+    let tip_names = |ws: &but_graph::Workspace| {
+        ws.graph
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.to_string())
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        tip_names(&ws).is_empty(),
+        "adoption archived the pre-existing worktrees, so none is seeded"
+    );
+
+    // Anything that changes which worktrees are relevant - here unarchiving, but a freshly
+    // created worktree behaves the same - must show up in the very next traversal.
+    ctx.set_worktree_archived("wt-b".into(), false)?;
+    ws.refresh_from_head(
+        &repo,
+        &meta,
+        ctx.project_meta()?,
+        &mut *ctx.db.get_cache_mut()?,
+    )?;
+    assert_eq!(
+        tip_names(&ws),
+        ["wt-b"],
+        "the refresh re-queried the worktrees instead of reusing what it started with"
     );
     Ok(())
 }

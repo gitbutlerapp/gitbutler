@@ -419,6 +419,9 @@ fn workspace_snapshot_with_meta(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<WorkspaceObservation> {
+    // Observations run on arbitrary repositories whose project database may not exist,
+    // and with worktrees disabled in the options the traversal never reads it.
+    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
     let mut info = but_workspace::head_info(
         repo,
         meta,
@@ -427,6 +430,7 @@ fn workspace_snapshot_with_meta(
             project_meta: but_core::ref_metadata::ProjectMeta::resolve(repo)?,
             ..Default::default()
         },
+        &mut db,
     )?;
 
     // Derive each segment's PR association from the forge review cache instead of

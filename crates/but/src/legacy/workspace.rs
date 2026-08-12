@@ -59,15 +59,13 @@ fn head_info(
     let traversal = if edit_mode_workspace_ref.is_some() {
         but_graph::init::Options::limited()
     } else {
-        ctx.graph_options(but_graph::init::Options::limited())?
+        ctx.graph_options(but_graph::init::Options::limited())
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let db = gerrit_mode_enabled
-        .then(|| ctx.db.get_cache())
-        .transpose()?;
-    let gerrit_mode = match db.as_ref() {
-        Some(db) => ref_info::GerritMode::Enabled(db.gerrit_metadata()),
-        None => ref_info::GerritMode::Disabled,
+    let gerrit_mode = if gerrit_mode_enabled {
+        ref_info::GerritMode::Enabled
+    } else {
+        ref_info::GerritMode::Disabled
     };
     let options = ref_info::Options {
         project_meta: ctx.project_meta()?,
@@ -75,13 +73,19 @@ fn head_info(
         expensive_commit_info,
         gerrit_mode,
     };
-    let mut info = match edit_mode_workspace_ref {
-        Some(ref_name) => {
-            but_workspace::ref_info(repo.find_reference(ref_name.as_ref())?, &meta, options)
-        }
-        None => but_workspace::head_info(&repo, &meta, options),
-    }?
-    .pruned_to_entrypoint();
+    let mut info = {
+        let mut db = ctx.db.get_cache_mut()?;
+        match edit_mode_workspace_ref {
+            Some(ref_name) => but_workspace::ref_info(
+                repo.find_reference(ref_name.as_ref())?,
+                &meta,
+                options,
+                &mut db,
+            ),
+            None => but_workspace::head_info(&repo, &meta, options, &mut db),
+        }?
+        .pruned_to_entrypoint()
+    };
 
     // Derive each segment's PR association from the forge review cache instead of
     // stored branch metadata, mirroring the desktop's `head_info` command.

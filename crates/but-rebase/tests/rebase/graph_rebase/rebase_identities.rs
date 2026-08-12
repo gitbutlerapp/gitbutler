@@ -11,6 +11,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn four_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -30,12 +31,13 @@ fn four_commits() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    let outcome = editor.rebase()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -66,6 +68,7 @@ fn four_commits() -> Result<()> {
 
 #[test]
 fn four_commits_with_short_traversal() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -86,6 +89,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         options,
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.clone().into_workspace()?;
@@ -104,8 +108,8 @@ fn four_commits_with_short_traversal() -> Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    let outcome = editor.rebase()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -136,6 +140,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
 #[test]
 fn merge_in_the_middle() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -159,12 +164,13 @@ fn merge_in_the_middle() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    let outcome = editor.rebase()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -201,6 +207,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 #[test]
 fn three_branches_merged() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("three-branches-merged")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -228,12 +235,13 @@ fn three_branches_merged() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    let outcome = editor.rebase()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

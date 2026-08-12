@@ -212,6 +212,7 @@ pub(super) mod function {
     /// entrypoint untouched.
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
+    #[expect(clippy::too_many_arguments)]
     pub fn create_reference<'ws, 'name, T: RefMetadata>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<Anchor<'name>>>,
@@ -220,6 +221,7 @@ pub(super) mod function {
         meta: &mut T,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
         let anchor = anchor.into();
         let order = order.into();
@@ -462,7 +464,7 @@ pub(super) mod function {
 
             workspace
                 .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+                .redo_traversal_with_overlay(repo, meta, overlay, db)?
         };
 
         let updated_workspace = graph_with_new_ref.into_workspace()?;

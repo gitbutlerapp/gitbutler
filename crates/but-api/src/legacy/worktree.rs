@@ -46,6 +46,7 @@ pub fn worktree_integration_status(
         &mut meta,
         &id,
         target.as_ref(),
+        &mut *ctx.db.get_cache_mut()?,
     )
 }
 
@@ -60,7 +61,14 @@ pub fn worktree_integrate(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
 
-    but_worktrees::integrate::worktree_integrate(&repo, &mut ws, &mut meta, &id, target.as_ref())
+    but_worktrees::integrate::worktree_integrate(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &id,
+        target.as_ref(),
+        &mut *ctx.db.get_cache_mut()?,
+    )
 }
 
 #[but_api]

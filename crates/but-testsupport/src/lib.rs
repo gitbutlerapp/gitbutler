@@ -107,6 +107,31 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     Ok(repo)
 }
 
+/// An in-memory database for traversals that don't care about linked worktrees.
+///
+/// Since it's `:memory:`, its state is private to the returned connection.
+pub fn in_memory_db() -> anyhow::Result<but_db::DbHandle> {
+    but_db::DbHandle::new_at_path(":memory:")
+}
+
+/// An in-memory worktree database for `repo` in which only the linked worktrees named in
+/// `visible` are active - or all of them if `visible` is empty. Traversals reading it must
+/// also enable [`worktrees`](but_graph::init::Options::worktrees) in their options.
+///
+/// This runs the same adoption that production does (which archives everything already on
+/// disk) and then unarchives what the test wants to see, so tests express "these worktrees
+/// participate" instead of hand-building tips.
+pub fn worktree_db(repo: &gix::Repository, visible: &[&str]) -> anyhow::Result<but_db::DbHandle> {
+    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
+    let adopted = but_graph::worktrees::with_state(repo, &mut db)?;
+    for worktree in adopted {
+        if visible.is_empty() || visible.iter().any(|name| name.as_bytes() == worktree.name) {
+            but_graph::worktrees::set_archived(repo, &mut db, worktree.name.as_ref(), false)?;
+        }
+    }
+    Ok(db)
+}
+
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
 /// This includes the author configuration in particular.
 pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {

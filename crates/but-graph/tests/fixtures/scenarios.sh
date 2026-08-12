@@ -80,7 +80,8 @@ git init ambiguous-worktrees
 )
 
 # A linked worktree whose branch is ahead of `main`, so its head commit is
-# unreachable from any other traversal tip.
+# unreachable from any other traversal tip, plus a second worktree sitting on the
+# same commit with a detached HEAD.
 git init worktree-ahead
 (cd worktree-ahead
   commit M
@@ -88,6 +89,8 @@ git init worktree-ahead
   (cd ../worktree-ahead-feature
     commit W
   )
+  git worktree add --detach ../worktree-ahead-detached wt-feature
+  git worktree add --detach ../worktree-ahead-at-head main
 )
 
 # A single root that splits up into 4 branches and merges again
@@ -1339,6 +1342,18 @@ EOF
       commit W
     git checkout main
     create_workspace_commit_once main
+  )
+
+  # Like `worktree-ahead`, but the branch really is checked out in a linked worktree.
+  git init worktree-ahead-linked
+  (cd worktree-ahead-linked
+    commit init
+    setup_target_to_match_main
+    git checkout -b wt-feature
+      commit W
+    git checkout main
+    create_workspace_commit_once main
+    git worktree add ../worktree-ahead-linked-feature wt-feature
   )
 
   git init target-shared-with-unapplied-and-origin-head

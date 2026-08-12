@@ -54,7 +54,8 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
         let new_ws = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             None,
@@ -63,6 +64,7 @@ pub fn create_virtual_branch(
             &mut meta,
             |_| StackId::generate(),
             branch.order,
+            &mut *ctx.db.get_cache_mut()?,
         )?;
 
         let (stack_idx, segment_idx) = new_ws
@@ -130,6 +132,7 @@ pub fn delete_local_branch(
             avoid_anonymous_stacks: false,
             keep_metadata: false,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )? {
         *ws = new_ws;
     } else {
@@ -575,6 +578,7 @@ fn unapply_stack_v3_with_perm(
         but_workspace::branch::unapply::Options {
             workspace_disposition,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?;
     *ws = outcome.workspace.into_owned();
     // Keeping the workspace merge commit can make legacy reconciliation infer the
@@ -653,7 +657,8 @@ fn commit_assigned_diffspec(
 
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
@@ -671,7 +676,7 @@ fn commit_assigned_diffspec(
     }
     if outcome.commit_selector.is_some() {
         outcome.rebase.materialize(Default::default())?;
-        drop((repo, ws));
+        drop((repo, ws, db));
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }
     Ok(())

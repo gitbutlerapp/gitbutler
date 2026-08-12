@@ -12,6 +12,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -52,7 +53,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -66,7 +67,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -104,6 +105,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -115,7 +117,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
 
     let mut ws = graph.into_workspace()?;
     let before = graph_workspace(&ws).to_string();
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let err = but_workspace::branch::move_branch(
         editor,
@@ -139,6 +141,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
 
 #[test]
 fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -179,7 +182,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -192,7 +195,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -230,6 +233,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -270,7 +274,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -284,7 +288,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -318,6 +322,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn reorder_branch_in_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -358,7 +363,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -372,7 +377,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -410,6 +415,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 
 #[test]
 fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -450,7 +456,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -464,7 +470,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -498,6 +504,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_empty_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
@@ -530,7 +537,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -544,7 +551,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -572,6 +579,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
@@ -604,7 +612,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -618,7 +626,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -646,6 +654,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     invoke_bash(
@@ -666,6 +675,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
                 .map(|id| id.detach()),
             ..Options::limited()
         },
+        &mut db,
     )?;
 
     let mut ws = graph.into_workspace()?;
@@ -680,7 +690,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -692,7 +702,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -710,6 +720,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 
 #[test]
 fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     invoke_bash(
@@ -731,6 +742,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
                 .map(|id| id.detach()),
             ..Options::limited()
         },
+        &mut db,
     )?;
 
     let mut ws = graph.into_workspace()?;
@@ -746,7 +758,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -758,7 +770,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -776,6 +788,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 
 #[test]
 fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -825,7 +838,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     // Move non-empty C on top of non-empty A.
     // This rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -859,7 +872,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 "#]]
     );
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
     // after the refresh the workspace is finally uptodate (this will probably be an issue unless callers know that)
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -911,6 +924,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
 #[test]
 fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
@@ -937,7 +951,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     // Move empty B on top of non-empty A.
     // This path rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -954,7 +968,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let after_display_order = stack_display_order(&ws);
 
@@ -986,6 +1000,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
 #[test]
 fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // When origin/main advances past the fork point, the old fork commit becomes
     // an unnamed base segment. Moving a branch should still work by falling back
     // to selecting by the segment's tip commit.
@@ -1028,7 +1043,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1041,7 +1056,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1073,6 +1088,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 
 #[test]
 fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // Regression: when the target branch (local `main`/`origin/main`) is ahead of the workspace
     // base, the merge-base segment is represented in the editor graph by the `gitbutler/target`
     // reference node sitting above the base commit. Selecting the base by commit would point one
@@ -1115,7 +1131,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put empty B on top of non-empty A.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1128,7 +1144,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1158,6 +1174,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
 
 #[test]
 fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // Same setup as the empty-onto-non-empty regression, but the subject is the non-empty branch
     // and the target is the empty one. Both directions must succeed when the target is ahead.
     let (_tmp, graph, repo, mut meta, _description) =
@@ -1197,7 +1214,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put non-empty A on top of empty B.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1210,7 +1227,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1350,9 +1367,11 @@ mod single_branch_mode {
         subject: &gix::refs::FullNameRef,
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
-        let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, Options::limited())?
-            .into_workspace()?;
-        let editor = Editor::create(&mut ws, meta, repo)?;
+        let mut db = but_testsupport::in_memory_db()?;
+        let mut ws =
+            but_graph::Graph::from_head(repo, meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
+        let editor = Editor::create(&mut ws, meta, repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             ws_meta,
@@ -1440,14 +1459,20 @@ mod single_branch_mode {
         BranchOrderMetadata,
         but_core::ref_metadata::ProjectMeta,
     )> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (tmp, repo, _legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
         let project_meta = crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?;
         let mut meta = branch_order_meta(&repo)?;
 
         let main_ref = r("refs/heads/main");
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            Options::limited(),
+            &mut db,
+        )?
+        .into_workspace()?;
 
         // Each branch is inserted directly below `main`, so creating them in this order yields the
         // chain [main, empty-top, empty-bottom, base] (tip to base).
@@ -1464,6 +1489,7 @@ mod single_branch_mode {
                 &mut meta,
                 stack_id_for_name,
                 None,
+                &mut db,
             )?
             .into_owned();
         }
@@ -1475,16 +1501,18 @@ mod single_branch_mode {
     /// it out; the operation itself does not move `HEAD`.
     #[test]
     fn reorder_above_checked_out_tip_returns_new_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
         // `main` is the checked-out entrypoint (the projected tip).
         assert_eq!(ws.ref_name(), Some(main_ref));
 
         // Move empty `empty-bottom` on top of the checked-out `main`, which makes it the new tip.
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1514,12 +1542,14 @@ mod single_branch_mode {
     /// A reorder that does not touch the tip leaves `new_tip` unset.
     #[test]
     fn reorder_below_tip_has_no_new_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
 
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1547,12 +1577,18 @@ mod single_branch_mode {
     /// `branch_order` metadata, without any graph rewrite.
     #[test]
     fn reorder_empty_branches_updates_branch_order() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            Options::limited(),
+            &mut db,
+        )?
+        .into_workspace()?;
         // Single-branch (ad-hoc) workspace: `HEAD` is on `main` directly, no `gitbutler/workspace`
         // commit. `empty-top`/`empty-bottom` are empty segments; `base` owns the commits.
         snapbox::assert_data_eq!(
@@ -1581,7 +1617,7 @@ mod single_branch_mode {
         );
 
         // Move `empty-bottom` on top of `empty-top` (both empty) - a pure metadata reorder.
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             ws_meta,
@@ -1612,8 +1648,9 @@ mod single_branch_mode {
         );
 
         // Re-projecting from the reloaded metadata reflects the new order, and no commit was moved.
-        let ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1854,14 +1891,16 @@ mod single_branch_mode {
     /// allowed - only a non-empty *subject* needs a real rebase, so a non-empty *target* is fine.
     #[test]
     fn reorder_empty_branch_onto_commit_owning_base() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
 
         // `base` owns the stack's commits; moving the empty `empty-top` on top of it is still just a
         // metadata reorder and must succeed (previously rejected because the target owns commits).
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1896,6 +1935,7 @@ mod single_branch_mode {
     /// "neither ref is tracked" path is unreachable in practice.
     #[test]
     fn untracked_refs_are_not_movable_and_never_clobber_order() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         use gix::refs::transaction::PreviousValue;
 
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
@@ -1908,8 +1948,9 @@ mod single_branch_mode {
         repo.reference(r("refs/heads/x"), tip, PreviousValue::Any, "test")?;
         repo.reference(r("refs/heads/y"), tip, PreviousValue::Any, "test")?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1926,7 +1967,7 @@ mod single_branch_mode {
 "#]]
         );
 
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let err = match but_workspace::branch::move_branch(
             editor,
             r("refs/heads/x"),
@@ -1951,13 +1992,15 @@ mod single_branch_mode {
     /// which is what lets the API skip persistence for dry-run previews without corrupting metadata.
     #[test]
     fn move_branch_does_not_persist_branch_order() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
         let order_before = meta.branch_stack_order(main_ref)?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited(), &mut db)?
+                .into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             branch_stack_order,

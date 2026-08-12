@@ -50,6 +50,7 @@ fn assert_worktree_files(repo: &gix::Repository, present: &[&str], absent: &[&st
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-ws-advanced",
@@ -78,32 +79,53 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
     );
 
     let branch_b = r("refs/heads/B");
-    let err = but_workspace::branch::apply(branch_b, ws.clone(), &repo, &mut meta, apply_options())
-        .unwrap_err();
+    let err = but_workspace::branch::apply(
+        branch_b,
+        ws.clone(),
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to work on workspace whose workspace commit isn't at the top",
         "cannot apply on a workspace that isn't proper"
     );
 
-    let err =
-        but_workspace::branch::apply(r("HEAD"), ws.clone(), &repo, &mut meta, apply_options())
-            .unwrap_err();
+    let err = but_workspace::branch::apply(
+        r("HEAD"),
+        ws.clone(),
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to apply symbolic ref 'HEAD' due to potential ambiguity"
     );
 
-    let err = but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options())
-        .unwrap_err();
+    let err =
+        but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options(), &mut db)
+            .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to work on workspace whose workspace commit isn't at the top",
         "cannot unapply on a workspace that isn't proper"
     );
 
-    let err = but_workspace::branch::unapply(r("HEAD"), &ws, &repo, &mut meta, unapply_options())
-        .unwrap_err();
+    let err = but_workspace::branch::unapply(
+        r("HEAD"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+        &mut db,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to unapply symbolic ref 'HEAD' due to potential ambiguity"
@@ -114,6 +136,7 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     // fixture starts with a single local main branch
     snapbox::assert_data_eq!(
@@ -131,6 +154,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         but_graph::init::Options::default(),
+        &mut db,
     )?
     .into_workspace()?;
     // a normal checked-out branch is still an ad-hoc workspace without workspace metadata
@@ -153,6 +177,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )
     .expect_err("unapplied workspace should be empty, but this one can't be");
     assert_eq!(
@@ -164,6 +189,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta) = named_writable_scenario("single-stack-two-segments")?;
     // fixture starts with a single local main branch
     snapbox::assert_data_eq!(
@@ -186,6 +212,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         but_graph::init::Options::default(),
+        &mut db,
     )?
     .into_workspace()?;
     // a normal checked-out branch is still an ad-hoc workspace without workspace metadata
@@ -217,6 +244,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         &mut meta,
         stack_id_for_name,
         None,
+        &mut db,
     )?
     .into_owned();
     // creating a branch in the ad-hoc workspace gives unapply a visible segment to reject, it has its own ref-metadata
@@ -241,6 +269,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )
     .expect("this works because `on-A1` is only present thanks to ref-metadata which we removed");
 
@@ -265,6 +294,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )
     .expect_err("without project target metadata in the graph, main is a visible non-tip segment");
     assert_eq!(
@@ -277,6 +307,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
 #[test]
 fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -303,8 +334,14 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
     );
 
     // Put "B" into the workspace, even though it's the dependent branch of A.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -328,8 +365,14 @@ Outcome {
     );
 
     // Applying A is always a new stack then.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     // the workspace ref still points to the base e5d0542
     snapbox::assert_data_eq!(
         graph_workspace(&out.workspace).to_string(),
@@ -359,6 +402,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -388,6 +432,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     // virtual stacks don't cause checkouts.
     snapbox::assert_data_eq!(
@@ -426,6 +471,7 @@ mod workspace_disposition {
 
     #[test]
     fn keep_workspace_commit() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = workspace_with_virtual_base()?;
         let out = but_workspace::branch::unapply(
             r("refs/heads/A"),
@@ -433,6 +479,7 @@ mod workspace_disposition {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceCommit),
+            &mut db,
         )?;
         assert!(
             out.workspace.kind.has_managed_commit(),
@@ -474,6 +521,7 @@ mod workspace_disposition {
 
     #[test]
     fn keep_workspace_reference() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = workspace_with_virtual_base()?;
 
         let out = but_workspace::branch::unapply(
@@ -482,6 +530,7 @@ mod workspace_disposition {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceReference),
+            &mut db,
         )?;
         assert!(
             out.workspace_merge.is_some(),
@@ -519,6 +568,7 @@ mod workspace_disposition {
 
     #[test]
     fn prevent_unnecessary_workspace_reference_checks_out_last_real_stack() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-ws-commit-two-stacks",
@@ -535,6 +585,7 @@ mod workspace_disposition {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+            &mut db,
         )?;
         // with one real stack left, the workspace ref is deleted and the remaining stack is checked out
         snapbox::assert_data_eq!(
@@ -578,6 +629,7 @@ Outcome {
     #[test]
     fn prevent_unnecessary_workspace_references_keep_workspace_commit_keeps_merge_when_ref_remains()
     -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = workspace_with_virtual_base()?;
 
         let out = but_workspace::branch::unapply(
@@ -588,6 +640,7 @@ Outcome {
             unapply_options_with(
                 WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
             ),
+            &mut db,
         )?;
         snapbox::assert_data_eq!(
             out.to_debug(),
@@ -639,6 +692,7 @@ Outcome {
 
     #[test]
     fn allow_workspace_reference_deletion() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, _, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
@@ -650,10 +704,17 @@ Outcome {
             &meta,
             project_meta(&repo)?,
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let out = but_workspace::branch::apply(
+            r("refs/heads/A"),
+            ws,
+            &repo,
+            &mut meta,
+            apply_options(),
+            &mut db,
+        )?;
         let ws = out.workspace;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -671,6 +732,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+            &mut db,
         )?;
         // deleting the workspace reference should switch to the local tracking branch of the target
         snapbox::assert_data_eq!(
@@ -702,6 +764,7 @@ Outcome {
 
     #[test]
     fn compatibility_mode_deletes_workspace_reference_when_possible() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, _, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
@@ -713,10 +776,17 @@ Outcome {
             &meta,
             project_meta(&repo)?,
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let out = but_workspace::branch::apply(
+            r("refs/heads/A"),
+            ws,
+            &repo,
+            &mut meta,
+            apply_options(),
+            &mut db,
+        )?;
         let ws = out.workspace;
 
         let out = but_workspace::branch::unapply(
@@ -727,6 +797,7 @@ Outcome {
             unapply_options_with(
                 WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
             ),
+            &mut db,
         )?;
         snapbox::assert_data_eq!(
             out.to_debug(),
@@ -757,6 +828,7 @@ Outcome {
 
     #[test]
     fn unapply_workspace_ref_requires_disposition_that_allows_switching() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, _, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
@@ -768,10 +840,17 @@ Outcome {
             &meta,
             project_meta(&repo)?,
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let out = but_workspace::branch::apply(
+            r("refs/heads/A"),
+            ws,
+            &repo,
+            &mut meta,
+            apply_options(),
+            &mut db,
+        )?;
         let ws = out.workspace;
         // the workspace ref is checked out
         snapbox::assert_data_eq!(
@@ -791,6 +870,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )
         .expect_err("unapplying the workspace ref requires checking out another ref");
         assert_eq!(
@@ -819,6 +899,7 @@ Outcome {
 
     #[test]
     fn keep_workspace_commit_with_last_stack_removed() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-ws-commit-one-stack",
@@ -857,6 +938,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceCommit),
+            &mut db,
         )?;
         assert!(
             out.workspace_merge.is_none(),
@@ -892,6 +974,7 @@ Outcome {
         VirtualBranchesTomlMetadata,
         but_graph::Workspace,
     )> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
         let base_id = repo
             .find_reference("refs/heads/main")?
@@ -911,6 +994,7 @@ Outcome {
             &meta,
             project_meta(&repo)?,
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
         assert!(
@@ -955,6 +1039,7 @@ Outcome {
 
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _graph, mut repo, vb_version_cannot_have_remotes, _description) =
         named_writable_scenario_with_description_and_graph(
             "main-with-advanced-remote",
@@ -982,6 +1067,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &vb_version_cannot_have_remotes,
         ref_metadata::ProjectMeta::default(),
         Options::limited(),
+        &mut db,
     )?;
     let ws = graph.into_workspace()?;
     // note how the remote isn't interesting as we have no target configured, nor an extra target.
@@ -1003,6 +1089,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     // nothing was actually applied as the `main` branch is already in the workspace
     snapbox::assert_data_eq!(
@@ -1024,6 +1111,7 @@ Outcome {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -1083,6 +1171,7 @@ Outcome {
 #[test]
 fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
@@ -1106,8 +1195,14 @@ fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref(
     }
 
     let ws = graph.into_workspace()?;
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -1129,6 +1224,7 @@ fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref(
         unapply_options_with(
             WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
         ),
+        &mut db,
     )?;
     // deleting the workspace ref uses the target fallback instead of the unapplied stack
     snapbox::assert_data_eq!(
@@ -1169,6 +1265,7 @@ Outcome {
 
 #[test]
 fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "advanced-stack-and-unnamed-stack-in-workspace",
@@ -1216,6 +1313,7 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -1251,6 +1349,7 @@ Outcome {
 
 #[test]
 fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -1273,8 +1372,14 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     );
 
     // Put "A" into the workspace, yielding a single branch.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -1306,7 +1411,8 @@ Outcome {
     );
 
     let branch_b = r("refs/heads/B");
-    let out = but_workspace::branch::apply(branch_b, ws, &repo, &mut meta, apply_options())?;
+    let out =
+        but_workspace::branch::apply(branch_b, ws, &repo, &mut meta, apply_options(), &mut db)?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -1342,7 +1448,14 @@ Outcome {
 "#]]
     );
 
-    let out = but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options())?;
+    let out = but_workspace::branch::unapply(
+        branch_b,
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace.into_owned();
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -1367,6 +1480,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         graph_workspace(&out.workspace).to_string(),
@@ -1388,6 +1502,7 @@ Outcome {
 
 #[test]
 fn unapply_natural_stack_with_partial_workspace_metadata() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-stacks",
@@ -1417,6 +1532,7 @@ fn unapply_natural_stack_with_partial_workspace_metadata() -> anyhow::Result<()>
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
 
     // A is removed and B is left
@@ -1463,6 +1579,7 @@ Workspace {
 
 #[test]
 fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack-files",
@@ -1492,6 +1609,7 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
 
     // C was unapplied, and the workspace commit removed
@@ -1560,6 +1678,7 @@ Workspace {
 #[test]
 fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_target_branch()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-no-ws-commit-two-branches",
@@ -1569,8 +1688,13 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let mut project_meta = project_meta(&repo)?;
     project_meta.target_ref = None;
     project_meta.target_commit_id = None;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        standard_traversal_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1592,8 +1716,14 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -1639,6 +1769,7 @@ Outcome {
             order: Some(1),
             ..apply_options()
         },
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -1684,7 +1815,7 @@ Outcome {
 
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta, Overlay::default(), &mut db)?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -1706,6 +1837,7 @@ Outcome {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
             ..apply_options()
         },
+        &mut db,
     )?;
     // A workspace commit was created, even though it does nothing.
     snapbox::assert_data_eq!(
@@ -1738,6 +1870,7 @@ Outcome {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
             ..apply_options()
         },
+        &mut db,
     )?;
 
     // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
@@ -1771,6 +1904,7 @@ Outcome {
 #[test]
 fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-no-ws-commit-two-branches",
@@ -1782,6 +1916,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         &meta,
         project_meta(&repo)?,
         standard_traversal_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1803,8 +1938,14 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -1837,8 +1978,14 @@ Outcome {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -1874,16 +2021,28 @@ Outcome {
 
     // Cannot put local tracking branch of target into workspace that has it configured.
     for branch in ["refs/heads/main", "refs/remotes/origin/main"] {
-        let err =
-            but_workspace::branch::apply(r(branch), ws.clone(), &repo, &mut meta, apply_options())
-                .unwrap_err();
+        let err = but_workspace::branch::apply(
+            r(branch),
+            ws.clone(),
+            &repo,
+            &mut meta,
+            apply_options(),
+            &mut db,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("Cannot add the target '{branch}' branch to its own workspace")
         );
 
-        let out =
-            but_workspace::branch::unapply(r(branch), &ws, &repo, &mut meta, unapply_options())?;
+        let out = but_workspace::branch::unapply(
+            r(branch),
+            &ws,
+            &repo,
+            &mut meta,
+            unapply_options(),
+            &mut db,
+        )?;
         assert!(
             !out.workspace_changed(),
             "target refs are never applied, so unapplying them is always fulfilled after the call (i.e. they aren't applied)"
@@ -1896,6 +2055,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     let ws = out.workspace.into_owned();
     snapbox::assert_data_eq!(
@@ -1921,6 +2081,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+        &mut db,
     )?;
     // the target's local tracking branch is checked out
     snapbox::assert_data_eq!(
@@ -1946,6 +2107,7 @@ Outcome {
 
 #[test]
 fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // A managed workspace exists with `outside` marked in-workspace. The user then `git switch`es
     // onto `feature`, a branch outside the workspace, leaving the metadata stale.
     let (_tmp, _graph, repo, mut meta, _description) =
@@ -1963,6 +2125,7 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
 
@@ -1974,6 +2137,7 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     assert_eq!(out.status, OutcomeStatus::Applied);
 
@@ -2095,6 +2259,7 @@ fn apply_in_managed_workspace_drops_stack_whose_ref_disappeared() -> anyhow::Res
 
 #[test]
 fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // A managed workspace has two live stacks, then HEAD is moved to one of its branches. Applying
     // a third branch from that enclosed AdHoc checkout rebuilds the workspace around the checked-out
     // branch and the newly applied branch.
@@ -2176,6 +2341,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
         &meta,
         project_meta(&repo)?,
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
     assert!(
@@ -2197,8 +2363,14 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(out.status, OutcomeStatus::Applied);
     // applying C rebuilds the workspace around B and C
     snapbox::assert_data_eq!(
@@ -2265,6 +2437,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
 
 #[test]
 fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     // A managed workspace has two live stacks, then HEAD is moved to a third branch. Applying one
     // of the previously applied branches rebuilds the workspace around the checked-out branch and
     // the branch being applied.
@@ -2345,6 +2518,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
         &meta,
         project_meta(&repo)?,
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
     // direct checkout of C is an ad-hoc workspace next to the existing managed workspace
@@ -2359,8 +2533,14 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(out.status, OutcomeStatus::Applied);
     // applying A rebuilds the workspace around C and A
     snapbox::assert_data_eq!(
@@ -2428,6 +2608,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
 #[test]
 fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stacks()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-three-file-stacks",
@@ -2448,10 +2629,17 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
         &meta,
         project_meta(&repo)?,
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
 
     assert_eq!(out.status, OutcomeStatus::Applied);
     assert_eq!(
@@ -2482,6 +2670,7 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
 
 #[test]
 fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, ws_graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -2511,6 +2700,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         but_graph::init::Options::default(),
+        &mut db,
     )?;
     let ws = graph.into_workspace()?;
     // The existing workspace isn't projected without its ProjectMeta, but its ref stays visible.
@@ -2526,8 +2716,14 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
     );
 
     // Put "A" into the workspace, hence we want "A" and "B" in it.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -2580,6 +2776,7 @@ mod unapply_checked_out {
     );
 
     fn virtual_stack_tip_checked_out() -> anyhow::Result<Scenario> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (tmp, _graph, repo, meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -2604,6 +2801,7 @@ mod unapply_checked_out {
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
 
@@ -2624,6 +2822,7 @@ mod unapply_checked_out {
     }
 
     fn real_stack_tip_checked_out() -> anyhow::Result<Scenario> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (tmp, graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "detached-with-multiple-branches",
@@ -2655,6 +2854,7 @@ mod unapply_checked_out {
                 &repo,
                 &mut meta,
                 apply_options(),
+                &mut db,
             )?;
             ws = out.workspace;
         }
@@ -2680,6 +2880,7 @@ mod unapply_checked_out {
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
 
@@ -2703,6 +2904,7 @@ mod unapply_checked_out {
 
     #[test]
     fn virtual_stack_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = virtual_stack_tip_checked_out()?;
 
         let out = but_workspace::branch::unapply(
@@ -2711,6 +2913,7 @@ mod unapply_checked_out {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )?;
         // the workspace is checked out as the current brnach was unapplied
         snapbox::assert_data_eq!(
@@ -2751,6 +2954,7 @@ Outcome {
     #[test]
     fn virtual_stack_tip_switches_from_workspace_to_last_stack_when_allowed() -> anyhow::Result<()>
     {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = virtual_stack_tip_checked_out()?;
 
         let out = but_workspace::branch::unapply(
@@ -2759,6 +2963,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+            &mut db,
         )?;
         // the checked-out stack is unapplied, then the remaining stack is checked out directly
         snapbox::assert_data_eq!(
@@ -2797,6 +3002,7 @@ Outcome {
 
     #[test]
     fn virtual_stack_tip_with_indirect_entrypoint() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, _graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -2811,6 +3017,7 @@ Outcome {
             &meta,
             project_meta(&repo)?,
             standard_traversal_options(),
+            &mut db,
         )?
         .into_workspace()?;
         // A is checked out as a lower segment of the B stack
@@ -2831,6 +3038,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )?;
         // the workspace is checked out as the current branch's stack was unapplied
         snapbox::assert_data_eq!(
@@ -2866,6 +3074,7 @@ Outcome {
 
     #[test]
     fn virtual_unrelated_stack_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = virtual_stack_tip_checked_out()?;
 
         let out = but_workspace::branch::unapply(
@@ -2874,6 +3083,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )?;
         // no change in what's checked out
         snapbox::assert_data_eq!(
@@ -2911,6 +3121,7 @@ Outcome {
 
     #[test]
     fn real_stack_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = real_stack_tip_checked_out()?;
 
         let out = but_workspace::branch::unapply(
@@ -2919,6 +3130,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )?;
         // the workspace ref is checked out
         snapbox::assert_data_eq!(
@@ -2965,6 +3177,7 @@ Outcome {
 
     #[test]
     fn real_unrelated_stack_tip() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta, ws) = real_stack_tip_checked_out()?;
 
         let out = but_workspace::branch::unapply(
@@ -2973,6 +3186,7 @@ Outcome {
             &repo,
             &mut meta,
             unapply_options(),
+            &mut db,
         )?;
         // the checked out branch isn't changed
         snapbox::assert_data_eq!(
@@ -3018,6 +3232,7 @@ Outcome {
 
 #[test]
 fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, mut graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
@@ -3036,7 +3251,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
 
     graph.project_meta = Default::default();
     graph.options.extra_target_commit_id = None;
-    let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default(), &mut db)?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -3050,8 +3265,14 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -3096,7 +3317,8 @@ Outcome {
     );
 
     let branch_b_rt = r("refs/remotes/origin/B");
-    let out = but_workspace::branch::apply(branch_b_rt, ws, &repo, &mut meta, apply_options())?;
+    let out =
+        but_workspace::branch::apply(branch_b_rt, ws, &repo, &mut meta, apply_options(), &mut db)?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -3143,8 +3365,14 @@ Outcome {
         .raw()
     );
 
-    let out =
-        but_workspace::branch::unapply(branch_b_rt, &ws, &repo, &mut meta, unapply_options())?;
+    let out = but_workspace::branch::unapply(
+        branch_b_rt,
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+        &mut db,
+    )?;
     // remote tracking branches can't be unapplied, as they aren't applied in the first place
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3163,6 +3391,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     // the local tracking branch, howeer, will be unapplied
     snapbox::assert_data_eq!(
@@ -3204,6 +3433,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     // A is removed and main is checked out
     snapbox::assert_data_eq!(
@@ -3242,6 +3472,7 @@ Outcome {
 
 #[test]
 fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, mut graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
@@ -3259,7 +3490,7 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
     );
     graph.project_meta = Default::default();
     graph.options.extra_target_commit_id = None;
-    let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default(), &mut db)?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -3272,8 +3503,14 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
 
 "#]]
     );
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace;
     let out = but_workspace::branch::apply(
         r("refs/remotes/origin/B"),
@@ -3281,6 +3518,7 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     let ws = out.workspace;
     snapbox::assert_data_eq!(
@@ -3313,9 +3551,15 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
     let worktree_before =
         visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
             .to_string();
-    let err =
-        but_workspace::branch::unapply(r("refs/heads/B"), &ws, &repo, &mut meta, unapply_options())
-            .unwrap_err();
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/B"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+        &mut db,
+    )
+    .unwrap_err();
     snapbox::assert_data_eq!(
         err.to_debug(),
         snapbox::str![[r#"
@@ -3346,6 +3590,7 @@ Context {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
     assert_eq!(graph_workspace(&ws_after).to_string(), ws_before);
@@ -3364,6 +3609,7 @@ Context {
 
 #[test]
 fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "B", StackState::InWorkspace, &["A"]);
@@ -3380,8 +3626,14 @@ fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result
     }
     meta.set_workspace(&ws_md)?;
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(
         out.status,
         OutcomeStatus::Applied,
@@ -3402,6 +3654,7 @@ fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result
 
 #[test]
 fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "single-stack-two-segments",
@@ -3442,6 +3695,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3470,8 +3724,14 @@ Outcome {
 
     let ws = out.workspace;
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A1"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A1"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -3509,6 +3769,7 @@ Outcome {
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
             ..apply_options()
         },
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3590,6 +3851,7 @@ Some(
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3620,6 +3882,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     // this is a no-op, A1 was removed with A2 prior
     snapbox::assert_data_eq!(
@@ -3653,8 +3916,14 @@ Outcome {
         ),
         "this should make the workspace commit disappear, but keep the workspace reference"
     );
-    let out =
-        but_workspace::branch::unapply(r("refs/heads/unrelated"), &ws, &repo, &mut meta, opts)?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/unrelated"),
+        &ws,
+        &repo,
+        &mut meta,
+        opts,
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -3691,6 +3960,7 @@ Outcome {
 
 #[test]
 fn unapply_existing_branch_outside_detached_ad_hoc_workspace_is_noop() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
@@ -3728,6 +3998,7 @@ fn unapply_existing_branch_outside_detached_ad_hoc_workspace_is_noop() -> anyhow
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     // it's a noop, the workspace didn't change, the branch was never applied
     snapbox::assert_data_eq!(
@@ -3745,6 +4016,7 @@ Outcome {
 
 #[test]
 fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "single-stack-two-segments",
@@ -3769,6 +4041,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
     snapbox::assert_data_eq!(
@@ -3787,9 +4060,15 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
     );
 
     let unapply_this = r("refs/heads/A1");
-    let err =
-        but_workspace::branch::unapply(unapply_this, &ws, &repo, &mut meta, unapply_options())
-            .expect_err("detached ad-hoc workspaces cannot unapply their contained branch");
+    let err = but_workspace::branch::unapply(
+        unapply_this,
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+        &mut db,
+    )
+    .expect_err("detached ad-hoc workspaces cannot unapply their contained branch");
     assert_eq!(
         err.to_string(),
         "Cannot unapply a branch from an ad-hoc detached workspace"
@@ -3799,6 +4078,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
 
 #[test]
 fn detached_head_journey() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
@@ -3828,8 +4108,14 @@ fn detached_head_journey() -> anyhow::Result<()> {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
 
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3870,8 +4156,14 @@ Outcome {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
 
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -3926,6 +4218,7 @@ Outcome {
             order: Some(0),
             ..apply_options()
         },
+        &mut db,
     )?;
 
     snapbox::assert_data_eq!(
@@ -3979,6 +4272,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -4012,6 +4306,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -4042,6 +4337,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+        &mut db,
     )
     .expect("C can be removed");
     snapbox::assert_data_eq!(
@@ -4068,6 +4364,7 @@ Outcome {
 
 #[test]
 fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
@@ -4097,6 +4394,7 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
             &repo,
             &mut meta,
             apply_options(),
+            &mut db,
         )?;
         ws = out.workspace;
     }
@@ -4110,6 +4408,7 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
             order: Some(0),
             ..apply_options()
         },
+        &mut db,
     )?;
     let ws = out.workspace;
     // the workspace has named stacks but no target ref
@@ -4145,6 +4444,7 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
         &repo,
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+        &mut db,
     )
     .expect("workspace ref can be unapplied by falling back to a named stack");
     // without a target ref, unapplying the workspace ref checks out the named stack with the lowest generation
@@ -4198,6 +4498,7 @@ Outcome {
 
 #[test]
 fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
     // the fixture starts on a conflicted main commit
@@ -4220,6 +4521,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         &meta,
         ref_metadata::ProjectMeta::default(),
         standard_traversal_options(),
+        &mut db,
     )?
     .into_workspace()?;
     let out = but_workspace::branch::apply(
@@ -4228,6 +4530,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     let ws = out.workspace;
     // the target-less workspace can contain a conflicted named stack
@@ -4250,6 +4553,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         &repo,
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+        &mut db,
     )
     .expect_err("workspace ref unapply must not check out conflicted stack tips");
     assert_eq!(
@@ -4271,6 +4575,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
 
 #[test]
 fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
@@ -4301,8 +4606,14 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     );
 
     // Apply the dependent branch, to bring in only the dependent branch
-    let out =
-        but_workspace::branch::apply(r("refs/heads/E"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/E"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -4329,8 +4640,14 @@ Outcome {
 
     // Apply the former tip of the stack, to create a new stack. Note how it won't double-list the
     // other stack.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4364,8 +4681,14 @@ Outcome {
     // BUT: Currently it overrides the previous stack C, which points to the same commit, and avoids any merge!
     // Accepting this behaviour for now as it's quite rare to have such ambiguity, even though I'd love if one day
     // for this to just work as people might intuitively want, even if that means the same commit is used multiple times.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4384,9 +4707,15 @@ Outcome {
     // Applying C again… works, but it's creating a dependent stack.
     // This is what happens because we notice that C can't be applied as independent stack due to the graph algorithm,
     // and then it tries it a dependent stack, which should always work.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())
-            .unwrap();
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .unwrap();
     let ws = out.workspace;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4408,6 +4737,7 @@ Outcome {
 
 #[test]
 fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
@@ -4435,8 +4765,14 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     );
 
     // Apply `A` first.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -4472,9 +4808,15 @@ Outcome {
     );
 
     // Apply `B` - the only sane way is to make it its own stack, but allow it to diverge.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())
-            .expect("apply actually works");
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .expect("apply actually works");
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -4512,9 +4854,15 @@ Outcome {
     );
 
     // What follows is a bit wonky, but for now is here to document what happens in a complex scenario.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())
-            .expect("apply actually works");
+    let out = but_workspace::branch::apply(
+        r("refs/heads/C"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .expect("apply actually works");
     // applying C succeeds and updates the workspace metadata
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -4555,9 +4903,15 @@ Outcome {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/D"), ws, &repo, &mut meta, apply_options())
-            .expect("apply actually works");
+    let out = but_workspace::branch::apply(
+        r("refs/heads/D"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .expect("apply actually works");
     // applying D succeeds and updates the workspace metadata
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -4599,9 +4953,15 @@ Outcome {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/E"), ws, &repo, &mut meta, apply_options())
-            .expect("apply actually works");
+    let out = but_workspace::branch::apply(
+        r("refs/heads/E"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .expect("apply actually works");
     // applying E forces the lower same-commit branch pair into its own stack
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -4654,6 +5014,7 @@ Outcome {
         &repo,
         &mut meta,
         legacy_unapply_options(),
+        &mut db,
     )
     .expect("unapply actually works");
     // unapplying E removes the E/D stack and keeps the B/C/A stack applied
@@ -4706,6 +5067,7 @@ Outcome {
         &repo,
         &mut meta,
         legacy_unapply_options(),
+        &mut db,
     )
     .expect("unapply actually works");
     // unapplying D after E is already gone is a no-op
@@ -4754,6 +5116,7 @@ Outcome {
         &repo,
         &mut meta,
         legacy_unapply_options(),
+        &mut db,
     )
     .expect("unapply actually works");
     // unapplying C removes that middle metadata segment from B/C/A
@@ -4801,6 +5164,7 @@ Outcome {
         &repo,
         &mut meta,
         legacy_unapply_options(),
+        &mut db,
     )
     .expect("unapply actually works");
     // unapplying B removes the remaining B/A applied stack
@@ -4843,6 +5207,7 @@ Outcome {
         &repo,
         &mut meta,
         legacy_unapply_options(),
+        &mut db,
     )
     .expect("unapply actually works");
     // unapplying A after B removed the remaining stack is a no-op
@@ -4885,6 +5250,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
+        &mut db,
     )
     .expect("workspace ref can be unapplied by checking out a named target");
     // unapplying the workspace ref switches to the target's local branch when the disposition allows deleting the workspace ref
@@ -4928,6 +5294,7 @@ Outcome {
 
 #[test]
 fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, _graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "various-heads-for-multi-line-merge-conflict",
@@ -4970,6 +5337,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
             ..Options::limited()
         },
+        &mut db,
     )?
     .into_workspace()?;
 
@@ -4988,6 +5356,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             &repo,
             &mut meta,
             apply_options(),
+            &mut db,
         )
         .unwrap_or_else(|err| panic!("{branch_to_apply}: {err}"));
         ws = out.workspace;
@@ -5050,6 +5419,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         sanitize_uuids_and_timestamps(format!("{out:#?}")),
@@ -5116,6 +5486,7 @@ Outcome {
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
             ..apply_options()
         },
+        &mut db,
     )?;
     // It does still report conflicts.
     snapbox::assert_data_eq!(
@@ -5282,6 +5653,7 @@ Workspace {
 #[test]
 fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() -> anyhow::Result<()>
 {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "one-fork-with-conflicting-sibling",
@@ -5303,8 +5675,14 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
     );
 
     let ws = graph.into_workspace()?;
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     let ws = out.workspace;
     // A is applied before trying the conflicting sibling branch
     snapbox::assert_data_eq!(
@@ -5339,6 +5717,7 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     assert_eq!(
         out.status,
@@ -5375,6 +5754,7 @@ Outcome {
 #[test]
 fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "various-heads-for-multi-line-merge-conflict-on-main",
@@ -5431,6 +5811,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
                     OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
                 ..apply_options()
             },
+            &mut db,
         )?;
         ws = out.workspace;
     }
@@ -5467,6 +5848,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
             &repo,
             &mut meta,
             unapply_options_with(WorkspaceDisposition::KeepWorkspaceReference),
+            &mut db,
         )?;
         ws = out.workspace.into_owned();
     }
@@ -5487,6 +5869,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
 
 #[test]
 fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -5524,6 +5907,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     // nothing actually changed, so nothing is mentioned
     snapbox::assert_data_eq!(
@@ -5545,6 +5929,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options_with_extra_target(&repo),
+        &mut db,
     )?
     .into_workspace()?;
     snapbox::assert_data_eq!(
@@ -5565,6 +5950,7 @@ Outcome {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     // no-ops aren't listing the already applied branches
     snapbox::assert_data_eq!(
@@ -5588,8 +5974,14 @@ Outcome {
     meta.set_workspace(&ws_md)?;
 
     // To apply A, we checkout the surrounding workspace and repair the stale metadata.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(
         out.status,
         OutcomeStatus::Applied,
@@ -5648,6 +6040,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options_with_extra_target(&repo),
+        &mut db,
     )?
     .into_workspace()?;
     // V-branch B is checked out
@@ -5662,8 +6055,14 @@ Outcome {
 "#]]
     );
 
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     // Nothing changed, the desired branch was already applied
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -5684,6 +6083,7 @@ Outcome {
         &meta,
         project_meta(&repo)?,
         standard_traversal_options_with_extra_target(&repo),
+        &mut db,
     )?
     .into_workspace()?;
     // There is nothing yet.
@@ -5697,8 +6097,14 @@ Outcome {
     );
 
     // Apply the first branch, it must be independent.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(
         out.status,
         OutcomeStatus::Applied,
@@ -5727,8 +6133,14 @@ Outcome {
     );
 
     // Apply the first branch, it must be independent.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/B"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -5760,6 +6172,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_traversal_options_with_extra_target(&repo),
+        &mut db,
     )?
     .into_workspace()?;
     // the same result when checked out directly
@@ -5782,6 +6195,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -5819,6 +6233,7 @@ Outcome {
         &repo,
         &mut meta,
         unapply_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -5851,6 +6266,7 @@ Outcome {
 
 #[test]
 fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-stacks",
@@ -5891,7 +6307,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
 
     // Apply the workspace ref itself, it's a no-op
     let ws_ref = r("refs/heads/gitbutler/workspace");
-    let out = but_workspace::branch::apply(ws_ref, ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(ws_ref, ws, &repo, &mut meta, apply_options(), &mut db)?;
     // the workspace ref itself counts as no-op as well
     snapbox::assert_data_eq!(
         out.to_debug(),
@@ -5912,6 +6328,7 @@ Outcome {
         &meta,
         project_meta(&repo)?,
         but_graph::init::Options::default(),
+        &mut db,
     )?
     .into_workspace()?;
     snapbox::assert_data_eq!(
@@ -5935,6 +6352,7 @@ Outcome {
         &repo,
         &mut meta,
         apply_options(),
+        &mut db,
     )?;
     // already applied branches are a no-op, even when a stack segment is checked out
     snapbox::assert_data_eq!(
@@ -5949,8 +6367,15 @@ Outcome {
 "#]]
     );
 
-    let err = but_workspace::branch::apply(ws_ref, ws.clone(), &repo, &mut meta, apply_options())
-        .unwrap_err();
+    let err = but_workspace::branch::apply(
+        ws_ref,
+        ws.clone(),
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )
+    .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to apply a reference that already is a workspace: 'gitbutler/workspace'",
@@ -5960,8 +6385,14 @@ Outcome {
 
     // To apply, we just checkout the surrounding workspace.
     let b_tip_before_apply = id_by_rev(&repo, "B");
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+        &mut db,
+    )?;
     assert_eq!(
         out.status,
         OutcomeStatus::Applied,
@@ -6003,6 +6434,7 @@ Outcome {
 
 #[test]
 fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) =
         named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;
     snapbox::assert_data_eq!(
@@ -6013,8 +6445,13 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        Options::limited(),
+        &mut db,
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6030,6 +6467,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
         &repo,
         &mut *meta,
         apply_options(),
+        &mut db,
     )
     .unwrap_err();
     assert_eq!(
@@ -6050,6 +6488,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_nonexisting_branch() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) =
         named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;
     snapbox::assert_data_eq!(
@@ -6060,8 +6499,13 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        Options::limited(),
+        &mut db,
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6077,6 +6521,7 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
         &repo,
         &mut *meta,
         unapply_options(),
+        &mut db,
     )
     .unwrap_err();
     assert_eq!(
@@ -6097,6 +6542,7 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 
 #[test]
 fn unborn_apply_needs_base() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) =
         named_read_only_in_memory_scenario("unborn-empty-detached-remote", "unborn")?;
     // Depending on the Git version it produces`* 3183e43 (orphan/main, orphan/HEAD) M1` on CI,
@@ -6108,6 +6554,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         Options::limited(),
+        &mut db,
     )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -6127,6 +6574,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &repo,
         &mut *meta,
         apply_options(),
+        &mut db,
     )?;
     // the HEAD is already at 'main', so nothing changes
     snapbox::assert_data_eq!(
@@ -6149,6 +6597,7 @@ Outcome {
         &repo,
         &mut *meta,
         apply_options(),
+        &mut db,
     )?;
     // this won't happen (often) in the real world, but it's a no-op
     snapbox::assert_data_eq!(
@@ -6221,7 +6670,7 @@ mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
-            worktree_tips: vec![],
+            worktrees: Default::default(),
         }
     }
 

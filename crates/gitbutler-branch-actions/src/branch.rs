@@ -26,7 +26,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::init::Options::limited());
     let mut repo = ctx.repo.get()?.clone();
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
@@ -63,12 +63,10 @@ pub fn list_branches(
     let remote_names = repo.remote_names();
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let db = gerrit_mode_enabled
-        .then(|| ctx.db.get_cache())
-        .transpose()?;
-    let gerrit_mode = match db.as_ref() {
-        Some(db) => but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
-        None => but_workspace::ref_info::GerritMode::Disabled,
+    let gerrit_mode = if gerrit_mode_enabled {
+        but_workspace::ref_info::GerritMode::Enabled
+    } else {
+        but_workspace::ref_info::GerritMode::Disabled
     };
 
     // This head_info call is intended to match the but-api head_info, such that
@@ -82,6 +80,7 @@ pub fn list_branches(
             expensive_commit_info: false,
             gerrit_mode,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?;
     // Resolve each segment's PR association from the forge review cache (keyed by
     // the segment's remote/pushed short name) rather than from stored metadata.

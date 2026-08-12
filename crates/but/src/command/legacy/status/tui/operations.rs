@@ -42,7 +42,7 @@ pub fn reload_legacy(
         let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        ws.refresh_from_head(&repo, &meta, project_meta)?;
+        ws.refresh_from_head(&repo, &meta, project_meta, &mut *ctx.db.get_cache_mut()?)?;
     }
 
     let mut new_lines = Vec::new();

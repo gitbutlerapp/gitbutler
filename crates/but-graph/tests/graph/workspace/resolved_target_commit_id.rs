@@ -94,6 +94,7 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
 
 #[test]
 fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -118,7 +119,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
     // resolved_target_commit_id should return M4 (the tip of origin/main).
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
         .validated()?
         .into_workspace()?;
 
@@ -135,6 +136,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
 
 #[test]
 fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -156,7 +158,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
     // resolved_target_commit_id should return M3 (the tip of origin/main).
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
         .validated()?
         .into_workspace()?;
 
@@ -173,6 +175,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
 
 #[test]
 fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -197,7 +200,7 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
     let m2 = repo.rev_parse_single(":/M2")?.detach();
     let project_meta = add_workspace_with_target(&mut meta, m2);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options(), &mut db)?
         .validated()?
         .into_workspace()?;
 
@@ -216,6 +219,7 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_no_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
@@ -224,6 +228,7 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?
     .into_workspace()?;
@@ -238,6 +243,7 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
 
     add_workspace(&mut meta);
@@ -247,6 +253,7 @@ fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options_with_extra_target(&repo, "main"),
+        &mut db,
     )?
     .validated()?
     .into_workspace()?;

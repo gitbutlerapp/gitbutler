@@ -33,6 +33,7 @@ pub fn remove_reference(
         avoid_anonymous_stacks,
         keep_metadata,
     }: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Option<but_graph::Workspace>> {
     // We assume the stack-idx can't change by deleting
     let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
@@ -84,9 +85,10 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
+    let mut graph =
+        workspace
+            .graph
+            .redo_traversal_with_overlay(repo, meta, Default::default(), db)?;
     let ws = graph.into_workspace()?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
@@ -119,7 +121,7 @@ pub fn remove_reference(
             )?;
             graph = ws
                 .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
+                .redo_traversal_with_overlay(repo, meta, Default::default(), db)?;
             Ok(Some(graph.into_workspace()?))
         } else {
             Ok(Some(ws))

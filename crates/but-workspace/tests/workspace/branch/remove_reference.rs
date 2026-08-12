@@ -14,6 +14,7 @@ use crate::{
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, desc) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
@@ -56,6 +57,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
                     keep_metadata: true,
                     ..Default::default()
                 },
+                &mut db
             )?
             .is_none()
         );
@@ -70,6 +72,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
                     keep_metadata: false,
                     ..Default::default()
                 },
+                &mut db
             )?
             .is_none()
         );
@@ -83,7 +86,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &meta, &mut db)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -97,6 +102,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
         "single-branch-3-commits-no-ws-commit-more-branches",
         |meta| {
@@ -147,11 +153,14 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
                 avoid_anonymous_stacks: false,
                 ..Default::default()
             },
+            &mut db,
         )?
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &meta, &mut db)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -169,6 +178,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
         "single-branch-4-commits-more-branches",
         |meta| {
@@ -232,6 +242,7 @@ Two commits in main, target setup, ws commit, many more usable branches
                 avoid_anonymous_stacks: true,
                 ..Default::default()
             },
+            &mut db,
         )?
         .expect("we deleted something");
     }
@@ -260,6 +271,7 @@ Two commits in main, target setup, ws commit, many more usable branches
                 avoid_anonymous_stacks: true,
                 ..Default::default()
             },
+            &mut db,
         )?
         .expect("we deleted something");
     }
@@ -285,6 +297,7 @@ Two commits in main, target setup, ws commit, many more usable branches
             avoid_anonymous_stacks: true,
             ..Default::default()
         },
+        &mut db,
     )
     .unwrap_err();
     assert_eq!(
@@ -298,6 +311,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, desc) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
@@ -348,6 +362,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             keep_metadata: true,
             ..Default::default()
         },
+        &mut db,
     )?
     .expect("we deleted something");
 
@@ -373,7 +388,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &meta, &mut db)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -395,6 +412,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         &ws,
         &mut meta,
         remove_reference::Options::default(),
+        &mut db,
     )?
     .expect("we deleted something");
     repo.reference(
@@ -426,6 +444,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             &ws,
             &mut meta,
             remove_reference::Options::default(),
+            &mut db
         )?
         .is_none()
     );
@@ -447,6 +466,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
                 avoid_anonymous_stacks: true,
                 ..Default::default()
             },
+            &mut db,
         )?
         .expect("we deleted something");
     }
@@ -459,7 +479,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &meta, &mut db)?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),

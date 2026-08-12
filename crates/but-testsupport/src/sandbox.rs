@@ -264,11 +264,13 @@ impl Sandbox {
     ) {
         let repo = self.open_repo();
         let meta = self.meta();
+        let mut db = crate::in_memory_db().unwrap();
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
             self.project_meta(),
             but_graph::init::Options::default(),
+            &mut db,
         )
         .unwrap();
         (graph, repo, meta)

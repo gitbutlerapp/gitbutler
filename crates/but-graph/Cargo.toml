@@ -23,6 +23,7 @@ legacy = []
 
 [dependencies]
 but-core.workspace = true
+but-db.workspace = true
 
 gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true

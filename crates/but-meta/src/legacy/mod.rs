@@ -244,12 +244,16 @@ impl Snapshot {
             write_on_drop: false,
         });
         let project_meta = ProjectMeta::resolve(repo)?;
+        // This legacy reconciliation has no project database in reach, and with
+        // worktrees disabled in the options the traversal never reads it.
+        let mut db = but_db::DbHandle::new_at_path(":memory:")?;
         let graph = but_graph::Graph::from_commit_traversal(
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
             project_meta,
             but_graph::init::Options::limited(),
+            &mut db,
         )?;
         graph.into_workspace()
     }

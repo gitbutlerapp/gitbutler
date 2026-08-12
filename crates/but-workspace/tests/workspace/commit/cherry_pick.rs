@@ -11,6 +11,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 
 #[test]
 fn insert_below_commit() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -27,7 +28,7 @@ fn insert_below_commit() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -55,6 +56,7 @@ fn insert_below_commit() -> anyhow::Result<()> {
 
 #[test]
 fn insert_above_commit() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -71,7 +73,7 @@ fn insert_above_commit() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -97,6 +99,7 @@ fn insert_above_commit() -> anyhow::Result<()> {
 
 #[test]
 fn insert_below_reference() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -113,7 +116,7 @@ fn insert_below_reference() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -139,6 +142,7 @@ fn insert_below_reference() -> anyhow::Result<()> {
 
 #[test]
 fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -161,7 +165,7 @@ fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
         .raw()
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     let (rebase, _) = but_workspace::commit::cherry_pick_commits(
         editor,
         [b, c],
@@ -192,6 +196,7 @@ fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
 
 #[test]
 fn sources_are_deduped() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack", |_| {})?;
     let mut workspace = graph.into_workspace()?;
@@ -213,7 +218,7 @@ fn sources_are_deduped() -> anyhow::Result<()> {
         .raw()
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
         [b, b],
@@ -249,12 +254,13 @@ fn sources_are_deduped() -> anyhow::Result<()> {
 
 #[test]
 fn copies_get_new_change_ids() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack", |_| {})?;
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
@@ -276,12 +282,13 @@ fn copies_get_new_change_ids() -> anyhow::Result<()> {
 
 #[test]
 fn copies_commit_contents() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack-files", |_| {})?;
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
@@ -317,12 +324,13 @@ fn copies_commit_contents() -> anyhow::Result<()> {
 
 #[test]
 fn rebased_children_keep_contents() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack-files", |_| {})?;
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target = repo.rev_parse_single("A")?.detach();
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     but_workspace::commit::cherry_pick_commits(
         editor,

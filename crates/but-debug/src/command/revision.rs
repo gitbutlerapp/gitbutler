@@ -209,11 +209,15 @@ fn graph_for_revisions(
         )
         .chain(graph_tips);
 
+    // This debug path runs on arbitrary repositories without a GitButler project,
+    // and with worktrees disabled in the options the traversal never reads the db.
+    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
     but_graph::Graph::from_commit_traversal_tips(
         repo,
         tips,
         meta,
         but_core::ref_metadata::ProjectMeta::default(),
         options,
+        &mut db,
     )
 }

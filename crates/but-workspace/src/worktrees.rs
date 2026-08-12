@@ -153,17 +153,17 @@ pub fn list_worktrees(sources: Vec<WorktreeSource>) -> WorktreeListing {
 /// Project the linked worktrees that seeded `workspace`'s traversal into the commits they own.
 ///
 /// Returns an empty list when the traversal wasn't seeded with worktree tips, which is how the
-/// `worktreeManipulation` feature flag switches this off - the flag decides whether `but-ctx` fills
-/// [`worktree_tips`](but_graph::init::Options::worktree_tips), and everything here rides on that.
+/// `worktreeManipulation` feature flag switches this off - the flag decides whether `but-ctx` sets
+/// [`worktrees`](but_graph::init::Options::worktrees), and everything here rides on that.
 ///
-/// Each tip is re-resolved through `repo` just like the traversal does, so a ref that vanished
-/// meanwhile is skipped rather than resurrected at its stale commit.
+/// The tips are the ones the traversal itself resolved, so a ref that vanished by then was
+/// already dropped rather than resurrected at its stale commit.
 pub fn worktree_infos(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<WorktreeInfo>> {
     let graph = &workspace.graph;
-    if graph.options.worktree_tips.is_empty() {
+    if graph.worktree_tips.is_empty() {
         return Ok(Vec::new());
     }
 
@@ -175,15 +175,8 @@ pub fn worktree_infos(
         .collect();
 
     let mut out = Vec::new();
-    for tip in &graph.options.worktree_tips {
-        let head = match &tip.ref_name {
-            Some(name) => match repo.try_find_reference(name.as_ref())? {
-                // The ref vanished - don't resurrect the recorded tip.
-                None => continue,
-                Some(mut reference) => reference.peel_to_id()?.detach(),
-            },
-            None => tip.id,
-        };
+    for tip in &graph.worktree_tips {
+        let head = tip.id;
         let Ok(sidx) = graph.segment_id_by_commit_id(head) else {
             // Another tip may have claimed the commit for a segment we can't walk from, or a
             // traversal limit cut it off. Either way there is nothing to show.

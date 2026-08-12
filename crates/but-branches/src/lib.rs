@@ -135,6 +135,7 @@ pub fn list(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
     options: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<BranchListing> {
     let remote_names = repo.remote_names();
     let refs_by_identity = enumerate_branch_refs(repo, &remote_names)?;
@@ -193,6 +194,7 @@ pub fn list(
         options.project_meta.clone(),
         target_tip_for_traversal,
         options.hard_limit,
+        db,
     )?;
 
     let mut tips: BTreeSet<gix::ObjectId> =

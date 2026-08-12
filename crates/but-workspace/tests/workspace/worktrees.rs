@@ -145,18 +145,9 @@ fn ref_info_with_worktree_tips(
         push_remote: None,
     };
     let mut options = but_graph::init::Options::limited();
-    for proxy in repo.worktrees()? {
-        let name: BString = proxy.id().to_owned();
-        let wt_repo = proxy.into_repo()?;
-        let mut head = wt_repo.head()?;
-        options.worktree_tips.push(but_graph::init::WorktreeTip {
-            name,
-            ref_name: head.referent_name().map(ToOwned::to_owned),
-            id: head.peel_to_commit()?.id,
-        });
-    }
-    options.worktree_tips.sort_by(|a, b| a.name.cmp(&b.name));
-    let graph = Graph::from_head(repo, meta, project_meta, options)?.validated()?;
+    let mut db = but_testsupport::worktree_db(repo, &[])?;
+    options.worktrees = true;
+    let graph = Graph::from_head(repo, meta, project_meta, options, &mut db)?.validated()?;
     but_workspace::graph_to_ref_info(
         &graph.into_workspace()?,
         repo,
@@ -164,6 +155,7 @@ fn ref_info_with_worktree_tips(
             expensive_commit_info: true,
             ..Default::default()
         },
+        &db,
     )
 }
 
@@ -234,6 +226,7 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
 
 #[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         repo.path().join("should-never-be-written.toml"),
@@ -243,9 +236,10 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
         &meta,
         Default::default(),
         but_graph::init::Options::limited(),
+        &mut db,
     )?;
     let info =
-        but_workspace::graph_to_ref_info(&graph.into_workspace()?, &repo, Default::default())?;
+        but_workspace::graph_to_ref_info(&graph.into_workspace()?, &repo, Default::default(), &db)?;
     assert!(
         info.worktrees.is_empty(),
         "worktrees are only projected when the traversal was seeded with their tips"

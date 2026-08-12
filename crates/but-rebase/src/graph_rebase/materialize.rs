@@ -50,14 +50,7 @@ fn detached_worktree_head_edits(specs: &[LinkedCheckoutSpec]) -> Result<Vec<RefE
         .iter()
         .filter(|spec| spec.ref_name.is_none())
         .map(|spec| {
-            let name: gix::refs::FullName = format!("worktrees/{}/HEAD", spec.name)
-                .try_into()
-                .with_context(|| {
-                    format!(
-                        "Worktree {} has a name that cannot address its HEAD",
-                        spec.name
-                    )
-                })?;
+            let name = but_graph::init::worktree_head_ref_name(spec.name.as_ref())?;
             Ok(RefEdit {
                 change: Change::Update {
                     log: LogChange {
@@ -275,20 +268,17 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
-        // The refresh re-traverses with the editor's options, so the recorded worktree tips have
-        // to be moved onto what this rebase just checked out. Leaving them at their pre-rebase
-        // commits makes the *next* editor record a stale `initial_head` and reject its own
-        // materialize as a concurrent worktree change.
-        let worktree_tips = self.worktree_tips_after_rebase()?;
-        self.workspace.graph.options.worktree_tips = worktree_tips;
+        // The refresh re-queries the worktrees, which by now are on what this rebase just
+        // checked out.
         self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
+            .refresh_from_head(&repo, &*self.meta, project_meta, self.db)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            db: self.db,
             checkout_conflict_occurred,
         })
     }

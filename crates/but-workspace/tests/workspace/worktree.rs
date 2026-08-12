@@ -20,6 +20,7 @@ fn project_meta(repo: &gix::Repository) -> Result<ProjectMeta> {
 
 #[test]
 fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
@@ -28,7 +29,7 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
-    let rebase = integrate_upstream(
+    let mut rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -37,10 +38,11 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
+        &mut db,
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&mut rebase)?;
 
     assert_eq!(
         conflicts,
@@ -52,6 +54,7 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
 
 #[test]
 fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
@@ -65,7 +68,7 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
-    let rebase = integrate_upstream(
+    let mut rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -74,10 +77,11 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
+        &mut db,
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&mut rebase)?;
 
     assert_eq!(
         conflicts,
@@ -89,6 +93,7 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
 
 #[test]
 fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
@@ -97,7 +102,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
-    let rebase = integrate_upstream(
+    let mut rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -106,6 +111,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
+        &mut db,
     )?
     .rebase;
 
@@ -121,7 +127,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
         "preview commits should not have to exist in the persistent repository before materialization"
     );
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&mut rebase)?;
 
     assert_eq!(
         conflicts,
@@ -133,6 +139,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
 
 #[test]
 fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("unrelated.txt").expect("non-bare"),
@@ -141,7 +148,7 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
-    let rebase = integrate_upstream(
+    let mut rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -150,10 +157,11 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
+        &mut db,
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&mut rebase)?;
 
     assert!(
         conflicts.is_empty(),
@@ -164,6 +172,7 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
 
 #[test]
 fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(repo.git_dir().join("info/exclude"), "ignored.txt\n")?;
     std::fs::write(
@@ -173,7 +182,7 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
-    let rebase = integrate_upstream(
+    let mut rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -182,10 +191,11 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
+        &mut db,
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&mut rebase)?;
 
     assert!(
         conflicts.is_empty(),
@@ -211,6 +221,7 @@ fn workspace_for_stack(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> Result<but_graph::Workspace> {
+    let mut db = but_testsupport::in_memory_db()?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let ws = but_graph::Graph::from_head(
         repo,
@@ -220,6 +231,7 @@ fn workspace_for_stack(
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
+        &mut db,
     )?
     .into_workspace()?;
     Ok(ws)

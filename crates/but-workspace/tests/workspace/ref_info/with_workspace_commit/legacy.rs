@@ -555,6 +555,7 @@ StackDetails {
 
     #[test]
     fn multi_segment_stack_uses_advanced_tip_ref_to_find_full_stack() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
         let stack_id = add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
@@ -600,6 +601,7 @@ StackDetails {
             but_graph::init::Options {
                 ..standard_options().traversal
             },
+            &mut db,
         )?;
         let ws = graph.into_workspace()?;
         snapbox::assert_data_eq!(

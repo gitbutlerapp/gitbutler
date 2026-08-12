@@ -15,9 +15,10 @@ use gix::prelude::ObjectIdExt;
 /// behind the rebase result so callers can compute conflicts before
 /// materialization, including during dry-runs.
 pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
-    rebase: &SuccessfulRebase<'_, '_, M>,
+    rebase: &mut SuccessfulRebase<'_, '_, M>,
 ) -> Result<Vec<but_serde::BStringForFrontend>> {
-    let repo = rebase.repo();
+    let repo = rebase.repo().clone();
+    let repo = &repo;
     let current_head_tree = repo.head_tree_id_or_empty()?.detach();
     let dirty_worktree_trees = dirty_worktree_trees(repo, current_head_tree)?;
     if dirty_worktree_trees.is_empty() {

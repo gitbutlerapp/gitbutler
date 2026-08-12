@@ -333,7 +333,12 @@ pub fn run(
                     rejected_specs,
                 },
                 branch_name,
-            ) = commit_op.execute(&mut tx, changes, stack_on_head, source_repo.as_change_source())?;
+            ) = commit_op.execute(
+                &mut tx,
+                changes,
+                stack_on_head,
+                source_repo.as_change_source(),
+            )?;
 
             if !rejected_specs.is_empty() {
                 return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -652,7 +657,9 @@ impl CommitOperation {
         source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, stack_on_head, source),
+            CommitOperation::CommitToNewBranch(op) => {
+                op.execute(tx, changes, stack_on_head, source)
+            }
             CommitOperation::CommitAt(op) => op.execute(tx, changes, source),
         }
     }

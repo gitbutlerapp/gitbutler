@@ -774,13 +774,15 @@ impl Context {
     }
 
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
-        let options = self.graph_options(but_graph::init::Options::limited())?;
+        let options = self.graph_options(but_graph::init::Options::limited());
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options)?;
+        let mut db = self.db.get_cache_mut()?;
+        let graph =
+            but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options, &mut db)?;
         graph.into_workspace()
     }
 

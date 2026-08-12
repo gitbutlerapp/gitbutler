@@ -152,6 +152,7 @@ impl std::fmt::Debug for RefInfo {
             stacks,
             target_ref,
             target_commit,
+            is_target_current,
             lower_bound,
             is_managed_ref,
             is_managed_commit,
@@ -165,6 +166,7 @@ impl std::fmt::Debug for RefInfo {
             .field("stacks", stacks)
             .field("target_ref", target_ref)
             .field("target_commit", target_commit)
+            .field("is_target_current", is_target_current)
             .field("lower_bound", lower_bound)
             .field("is_managed_ref", is_managed_ref)
             .field("is_managed_commit", is_managed_commit)

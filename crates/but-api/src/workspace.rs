@@ -206,8 +206,13 @@ pub fn get_workspace(
     let mut meta = ctx.meta()?;
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
     let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo)
-        .map(Into::into)
+    but_workspace::workspace::detailed_graph_workspace(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        &mut *ctx.db.get_cache_mut()?,
+    )
+    .map(Into::into)
 }
 
 /// Make `target_ref` the project's default target without applying branches or entering
@@ -533,7 +538,8 @@ pub fn workspace_integrate_upstream_only_with_perm(
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let (workspace_state, worktree_conflicts) = {
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let mut db = ctx.db.get_cache_mut()?;
         let project_meta = ctx.project_meta()?;
         let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
             Ok(review_hints) => review_hints,
@@ -556,13 +562,14 @@ pub fn workspace_integrate_upstream_only_with_perm(
             &repo,
             updates,
             &review_hints,
+            &mut db,
         )?;
-        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
+        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&mut rebase)?;
 
         if dry_run.into() {
             let replaced_commits = rebase.history.commit_mappings();
             let workspace_state =
-                WorkspaceState::from_rebase_preview_with_db(&mut rebase, replaced_commits, &db)?;
+                WorkspaceState::from_rebase_preview_with_db(&mut rebase, replaced_commits)?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
@@ -586,7 +593,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             materialized.meta,
             &repo,
             materialized.history.commit_mappings(),
-            &db,
+            materialized.db,
         )?;
         workspace_state.checkout_conflict_occurred = materialized.checkout_conflict_occurred;
         (workspace_state, worktree_conflicts)

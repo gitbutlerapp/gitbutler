@@ -28,16 +28,14 @@ use crate::json::HexHash;
 #[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::init::Options::limited());
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let db = gerrit_mode_enabled
-        .then(|| ctx.db.get_cache())
-        .transpose()?;
-    let gerrit_mode = match db.as_ref() {
-        Some(db) => but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
-        None => but_workspace::ref_info::GerritMode::Disabled,
+    let gerrit_mode = if gerrit_mode_enabled {
+        but_workspace::ref_info::GerritMode::Enabled
+    } else {
+        but_workspace::ref_info::GerritMode::Disabled
     };
     let mut info = but_workspace::head_info(
         &repo,
@@ -48,6 +46,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
             expensive_commit_info: true,
             gerrit_mode,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?
     .pruned_to_entrypoint();
 
@@ -103,7 +102,7 @@ pub(crate) fn stacks_v3_from_ctx(
     // because the edit branch itself is not part of the workspace metadata.
     let traversal = match workspace_ref {
         Some(_) => but_graph::init::Options::limited(),
-        None => ctx.graph_options(but_graph::init::Options::limited())?,
+        None => ctx.graph_options(but_graph::init::Options::limited()),
     };
     but_workspace::legacy::stacks_v3(
         &repo,
@@ -112,6 +111,7 @@ pub(crate) fn stacks_v3_from_ctx(
         traversal,
         filter,
         workspace_ref,
+        &mut *ctx.db.get_cache_mut()?,
     )
 }
 
@@ -119,11 +119,17 @@ pub(crate) fn stacks_v3_from_ctx(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
-    let mut options = ctx.graph_options(but_graph::init::Options::limited())?;
+    let mut options = ctx.graph_options(but_graph::init::Options::limited());
     options.collect_tags = true;
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, options)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        ctx.project_meta()?,
+        options,
+        &mut *ctx.db.get_cache_mut()?,
+    )?;
     graph.open_as_svg();
     Ok(())
 }
@@ -135,7 +141,7 @@ pub fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::init::Options::limited());
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.meta()?;
@@ -145,6 +151,7 @@ pub fn stack_details(
             &meta,
             &ctx.project_meta()?,
             traversal,
+            &mut *ctx.db.get_cache_mut()?,
         )
     }?;
     let repo = ctx.repo.get()?;
@@ -346,7 +353,8 @@ pub fn stash_into_branch(
     let outcome = {
         let mut meta = ctx.meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = ctx.db.get_cache_mut()?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -527,13 +535,13 @@ pub fn workspace_branch_and_ancestors_push_only(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<gitbutler_git::PushResult> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::init::Options::limited());
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let mut db = ctx.db.get_cache_mut()?;
     let gerrit_mode = if gerrit_mode_enabled {
-        but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata())
+        but_workspace::ref_info::GerritMode::Enabled
     } else {
         but_workspace::ref_info::GerritMode::Disabled
     };
@@ -546,6 +554,7 @@ pub fn workspace_branch_and_ancestors_push_only(
             expensive_commit_info: true,
             gerrit_mode,
         },
+        &mut db,
     )?;
     let head_info = head_info.pruned_to_entrypoint();
 

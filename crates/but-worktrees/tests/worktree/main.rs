@@ -63,7 +63,14 @@ mod util {
     ) -> anyhow::Result<WorktreeIntegrationStatus> {
         let mut meta = ctx.meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        worktree_integration_status(&repo, &mut ws, &mut meta, id, target)
+        worktree_integration_status(
+            &repo,
+            &mut ws,
+            &mut meta,
+            id,
+            target,
+            &mut *ctx.db.get_cache_mut()?,
+        )
     }
 
     /// Derive the narrow inputs the integration functions need from `ctx`.
@@ -75,7 +82,14 @@ mod util {
     ) -> anyhow::Result<()> {
         let mut meta = ctx.meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        worktree_integrate(&repo, &mut ws, &mut meta, id, target)
+        worktree_integrate(
+            &repo,
+            &mut ws,
+            &mut meta,
+            id,
+            target,
+            &mut *ctx.db.get_cache_mut()?,
+        )
     }
 }
 

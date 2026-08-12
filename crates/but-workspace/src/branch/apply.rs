@@ -229,6 +229,7 @@ pub fn apply(
         order,
         new_stack_id,
     }: Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Outcome> {
     let ws = workspace;
     let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
@@ -301,6 +302,7 @@ pub fn apply(
                 repo,
                 meta,
                 Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
+                db,
             )?
             .into_workspace()?;
         set_head_to_reference(
@@ -477,7 +479,7 @@ pub fn apply(
         .with_workspace_metadata_override(ws_md_override);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
+        .redo_traversal_with_overlay(repo, meta, overlay.clone(), db)?
         .into_workspace()?;
 
     let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
@@ -526,6 +528,7 @@ pub fn apply(
                     ws_commit_with_new_message,
                     Some(workspace_ref_name_to_update.clone()),
                 ),
+                db,
             )?;
             (graph, ws_commit_with_new_message)
         } else {
@@ -602,7 +605,7 @@ pub fn apply(
         .with_workspace_metadata_override(ws_md_override);
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone(), db)?;
 
     let mut ws = graph.into_workspace()?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
@@ -717,6 +720,7 @@ pub fn apply(
                 overlay
                     .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
                     .with_workspace_metadata_override(ws_md_override),
+                db,
             )?
             .into_workspace()?;
         let unapplied_branches = collect_unapplied_branches(&ws);

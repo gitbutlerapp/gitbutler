@@ -8,11 +8,12 @@ use crate::support::graph_dag;
 
 #[test]
 fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
         .validated()?
         .into_workspace()?;
 
@@ -28,6 +29,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
@@ -37,6 +39,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?
     .into_workspace()?;
@@ -53,6 +56,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 #[test]
 fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_tip()
 -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -72,7 +76,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
         .validated()?
         .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit

@@ -48,8 +48,9 @@ pub fn worktree_integration_status<M: RefMetadata>(
     meta: &mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
+    db: &mut but_db::DbHandle,
 ) -> Result<WorktreeIntegrationStatus> {
-    Ok(worktree_integration_inner(repo, ws, meta, id, target)?.0)
+    Ok(worktree_integration_inner(repo, ws, meta, id, target, db)?.0)
 }
 
 /// Integrates a worktree if it's integratable: the worktree's state is
@@ -61,8 +62,9 @@ pub fn worktree_integrate<M: RefMetadata>(
     meta: &mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
+    db: &mut but_db::DbHandle,
 ) -> Result<()> {
-    let result = worktree_integration_inner(repo, ws, meta, id, target)?;
+    let result = worktree_integration_inner(repo, ws, meta, id, target, db)?;
     let (WorktreeIntegrationStatus::Integratable { .. }, Some(rebase)) = result else {
         match result.0 {
             WorktreeIntegrationStatus::NoMergeBaseFound => {
@@ -103,6 +105,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     meta: &'meta mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
+    db: &'ws mut but_db::DbHandle,
 ) -> Result<(
     WorktreeIntegrationStatus,
     Option<SuccessfulRebase<'ws, 'meta, M>>,
@@ -168,7 +171,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
         .context("Failed to find author signature")?
         .to_owned()?;
 
-    let mut editor = Editor::create(ws, meta, repo)?;
+    let mut editor = Editor::create(ws, meta, repo, db)?;
 
     // Create the squash commit in the editor's in-memory repository; it is
     // only persisted if the result gets materialized.

@@ -172,10 +172,18 @@ fn initial_integration_for_branch_with_strategy(
     target_ref_name: Option<&gix::refs::FullNameRef>,
     strategy: BranchIntegrationStrategy,
 ) -> Result<InitialBranchIntegration> {
+    let mut db = but_testsupport::in_memory_db()?;
     let mut meta = InMemoryRefMetadata::default();
     let graph = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
     let mut workspace = graph.into_workspace()?;
-    get_initial_integration_steps_for_branch(ref_name, strategy, &mut workspace, &mut meta, repo)
+    get_initial_integration_steps_for_branch(
+        ref_name,
+        strategy,
+        &mut workspace,
+        &mut meta,
+        repo,
+        &mut db,
+    )
 }
 
 fn integration_graph_for_branch(
@@ -184,6 +192,7 @@ fn integration_graph_for_branch(
     target_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &InMemoryRefMetadata,
 ) -> Result<but_graph::Graph> {
+    let mut db = but_testsupport::in_memory_db()?;
     if let Some(target_ref_name) = target_ref_name {
         let head = repo.head()?;
         let (head_id, head_ref_name) = match head.kind {
@@ -211,6 +220,7 @@ fn integration_graph_for_branch(
             meta,
             Default::default(),
             Options::limited(),
+            &mut db,
         )
     } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
         let head = repo.head()?;
@@ -236,9 +246,10 @@ fn integration_graph_for_branch(
             meta,
             Default::default(),
             Options::limited(),
+            &mut db,
         )
     } else {
-        but_graph::Graph::from_head(repo, meta, Default::default(), Options::limited())
+        but_graph::Graph::from_head(repo, meta, Default::default(), Options::limited(), &mut db)
     }
 }
 
@@ -952,9 +963,16 @@ fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let err =
-        integrate_branch_with_steps(r("refs/heads/B"), integration, &mut ws, &mut meta, &repo)
-            .expect_err("expected early validation error for empty integration steps");
+    let mut db = but_testsupport::in_memory_db()?;
+    let err = integrate_branch_with_steps(
+        r("refs/heads/B"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )
+    .expect_err("expected early validation error for empty integration steps");
     assert!(
         err.to_string()
             .contains("Integration steps cannot be empty"),
@@ -989,9 +1007,16 @@ fn integrate_branch_with_steps_rejects_duplicate_prepared_commit() -> Result<()>
         ],
     };
 
-    let err =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)
-            .expect_err("a repeated commit would alias one editor node and create a self-cycle");
+    let mut db = but_testsupport::in_memory_db()?;
+    let err = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )
+    .expect_err("a repeated commit would alias one editor node and create a self-cycle");
     assert_eq!(
         err.custom_context().map(|context| context.code),
         Some(Code::PreconditionFailed),
@@ -1030,9 +1055,16 @@ fn integrate_branch_with_steps_classifies_a_stale_first_local_commit() -> Result
         }],
     };
 
-    let err =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)
-            .expect_err("an integration plan must be refreshed after its boundary commit changes");
+    let mut db = but_testsupport::in_memory_db()?;
+    let err = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )
+    .expect_err("an integration plan must be refreshed after its boundary commit changes");
     assert_eq!(
         err.custom_context().map(|context| context.code),
         Some(Code::PreconditionFailed),
@@ -1081,7 +1113,15 @@ fn integrate_branch_with_steps_accepts_a_duplicate_merge_base_pick_off_path() ->
         }],
     };
 
-    integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db()?;
+    integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
 
     Ok(())
 }
@@ -1106,9 +1146,16 @@ fn integrate_branch_with_steps_rejects_a_boundary_from_another_branch() -> Resul
         }],
     };
 
-    let err =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)
-            .expect_err("a boundary on another branch must not delimit the selected branch");
+    let mut db = but_testsupport::in_memory_db()?;
+    let err = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )
+    .expect_err("a boundary on another branch must not delimit the selected branch");
     assert_eq!(
         err.custom_context().map(|context| context.code),
         Some(Code::PreconditionFailed),
@@ -1127,6 +1174,7 @@ fn integrate_branch_with_steps_rejects_a_boundary_from_another_branch() -> Resul
 
 #[test]
 fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1165,8 +1213,14 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1196,6 +1250,7 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
 
 #[test]
 fn integrate_upstream_commits_into_local() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1249,8 +1304,14 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1277,6 +1338,7 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
 
 #[test]
 fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1323,8 +1385,14 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1389,6 +1457,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
 
 #[test]
 fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remote() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1421,8 +1490,14 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1460,6 +1535,7 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
 
 #[test]
 fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1496,8 +1572,14 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1553,6 +1635,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
 
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1605,8 +1688,14 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1630,6 +1719,7 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
 
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1682,8 +1772,14 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1706,6 +1802,7 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
 
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1750,8 +1847,14 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1774,6 +1877,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_extra_local_ref()
 -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1820,8 +1924,14 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1845,6 +1955,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
 
 #[test]
 fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -1890,8 +2001,14 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -1910,6 +2027,7 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 
 #[test]
 fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-advanced-with-workspace",
@@ -1939,6 +2057,7 @@ fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
 
     let remote_commit = repo.rev_parse_single("origin/A")?.detach();
@@ -1974,6 +2093,7 @@ pick remote-commit
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -1993,6 +2113,7 @@ pick remote-commit
 
 #[test]
 fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-advanced-with-empty-top-branch",
@@ -2022,6 +2143,7 @@ fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
 
     let remote_commit = repo.rev_parse_single("origin/feature-foo")?.detach();
@@ -2045,6 +2167,7 @@ pick remote-commit
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -2066,6 +2189,7 @@ pick remote-commit
 
 #[test]
 fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-advanced-with-local-workspace-commit",
@@ -2096,6 +2220,7 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
 
     let remote_commit = repo.rev_parse_single("origin/A")?.detach();
@@ -2136,6 +2261,7 @@ pick local-commit-3
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -2156,6 +2282,7 @@ pick local-commit-3
 
 #[test]
 fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -2173,6 +2300,7 @@ fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> R
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
 
     let local_tip = repo.rev_parse_single("A")?.detach();
@@ -2205,6 +2333,7 @@ pick local-tip
         &mut ws,
         &mut meta,
         &repo,
+        &mut db,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -2226,6 +2355,7 @@ pick local-tip
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -2262,8 +2392,14 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -2286,6 +2422,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -2322,8 +2459,14 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -2349,6 +2492,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -2383,8 +2527,14 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -2406,6 +2556,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflicts() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace-conflicting",
@@ -2443,8 +2594,14 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -2496,6 +2653,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 
 #[test]
 fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace-conflicting",
@@ -2535,8 +2693,14 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
@@ -2605,6 +2769,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
 #[test]
 fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_preview()
 -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace-conflicting",
@@ -2633,8 +2798,14 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let mut rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     let preview_graph = rebase.overlayed_graph()?;
     let preview_workspace = preview_graph.into_workspace()?;
     let ref_info = but_workspace::graph_to_ref_info(
@@ -2645,6 +2816,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
             expensive_commit_info: true,
             ..Default::default()
         },
+        rebase.db(),
     )?
     .pruned_to_entrypoint();
 
@@ -2658,6 +2830,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
 
 #[test]
 fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
@@ -2690,8 +2863,14 @@ fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> R
 
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let rebase =
-        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
     rebase.materialize(Default::default())?;
 
     let mut current_commit_id = repo.rev_parse_single("A")?.detach();
@@ -2943,6 +3122,7 @@ fn initial_steps_example_2_excludes_integrated_local_commits_but_keeps_them_visi
 
 #[test]
 fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, mut repo) = build_branch_integration_example_repo(
         ExampleScenario::LocalCommitHistoricallyIntegratedOnTarget,
     )?;
@@ -2978,6 +3158,7 @@ fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Resu
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
     )?;
 
     rebase.materialize(Default::default())?;

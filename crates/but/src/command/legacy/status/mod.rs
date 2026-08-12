@@ -462,7 +462,7 @@ fn build_status_context<'a>(
         commit_id_to_change_id,
         worktrees,
     ) = {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
             &ws,
             &repo,
@@ -471,6 +471,7 @@ fn build_status_context<'a>(
                 expensive_commit_info: true,
                 ..Default::default()
             },
+            &db,
         )?;
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();

@@ -22,6 +22,7 @@ use crate::display_identity;
 ///
 /// `integrated_tip` marks a commit whose history counts as integrated even without
 /// workspace metadata; `hard_limit` bounds the traversal for very large repositories.
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn build_workspace(
     head: gix::Id<'_>,
     head_ref: Option<FullName>,
@@ -30,6 +31,7 @@ pub(crate) fn build_workspace(
     project_meta: but_core::ref_metadata::ProjectMeta,
     integrated_tip: Option<gix::ObjectId>,
     hard_limit: Option<usize>,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<(Workspace, bool)> {
     let traversal = but_graph::init::Options {
         extra_target_commit_id: integrated_tip,
@@ -45,6 +47,7 @@ pub(crate) fn build_workspace(
         meta,
         project_meta,
         traversal,
+        db,
     )?;
     let incomplete = graph.hard_limit_hit();
     Ok((graph.into_workspace()?, incomplete))

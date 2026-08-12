@@ -11,6 +11,7 @@ use crate::{
 
 #[test]
 fn four_commits() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("four-commits")?;
 
     snapbox::assert_data_eq!(
@@ -24,11 +25,17 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -46,6 +53,7 @@ fn four_commits() -> Result<()> {
 
 #[test]
 fn merge_in_the_middle() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -63,11 +71,17 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -92,6 +106,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 #[test]
 fn three_branches_merged() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("three-branches-merged")?;
 
     snapbox::assert_data_eq!(
@@ -113,11 +128,17 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -146,6 +167,7 @@ fn three_branches_merged() -> Result<()> {
 
 #[test]
 fn many_references() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("many-references")?;
 
     snapbox::assert_data_eq!(
@@ -159,8 +181,14 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -176,7 +204,7 @@ fn many_references() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -197,6 +225,7 @@ fn many_references() -> Result<()> {
 
 #[test]
 fn first_parent_leg_long() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("first-parent-leg-long")?;
 
     snapbox::assert_data_eq!(
@@ -216,8 +245,14 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -241,7 +276,7 @@ fn first_parent_leg_long() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -268,6 +303,7 @@ fn first_parent_leg_long() -> Result<()> {
 
 #[test]
 fn second_parent_leg_long() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("second-parent-leg-long")?;
 
     snapbox::assert_data_eq!(
@@ -287,8 +323,14 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -312,7 +354,7 @@ fn second_parent_leg_long() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -339,6 +381,7 @@ fn second_parent_leg_long() -> Result<()> {
 
 #[test]
 fn workspace_with_empty_stack() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
 
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
@@ -362,7 +405,8 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -388,7 +432,7 @@ fn workspace_with_empty_stack() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -416,6 +460,7 @@ fn workspace_with_empty_stack() -> Result<()> {
 
 #[test]
 fn workspace_with_three_empty_stacks() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
 
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
@@ -433,7 +478,8 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -457,7 +503,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -483,6 +529,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("single-commit")?;
 
     let base = repo.rev_parse_single("HEAD")?;
@@ -500,8 +547,14 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -517,7 +570,7 @@ fn commit_with_two_parents() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -533,6 +586,7 @@ fn commit_with_two_parents() -> Result<()> {
 
 #[test]
 fn includes_extra_refs_in_editor_creation() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
@@ -540,10 +594,10 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph =
-            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
             editor.steps_ascii(),
@@ -568,13 +622,14 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph =
-            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options(), &mut db)?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create_with_opts(
             &mut ws,
             &mut *meta,
             &repo,
+            &mut db,
             &GraphEditorOptions {
                 extra_mutable_refs: vec![main_ref.clone()],
                 ..<_>::default()
@@ -612,6 +667,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 /// that doesn't match parent_ids, which the editor must correct.
 #[test]
 fn merge_first_parent_older_than_second() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-first-parent-older")?;
 
     snapbox::assert_data_eq!(
@@ -631,8 +687,14 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        standard_options(),
+        &mut db,
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -656,7 +718,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -682,6 +744,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 
 #[test]
 fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("extra-refs-to-include")?;
 
     snapbox::assert_data_eq!(
@@ -720,6 +783,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         &*meta,
         Default::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
@@ -752,7 +816,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
         ..Default::default()
     };
-    let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &opts)?;
+    let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &mut db, &opts)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),

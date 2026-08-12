@@ -156,8 +156,9 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     project_meta: ProjectMeta,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
+    db: &'ws mut but_db::DbHandle,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    integrate_upstream_with_hints(workspace, meta, project_meta, repo, updates, &[])
+    integrate_upstream_with_hints(workspace, meta, project_meta, repo, updates, &[], db)
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
@@ -169,6 +170,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
+    db: &'ws mut but_db::DbHandle,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -201,7 +203,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     // The editor contains every segment in the graph; the target ref's segment
     // is reachable from HEAD and so is mutable by default.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = Editor::create(workspace, meta, repo, db)?;
 
     let updates_with_selectors = updates
         .iter()

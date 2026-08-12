@@ -28,6 +28,7 @@ fn parent_subjects(repo: &gix::Repository, rev: &str) -> Result<Vec<String>> {
 }
 #[test]
 fn insert_single_node_segment_above() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -54,10 +55,11 @@ fn insert_single_node_segment_above() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -75,7 +77,7 @@ fn insert_single_node_segment_above() -> Result<()> {
 
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Above)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -126,6 +128,7 @@ fn insert_single_node_segment_above() -> Result<()> {
 }
 #[test]
 fn insert_single_node_segment_below() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -152,10 +155,11 @@ fn insert_single_node_segment_below() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -173,7 +177,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Below)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -227,6 +231,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 }
 #[test]
 fn insert_multi_node_segment_above() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -253,10 +258,11 @@ fn insert_multi_node_segment_above() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -278,7 +284,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Above)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -331,6 +337,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
 #[test]
 fn insert_multi_node_segment_below() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -357,10 +364,11 @@ fn insert_multi_node_segment_below() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -382,7 +390,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Below)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -434,6 +442,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -460,10 +469,11 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -491,7 +501,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
         mutate::ParentReparentingOrder::Prepend,
     )?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -552,6 +562,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
@@ -578,10 +589,11 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -609,7 +621,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         mutate::ParentReparentingOrder::Prepend,
     )?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -676,16 +688,18 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor

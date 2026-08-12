@@ -23,6 +23,7 @@ doctest = false
 but-core.workspace = true
 but-error.workspace = true
 but-gerrit.workspace = true
+but-db.workspace = true
 but-graph.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"] }

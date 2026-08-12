@@ -145,6 +145,7 @@ pub fn stacks_v3(
     traversal: but_graph::init::Options,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Vec<StackEntry>> {
     // TODO: See if this works at all once VirtualBranches.toml isn't the backing anymore.
     //       Probably needs to change, maybe even alongside the notion of 'unapplied'.
@@ -206,8 +207,8 @@ pub fn stacks_v3(
         ..Default::default()
     };
     let info = match ref_name_override {
-        None => head_info(repo, meta, options),
-        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options),
+        None => head_info(repo, meta, options, db),
+        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options, db),
     }?;
     let stack_ids_by_ref_name = stack_ids_by_ref_name(meta)?;
 
@@ -272,6 +273,7 @@ pub fn stack_details_v3(
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
     traversal: but_graph::init::Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<ui::StackDetails> {
     // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
     // back to resolving from a surviving ref when that stack is no longer reachable from `HEAD`.
@@ -284,7 +286,7 @@ pub fn stack_details_v3(
     fn new_ref_info_options(
         project_meta: &ProjectMeta,
         traversal: &but_graph::init::Options,
-    ) -> ref_info::Options<'static> {
+    ) -> ref_info::Options {
         ref_info::Options {
             project_meta: project_meta.clone(),
             expensive_commit_info: true,
@@ -300,7 +302,7 @@ pub fn stack_details_v3(
             // would otherwise be returned. The problem is that then the workspace might not be correct, but there isn't
             // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
             ref_info_options.traversal.hard_limit = Some(500);
-            let mut info = head_info(repo, meta, ref_info_options)?;
+            let mut info = head_info(repo, meta, ref_info_options, db)?;
             if info.is_entrypoint {
                 if info.stacks.len() != 1 {
                     bail!(
@@ -319,7 +321,12 @@ pub fn stack_details_v3(
         }
         Some(stack_id) => {
             if let Some(stack) = stack_by_id(
-                head_info(repo, meta, new_ref_info_options(project_meta, &traversal))?,
+                head_info(
+                    repo,
+                    meta,
+                    new_ref_info_options(project_meta, &traversal),
+                    db,
+                )?,
                 stack_id,
             ) {
                 stack
@@ -338,6 +345,7 @@ pub fn stack_details_v3(
                     existing_ref,
                     meta,
                     new_ref_info_options(project_meta, &traversal),
+                    db,
                 )?;
                 stack_by_id(ref_info, stack_id).with_context(|| {
                     format!("Really couldn't find {stack_id} in the current workspace projection")

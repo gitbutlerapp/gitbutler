@@ -31,6 +31,7 @@ pub fn create_branch(
         .ok();
 
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let mut db = ctx.db.get_cache_mut()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
@@ -70,6 +71,7 @@ pub fn create_branch(
         &mut meta,
         |_| StackId::generate(),
         None, // order - not used for dependent branches
+        &mut db,
     )?;
 
     *ws = new_ws.into_owned();
@@ -99,6 +101,7 @@ pub fn remove_branch_only(
             avoid_anonymous_stacks: true,
             keep_metadata: false,
         },
+        &mut *ctx.db.get_cache_mut()?,
     )?;
 
     if let Some(new_ws) = new_ws {

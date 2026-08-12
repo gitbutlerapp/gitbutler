@@ -193,6 +193,7 @@ pub(crate) mod function {
         Options {
             workspace_disposition,
         }: Options,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Outcome<'ws>> {
         let ws = workspace;
         let mut branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
@@ -229,6 +230,7 @@ pub(crate) mod function {
                 meta,
                 workspace_ref_name.as_ref(),
                 workspace_disposition,
+                db,
             );
         }
 
@@ -264,7 +266,7 @@ pub(crate) mod function {
             meta.remove(branch)?;
             let graph = ws
                 .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
+                .redo_traversal_with_overlay(repo, meta, Overlay::default(), db)?;
             let workspace = graph.into_workspace()?;
             if workspace.refname_is_segment(branch) {
                 bail!(
@@ -289,6 +291,7 @@ pub(crate) mod function {
                         workspace_ref_name.to_owned(),
                         ws_md.clone(),
                     ))),
+                db,
             )?
             .into_workspace()?;
         // Normal unapply first:
@@ -313,7 +316,7 @@ pub(crate) mod function {
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
         let mut ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .redo_traversal_with_overlay(repo, meta, overlay, db)?
             .into_workspace()?;
         let checked_out = if !workspace_tip_was_entrypoint
             && (ws.is_entrypoint() || branch_stack_was_entrypoint)
@@ -327,7 +330,7 @@ pub(crate) mod function {
                 .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
             ws = ws
                 .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+                .redo_traversal_with_overlay(repo, meta, overlay, db)?
                 .into_workspace()?;
             Some(workspace_ref_name.to_owned())
         } else {
@@ -376,7 +379,7 @@ pub(crate) mod function {
                     .with_dropped_references([branch.to_owned()]);
                 let ws = ws
                     .graph
-                    .redo_traversal_with_overlay(repo, meta, overlay)?
+                    .redo_traversal_with_overlay(repo, meta, overlay, db)?
                     .into_workspace()?;
 
                 Ok(Outcome {
@@ -549,6 +552,7 @@ pub(crate) mod function {
         meta: &mut impl RefMetadata,
         workspace_ref_name: &FullNameRef,
         disposition: WorkspaceDisposition,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Outcome<'static>> {
         if !disposition.may_switch_away_from_workspace() {
             bail!(
@@ -586,7 +590,7 @@ pub(crate) mod function {
         );
         let ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .redo_traversal_with_overlay(repo, meta, overlay, db)?
             .into_workspace()?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),

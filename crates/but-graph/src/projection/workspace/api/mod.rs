@@ -42,8 +42,9 @@ impl Workspace {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
         project_meta: but_core::ref_metadata::ProjectMeta,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone())?;
+        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone(), db)?;
         *self = graph.into_workspace()?;
         Ok(())
     }

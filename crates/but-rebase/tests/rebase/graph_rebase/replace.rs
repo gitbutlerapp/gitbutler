@@ -9,6 +9,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn reword_a_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -34,11 +35,12 @@ fn reword_a_commit() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -56,7 +58,7 @@ fn reword_a_commit() -> Result<()> {
     // replace it with the new one
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -113,6 +115,7 @@ fn reword_a_commit() -> Result<()> {
 
 #[test]
 fn amend_a_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -145,11 +148,12 @@ f766d1f
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;
@@ -178,7 +182,7 @@ f766d1f
     // replace it with the new one
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

@@ -290,6 +290,8 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// The project database the editor's graph traversals read worktree state from.
+    db: &'ws mut but_db::DbHandle,
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
@@ -309,6 +311,8 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// The project database the editor's graph traversals read worktree state from.
+    db: &'ws mut but_db::DbHandle,
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
@@ -327,6 +331,17 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// workspace preview computed from [`Self::overlayed_graph`].
     pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
         (&self.repo, self.meta)
+    }
+
+    /// Like [`Self::repo_and_meta_mut()`], but also splits out the database the
+    /// editor was created with, for callers that need all three at once.
+    pub fn repo_meta_and_db_mut(&mut self) -> (&gix::Repository, &mut M, &mut but_db::DbHandle) {
+        (&self.repo, self.meta, self.db)
+    }
+
+    /// Return the database the editor was created with.
+    pub fn db(&self) -> &but_db::DbHandle {
+        self.db
     }
 
     fn checkout_target(
@@ -348,18 +363,6 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 Some((id, Some(refname.clone())))
             }
         })
-    }
-
-    fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
-        Ok(self
-            .linked_checkout_specs()?
-            .into_iter()
-            .map(|spec| but_graph::init::WorktreeTip {
-                name: spec.name,
-                ref_name: spec.ref_name,
-                id: spec.target,
-            })
-            .collect())
     }
 
     /// Return the commit targeted by `ref_name` in the post-rebase step graph.
@@ -390,7 +393,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// Any objects referenced in the resulting graph must be accessed via the
     /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
     /// since they might exist only in memory.
-    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
+    pub fn overlayed_graph(&mut self) -> Result<but_graph::Graph> {
         self.overlayed_graph_with_workspace_overrides(None, None)
     }
 
@@ -401,7 +404,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// commit and local reference that would be checked out, while `branch_stack_order` supplies the
     /// tip-to-base order that would be written to ref metadata.
     pub fn overlayed_graph_with_workspace_overrides(
-        &self,
+        &mut self,
         entrypoint: Option<(gix::ObjectId, gix::refs::FullName)>,
         branch_stack_order: Option<&[gix::refs::FullName]>,
     ) -> Result<but_graph::Graph> {
@@ -418,6 +421,21 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             }),
             _ => None,
         });
+        // A detached worktree follows the rewrite through its own `HEAD` rather than a
+        // branch, so the preview has to overlay that `HEAD` too - otherwise the traversal
+        // would find the worktree where it still is on disk instead of where it will be.
+        let detached_worktree_heads = self
+            .linked_checkout_specs()?
+            .into_iter()
+            .filter(|spec| spec.ref_name.is_none())
+            .map(|spec| {
+                Ok(gix::refs::Reference {
+                    name: but_graph::init::worktree_head_ref_name(spec.name.as_ref())?,
+                    target: gix::refs::Target::Object(spec.target),
+                    peeled: None,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         let Some((entrypoint_id, entrypoint_refname)) = self
             .checkouts
@@ -436,15 +454,18 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 (id, Some(ref_name))
             });
         let mut overlay = Overlay::default()
-            .with_references(updated_refs)
+            .with_references(updated_refs.chain(detached_worktree_heads))
             .with_dropped_references(dropped_refs)
             .with_entrypoint(entrypoint_id, entrypoint_refname);
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
-        let mut graph = self.workspace.graph.clone();
-        graph.options.worktree_tips = self.worktree_tips_after_rebase()?;
-        graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        self.workspace.graph.clone().redo_traversal_with_overlay(
+            &self.repo,
+            &*self.meta,
+            overlay,
+            self.db,
+        )
     }
 
     /// Resolve `selector` to the identifiers of its commit pick including the change id.
@@ -474,6 +495,8 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
+    /// The project database the editor was created with.
+    pub db: &'ws mut but_db::DbHandle,
     /// True if a conflict occurred during checkout. This is always false if
     /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
     /// struct passed to the materialize call is false.

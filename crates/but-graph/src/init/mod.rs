@@ -387,6 +387,11 @@ struct InitialTips {
     /// Anonymous target-remote tips that are auxiliary traversal context rather
     /// than primary target refs.
     auxiliary_integrated_tip_ids: BTreeSet<gix::ObjectId>,
+    /// The worktrees whose `HEAD` resolved, in the order they were obtained.
+    ///
+    /// Unlike `tips`, this also keeps worktrees whose commit was already seeded by other
+    /// initial work - they own no tip of their own, but they are still part of the graph.
+    worktree_tips: Vec<WorktreeTip>,
 }
 
 /// Bidirectional lookup between target remote refs and their local tracking refs.
@@ -484,22 +489,49 @@ pub struct Options {
     ///
     /// This should only be used in case post-processing fails and one wants to preview the version before that.
     pub dangerously_skip_postprocessing_for_debugging: bool,
-    /// Extra reachable tips resolved by the caller from linked-worktree `HEAD`s.
+    /// Whether linked worktrees should seed traversal tips, with their archived state read
+    /// from the database handle passed to the traversal.
     ///
-    /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
-    /// every traversal so redone traversals see moved refs; the recorded commit id is only
-    /// a fallback for detached worktrees. A ref that no longer resolves is skipped
-    /// entirely - its stale tip is never resurrected.
-    /// These tips queue after all other initial work and are skipped if another tip
-    /// already seeds their commit.
+    /// The worktrees are listed and their archived state read on *every* traversal, so a
+    /// graph that redoes its traversal - a refresh, a rebase preview - sees the worktrees
+    /// as they are then, never as they were when it was first built. The database passed
+    /// to the traversal must be the database of `repo`'s main worktree, see
+    /// [`crate::worktrees::with_state()`].
     ///
-    /// Like all traversal options, they are ignored by [`Graph::from_head()`] when
+    /// Each `HEAD` is resolved through the (possibly overlaid) ref store, so an overlay can
+    /// move worktrees just like it moves branches. A worktree whose `HEAD` no longer
+    /// resolves is skipped entirely. The resulting tips queue after all other initial work
+    /// and are skipped if another tip already seeds their commit.
+    ///
+    /// Like all traversal options, this is ignored by [`Graph::from_head()`] when
     /// `HEAD` is unborn, as no traversal happens there.
-    pub worktree_tips: Vec<WorktreeTip>,
+    pub worktrees: bool,
 }
 
-/// A linked-worktree `HEAD` to include as an extra traversal tip, see
-/// [`Options::worktree_tips`].
+/// List the linked worktrees that should seed traversal tips, or nothing if the traversal
+/// options don't enable worktrees.
+fn list_active_worktrees(
+    repo: &OverlayRepo<'_>,
+    db: &mut but_db::DbHandle,
+    enabled: bool,
+) -> anyhow::Result<Vec<crate::worktrees::Worktree>> {
+    if !enabled {
+        return Ok(Vec::new());
+    }
+    // Which worktrees exist is a property of the repository on disk, never of an overlay -
+    // only where their `HEAD`s point is overlaid, which happens when they are resolved.
+    crate::worktrees::active(repo.for_find_only(), db)
+}
+
+/// Return the ref name that addresses the `HEAD` of the linked worktree called `name`,
+/// which is how a detached worktree is located from the main worktree's ref store.
+pub fn worktree_head_ref_name(name: &bstr::BStr) -> anyhow::Result<gix::refs::FullName> {
+    format!("worktrees/{name}/HEAD")
+        .try_into()
+        .with_context(|| format!("Worktree {name} has a name that cannot address its HEAD"))
+}
+
+/// A linked-worktree `HEAD` as resolved by a traversal, see [`crate::Graph::worktree_tips`].
 #[derive(Debug, Clone)]
 pub struct WorktreeTip {
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
@@ -509,7 +541,7 @@ pub struct WorktreeTip {
     pub name: BString,
     /// The branch the worktree has checked out, if its `HEAD` is symbolic.
     pub ref_name: Option<gix::refs::FullName>,
-    /// The peeled `HEAD` commit at caller resolution time.
+    /// The commit its `HEAD` peeled to during the traversal that produced this tip.
     pub id: gix::ObjectId,
 }
 
@@ -583,6 +615,7 @@ impl Graph {
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
         options: Options,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
         let mut is_detached = false;
@@ -626,7 +659,8 @@ impl Graph {
             }
         };
 
-        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, project_meta, options)?;
+        let mut graph =
+            Self::from_commit_traversal(tip, maybe_name, meta, project_meta, options, db)?;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
@@ -705,6 +739,7 @@ impl Graph {
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
         options: Options,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         Self::from_commit_traversal_with_extra_tips(
             tip,
@@ -713,6 +748,7 @@ impl Graph {
             meta,
             project_meta,
             options,
+            db,
         )
     }
 
@@ -738,6 +774,7 @@ impl Graph {
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
         options: Options,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         let repo = tip.repo;
         let tip = tip.detach();
@@ -791,6 +828,7 @@ impl Graph {
             project_meta,
             options,
             ref_name,
+            db,
         )
     }
 
@@ -813,6 +851,7 @@ impl Graph {
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
         options: Options,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         let tips: Vec<_> = tips.into_iter().collect();
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
@@ -823,6 +862,7 @@ impl Graph {
             project_meta,
             options,
             None,
+            db,
         )
     }
 
@@ -839,6 +879,7 @@ impl Graph {
         project_meta: ProjectMeta,
         options: Options,
         entrypoint_ref_override: Option<gix::refs::FullName>,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         let entrypoint = validate_explicit_tips(repo, &tips, entrypoint_ref_override.as_ref())?;
         let tip = entrypoint.id;
@@ -868,7 +909,7 @@ impl Graph {
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
-            worktree_tips,
+            worktrees,
         } = options;
         let max_limit = Limit::new(limit);
         if ref_name
@@ -891,9 +932,10 @@ impl Graph {
             tips,
             &graph.project_meta,
             extra_target_commit_id,
-            worktree_tips,
+            list_active_worktrees(repo, db, worktrees)?,
         )?;
         graph.traversal_tips = initial_tips.tips.clone();
+        graph.worktree_tips = initial_tips.worktree_tips.clone();
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
                 "refs/heads/",
@@ -1151,6 +1193,7 @@ impl Graph {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
         overlay: Overlay,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<Self> {
         let (repo, meta, entrypoint) = overlay.into_parts(repo, meta);
         let (tip, ref_name) = match entrypoint {
@@ -1202,6 +1245,7 @@ impl Graph {
             self.project_meta.clone(),
             self.options.clone(),
             ref_name,
+            db,
         )
     }
 
@@ -1211,8 +1255,9 @@ impl Graph {
         mut self,
         repo: &gix::Repository,
         meta: &impl RefMetadata,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<crate::Workspace> {
-        let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
+        let new = self.redo_traversal_with_overlay(repo, meta, Default::default(), db)?;
         self = new;
         self.into_workspace()
     }
@@ -1356,7 +1401,7 @@ fn initial_tips_from_tips(
     mut tips: Vec<Tip>,
     project_meta: &ProjectMeta,
     extra_target_commit_id: Option<gix::ObjectId>,
-    worktree_tips: Vec<WorktreeTip>,
+    worktrees: Vec<crate::worktrees::Worktree>,
 ) -> anyhow::Result<InitialTips> {
     let mut auxiliary_integrated_tip_ids = BTreeSet::new();
     if let Some(extra_target) = extra_target_commit_id {
@@ -1393,10 +1438,11 @@ fn initial_tips_from_tips(
     let symbolic_remote_names =
         symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs);
     let target_local_links = target_local_links_from_tips(repo, &tips);
-    let tips = append_worktree_tips(repo, tips, worktree_tips)?;
+    let (tips, worktree_tips) = append_worktree_tips(repo, tips, worktrees)?;
 
     Ok(InitialTips {
         tips,
+        worktree_tips,
         workspace_tips,
         workspace_ref_names,
         target_refs,
@@ -1407,33 +1453,46 @@ fn initial_tips_from_tips(
     })
 }
 
-/// Append caller-provided linked-worktree `HEAD` tips as plain reachable seeds.
+/// Append the `HEAD`s of `worktrees` as plain reachable traversal seeds.
 ///
 /// They come last so they never claim a commit that other initial work seeds first -
 /// in workspace and ad-hoc priority modes alike - and they don't participate in any
 /// auxiliary tip computations (targets, workspace refs, remotes).
-/// Tips with a ref name are re-resolved through the overlay so redone traversals
-/// (e.g. rebase previews) see moved or dropped refs; the recorded id is the fallback.
+///
+/// Each `HEAD` is located through the overlay by ref name - the checked-out branch, or
+/// `worktrees/<name>/HEAD` when detached - so an overlay moves worktrees exactly like it
+/// moves branches, and a rebase preview can show them where they will be. A worktree whose
+/// `HEAD` doesn't resolve is skipped rather than guessed at.
+///
+/// Returns the traversal tips along with the resolved worktree tips, so consumers don't
+/// have to redo the resolution to learn where each worktree ended up.
 fn append_worktree_tips(
     repo: &OverlayRepo<'_>,
     mut tips: Vec<Tip>,
-    worktree_tips: Vec<WorktreeTip>,
-) -> anyhow::Result<Vec<Tip>> {
+    worktrees: Vec<crate::worktrees::Worktree>,
+) -> anyhow::Result<(Vec<Tip>, Vec<WorktreeTip>)> {
     let mut seen_ids: BTreeSet<_> = tips.iter().map(|tip| tip.id).collect();
-    for worktree_tip in worktree_tips {
-        let id = match &worktree_tip.ref_name {
-            Some(name) => match repo.try_find_reference(name.as_ref())? {
-                // The ref was dropped by an overlay or vanished - don't resurrect its old tip.
-                None => continue,
-                Some(mut reference) => reference.peel_to_id()?.detach(),
-            },
-            None => worktree_tip.id,
+    let mut resolved = Vec::with_capacity(worktrees.len());
+    for worktree in worktrees {
+        let head_ref = match &worktree.ref_name {
+            Some(ref_name) => ref_name.clone(),
+            None => worktree_head_ref_name(worktree.name.as_ref())?,
         };
+        // The worktree was removed, or its ref was dropped by an overlay - don't guess.
+        let Some(mut reference) = repo.try_find_reference(head_ref.as_ref())? else {
+            continue;
+        };
+        let id = reference.peel_to_id()?.detach();
         if seen_ids.insert(id) {
             tips.push(Tip::new(id));
         }
+        resolved.push(WorktreeTip {
+            name: worktree.name,
+            ref_name: worktree.ref_name,
+            id,
+        });
     }
-    Ok(tips)
+    Ok((tips, resolved))
 }
 
 /// Remove anonymous integrated target tips that point to the same commit as a

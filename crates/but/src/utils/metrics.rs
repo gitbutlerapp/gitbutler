@@ -536,11 +536,15 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_data_dir(),
     )
     .ok()?;
+    // An in-memory db keeps this strictly read-only; with worktrees disabled in the
+    // options the traversal never reads it anyway.
+    let mut db = but_db::DbHandle::new_at_path(":memory:").ok()?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
         ctx.project_meta().ok()?,
         but_graph::init::Options::limited(),
+        &mut db,
     )
     .ok()?;
     graph.into_workspace().ok()

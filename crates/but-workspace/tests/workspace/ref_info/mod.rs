@@ -18,12 +18,22 @@ pub(crate) mod with_workspace_commit;
 pub fn head_info(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
+    opts: but_workspace::ref_info::Options,
+) -> anyhow::Result<but_workspace::RefInfo> {
+    let mut db = but_testsupport::in_memory_db()?;
+    head_info_with_db(repo, meta, opts, &mut db)
+}
+
+pub fn head_info_with_db(
+    repo: &gix::Repository,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<but_workspace::RefInfo> {
     if opts.project_meta == Default::default() {
         opts.project_meta = project_meta(repo)?;
     }
-    but_workspace::head_info(repo, meta, opts)
+    but_workspace::head_info(repo, meta, opts, db)
 }
 
 fn project_meta(repo: &gix::Repository) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
@@ -45,6 +55,7 @@ pub fn stacks_v3(
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
+    let mut db = but_testsupport::in_memory_db()?;
     but_workspace::legacy::stacks_v3(
         repo,
         meta,
@@ -52,6 +63,7 @@ pub fn stacks_v3(
         but_graph::init::Options::limited(),
         filter,
         ref_name_override,
+        &mut db,
     )
 }
 
@@ -63,12 +75,14 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
+    let mut db = but_testsupport::in_memory_db()?;
     but_workspace::legacy::stack_details_v3(
         stack_id,
         repo,
         meta,
         &project_meta(repo)?,
         but_graph::init::Options::limited(),
+        &mut db,
     )
 }
 
@@ -98,6 +112,7 @@ fn commit_change_id_derives_fallback_for_headerless_commit() -> anyhow::Result<(
 
 #[test]
 fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, meta) =
         crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario(
             "journey03",
@@ -108,7 +123,12 @@ fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Resul
         .headers()
         .and_then(|headers| headers.change_id)
         .expect("fixture commit has change id in header");
-    let info = but_workspace::ref_info(repo.find_reference("A")?, &*meta, standard_options())?;
+    let info = but_workspace::ref_info(
+        repo.find_reference("A")?,
+        &*meta,
+        standard_options(),
+        &mut db,
+    )?;
     let commit = first_commit(&info);
 
     assert_eq!(commit.id, commit_id);
@@ -963,7 +983,7 @@ mod utils {
         Ok((tmp, repo, meta))
     }
 
-    pub fn standard_options() -> but_workspace::ref_info::Options<'static> {
+    pub fn standard_options() -> but_workspace::ref_info::Options {
         ref_info::Options {
             expensive_commit_info: true,
             traversal: Default::default(),

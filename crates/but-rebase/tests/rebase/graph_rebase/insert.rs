@@ -10,6 +10,7 @@ use crate::utils::{fixture_writable, standard_options};
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -33,11 +34,12 @@ fn insert_below_merge_commit() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -54,7 +56,7 @@ fn insert_below_merge_commit() -> Result<()> {
     // replace it with the new one
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -112,6 +114,7 @@ fn insert_below_merge_commit() -> Result<()> {
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -135,11 +138,12 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -160,7 +164,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         InsertSide::Below,
     )?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -217,6 +221,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 /// Inserting above a commit should inherit it's parents
 #[test]
 fn insert_above_commit_with_two_children() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -240,11 +245,12 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let base_id = repo.rev_parse_single("base")?;
 
@@ -261,7 +267,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     // replace it with the new one
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Above)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

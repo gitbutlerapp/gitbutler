@@ -10,6 +10,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn temporary_change_id_persisted() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let target = repo.rev_parse_single("HEAD~")?;
@@ -32,12 +33,13 @@ fn temporary_change_id_persisted() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     // An operation to cause the parent we care about to be rebased
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace(target_parent, Step::None)?;
 
@@ -73,6 +75,7 @@ fn temporary_change_id_persisted() -> Result<()> {
 
 #[test]
 fn empty_commit_uses_default_change_id() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let graph = Graph::from_head(
@@ -80,11 +83,12 @@ fn empty_commit_uses_default_change_id() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let ec = editor.empty_commit()?;
 

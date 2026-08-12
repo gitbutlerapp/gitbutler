@@ -551,6 +551,7 @@ mod behind_count {
             &repo,
             &mut meta,
             but_workspace::branch::apply::Options::default(),
+            &mut ctx.db.get_cache_mut().unwrap(),
         )
         .unwrap();
         assert!(

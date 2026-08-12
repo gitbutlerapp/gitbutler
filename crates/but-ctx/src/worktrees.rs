@@ -1,68 +1,33 @@
-//! Enumeration of linked worktrees and their archived state.
-
-use std::{collections::BTreeSet, path::PathBuf};
+//! Access to linked worktrees and their archived state, gated on the feature flag.
+//!
+//! The enumeration and archived-state reconciliation itself lives in
+//! [`but_graph::worktrees`] - the graph reads it directly while traversing, so this is
+//! only the context-shaped way in.
 
 use anyhow::Result;
-use gix::bstr::BString;
 
 use crate::Context;
 
 /// A usable linked worktree with its archived state and resolved `HEAD`.
-#[derive(Debug, Clone)]
-pub struct WorktreeEntry {
-    /// Whether the worktree is hidden from listings and graph traversal.
-    pub archived: bool,
-    /// The worktree checkout directory.
-    pub path: PathBuf,
-    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`,
-    /// which survives `git worktree move`.
-    pub name: BString,
-    /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
-    pub ref_name: Option<gix::refs::FullName>,
-    /// The commit the worktree `HEAD` peels to.
-    pub head: gix::ObjectId,
-}
+pub use but_graph::worktrees::Worktree as WorktreeEntry;
 
 impl Context {
-    /// Add active linked-worktree tips to `options` when worktree manipulation is enabled.
+    /// Let `options` read linked-worktree state from the database handle passed to the
+    /// traversal, unless the `worktreeManipulation` feature flag is off - then no
+    /// traversal will look at worktrees at all.
     ///
-    /// Like [`Self::active_worktrees()`], this must not be called while a database
-    /// handle is borrowed.
-    pub fn graph_options(
-        &self,
-        mut options: but_graph::init::Options,
-    ) -> Result<but_graph::init::Options> {
+    /// The database is read on *every* traversal the resulting graph performs, so a
+    /// long-lived workspace keeps up with worktrees that appear, move, or get archived.
+    pub fn graph_options(&self, mut options: but_graph::init::Options) -> but_graph::init::Options {
+        options.worktrees = self.settings.feature_flags.worktree_manipulation;
         options
-            .worktree_tips
-            .extend(self.active_worktrees()?.into_iter().map(|worktree| {
-                but_graph::init::WorktreeTip {
-                    name: worktree.name,
-                    ref_name: worktree.ref_name,
-                    id: worktree.head,
-                }
-            }));
-        Ok(options)
     }
 
-    /// List all usable linked worktrees with their archived state and resolved `HEAD`s.
-    ///
-    /// This is the single home of linked-worktree state: every reader - listings, and
-    /// graph building when it seeds extra traversal heads - must go through here or
-    /// [`Self::active_worktrees()`] so archived worktrees are excluded consistently.
+    /// List all usable linked worktrees with their archived state and resolved `HEAD`s,
+    /// see [`but_graph::worktrees::with_state()`] for what that entails.
     ///
     /// With the `worktreeManipulation` feature flag disabled this returns nothing and
     /// has no side effects.
-    ///
-    /// The first-ever read with the flag enabled *adopts*: every worktree already on
-    /// disk (whether usable or not) is archived, assuming it predates GitButler's
-    /// worktree support, and an explicit marker records that adoption ran even when no
-    /// worktree exists yet. A worktree created after adoption is active until
-    /// explicitly archived; rows are never pruned - stale rows are invisible as
-    /// listings intersect with the worktrees on disk - so a worktree recreated under
-    /// a previously archived name stays archived until explicitly unarchived.
-    ///
-    /// Worktrees that are broken (pruned checkout, unresolvable `HEAD`) and worktrees
-    /// checked out on the workspace ref are never returned.
     ///
     /// Errors when the context repository is itself a linked worktree: such a context
     /// stores its database in the worktree's private git dir, so adoption and archived
@@ -74,45 +39,18 @@ impl Context {
             return Ok(Vec::new());
         }
         let repo = self.repo.get()?;
-        // The `commondir` redirect only exists in linked-worktree git dirs; unlike
-        // `Kind::LinkedWorkTree`, which is a path heuristic requiring a literal
-        // `.git` component, this also catches worktrees of bare repositories.
-        if repo.git_dir() != repo.common_dir() {
-            anyhow::bail!(
-                "worktree state must be read from the main worktree - \
-                 a linked-worktree context has its own database, letting adoption \
-                 and archived state diverge"
-            );
-        }
-        let (all_names, mut worktrees) = enumerate_worktrees(&repo)?;
-
         let mut db = self.db.get_cache_mut()?;
-        let archived = adopt_and_read_archived(&mut db, &all_names)?;
-
-        for wt in &mut worktrees {
-            wt.archived = archived.contains(&wt.name);
-        }
-        Ok(worktrees)
+        but_graph::worktrees::with_state(&repo, &mut db)
     }
 
-    /// Persist whether the linked worktree named `name` is archived.
-    ///
-    /// This runs the one-time adoption of [`Self::worktrees_with_state()`] first:
-    /// adoption archives every worktree on disk, so letting it run afterwards would
-    /// silently revert what was explicitly asked for here.
-    ///
-    /// Rows are never pruned, so this also succeeds for a worktree that isn't on
-    /// disk (any more) - such a row simply stays invisible to listings.
+    /// Persist whether the linked worktree named `name` is archived, see
+    /// [`but_graph::worktrees::set_archived()`].
     ///
     /// Must not be called while a database handle is borrowed.
     pub fn set_worktree_archived(&self, name: &gix::bstr::BStr, archived: bool) -> Result<()> {
-        self.worktrees_with_state()?;
+        let repo = self.repo.get()?;
         let mut db = self.db.get_cache_mut()?;
-        db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
-            name: name.to_vec(),
-            archived,
-        })?;
-        Ok(())
+        but_graph::worktrees::set_archived(&repo, &mut db, name, archived)
     }
 
     /// List all non-archived linked worktrees with their resolved `HEAD`s; every
@@ -128,127 +66,4 @@ impl Context {
             .filter(|wt| !wt.archived)
             .collect())
     }
-}
-
-/// Enumerate the linked worktrees of `repo`, returning the names of ALL of them
-/// (for adoption - a worktree that is unusable today must still be adopted today,
-/// not when it becomes usable) along with the usable entries. The `archived` state
-/// is not yet known and left `false`.
-///
-/// `repo` must be the main worktree, so none of the linked worktrees enumerated
-/// here can be the repository's own.
-fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<WorktreeEntry>)> {
-    let mut all_names = Vec::new();
-    let mut out = Vec::new();
-    for proxy in repo.worktrees()? {
-        let name: BString = proxy.id().to_owned();
-        all_names.push(name.clone());
-        let path = match proxy.base() {
-            Ok(path) => path,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                // Missing administrative data - the worktree is prunable.
-                continue;
-            }
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose checkout location cannot be read");
-                continue;
-            }
-        };
-        match std::fs::metadata(&path) {
-            Ok(meta) if meta.is_dir() => {}
-            Ok(_) => {
-                // The `gitdir` file points at something that is not a directory - prunable.
-                continue;
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                // The checkout was deleted without `git worktree remove` - prunable.
-                continue;
-            }
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose checkout cannot be inspected");
-                continue;
-            }
-        }
-        let wt_repo = match proxy.into_repo_with_possibly_inaccessible_worktree() {
-            Ok(wt_repo) => wt_repo,
-            Err(err) => {
-                // Unlike the prunable states above, this is never expected.
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose repository cannot be opened");
-                continue;
-            }
-        };
-        let mut head = match wt_repo.head() {
-            Ok(head) => head,
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree with an unreadable HEAD");
-                continue;
-            }
-        };
-        let ref_name = head.referent_name().map(ToOwned::to_owned);
-        if ref_name
-            .as_ref()
-            .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
-        {
-            // The workspace ref is fully managed by GitButler already.
-            continue;
-        }
-        let commit = match head.peel_to_commit() {
-            Ok(commit) => commit,
-            Err(gix::head::peel::to_commit::Error::PeelToObject(
-                gix::head::peel::to_object::Error::Unborn { .. },
-            )) => {
-                // A worktree on an unborn branch has nothing to list yet.
-                continue;
-            }
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose HEAD cannot be peeled to a commit");
-                continue;
-            }
-        };
-        out.push(WorktreeEntry {
-            archived: false,
-            path,
-            name,
-            ref_name,
-            head: commit.id,
-        });
-    }
-    Ok((all_names, out))
-}
-
-/// Return the names of all archived worktrees, first running the one-time adoption
-/// if it never ran: all `names` currently on disk are archived and the adoption
-/// marker is written, in one transaction.
-///
-/// The marker is explicit so nothing is inferred from the table content: in
-/// particular a project's first worktree, created after adoption already ran with
-/// zero worktrees on disk, starts out active.
-fn adopt_and_read_archived(
-    db: &mut but_db::DbHandle,
-    names: &[BString],
-) -> Result<BTreeSet<BString>> {
-    if !db.worktree_meta().adoption_ran()? {
-        // An immediate transaction avoids the un-retried `SQLITE_BUSY_SNAPSHOT` a
-        // deferred read-then-write would fail with when racing another writer, and
-        // the marker is re-checked under the write lock as several processes may
-        // adopt concurrently right after the feature flag is enabled.
-        let mut trans = db.immediate_transaction()?;
-        if !trans.worktree_meta().adoption_ran()? {
-            trans.worktree_meta_mut().mark_adopted()?;
-            for name in names {
-                trans.worktree_meta_mut().upsert(but_db::WorktreeMeta {
-                    name: name.to_vec(),
-                    archived: true,
-                })?;
-            }
-        }
-        trans.commit()?;
-    }
-    Ok(db
-        .worktree_meta()
-        .list()?
-        .into_iter()
-        .filter(|row| row.archived)
-        .map(|row| BString::from(row.name))
-        .collect())
 }

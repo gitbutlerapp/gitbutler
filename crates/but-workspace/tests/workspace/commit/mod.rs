@@ -24,6 +24,7 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
@@ -48,6 +49,7 @@ mod from_new_merge_with_metadata {
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
+            &mut db,
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -116,6 +118,7 @@ f53c910
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
+            &mut db,
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -198,6 +201,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 
     #[test]
     fn anonymous_tip_after_removed_parent_slot() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
@@ -220,6 +224,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
+            &mut db,
         )?;
 
         let add_c_ref = "refs/heads/add-C".try_into()?;
@@ -268,6 +273,7 @@ Outcome {
 
     #[test]
     fn with_multi_line_conflict_journey() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-multi-line-merge-conflict", "")?;
         snapbox::assert_data_eq!(
@@ -305,6 +311,7 @@ Outcome {
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
+            &mut db,
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -399,6 +406,7 @@ Outcome {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (_tmp, mut graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         snapbox::assert_data_eq!(
@@ -445,6 +453,7 @@ Outcome {
                     peeled: None,
                 },
             ]),
+            &mut db,
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -493,6 +502,7 @@ Outcome {
 
     #[test]
     fn with_conflict_journey() -> anyhow::Result<()> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;
         snapbox::assert_data_eq!(
@@ -518,6 +528,7 @@ Outcome {
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
+            &mut db,
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(

@@ -12,6 +12,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
@@ -31,10 +32,11 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -54,7 +56,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     )?;
     editor.replace(b_selector, Step::None)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -86,6 +88,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
@@ -105,10 +108,11 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -133,7 +137,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     editor.replace(b_selector, Step::None)?;
     editor.replace(a_selector, Step::None)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -163,6 +167,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
@@ -186,10 +191,11 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -209,7 +215,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     )?;
     editor.replace(a_selector, Step::None)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -254,6 +260,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
@@ -281,10 +288,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let merge_selector = editor
@@ -304,7 +312,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     )?;
     editor.replace(merge_selector, Step::None)?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -388,6 +396,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
@@ -415,10 +424,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -449,7 +459,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         false,
     )?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -529,6 +539,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
 }
 #[test]
 fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
@@ -556,10 +567,11 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -586,7 +598,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         false,
     )?;
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -690,6 +702,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
 
 #[test]
 fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -699,10 +712,11 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -736,7 +750,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         "unexpected error: {err:#}"
     );
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -772,6 +786,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 #[test]
 fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -781,10 +796,11 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -818,7 +834,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         "unexpected error: {err:#}"
     );
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -854,6 +870,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 #[test]
 fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
@@ -863,10 +880,11 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -900,7 +918,7 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         "unexpected error: {err:#}"
     );
 
-    let outcome = editor.rebase()?;
+    let mut outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

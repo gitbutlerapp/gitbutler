@@ -6,7 +6,17 @@ use snapbox::prelude::*;
 pub fn head_info(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
+    opts: but_workspace::ref_info::Options,
+) -> anyhow::Result<RefInfo> {
+    let mut db = but_testsupport::in_memory_db()?;
+    head_info_with_db(repo, meta, opts, &mut db)
+}
+
+pub fn head_info_with_db(
+    repo: &gix::Repository,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<RefInfo> {
     if opts.project_meta == Default::default() {
         opts.project_meta = utils::project_meta(repo)?;
@@ -14,7 +24,7 @@ pub fn head_info(
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
-    crate::ref_info::head_info(repo, meta, opts)
+    crate::ref_info::head_info_with_db(repo, meta, opts, db)
 }
 
 pub fn ref_info(
@@ -28,7 +38,8 @@ pub fn ref_info(
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
-    but_workspace::ref_info(existing_ref, meta, opts)
+    let mut db = but_testsupport::in_memory_db()?;
+    but_workspace::ref_info(existing_ref, meta, opts, &mut db)
 }
 
 #[test]
@@ -102,13 +113,14 @@ fn gerrit_mode_uses_metadata_for_commit_review_urls_and_push_status() -> anyhow:
     db.gerrit_metadata_mut()
         .insert(gerrit_meta(change_id, local_commit.id, review_url))?;
 
-    let info = head_info(
+    let info = head_info_with_db(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
-            gerrit_mode: but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
+            gerrit_mode: but_workspace::ref_info::GerritMode::Enabled,
             ..standard_options()
         },
+        &mut db,
     )?;
     let segment = &info.stacks[0].segments[0];
     let commit = &segment.commits[0];
@@ -147,13 +159,14 @@ fn gerrit_mode_treats_recorded_different_patchset_as_force_push() -> anyhow::Res
         "https://gerrit.example.com/c/project/+/2",
     ))?;
 
-    let info = head_info(
+    let info = head_info_with_db(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
-            gerrit_mode: but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
+            gerrit_mode: but_workspace::ref_info::GerritMode::Enabled,
             ..standard_options()
         },
+        &mut db,
     )?;
     let segment = &info.stacks[0].segments[0];
 
@@ -4606,6 +4619,7 @@ pub(crate) mod utils {
         VirtualBranchesTomlMetadata,
         String,
     )> {
+        let mut db = but_testsupport::in_memory_db()?;
         let (tmp, repo, mut meta, desc) =
             named_writable_scenario_with_args_and_description(name, args)?;
 
@@ -4619,6 +4633,7 @@ pub(crate) mod utils {
                 extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
                 ..Options::limited()
             },
+            &mut db,
         )?;
         Ok((tmp, graph, repo, meta, desc))
     }

@@ -1809,7 +1809,7 @@ impl App {
         }
 
         let head_info = {
-            let traversal = ctx.graph_options(Default::default())?;
+            let traversal = ctx.graph_options(Default::default());
             let meta = ctx.meta()?;
             but_workspace::head_info(
                 &*ctx.repo.get()?,
@@ -1819,6 +1819,7 @@ impl App {
                     traversal,
                     ..Default::default()
                 },
+                &mut *ctx.db.get_cache_mut()?,
             )?
         };
 

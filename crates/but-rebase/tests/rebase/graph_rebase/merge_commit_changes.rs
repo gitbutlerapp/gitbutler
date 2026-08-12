@@ -15,6 +15,7 @@ use crate::utils::{fixture, fixture_writable, standard_options};
 
 #[test]
 fn matches_clean_octopus_merge() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("octopus-merge-with-redundant-input")?;
 
     snapbox::assert_data_eq!(
@@ -39,10 +40,11 @@ fn matches_clean_octopus_merge() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let left_1 = repo.rev_parse_single("left~1")?.detach();
     let left_2 = repo.rev_parse_single("left")?.detach();
@@ -65,6 +67,7 @@ fn matches_clean_octopus_merge() -> Result<()> {
 
 #[test]
 fn excludes_unselected_parent_changes() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-commits-excludes-unselected-parent-visible")?;
 
     snapbox::assert_data_eq!(
@@ -89,10 +92,11 @@ fn excludes_unselected_parent_changes() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
     let c_commit = repo.rev_parse_single("C")?.detach();
@@ -133,6 +137,7 @@ fn excludes_unselected_parent_changes() -> Result<()> {
 
 #[test]
 fn reports_conflicts() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-commit-changes-fail-fast-after-conflict-visible")?;
 
     snapbox::assert_data_eq!(
@@ -162,10 +167,11 @@ fn reports_conflicts() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -204,6 +210,7 @@ fn reports_conflicts() -> Result<()> {
 
 #[test]
 fn stops_folding_after_first_conflict() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-commit-changes-fail-fast-after-conflict-visible")?;
 
     snapbox::assert_data_eq!(
@@ -233,10 +240,11 @@ fn stops_folding_after_first_conflict() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -269,6 +277,7 @@ fn stops_folding_after_first_conflict() -> Result<()> {
 
 #[test]
 fn preserves_noncontiguous_selected_changes() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) =
         fixture("merge-commits-preserve-noncontiguous-selected-changes-visible")?;
 
@@ -295,10 +304,11 @@ fn preserves_noncontiguous_selected_changes() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
     let b_commit = repo.rev_parse_single("B~2")?.detach();
@@ -340,6 +350,7 @@ fn preserves_noncontiguous_selected_changes() -> Result<()> {
 
 #[test]
 fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-commits-preserve-anchor-tree-visible")?;
 
     snapbox::assert_data_eq!(
@@ -366,10 +377,11 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let d_commit = repo.rev_parse_single("D")?.detach();
     let e_commit = repo.rev_parse_single("E")?.detach();
@@ -414,6 +426,7 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
 
 #[test]
 fn planning_preserves_noncontiguous_selected_changes() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) =
         fixture("merge-commits-preserve-noncontiguous-selected-changes-visible")?;
     let graph = Graph::from_head(
@@ -421,10 +434,11 @@ fn planning_preserves_noncontiguous_selected_changes() -> Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a_commit = repo.rev_parse_single("A")?.detach();
     let b_commit = repo.rev_parse_single("B~2")?.detach();
@@ -477,7 +491,12 @@ fn planning_fixture_graph() -> Result<()> {
 #[test]
 fn planning_collapses_contiguous_selected_chain() -> Result<()> {
     let mut fixture = simplify_fixture()?;
-    let editor = Editor::create(&mut fixture.ws, &mut *fixture.meta, &fixture.repo)?;
+    let editor = Editor::create(
+        &mut fixture.ws,
+        &mut *fixture.meta,
+        &fixture.repo,
+        &mut fixture.db,
+    )?;
 
     let plan = editor.plan_commit_changes_for_merge(
         fixture.base,
@@ -497,7 +516,12 @@ left-3 <- base
 #[test]
 fn planning_preserves_unrelated_branch_tips() -> Result<()> {
     let mut fixture = simplify_fixture()?;
-    let editor = Editor::create(&mut fixture.ws, &mut *fixture.meta, &fixture.repo)?;
+    let editor = Editor::create(
+        &mut fixture.ws,
+        &mut *fixture.meta,
+        &fixture.repo,
+        &mut fixture.db,
+    )?;
 
     let plan = editor.plan_commit_changes_for_merge(
         fixture.base,
@@ -527,7 +551,12 @@ main-2 <- main-1
 #[test]
 fn planning_deduplicates_and_keeps_order_of_survivors() -> Result<()> {
     let mut fixture = simplify_fixture()?;
-    let editor = Editor::create(&mut fixture.ws, &mut *fixture.meta, &fixture.repo)?;
+    let editor = Editor::create(
+        &mut fixture.ws,
+        &mut *fixture.meta,
+        &fixture.repo,
+        &mut fixture.db,
+    )?;
 
     let plan = editor.plan_commit_changes_for_merge(
         fixture.base,
@@ -557,16 +586,18 @@ main-3 <- main-1
 
 #[test]
 fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("four-commits")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let head = repo.rev_parse_single("HEAD")?.detach();
     let mut head_commit = editor.find_commit(head)?;
@@ -592,16 +623,18 @@ fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()>
 
 #[test]
 fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("merge-commits-preserve-anchor-tree-visible")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let d_commit = repo.rev_parse_single("D")?.detach();
     let a_commit = repo.rev_parse_single("A")?.detach();
@@ -620,16 +653,18 @@ fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Resu
 
 #[test]
 fn planning_prunes_subjects_reachable_from_target_merge_parent_lineage() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, mut meta) = fixture("three-branches-merged")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_commit = repo.rev_parse_single("main")?.detach();
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -649,7 +684,12 @@ fn planning_prunes_subjects_reachable_from_target_merge_parent_lineage() -> Resu
 #[test]
 fn planning_prunes_target_ancestors_and_keeps_external_subject_order() -> Result<()> {
     let mut fixture = simplify_fixture()?;
-    let editor = Editor::create(&mut fixture.ws, &mut *fixture.meta, &fixture.repo)?;
+    let editor = Editor::create(
+        &mut fixture.ws,
+        &mut *fixture.meta,
+        &fixture.repo,
+        &mut fixture.db,
+    )?;
 
     let plan = editor.plan_commit_changes_for_merge(
         fixture.main_3,
@@ -677,16 +717,18 @@ left-3 <- left-2
 
 #[test]
 fn planning_uses_pruned_selected_first_parent_tree_as_base_boundary() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmpdir, mut meta) = fixture_writable("two-branches-shared-bottom-two")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let base = repo.rev_parse_single("right~2")?.detach();
     let shared = repo.rev_parse_single("right~1")?.detach();
@@ -707,16 +749,18 @@ left: head <- shared
 
 #[test]
 fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, _tmp, mut meta) = fixture_writable("four-commits")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let head = repo.rev_parse_single("HEAD")?.detach();
     let head_parent = repo.rev_parse_single("HEAD~1")?.detach();
@@ -745,6 +789,7 @@ struct SimplifyFixture {
     repo: gix::Repository,
     meta: ManuallyDrop<but_meta::VirtualBranchesTomlMetadata>,
     ws: but_graph::Workspace,
+    db: but_db::DbHandle,
     base: gix::ObjectId,
     main_2: gix::ObjectId,
     main_3: gix::ObjectId,
@@ -756,12 +801,14 @@ struct SimplifyFixture {
 }
 
 fn simplify_fixture() -> Result<SimplifyFixture> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, meta) = fixture("three-branches-three-commits-visible")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?
     .validated()?;
     let ws = graph.into_workspace()?;
@@ -779,6 +826,7 @@ fn simplify_fixture() -> Result<SimplifyFixture> {
         repo,
         meta,
         ws,
+        db,
         base,
         main_2,
         main_3,

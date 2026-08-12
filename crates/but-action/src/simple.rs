@@ -59,7 +59,7 @@ pub(crate) fn handle_changes(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = stacks_creating_if_none(repo, ws, meta, perm)?;
+    let stacks = stacks_creating_if_none(repo, ws, meta, perm, db)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
@@ -114,7 +114,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws, meta, repo, db)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,
@@ -160,6 +160,7 @@ fn stacks_creating_if_none(
     ws: &mut but_graph::Workspace,
     meta: &mut impl RefMetadata,
     _perm: &mut RepoExclusive,
+    db: &mut DbHandle,
 ) -> anyhow::Result<Vec<StackForAction>> {
     let stacks = stack_info(ws);
     if !stacks.is_empty() {
@@ -175,6 +176,7 @@ fn stacks_creating_if_none(
         meta,
         |_| StackId::generate(),
         None,
+        db,
     )?;
     *ws = new_ws.into_owned();
     let stack = ws

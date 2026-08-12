@@ -938,7 +938,7 @@ pub mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
-            worktree_tips: vec![],
+            worktrees: Default::default(),
         }
     }
 

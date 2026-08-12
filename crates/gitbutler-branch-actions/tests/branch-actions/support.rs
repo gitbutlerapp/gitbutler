@@ -49,10 +49,10 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
             &repo,
             &meta,
             &ctx.project_meta().unwrap(),
-            ctx.graph_options(but_graph::init::Options::limited())
-                .unwrap(),
+            ctx.graph_options(but_graph::init::Options::limited()),
             StacksFilter::default(),
             None,
+            &mut ctx.db.get_cache_mut().unwrap(),
         )
     }
     .unwrap();
@@ -68,8 +68,8 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
                     &repo,
                     &meta,
                     &ctx.project_meta().unwrap(),
-                    ctx.graph_options(but_graph::init::Options::limited())
-                        .unwrap(),
+                    ctx.graph_options(but_graph::init::Options::limited()),
+                    &mut ctx.db.get_cache_mut().unwrap(),
                 )
             }
             .unwrap();

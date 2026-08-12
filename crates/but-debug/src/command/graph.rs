@@ -70,15 +70,19 @@ pub(crate) fn run(
             })
             .collect(),
         dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
-        worktree_tips: vec![],
+        worktrees: Default::default(),
     };
 
+    // This debug path runs on arbitrary repositories without a GitButler project,
+    // and with worktrees disabled in the options the traversal never reads the db.
+    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
     let graph = match graph_args.ref_name.as_deref() {
         None => but_graph::Graph::from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
             opts,
+            &mut db,
         ),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
@@ -89,6 +93,7 @@ pub(crate) fn run(
                 &meta,
                 but_core::ref_metadata::ProjectMeta::default(),
                 opts,
+                &mut db,
             )
         }
     }?;

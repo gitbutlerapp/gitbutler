@@ -83,8 +83,14 @@ fn current_state(
 ) -> anyhow::Result<WorkspaceState> {
     ctx.invalidate_workspace_cache()?;
     let mut meta = ctx.meta()?;
-    let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm)?;
-    WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &db)
+    let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+    WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut *ctx.db.get_cache_mut()?,
+    )
 }
 
 /// Build one `Rebase` update per applied stack, selecting its bottom-most commit (or the bottom
@@ -94,7 +100,7 @@ fn bottom_updates(
     ctx: &mut but_ctx::Context,
     perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<Vec<BottomUpdate>> {
-    let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let head_info = but_workspace::graph_to_ref_info(
         &ws,
         &repo,
@@ -104,6 +110,7 @@ fn bottom_updates(
             expensive_commit_info: false,
             ..Default::default()
         },
+        &db,
     )?;
 
     Ok(crate::workspace::rebase_stack_bottoms(&head_info))

@@ -9,6 +9,7 @@ use crate::support::graph_dag;
 
 #[test]
 fn drop_and_add_regular_refs() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -37,6 +38,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -74,7 +76,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         }])
         .with_dropped_references(["refs/heads/C".try_into()?]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -107,6 +109,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
 
 #[test]
 fn drop_head_ref() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -135,6 +138,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -164,7 +168,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
 
     let overlay = Overlay::default().with_dropped_references(["refs/heads/merged".try_into()?]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -196,6 +200,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
 
 #[test]
 fn overriding_references() -> anyhow::Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -224,6 +229,7 @@ fn overriding_references() -> anyhow::Result<()> {
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
+        &mut db,
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -271,7 +277,7 @@ fn overriding_references() -> anyhow::Result<()> {
             },
         ]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -312,7 +318,7 @@ fn overriding_references() -> anyhow::Result<()> {
         },
     ]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -347,7 +353,7 @@ fn overriding_references() -> anyhow::Result<()> {
         peeled: Some(merged_b.detach()),
     }]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay, &mut db)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),

@@ -7,6 +7,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 
 #[test]
 fn reword_head_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
@@ -22,7 +23,7 @@ fn reword_head_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("three")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;
@@ -44,6 +45,7 @@ fn reword_head_commit() -> Result<()> {
 
 #[test]
 fn reword_middle_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
@@ -59,7 +61,7 @@ fn reword_middle_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;
@@ -138,6 +140,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 
 #[test]
 fn reword_base_commit() -> Result<()> {
+    let mut db = but_testsupport::in_memory_db()?;
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
@@ -153,7 +156,7 @@ fn reword_base_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("one")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;

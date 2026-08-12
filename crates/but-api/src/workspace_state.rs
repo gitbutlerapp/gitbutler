@@ -103,6 +103,7 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, usize>,
         checkout_conflict_occurred: bool,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         #[cfg(not(feature = "graph-workspace"))]
         {
@@ -116,6 +117,7 @@ impl WorkspaceState {
                     expensive_commit_info: true,
                     ..Default::default()
                 },
+                db,
             )?
             .pruned_to_entrypoint();
 
@@ -136,7 +138,7 @@ impl WorkspaceState {
             let _ = prs_by_head;
             let mut workspace = workspace.clone();
             let graph_workspace =
-                but_workspace::workspace::detailed_graph_workspace(&mut workspace, meta, repo)?;
+                but_workspace::workspace::detailed_graph_workspace(&mut workspace, meta, repo, db)?;
 
             Ok(WorkspaceState {
                 replaced_commits,
@@ -158,6 +160,7 @@ impl WorkspaceState {
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         checkout_conflict_occurred: bool,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         Self::from_workspace(
             workspace,
@@ -166,6 +169,7 @@ impl WorkspaceState {
             replaced_commits,
             &HashMap::new(),
             checkout_conflict_occurred,
+            db,
         )
     }
 
@@ -179,10 +183,18 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        db: &but_db::DbHandle,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_workspace(workspace, meta, repo, replaced_commits, &prs_by_head, false)
+        Self::from_workspace(
+            workspace,
+            meta,
+            repo,
+            replaced_commits,
+            &prs_by_head,
+            false,
+            db,
+        )
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -199,8 +211,16 @@ impl WorkspaceState {
         prs_by_head: &HashMap<String, usize>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
-        let (repo, meta) = rebase.repo_and_meta_mut();
-        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head, false)
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        Self::from_workspace(
+            &workspace,
+            meta,
+            repo,
+            replaced_commits,
+            prs_by_head,
+            false,
+            db,
+        )
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -211,9 +231,8 @@ impl WorkspaceState {
     pub(crate) fn from_rebase_preview_with_db<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
+        let prs_by_head = forge_prs_by_head(rebase.db())?;
         Self::from_rebase_preview(rebase, replaced_commits, &prs_by_head)
     }
 
@@ -245,6 +264,7 @@ impl WorkspaceState {
             materialized.history.commit_mappings(),
             prs_by_head,
             materialized.checkout_conflict_occurred,
+            materialized.db,
         )
     }
 
@@ -271,9 +291,8 @@ impl WorkspaceState {
         rebase: SuccessfulRebase<'_, '_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,
-        db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
+        let prs_by_head = forge_prs_by_head(rebase.db())?;
         Self::from_successful_rebase(rebase, repo, dry_run, &prs_by_head)
     }
 }

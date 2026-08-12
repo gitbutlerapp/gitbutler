@@ -216,12 +216,14 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let repo = ctx.repo.get()?;
     let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
+    let mut db = ctx.db.get_cache_mut()?;
     let graph = but_graph::Graph::from_commit_traversal(
         workspace_ref.peel_to_id()?,
         Some(workspace_ref.inner.name.clone()),
         &meta,
         ctx.project_meta()?,
         but_graph::init::Options::limited(),
+        &mut db,
     )?;
     graph.into_workspace()
 }
@@ -345,15 +347,17 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
     let mut meta = ctx.meta()?;
+    let mut db = ctx.db.get_cache_mut()?;
     let mut workspace = but_graph::Graph::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
         ctx.project_meta()?,
         but_graph::init::Options::limited(),
+        &mut db,
     )?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
+    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
@@ -370,6 +374,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     // because there are none (they have been written to a tree earlier in this
     // function). Therefore, use `materialize_without_checkout`.
     outcome.materialize_without_checkout()?;
+    drop(db);
     ctx.invalidate_workspace_cache()?;
 
     // Switch branch to gitbutler/workspace

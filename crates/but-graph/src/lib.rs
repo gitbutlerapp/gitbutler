@@ -211,6 +211,8 @@ pub use api::FirstParent;
 /// Produce a graph from a Git repository.
 pub mod init;
 
+pub mod worktrees;
+
 #[path = "projection/mod.rs"]
 pub mod workspace;
 pub use workspace::workspace::Workspace;
@@ -258,6 +260,12 @@ pub struct Graph {
     /// reconnect segments, so consumers re-resolve each tip by commit id against
     /// the final graph shape and filter for the roles they need.
     traversal_tips: Vec<init::Tip>,
+    /// The linked-worktree `HEAD`s that seeded this traversal, with their ids resolved
+    /// against the (possibly overlaid) refs the traversal actually saw.
+    ///
+    /// Empty unless the graph was built with [`init::Options::worktrees`] enabled, which is
+    /// how worktree support is switched off entirely.
+    pub worktree_tips: Vec<init::WorktreeTip>,
     /// Ad-hoc/single-branch local branch orders read from metadata while post-processing.
     ///
     /// These are kept on the graph so projection can tell the difference between
