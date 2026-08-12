@@ -1091,8 +1091,7 @@ async fn match_subcommand(
                     include_upstream,
                 },
             )
-            .emit_metrics(metrics_ctx)?;
-            None
+            .emit_metrics(metrics_ctx)?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {

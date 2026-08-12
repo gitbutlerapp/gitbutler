@@ -267,7 +267,13 @@ pub fn discard(
         resolve(&repo, &id_map, args)?
     };
 
-    Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
+    Ok(run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        operation,
+        gitbutler_oplog::entry::OperationKind::Discard,
+    )?)
 }
 
 fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<DiscardOperation> {
@@ -373,6 +379,7 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: DiscardOperation,
+    oplog_operation_kind: OperationKind,
 ) -> anyhow::Result<(DiscardOutcome, WorkspaceState)> {
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
@@ -449,7 +456,7 @@ pub fn run(
         ctx,
         meta,
         perm,
-        SnapshotDetails::new(OperationKind::Discard),
+        SnapshotDetails::new(oplog_operation_kind),
         DryRun::No,
         |mut tx| {
             let outcome = match executable {
