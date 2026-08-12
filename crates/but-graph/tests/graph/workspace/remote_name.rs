@@ -1,9 +1,10 @@
 use but_core::RefMetadata;
 use but_graph::Graph;
-use but_testsupport::{graph_tree, visualize_commit_graph_all};
+use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
 use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
+use crate::support::graph_dag;
 
 #[test]
 fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
@@ -76,16 +77,16 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
         .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
-        graph_tree(&ws.graph).to_string(),
+        graph_dag(&ws.graph),
         snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── 📙►:2[2]:A
-│       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B
-└── ►:1[0]:origin/main →:3:
-    └── ►:3[1]:main <> origin/main →:1:
-        └── →:2: (A)
-
+◎  B
+│ ◎  👉📕gitbutler/workspace[🌳]
+│ │ ◎  origin/main
+│ │ ◎  main <> origin/main
+│ ├─╯
+│ ◎  📙A
+├─╯
+●  ✂·bce0c5e (⌂|🏘|✓|1)
 "#]]
     );
 

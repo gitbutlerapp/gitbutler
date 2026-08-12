@@ -4,8 +4,10 @@ use std::str::FromStr;
 
 use but_core::ref_metadata;
 use but_graph::{Commit, CommitFlags, Graph, RefInfo, Segment, SegmentIndex, SegmentMetadata};
-use but_testsupport::graph_tree;
+
 use gix::ObjectId;
+
+use crate::support::graph_dag;
 
 /// Simulate a graph data structure after the first pass, i.e., right after the walk.
 /// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,
@@ -99,19 +101,20 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None, 0);
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&graph),
         snapbox::str![[r#"
-
-└── 👉📕►►►:0[0]:main <> origin/main
-    ├── ►:1[0]:new-stack
-    ├── ►:2[0]:origin/main
-    │   └── ✂🟣ccccccc
-    └── ►:3[2]:A <> origin/A →:1:
-        ├── 🟣aaaaaaa (🏘)
-        └── 🟣febafeb (🏘)
-            └── ►:4[0]:origin/A
-                └── ✂🟣bbbbbbb
-
+◎      👉📕main <> origin/main
+├─┬─╮
+◎ │ │  new-stack
+  ◎ │  origin/main
+  ● │  ✂🟣ccccccc
+  │ ◎  A <> origin/A
+  │ ●  🟣aaaaaaa (🏘)
+  ├─╯
+◎ │  origin/A
+● │  ✂🟣bbbbbbb
+├─╯
+●  🟣febafeb (🏘)
 "#]]
     );
 
@@ -125,15 +128,7 @@ fn detached_head() {
         commits: vec![commit(id("a"), None, CommitFlags::empty())],
         ..Default::default()
     });
-    snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
-        snapbox::str![[r#"
-
-└── ►:0[0]:anon:
-    └── 👉🏁🟣aaaaaaa
-
-"#]]
-    );
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["●  👉🏁🟣aaaaaaa"]);
 }
 
 fn id(hex: &str) -> ObjectId {
@@ -165,11 +160,5 @@ fn commit(
 
 #[test]
 fn unborn_head() {
-    snapbox::assert_data_eq!(
-        graph_tree(&Graph::default()).to_string(),
-        snapbox::str![[r#"
-<UNBORN>
-
-"#]]
-    );
+    snapbox::assert_data_eq!(graph_dag(&Graph::default()), snapbox::str!["<UNBORN>"]);
 }
