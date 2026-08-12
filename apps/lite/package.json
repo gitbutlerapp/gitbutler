@@ -21,7 +21,7 @@
 		"dev:electron": "pnpm prepare-askpass && pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
-		"build:electron": "tsgo -p electron/tsconfig.json && vite build --config electron/vite.config.ts",
+		"build:electron": "vite build --config electron/vite.config.ts && vite build --config electron/vite.main.config.ts",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit && tsgo -p e2e/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vite.config.ts",
 		"test:e2e": "pnpm prepare-askpass --debug && pnpm build:electron && playwright test --config ./e2e/playwright.config.ts",
@@ -34,6 +34,9 @@
 	},
 	"build": {
 		"appId": "com.gitbutler.lite",
+		"electronLanguages": [
+			"en-US"
+		],
 		"electronFuses": {
 			"runAsNode": false,
 			"enableCookieEncryption": true,
@@ -69,7 +72,12 @@
 		"files": [
 			"dist/ui/**/*",
 			"dist/electron/**/*",
-			"package.json"
+			"package.json",
+			"!node_modules/**/*",
+			"node_modules/@gitbutler/but-sdk/package.json",
+			"node_modules/@gitbutler/but-sdk/src/generated/linear/index.js",
+			"node_modules/@gitbutler/but-sdk/src/generated/linear/apiParamNames.js",
+			"node_modules/@gitbutler/but-sdk/src/generated/linear/*.node"
 		],
 		"mac": {
 			"icon": "resources/icons/macos/icon.icon",

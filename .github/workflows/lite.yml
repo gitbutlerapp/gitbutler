@@ -77,6 +77,11 @@ jobs:
         name: Upload artifacts
         with:
           name: gitbutler-lite-${{ github.run_number }}-${{ matrix.platform }}
-          path: apps/lite/release/
+          # electron-builder publishes updater files itself and also leaves the
+          # unpacked app in this directory. Keep only user-installable packages.
+          path: |
+            apps/lite/release/*.AppImage
+            apps/lite/release/*.dmg
+            apps/lite/release/*.exe
           if-no-files-found: error
           retention-days: 7
