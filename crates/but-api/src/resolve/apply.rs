@@ -373,7 +373,7 @@ pub(crate) fn apply(
         && match *commit.parents.as_slice() {
             [parent] => but_core::Commit::from_id(parent.attach(&repo))
                 .and_then(|parent| parent.tree_id_or_auto_resolution())
-                .is_ok_and(|parent_tree| parent_tree.detach() == merged_tree_id),
+                .is_ok_and(|parent_tree| parent_tree == merged_tree_id),
             _ => false,
         };
     if unresolved {

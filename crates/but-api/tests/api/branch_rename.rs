@@ -23,10 +23,7 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
 
     let repo = ctx.repo.get()?;
     // Renaming a branch that isn't checked out leaves HEAD on the tip.
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        tip.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     assert!(repo.try_find_reference(renamed.as_ref())?.is_some());
     // The order keeps the branch in place under the new name.
@@ -54,12 +51,9 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
 
     let repo = ctx.repo.get()?;
     // Renaming the checked-out branch carries HEAD over to the new name.
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        renamed.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), renamed);
     assert!(repo.try_find_reference(tip.as_ref())?.is_none());
-    assert_eq!(result.new_ref.as_ref(), renamed.as_ref());
+    assert_eq!(result.new_ref, renamed);
     assert_workspace_ref(&result.workspace, "refs/heads/renamed-tip");
 
     let order = ctx
@@ -91,10 +85,7 @@ fn branch_rename_rejects_a_name_that_already_exists() -> anyhow::Result<()> {
     // Nothing changed: the original branch is intact and still checked out.
     let repo = ctx.repo.get()?;
     assert!(repo.try_find_reference(tip.as_ref())?.is_some());
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        tip.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
 
     Ok(())
 }
@@ -217,7 +208,7 @@ fn branch_rename_normalizes_the_requested_name() -> anyhow::Result<()> {
     // The resulting ref matches what the non-legacy normalizer produces.
     let expected_short = but_core::branch::normalize_short_name("My Fancy Branch")?;
     let expected = gix::refs::Category::LocalBranch.to_full_name(expected_short.as_bstr())?;
-    assert_eq!(result.new_ref.as_ref(), expected.as_ref());
+    assert_eq!(result.new_ref, expected);
 
     let repo = ctx.repo.get()?;
     assert!(repo.try_find_reference(tip.as_ref())?.is_none());
@@ -244,7 +235,7 @@ fn branch_rename_keeps_a_managed_stack_branch_applied() -> anyhow::Result<()> {
     let result =
         but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-feature")?;
-    assert_eq!(result.new_ref.as_ref(), renamed.as_ref());
+    assert_eq!(result.new_ref, renamed);
 
     let repo = ctx.repo.get()?;
     assert!(repo.try_find_reference(feature.as_ref())?.is_none());
@@ -384,7 +375,7 @@ fn branch_rename_into_a_directory_prefix() -> anyhow::Result<()> {
     // `foo` and `foo/bar` can't coexist as refs, so this must not fail with "Could not create
     // branch": the rename is done atomically instead.
     let result = but_api::branch::branch_rename(&mut ctx, foo.clone(), "foo/bar".into())?;
-    assert_eq!(result.new_ref.as_ref(), foo_bar.as_ref());
+    assert_eq!(result.new_ref, foo_bar);
 
     let repo = ctx.repo.get()?;
     assert!(
@@ -396,10 +387,7 @@ fn branch_rename_into_a_directory_prefix() -> anyhow::Result<()> {
         "the prefixed ref must exist"
     );
     // HEAD followed the rename onto the new, prefixed name.
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        foo_bar.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), foo_bar);
 
     Ok(())
 }
@@ -418,7 +406,7 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
     // Collapsing `foo/bar` back down to `foo` reuses the now-empty `foo/` directory as a ref file,
     // which the atomic rename must handle.
     let result = but_api::branch::branch_rename(&mut ctx, foo_bar.clone(), "foo".into())?;
-    assert_eq!(result.new_ref.as_ref(), foo.as_ref());
+    assert_eq!(result.new_ref, foo);
 
     let repo = ctx.repo.get()?;
     assert!(
@@ -429,10 +417,7 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
         repo.try_find_reference(foo.as_ref())?.is_some(),
         "the collapsed ref must exist"
     );
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        foo.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), foo);
 
     Ok(())
 }
@@ -473,13 +458,13 @@ fn prefix_rename_restores_source_when_destination_is_locked() -> anyhow::Result<
         panic!("the source branch must be restored; destination exists: {destination_exists}")
     });
     assert_eq!(
-        restored.peel_to_id()?.detach(),
+        restored.peel_to_id()?,
         source_id,
         "rollback must restore the source at its original commit"
     );
     assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        source.as_ref(),
+        repo.head_name()?.expect("HEAD is symbolic"),
+        source,
         "HEAD must continue to name the restored source branch"
     );
     let recovery_ref = repo

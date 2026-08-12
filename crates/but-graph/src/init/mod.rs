@@ -1763,11 +1763,10 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     let mut workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
     let has_project_meta = project_meta != &ProjectMeta::default();
     if has_project_meta
-        && entrypoint_ref
-            .is_some_and(|ref_name| ref_name.as_bstr() == WORKSPACE_REF_NAME.as_bytes())
+        && entrypoint_ref.is_some_and(|ref_name| ref_name == WORKSPACE_REF_NAME)
         && !workspaces
             .iter()
-            .any(|(_, ref_name, _)| ref_name.as_bstr() == WORKSPACE_REF_NAME.as_bytes())
+            .any(|(_, ref_name, _)| ref_name == WORKSPACE_REF_NAME)
     {
         let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
         if let Some(workspace_tip) = try_refname_to_id(repo, workspace_ref.as_ref())? {

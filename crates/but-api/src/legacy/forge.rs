@@ -1709,7 +1709,7 @@ fn review_updates_after_push(
                 segment
                     .ref_info
                     .as_ref()
-                    .is_some_and(|ref_info| ref_info.ref_name.as_ref() == branch)
+                    .is_some_and(|ref_info| ref_info.ref_name == branch)
             })
         })
         .with_context(|| {
@@ -1916,7 +1916,7 @@ fn stack_and_segment_for_branch<'a>(
                     segment
                         .ref_info
                         .as_ref()
-                        .is_some_and(|ref_info| ref_info.ref_name.as_ref() == branch)
+                        .is_some_and(|ref_info| ref_info.ref_name == branch)
                 })
                 .map(|index| (stack, index))
         })
@@ -1977,7 +1977,7 @@ fn remote_contains(
         return Ok(true);
     }
     match repo.merge_base(ancestor, descendant) {
-        Ok(base) => Ok(base.detach() == ancestor),
+        Ok(base) => Ok(base == ancestor),
         Err(gix::repository::merge_base::Error::FindMergeBase(_))
         | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
         Err(err) => Err(err.into()),

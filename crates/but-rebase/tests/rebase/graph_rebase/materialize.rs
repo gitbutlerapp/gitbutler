@@ -257,10 +257,7 @@ fn both_methods_update_references_identically() -> Result<()> {
         let outcome = outcome.materialize(Default::default())?;
         assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
-        (
-            repo.rev_parse_single("main")?.detach().to_string(),
-            overlayed,
-        )
+        (repo.rev_parse_single("main")?.detach(), overlayed)
     };
 
     // Test with materialize_without_checkout
@@ -287,10 +284,7 @@ fn both_methods_update_references_identically() -> Result<()> {
         let outcome = outcome.materialize_without_checkout()?;
         assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
-        (
-            repo.rev_parse_single("main")?.detach().to_string(),
-            overlayed,
-        )
+        (repo.rev_parse_single("main")?.detach(), overlayed)
     };
 
     snapbox::assert_data_eq!(
@@ -313,7 +307,7 @@ fn both_methods_update_references_identically() -> Result<()> {
     );
 
     snapbox::assert_data_eq!(
-        ref_after_materialize,
+        ref_after_materialize.to_string(),
         snapbox::str!["a96434e2505c2ea0896cf4f58fec0778e074d3da"]
     );
 
@@ -481,7 +475,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         .raw()
     );
 
-    assert_eq!(repo.rev_parse_single("main")?.detach(), main_before);
+    assert_eq!(repo.rev_parse_single("main")?, main_before);
 
     Ok(())
 }
@@ -505,7 +499,7 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let outcome = editor.rebase()?;
     outcome.materialize(Default::default())?;
 
-    assert_eq!(repo.rev_parse_single("main")?.detach(), main_before);
+    assert_eq!(repo.rev_parse_single("main")?, main_before);
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -563,7 +557,7 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
         Some("refs/heads/middle".try_into()?),
         "the branch-backed worktree stays attached"
     );
-    assert_eq!(attached.head_id()?.detach(), new_middle);
+    assert_eq!(attached.head_id()?, new_middle);
     assert!(
         !attached_dir.join("a").exists(),
         "the attached worktree removes the rename source"
@@ -582,7 +576,7 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
         None,
         "the detached worktree stays detached"
     );
-    assert_eq!(detached.head_id()?.detach(), new_middle);
+    assert_eq!(detached.head_id()?, new_middle);
     assert_eq!(
         std::fs::read_to_string(detached.git_dir().join("HEAD"))?,
         format!("{new_middle}\n")
@@ -665,7 +659,7 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
     editor.set_worktree_merge_base_override(gix::bstr::BStr::new("wt"), consumed_tree)?;
     editor.rebase()?.materialize(Default::default())?;
 
-    assert_eq!(repo.rev_parse_single("middle")?.detach(), amended);
+    assert_eq!(repo.rev_parse_single("middle")?, amended);
     assert_eq!(
         std::fs::read_to_string(worktree_dir.join("test.txt"))?,
         "line 1\nline 1.1\nline 1.2\nline 2\nline 3\n",
@@ -722,7 +716,7 @@ fn materialize_without_checkout_moves_detached_worktree_heads_only() -> Result<(
 
     let detached = linked_repo(&repo, "wt-detached")?;
     assert_eq!(
-        detached.head_id()?.detach(),
+        detached.head_id()?,
         new_middle,
         "the detached worktree's HEAD follows the rewrite through the ref transaction"
     );
@@ -754,7 +748,7 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
     let detached = linked_repo(&repo, "wt-detached")?;
     let elsewhere = repo.rev_parse_single("main")?.detach();
     but_core::worktree::safe_checkout_from_head(elsewhere, &detached, Default::default())?;
-    assert_eq!(detached.head_id()?.detach(), elsewhere);
+    assert_eq!(detached.head_id()?, elsewhere);
 
     let err = outcome
         .materialize_without_checkout()
@@ -764,7 +758,7 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
         "{err:#}"
     );
     assert_eq!(
-        linked_repo(&repo, "wt-detached")?.head_id()?.detach(),
+        linked_repo(&repo, "wt-detached")?.head_id()?,
         elsewhere,
         "the worktree keeps what someone else put there"
     );
@@ -809,7 +803,7 @@ fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
     editor.rebase()?.materialize(Default::default())?;
 
     assert_eq!(
-        repo.rev_parse_single("main")?.detach(),
+        repo.rev_parse_single("main")?,
         old_main,
         "nothing above the worktree branch is rebased"
     );
@@ -844,7 +838,7 @@ fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
         "the branch-backed worktree stays attached"
     );
     assert_eq!(
-        attached.head_id()?.detach(),
+        attached.head_id()?,
         new_middle,
         "the checkout follows the moved branch"
     );

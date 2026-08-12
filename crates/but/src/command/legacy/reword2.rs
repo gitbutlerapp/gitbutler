@@ -506,7 +506,7 @@ fn reword_branch(
     let new_name = validate_branch_name(new_name)?;
 
     let result = but_api::branch::branch_rename_with_perm(ctx, ref_name.clone(), new_name, perm)?;
-    if result.new_ref.as_ref() == ref_name.as_ref() {
+    if result.new_ref == ref_name {
         Ok(BranchRename::Unchanged)
     } else {
         Ok(BranchRename::Renamed(result.new_ref.shorten().to_string()))

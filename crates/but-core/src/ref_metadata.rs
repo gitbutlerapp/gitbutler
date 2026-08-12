@@ -529,7 +529,7 @@ fn ensure_unique_branch_names<'a>(
 ) -> Result<()> {
     let mut seen = Vec::<gix::refs::FullName>::new();
     for name in names {
-        if seen.iter().any(|seen| seen.as_ref() == name) {
+        if seen.iter().any(|seen| seen == name) {
             bail!("Cannot reconcile {source}: branch name '{name}' occurs more than once");
         }
         seen.push(name.to_owned());
@@ -546,7 +546,7 @@ fn remove_branch_from_stacks(
         && let Some(branch_idx) = stack
             .branches
             .iter()
-            .position(|branch| branch.ref_name.as_ref() == name)
+            .position(|branch| branch.ref_name == name)
     {
         return Some(stack.branches.remove(branch_idx));
     }
@@ -555,7 +555,7 @@ fn remove_branch_from_stacks(
         let branch_idx = stack
             .branches
             .iter()
-            .position(|branch| branch.ref_name.as_ref() == name)?;
+            .position(|branch| branch.ref_name == name)?;
         Some(stack.branches.remove(branch_idx))
     })
 }
@@ -606,7 +606,7 @@ impl Workspace {
     /// Use `kind` for filtering.
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> bool {
         self.stacks(kind)
-            .any(|stack| stack.branches.iter().any(|b| b.ref_name.as_ref() == name))
+            .any(|stack| stack.branches.iter().any(|b| b.ref_name == name))
     }
 
     /// Find a given `name` within our stack branches and return it for modification.
@@ -616,12 +616,8 @@ impl Workspace {
         name: &gix::refs::FullNameRef,
         kind: StackKind,
     ) -> Option<&mut WorkspaceStackBranch> {
-        self.stacks_mut(kind).find_map(|stack| {
-            stack
-                .branches
-                .iter_mut()
-                .find(|b| b.ref_name.as_ref() == name)
-        })
+        self.stacks_mut(kind)
+            .find_map(|stack| stack.branches.iter_mut().find(|b| b.ref_name == name))
     }
 
     /// Find a given `name` within our stack branches and return it.
@@ -632,7 +628,7 @@ impl Workspace {
         kind: StackKind,
     ) -> Option<&WorkspaceStackBranch> {
         self.stacks(kind)
-            .find_map(|stack| stack.branches.iter().find(|b| b.ref_name.as_ref() == name))
+            .find_map(|stack| stack.branches.iter().find(|b| b.ref_name == name))
     }
 
     /// Find a given `name` within our stack branches and return the stack itself.
@@ -646,7 +642,7 @@ impl Workspace {
             stack
                 .branches
                 .iter()
-                .find_map(|b| (b.ref_name.as_ref() == name).then_some(stack))
+                .find_map(|b| (b.ref_name == name).then_some(stack))
         })
     }
 
@@ -666,9 +662,11 @@ impl Workspace {
                     || stack.workspacecommit_relation.is_in_workspace()
             })
             .find_map(|(stack_idx, stack)| {
-                stack.branches.iter().enumerate().find_map(|(seg_idx, b)| {
-                    (b.ref_name.as_ref() == name).then_some((stack_idx, seg_idx))
-                })
+                stack
+                    .branches
+                    .iter()
+                    .enumerate()
+                    .find_map(|(seg_idx, b)| (b.ref_name == name).then_some((stack_idx, seg_idx)))
             })
     }
 }

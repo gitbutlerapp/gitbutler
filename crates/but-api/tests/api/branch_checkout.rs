@@ -14,7 +14,7 @@ fn checkout_branch_switches_head_and_returns_workspace() -> anyhow::Result<()> {
 
     let repo = ctx.repo.get()?;
     let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
-    assert_eq!(head_name.as_bstr(), "refs/heads/feature");
+    assert_eq!(head_name, "refs/heads/feature");
     assert_workspace_ref(&result.workspace, "refs/heads/feature");
 
     Ok(())
@@ -46,9 +46,9 @@ fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> any
 
     let repo = ctx.repo.get()?;
     let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
-    assert_eq!(head_name.as_bstr(), "refs/heads/new-branch");
+    assert_eq!(head_name, "refs/heads/new-branch");
     let mut created = repo.find_reference("refs/heads/new-branch")?;
-    assert_eq!(created.peel_to_id()?.detach(), target_commit_id);
+    assert_eq!(created.peel_to_id()?, target_commit_id);
     assert_workspace_ref(&result.workspace, "refs/heads/new-branch");
 
     Ok(())
@@ -95,7 +95,7 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     {
         let repo = ctx.repo.get()?;
         let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
-        assert_eq!(head_name.as_bstr(), "refs/heads/feature");
+        assert_eq!(head_name, "refs/heads/feature");
 
         snapbox::assert_data_eq!(
             crate::support::repository_graph(&repo)?,
@@ -234,11 +234,11 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
     {
         let repo = ctx.repo.get()?;
         let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
-        assert_eq!(head_name.as_bstr(), "refs/heads/new-branch");
+        assert_eq!(head_name, "refs/heads/new-branch");
 
         let mut created = repo.find_reference("refs/heads/new-branch")?;
         assert_eq!(
-            created.peel_to_id()?.detach(),
+            created.peel_to_id()?,
             target_commit_id,
             "new branch should be created at the configured project target"
         );

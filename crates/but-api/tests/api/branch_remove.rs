@@ -90,10 +90,7 @@ fn branch_remove_deletes_middle_empty_branch_and_keeps_head() -> anyhow::Result<
 
     let repo = ctx.repo.get()?;
     // Removing a branch that isn't checked out leaves HEAD on the tip.
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        tip.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     // The order relinks the tip straight onto the base.
     let order = ctx
@@ -121,10 +118,7 @@ fn branch_remove_checked_out_empty_tip_moves_head_to_ref_below() -> anyhow::Resu
 
     let repo = ctx.repo.get()?;
     // HEAD lands on the reference that was directly underneath the removed tip.
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        middle.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), middle);
     assert!(repo.try_find_reference(tip.as_ref())?.is_none());
     assert_workspace_ref(&result.workspace, "refs/heads/middle");
 
@@ -153,10 +147,7 @@ fn branch_remove_rejects_checked_out_branch_with_commits() -> anyhow::Result<()>
     // Nothing was removed.
     let repo = ctx.repo.get()?;
     assert!(repo.try_find_reference(main.as_ref())?.is_some());
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        main.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), main);
 
     Ok(())
 }
@@ -187,10 +178,7 @@ fn branch_remove_refuses_when_checked_out_in_another_worktree() -> anyhow::Resul
         repo.try_find_reference(middle.as_ref())?.is_some(),
         "the checked-out branch must remain"
     );
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic").as_ref(),
-        tip.as_ref()
-    );
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
 
     Ok(())
 }

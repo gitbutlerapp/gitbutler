@@ -190,12 +190,8 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         // Find deleted references. `initial_references` only contains mutable
         // references, so immutable references are never considered for deletion.
         for reference in self.initial_references.iter() {
-            if !ref_edits
-                .iter()
-                .any(|e| e.name.as_ref() == reference.as_ref())
-                && !unchanged_references
-                    .iter()
-                    .any(|e| e.as_ref() == reference.as_ref())
+            if !ref_edits.iter().any(|e| e.name == *reference)
+                && !unchanged_references.iter().any(|e| e == reference)
             {
                 ref_edits.push(RefEdit {
                     name: reference.clone(),

@@ -448,7 +448,7 @@ RebaseOutput {
     );
     assert_ne!(
         out.top_commit.attach(&repo).object()?.peel_to_tree()?.id,
-        repo.rev_parse_single("main^{tree}")?.detach(),
+        repo.rev_parse_single("main^{tree}")?,
         "The newly re-merged tree is different as a conflict was auto-resolved"
     );
 

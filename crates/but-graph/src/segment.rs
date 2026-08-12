@@ -26,7 +26,7 @@ impl Commit {
 
     /// Return information about the reference that matches `name`.
     pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
-        self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
+        self.refs.iter().find(|ri| ri.ref_name == name)
     }
 }
 

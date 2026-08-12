@@ -161,7 +161,7 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
     let workdir = repo.workdir().expect("fixtures have workdirs");
     // The tracking ref has to exist for the branch to be seen as tracking `fork`, and it
     // points at the base so `bottom` still has commits left to push.
-    let base = repo.rev_parse_single("main")?.detach().to_string();
+    let base = repo.rev_parse_single("main")?.to_string();
     for args in [
         vec!["remote", "add", "fork", fork.to_str().expect("utf8 path")],
         vec!["config", "branch.bottom.remote", "fork"],
@@ -188,7 +188,7 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
         .first()
         .expect("bottom should have been pushed");
     assert_eq!(branch, "bottom");
-    assert_eq!(remote_refname.as_bstr(), "refs/remotes/fork/bottom");
+    assert_eq!(remote_refname, "refs/remotes/fork/bottom");
     assert_eq!(
         remote_branch_name, "bottom",
         "the branch name on the remote must be stripped of the remote the branch actually landed on, not the push default"

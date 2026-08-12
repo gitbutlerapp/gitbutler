@@ -1007,7 +1007,7 @@ fn empty_branch_is_merged_upstream(
     }
 
     repo.merge_base(remote_tip_id, status_ctx.target_tip_id)
-        .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id)
+        .is_ok_and(|merge_base| merge_base == remote_tip_id)
 }
 
 fn remote_tracking_ref_is_target_branch(
@@ -1016,7 +1016,7 @@ fn remote_tracking_ref_is_target_branch(
 ) -> bool {
     status_ctx.base_branch.as_ref().is_some_and(|base_branch| {
         target_remote_tracking_ref_name(base_branch)
-            .is_some_and(|target_ref_name| remote_ref_name.as_bstr() == target_ref_name.as_bytes())
+            .is_some_and(|target_ref_name| remote_ref_name == target_ref_name.as_str())
     })
 }
 

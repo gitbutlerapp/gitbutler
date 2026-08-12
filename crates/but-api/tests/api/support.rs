@@ -102,7 +102,7 @@ pub fn assert_workspace_ref(workspace: &but_api::WorkspaceState, expected: &str)
         .workspace_ref_info
         .as_ref()
         .expect("checked out branch is the workspace ref");
-    assert_eq!(workspace_ref.ref_name.as_bstr(), expected);
+    assert_eq!(workspace_ref.ref_name, expected);
 }
 
 /// Assert the mutation response's workspace projection contains `expected` as its checked-out ref,

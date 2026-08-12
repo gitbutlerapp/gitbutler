@@ -541,7 +541,7 @@ mod maybe_lossy_full_name_ref_tests {
             serde_json::from_str::<MaybeLossyFullNameRef>("\"refs/heads/main\"")
                 .expect("valid full ref name")
                 .into();
-        assert_eq!(actual.expect("present").as_bstr(), "refs/heads/main");
+        assert_eq!(actual.expect("present"), "refs/heads/main");
 
         let actual: Option<gix::refs::FullName> =
             serde_json::from_str::<MaybeLossyFullNameRef>("null")
@@ -560,7 +560,7 @@ mod maybe_lossy_full_name_ref_tests {
         )
         .expect("valid full ref name bytes")
         .into();
-        assert_eq!(actual.as_bstr(), "refs/heads/main");
+        assert_eq!(actual, "refs/heads/main");
 
         serde_json::from_str::<FullNameBytes>("[109,97,105,110]")
             .expect_err("partial ref names are rejected");

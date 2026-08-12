@@ -24,7 +24,7 @@ fn branch_create_above_checked_out_ref_checks_out_new_ref_in_ad_hoc_workspace() 
     let head_name = repo
         .head_name()?
         .expect("creating above checked-out branch checks out the new ref");
-    assert_eq!(head_name.as_ref(), new_ref.as_ref());
+    assert_eq!(head_name, new_ref);
     assert_workspace_ref(&result.workspace, "refs/heads/top");
 
     let order = ctx
@@ -57,7 +57,7 @@ fn branch_create_below_checked_out_ref_keeps_head_in_ad_hoc_workspace() -> anyho
     let head_name = repo
         .head_name()?
         .expect("HEAD remains symbolic after create-below");
-    assert_eq!(head_name.as_ref(), anchor_ref.as_ref());
+    assert_eq!(head_name, anchor_ref);
     assert_workspace_ref(&result.workspace, "refs/heads/main");
     assert!(repo.try_find_reference(new_ref.as_ref())?.is_some());
 

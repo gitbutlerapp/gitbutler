@@ -27,7 +27,7 @@ fn is_conflicted() -> anyhow::Result<()> {
         "conflict metadata alone does not make an ordinary tree conflicted"
     );
     assert_eq!(
-        marked_ordinary.tree_id_or_auto_resolution()?.detach(),
+        marked_ordinary.tree_id_or_auto_resolution()?,
         marked_ordinary.tree,
         "an ordinary tree is used even if the commit retained conflict metadata"
     );

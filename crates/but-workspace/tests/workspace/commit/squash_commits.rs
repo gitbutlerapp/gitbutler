@@ -48,7 +48,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
         "combined message should be target followed by subject with one blank line"
     );
     assert_eq!(
-        squashed_commit.tree_id()?.detach(),
+        squashed_commit.tree_id()?,
         subject_tree,
         "squashed commit should take the top-most (subject) tree"
     );
@@ -197,7 +197,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
         "combined message should respect target-then-subject order"
     );
     assert_eq!(
-        squashed_commit.tree_id()?.detach(),
+        squashed_commit.tree_id()?,
         target_tree,
         "when subject is above target in ancestry, the target tree is top-most and must be kept"
     );
@@ -515,7 +515,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
 
     let squashed_commit = repo.find_commit(squashed_id)?;
     assert_eq!(squashed_commit.message_raw()?, "B\n\nA\n");
-    assert_eq!(squashed_commit.tree_id()?.detach(), subject_tree);
+    assert_eq!(squashed_commit.tree_id()?, subject_tree);
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -600,7 +600,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
 
     let squashed_commit = repo.find_commit(squashed_id)?;
     assert_eq!(squashed_commit.message_raw()?, "A\n\nB\n");
-    assert_eq!(squashed_commit.tree_id()?.detach(), subject_tree);
+    assert_eq!(squashed_commit.tree_id()?, subject_tree);
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

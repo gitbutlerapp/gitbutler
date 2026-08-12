@@ -1020,7 +1020,7 @@ fn restore_snapshot(
                 checkout.commit_id
             );
         }
-        if checkout.ref_name.as_ref() == workspace_ref
+        if checkout.ref_name == workspace_ref
             && restored_workspace_commit != Some(checkout.commit_id)
         {
             bail!("snapshot checkout and workspace commits disagree");
@@ -1109,7 +1109,7 @@ fn restore_snapshot(
     reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
 
     if let Some(checkout) = restored_checkout {
-        if checkout.ref_name.as_ref() != workspace_ref {
+        if checkout.ref_name != workspace_ref {
             repo.reference(
                 checkout.ref_name.as_ref(),
                 checkout.commit_id,

@@ -683,7 +683,6 @@ fn branch_details(request: BranchDetailsRequest) -> Result<BranchDetailsView> {
         let repo = resolved.ctx.repo.get()?;
         repo.find_reference(request.branch.as_str())?
             .peel_to_id()?
-            .detach()
             .to_string()
     };
     let last_updated_at = commits.iter().map(|commit| commit.committed_at).max();

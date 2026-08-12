@@ -1229,10 +1229,7 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
         .raw()
     );
 
-    assert_eq!(
-        repo.rev_parse_single("origin/A")?.detach(),
-        remote_tip_before
-    );
+    assert_eq!(repo.rev_parse_single("origin/A")?, remote_tip_before);
 
     Ok(())
 }
@@ -1315,10 +1312,7 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
 "#]]
     );
 
-    assert_eq!(
-        repo.rev_parse_single("origin/A")?.detach(),
-        remote_tip_before
-    );
+    assert_eq!(repo.rev_parse_single("origin/A")?, remote_tip_before);
 
     Ok(())
 }
@@ -1398,7 +1392,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
         .raw()
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     let branch_tip_parents = branch_tip.parent_ids().collect::<Vec<_>>();
     assert_eq!(
         branch_tip_parents.len(),
@@ -1420,8 +1414,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
         "merge step should produce a merge commit"
     );
     assert_eq!(
-        merge_parents[1].detach(),
-        remote_commit_1,
+        merge_parents[1], remote_commit_1,
         "merge step should retain the selected remote commit as the second parent"
     );
 
@@ -1500,7 +1493,7 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
         .raw()
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert_eq!(
         branch_tip.message_raw()?,
         format!("Merge {remote_commit_2} into previous commit")
@@ -1508,9 +1501,9 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
 
     let merge_parents = branch_tip.parent_ids().collect::<Vec<_>>();
     assert_eq!(merge_parents.len(), 2, "tip should be a merge commit");
-    assert_eq!(merge_parents[1].detach(), remote_commit_2);
+    assert_eq!(merge_parents[1], remote_commit_2);
 
-    let first_parent = repo.find_commit(merge_parents[0].detach())?;
+    let first_parent = repo.find_commit(merge_parents[0])?;
     assert_eq!(first_parent.message_raw()?, "local change in A 2\n");
 
     Ok(())
@@ -1582,7 +1575,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
         .raw()
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert_eq!(
         branch_tip.message_raw()?,
         format!("Merge {remote_commit_2} into previous commit")
@@ -1591,12 +1584,11 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
     let branch_tip_parents = branch_tip.parent_ids().collect::<Vec<_>>();
     assert_eq!(branch_tip_parents.len(), 2, "tip should be a merge commit");
     assert_eq!(
-        branch_tip_parents[1].detach(),
-        remote_commit_2,
+        branch_tip_parents[1], remote_commit_2,
         "second merge should keep the selected commit as second parent"
     );
 
-    let first_parent = repo.find_commit(branch_tip_parents[0].detach())?;
+    let first_parent = repo.find_commit(branch_tip_parents[0])?;
     assert_eq!(first_parent.message_raw()?, "local change in A 2\n");
     let first_parent_parents = first_parent.parent_ids().collect::<Vec<_>>();
     assert_eq!(
@@ -1604,7 +1596,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
         1,
         "the picked local commit before the self-merge should remain linear"
     );
-    let remote_merge = repo.find_commit(first_parent_parents[0].detach())?;
+    let remote_merge = repo.find_commit(first_parent_parents[0])?;
     assert_eq!(
         remote_merge.message_raw()?,
         format!("Merge {remote_commit_1} into previous commit"),
@@ -2371,7 +2363,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
 "#]]
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert_eq!(branch_tip.message_raw()?, "squashed local commits");
 
     Ok(())
@@ -2439,7 +2431,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
 "#]]
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert_eq!(branch_tip.message_raw()?, "squashed remote commits");
 
     Ok(())
@@ -2566,7 +2558,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
 "#]]
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert!(Commit::from_id(branch_tip.id.attach(&repo))?.is_conflicted());
     snapbox::assert_data_eq!(
         branch_tip.message_raw()?.to_string(),
@@ -2666,7 +2658,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
         .raw()
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert!(
         Commit::from_id(branch_tip.id.attach(&repo))?.is_conflicted(),
         "merge integration should materialize a conflicted commit when upstream and local changes conflict",
@@ -2686,12 +2678,11 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
         "conflicted merge integration should still produce a merge commit",
     );
     assert_eq!(
-        merge_parents[1].detach(),
-        remote_commit_1,
+        merge_parents[1], remote_commit_1,
         "merge integration should retain the upstream commit as the second parent even when conflicted",
     );
 
-    let first_parent = repo.find_commit(merge_parents[0].detach())?;
+    let first_parent = repo.find_commit(merge_parents[0])?;
     assert_eq!(
         first_parent.message_raw()?,
         "local change in A 1\n",
@@ -2830,7 +2821,7 @@ fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> R
     };
     let squashed_commit = repo.find_commit(squashed_commit_id)?;
     assert_eq!(
-        squashed_commit.tree_id()?.detach(),
+        squashed_commit.tree_id()?,
         expected_squash_tree,
         "squash tree should be computed from the original repo topology before later graph rewiring",
     );

@@ -14,13 +14,18 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let status = status_json(&env);
     let project_meta = env.project_meta();
     assert_eq!(
-        project_meta.target_ref.as_ref().map(ToString::to_string),
-        Some("refs/remotes/origin/main".into()),
+        project_meta
+            .target_ref
+            .as_ref()
+            .expect("target is persisted"),
+        "refs/remotes/origin/main",
         "the inferred target should be persisted"
     );
     assert_eq!(
-        project_meta.target_commit_id.map(|id| id.to_string()),
-        Some(env.invoke_git("merge-base HEAD origin/main")),
+        *project_meta
+            .target_commit_id
+            .expect("target commit is persisted"),
+        env.invoke_git("merge-base HEAD origin/main"),
         "the inferred merge base should be persisted"
     );
     assert_eq!(

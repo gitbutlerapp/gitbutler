@@ -20,7 +20,7 @@ gitbutler-reference.workspace = true
 
 git2.workspace = true
 git2-hooks.workspace = true
-gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
+gix = { workspace = true, features = ["merge", "status"] }
 anyhow.workspace = true
 bstr.workspace = true
 tracing.workspace = true

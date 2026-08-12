@@ -253,9 +253,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     .iter()
                     .zip(&updates_with_selectors)
                     .find_map(|(update, (selector, _))| match &update.selector {
-                        RelativeTo::Reference(ref_name)
-                            if ref_name.as_ref() == head_ref_name.as_ref() =>
-                        {
+                        RelativeTo::Reference(ref_name) if ref_name == head_ref_name => {
                             Some(*selector)
                         }
                         _ => None,
@@ -265,7 +263,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let target_ref_selector = target_ref.ref_name.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
-    let target_ref_commit_selector = target_ref_commit.detach().to_selector(&editor)?;
+    let target_ref_commit_selector = target_ref_commit.to_selector(&editor)?;
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
@@ -377,7 +375,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 let Step::Reference { refname, .. } = editor.lookup_step(*head)? else {
                     continue;
                 };
-                if refname.as_ref() == target_ref.ref_name.as_ref() {
+                if refname == target_ref.ref_name {
                     continue;
                 }
                 fully_integrated_workspace_parents.insert(*head);
@@ -414,7 +412,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             [(parent_selector, parent_order)]
                 if !selected_stack_nodes.contains(parent_selector)
                     && selector_commit_id(&editor, *parent_selector)? == Some(target_sha)
-                    && target_sha != target_ref_commit.detach() =>
+                    && target_sha != target_ref_commit =>
             {
                 // Only parent is the old target sha, and that's not the latest tip of the target
                 // ref. This is a workspace with no stacks, or an unnamed empty lane at the base
@@ -529,9 +527,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     let target_selector = match editor.lookup_step(child)? {
                         Step::Reference { refname, .. }
                             if !head_is_workspace_commit
-                                && direct_checkout_head_ref_name.as_ref().is_some_and(
-                                    |head_ref| head_ref.as_ref() == refname.as_ref(),
-                                ) =>
+                                && direct_checkout_head_ref_name
+                                    .as_ref()
+                                    .is_some_and(|head_ref| *head_ref == refname) =>
                         {
                             // A direct local ref cannot be parented through the target reference
                             // node when both refs already participate in the same reachable graph.
@@ -912,7 +910,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     let Ok(remote_ref_name) = resolve_tracking_branch_ref_name(ref_name, editor.repo()) else {
         return Ok(false);
     };
-    if remote_ref_name.as_bstr() == target_ref_name.as_bstr() {
+    if *remote_ref_name == *target_ref_name {
         return Ok(false);
     }
 
@@ -931,7 +929,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     Ok(editor
         .repo()
         .merge_base(remote_tip_id, target_ref_commit)
-        .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id))
+        .is_ok_and(|merge_base| merge_base == remote_tip_id))
 }
 
 /// Return `true` if `ref_name` currently resolves to either the old target

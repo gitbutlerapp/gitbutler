@@ -108,10 +108,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         .raw()
     );
 
-    assert_eq!(
-        repo.rev_parse_single("origin/master")?.detach(),
-        remote_tip_before
-    );
+    assert_eq!(repo.rev_parse_single("origin/master")?, remote_tip_before);
 
     Ok(())
 }
@@ -466,8 +463,8 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         "the integrated bottom branch should be removed from the refs after rebase integration"
     );
     assert_eq!(
-        repo.rev_parse_single("A^")?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("A^")?,
+        repo.rev_parse_single("origin/main")?,
         "the top branch should be reparented directly onto the integrated target tip"
     );
 
@@ -522,12 +519,12 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         "ordinary integrated local branches should still be removed",
     );
     assert_eq!(
-        repo.rev_parse_single("main")?.detach(),
+        repo.rev_parse_single("main")?,
         integrated_bottom_commit,
         "local main should be protected from integrated-branch deletion",
     );
     assert_eq!(
-        repo.rev_parse_single("master")?.detach(),
+        repo.rev_parse_single("master")?,
         integrated_bottom_commit,
         "local master should be protected from integrated-branch deletion",
     );
@@ -622,7 +619,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         "the integrated bottom branch should be removed from the refs after merge integration"
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     let parents = branch_tip.parent_ids().collect::<Vec<_>>();
     assert_eq!(
         parents.len(),
@@ -630,8 +627,8 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         "merge integration should create a merge commit at the top of the stack"
     );
     assert_eq!(
-        parents[1].detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        parents[1],
+        repo.rev_parse_single("origin/main")?,
         "merge integration should keep the integrated target tip as the second parent"
     );
 
@@ -700,7 +697,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         .raw()
     );
 
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
     assert!(
         Commit::from_id(branch_tip.id.attach(&repo))?.is_conflicted(),
         "upstream integration merge should materialize a conflicted commit when target and stack changes conflict",
@@ -713,8 +710,8 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         "upstream integration merge should preserve merge ancestry in conflicted cases",
     );
     assert_eq!(
-        parents[1].detach(),
-        repo.rev_parse_single("origin/A")?.detach(),
+        parents[1],
+        repo.rev_parse_single("origin/A")?,
         "upstream integration merge should keep the target branch tip as second parent",
     );
 
@@ -1394,8 +1391,8 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
     // must leave the workspace commit following B — B has its own rebase onto the target —
     // rather than treating B's edge as a stale base and stealing the workspace commit from it.
     assert_eq!(
-        repo.rev_parse_single("B")?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("B")?,
+        repo.rev_parse_single("origin/main")?,
         "the selected empty branch survives and rebases onto the advanced target tip"
     );
     assert_eq!(
@@ -1665,7 +1662,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         "the empty local branch should be classified through its tracking tip"
     );
     assert_eq!(
-        repo.merge_base(remote_topic_tip, target_tip)?.detach(),
+        repo.merge_base(remote_topic_tip, target_tip)?,
         remote_topic_tip,
         "the tracking tip should be reachable from the target"
     );
@@ -1710,7 +1707,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         "an empty checked-out branch should be removed when its tracking tip is integrated"
     );
     assert_eq!(
-        repo.head_id()?.detach(),
+        repo.head_id()?,
         target_tip,
         "replacement checkout should land at the latest target tip"
     );
@@ -1827,7 +1824,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
         "an empty checked-out branch should be removed when its associated review is merged"
     );
     assert_eq!(
-        repo.head_id()?.detach(),
+        repo.head_id()?,
         target_tip,
         "replacement checkout should land at the latest target tip"
     );
@@ -2014,8 +2011,8 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
     integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
 
     assert_eq!(
-        repo.rev_parse_single("gitbutler/workspace^")?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("gitbutler/workspace^")?,
+        repo.rev_parse_single("origin/main")?,
         "empty workspace commit should move from stored target commit to current target ref tip"
     );
 
@@ -2055,7 +2052,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
 
     assert_eq!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("origin/main")?,
         "empty workspace commit should move to the target tip when the target advanced through a merge"
     );
 
@@ -2210,9 +2207,8 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     assert_eq!(
         repo.head()?
             .id()
-            .context("HEAD should point to gitbutler/workspace")?
-            .detach(),
-        repo.rev_parse_single("gitbutler/workspace")?.detach(),
+            .context("HEAD should point to gitbutler/workspace")?,
+        repo.rev_parse_single("gitbutler/workspace")?,
         "dry-run conflict preview must not materialize the rebase"
     );
 
@@ -2692,7 +2688,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
 
     assert_eq!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("origin/main")?,
         "orphaned workspace commit should be reparented to the advanced target tip after content integration"
     );
 
@@ -2775,12 +2771,12 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
 
     assert_eq!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("B")?.detach(),
+        repo.rev_parse_single("B")?,
         "workspace commit should stay parented to the remaining stack"
     );
     assert_ne!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("origin/main")?,
         "target should not be added while another workspace parent remains"
     );
 
@@ -2820,7 +2816,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
 
     assert_eq!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("origin/main")?,
         "orphaned workspace commit should be reparented to the target tip after integrating an empty stack"
     );
 
@@ -2989,7 +2985,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         "branch should remain because it still has local work above its integrated tracking tip",
     );
     assert_eq!(
-        repo.find_commit(repo.rev_parse_single("topic")?.detach())?
+        repo.find_commit(repo.rev_parse_single("topic")?)?
             .message_raw()?
             .to_str()?
             .trim_end(),
@@ -3225,7 +3221,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
 
     assert_eq!(
         workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("origin/main")?,
         "orphaned workspace commit should stay on the target tip when it already equals the removed parent"
     );
     assert_eq!(
@@ -3345,8 +3341,8 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         "fully review-integrated direct checkout branch should be replaced",
     );
     assert_eq!(
-        repo.head_id()?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.head_id()?,
+        repo.rev_parse_single("origin/main")?,
         "replacement checkout should land at the advanced target tip",
     );
 
@@ -3564,8 +3560,8 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         "squash-integrated direct checkout branch should be replaced",
     );
     assert_eq!(
-        repo.head_id()?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.head_id()?,
+        repo.rev_parse_single("origin/main")?,
         "replacement checkout should land at the squashed target tip",
     );
 
@@ -3846,12 +3842,12 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         "branch should remain because a local commit still sits above the merged review head",
     );
     assert_eq!(
-        repo.rev_parse_single("A^")?.detach(),
-        repo.rev_parse_single("origin/main")?.detach(),
+        repo.rev_parse_single("A^")?,
+        repo.rev_parse_single("origin/main")?,
         "remaining local tip should be rebased onto the advanced target",
     );
     assert_eq!(
-        repo.find_commit(repo.rev_parse_single("A")?.detach())?
+        repo.find_commit(repo.rev_parse_single("A")?)?
             .message_raw()?
             .to_str()?
             .trim_end(),
@@ -3937,8 +3933,7 @@ fn workspace_first_parent(repo: &gix::Repository) -> Result<gix::ObjectId> {
 }
 
 fn workspace_parent_ids(repo: &gix::Repository) -> Result<Vec<gix::ObjectId>> {
-    let workspace_commit =
-        repo.find_commit(repo.rev_parse_single("gitbutler/workspace")?.detach())?;
+    let workspace_commit = repo.find_commit(repo.rev_parse_single("gitbutler/workspace")?)?;
     Ok(workspace_commit
         .parent_ids()
         .map(|id| id.detach())
@@ -3946,8 +3941,7 @@ fn workspace_parent_ids(repo: &gix::Repository) -> Result<Vec<gix::ObjectId>> {
 }
 
 fn workspace_parent_count(repo: &gix::Repository) -> Result<usize> {
-    let workspace_commit =
-        repo.find_commit(repo.rev_parse_single("gitbutler/workspace")?.detach())?;
+    let workspace_commit = repo.find_commit(repo.rev_parse_single("gitbutler/workspace")?)?;
     Ok(workspace_commit.parent_ids().count())
 }
 

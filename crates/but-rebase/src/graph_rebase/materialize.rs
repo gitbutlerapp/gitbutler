@@ -93,7 +93,7 @@ fn open_linked_checkout_repos(
             let worktree_repo = proxy.clone().into_repo()?;
             let actual_ref = worktree_repo.head_name()?;
             let actual_head = worktree_repo.head_id()?.detach();
-            if actual_ref.as_ref() != spec.ref_name.as_ref() || actual_head != spec.initial_head {
+            if actual_ref != spec.ref_name || actual_head != spec.initial_head {
                 bail!(
                     "Visible worktree {} changed since the editor was created: \
                      expected {} at {}, got {} at {}",
@@ -147,7 +147,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             let (target, actual_ref) = self
                 .checkout_target(*selector)?
                 .with_context(|| format!("Visible worktree {worktree_name} HEAD was removed"))?;
-            if actual_ref.as_ref() != expected_ref.as_ref() {
+            if actual_ref != *expected_ref {
                 bail!(
                     "Visible worktree {worktree_name} HEAD changed shape during the edit: \
                      expected {}, got {}",

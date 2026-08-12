@@ -431,7 +431,7 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
     );
     assert_eq!(
         head.id,
-        ctx.repo.get()?.rev_parse_single("feat-c")?.detach(),
+        ctx.repo.get()?.rev_parse_single("feat-c")?,
         "the head is the worktree's own HEAD, which has advanced past the main one"
     );
     assert_eq!(

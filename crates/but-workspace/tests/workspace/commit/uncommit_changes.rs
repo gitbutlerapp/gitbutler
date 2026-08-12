@@ -668,7 +668,7 @@ fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
         "all failed sources should avoid producing a rebase"
     );
     assert_eq!(
-        repo.rev_parse_single("three")?.detach(),
+        repo.rev_parse_single("three")?,
         three_before,
         "refs should be unchanged when there is no rebase to materialize"
     );

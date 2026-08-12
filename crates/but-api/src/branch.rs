@@ -1007,7 +1007,7 @@ pub fn branch_create_with_perm(
             .ok()
             .flatten()
             .as_ref()
-            .is_some_and(|head_ref| head_ref.as_ref() == anchor_ref.as_ref())
+            .is_some_and(|head_ref| head_ref == anchor_ref)
     });
     let new_ws = but_workspace::branch::create_reference(
         new_ref.as_ref(),
@@ -1108,7 +1108,7 @@ pub fn branch_remove_with_perm(
             .head_name()
             .ok()
             .flatten()
-            .is_some_and(|head| head.as_ref() == ref_name.as_ref());
+            .is_some_and(|head| head == ref_name);
         if is_checked_out {
             let (stack, _segment) = ws
                 .find_segment_and_stack_by_refname(ref_name.as_ref())
@@ -1254,7 +1254,7 @@ pub fn branch_rename_with_perm(
     let new_ref = gix::refs::Category::LocalBranch.to_full_name(normalized.as_bstr())?;
 
     // Renaming onto the same name is a no-op that still returns the current view.
-    if ref_name.as_ref() == new_ref.as_ref() {
+    if ref_name == new_ref {
         let mut meta = ctx.meta()?;
         let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         repo.find_reference(ref_name.as_ref())
@@ -1334,7 +1334,7 @@ pub fn branch_rename_with_perm(
             .head_name()
             .ok()
             .flatten()
-            .is_some_and(|head| head.as_ref() == ref_name.as_ref());
+            .is_some_and(|head| head == ref_name);
 
         let prefix_related = refs_are_prefix_related(ref_name.as_ref(), new_ref.as_ref());
         let mut backup_reference = None;

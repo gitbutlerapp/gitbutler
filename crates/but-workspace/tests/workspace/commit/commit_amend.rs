@@ -319,7 +319,7 @@ mod from_worktree {
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(
-            repo.rev_parse_single("feat")?.detach(),
+            repo.rev_parse_single("feat")?,
             new_id,
             "the worktree's branch moved to the amended commit"
         );
@@ -370,7 +370,7 @@ mod from_worktree {
 
         let outcome = commit_amend(
             editor,
-            repo.rev_parse_single("feat")?.detach(),
+            repo.rev_parse_single("feat")?,
             vec![selected],
             0,
             ChangeSource::Worktree {
@@ -537,12 +537,8 @@ mod from_worktree {
         .unwrap_err();
         assert!(err.to_string().contains("no checkout recorded"), "{err}");
 
-        assert_eq!(
-            repo.rev_parse_single("feat")?.detach(),
-            f1_id,
-            "nothing moved"
-        );
-        assert_eq!(repo.head_id()?.detach(), m1_id, "nothing moved");
+        assert_eq!(repo.rev_parse_single("feat")?, f1_id, "nothing moved");
+        assert_eq!(repo.head_id()?, m1_id, "nothing moved");
         Ok(())
     }
 
@@ -578,16 +574,12 @@ mod from_worktree {
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(
-            repo.rev_parse_single("feat")?.detach(),
+            repo.rev_parse_single("feat")?,
             new_id,
             "the worktree's branch moved to the new commit"
         );
         assert_eq!(
-            repo.find_commit(new_id)?
-                .parent_ids()
-                .next()
-                .unwrap()
-                .detach(),
+            repo.find_commit(new_id)?.parent_ids().next().unwrap(),
             f1_id,
             "the new commit sits on top of the worktree's previous tip"
         );

@@ -49,13 +49,13 @@ fn commit_above_commit() -> Result<()> {
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above commit");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         two_id,
         "new commit should be based on the target commit when inserted above"
     );
     let mut two_ref = repo.find_reference("two")?;
     assert_eq!(
-        two_ref.peel_to_id()?.detach(),
+        two_ref.peel_to_id()?,
         new_commit_id,
         "the two reference should now point to the inserted commit"
     );
@@ -97,7 +97,7 @@ fn commit_below_commit() -> Result<()> {
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below commit");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         one_id,
         "new commit should be based on the target's first parent when inserted below"
     );
@@ -139,13 +139,13 @@ fn commit_above_reference() -> Result<()> {
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above reference");
     assert_eq!(
-        new_commit.parent_ids().next().expect("one parent").detach(),
+        new_commit.parent_ids().next().expect("one parent"),
         two_id,
         "new commit should be based on the referenced commit"
     );
     let mut two_ref = repo.find_reference("two")?;
     assert_eq!(
-        two_ref.peel_to_id()?.detach(),
+        two_ref.peel_to_id()?,
         two_id,
         "when inserting above a reference, the reference keeps pointing to the original commit"
     );
@@ -192,11 +192,7 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below merge");
     assert_eq!(
-        new_commit
-            .parent_ids()
-            .next()
-            .expect("has a parent")
-            .detach(),
+        new_commit.parent_ids().next().expect("has a parent"),
         first_parent_id,
         "for below merge commits, we base creation on first parent"
     );

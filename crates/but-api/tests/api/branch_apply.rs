@@ -90,7 +90,7 @@ fn undo_apply_from_ad_hoc_checkout_restores_checkout_and_workspace() -> anyhow::
         "undoing the apply must return to the original ad-hoc branch"
     );
     assert_eq!(
-        ctx.repo.get()?.head_id()?.detach(),
+        ctx.repo.get()?.head_id()?,
         checkout_before,
         "undoing the apply must restore the original ad-hoc commit"
     );
@@ -98,8 +98,7 @@ fn undo_apply_from_ad_hoc_checkout_restores_checkout_and_workspace() -> anyhow::
         ctx.repo
             .get()?
             .find_reference(but_core::WORKSPACE_REF_NAME)?
-            .peel_to_id()?
-            .detach(),
+            .peel_to_id()?,
         workspace_before,
         "undoing the apply must restore the prior managed workspace commit"
     );

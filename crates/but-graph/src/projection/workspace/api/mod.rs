@@ -132,7 +132,7 @@ impl Workspace {
                             stack
                                 .branches
                                 .iter()
-                                .any(|branch| branch.ref_name.as_ref() == projected_ref)
+                                .any(|branch| branch.ref_name == projected_ref)
                         })
                     })
             }) else {
@@ -260,7 +260,7 @@ impl Workspace {
             return false;
         };
 
-        t.ref_name.as_ref() == name
+        t.ref_name == name
             || self
                 .graph
                 .lookup_sibling_segment(t.segment_index)

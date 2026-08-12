@@ -387,7 +387,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .find(|node| {
                 matches!(
                     &self.graph[*node],
-                    Step::Reference { refname, .. } if refname.as_ref() == ref_name
+                    Step::Reference { refname, .. } if refname == ref_name
                 )
             })
             .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;

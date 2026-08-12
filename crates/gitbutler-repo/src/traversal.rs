@@ -48,7 +48,7 @@ pub fn commit_ids_excluding_reachable_from_with_graph(
 
         let reaches_hidden_history = match repo.merge_base_with_graph(commit_id, stop_before, graph)
         {
-            Ok(merge_base) => merge_base.detach() == commit_id,
+            Ok(merge_base) => merge_base == commit_id,
             Err(gix::repository::merge_base_with_graph::Error::NotFound { .. }) => false,
             Err(err) => return Err(err.into()),
         };

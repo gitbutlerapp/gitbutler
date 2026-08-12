@@ -25,8 +25,8 @@ pub(crate) fn show_commit(
     // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch_match = branches.iter().find(|b| {
-        b.name.to_string() == commit_id_str
-            || b.name.to_string().to_lowercase() == commit_id_str.to_lowercase()
+        b.name.as_bytes() == commit_id_str.as_bytes()
+            || b.name.to_str_lossy().to_lowercase() == commit_id_str.to_lowercase()
     });
 
     if let Some(branch) = branch_match {
@@ -472,7 +472,10 @@ struct StackChainBranch {
 fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     // First check list_branches
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    if let Some(branch) = branches.iter().find(|b| b.name.to_string() == branch_name) {
+    if let Some(branch) = branches
+        .iter()
+        .find(|b| b.name.as_bytes() == branch_name.as_bytes())
+    {
         return Ok(branch.head);
     }
 
