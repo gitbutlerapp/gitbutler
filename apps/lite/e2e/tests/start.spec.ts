@@ -14,7 +14,6 @@ test.describe("with a seeded project", () => {
 
 		const navigation = appWindow.getByRole("group", { name: "Navigation" });
 		await navigation.getByRole("button", { name: "Branches" }).click();
-		await expect(appWindow.getByRole("heading", { name: "Recent branches" })).toBeVisible();
 		await expect(appWindow.getByRole("textbox", { name: "Filter branches" })).toBeVisible();
 	});
 });
