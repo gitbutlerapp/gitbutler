@@ -301,9 +301,7 @@ export const BranchRow: FC<
 		});
 	};
 
-	const openPRInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt?.preventDefault();
-
+	const openPRInBrowser = async (): Promise<void> => {
 		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
 	};
 
@@ -381,7 +379,7 @@ export const BranchRow: FC<
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
-			label: "Open In Browser",
+			label: "Open Pull Request In Browser",
 			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
@@ -517,17 +515,13 @@ export const BranchRow: FC<
 							</span>
 						</span>
 
-						{mforgeUrl != null && (
+						{pullRequest !== null && (
 							<>
 								<RowMetaSeparator />
-								<a
-									href={mforgeUrl}
-									onClick={(evt) => void openPRInBrowser(evt)}
-									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
-								>
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
 									<Icon size={14} name="pr" />
 									PR
-								</a>
+								</span>
 							</>
 						)}
 

@@ -42,16 +42,7 @@ import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import {
-	type ComponentProps,
-	type FC,
-	Fragment,
-	type MouseEvent,
-	useEffect,
-	useId,
-	useRef,
-	useState,
-} from "react";
+import { type ComponentProps, type FC, Fragment, useEffect, useId, useRef, useState } from "react";
 import {
 	Row,
 	RowFoldToggle,
@@ -199,9 +190,7 @@ const BranchItem: FC<{
 		);
 	};
 
-	const openReviewInBrowser = async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt.preventDefault();
-
+	const openReviewInBrowser = async (): Promise<void> => {
 		if (review) await window.lite.openInWebBrowser(review.htmlUrl);
 	};
 
@@ -212,6 +201,12 @@ const BranchItem: FC<{
 			label: isTopBranch && isStacked ? "Apply Stack to Workspace" : "Apply to Workspace",
 			enabled: !isApplyPending,
 			onSelect: applyBranch,
+		}),
+		nativeMenuSeparator,
+		nativeMenuItem({
+			label: "Open Pull Request In Browser",
+			enabled: review !== null,
+			onSelect: openReviewInBrowser,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -296,16 +291,14 @@ const BranchItem: FC<{
 						{review !== null && (
 							<>
 								{(showsAuthorMeta || showsCommitCount) && <RowMetaSeparator />}
-								<a
-									href={review.htmlUrl}
+								<span
 									title={review.title}
-									onClick={(evt) => void openReviewInBrowser(evt)}
 									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
 								>
 									<Icon size={14} name="pr" />
 									{review.unitSymbol}
 									{review.number}
-								</a>
+								</span>
 							</>
 						)}
 
