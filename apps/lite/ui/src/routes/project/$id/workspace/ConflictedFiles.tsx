@@ -144,10 +144,9 @@ export const ConflictedFiles: FC<Props> = (p) => {
 		<EditProvider createEditor={createEditor}>
 			{p.conflicts.map((file) => (
 				<ConflictedFileC
-					// The library reads a file's contents once per mount, and every
-					// resolution rewrites the commit — remount to pick up the fresh
-					// marker text while the dialog stays open.
-					key={`${p.commitId}:${file.path}`}
+					// Contents are read once per mount and change exactly when the hunk
+					// set does. Never key on the commit id: it updates ahead of the refetch.
+					key={`${file.path}:${file.hunks.map((hunk) => hunk.id).join()}`}
 					projectId={p.projectId}
 					commitId={p.commitId}
 					file={file}
@@ -248,7 +247,7 @@ const ConflictActions: FC<{
 	// than mirroring keystrokes into state, which would re-render the slot
 	// for nothing.
 	const editorRef = useRef<Editor<unknown> | null>(null);
-	const conflict = { commitId: p.commitId, path: p.path, hunk: p.hunk };
+	const conflict = { commitId: p.commitId, path: p.path, id: p.conflict.id };
 	// A primitive, so checking one conflict re-renders one slot rather than all.
 	const checked = useAppSelector((state) =>
 		projectSlice.selectors.selectIsConflictChecked(state, p.projectId, conflict),

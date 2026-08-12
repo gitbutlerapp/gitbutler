@@ -46,9 +46,16 @@ export const ConflictBar: FC<Props> = (p) => {
 	const total = p.conflicts.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (total === 0 && p.manual.length === 0) return null;
 
+	// Ids resolve to current positions; stale checks match nothing.
+	const liveByPath = new Map(p.conflicts.map((file) => [file.path, file]));
+	const checkedLive = checked.flatMap((check) => {
+		const index = liveByPath.get(check.path)?.hunks.findIndex((hunk) => hunk.id === check.id);
+		return index === undefined || index === -1 ? [] : [{ path: check.path, hunk: index + 1 }];
+	});
+
 	const apply = (resolution: HunkResolution) => {
-		if (p.busy || checked.length === 0) return;
-		p.onResolve(checked.map(({ path, hunk }) => ({ path, hunk, resolution })));
+		if (p.busy || checkedLive.length === 0) return;
+		p.onResolve(checkedLive.map(({ path, hunk }) => ({ path, hunk, resolution })));
 	};
 
 	return (
@@ -89,12 +96,12 @@ export const ConflictBar: FC<Props> = (p) => {
 										id="resolve-conflicts-heading"
 										className={classes("text-14", "text-bold", styles.heading)}
 									>
-										{checked.length > 0
-											? `${checked.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
+										{checkedLive.length > 0
+											? `${checkedLive.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
 											: `Resolve ${total} conflict${total === 1 ? "" : "s"}`}
 									</h1>
 
-									{checked.length > 0 && (
+									{checkedLive.length > 0 && (
 										<div className={styles.actions}>
 											<button
 												type="button"

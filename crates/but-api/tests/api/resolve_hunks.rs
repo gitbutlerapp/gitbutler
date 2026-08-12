@@ -63,6 +63,11 @@ fn conflicts_are_listed_without_entering_edit_mode() -> Result<()> {
     assert!(intended.contains("changed by this commit"));
     assert!(!intended.contains("<<<<<<<"), "never marker text");
 
+    assert_ne!(
+        file.hunks[0].id, file.hunks[1].id,
+        "distinct conflicts never share an id"
+    );
+
     // The marker text carries display labels; parsing its blocks in order is
     // what a marker-aware renderer does, so it must line up with `hunks`.
     assert_eq!(file.merged_text.matches("<<<<<<< auto resolved").count(), 2);
@@ -145,10 +150,17 @@ fn partial_resolution_narrows_the_conflict_then_completes() -> Result<()> {
     }
 
     // The narrowed commit reports exactly the one remaining conflict.
+    let survivor_id = commit_conflicts(&ctx, conflicted_commit)?.files[0].hunks[1]
+        .id
+        .clone();
     let conflicts = commit_conflicts(&ctx, first.new_commit)?;
     assert_eq!(conflicts.files.len(), 1);
     let file = &conflicts.files[0];
     assert_eq!(file.hunks.len(), 1, "one conflict must remain");
+    assert_eq!(
+        file.hunks[0].id, survivor_id,
+        "a surviving conflict keeps its id while its position compacts"
+    );
     assert_eq!(file.hunks[0].ours, "line six changed by the new base");
     assert_eq!(file.hunks[0].theirs, "line six changed by this commit");
     assert_eq!(

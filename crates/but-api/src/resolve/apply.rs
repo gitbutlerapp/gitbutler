@@ -444,6 +444,7 @@ mod tests {
             hunks: blocks
                 .iter()
                 .map(|block| super::super::context::ConflictHunk {
+                    id: String::new(),
                     line: 0,
                     context_before: String::new(),
                     ours: lines[block.ours.clone()].join("\n"),

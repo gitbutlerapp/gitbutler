@@ -1929,6 +1929,12 @@ export type ConflictEntryPresence = {
  */
 export type ConflictHunk = {
   /**
+   * Survives the rewrites resolving causes, unlike `hunks` positions: a
+   * hash of the three sides — which narrowing keeps, unlike contexts —
+   * plus an occurrence counter. Treat an id that stops matching as dropped.
+   */
+  id: string;
+  /**
    * The 1-based line where the conflicted region starts, counted in the
    * intended result — the merge with every conflict taking the commit's
    * side, the new side of [`ConflictedFile::change`] — so anchors land in
