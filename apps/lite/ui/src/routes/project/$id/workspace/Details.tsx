@@ -130,6 +130,7 @@ import {
 	type DiffLineContextMenuTarget,
 	useDiffLineContextMenu,
 } from "./diff-line-context-menu.ts";
+import { diffGutterUnsafeCSS, useDiffGutterCheckboxes } from "./diff-gutter.ts";
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import type { DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
@@ -154,6 +155,7 @@ import {
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
 import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
+import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -294,12 +296,17 @@ const DiffContents: FC<{
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const store = useAppStore();
+	const hunkCheckRangeAnchor = useRef<string>(null);
+	const hunkCheckRangeEnd = useRef<string>(null);
 
 	const diffSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionDiff(state, projectId, visibleNavigationIndex),
 	);
 	const hasStoredDiffSelection = useAppSelector(
 		(state) => projectSlice.selectors.selectStoredDiffSelection(state, projectId) !== null,
+	);
+	const canCheckHunks = useAppSelector((state) =>
+		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
 	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
@@ -352,10 +359,57 @@ const DiffContents: FC<{
 		},
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
-		operationSourcesForItem: (hunk) => [hunkOperand(hunk)],
+		operationSourcesForItem: (hunk) => {
+			const source = hunkOperand(hunk);
+			const state = store.getState();
+			return projectSlice.selectors.selectOperandChecked(state, projectId, source)
+				? projectSlice.selectors.selectCheckedOperands(state, projectId)
+				: [source];
+		},
 	});
 
+	function toggleSelectedHunkChecked(event: KeyboardEvent): void {
+		if (
+			diffSelection === null ||
+			event
+				.composedPath()
+				.some(
+					(target) =>
+						target instanceof HTMLElement &&
+						target.hasAttribute("data-gitbutler-diff-gutter-checkbox"),
+				)
+		)
+			return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		checkHunk({ operand: diffSelection, shiftKey: event.shiftKey });
+	}
+
 	useHotkeys([
+		{
+			hotkey: diffHotkeys.checkHunk.hotkey,
+			callback: toggleSelectedHunkChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: diffSelection !== null && canCheckHunks,
+				preventDefault: false,
+				stopPropagation: false,
+				target: selectionScopeRef,
+				meta: diffHotkeys.checkHunk.meta,
+			},
+		},
+		{
+			hotkey: "Shift+Space",
+			callback: toggleSelectedHunkChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: diffSelection !== null && canCheckHunks,
+				preventDefault: false,
+				stopPropagation: false,
+				target: selectionScopeRef,
+			},
+		},
 		{
 			hotkey: diffHotkeys.toggleFoldFile.hotkey,
 			callback: () => {
@@ -473,6 +527,55 @@ const DiffContents: FC<{
 		};
 	};
 
+	const hunkRangeResolver = navigationIndexRange<HunkOperand, string>({
+		navigationIndex: visibleNavigationIndex,
+		getKey: (key) => key,
+		filterMap: hunkOperandIdentityKey,
+	});
+	const getCheckedHunkRange = checkedRange(hunkRangeResolver);
+
+	function checkHunk({ operand, shiftKey }: { operand: HunkOperand; shiftKey: boolean }): void {
+		const checkedHunks = projectSlice.selectors
+			.selectCheckedOperands(store.getState(), projectId)
+			.filter((operand) => operand._tag === "Hunk");
+		const checkedHunksByKey = new Map(
+			checkedHunks.map((operand) => [hunkOperandIdentityKey(operand), operand]),
+		);
+		const previous = new Set(checkedHunksByKey.keys());
+		const nextHunkRange = getCheckedHunkRange({
+			checked: previous,
+			rangeAnchor: hunkCheckRangeAnchor.current,
+			rangeEnd: hunkCheckRangeEnd.current,
+		})({
+			item: hunkOperandIdentityKey(operand),
+			shiftKey,
+		});
+
+		hunkCheckRangeAnchor.current = nextHunkRange.rangeAnchor;
+		hunkCheckRangeEnd.current = nextHunkRange.rangeEnd;
+
+		dispatch(
+			projectSlice.actions.checkOperands({
+				projectId,
+				operands: Array.from(nextHunkRange.checked.difference(previous)).flatMap((key) => {
+					const hunk = hunkByKey.get(key);
+					return hunk ? [hunkOperand(hunk.operand)] : [];
+				}),
+				checked: true,
+			}),
+		);
+		dispatch(
+			projectSlice.actions.checkOperands({
+				projectId,
+				operands: Array.from(previous.difference(nextHunkRange.checked)).flatMap((key) => {
+					const hunk = checkedHunksByKey.get(key);
+					return hunk ? [hunk] : [];
+				}),
+				checked: false,
+			}),
+		);
+	}
+
 	const handleLineContextMenu = ({ event, ...target }: DiffLineContextMenuTarget): void => {
 		const file = fileByItemId.get(target.itemId);
 		if (!file) return;
@@ -498,6 +601,8 @@ const DiffContents: FC<{
 		projectId,
 		getHunkOperand: getHunkOperandAtLine,
 	});
+	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
+		useDiffGutterCheckboxes(handleHunkPostRender, getHunkOperandAtLine, projectId, checkHunk);
 
 	const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
 		const s = new Set(collapsedItems);
@@ -553,128 +658,130 @@ const DiffContents: FC<{
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
-		<CodeView
-			ref={viewerRef}
-			renderCustomHeader={(item) => {
-				if (item.type === "file") throw new Error("Only diff items may be rendered");
-
-				const file = fileByItemId.get(item.id);
-
-				// CodeView may briefly hold onto stale snapshots of our data.
-				if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
-
-				return (
-					<DiffFileHeader
-						projectId={projectId}
-						item={item}
-						operand={file.operand}
-						change={file.change}
-						hasDiff={item.fileDiff.hunks.length !== 0}
-						collapsed={item.collapsed ?? false}
-						selected={item.id === selectedFoldedFileId}
-						setCollapsed={handleSetCollapsed(item.id)}
-					/>
-				);
-			}}
-			renderGutterUtility={(getHoveredLine, item) => {
-				// We don't currently support annotations on branches.
-				if (fileParent._tag === "Branch") return;
-
-				const handleClick = () => {
-					const badlyTypedLine = getHoveredLine();
-					if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
-					const line = badlyTypedLine as GetHoveredLineResult<"diff">;
+		<>
+			<CodeView
+				ref={viewerRef}
+				renderCustomHeader={(item) => {
+					if (item.type === "file") throw new Error("Only diff items may be rendered");
 
 					const file = fileByItemId.get(item.id);
-					if (!file) return;
 
-					const id = crypto.randomUUID();
-					newFocusableAnnotationIdRef.current = id;
+					// CodeView may briefly hold onto stale snapshots of our data.
+					if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
 
-					createComment({
-						projectId,
-						comment: {
-							id,
-							path: file.operand.path,
-							commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
-							side: annotationSideToDiffSide(line.side),
-							lineNumber: line.lineNumber,
-							payload: "",
-						},
-					});
-				};
+					return (
+						<DiffFileHeader
+							projectId={projectId}
+							item={item}
+							operand={file.operand}
+							change={file.change}
+							hasDiff={item.fileDiff.hunks.length !== 0}
+							collapsed={item.collapsed ?? false}
+							selected={item.id === selectedFoldedFileId}
+							setCollapsed={handleSetCollapsed(item.id)}
+						/>
+					);
+				}}
+				renderGutterUtility={(getHoveredLine, item) => {
+					// We don't currently support annotations on branches.
+					if (fileParent._tag === "Branch") return;
 
-				return (
-					<button
-						type="button"
-						onClick={handleClick}
-						aria-label="Annotate"
-						className={classes(
-							getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-							styles.annotate,
-						)}
-					>
-						<Icon name="plus" />
-					</button>
-				);
-			}}
-			renderAnnotation={(anno, item) => {
-				if (!isDiffAnnotation<Annotation>(anno)) throw new Error("Only diff items may be rendered");
+					const handleClick = () => {
+						const badlyTypedLine = getHoveredLine();
+						if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
+						const line = badlyTypedLine as GetHoveredLineResult<"diff">;
 
-				const file = fileByItemId.get(item.id);
-				if (!file) return null;
+						const file = fileByItemId.get(item.id);
+						if (!file) return;
 
-				const annotations = annotationsByPath.get(file.operand.path) ?? [];
-				const annotationId = anno.metadata.id;
-				const annotation = annotations.find(({ id }) => id === annotationId);
-				if (!annotation) return null;
+						const id = crypto.randomUUID();
+						newFocusableAnnotationIdRef.current = id;
 
-				return (
-					<AnnotationCard
-						projectId={projectId}
-						formId={localAnnotationFormId}
-						annotation={annotation}
-						path={file.operand.path}
-						fileParent={fileParent}
-						annotationsByPath={annotationsByPath}
-						focusAnnotationIdRef={newFocusableAnnotationIdRef}
-						selectionScopeRef={selectionScopeRef}
-					/>
-				);
-			}}
-			onScroll={selectFileAtViewportTop}
-			className={styles.diffContents}
-			items={displayItems}
-			selectedLines={selectedRange}
-			onSelectedLinesChange={handleLinesSelected}
-			options={{
-				diffStyle: diffStyle ?? defaultSettings.diffStyle,
-				disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
-				lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
-				overflow: diffOverflow ?? defaultSettings.diffOverflow,
-				themeType: settings?.theme ?? defaultSettings.theme,
-				stickyHeaders: true,
-				enableLineSelection: true,
-				// Manually wire these up instead of using renderGutterUtility to separate annotations from
-				// selections.
-				onLineEnter: ({ numberElement }) => {
-					const slot = document.createElement("slot");
-					slot.name = "gutter-utility-slot";
-					slot.setAttribute("data-gutter-utility-slot", "");
-					numberElement.appendChild(slot);
-				},
-				onLineLeave: ({ numberElement }) => {
-					numberElement.querySelector(':scope > slot[name="gutter-utility-slot"]')?.remove();
-				},
-				layout: codeViewLayout,
-				// This appears to validate before our custom header has been slotted, in which case - if
-				// our metrics are correct - we should see deltas in multiples of our custom header height
-				// as defined in the metrics. We'll see an additional set of logs if there are other issues
-				// with our metrics.
-				__devOnlyValidateItemHeights: false,
-				onPostRender: handleHunkPostRender,
-				itemMetrics: codeViewItemMetrics,
-				unsafeCSS: `
+						createComment({
+							projectId,
+							comment: {
+								id,
+								path: file.operand.path,
+								commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+								side: annotationSideToDiffSide(line.side),
+								lineNumber: line.lineNumber,
+								payload: "",
+							},
+						});
+					};
+
+					return (
+						<button
+							type="button"
+							onClick={handleClick}
+							aria-label="Annotate"
+							className={classes(
+								getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+								styles.annotate,
+							)}
+						>
+							<Icon name="plus" />
+						</button>
+					);
+				}}
+				renderAnnotation={(anno, item) => {
+					if (!isDiffAnnotation<Annotation>(anno))
+						throw new Error("Only diff items may be rendered");
+
+					const file = fileByItemId.get(item.id);
+					if (!file) return null;
+
+					const annotations = annotationsByPath.get(file.operand.path) ?? [];
+					const annotationId = anno.metadata.id;
+					const annotation = annotations.find(({ id }) => id === annotationId);
+					if (!annotation) return null;
+
+					return (
+						<AnnotationCard
+							projectId={projectId}
+							formId={localAnnotationFormId}
+							annotation={annotation}
+							path={file.operand.path}
+							fileParent={fileParent}
+							annotationsByPath={annotationsByPath}
+							focusAnnotationIdRef={newFocusableAnnotationIdRef}
+							selectionScopeRef={selectionScopeRef}
+						/>
+					);
+				}}
+				onScroll={selectFileAtViewportTop}
+				className={styles.diffContents}
+				items={displayItems}
+				selectedLines={selectedRange}
+				onSelectedLinesChange={handleLinesSelected}
+				options={{
+					diffStyle: diffStyle ?? defaultSettings.diffStyle,
+					disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
+					lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
+					overflow: diffOverflow ?? defaultSettings.diffOverflow,
+					themeType: settings?.theme ?? defaultSettings.theme,
+					stickyHeaders: true,
+					enableLineSelection: true,
+					// Manually wire these up instead of using renderGutterUtility to separate annotations from
+					// selections.
+					onLineEnter: ({ numberElement }) => {
+						const slot = document.createElement("slot");
+						slot.name = "gutter-utility-slot";
+						slot.setAttribute("data-gutter-utility-slot", "");
+						numberElement.appendChild(slot);
+					},
+					onLineLeave: ({ numberElement }) => {
+						numberElement.querySelector(':scope > slot[name="gutter-utility-slot"]')?.remove();
+					},
+					layout: codeViewLayout,
+					// This appears to validate before our custom header has been slotted, in which case - if
+					// our metrics are correct - we should see deltas in multiples of our custom header height
+					// as defined in the metrics. We'll see an additional set of logs if there are other issues
+					// with our metrics.
+					__devOnlyValidateItemHeights: false,
+					onPostRender: handleDiffPostRender,
+					itemMetrics: codeViewItemMetrics,
+					unsafeCSS: `
           :host {
             background-color: transparent;
             /* Inherited, so this reaches the code inside the shadow root — which is the
@@ -700,14 +807,19 @@ const DiffContents: FC<{
 
             cursor: default;
           }
+
+          ${diffGutterUnsafeCSS}
         `,
-			}}
-			style={{
-				"--diffs-font-family": settings?.diffFontFamily ?? defaultSettings.diffFontFamily,
-				"--diffs-font-size": `${settings?.diffFontSize ?? defaultSettings.diffFontSize}px`,
-				"--diffs-tab-size": `${settings?.diffTabSize ?? defaultSettings.diffTabSize}`,
-			}}
-		/>
+				}}
+				style={{
+					"--diffs-font-family": settings?.diffFontFamily ?? defaultSettings.diffFontFamily,
+					"--diffs-font-size": `${settings?.diffFontSize ?? defaultSettings.diffFontSize}px`,
+					"--diffs-tab-size": `${settings?.diffTabSize ?? defaultSettings.diffTabSize}`,
+				}}
+			/>
+
+			{diffGutterPortals}
+		</>
 	);
 };
 
