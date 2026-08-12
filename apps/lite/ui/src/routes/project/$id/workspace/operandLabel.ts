@@ -34,8 +34,18 @@ export const operandLabel = ({
 					(sum, group) => sum + (group.side === "deletions" ? group.lines : 0),
 					0,
 				);
-				const count = Math.max(add, del);
-				return `${count} changed line${count !== 1 ? "s" : ""}`;
+				const all = add + del;
+
+				// Probably shouldn't happen?
+				if (all == 0) return "0 changed lines";
+
+				let words = "";
+				if (add > 0) words += `+${add}`;
+				if (add > 0 && del > 0) words += ` `;
+				if (del > 0) words += `-${del}`;
+				if (all === 1) words += " line";
+				else words += " lines";
+				return words;
 			},
 		}),
 	);
