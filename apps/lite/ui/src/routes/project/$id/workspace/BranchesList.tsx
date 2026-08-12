@@ -42,7 +42,7 @@ import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type ComponentProps, type FC, Fragment, useEffect, useId, useRef, useState } from "react";
+import { type ComponentProps, type FC, Fragment, useEffect, useRef, useState } from "react";
 import {
 	Row,
 	RowFoldToggle,
@@ -356,7 +356,6 @@ export const BranchesList: FC<
 			dispatch(projectSlice.actions.selectBranches({ projectId, selection: outOfSyncSelection }));
 	}, [dispatch, outOfSyncSelection, projectId]);
 
-	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 	const selectedBranchIsLocal =
@@ -451,7 +450,7 @@ export const BranchesList: FC<
 				<div
 					tabIndex={0}
 					role="tree"
-					aria-labelledby={headingId}
+					aria-label="Branches"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-selection-scope={"outline" satisfies SelectionScope}
 					className={styles.tree}

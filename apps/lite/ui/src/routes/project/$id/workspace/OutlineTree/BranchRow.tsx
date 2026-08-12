@@ -486,7 +486,7 @@ export const BranchRow: FC<
 					<RowMeta>
 						{/* Only while folded: the count stands in for the commits it hides,
 						    so showing it alongside them would just be noise. */}
-						{isFolded && (
+						{isFolded && commitCount > 0 && (
 							<>
 								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
 									<Icon size={14} name="commit" />
