@@ -828,9 +828,7 @@ export const useResolveCommitConflictHunks = () => {
 		mutationFn: window.lite.resolveCommitConflictHunks,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-			// The conflicts that remain renumber, so a check made against the old
-			// numbering would address a different conflict from the one clicked.
-			dispatch(projectSlice.actions.clearCheckedConflicts({ projectId: input.projectId }));
+			// No check clearing: ids survive the rewrite, resolved ones stop matching.
 
 			// A commit with a manual-only file left is still conflicted, however
 			// many hunks were resolved, so both lists must be empty to be done.
@@ -841,6 +839,20 @@ export const useResolveCommitConflictHunks = () => {
 					description: response.commitEmptied
 						? "The commit keeps nothing of its own now, so it no longer changes anything. Undo from the operations history if that wasn't the intent."
 						: "The commit is no longer conflicted.",
+					priority: "low",
+				});
+			} else {
+				const remaining = response.remaining.reduce((sum, file) => sum + file.hunks, 0);
+				toastManager.add({
+					type: "success",
+					title:
+						response.resolved === 1
+							? "Conflict resolved"
+							: `${response.resolved} conflicts resolved`,
+					description:
+						remaining > 0
+							? `${remaining} conflict${remaining === 1 ? "" : "s"} remaining in this commit.`
+							: "The remaining files can only be resolved in edit mode.",
 					priority: "low",
 				});
 			}

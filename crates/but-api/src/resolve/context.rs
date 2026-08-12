@@ -38,6 +38,10 @@ fn merge_labels() -> gix::merge::blob::builtin_driver::text::Labels<'static> {
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictHunk {
+    /// Survives the rewrites resolving causes, unlike `hunks` positions: a
+    /// hash of the three sides — which narrowing keeps, unlike contexts —
+    /// plus an occurrence counter. Treat an id that stops matching as dropped.
+    pub id: String,
     /// The 1-based line where the conflicted region starts, counted in the
     /// intended result — the merge with every conflict taking the commit's
     /// side, the new side of [`ConflictedFile::change`] — so anchors land in
@@ -408,6 +412,7 @@ fn extract_hunks(lines: &[&str], blocks: &[ConflictBlock]) -> Vec<ConflictHunk> 
     // merged-text line minus everything earlier blocks contribute beyond
     // their theirs lines.
     let mut removed_before = 0;
+    let mut occurrences: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
     let mut hunks = Vec::with_capacity(blocks.len());
     for (index, block) in blocks.iter().enumerate() {
         let previous_end = if index == 0 {
@@ -422,12 +427,28 @@ fn extract_hunks(lines: &[&str], blocks: &[ConflictBlock]) -> Vec<ConflictHunk> 
         let context_before_start = block.start.saturating_sub(CONTEXT_LINES).max(previous_end);
         let context_after_end = (block.end + 1 + CONTEXT_LINES).min(next_start);
 
+        let ours = join(block.ours.clone());
+        let base = block.base.clone().map(join);
+        let theirs = join(block.theirs.clone());
+        let sides_hash = {
+            use std::hash::{Hash as _, Hasher as _};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            ours.hash(&mut hasher);
+            base.hash(&mut hasher);
+            theirs.hash(&mut hasher);
+            hasher.finish()
+        };
+        let occurrence = occurrences.entry(sides_hash).or_insert(0);
+        let id = format!("{sides_hash:016x}-{occurrence}");
+        *occurrence += 1;
+
         hunks.push(ConflictHunk {
+            id,
             line: (block.start - removed_before + 1) as u32,
             context_before: join(context_before_start..block.start),
-            ours: join(block.ours.clone()),
-            base: block.base.clone().map(join),
-            theirs: join(block.theirs.clone()),
+            ours,
+            base,
+            theirs,
             context_after: join((block.end + 1)..context_after_end),
         });
         removed_before += (block.end - block.start + 1) - block.theirs.len();

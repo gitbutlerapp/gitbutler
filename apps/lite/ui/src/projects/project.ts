@@ -64,14 +64,13 @@ type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" }>;
 export type BranchTab = "diff" | "pr";
 
 /**
- * A conflict checked for a batch resolution. Keyed by commit as well as
- * position: resolving rewrites the commit and renumbers the hunks that remain,
- * so checks must never carry across an apply.
+ * A conflict checked for a batch resolution. Ids survive the rewrites that
+ * compact hunk positions, so checks carry across; the commit id is remapped.
  */
-type CheckedConflict = { commitId: string; path: string; hunk: number };
+type CheckedConflict = { commitId: string; path: string; id: string };
 
-const conflictCheckKey = ({ commitId, path, hunk }: CheckedConflict): string =>
-	`${commitId}\u0000${path}\u0000${hunk}`;
+const conflictCheckKey = ({ commitId, path, id }: CheckedConflict): string =>
+	`${commitId}\u0000${path}\u0000${id}`;
 
 type WorkspaceState = {
 	checkedOperands: Record<string, CheckableOperand>;
@@ -427,6 +426,14 @@ export const projectReducers = {
 		}
 
 		branchesReducers.updateRewrittenCommitReferences(state.branches, { replacedCommits });
+
+		for (const [key, conflict] of Object.entries(workspaceState.checkedConflicts)) {
+			const newId = replacedCommits[conflict.commitId];
+			if (newId === undefined) continue;
+			delete workspaceState.checkedConflicts[key];
+			const moved = { ...conflict, commitId: newId };
+			workspaceState.checkedConflicts[conflictCheckKey(moved)] = moved;
+		}
 
 		for (const [key, operand] of Object.entries(workspaceState.checkedOperands)) {
 			let newOperand: CheckableOperand | null = null;
