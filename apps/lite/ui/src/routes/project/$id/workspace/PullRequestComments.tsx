@@ -63,15 +63,14 @@ const Comment: FC<{
 		select: groupReactors,
 	});
 
-	const { mutate: addCommentReaction } = useAddCommentReaction();
-	const { mutate: removeCommentReaction } = useRemoveCommentReaction();
+	const { mutate: addCommentReaction } = useAddCommentReaction({ reviewId });
+	const { mutate: removeCommentReaction } = useRemoveCommentReaction({ reviewId });
 	const toggleReaction = (kind: string, myReactionId: number | null) => {
 		if (myReactionId === null) {
-			addCommentReaction({ projectId, reviewId, commentId: comment.id, kind });
+			addCommentReaction({ projectId, commentId: comment.id, kind });
 		} else {
 			removeCommentReaction({
 				projectId,
-				reviewId,
 				commentId: comment.id,
 				reactionId: myReactionId,
 			});
@@ -82,7 +81,7 @@ const Comment: FC<{
 		const body = editBody.trim();
 		if (body === "" || isSaving) return;
 		updateReviewComment(
-			{ projectId, reviewId, commentId: comment.id, body },
+			{ projectId, commentId: comment.id, body },
 			{ onSuccess: () => setEditing(false) },
 		);
 	};
@@ -120,7 +119,7 @@ const Comment: FC<{
 									onSelect: () => {
 										// Forge deletion is permanent; double-check.
 										if (window.confirm("Delete this comment? This cannot be undone."))
-											deleteReviewComment({ projectId, reviewId, commentId: comment.id });
+											deleteReviewComment({ projectId, commentId: comment.id });
 									},
 								}),
 							])

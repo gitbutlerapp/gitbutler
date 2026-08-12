@@ -81,7 +81,7 @@ pub fn commit_details(
 ///
 /// This exists for callers that always want line statistics without passing
 /// `line_stats` explicitly.
-#[but_api(napi, json::CommitDetails)]
+#[but_api(napi, json::CommitDetails, provides = [Commits])]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     ctx: &Context,
@@ -94,7 +94,7 @@ pub fn commit_details_with_line_stats(
 ///
 /// `change` must not be a type change or a submodule change. For lower-level
 /// implementation details, see [`but_core::TreeChange::unified_patch()`].
-#[but_api(napi)]
+#[but_api(napi, provides = [Diffs])]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     ctx: &Context,
@@ -106,7 +106,7 @@ pub fn tree_change_diffs(
 }
 
 /// See [`changes_in_worktree_with_perm()`].
-#[but_api(napi)]
+#[but_api(napi, provides = [WorktreeChanges])]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(
     ctx: &Context,

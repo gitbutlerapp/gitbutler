@@ -393,6 +393,17 @@ pub struct ApiFnEntry {
     pub js_name: &'static str,
     /// Parameter names in call order, camelCased to match the declaration.
     pub params: &'static [&'static str],
+    /// The cache tags this read's result is made of, declared with
+    /// `#[but_api(provides = [Reviews, ..])]`.
+    ///
+    /// `None` is unclassified and `Some(&[])` is "no tag — nothing refreshes
+    /// this" — a consumer driving cache invalidation from this has to tell
+    /// them apart, since only the second is an answer.
+    pub provides: Option<&'static [&'static str]>,
+    /// The cache tags this mutation makes stale, declared with
+    /// `#[but_api(invalidates = [Reviews, ..])]`. Mutually exclusive with
+    /// `provides`.
+    pub invalidates: Option<&'static [&'static str]>,
 }
 
 inventory::collect!(ApiFnEntry);

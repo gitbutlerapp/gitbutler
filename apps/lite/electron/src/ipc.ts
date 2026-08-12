@@ -1,14 +1,14 @@
 import type { WatcherEvent, AskpassPromptEvent } from "@gitbutler/but-sdk";
 import type * as sdk from "@gitbutler/but-sdk";
-import type { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
+import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import type { GUISettings } from "./settings.js";
 
 /**
- * What the renderer can call: the exposed endpoints, whose signatures are the
+ * What the renderer can call: every SDK endpoint, whose signatures are the
  * SDK's, plus the members electron implements itself.
  */
 export type LiteElectronApi = {
-	[K in ExposedKey]: EndpointFn<K>;
+	[K in Endpoint]: EndpointFn<K>;
 } & {
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
@@ -28,131 +28,12 @@ export type LiteElectronApi = {
 };
 
 /**
- * The SDK endpoints the renderer may call. This list is the decision — the
- * signatures, payloads and handlers all follow from it — and an endpoint's
- * name is its IPC channel, so there is nothing else to keep in step.
+ * The SDK endpoints the renderer can call: all of them, each under its own
+ * name as the IPC channel, so a new declaration in Rust reaches `window.lite`
+ * with nothing to keep in step.
  */
-export const exposedEndpoints = [
-	"absorb",
-	"absorptionPlan",
-	"addCommentReaction",
-	"addReviewLabels",
-	"addReviewReaction",
-	"apply",
-	"applyBranchIntegration",
-	"assignHunk",
-	"branchCannedName",
-	"branchCheckout",
-	"branchCheckoutNew",
-	"branchCreate",
-	"branchDetails",
-	"branchDiff",
-	"branchList",
-	"branchRemove",
-	"branchRename",
-	"changesInWorktree",
-	"checkGithubAuthStatus",
-	"checkSigningSettings",
-	"commentArchive",
-	"commentCreate",
-	"commentUpdate",
-	"commentsList",
-	"commitAmend",
-	"commitConflicts",
-	"commitCreate",
-	"commitDetailsWithLineStats",
-	"commitDiscard",
-	"commitDiscardChanges",
-	"commitInsertBlank",
-	"commitMove",
-	"commitMoveChangesBetween",
-	"commitReword",
-	"commitSquash",
-	"commitUncommit",
-	"commitUncommitChanges",
-	"createReviewComment",
-	"currentForgeLogin",
-	"deleteAllData",
-	"deleteProject",
-	"deleteUser",
-	"deleteReviewComment",
-	"discardWorktreeChanges",
-	"forgeCompareBranchUrl",
-	"forgeInfo",
-	"forgeProvider",
-	"forgetBitbucketAccount",
-	"forgetGithubAccount",
-	"forgetGitlabAccount",
-	"getGbConfig",
-	"getLoginToken",
-	"getInitialBranchIntegration",
-	"getRedoTargetSnapshot",
-	"getRepoInfo",
-	"gitTestFetch",
-	"gitTestPush",
-	"getReview",
-	"getReviewBaseRepoUrl",
-	"getReviewMergeStatus",
-	"getTerminalOptionsForPlatform",
-	"getUndoTargetSnapshot",
-	"getUserProfileLocal",
-	"initGithubDeviceOauth",
-	"headInfo",
-	"listAvailableReviewTemplates",
-	"loginAndPersist",
-	"listCiChecks",
-	"listCommentReactions",
-	"listEditors",
-	"listKnownBitbucketAccounts",
-	"listKnownGithubAccounts",
-	"listKnownGitlabAccounts",
-	"listPrograms",
-	"listProjectsStateless",
-	"listRepoLabels",
-	"listReviewComments",
-	"listReviewReactions",
-	"listReviewSubmissions",
-	"listReviewTimelineEvents",
-	"listReviewerCandidates",
-	"listReviews",
-	"listReviewsForBranch",
-	"mergeReview",
-	"moveBranch",
-	"openInProgram",
-	"openInTerminal",
-	"peelRestoreSnapshot",
-	"publishReview",
-	"removeCommentReaction",
-	"removeReviewLabel",
-	"removeReviewReaction",
-	"requestReview",
-	"resolveCommitConflictHunks",
-	"restoreSnapshotWithKind",
-	"reviewTemplate",
-	"setGbConfig",
-	"storeBitbucketApiToken",
-	"storeGithubPat",
-	"storeGitlabPat",
-	"setReviewAutoMerge",
-	"setReviewDraftiness",
-	"setReviewTemplate",
-	"setTargetRefAndInitProject",
-	"tearOffBranch",
-	"treeChangeDiffs",
-	"unapplyStack",
-	"updateProfileAndPersist",
-	"updateProjectSettings",
-	"updateReview",
-	"updateReviewComment",
-	"updateReviewFooters",
-	"warmCiChecksCache",
-	"withdrawReviewRequest",
-	"workspaceBranchAndAncestorsPush",
-	"workspaceFetchFromRemotes",
-	"workspaceFetchStatus",
-	"workspaceIntegrateUpstream",
-	"workspaceTargetCommits",
-] satisfies Array<Endpoint>;
+// `Object.keys` erases key types; the record's keys are exactly these.
+export const exposedEndpoints = Object.keys(apiParamNames) as ReadonlyArray<Endpoint>;
 
 /** Members the main process answers itself rather than forwarding to the SDK. */
 export const localEndpoints = [
@@ -171,8 +52,6 @@ export const localEndpoints = [
 	"watcherUnsubscribe",
 	"writeGUISettings",
 ] as const;
-
-// Everything below derives the surface above from the list above.
 
 /** An endpoint the SDK exposes to JavaScript. */
 export type Endpoint = keyof typeof apiParamNames & keyof typeof sdk;
@@ -204,8 +83,6 @@ type EndpointFn<K extends Endpoint> = (typeof apiParamNames)[K]["length"] extend
 	: (typeof apiParamNames)[K]["length"] extends 1
 		? (arg: Parameters<(typeof sdk)[K]>[0]) => Result<K>
 		: (params: PayloadFor<K>) => Result<K>;
-
-export type ExposedKey = (typeof exposedEndpoints)[number];
 
 // Shapes electron owns: no SDK declaration behind them, so they are written
 // out by hand — the only types in this file that are.

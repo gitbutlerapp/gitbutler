@@ -1,5 +1,5 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { commitAmendMutationKey, useBranchCreate, useCommitCreate } from "#ui/api/mutations.ts";
+import { useBranchCreate, useCommitCreate } from "#ui/api/mutations.ts";
 import { branchCannedNameQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -144,7 +144,8 @@ export const CommitForm: FC<{
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const isAmendCommitPending = useIsMutating({ mutationKey: commitAmendMutationKey }) > 0;
+	const isAmendCommitPending =
+		useIsMutating({ predicate: (m) => m.options.mutationFn === window.lite.commitAmend }) > 0;
 	// The branch creation is the first half of a commit here, so it keeps the
 	// form read-only for its duration and rules out a double submit.
 	const isCommitOrAmendPending =

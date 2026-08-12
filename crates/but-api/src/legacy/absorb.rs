@@ -97,7 +97,7 @@ pub fn absorb_with_perm(
 
 /// Build an absorption plan for `target` using the behavior documented by
 /// [`absorption_plan_with_perm()`].
-#[but_api(napi)]
+#[but_api(napi, provides = [AbsorptionPlan])]
 #[instrument(err(Debug))]
 pub fn absorption_plan(
     ctx: &mut Context,

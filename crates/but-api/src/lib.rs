@@ -72,6 +72,9 @@ pub mod panic_capture;
 #[cfg(feature = "export-schema")]
 pub mod watcher;
 
+/// The tag vocabulary clients cache API results under.
+pub mod tags;
+
 /// Functions for workspace state.
 pub mod workspace_state;
 

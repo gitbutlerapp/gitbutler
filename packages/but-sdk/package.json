@@ -63,7 +63,11 @@
 		"./src/generated/linear/apiParamNames.js",
 		"./src/generated/linear/apiParamNames.d.ts",
 		"./src/generated/graph/apiParamNames.js",
-		"./src/generated/graph/apiParamNames.d.ts"
+		"./src/generated/graph/apiParamNames.d.ts",
+		"./src/generated/linear/cacheTags.js",
+		"./src/generated/linear/cacheTags.d.ts",
+		"./src/generated/graph/cacheTags.js",
+		"./src/generated/graph/cacheTags.d.ts"
 	],
 	"exports": {
 		".": {
@@ -134,6 +138,34 @@
 			"require": {
 				"types": "./src/generated/graph/apiParamNames.d.ts",
 				"default": "./src/generated/graph/apiParamNames.js"
+			}
+		},
+		"./cache-tags": {
+			"browser": {
+				"types": "./src/generated/linear/cacheTags.d.ts",
+				"default": "./src/generated/linear/cacheTags.js"
+			},
+			"import": {
+				"types": "./src/generated/linear/cacheTags.d.ts",
+				"default": "./src/generated/linear/cacheTags.js"
+			},
+			"require": {
+				"types": "./src/generated/linear/cacheTags.d.ts",
+				"default": "./src/generated/linear/cacheTags.js"
+			}
+		},
+		"./graph/cache-tags": {
+			"browser": {
+				"types": "./src/generated/graph/cacheTags.d.ts",
+				"default": "./src/generated/graph/cacheTags.js"
+			},
+			"import": {
+				"types": "./src/generated/graph/cacheTags.d.ts",
+				"default": "./src/generated/graph/cacheTags.js"
+			},
+			"require": {
+				"types": "./src/generated/graph/cacheTags.d.ts",
+				"default": "./src/generated/graph/cacheTags.js"
 			}
 		}
 	}

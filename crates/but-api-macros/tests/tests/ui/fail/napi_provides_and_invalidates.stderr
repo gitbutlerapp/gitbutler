@@ -1,0 +1,5 @@
+error: An endpoint either provides tags or invalidates them, not both
+ --> tests/ui/fail/napi_provides_and_invalidates.rs:9:39
+  |
+9 | #[but_api(napi, provides = [Reviews], invalidates = [Checks])]
+  |                                       ^^^^^^^^^^^

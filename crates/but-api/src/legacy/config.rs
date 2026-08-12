@@ -6,14 +6,14 @@ use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;
 
-#[but_api(napi)]
+#[but_api(napi, provides = [GbConfig])]
 #[instrument(err(Debug))]
 pub fn get_gb_config(ctx: &but_ctx::Context) -> Result<GitConfigSettings> {
     let repo = ctx.repo.get()?;
     repo.git_settings().map(Into::into)
 }
 
-#[but_api(napi)]
+#[but_api(napi, invalidates = [GbConfig, SigningSettings])]
 #[instrument(err(Debug))]
 pub fn set_gb_config(ctx: &but_ctx::Context, config: GitConfigSettings) -> Result<()> {
     ctx.repo.get()?.set_git_settings(&config.into())

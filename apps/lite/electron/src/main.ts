@@ -5,7 +5,7 @@ import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import {
 	exposedEndpoints,
 	type PayloadFor,
-	type ExposedKey,
+	type Endpoint,
 	type LiteElectronApi,
 	type ShowNativeMenuParams,
 	type WatcherSubscribeParams,
@@ -311,7 +311,7 @@ type OverrideKey = keyof typeof ipcHandlerOverrides;
 type DerivedKey = Exclude<TableKey, OverrideKey>;
 
 /** Narrowing rather than asserting: an exposed endpoint may be either. */
-const isOverride = (key: ExposedKey): key is ExposedKey & OverrideKey => key in ipcHandlerOverrides;
+const isOverride = (key: Endpoint): key is Endpoint & OverrideKey => key in ipcHandlerOverrides;
 
 /**
  * Every other endpoint reads its arguments out of the payload by name, so

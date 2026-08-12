@@ -10,7 +10,6 @@
 import { Toast } from "@base-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import type { QueryKey } from "#ui/api/queries.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import type { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { type Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
@@ -201,7 +200,7 @@ export const useDryRunOperation = ({
 
 	return useQuery({
 		enabled: !!operation,
-		queryKey: ["dryRun" satisfies QueryKey, projectId, operation, changes],
+		queryKey: ["dryRun", projectId, operation, changes],
 		queryFn: () => {
 			if (!operation) return null;
 			return executeOperation({

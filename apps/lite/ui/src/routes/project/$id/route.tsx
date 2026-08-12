@@ -1,6 +1,6 @@
 import { createRoute, notFound, Outlet } from "@tanstack/react-router";
 import { Route as rootRoute } from "#ui/routes/__root.tsx";
-import { handleWatcher } from "#ui/watcher.ts";
+import { handleProjectEvent } from "#ui/project-events.ts";
 
 export const Route = createRoute({
 	getParentRoute: () => rootRoute,
@@ -16,7 +16,7 @@ export const Route = createRoute({
 		// Allow the route to render and handle failure via its queries.
 		try {
 			const subscriptionId = await window.lite.watcherSubscribe(params.id, (event) =>
-				handleWatcher(event, params.id, context.queryClient),
+				handleProjectEvent(event, params.id, context.queryClient),
 			);
 			return { subscriptionId };
 		} catch {

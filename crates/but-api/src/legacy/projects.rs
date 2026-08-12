@@ -30,7 +30,7 @@ pub struct ProjectSettingsUpdate {
 but_schemars::register_sdk_type!(ProjectSettingsUpdate);
 
 /// Change the stored settings of a project, leaving absent fields as they were.
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Projects])]
 #[instrument(err(Debug))]
 pub fn update_project_settings(
     project_id: ProjectHandleOrLegacyProjectId,
@@ -161,7 +161,7 @@ pub fn list_projects(
     })
 }
 
-#[but_api(napi)]
+#[but_api(napi, invalidates = [Projects])]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> {
     delete_project_at_app_data_dir(but_path::app_data_dir()?, project_id)
