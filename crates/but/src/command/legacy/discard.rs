@@ -454,11 +454,11 @@ pub fn run(
         |mut tx| {
             let outcome = match executable {
                 ExecutableDiscardOperation::Branches { branches, commits } => {
-                    for branch in &branches {
-                        tx.remove_reference(branch.as_ref())?;
-                    }
                     if !commits.is_empty() {
                         tx.discard_commits(commits.iter().map(|c| c.commit_id))?;
+                    }
+                    for branch in &branches {
+                        tx.remove_reference(branch.as_ref())?;
                     }
                     DiscardOutcome::Branches(branches)
                 }

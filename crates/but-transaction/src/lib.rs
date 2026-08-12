@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use bstr::BStr;
+use bstr::{BStr, BString, ByteVec};
 use but_api::WorkspaceState;
 use but_core::{
     DiffSpec, DryRun, RefMetadata, commit::CommitIdentifiers, ref_metadata, sync::RepoExclusive,
@@ -13,7 +13,7 @@ use but_core::{
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
-    Editor, Step, SuccessfulRebase,
+    Editor, LookupStep as _, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::commit::{
@@ -339,8 +339,83 @@ where
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|mut editor, _, _| {
-            let selector = editor.select_reference(ref_name)?;
-            editor.replace(selector, but_rebase::graph_rebase::Step::None)?;
+            let ref_selector = editor.select_reference(ref_name)?;
+
+            let must_disconnect_child = 'must_disconnect: {
+                let Some(target_selector) = editor.target_selector() else {
+                    break 'must_disconnect None;
+                };
+
+                // Only one child, which must be the workspace commit. The
+                // workspace commit must also have more than one parent (if
+                // not the workspace commit would end up with no parents, which
+                // is bad).
+                let child_selectors = editor.direct_children(ref_selector)?;
+                let [(child_selector, _)] = child_selectors[..] else {
+                    break 'must_disconnect None;
+                };
+                if !matches!(editor.lookup_step(child_selector)?, Step::Pick(..)) {
+                    break 'must_disconnect None;
+                }
+                let (_, child_commit) = editor.find_selectable_commit(child_selector)?;
+                if !but_graph::workspace::commit::is_managed_workspace_by_message(
+                    child_commit.message.as_ref(),
+                ) {
+                    break 'must_disconnect None;
+                }
+                if editor.direct_parents(child_selector)?.len() == 1 {
+                    break 'must_disconnect None;
+                }
+
+                // All ancestors up to the target commit must be Step::None or
+                // the local branch corresponding to the target ref.
+                let mut ancestor_selectors: Vec<_> = editor
+                    .direct_parents(ref_selector)?
+                    .into_iter()
+                    .map(|(selector, _)| selector)
+                    .collect();
+                let target_local_branch = editor.target_ref().map(|r| {
+                    let bstr = r.as_bstr();
+                    if let Some(shortname) = bstr.rsplit(|&c| c == b'/').next() {
+                        let mut target_ref = BString::new(b"refs/heads/".to_vec());
+                        target_ref.push_str(shortname);
+                        target_ref
+                    } else {
+                        bstr.to_owned()
+                    }
+                });
+                while let Some(ancestor_selector) = ancestor_selectors.pop() {
+                    if ancestor_selector == target_selector {
+                        // OK, do nothing
+                    } else {
+                        let step = editor.lookup_step(ancestor_selector)?;
+                        let mut ok_to_skip = matches!(step, Step::None);
+                        if !ok_to_skip
+                            && let Some(ref target_local_branch) = target_local_branch
+                            && matches!(step, Step::Reference { refname, .. }
+                                if refname.as_bstr() == target_local_branch)
+                        {
+                            ok_to_skip = true;
+                        }
+                        if ok_to_skip {
+                            ancestor_selectors.extend(
+                                editor
+                                    .direct_parents(ancestor_selector)?
+                                    .into_iter()
+                                    .map(|(selector, _)| selector),
+                            );
+                        } else {
+                            break 'must_disconnect None;
+                        }
+                    }
+                }
+                Some(child_selector)
+            };
+
+            editor.replace(ref_selector, but_rebase::graph_rebase::Step::None)?;
+            if let Some(must_disconnect_child) = must_disconnect_child {
+                editor.remove_edges(must_disconnect_child, ref_selector)?;
+            }
             let rebase = editor.rebase()?;
             Ok(((), MaterializeWithoutCheckout::Either, rebase))
         })?;
