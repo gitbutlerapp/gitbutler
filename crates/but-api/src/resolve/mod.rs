@@ -66,6 +66,10 @@ pub struct ConflictedFile {
     /// The conflicts of the file; hunks are addressed by their 1-based
     /// position in this list.
     pub hunks: Vec<ConflictHunk>,
+    /// The file's content with diff3 conflict markers, labeled for display.
+    /// Scanning its marker blocks in order yields exactly `hunks`, so a
+    /// renderer that parses markers can address conflict N as hunk N+1.
+    pub merged_text: String,
 }
 
 #[cfg(feature = "export-schema")]
@@ -157,6 +161,7 @@ pub fn commit_conflicts(
                     },
                 },
                 hunks: file.hunks,
+                merged_text: display_marker_text(&file.merged_text),
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
@@ -165,6 +170,35 @@ pub fn commit_conflicts(
         files,
         manual: request.manual,
     })
+}
+
+/// Swap the machine sentinel labels for human ones. The three labels tell one
+/// story: the top is what the *auto resolved* commit carries (the parent's
+/// content, at every conflict), the middle is the *original base* the change
+/// was written against, and the bottom is the change *as authored* — which
+/// leaves "applied" free for the sentence that explains the conflict, "the
+/// change as authored could not be applied". Safe on whole lines only: files
+/// whose content is ambiguous with marker lines never get this far —
+/// `build_request()` routes them to manual resolution.
+fn display_marker_text(merged_text: &str) -> String {
+    let mut out = String::with_capacity(merged_text.len());
+    for line in merged_text.split_inclusive('\n') {
+        let content = line.trim_end_matches(['\n', '\r']);
+        let relabeled = match content {
+            "<<<<<<< gitbutler-resolve-ours" => Some("<<<<<<< auto resolved"),
+            "||||||| gitbutler-resolve-base" => Some("||||||| original base"),
+            ">>>>>>> gitbutler-resolve-theirs" => Some(">>>>>>> as authored"),
+            _ => None,
+        };
+        match relabeled {
+            Some(label) => {
+                out.push_str(label);
+                out.push_str(&line[content.len()..]);
+            }
+            None => out.push_str(line),
+        }
+    }
+    out
 }
 
 /// The blob of a conflicted path in one of the conflict's trees, if present.

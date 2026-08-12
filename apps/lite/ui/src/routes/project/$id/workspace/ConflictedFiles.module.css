@@ -1,0 +1,101 @@
+.file {
+	border-bottom: 1px solid var(--border-section);
+}
+
+.diff {
+	background-color: var(--bg-2);
+}
+
+.fileHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px;
+	gap: 12px;
+	border-bottom: 1px solid var(--border-3);
+	white-space: nowrap;
+}
+
+.filePath {
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	gap: 6px;
+	text-overflow: ellipsis;
+}
+
+.icon {
+	flex-shrink: 0;
+}
+
+.pathInit {
+	color: var(--text-2);
+}
+
+/* The children lay out as items of the shadow root's own actions row, so
+   they share its gap and vertical rhythm with library-rendered content. */
+.actions {
+	display: contents;
+}
+
+.check {
+	margin-inline-end: 4px;
+}
+
+/* Mirrors the library's [data-merge-conflict-action] styling, so these read
+   as its native inline actions. The --diffs-* variables inherit into slotted
+   content from the row around it. */
+.action {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--diffs-fg-number);
+	font: inherit;
+	font-style: normal;
+	cursor: pointer;
+
+	&:hover:not(:disabled) {
+		color: var(--diffs-fg);
+	}
+
+	&:disabled {
+		cursor: default;
+		opacity: 0.5;
+	}
+}
+
+.actionCurrent:hover:not(:disabled) {
+	color: var(--diffs-addition-base);
+}
+
+.actionIncoming:hover:not(:disabled) {
+	color: var(--diffs-modified-base);
+}
+
+.actionSeparator {
+	color: var(--diffs-fg-number);
+	opacity: 0.6;
+	user-select: none;
+}
+
+.hint {
+	flex-basis: 100%;
+	margin-block-start: 6px;
+	color: var(--text-2);
+}
+
+.editor {
+	flex-basis: 100%;
+	min-width: 0;
+	margin-block-end: 4px;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-m);
+}
+
+.editorActions {
+	display: flex;
+	flex-basis: 100%;
+	margin-block-end: 4px;
+	gap: 8px;
+}
