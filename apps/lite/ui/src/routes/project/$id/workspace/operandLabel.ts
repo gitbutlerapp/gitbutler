@@ -26,7 +26,15 @@ export const operandLabel = ({
 					: shortCommitId(commitId);
 			},
 			Hunk: ({ lineGroups }) => {
-				const count = lineGroups.reduce((sum, group) => sum + group.lines, 0);
+				const add = lineGroups.reduce(
+					(sum, group) => sum + (group.side === "additions" ? group.lines : 0),
+					0,
+				);
+				const del = lineGroups.reduce(
+					(sum, group) => sum + (group.side === "deletions" ? group.lines : 0),
+					0,
+				);
+				const count = Math.max(add, del);
 				return `${count} changed line${count !== 1 ? "s" : ""}`;
 			},
 		}),
