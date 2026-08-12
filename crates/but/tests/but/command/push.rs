@@ -77,7 +77,6 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
 ┊╭┄ ma [main] (merged upstream)
 ┊●   1 unpushed work
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┊● d50ec84 (upstream: origin/main) 2 new commits

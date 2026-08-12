@@ -2,6 +2,326 @@ use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
 
+fn single_branch_integration_scenario() -> Sandbox {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.but("status").env("NO_BG_TASKS", "1").assert().success();
+    let repo = env.open_repo();
+    let mut project_meta = env.project_meta();
+    project_meta.target_ref = Some("refs/remotes/origin/main".try_into().unwrap());
+    project_meta.target_commit_id = Some(
+        repo.rev_parse_single("refs/remotes/origin/main")
+            .unwrap()
+            .detach(),
+    );
+    project_meta.persist(&repo).unwrap();
+    env.invoke_git(
+        "config --replace-all remote.origin.fetch +refs/heads/main:refs/remotes/origin/main",
+    );
+    env.invoke_git("remote set-url origin .");
+    env
+}
+
+fn commit_file(env: &Sandbox, branch: &str) {
+    env.file(format!("{branch}.txt"), format!("{branch}\n"));
+    env.but(format!("commit -b {branch} -m 'add {branch}'"))
+        .assert()
+        .success();
+}
+
+fn merge_into_upstream(env: &Sandbox, branch: &str, add_upstream_commit: bool) {
+    let head = env.invoke_git("symbolic-ref --short HEAD");
+    env.invoke_git("checkout main");
+    env.invoke_git(&format!("merge --no-ff -m 'merge {branch}' {branch}"));
+    if add_upstream_commit {
+        env.file("upstream.txt", "upstream\n");
+        env.invoke_git("add upstream.txt");
+        env.invoke_git("commit -m 'add upstream'");
+    }
+    env.invoke_git(&format!("checkout {head}"));
+    env.invoke_git("fetch origin");
+}
+
+#[test]
+fn single_branch_pull_replaces_a_fully_integrated_checkout() {
+    let env = single_branch_integration_scenario();
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    let old_head = rev_parse(&env, "A");
+    merge_into_upstream(&env, "A", true);
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (merged upstream)
+┊●   1 add A
+├╯
+┊
+┊● f12cbfa (upstream: origin/main) 2 new commits
+├╯ 85efbe4 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	2 new commits on origin/main
+
+  f12cbfa add upstream[..]
+  b17b7d2 merge A[..]
+
+Branch Status
+  [integrated] A
+
+Run `but pull` to update your branches
+
+"#]]);
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        old_head,
+        "pull --check is a dry run"
+    );
+    assert!(
+        git_ref_exists(&env, "refs/heads/A"),
+        "pull --check must not remove the integrated branch"
+    );
+
+    env.but("pull").assert().success();
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] (no commits)
+├╯
+┊
+┴ f12cbfa (common base) 2000-01-02 add upstream
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        !git_ref_exists(&env, "refs/heads/A"),
+        "pull should remove the fully integrated branch"
+    );
+    assert_ne!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "A",
+        "the removed checkout should be replaced"
+    );
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        rev_parse(&env, "origin/main"),
+        "the replacement checkout should point at the advanced target"
+    );
+    assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
+}
+
+#[test]
+fn single_branch_pull_prunes_an_integrated_lower_branch() {
+    let env = single_branch_integration_scenario();
+    env.but("branch new C").assert().success();
+    commit_file(&env, "C");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    let old_head = rev_parse(&env, "A");
+    let old_lower = rev_parse(&env, "C");
+    merge_into_upstream(&env, "C", true);
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1#0 add A
+┊│
+┊├┄ h0 [C] (merged upstream)
+┊●   1#1 add C
+├╯
+┊
+┊● 1a9cade (upstream: origin/main) 2 new commits
+├╯ 85efbe4 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	2 new commits on origin/main
+
+  1a9cade add upstream[..]
+  c251e1d merge C[..]
+
+Branch Status
+  [ok] A
+  [integrated] C
+
+Run `but pull` to update your branches
+
+"#]]);
+    assert_eq!(rev_parse(&env, "A"), old_head, "pull --check is a dry run");
+    assert_eq!(rev_parse(&env, "C"), old_lower, "pull --check is a dry run");
+
+    env.but("pull").assert().success();
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 add A
+├╯
+┊
+┴ 1a9cade (common base) 2000-01-02 add upstream
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        !git_ref_exists(&env, "refs/heads/C"),
+        "pull should remove the integrated lower branch"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "A",
+        "the surviving top branch should stay checked out"
+    );
+    assert_eq!(
+        rev_parse(&env, "A^"),
+        rev_parse(&env, "origin/main"),
+        "the surviving branch should be rebased onto the advanced target"
+    );
+    assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
+}
+
+#[test]
+fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
+    let env = single_branch_integration_scenario();
+    env.but("branch new bottom").assert().success();
+    commit_file(&env, "bottom");
+    env.but("branch new top").assert().success();
+    let old_tip = rev_parse(&env, "top");
+    merge_into_upstream(&env, "bottom", false);
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ bo [bottom] (merged upstream)
+┊●   1 add bottom
+├╯
+┊
+┊● 9f8a4d4 (upstream: origin/main) 1 new commit
+├╯ 85efbe4 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	1 new commits on origin/main
+
+  9f8a4d4 merge bottom[..]
+
+Branch Status
+  [ok] top
+  [integrated] bottom
+
+Run `but pull` to update your branches
+
+"#]]);
+    assert_eq!(rev_parse(&env, "top"), old_tip, "pull --check is a dry run");
+    assert_eq!(
+        rev_parse(&env, "bottom"),
+        old_tip,
+        "pull --check must preserve the integrated lower branch"
+    );
+
+    env.but("pull").assert().success();
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+├╯
+┊
+┴ 9f8a4d4 (common base) 2000-01-02 merge bottom
+
+Hint: run `but help` for all commands
+
+"#]]);
+    assert!(
+        !git_ref_exists(&env, "refs/heads/bottom"),
+        "pull should remove the integrated lower branch"
+    );
+    assert!(
+        git_ref_exists(&env, "refs/heads/top"),
+        "the local-only empty top branch should survive"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "top",
+        "the empty top branch should stay checked out"
+    );
+    assert_eq!(
+        rev_parse(&env, "top"),
+        rev_parse(&env, "origin/main"),
+        "the empty top branch should advance to the target"
+    );
+    assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
+}
+
 /// An unreachable remote that is not the target's must not block pulling: `fetch_from_remotes`
 /// only fails when the target's own fetch remote failed, so a dead unrelated remote (old fork,
 /// deleted mirror) is tolerated.

@@ -884,9 +884,9 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
 └── ≡:0:child-stack[🌳] on aa67ae0 {1}
     ├── :0:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :2:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :3:M
         └── ·197bdf1
 
 "#]]
@@ -968,9 +968,9 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
 └── ≡:0:child-stack[🌳] on aa67ae0 {1}
     ├── :0:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :2:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :3:M
         └── ·197bdf1
 
 "#]]

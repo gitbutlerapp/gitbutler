@@ -2124,9 +2124,9 @@ fn errors() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓! on c166d42
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:1:main[🌳] <> ✓! on c166d42
+└── ≡:1:main[🌳] on c166d42 {1}
+    └── :1:main[🌳]
 
 "#]]
     );
@@ -2820,9 +2820,9 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓! on 281da94
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:1:main[🌳] <> ✓! on 281da94
+└── ≡:1:main[🌳] on 281da94 {1}
+    └── :1:main[🌳]
 
 "#]]
         );
@@ -2905,13 +2905,13 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
+⌂:2:main[🌳] <> ✓! on 281da94
+└── ≡:2:main[🌳] {1}
+    ├── :2:main[🌳]
     └── 📙:0:empty-bottom
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );
@@ -2958,15 +2958,15 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
-    ├── 📙:2:empty-middle
-    ├── 📙:3:inserted-below-middle
+⌂:2:main[🌳] <> ✓! on 281da94
+└── ≡:2:main[🌳] {1}
+    ├── :2:main[🌳]
+    ├── 📙:3:empty-middle
+    ├── 📙:4:inserted-below-middle
     └── 📙:0:empty-bottom
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );
@@ -2990,9 +2990,9 @@ mod ad_hoc_at_reference {
 └── ≡📙:1:empty-top[🌳] {1}
     ├── 📙:1:empty-top[🌳]
     └── :0:main
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );
@@ -3069,14 +3069,14 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
-    ├── 📙:2:empty-middle
+⌂:2:main[🌳] <> ✓! on 281da94
+└── ≡:2:main[🌳] {1}
+    ├── :2:main[🌳]
+    ├── 📙:3:empty-middle
     └── 📙:0:empty-bottom
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );

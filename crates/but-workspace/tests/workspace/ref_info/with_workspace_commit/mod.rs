@@ -3539,14 +3539,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(1),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(1),
+            segment_index: NodeIndex(2),
         },
     ),
     is_target_current: true,
