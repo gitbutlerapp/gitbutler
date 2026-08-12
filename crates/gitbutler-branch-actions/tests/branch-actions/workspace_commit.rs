@@ -3,7 +3,8 @@
     reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
 )]
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
+use but_testsupport::CommandExt as _;
 use but_testsupport::visualize_tree;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::prelude::ObjectIdExt;
@@ -190,5 +191,113 @@ fn update_workspace_commit_with_diverged_stacks_preserves_target_content() -> Re
         .raw()
     );
 
+    Ok(())
+}
+
+/// `skip-worktree` tells Git to leave a tracked file's worktree copy alone. Sparse checkouts set
+/// it, and it is also set by hand to keep local edits to a checked-in file out of the way.
+/// Rebuilding `.git/index` from the workspace tree must not quietly drop it.
+///
+/// `shared.txt` is untouched by either stack, so this also shows the flag going missing on a
+/// path the workspace commit does not change at all.
+#[test]
+fn workspace_commit_preserves_skip_worktree() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let worktree_dir = ctx
+        .repo
+        .get()?
+        .workdir()
+        .expect("fixture repo has a worktree")
+        .to_owned();
+
+    but_testsupport::git_at_dir(&worktree_dir)
+        .args(["update-index", "--skip-worktree", "shared.txt"])
+        .run();
+    assert!(
+        index_flag_is_set(&ctx, "shared.txt", gix::index::entry::Flags::SKIP_WORKTREE)?,
+        "precondition: the flag is set before the workspace commit is rebuilt"
+    );
+
+    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+
+    assert!(
+        index_flag_is_set(&ctx, "shared.txt", gix::index::entry::Flags::SKIP_WORKTREE)?,
+        "rebuilding the index from the workspace tree keeps per-file flags"
+    );
+    Ok(())
+}
+
+fn index_flag_is_set(ctx: &Context, path: &str, flag: gix::index::entry::Flags) -> Result<bool> {
+    let repo = ctx.repo.get()?;
+    let index = repo.index()?;
+    let entry = index
+        .entry_by_path(path.into())
+        .with_context(|| format!("{path} should be tracked"))?;
+    Ok(entry.flags.contains(flag))
+}
+
+/// `assume-unchanged` is the other per-file flag Git keeps only in the index, and the issue asks
+/// for it alongside `skip-worktree`.
+///
+/// This one uses `file`, which both stacks modify, because it is only lost when the rebuild
+/// actually replaces the entry - libgit2 keeps an entry whose blob and mode are unchanged, flags
+/// and all. `skip-worktree` above needs no such setup, being dropped either way.
+#[test]
+fn workspace_commit_preserves_assume_unchanged() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let worktree_dir = ctx
+        .repo
+        .get()?
+        .workdir()
+        .expect("fixture repo has a worktree")
+        .to_owned();
+
+    but_testsupport::git_at_dir(&worktree_dir)
+        .args(["update-index", "--assume-unchanged", "file"])
+        .run();
+    assert!(
+        index_flag_is_set(&ctx, "file", gix::index::entry::Flags::ASSUME_VALID)?,
+        "precondition: the flag is set before the workspace commit is rebuilt"
+    );
+
+    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+
+    assert!(
+        index_flag_is_set(&ctx, "file", gix::index::entry::Flags::ASSUME_VALID)?,
+        "rebuilding the index from the workspace tree keeps per-file flags"
+    );
+    Ok(())
+}
+
+/// The `checkout_new_worktree` leg checks the working tree out before the index is rebuilt, and
+/// that checkout writes the index itself. The flags have to be taken before it runs, or they are
+/// already gone by the time the rebuild sees them.
+#[test]
+fn workspace_commit_preserves_flags_when_checking_out() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+    let worktree_dir = ctx
+        .repo
+        .get()?
+        .workdir()
+        .expect("fixture repo has a worktree")
+        .to_owned();
+
+    but_testsupport::git_at_dir(&worktree_dir)
+        .args(["update-index", "--skip-worktree", "shared.txt"])
+        .run();
+    but_testsupport::git_at_dir(&worktree_dir)
+        .args(["update-index", "--assume-unchanged", "file"])
+        .run();
+
+    gitbutler_branch_actions::update_workspace_commit(&ctx, true)?;
+
+    assert!(
+        index_flag_is_set(&ctx, "shared.txt", gix::index::entry::Flags::SKIP_WORKTREE)?,
+        "skip-worktree survives the checkout leg"
+    );
+    assert!(
+        index_flag_is_set(&ctx, "file", gix::index::entry::Flags::ASSUME_VALID)?,
+        "assume-unchanged survives the checkout leg"
+    );
     Ok(())
 }
