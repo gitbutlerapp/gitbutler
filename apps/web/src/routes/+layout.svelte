@@ -1,8 +1,8 @@
 <script lang="ts">
+	import CliPage from "./cli/CliPage.svelte";
 	import { goto } from "$app/navigation";
 	import { beforeNavigate } from "$app/navigation";
 	import { page } from "$app/state";
-	import HomePage from "$home/HomePage.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
 	import { WebState } from "$lib/redux/store.svelte";
 	import { latestClientVersion } from "$lib/store";
@@ -55,16 +55,13 @@
 	const projectService = new ProjectService(httpClient, webState.appDispatch);
 	provide(PROJECT_SERVICE, projectService);
 
-	// Releases data for changelog
-	let releases: any[] = $state([]);
-
 	// Check if current page should use marketing layout
 	const isMarketingPage = $derived(
 		page.route.id === "/(app)" ||
 			page.route.id === "/(app)/home" ||
 			page.route.id === "/downloads" ||
 			page.route.id === "/nightly" ||
-			page.route.id === "/cli",
+			page.route.id === "/client",
 	);
 
 	// Check if current page should render children directly (marketing pages except home)
@@ -90,10 +87,9 @@
 		updateFavIcon(); // reset the icon
 	});
 
-	// Fetch latest version and releases when showing marketing page
+	// Fetch latest version when showing marketing page
 	$effect(() => {
 		if (isMarketingPage) {
-			// Fetch latest version
 			fetch("https://app.gitbutler.com/api/downloads?limit=1&channel=release")
 				.then((response) => response.json())
 				.then((data) => {
@@ -104,16 +100,6 @@
 				})
 				.catch((error) => {
 					console.error("Failed to fetch latest version:", error);
-				});
-
-			// Fetch latest 10 releases for changelog
-			fetch("https://app.gitbutler.com/api/downloads?limit=10&channel=release")
-				.then((response) => response.json())
-				.then((data) => {
-					releases = getValidReleases(data);
-				})
-				.catch((error) => {
-					console.error("Failed to fetch releases for changelog:", error);
 				});
 		}
 	});
@@ -134,7 +120,7 @@
 		{#if shouldRenderChildren}
 			{@render children?.()}
 		{:else}
-			<HomePage {releases} />
+			<CliPage />
 		{/if}
 	</section>
 {:else}

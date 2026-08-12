@@ -7,12 +7,22 @@
 	import MainFeatures from "$home/sections/MainFeatures.svelte";
 	import SocialQuotes from "$home/sections/SocialQuotes.svelte";
 	import Footer from "$lib/components/marketing/Footer.svelte";
+	import { getValidReleases } from "$lib/types/releases";
+	import { onMount } from "svelte";
 
-	interface Props {
-		releases?: any[];
-	}
+	let releases: any[] = $state([]);
 
-	const { releases = [] }: Props = $props();
+	onMount(() => {
+		// Fetch latest 10 releases for changelog
+		fetch("https://app.gitbutler.com/api/downloads?limit=10&channel=release")
+			.then((response) => response.json())
+			.then((data) => {
+				releases = getValidReleases(data);
+			})
+			.catch((error) => {
+				console.error("Failed to fetch releases for changelog:", error);
+			});
+	});
 </script>
 
 <Hero>

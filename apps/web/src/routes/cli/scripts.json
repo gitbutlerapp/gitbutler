@@ -1,4 +1,46 @@
 {
+	"skill-install": {
+		"id": "skill-install",
+		"title": "Agent Skills",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 20 20\"><path fill=\"currentColor\" d=\"M9.684 3.832c.364-1.094 1.911-1.094 2.276 0l.493 1.481a4.502 4.502 0 0 0 2.599 2.755l.248.091 1.481.494c1.094.365 1.095 1.912.001 2.277l-1.481.494-.25.09a4.501 4.501 0 0 0-2.597 2.757l-.493 1.48c-.353 1.06-1.818 1.093-2.24.1l-.037-.1-.495-1.48a4.5 4.5 0 0 0-.567-1.135L2.48 19.28l-1.061-1.06 6.157-6.158a4.498 4.498 0 0 0-1.232-.638l-1.48-.494-.1-.037c-.994-.423-.96-1.886.1-2.24l1.48-.494A4.5 4.5 0 0 0 9.1 5.562l.091-.249.494-1.481Zm.928 1.956a6 6 0 0 1-3.794 3.795l-.629.208.63.21a6 6 0 0 1 3.793 3.795l.21.628.21-.628A6 6 0 0 1 14.824 10l.63-.21-.63-.208a6.001 6.001 0 0 1-3.794-3.795l-.209-.629-.21.63ZM17.51 1.25a2.083 2.083 0 1 1 0 4.166 2.083 2.083 0 0 1 0-4.166Z\"/></svg>",
+		"script": [
+			{
+				"type": "input",
+				"lines": ["# Ask your agent to move, absorb, squash, amend or simply commit changes"]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but agent setup"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-highlight'>GitButler · agent setup</span>",
+					"<span class='t-dim'>──────────────────────────────────────────────</span>",
+					"Set up your coding agent to work well with GitButler.",
+					"",
+					"<span class='t-blue'>?</span> Which agents do you use?:",
+					"  [ ] Codex",
+					"<span class='t-highlight'>> [x] Claude Code</span> <span class='t-dim'>(detected)</span>",
+					"  [ ] Cursor",
+					"  [ ] GitHub Copilot",
+					"  [ ] OpenCode",
+					""
+				]
+			},
+			{
+				"type": "output",
+				"delay": 1500,
+				"lines": [
+					"<span class='t-success'>✓</span> Installed the GitButler skill for <span class='t-highlight'>Claude Code</span>",
+					"  <span class='t-dim'>~/.claude/skills/gitbutler</span>",
+					"<span class='t-success'>✓</span> Added workflow instructions to <span class='t-highlight'>~/.claude/CLAUDE.md</span>",
+					"",
+					"<span class='t-success'>✓</span> <span class='t-teal'>GitButler agent setup complete.</span>"
+				]
+			}
+		]
+	},
 	"stacked-branches": {
 		"id": "stacked-branches",
 		"title": "Stacked Branches",
@@ -278,50 +320,6 @@
 					"  <span class='t-blue'>\"authorName\"</span><span class='t-dim'>:</span> <span class='t-green'>\"Scott Chacon\"</span><span class='t-dim'>,</span>",
 					"  <span class='t-blue'>\"conflicted\"</span><span class='t-dim'>:</span> <span class='t-accent'>false</span>",
 					"<span class='t-dim'>}</span>"
-				]
-			}
-		]
-	},
-	"skill-install": {
-		"id": "skill-install",
-		"title": "Agent Skills",
-		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 20 20\"><path fill=\"currentColor\" d=\"M9.684 3.832c.364-1.094 1.911-1.094 2.276 0l.493 1.481a4.502 4.502 0 0 0 2.599 2.755l.248.091 1.481.494c1.094.365 1.095 1.912.001 2.277l-1.481.494-.25.09a4.501 4.501 0 0 0-2.597 2.757l-.493 1.48c-.353 1.06-1.818 1.093-2.24.1l-.037-.1-.495-1.48a4.5 4.5 0 0 0-.567-1.135L2.48 19.28l-1.061-1.06 6.157-6.158a4.498 4.498 0 0 0-1.232-.638l-1.48-.494-.1-.037c-.994-.423-.96-1.886.1-2.24l1.48-.494A4.5 4.5 0 0 0 9.1 5.562l.091-.249.494-1.481Zm.928 1.956a6 6 0 0 1-3.794 3.795l-.629.208.63.21a6 6 0 0 1 3.793 3.795l.21.628.21-.628A6 6 0 0 1 14.824 10l.63-.21-.63-.208a6.001 6.001 0 0 1-3.794-3.795l-.209-.629-.21.63ZM17.51 1.25a2.083 2.083 0 1 1 0 4.166 2.083 2.083 0 0 1 0-4.166Z\"/></svg>",
-		"script": [
-			{
-				"type": "input",
-				"lines": ["# Ask your agent to move, absorb, squash, amend or simply commit changes"]
-			},
-			{
-				"type": "input",
-				"lines": ["$ but skill install --global"]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-dim'>Select a skill folder format:</span>",
-					"",
-					"<span class='t-blue'>?</span> Which format would you like to use?:",
-					"<span class='t-highlight'>> Claude Code</span> <span class='t-dim'>- Claude Code CLI skill format</span>",
-					"  OpenCode <span class='t-dim'>- OpenCode AI skill format</span>",
-					"  Codex <span class='t-dim'>- Codex skill format</span>",
-					"  GitHub Copilot <span class='t-dim'>- GitHub Copilot skill format</span>",
-					"  Cursor <span class='t-dim'>- Cursor AI skill format</span>",
-					""
-				]
-			},
-			{
-				"type": "output",
-				"delay": 1500,
-				"lines": [
-					"<span class='t-success'>✓</span> <span class='t-teal'>GitButler skill installed successfully!</span>",
-					"",
-					"  <span class='t-dim'>Location:</span> <span class='t-highlight'>/Users/kiril/.codex/skills/gitbutler</span>",
-					"",
-					"  <span class='t-dim'>Files installed:</span>",
-					"    • SKILL.md",
-					"    • references/concepts.md",
-					"    • references/examples.md",
-					"    • references/reference.md"
 				]
 			}
 		]
