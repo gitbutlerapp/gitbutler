@@ -7,6 +7,12 @@ description = "Types to represent Git commit graphs as connected segments, and p
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Imported as `renderdag` (the crate's lib name), which machete misses.
+    "sapling-renderdag",
+]
+
 [lib]
 doctest = false
 
@@ -34,6 +40,7 @@ but-testsupport.workspace = true
 
 gitbutler-reference.workspace = true
 snapbox.workspace = true
+sapling-renderdag.workspace = true
 
 [lints]
 workspace = true
