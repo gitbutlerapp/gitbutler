@@ -20,7 +20,7 @@ test.describe("branches", () => {
 
 		const search = picker.getByRole("combobox", { name: /search for branches/i });
 		await search.fill("branch1");
-		await search.press("Enter");
+		await picker.getByRole("option", { name: /^branch1 / }).click();
 
 		await expect(picker).toBeHidden();
 		await expect(branch).toBeVisible();
