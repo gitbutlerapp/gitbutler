@@ -247,6 +247,12 @@ const UpdateBlock: FC<{
 					<p className={messageClassName}>
 						Integrated branches can be cleaned up by updating the workspace.
 					</p>
+				) : canUpdate ? (
+					<p className={messageClassName}>
+						Your stacks already contain the latest upstream commits.
+						<br />
+						Update to advance the workspace base.
+					</p>
 				) : (
 					<p className={messageClassName}>Your workspace is up to date.</p>
 				)}
@@ -384,8 +390,9 @@ export const UpstreamList: FC<
 		getKey: operandIdentityKey,
 	});
 
-	const hasIncoming = incomingCount > 0;
-	const canUpdate = canUpdateWorkspace && (hasIncoming || hasIntegrated);
+	// Decided by `canUpdateWorkspace`, not by whether this page has rows to
+	// show: the base can be behind with nothing to list.
+	const canUpdate = canUpdateWorkspace;
 
 	const targetItems = items.slice(0, incomingItemCount);
 	const workspaceItems = items.slice(incomingItemCount);

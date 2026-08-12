@@ -98,6 +98,10 @@ pub struct Target {
     pub remote_tracking_ref: RemoteTrackingReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
+    /// Whether the stored target commit is where the target ref points right now.
+    ///
+    /// Only a workspace update advances the stored target, so `false` means an update has work to do.
+    pub is_current: bool,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Target);
@@ -110,10 +114,12 @@ impl Target {
             commits_ahead,
         }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
+        is_current: bool,
     ) -> anyhow::Result<Self> {
         Ok(Target {
             remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
+            is_current,
         })
     }
 }
@@ -184,6 +190,7 @@ impl inner::RefInfo {
             stacks,
             target_ref,
             target_commit: _,
+            is_target_current,
             lower_bound: _,
             is_managed_ref,
             is_managed_commit,
@@ -199,7 +206,7 @@ impl inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &symbolic_remote_names))
+                .map(|t| Target::for_ui(t, &symbolic_remote_names, is_target_current))
                 .transpose()?,
             is_managed_ref,
             is_managed_commit,

@@ -106,6 +106,10 @@ pub struct RefInfo {
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
     pub target_commit: Option<TargetCommit>,
+    /// Whether the stored target commit is where [`Self::target_ref`] points right now.
+    ///
+    /// Only a workspace update advances the stored target, so `false` means an update has work to do.
+    pub is_target_current: bool,
     /// The bound can be imagined as the segment from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is

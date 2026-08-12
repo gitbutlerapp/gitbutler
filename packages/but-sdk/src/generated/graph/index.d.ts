@@ -3658,6 +3658,12 @@ export type Target = {
   remoteTrackingRef: RemoteTrackingReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
+  /**
+   * Whether the stored target commit is where the target ref points right now.
+   *
+   * Only a workspace update advances the stored target, so `false` means an update has work to do.
+   */
+  isCurrent: boolean;
 };
 
 /** JSON transport type for a commit on the target branch's first-parent line. */

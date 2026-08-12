@@ -71,6 +71,7 @@ Ok(
         ],
         target_ref: None,
         target_commit: None,
+        is_target_current: false,
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
@@ -153,6 +154,7 @@ Ok(
                 segment_index: NodeIndex(0),
             },
         ),
+        is_target_current: false,
         lower_bound: Some(
             NodeIndex(0),
         ),
@@ -249,6 +251,7 @@ Ok(
                 segment_index: NodeIndex(0),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(0),
         ),
@@ -328,6 +331,7 @@ Ok(
                 segment_index: NodeIndex(0),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(0),
         ),
@@ -405,6 +409,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -505,6 +510,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -604,6 +610,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -684,6 +691,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -786,6 +794,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -893,6 +902,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -999,6 +1009,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1110,6 +1121,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1234,6 +1246,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: false,
         lower_bound: Some(
             NodeIndex(5),
         ),
@@ -1398,6 +1411,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: false,
         lower_bound: Some(
             NodeIndex(8),
         ),

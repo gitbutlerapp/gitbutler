@@ -103,6 +103,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(5),
         ),
@@ -213,6 +214,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(5),
         ),
@@ -320,6 +322,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -430,6 +433,7 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
+        is_target_current: true,
         lower_bound: Some(
             NodeIndex(5),
         ),
