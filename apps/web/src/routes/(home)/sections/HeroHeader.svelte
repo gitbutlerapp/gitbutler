@@ -52,7 +52,8 @@
 </script>
 
 <h1 class="title">
-	Version Control for your <i class="but-text"
+	Version Control <br /> for your
+	<i class="but-text"
 		><span>Agents</span>
 		<svg
 			class="but-text__underline"

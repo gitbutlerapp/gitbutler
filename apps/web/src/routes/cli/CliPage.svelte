@@ -13,9 +13,8 @@
 
 <Hero currentPage="cli">
 	{#snippet descriptionContent()}
-		Agents are <b>60% faster</b> using GitButler than vanilla Git, with <b>80% fewer tool calls</b>.
-		<br /><br />
-		Works with any Git repo. Seamlessly fits your workflow. See the benchmark at
+		Agents are 60% faster using GitButler than vanilla Git, with 80% fewer tool calls. Works with
+		any Git repo. Seamlessly fits your workflow. See the benchmark at
 		<a href="https://vcbench.dev/" target="_blank" rel="noopener noreferrer">vcbench.dev</a>.
 	{/snippet}
 </Hero>
