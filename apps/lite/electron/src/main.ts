@@ -1,5 +1,15 @@
 import { checkForUpdates, registerUpdater, setAutoUpdateEnabled } from "./updater.js";
 import WatcherManager from "./watcher.js";
+import {
+	ipcTraceCompleteChannel,
+	ipcTraceCompletionPath,
+	ipcTraceHost,
+	ipcTraceWatcherEventChannel,
+	ipcTraceWatcherEventPath,
+	ipcTraceWatcherHost,
+	isIpcTraceCompletion,
+	isIpcTraceWatcherEvent,
+} from "./tracing.js";
 import * as sdk from "@gitbutler/but-sdk";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import {
@@ -369,6 +379,42 @@ const registerIpcHandlers = (): void => {
 		ipcMain.handle(channel, senderValidatingListener);
 	};
 
+	if (!app.isPackaged) {
+		const relayIpcTrace = async (path: string, value: unknown, host?: string): Promise<boolean> => {
+			const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+			if (devServerUrl === undefined) return false;
+
+			try {
+				const relayUrl = new URL(path, devServerUrl);
+				if (host !== undefined) relayUrl.hostname = host;
+				const response = await net.fetch(relayUrl.toString(), {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify(value),
+				});
+				return response.ok;
+			} catch {
+				// Tracing must never affect real IPC calls or watcher events.
+				return false;
+			}
+		};
+
+		senderValidatingHandle(
+			ipcTraceCompleteChannel,
+			async (_event, value: unknown): Promise<boolean> => {
+				if (!isIpcTraceCompletion(value)) return false;
+				return relayIpcTrace(ipcTraceCompletionPath, value);
+			},
+		);
+		senderValidatingHandle(
+			ipcTraceWatcherEventChannel,
+			async (_event, value: unknown): Promise<boolean> => {
+				if (!isIpcTraceWatcherEvent(value)) return false;
+				return relayIpcTrace(ipcTraceWatcherEventPath, value, ipcTraceWatcherHost);
+			},
+		);
+	}
+
 	for (const key of exposedEndpoints) {
 		if (isOverride(key)) continue;
 		senderValidatingHandle(key, (_e, params: unknown) => derivedHandler(key)(params));
@@ -488,6 +534,10 @@ void app.whenReady().then(async () => {
 		});
 	} else {
 		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
+		const ipcTraceUrl = new URL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
+		ipcTraceUrl.hostname = ipcTraceHost;
+		const ipcTraceWatcherUrl = new URL(ipcTraceUrl);
+		ipcTraceWatcherUrl.hostname = ipcTraceWatcherHost;
 
 		if (process.platform === "darwin") {
 			const dockIcon = getMacDockIcon();
@@ -504,7 +554,7 @@ void app.whenReady().then(async () => {
 			"style-src 'self' 'unsafe-inline';" +
 			"font-src 'self';" +
 			// ws source for HMR
-			"connect-src 'self' ws://127.0.0.1:5173;" +
+			`connect-src 'self' ws://127.0.0.1:5173 ${ipcTraceUrl.origin} ${ipcTraceWatcherUrl.origin};` +
 			"object-src 'none';" +
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
