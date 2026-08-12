@@ -113,13 +113,24 @@ export const rangeFromLineGroups = (
 	return range;
 };
 
-const contiguousSelectionFromContent = (
+const contiguousSelectionFromContents = (
 	hunk: Hunk,
-	content: Hunk["hunkContent"][number],
+	contents: Array<ChangeContent>,
 ): HunkLineSelection | null => {
-	if (content.type !== "change") return null;
+	let deletions: HunkLineSelectionGroup | undefined;
+	let additions: HunkLineSelectionGroup | undefined;
 
-	const lineGroups = lineGroupsFromChangeContent(hunk, content);
+	for (const content of contents) {
+		for (const group of lineGroupsFromChangeContent(hunk, content)) {
+			const existing = group.side === "deletions" ? deletions : additions;
+
+			if (existing) existing.lines += group.lines;
+			else if (group.side === "deletions") deletions = group;
+			else additions = group;
+		}
+	}
+
+	const lineGroups = [deletions, additions].filter((group) => group !== undefined);
 	if (lineGroups.length === 0) return null;
 
 	return {
@@ -128,17 +139,24 @@ const contiguousSelectionFromContent = (
 	};
 };
 
-export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelection> =>
-	hunk.hunkContent.flatMap((content) => contiguousSelectionFromContent(hunk, content) ?? []);
+export function* contiguousSelectionsFromHunk(hunk: Hunk): Generator<HunkLineSelection, void> {
+	let contents: Array<ChangeContent> = [];
 
-export const firstContiguousSelectionFromHunk = (hunk: Hunk): HunkLineSelection | null => {
 	for (const content of hunk.hunkContent) {
-		const sel = contiguousSelectionFromContent(hunk, content);
-		if (sel) return sel;
+		if (content.type === "change") {
+			contents.push(content);
+			continue;
+		}
+
+		const selection = contiguousSelectionFromContents(hunk, contents);
+		if (selection) yield selection;
+
+		contents = [];
 	}
 
-	return null;
-};
+	const selection = contiguousSelectionFromContents(hunk, contents);
+	if (selection) yield selection;
+}
 
 /** A line as the diff view names it: a number, read on one side of the change. */
 type LineQuery = {
@@ -178,7 +196,9 @@ export const wholeHunkSelectionByLine = (query: LineQuery): HunkLineSelection | 
 	const hunk = hunkByLine(query);
 	if (!hunk) return null;
 
-	const lineGroups = contiguousSelectionsFromHunk(hunk).flatMap((sel) => sel.lineGroups);
+	const lineGroups = contiguousSelectionsFromHunk(hunk)
+		.flatMap((sel) => sel.lineGroups)
+		.toArray();
 	if (lineGroups.length === 0) return null;
 
 	return {

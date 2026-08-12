@@ -2,7 +2,6 @@ import { assert } from "#ui/assert.ts";
 import { hash } from "#ui/hash.ts";
 import {
 	contiguousSelectionsFromHunk,
-	firstContiguousSelectionFromHunk,
 	rangeFromLineGroups,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
@@ -123,7 +122,7 @@ export const getDiffFileNavigation = ({
 		if (fstDiffHunk) {
 			const fstHunk = parseFileDiff(synthesizeFilePatch(change, [fstDiffHunk]), itemId).hunks[0];
 			if (fstHunk) {
-				const fstSelection = firstContiguousSelectionFromHunk(fstHunk);
+				const fstSelection = contiguousSelectionsFromHunk(fstHunk).next().value;
 				if (fstSelection) {
 					return {
 						itemId,

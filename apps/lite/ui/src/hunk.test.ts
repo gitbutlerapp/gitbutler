@@ -1,4 +1,8 @@
-import { contiguousSelectionByLine, wholeHunkSelectionByLine } from "#ui/hunk.ts";
+import {
+	contiguousSelectionByLine,
+	contiguousSelectionsFromHunk,
+	wholeHunkSelectionByLine,
+} from "#ui/hunk.ts";
 import { processFile } from "@pierre/diffs";
 import { describe, expect, it } from "vitest";
 
@@ -35,6 +39,43 @@ const hunks = (() => {
 	if (!parsed) throw new Error("Failed to parse patch");
 	return parsed.hunks;
 })();
+
+const REALIGNED_PATCH = [
+	"diff --git a/file.ts b/file.ts",
+	"--- a/file.ts",
+	"+++ b/file.ts",
+	"@@ -1,5 +1,4 @@",
+	" let snapshot = snapshot_with_missing_peer_dep_nv();",
+	"-let snapshot =",
+	"-  NpmResolutionSnapshot::new(snapshot.into_valid().unwrap());",
+	"+let snapshot = NpmResolutionSnapshot::new(snapshot.into_valid().unwrap());",
+	" let graph = Graph::from_snapshot(snapshot);",
+	" assert_eq!(graph.nodes.len(), 3);",
+	"",
+].join("\n");
+
+const realignedHunk = (() => {
+	const parsed = processFile(REALIGNED_PATCH, { cacheKey: "hunk.test.realigned" });
+	if (!parsed) throw new Error("Failed to parse realigned patch");
+	const hunk = parsed.hunks[0];
+	if (!hunk) throw new Error("Realigned patch has no hunk");
+	return hunk;
+})();
+
+describe("contiguousSelectionsFromHunk", () => {
+	it("keeps adjacent similarity-aligned change fragments contiguous", () => {
+		expect(realignedHunk.hunkContent.filter(({ type }) => type === "change")).toHaveLength(2);
+		expect(contiguousSelectionsFromHunk(realignedHunk).toArray()).toEqual([
+			{
+				hunkHeader: { oldStart: 1, oldLines: 5, newStart: 1, newLines: 4 },
+				lineGroups: [
+					{ side: "deletions", start: 2, lines: 2 },
+					{ side: "additions", start: 2, lines: 1 },
+				],
+			},
+		]);
+	});
+});
 
 describe("wholeHunkSelectionByLine", () => {
 	it("takes every changed run of the hunk holding a context line", () => {
