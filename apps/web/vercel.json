@@ -1,0 +1,3 @@
+{
+	"redirects": [{ "source": "/cli", "destination": "/", "permanent": true }]
+}

@@ -52,37 +52,25 @@
 </script>
 
 <h1 class="title">
-	Git, <i class="but-text"
-		><span>But</span>
+	Version Control <br /> for your
+	<i class="but-text"
+		><span>Agents</span>
 		<svg
 			class="but-text__underline"
 			width="134"
 			height="59"
 			viewBox="0 0 134 59"
+			preserveAspectRatio="none"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<path d="M10.307 38.7735C32.1083 27.5371 80.2447 17.3196 129.361 25.3953" stroke-width="45" />
 		</svg>
-	</i> Better
+	</i>
 </h1>
 
 <div class="description-wrapper">
 	<div class="toggle-switch" role="group" aria-label="View mode selection">
-		<button
-			bind:this={clientButton}
-			type="button"
-			class="toggle-option"
-			class:active={currentPage === "home"}
-			class:hovered={hoveredOption === "home" && currentPage !== "home"}
-			class:dimmed={hoveredOption !== null && hoveredOption !== "home" && currentPage === "home"}
-			onclick={() => goto("/")}
-			onmouseenter={() => (hoveredOption = "home")}
-			onmouseleave={() => (hoveredOption = null)}
-			aria-pressed={currentPage === "home"}
-		>
-			Desktop
-		</button>
 		<button
 			bind:this={cliButton}
 			type="button"
@@ -90,12 +78,26 @@
 			class:active={currentPage === "cli"}
 			class:hovered={hoveredOption === "cli" && currentPage !== "cli"}
 			class:dimmed={hoveredOption !== null && hoveredOption !== "cli" && currentPage === "cli"}
-			onclick={() => goto("/cli")}
+			onclick={() => goto("/")}
 			onmouseenter={() => (hoveredOption = "cli")}
 			onmouseleave={() => (hoveredOption = null)}
 			aria-pressed={currentPage === "cli"}
 		>
 			CLI
+		</button>
+		<button
+			bind:this={clientButton}
+			type="button"
+			class="toggle-option"
+			class:active={currentPage === "home"}
+			class:hovered={hoveredOption === "home" && currentPage !== "home"}
+			class:dimmed={hoveredOption !== null && hoveredOption !== "home" && currentPage === "home"}
+			onclick={() => goto("/client")}
+			onmouseenter={() => (hoveredOption = "home")}
+			onmouseleave={() => (hoveredOption = null)}
+			aria-pressed={currentPage === "home"}
+		>
+			Desktop
 		</button>
 
 		<div
@@ -103,9 +105,9 @@
 			class:visible={hasValidMeasurements}
 			class:enable-transitions={enableTransitions}
 			class:dimmed={hoveredOption !== null && hoveredOption !== currentPage}
-			style:width="{activeOption === 'cli' ? cliButtonWidth : clientButtonWidth}px"
-			style:transform={activeOption === "cli"
-				? `translateX(${clientButtonWidth + TOGGLE_GAP}px)`
+			style:width="{activeOption === 'home' ? clientButtonWidth : cliButtonWidth}px"
+			style:transform={activeOption === "home"
+				? `translateX(${cliButtonWidth + TOGGLE_GAP}px)`
 				: "translateX(0)"}
 			aria-hidden="true"
 		></div>
@@ -139,9 +141,9 @@
 		z-index: 0;
 		position: absolute;
 		bottom: -8px;
-		left: -10%;
-		width: 120%;
-		height: auto;
+		left: -5%;
+		width: 110%;
+		height: 0.7em;
 		pointer-events: none;
 
 		path {
