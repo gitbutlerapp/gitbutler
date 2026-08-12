@@ -159,6 +159,13 @@ export const RowMeta: FC<ComponentProps<"div">> = (props) => (
 	<RowLabelFooter {...props} className={classes(props.className, "text-13", styles.meta)} />
 );
 
+/** The dot drawn between {@link RowMeta} items. */
+export const RowMetaSeparator: FC = () => (
+	<span aria-hidden className={classes(styles.metaSeparator, "text-12")}>
+		•
+	</span>
+);
+
 export const RowLabel: FC<
 	{ heading?: boolean; singleLine?: boolean } & useRender.ComponentProps<"div">
 > = ({ heading, singleLine, render, ...props }) =>

@@ -45,6 +45,7 @@ import {
 	RowLabelContainer,
 	RowLabelGroup,
 	RowMeta,
+	RowMetaSeparator,
 	RowToolbar,
 } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
@@ -300,9 +301,7 @@ export const BranchRow: FC<
 		});
 	};
 
-	const openPRInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt?.preventDefault();
-
+	const openPRInBrowser = async (): Promise<void> => {
 		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
 	};
 
@@ -380,7 +379,7 @@ export const BranchRow: FC<
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
-			label: "Open In Browser",
+			label: "Open Pull Request In Browser",
 			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
@@ -487,11 +486,14 @@ export const BranchRow: FC<
 					<RowMeta>
 						{/* Only while folded: the count stands in for the commits it hides,
 						    so showing it alongside them would just be noise. */}
-						{isFolded && (
-							<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-								<Icon size={14} name="commit" />
-								{commitCount}
-							</span>
+						{isFolded && commitCount > 0 && (
+							<>
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+									<Icon size={14} name="commit" />
+									{commitCount}
+								</span>
+								<RowMetaSeparator />
+							</>
 						)}
 
 						<span
@@ -513,25 +515,26 @@ export const BranchRow: FC<
 							</span>
 						</span>
 
-						{mforgeUrl != null && (
-							<a
-								href={mforgeUrl}
-								onClick={(evt) => void openPRInBrowser(evt)}
-								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
-							>
-								<Icon size={14} name="pr" />
-								PR
-							</a>
-						)}
+						{/* The checks belong to the PR, so they ride alongside its label
+						    rather than standing as their own meta item. */}
+						{pullRequest !== null && (
+							<>
+								<RowMetaSeparator />
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+									<Icon size={14} name="pr" />
+									PR
+								</span>
 
-						{ciChecks?.aggregate &&
-							(ciURL != null ? (
-								<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
-									<CIBubble checks={ciChecks.aggregate} />
-								</a>
-							) : (
-								<CIBubble checks={ciChecks.aggregate} />
-							))}
+								{ciChecks?.aggregate &&
+									(ciURL != null ? (
+										<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+											<CIBubble checks={ciChecks.aggregate} />
+										</a>
+									) : (
+										<CIBubble checks={ciChecks.aggregate} />
+									))}
+							</>
+						)}
 
 						{downstackPushStatus.anyRequiresPush &&
 							(() => {

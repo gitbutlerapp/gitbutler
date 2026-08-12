@@ -224,7 +224,7 @@
 .meta {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 }
 
 .metaItem {
@@ -234,6 +234,12 @@
 	/* Match small button height to prevent layout shift when buttons appear/disappear. */
 	height: 20px;
 	gap: 4px;
+}
+
+/* Dot drawn between meta items. */
+.metaSeparator {
+	flex-shrink: 0;
+	opacity: 0.4;
 }
 
 /* Item that yields space to its siblings by truncating its text. */
