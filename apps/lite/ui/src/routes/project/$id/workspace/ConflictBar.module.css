@@ -20,13 +20,80 @@
 	opacity: 0.85;
 }
 
-/* Without a manual notice to push them, the actions still sit at the far end. */
+/* Without a manual notice to push it, the resolve button still sits at the
+   far end. */
 .status:last-of-type {
 	margin-right: auto;
+}
+
+.resolve {
+	margin-left: auto;
 }
 
 .actions {
 	display: flex;
 	margin-left: auto;
 	gap: 8px;
+}
+
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--bg-overlay);
+}
+
+.viewport {
+	display: flex;
+	position: fixed;
+	inset: 0;
+	/* Keeps a clear band of backdrop around the popup at any size, and is
+	   what the popup's resize maxes out against. */
+	padding: 3rem;
+}
+
+.popup {
+	display: flex;
+	flex-direction: column;
+	width: min(1100px, 100%);
+	/* The minimums yield to narrow or tiled windows rather than overflow them. */
+	min-width: min(520px, 100%);
+	max-width: 100%;
+	height: min(80vh, 1200px);
+	min-height: min(360px, 100%);
+	max-height: 100%;
+	margin: auto;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-lg);
+	background-color: var(--bg-2);
+	box-shadow:
+		0 0.5px 1px rgb(0 0 0 / 0.12),
+		0 1px 3px -1px rgb(0 0 0 / 0.04),
+		0 2px 4px -1px rgb(0 0 0 / 0.04),
+		0 4px 8px -2px rgb(0 0 0 / 0.04),
+		0 12px 14px -4px rgb(0 0 0 / 0.04);
+	/* Native grip in the bottom-right corner; the viewport padding bounds it. */
+	resize: both;
+}
+
+.header {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	padding: 10px 12px;
+	gap: 10px;
+	border-bottom: 1px solid var(--border-2);
+	background: var(--bg-warn);
+	color: var(--text-warn);
+}
+
+.heading {
+	margin-right: auto;
+}
+
+/* The dialog's single scroll context; the marker views size to content. */
+.body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
 }

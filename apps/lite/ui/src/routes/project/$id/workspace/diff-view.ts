@@ -24,14 +24,7 @@ import {
 	type VirtualFileMetrics,
 } from "@pierre/diffs";
 
-export type Annotation =
-	| { _tag: "local"; id: string }
-	/**
-	 * An unresolved conflict of the selected commit, anchored at the line its
-	 * region starts in the intended result. `hunk` is 1-based, addressing the
-	 * conflict the same way the resolve API does.
-	 */
-	| { _tag: "conflict"; path: string; hunk: number };
+export type Annotation = { _tag: "local"; id: string };
 
 /**
  * Layout and metrics handed to CodeView. Shared because the minimap models item

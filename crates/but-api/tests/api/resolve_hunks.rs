@@ -63,6 +63,17 @@ fn conflicts_are_listed_without_entering_edit_mode() -> Result<()> {
     assert!(intended.contains("changed by this commit"));
     assert!(!intended.contains("<<<<<<<"), "never marker text");
 
+    // The marker text carries display labels; parsing its blocks in order is
+    // what a marker-aware renderer does, so it must line up with `hunks`.
+    assert_eq!(file.merged_text.matches("<<<<<<< auto resolved").count(), 2);
+    assert_eq!(file.merged_text.matches("||||||| original base").count(), 2);
+    assert_eq!(file.merged_text.matches(">>>>>>> as authored").count(), 2);
+    assert!(
+        !file.merged_text.contains("gitbutler-resolve"),
+        "sentinels are for the scanner, not for humans: {}",
+        file.merged_text
+    );
+
     // Read-only: the commit and the workspace are untouched.
     let commit = but_core::Commit::from_id(conflicted_commit.attach(&repo))?;
     assert!(commit.is_conflicted());

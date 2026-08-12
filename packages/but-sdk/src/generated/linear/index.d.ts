@@ -1966,6 +1966,12 @@ export type ConflictedFile = {
    * position in this list.
    */
   hunks: Array<ConflictHunk>;
+  /**
+   * The file's content with diff3 conflict markers, labeled for display.
+   * Scanning its marker blocks in order yields exactly `hunks`, so a
+   * renderer that parses markers can address conflict N as hunk N+1.
+   */
+  mergedText: string;
 };
 
 /** A stack that conflicted while applying a branch. */

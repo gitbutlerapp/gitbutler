@@ -3,8 +3,10 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { Dialog } from "@base-ui/react";
 import type { FC } from "react";
 import styles from "./ConflictBar.module.css";
+import { ConflictedFiles } from "#ui/routes/project/$id/workspace/ConflictedFiles.tsx";
 import type {
 	ConflictedFile,
 	HunkResolution,
@@ -26,13 +28,14 @@ type Props = {
 };
 
 /**
- * What is still unresolved in the selected commit, and the batch actions for
- * checked conflicts.
+ * Flags what is unresolved in the selected commit and opens the resolution
+ * dialog. The diff itself stays the commit's actual changes — at every
+ * conflict the commit fell back to the parent, so there is nothing of it to
+ * render there; resolving toward the authored side is what makes a change
+ * appear in the diff.
  *
- * Present the whole time the commit is conflicted — appearing on first check
- * would shift the diff under the pointer. Also names the files that need edit
- * mode, which have no diff or cards and would otherwise only show in the
- * closed-by-default files panel.
+ * Also names the files that need edit mode, which have no marker view and
+ * would otherwise only show in the closed-by-default files panel.
  */
 export const ConflictBar: FC<Props> = (p) => {
 	const dispatch = useAppDispatch();
@@ -52,11 +55,9 @@ export const ConflictBar: FC<Props> = (p) => {
 		<div className={styles.bar}>
 			<Icon name="warning" />
 			<span className={classes(styles.status, "text-13")}>
-				{checked.length > 0
-					? `${checked.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
-					: `${total} unresolved conflict${
-							total === 1 ? "" : "s"
-						} — the intended change${total === 1 ? "" : "s"} could not be applied`}
+				{`${total} conflict${total === 1 ? "" : "s"} auto-resolved — the change${
+					total === 1 ? "" : "s"
+				} as authored could not be applied`}
 			</span>
 
 			{p.manual.length > 0 && (
@@ -68,34 +69,88 @@ export const ConflictBar: FC<Props> = (p) => {
 				</span>
 			)}
 
-			{checked.length > 0 && (
-				<div className={styles.actions}>
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "outline", size: "small" })}
-						disabled={p.busy}
-						onClick={() => apply({ type: "theirs" })}
+			{total > 0 && (
+				<Dialog.Root>
+					<Dialog.Trigger
+						className={classes(
+							getButtonClassName({ variant: "outline", size: "small" }),
+							styles.resolve,
+						)}
 					>
-						Keep
-					</button>
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "outline", size: "small" })}
-						disabled={p.busy}
-						onClick={() => apply({ type: "ours" })}
-					>
-						Discard
-					</button>
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "ghost", size: "small" })}
-						onClick={() =>
-							dispatch(projectSlice.actions.clearCheckedConflicts({ projectId: p.projectId }))
-						}
-					>
-						Clear
-					</button>
-				</div>
+						Resolve conflicts
+					</Dialog.Trigger>
+					<Dialog.Portal>
+						<Dialog.Backdrop className={styles.backdrop} />
+						<Dialog.Viewport className={styles.viewport}>
+							<Dialog.Popup aria-labelledby="resolve-conflicts-heading" className={styles.popup}>
+								<header className={styles.header}>
+									<Icon name="warning" />
+									<h1
+										id="resolve-conflicts-heading"
+										className={classes("text-14", "text-bold", styles.heading)}
+									>
+										{checked.length > 0
+											? `${checked.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
+											: `Resolve ${total} conflict${total === 1 ? "" : "s"}`}
+									</h1>
+
+									{checked.length > 0 && (
+										<div className={styles.actions}>
+											<button
+												type="button"
+												className={getButtonClassName({ variant: "outline", size: "small" })}
+												disabled={p.busy}
+												onClick={() => apply({ type: "theirs" })}
+											>
+												Accept incoming
+											</button>
+											<button
+												type="button"
+												className={getButtonClassName({ variant: "outline", size: "small" })}
+												disabled={p.busy}
+												onClick={() => apply({ type: "ours" })}
+											>
+												Accept current
+											</button>
+											<button
+												type="button"
+												className={getButtonClassName({ variant: "ghost", size: "small" })}
+												onClick={() =>
+													dispatch(
+														projectSlice.actions.clearCheckedConflicts({ projectId: p.projectId }),
+													)
+												}
+											>
+												Clear
+											</button>
+										</div>
+									)}
+
+									<Dialog.Close
+										aria-label="Close"
+										className={getButtonClassName({
+											variant: "ghost",
+											size: "small",
+											iconOnly: true,
+										})}
+									>
+										<Icon name="cross" />
+									</Dialog.Close>
+								</header>
+
+								<div className={styles.body}>
+									<ConflictedFiles
+										projectId={p.projectId}
+										commitId={p.commitId}
+										conflicts={p.conflicts}
+										busy={p.busy}
+										onResolve={p.onResolve}
+									/>
+								</div>
+							</Dialog.Popup>
+						</Dialog.Viewport>
+					</Dialog.Portal>
+				</Dialog.Root>
 			)}
 		</div>
 	);
