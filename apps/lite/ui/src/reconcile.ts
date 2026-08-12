@@ -15,7 +15,7 @@ import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
 import { useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
-import { branchOperand, commitOperand } from "./operands.ts";
+import { branchOperand, commitOperand, type FileParent, type Operand } from "./operands.ts";
 import { decodeBytes } from "./api/bytes.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 
@@ -97,14 +97,28 @@ export const useStateReconciler = (): void => {
 		}
 	});
 
-	const checkedFiles = checkedOperands.filter((operand) => operand._tag === "File");
+	type FileScopedCheckedOperand = {
+		operand: Extract<Operand, { _tag: "File" | "Hunk" }>;
+		parent: FileParent;
+		path: string;
+	};
+	const checkedFiles = checkedOperands.flatMap<FileScopedCheckedOperand>((operand) => {
+		switch (operand._tag) {
+			case "File":
+				return [{ operand, parent: operand.parent, path: operand.path }];
+			case "Hunk":
+				return [{ operand, parent: operand.parent.parent, path: operand.parent.path }];
+			default:
+				return [];
+		}
+	});
 
-	const checkedUncommittedFiles = checkedFiles.flatMap(({ parent, ...file }) =>
-		parent._tag === "UncommittedChanges" ? [{ ...file, parent }] : [],
+	const checkedUncommittedFiles = checkedFiles.filter(
+		(file) => file.parent._tag === "UncommittedChanges",
 	);
 	const reconcileCheckedUncommittedFiles = useEffectEvent((worktreeChangePaths: Set<string>) => {
-		const invalidated = checkedUncommittedFiles.filter(
-			(file) => !worktreeChangePaths.has(file.path),
+		const invalidated = checkedUncommittedFiles.flatMap((file) =>
+			worktreeChangePaths.has(file.path) ? [] : [file.operand],
 		);
 
 		if (invalidated.length > 0) {
@@ -114,15 +128,16 @@ export const useStateReconciler = (): void => {
 		}
 	});
 
-	const checkedCommitFiles = checkedFiles.flatMap(({ parent, ...file }) =>
-		parent._tag === "Commit" ? [{ ...file, parent }] : [],
+	const checkedCommitFiles = checkedFiles.flatMap((file) =>
+		file.parent._tag === "Commit" ? [{ ...file, parent: file.parent }] : [],
 	);
 	const reconcileCheckedCommitFiles = useEffectEvent(
 		(headInfoIndex: HeadInfoIndex, checkedCommitFilesByCommitId: Map<string, Set<string>>) => {
-			const invalidated = checkedCommitFiles.filter(
-				(file) =>
-					!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
-					checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false,
+			const invalidated = checkedCommitFiles.flatMap((file) =>
+				!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
+				checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false
+					? [file.operand]
+					: [],
 			);
 
 			if (invalidated.length > 0) {
@@ -133,16 +148,17 @@ export const useStateReconciler = (): void => {
 		},
 	);
 
-	const checkedBranchFiles = checkedFiles.flatMap(({ parent, ...file }) =>
-		parent._tag === "Branch" ? [{ ...file, parent }] : [],
+	const checkedBranchFiles = checkedFiles.flatMap((file) =>
+		file.parent._tag === "Branch" ? [{ ...file, parent: file.parent }] : [],
 	);
 	const reconcileCheckedBranchFiles = useEffectEvent(
 		(headInfoIndex: HeadInfoIndex, checkedBranchFilesByBranchName: Map<string, Set<string>>) => {
-			const invalidated = checkedBranchFiles.filter(
-				(file) =>
-					!headInfoIndex.branchContextByRefBytes(file.parent.branchRef) ||
-					checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
-						false,
+			const invalidated = checkedBranchFiles.flatMap((file) =>
+				!headInfoIndex.branchContextByRefBytes(file.parent.branchRef) ||
+				checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
+					false
+					? [file.operand]
+					: [],
 			);
 
 			if (invalidated.length > 0) {

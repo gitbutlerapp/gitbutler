@@ -144,6 +144,8 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 				return "commit";
 			case "File":
 				return "file";
+			case "Hunk":
+				return "hunk";
 			case null:
 				return null;
 		}

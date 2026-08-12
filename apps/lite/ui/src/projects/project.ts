@@ -59,7 +59,7 @@ export type SelectionState = {
 
 type DetailsSelectionScope = Extract<SelectionScope, "uncommitted-files" | "outline">;
 
-type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" }>;
+type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" | "Hunk" }>;
 
 export type BranchTab = "diff" | "pr";
 
@@ -441,12 +441,26 @@ export const projectReducers = {
 				const newId = replacedCommits[operand.commitId];
 				if (newId !== undefined)
 					newOperand = commitOperand({ commitId: newId, changeId: operand.changeId });
-			} else if (operand.parent._tag === "Commit") {
+			} else if (operand._tag === "File" && operand.parent._tag === "Commit") {
 				const newId = replacedCommits[operand.parent.commitId];
 				if (newId !== undefined) {
 					newOperand = fileOperand({
 						parent: commitFileParent({ commitId: newId, changeId: operand.parent.changeId }),
 						path: operand.path,
+					});
+				}
+			} else if (operand._tag === "Hunk" && operand.parent.parent._tag === "Commit") {
+				const newId = replacedCommits[operand.parent.parent.commitId];
+				if (newId !== undefined) {
+					newOperand = hunkOperand({
+						...operand,
+						parent: {
+							...operand.parent,
+							parent: commitFileParent({
+								commitId: newId,
+								changeId: operand.parent.parent.changeId,
+							}),
+						},
 					});
 				}
 			}
@@ -569,6 +583,7 @@ type GroupedCheckedOperands = {
 	uncommittedFiles: Array<FileOperand>;
 	filesByCommitId: Map<string, Array<FileOperand>>;
 	filesByBranchRef: Map<string, Array<FileOperand>>;
+	hunksByFileParent: Map<string, Array<HunkOperand>>;
 };
 
 const selectGroupedCheckedOperands = createSelector(
@@ -598,6 +613,11 @@ const selectGroupedCheckedOperands = createSelector(
 						}
 						break;
 					}
+					case "Hunk": {
+						const parentKey = operandIdentityKey(operand.parent.parent);
+						acc.hunksByFileParent.getOrInsert(parentKey, []).push(operand);
+						break;
+					}
 					default:
 						operand satisfies never;
 				}
@@ -609,6 +629,7 @@ const selectGroupedCheckedOperands = createSelector(
 				uncommittedFiles: [],
 				filesByCommitId: new Map(),
 				filesByBranchRef: new Map(),
+				hunksByFileParent: new Map(),
 			},
 		),
 );
@@ -710,7 +731,9 @@ export const projectSelectors = {
 			? null
 			: selectGroupedCheckedOperands(state).commits.length > 0
 				? "Commit"
-				: "File",
+				: selectGroupedCheckedOperands(state).hunksByFileParent.size > 0
+					? "Hunk"
+					: "File",
 	selectCanCheckCommits: (state: ProjectState) =>
 		selectCheckedOperands(state).length === selectGroupedCheckedOperands(state).commits.length,
 	selectCanCheckFiles: (state: ProjectState, fileParent: FileParent) => {
@@ -730,6 +753,16 @@ export const projectSelectors = {
 			case "Branch":
 				return false;
 		}
+	},
+	selectCanCheckHunks: (state: ProjectState, fileParent: FileParent) => {
+		// We currently don't support any operations on branch hunks.
+		if (fileParent._tag === "Branch") return false;
+
+		return (
+			selectCheckedOperands(state).length ===
+			(selectGroupedCheckedOperands(state).hunksByFileParent.get(operandIdentityKey(fileParent))
+				?.length ?? 0)
+		);
 	},
 	...getBranchesSelectors((state: ProjectState) => state.branches),
 	...getUpstreamSelectors((state: ProjectState) => state.upstream),
