@@ -62,7 +62,7 @@
 		"marked": "catalog:",
 		"mocha": "^10.8.2",
 		"nanoevents": "^9.1.0",
-		"playwright-webkit": "^1.58.2",
+		"playwright-webkit": "catalog:",
 		"postcss": "catalog:postcss",
 		"postcss-load-config": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",

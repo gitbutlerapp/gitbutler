@@ -27,6 +27,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
+      lite_e2e: ${{ steps.filter.outputs.lite_e2e }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,6 +65,21 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
+            lite_e2e:
+              - *workflows
+              - 'apps/lite/**'
+              - 'crates/**'
+              - 'e2e/playwright/fixtures/**'
+              - 'e2e/playwright/scripts/**'
+              - 'packages/but-sdk/**'
+              - 'scripts/install-minimal-debian-dependencies.sh'
+              - '.nvmrc'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'rust-toolchain.toml'
             but_installer:
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -717,4 +733,53 @@ jobs:
           path: |
             ./packages/ui/playwright-report/
             ./packages/ui/test-results/
+          retention-days: 30
+
+  lite-e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      BUT: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/debug/but
+      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install system dependencies
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - uses: ./.github/actions/init-env-node
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: lite-e2e-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Build native dependencies
+        run: |
+          pnpm --filter @gitbutler/but-sdk build:napi
+          cargo build -p but
+      # Ubuntu restricts the user namespaces used by unpackaged Chromium builds. Configure
+      # Electron's bundled SUID helper so the tests can keep Chromium's sandbox enabled.
+      # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+      # https://chromium.googlesource.com/chromium/src/+/main/docs/linux/suid_sandbox_development.md
+      - name: Configure Electron sandbox
+        run: |
+          pnpm --filter @gitbutler/lite exec install-electron
+          electron_path="$(pnpm --filter @gitbutler/lite exec node -p 'require("electron")')"
+          electron_sandbox="$(dirname "$electron_path")/chrome-sandbox"
+          sudo chown root:root "$electron_sandbox"
+          sudo chmod 4755 "$electron_sandbox"
+      - name: Run Lite E2E tests
+        # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
+        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: lite-e2e-output
+          path: apps/lite/test-results/
+          if-no-files-found: ignore
           retention-days: 30

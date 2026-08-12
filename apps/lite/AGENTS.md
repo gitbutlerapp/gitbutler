@@ -9,14 +9,6 @@ CDP driver script and its gotchas are in
 `.agents/skills/lite-render-perf/SKILL.md` under "Driving the dev app over
 CDP".
 
-# Typechecking
-
-Typechecking is the fastest way to validate that everything is okay. Always run this **exact** command to typecheck:
-
-```console
-$ pnpm -F @gitbutler/lite check
-```
-
 # Components
 
 Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are usually redundant as we use React Compiler, however may be necessary in hot paths where the compiler fails to understand that a computation is pure and therefore safe to memoise.
@@ -45,13 +37,35 @@ behind mode conditionals — the tell is an `if (tab === ...)` guard, or a
 comment explaining a special case, in code that shouldn't know that mode
 exists.
 
-# Concluding your work
+# Verifying your work
 
-Once the work is functionally complete, lint and format it with Oxlint, Oxfmt,
-Prettier, and Knip. Oxfmt only formats TypeScript; CI runs Prettier over the
-whole repo, including the CSS and Markdown that Oxfmt leaves untouched, so run
-it too or those files fail CI:
+Always run the specified commands **exactly** as written.
+
+## Typechecking
+
+Typechecking is the fastest way to validate that everything is okay.
 
 ```console
-$ pnpm oxlint:fix && pnpm exec oxfmt apps/lite && pnpm exec prettier --write . && pnpm knip:prod && pnpm knip:non-prod
+$ pnpm -F @gitbutler/lite check
+```
+
+## Testing
+
+Our unit tests are written with Vitest and our E2E tests with Playwright.
+
+```console
+$ pnpm -F @gitbutler/lite test
+$ pnpm -F @gitbutler/lite test:e2e
+```
+
+## Linting & formatting
+
+Once the work is functionally complete, run the following linters and formatters.
+
+```console
+$ pnpm oxlint:fix
+$ pnpm knip:prod
+$ pnpm knip:non-prod
+$ pnpm exec oxfmt apps/lite
+$ pnpm exec prettier --write apps/lite
 ```

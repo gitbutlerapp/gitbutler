@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"moduleResolution": "nodenext",
+		"module": "nodenext",
+		"target": "es2022",
+		"lib": ["es2024", "dom"],
+		"types": ["node"],
+		"skipLibCheck": true,
+		"noEmit": true,
+		"erasableSyntaxOnly": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"strict": true
+	},
+	"include": ["./**/*.ts"]
+}

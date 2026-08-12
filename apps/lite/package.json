@@ -22,8 +22,9 @@
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json && vite build --config electron/vite.config.ts",
-		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
+		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit && tsgo -p e2e/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vite.config.ts",
+		"test:e2e": "pnpm prepare-askpass --debug && pnpm build:electron && playwright test --config ./e2e/playwright.config.ts",
 		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
@@ -154,6 +155,7 @@
 		"shiki": "^4.3.0"
 	},
 	"devDependencies": {
+		"@playwright/test": "catalog:",
 		"@storybook/addon-designs": "^11.1.3",
 		"@storybook/addon-docs": "^10.3.3",
 		"@storybook/react-vite": "^10.3.6",
@@ -167,7 +169,7 @@
 		"babel-plugin-react-compiler": "^1.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
-		"electron": "^43.0.0",
+		"electron": "^43.3.0",
 		"electron-builder": "^26.9.0",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"fast-check": "^4.9.0",
