@@ -515,6 +515,8 @@ export const BranchRow: FC<
 							</span>
 						</span>
 
+						{/* The checks belong to the PR, so they ride alongside its label
+						    rather than standing as their own meta item. */}
 						{pullRequest !== null && (
 							<>
 								<RowMetaSeparator />
@@ -522,19 +524,15 @@ export const BranchRow: FC<
 									<Icon size={14} name="pr" />
 									PR
 								</span>
-							</>
-						)}
 
-						{ciChecks?.aggregate && (
-							<>
-								<RowMetaSeparator />
-								{ciURL != null ? (
-									<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+								{ciChecks?.aggregate &&
+									(ciURL != null ? (
+										<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+											<CIBubble checks={ciChecks.aggregate} />
+										</a>
+									) : (
 										<CIBubble checks={ciChecks.aggregate} />
-									</a>
-								) : (
-									<CIBubble checks={ciChecks.aggregate} />
-								)}
+									))}
 							</>
 						)}
 
