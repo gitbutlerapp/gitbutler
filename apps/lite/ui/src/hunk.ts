@@ -13,7 +13,7 @@ import { Match } from "effect";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
-const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
+export const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart <= b.oldStart &&
 	a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines - 1 &&
 	a.newStart <= b.newStart &&
