@@ -1,6 +1,5 @@
 import { useUnapplyStack, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -17,8 +16,7 @@ import { Toolbar } from "@base-ui/react";
 import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import type { ComponentProps, FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { StackCardHeader, StackFoldAllButton } from "../StackCard.tsx";
-import styles from "./StackRow.module.css";
+import { StackCardHeader } from "../StackCard.tsx";
 
 export const StackRow: FC<
 	{
@@ -70,7 +68,23 @@ export const StackRow: FC<
 		}
 	};
 
+	const toggleFoldAll = () => {
+		dispatch(
+			projectSlice.actions.setSegmentsFolded({
+				projectId,
+				branchRefs: foldableRefs,
+				folded: !anyFolded,
+			}),
+		);
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: anyFolded ? "Unfold All Branches" : "Fold All Branches",
+			enabled: branchCount > 1 && foldableRefs.length > 0,
+			onSelect: toggleFoldAll,
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({ label: "Move Up", enabled: false }),
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
@@ -90,34 +104,15 @@ export const StackRow: FC<
 	return (
 		<StackCardHeader
 			{...restProps}
+			icon="drag-square"
+			// A stack of one branch is just that branch, so it names itself after
+			// what it actually holds.
+			label={branchCount > 1 ? `Stack of ${branchCount} branches` : "Single branch"}
 			toolbarLabel="Stack actions"
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<StackFoldAllButton
-				hasMultipleBranches={branchCount > 1}
-				folded={anyFolded}
-				disabled={foldableRefs.length === 0}
-				onToggle={() =>
-					dispatch(
-						projectSlice.actions.setSegmentsFolded({
-							projectId,
-							branchRefs: foldableRefs,
-							folded: !anyFolded,
-						}),
-					)
-				}
-			/>
-
-			<span
-				aria-hidden
-				data-disabled={!isDefaultMode || undefined}
-				className={classes(getRowButtonClassName({ iconOnly: true }), styles.moveIndicator)}
-			>
-				<Icon name="drag-square" />
-			</span>
-
 			<Toolbar.Button
 				aria-label="Stack menu"
 				disabled={!isDefaultMode}

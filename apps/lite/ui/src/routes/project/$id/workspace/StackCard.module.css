@@ -8,8 +8,14 @@
 
 .header {
 	position: relative;
-	padding-inline: 10px;
-	padding-block: 2px;
+	column-gap: 6px;
+	align-items: center;
+	padding-block: 4px;
+	/* The card does not clip its children, so the header rounds its own top
+	   corners to sit inside the card's. */
+	border-start-start-radius: var(--radius-card);
+	border-start-end-radius: var(--radius-card);
+	background-color: var(--bg-2);
 
 	/* Divider drawn as a pseudo-element so it spans the full card width without
 	   the header having to opt out of the body's inset. */
@@ -24,17 +30,33 @@
 	}
 }
 
-.headerToolbar {
+/* The icon and label, which take the space the toolbar leaves. */
+.headerContent {
+	display: flex;
+	column-gap: 8px;
 	flex-grow: 1;
-	justify-content: space-between;
+	align-items: center;
+	min-width: 0;
 }
 
-/* Stands in for the fold-all button on a single-branch stack, so the header's
-   slots keep their positions. */
-.headerGlyph {
-	margin-inline: -4px;
+.headerIcon {
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+.headerLabel {
+	overflow: hidden;
 	color: var(--text-2);
-	pointer-events: none;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.headerToolbar {
+	/* The toolbar sizes itself to a row's line height; the header's is shorter,
+	   set through the variable so the toolbar's own rule keeps winning. */
+	--single-line-row-height: 20px;
+	flex-shrink: 0;
 }
 
 .body {
