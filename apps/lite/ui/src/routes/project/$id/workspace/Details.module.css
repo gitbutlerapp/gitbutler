@@ -146,6 +146,10 @@
 	/* Code, then the minimap ruler — which collapses the column when it has
 	   nothing to map. */
 	grid-template-columns: minmax(0, 1fr) auto;
+	/* Second row of `.diffArea`, named rather than implied: the conflict bar
+	   above renders nothing unless there are conflicts, and auto placement would
+	   otherwise drop this into that row's `auto` track and size it to the diff. */
+	grid-row: 2;
 
 	&:has([data-minimap-navigable="true"]) .diffContents {
 		/* The ruler's edge, drawn from the code's side of it. The ruler ends where
