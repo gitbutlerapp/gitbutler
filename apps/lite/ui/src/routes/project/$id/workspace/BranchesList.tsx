@@ -244,13 +244,19 @@ const BranchItem: FC<{
 					<RowMeta>
 						{showsAuthorMeta && (
 							<span
-								className={classes(rowStyles.fadedText, rowStyles.metaItem)}
+								className={classes(
+									rowStyles.fadedText,
+									rowStyles.metaItem,
+									rowStyles.metaItemShrinkable,
+								)}
 								title={branch.lastAuthor?.email}
 							>
-								{lastAuthorName !== undefined && <>{lastAuthorName} </>}
-								{branch.updatedAtMs !== null && (
-									<RelativeTime timestamp={branch.updatedAtMs} now={now} />
-								)}
+								<span className={rowStyles.metaItemText}>
+									{lastAuthorName !== undefined && <>{lastAuthorName} </>}
+									{branch.updatedAtMs !== null && (
+										<RelativeTime timestamp={branch.updatedAtMs} now={now} />
+									)}
+								</span>
 							</span>
 						)}
 
