@@ -19,7 +19,10 @@ pub fn reword<'ws, 'meta, M: RefMetadata>(
 ) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
     let (target_selector, mut commit) = editor.find_selectable_commit(commit)?;
 
-    commit.message = new_message.to_owned();
+    commit.message = but_core::commit::rewrite_conflict_markers_on_message_change(
+        commit.message.as_ref(),
+        new_message.to_owned(),
+    );
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
 
     editor.replace(target_selector, Step::new_pick(new_id))?;
