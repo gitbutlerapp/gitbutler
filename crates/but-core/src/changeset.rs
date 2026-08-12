@@ -116,16 +116,20 @@ pub struct SquashCandidate {
 /// boundary: the topmost segment may carry unmerged work stacked on a squash-merged segment
 /// below it.
 ///
-/// Commits are compared by their auto-resolution tree when conflicted, and only candidates
-/// that are actually examined get decoded. `lut` must contain only commits the target gained
-/// since `base`: a cumulative-changeset match against older target history would be a
-/// coincidence, and acting on it could delete a live branch. Only finds matches if `lut` was
-/// built with `expensive` checks.
+/// Commits are compared by their auto-resolution tree when conflicted; candidates are
+/// decoded while scanning for boundaries and, once a match is found, below it. `lut` must
+/// contain only commits the target gained since `base`: a cumulative-changeset match against
+/// older target history would be a coincidence, and acting on it could delete a live branch.
+/// Only finds matches if `lut` was built with `expensive` checks.
 ///
-/// Returns the index of the matched boundary candidate and the matching commit; the caller
-/// marks the boundary and everything beneath it integrated. Candidates above the boundary
-/// must stay untouched: a no-change tip commit borrows the cumulative content beneath it and
-/// must not have its branch deleted by a match.
+/// Returns the matching commit and the index to claim from; the caller marks that candidate
+/// and everything beneath it integrated, leaving candidates above it untouched. When several
+/// candidates share the matched boundary's tree, the content between them cancels out and
+/// the match cannot tell whether it ever landed, so the lowest such index is returned —
+/// possibly a commit below the trialed boundary. This never deletes unlanded work, at the
+/// cost of keeping net-zero commits local even when a squash genuinely covered them. A
+/// no-change tip commit likewise borrows the cumulative content beneath it and is never
+/// claimed.
 pub fn squash_merge_boundary(
     repo: &gix::Repository,
     lut: &Identity,
@@ -147,7 +151,26 @@ pub fn squash_merge_boundary(
             continue;
         };
         if let Some(commit_id) = lut.get(&Identifier::ChangesetId(changeset_id)) {
-            return Ok(Some((idx, *commit_id)));
+            // A lower candidate with the same tree yields the same changeset: everything in
+            // between cancels out, and the match cannot tell whether that content ever
+            // landed (e.g. an upper segment reverting a middle one, squashed bottom only).
+            // Claim from the lowest such candidate so canceled-out commits are never
+            // deleted by a coincidental match.
+            let mut boundary = idx;
+            for (lower_idx, lower) in candidates.iter().enumerate().skip(idx + 1) {
+                // An unreadable candidate leaves the ambiguity unresolved: abandon the
+                // match rather than risk claiming content that never landed.
+                let Ok(lower_commit) = Commit::from_id(lower.id.attach(repo)) else {
+                    return Ok(None);
+                };
+                let Ok(lower_tree) = lower_commit.tree_id_or_auto_resolution() else {
+                    return Ok(None);
+                };
+                if lower_tree.detach() == tree_id {
+                    boundary = lower_idx;
+                }
+            }
+            return Ok(Some((boundary, *commit_id)));
         }
     }
     Ok(None)

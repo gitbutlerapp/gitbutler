@@ -1148,6 +1148,106 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
 }
 
 #[test]
+fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("squash-merged-bottom-below-canceling-segments")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack_with_segments(&mut meta, 1, "C", StackState::InWorkspace, &["B", "A"]);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    // C's tip tree equals A's tip tree (B adds Y, C deletes it), and only A's changes
+    // were squash-merged upstream.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c98519c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* c63394f (C) delete Y
+* de9274b (B) add Y
+* 860210a (A) add A2
+* 5434680 add A1
+| * cfc7fef (origin/main) add X
+| * 80a3c61 A1 + A2 (#1)
+|/  
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    let mut workspace = graph.into_workspace()?;
+    // One stack, three segments; nothing is detected as integrated up front.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+└── ≡📙:3:C on 9bede57 {1}
+    ├── 📙:3:C
+    │   └── ·c63394f (🏘️)
+    ├── 📙:4:B
+    │   └── ·de9274b (🏘️)
+    └── 📙:5:A
+        ├── ·860210a (🏘️)
+        └── ·5434680 (🏘️)
+
+"#]]
+    );
+
+    let project_meta = integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
+        }],
+    )?;
+
+    let meta = empty_managed_workspace_metadata(&meta)?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    // The cumulative diff at C's boundary equals the squash commit's changeset, but that
+    // must only prune A: B's and C's changes cancel out and never landed individually.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on cfc7fef
+└── ≡:3:C on cfc7fef {1}
+    ├── :3:C
+    │   └── ·1b83941 (🏘️)
+    └── :4:B
+        └── ·30c179e (🏘️)
+
+"#]]
+    );
+    // A's ref and commits are gone while B's and C's commits were rewritten onto the
+    // target tip, keeping the never-landed add/delete pair.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 845405d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 1b83941 (C) delete Y
+* 30c179e (B) add Y
+* cfc7fef (origin/main) add X
+* 80a3c61 A1 + A2 (#1)
+* 9bede57 (main) add M1
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_commit() -> Result<()>
 {
     let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
