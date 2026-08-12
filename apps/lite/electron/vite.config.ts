@@ -11,16 +11,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * that resolves `electron` and a few polyfilled builtins — never relative
  * files. Bundling is what lets the preload import the endpoint lists from
  * ipc.ts instead of repeating every channel as a literal. Only the preload
- * needs this; the main process is a normal Node module graph that tsgo emits.
+ * needs this; the main process has its own ESM bundle (vite.main.config.ts).
  */
 export default defineConfig({
 	// Vite's transform covers .ts/.mts but not .cts, which the preload must
-	// be so tsgo emits it as CommonJS for Electron.
+	// be so Vite emits it as CommonJS for Electron.
 	esbuild: { include: /\.[cm]?[jt]sx?$/ },
 	build: {
 		outDir: path.join(here, "../dist/electron"),
-		// tsgo emits the rest of the main-process graph here first.
-		emptyOutDir: false,
+		emptyOutDir: true,
 		target: "es2022",
 		minify: false,
 		sourcemap: true,
