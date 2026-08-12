@@ -117,20 +117,17 @@ const contiguousSelectionFromContents = (
 	hunk: Hunk,
 	contents: Array<ChangeContent>,
 ): HunkLineSelection | null => {
-	let deletions: HunkLineSelectionGroup | undefined;
-	let additions: HunkLineSelectionGroup | undefined;
+	const lineGroups: Array<HunkLineSelectionGroup> = [];
 
 	for (const content of contents) {
 		for (const group of lineGroupsFromChangeContent(hunk, content)) {
-			const existing = group.side === "deletions" ? deletions : additions;
-
-			if (existing) existing.lines += group.lines;
-			else if (group.side === "deletions") deletions = group;
-			else additions = group;
+			const previous = lineGroups.at(-1);
+			if (previous?.side === group.side && previous.start + previous.lines === group.start)
+				previous.lines += group.lines;
+			else lineGroups.push(group);
 		}
 	}
 
-	const lineGroups = [deletions, additions].filter((group) => group !== undefined);
 	if (lineGroups.length === 0) return null;
 
 	return {

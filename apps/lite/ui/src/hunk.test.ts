@@ -1,6 +1,7 @@
 import {
 	contiguousSelectionByLine,
 	contiguousSelectionsFromHunk,
+	rangeFromLineGroups,
 	wholeHunkSelectionByLine,
 } from "#ui/hunk.ts";
 import { processFile } from "@pierre/diffs";
@@ -62,6 +63,25 @@ const realignedHunk = (() => {
 	return hunk;
 })();
 
+const FORWARD_REALIGNED_PATCH = [
+	"diff --git a/file.ts b/file.ts",
+	"--- a/file.ts",
+	"+++ b/file.ts",
+	"@@ -20,1 +28,2 @@",
+	"-assert_eq!(graph.nodes.len(), 3);",
+	"+let extra = true;",
+	"+assert_eq!(graph.nodes.len(), 4);",
+	"",
+].join("\n");
+
+const forwardRealignedHunk = (() => {
+	const parsed = processFile(FORWARD_REALIGNED_PATCH, { cacheKey: "hunk.test.forward-realigned" });
+	if (!parsed) throw new Error("Failed to parse forward-realigned patch");
+	const hunk = parsed.hunks[0];
+	if (!hunk) throw new Error("Forward-realigned patch has no hunk");
+	return hunk;
+})();
+
 describe("contiguousSelectionsFromHunk", () => {
 	it("keeps adjacent similarity-aligned change fragments contiguous", () => {
 		expect(realignedHunk.hunkContent.filter(({ type }) => type === "change")).toHaveLength(2);
@@ -74,6 +94,25 @@ describe("contiguousSelectionsFromHunk", () => {
 				],
 			},
 		]);
+	});
+
+	it("keeps the controlled range around a forward-realigned addition", () => {
+		expect(forwardRealignedHunk.hunkContent.filter(({ type }) => type === "change")).toEqual([
+			expect.objectContaining({ deletions: 0, additions: 1 }),
+			expect.objectContaining({ deletions: 1, additions: 1 }),
+		]);
+
+		const selection = contiguousSelectionsFromHunk(forwardRealignedHunk).next().value;
+		expect(selection?.lineGroups).toEqual([
+			{ side: "additions", start: 28, lines: 1 },
+			{ side: "deletions", start: 20, lines: 1 },
+			{ side: "additions", start: 29, lines: 1 },
+		]);
+		expect(selection && rangeFromLineGroups(selection.lineGroups)).toEqual({
+			start: 28,
+			side: "additions",
+			end: 29,
+		});
 	});
 });
 
