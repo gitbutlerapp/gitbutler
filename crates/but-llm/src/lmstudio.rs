@@ -5,7 +5,6 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY,
     chat::ChatMessage,
     client::LLMClient,
     openai_utils::{
@@ -29,17 +28,6 @@ impl Default for LMStudioConfig {
     }
 }
 
-impl LMStudioConfig {
-    fn from_git_config(config: &gix::config::File) -> Self {
-        let api_base = config
-            .string(AI_LMSTUDIO_ENDPOINT_KEY)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| LMSTUDIO_API_BASE_DEFAULT.to_string());
-
-        Self { api_base }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct LMStudioProvider {
     model: Option<String>,
@@ -48,12 +36,22 @@ pub struct LMStudioProvider {
 
 impl LMStudioProvider {
     pub fn with(config: Option<LMStudioConfig>, model: Option<String>) -> Option<Self> {
-        let config = config.unwrap_or_default();
+        let mut config = config.unwrap_or_default();
+        config.api_base = normalize_api_base(&config.api_base);
         Some(Self { config, model })
     }
 
     pub fn config(&self) -> &LMStudioConfig {
         &self.config
+    }
+}
+
+fn normalize_api_base(endpoint: &str) -> String {
+    let endpoint = endpoint.trim_end_matches('/');
+    if endpoint.ends_with("/v1") {
+        endpoint.into()
+    } else {
+        format!("{endpoint}/v1")
     }
 }
 
@@ -68,20 +66,6 @@ impl OpenAIClientProvider for LMStudioProvider {
 }
 
 impl LLMClient for LMStudioProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let lmstudio_config = LMStudioConfig::from_git_config(config);
-        let model = config
-            .string(AI_LMSTUDIO_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        Some(Self {
-            config: lmstudio_config,
-            model,
-        })
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }
@@ -143,5 +127,22 @@ impl LLMClient for LMStudioProvider {
         model: &str,
     ) -> Result<Option<String>> {
         response_blocking(self, system_message, chat_messages, model)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_api_base() {
+        assert_eq!(
+            normalize_api_base("http://127.0.0.1:1234"),
+            "http://127.0.0.1:1234/v1"
+        );
+        assert_eq!(
+            normalize_api_base("http://127.0.0.1:1234/v1/"),
+            "http://127.0.0.1:1234/v1"
+        );
     }
 }

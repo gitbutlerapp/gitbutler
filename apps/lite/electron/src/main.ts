@@ -8,6 +8,7 @@ import {
 	type Endpoint,
 	type LiteElectronApi,
 	type ShowNativeMenuParams,
+	type StreamAiResponseParams,
 	type WatcherSubscribeParams,
 	type WatcherUnsubscribeParams,
 	type NativeMenuPopupItem,
@@ -257,6 +258,7 @@ type ImperativeKey =
 	| "isFullScreen"
 	| "pathJoin"
 	| "showNativeMenu"
+	| "streamAiResponse"
 	| "watcherSubscribe"
 	// The preload wraps the id in an object, so the payload is not the argument.
 	| "watcherUnsubscribe";
@@ -283,6 +285,7 @@ const ipcHandlerOverrides = {
 		clipboard.writeText(text, "clipboard");
 	},
 	getVersion: () => app.getVersion(),
+	getAiConfiguration: () => sdk.getAiConfiguration(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
 		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
@@ -301,6 +304,8 @@ const ipcHandlerOverrides = {
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
+	resetAiConfiguration: () => sdk.resetAiConfiguration(),
+	updateAiConfiguration: (update) => sdk.updateAiConfiguration(update),
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);
@@ -414,6 +419,16 @@ const registerIpcHandlers = (): void => {
 
 			return selectedItemId;
 		},
+	);
+
+	senderValidatingHandle(
+		"streamAiResponse",
+		async (event, { requestId, systemMessage, prompt }: StreamAiResponseParams) =>
+			sdk.streamAiResponse(systemMessage, prompt, (error, token) => {
+				if (error) return;
+				if (!event.sender.isDestroyed())
+					event.sender.send("streamAiResponseToken", { requestId, token });
+			}),
 	);
 
 	senderValidatingHandle("watcherSubscribe", async (event, { projectId }: WatcherSubscribeParams) =>

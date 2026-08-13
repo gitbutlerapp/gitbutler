@@ -37,15 +37,20 @@ graph-workspace = ["but-api/graph-workspace"]
 anyhow.workspace = true
 but-askpass.workspace = true
 but-api.workspace = true
+but-core.workspace = true
 but-ctx.workspace = true
+but-llm.workspace = true
 but-path.workspace = true
+but-secret.workspace = true
 but-settings.workspace = true
+gix.workspace = true
 gitbutler-watcher.workspace = true
 napi = { version = "3", features = ["serde-json", "tokio_rt"] }
 napi-derive = "3"
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+tokio.workspace = true
 
 [build-dependencies]
 napi-build = "2"

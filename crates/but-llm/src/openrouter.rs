@@ -6,7 +6,6 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_OPENROUTER_ENDPOINT_KEY, AI_OPENROUTER_MODEL_NAME_KEY,
     chat::ChatMessage,
     client::LLMClient,
     openai_utils::{
@@ -27,17 +26,6 @@ impl Default for OpenRouterConfig {
         Self {
             api_base: OPENROUTER_API_BASE_DEFAULT.to_string(),
         }
-    }
-}
-
-impl OpenRouterConfig {
-    fn from_git_config(config: &gix::config::File) -> Self {
-        let api_base = config
-            .string(AI_OPENROUTER_ENDPOINT_KEY)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| OPENROUTER_API_BASE_DEFAULT.to_string());
-
-        Self { api_base }
     }
 }
 
@@ -86,22 +74,6 @@ impl OpenAIClientProvider for OpenRouterProvider {
 }
 
 impl LLMClient for OpenRouterProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let openrouter_config = OpenRouterConfig::from_git_config(config);
-        let model = config
-            .string(AI_OPENROUTER_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        let api_key = Self::retrieve_api_key()?;
-        Some(Self {
-            config: openrouter_config,
-            model,
-            api_key,
-        })
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

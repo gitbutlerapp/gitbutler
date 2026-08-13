@@ -24,6 +24,7 @@ type SettingsPage = {
 export const settingsPages = [
 	{ key: "global:general", label: "General", icon: "settings" },
 	{ key: "global:appearance", label: "Appearance", icon: "mixer" },
+	{ key: "global:ai", label: "AI", icon: "ai" },
 	{ key: "global:git", label: "Git", icon: "branch" },
 	{ key: "global:integrations", label: "Integrations", icon: "globe" },
 	{ key: "project:project", label: "Project", icon: "workbench" },

@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, ChatMessage,
+    ChatMessage,
     client::LLMClient,
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
@@ -70,23 +70,6 @@ impl OpenAIClientProvider for OllamaProvider {
 }
 
 impl LLMClient for OllamaProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let endpoint = config
-            .string(AI_OLLAMA_ENDPOINT_KEY)
-            .map(|v| v.to_string())
-            .map(OllamaHostConfig::from);
-        let model = config
-            .string(AI_OLLAMA_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        let ollama_config = OllamaConfig {
-            host_config: endpoint,
-        };
-        Some(OllamaProvider::new(ollama_config, model))
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

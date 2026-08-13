@@ -1453,6 +1453,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-openai",
+ "but-core",
  "but-secret",
  "but-tools",
  "futures",
@@ -1464,6 +1465,7 @@ dependencies = [
  "strum 0.27.2",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -1499,15 +1501,20 @@ dependencies = [
  "anyhow",
  "but-api",
  "but-askpass",
+ "but-core",
  "but-ctx",
+ "but-llm",
  "but-path",
+ "but-secret",
  "but-settings",
  "gitbutler-watcher",
+ "gix",
  "napi",
  "napi-build",
  "napi-derive",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
 ]
 
