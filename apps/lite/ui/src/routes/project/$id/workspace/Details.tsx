@@ -263,6 +263,7 @@ const withAnnotations = (
 });
 
 const DiffContents: FC<{
+	activeFileItemId: string | null;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
@@ -279,6 +280,7 @@ const DiffContents: FC<{
 	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
+	activeFileItemId,
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
@@ -360,11 +362,13 @@ const DiffContents: FC<{
 			: null;
 
 	useLayoutEffect(() => {
-		if (!diffSelectionHunk) return;
+		// The resolved hunk can belong to another file when the active file is hunkless.
+		const itemId = activeFileItemId ?? diffSelectionHunk?.file.item.id;
+		if (itemId === undefined) return;
 
 		viewerRef.current?.scrollTo({
 			type: "item",
-			id: diffSelectionHunk.file.item.id,
+			id: itemId,
 			align: "start",
 			behavior: "instant",
 		});
@@ -1312,6 +1316,10 @@ const Diff: FC<{
 	);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
+	const activeFileItemId =
+		activeFilePath === null
+			? null
+			: (diffViewSansAnno.fileByPath.get(activeFilePath)?.item.id ?? null);
 
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
@@ -1621,6 +1629,7 @@ const Diff: FC<{
 							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
 						>
 							<DiffContents
+								activeFileItemId={activeFileItemId}
 								onViewerFileSelection={onPassiveFileSelection}
 								fileParent={fileParent}
 								projectId={projectId}
