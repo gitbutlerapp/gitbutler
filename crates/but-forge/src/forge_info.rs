@@ -159,7 +159,11 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
             }
         }
         _ => {
-            let origin = account_web_origin(accounts, &repo_info.forge, &host)
+            // An http(s) remote's own origin is authoritative; only rewritten
+            // ssh/git remotes lack the web scheme and port.
+            let origin = rewrote_scheme
+                .then(|| account_web_origin(accounts, &repo_info.forge, &host))
+                .flatten()
                 .unwrap_or_else(|| format!("{scheme}://{host}"));
             let owner = &repo_info.owner;
             let repo = &repo_info.repo;
@@ -410,6 +414,39 @@ mod tests {
         )];
         let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts).unwrap();
         assert_eq!(info.base_url, "https://gitlab.example.com/group/repo");
+    }
+
+    #[test]
+    fn https_remote_origin_wins_over_account_without_port() {
+        // #14678 behavior must survive: an https remote's explicit port is
+        // authoritative even when the account host was stored without one.
+        let accounts = [ForgeUser::GitLab(
+            but_gitlab::GitlabAccountIdentifier::selfhosted("bob", "gitlab.example.com"),
+        )];
+        let info = forge_info("https://gitlab.example.com:8080/group/repo.git", &accounts).unwrap();
+        assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
+    }
+
+    #[test]
+    fn stored_self_hosted_account_round_trips_into_web_origin() {
+        // The path but-api takes: account persisted to storage, listed back,
+        // and fed into forge_info — the reporter's exact setup in #14626.
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tmp.path());
+        storage
+            .add_gitlab_account(&but_forge_storage::settings::GitLabAccount::SelfHosted {
+                username: "bob".into(),
+                host: "https://gitlab.example.com:8080".into(),
+                access_token_key: "unused".into(),
+            })
+            .unwrap();
+        let accounts: Vec<ForgeUser> = but_gitlab::list_known_gitlab_accounts(&storage)
+            .unwrap()
+            .into_iter()
+            .map(ForgeUser::GitLab)
+            .collect();
+        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts).unwrap();
+        assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
     }
 
     #[test]

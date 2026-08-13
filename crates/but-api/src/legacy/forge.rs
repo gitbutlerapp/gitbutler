@@ -112,7 +112,9 @@ pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
         return Ok(None);
     }
     let repo = ctx.repo.get()?;
-    let accounts = but_forge::get_all_forge_accounts().unwrap_or_default();
+    let accounts = but_forge::get_all_forge_accounts()
+        .inspect_err(|err| tracing::warn!("failed to load forge accounts: {err:#}"))
+        .unwrap_or_default();
     Ok(but_forge::forge_info(
         &remote_url(&project_meta, &repo)?,
         &accounts,
@@ -132,7 +134,9 @@ pub fn forge_compare_branch_url(
 ) -> Result<Option<String>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let accounts = but_forge::get_all_forge_accounts().unwrap_or_default();
+    let accounts = but_forge::get_all_forge_accounts()
+        .inspect_err(|err| tracing::warn!("failed to load forge accounts: {err:#}"))
+        .unwrap_or_default();
     Ok(but_forge::compare_branch_url(
         &remote_url(&project_meta, &repo)?,
         &base,

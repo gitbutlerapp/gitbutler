@@ -832,7 +832,9 @@ impl ForgeRepository {
         let remote_url = project_meta.remote_url_with_fallback(&repo)?;
         let repository = but_forge::derive_forge_repo_info(&remote_url)
             .context("Could not determine a supported forge for this repository")?;
-        let accounts = but_forge::get_all_forge_accounts().unwrap_or_default();
+        let accounts = but_forge::get_all_forge_accounts()
+            .inspect_err(|err| tracing::warn!("failed to load forge accounts: {err:#}"))
+            .unwrap_or_default();
         let display = but_forge::forge_info(&remote_url, &accounts)
             .context("Could not determine forge display information")?;
         let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
