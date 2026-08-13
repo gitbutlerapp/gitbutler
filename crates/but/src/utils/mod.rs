@@ -43,10 +43,15 @@ pub mod envs;
 
 impl ResultErrorExt for anyhow::Result<()> {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        let full_error_chain = out.full_error_chain();
         // Trigger the pager to be flushed before exiting early, or destructors aren't called.
         drop(out);
         let code = if let Err(e) = &self {
-            writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            if full_error_chain {
+                writeln!(std::io::stderr(), "{e:#}").ok();
+            } else {
+                writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            }
             1
         } else {
             0

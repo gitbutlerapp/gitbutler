@@ -48,6 +48,8 @@ pub struct OutputChannel {
     /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
     /// Used to buffer mutation JSON before combining with status JSON.
     json_buffer: Option<serde_json::Value>,
+    /// Whether errors should include their complete cause chain.
+    full_error_chain: bool,
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
@@ -696,7 +698,18 @@ impl OutputChannel {
             stdout: std::io::stdout(),
             pager: None,
             json_buffer: None,
+            full_error_chain: false,
         }
+    }
+
+    /// Configure complete error-chain output for diagnostic invocations.
+    pub(crate) fn set_full_error_chain(&mut self, enabled: bool) {
+        self.full_error_chain = enabled;
+    }
+
+    /// Whether errors should include their complete cause chain.
+    pub(crate) fn full_error_chain(&self) -> bool {
+        self.full_error_chain
     }
 
     /// Request paging for large output. The pager is only started when human UI is allowed,
