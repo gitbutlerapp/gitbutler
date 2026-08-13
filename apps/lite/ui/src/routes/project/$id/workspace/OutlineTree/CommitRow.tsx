@@ -343,6 +343,11 @@ export const CommitRow: FC<
 			operand={operand}
 			isChecked={isChecked}
 			isHighlighted={isHighlighted}
+			onShiftSelect={
+				isDefaultMode && canCheck
+					? () => checkCommit({ commitId: commit.id, shiftKey: true })
+					: undefined
+			}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

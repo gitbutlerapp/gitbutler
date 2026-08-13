@@ -19,10 +19,19 @@ const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean
 	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
 };
 
+const isFromNonRowBody = (event: MouseEvent<HTMLDivElement>): boolean => {
+	if (!(event.target instanceof Element)) return false;
+	const interactiveElement = event.target.closest(
+		"a, button, input, select, textarea, [contenteditable]",
+	);
+	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
+};
+
 export const Row: FC<
 	{
 		isSelected?: boolean;
 		onSelect?: () => void;
+		onShiftSelect?: () => void;
 		/** @default false */
 		isHighlighted?: boolean;
 		/**
@@ -37,6 +46,7 @@ export const Row: FC<
 > = ({
 	isSelected,
 	onSelect,
+	onShiftSelect,
 	isHighlighted,
 	isChecked,
 	interactive = true,
@@ -81,12 +91,10 @@ export const Row: FC<
 			onClick={(event) => {
 				props.onClick?.(event);
 
-				if (
-					!event.defaultPrevented &&
-					// Prevent clicks on interactive descendants from stealing selection.
-					!isFromInteractiveDescendant(event)
-				)
-					onSelect?.();
+				if (event.defaultPrevented || isFromInteractiveDescendant(event)) return;
+
+				if (event.shiftKey && onShiftSelect && !isFromNonRowBody(event)) onShiftSelect();
+				else onSelect?.();
 			}}
 		/>
 	);
