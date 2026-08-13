@@ -154,11 +154,12 @@ impl AiConfiguration {
         required(&self.lmstudio.model, "LM Studio model")?;
         validate_ollama_endpoint(&self.ollama.endpoint)?;
         validate_url(&self.lmstudio.endpoint, "LM Studio endpoint")?;
-        if let Some(endpoint) = self
-            .openai
-            .custom_endpoint
-            .as_deref()
-            .filter(|endpoint| !endpoint.trim().is_empty())
+        if self.openai.key_option == CredentialsKeyOption::BringYourOwn
+            && let Some(endpoint) = self
+                .openai
+                .custom_endpoint
+                .as_deref()
+                .filter(|endpoint| !endpoint.trim().is_empty())
         {
             validate_url(endpoint, "OpenAI custom endpoint")?;
         }
@@ -169,7 +170,9 @@ impl AiConfiguration {
         match self.provider {
             LLMProviderKind::OpenAi => {
                 required(&self.openai.model, "OpenAI model")?;
-                if let Some(endpoint) = nonempty(self.openai.custom_endpoint.as_deref()) {
+                if self.openai.key_option == CredentialsKeyOption::BringYourOwn
+                    && let Some(endpoint) = nonempty(self.openai.custom_endpoint.as_deref())
+                {
                     validate_url(endpoint, "OpenAI custom endpoint")?;
                 }
             }
@@ -443,6 +446,23 @@ mod tests {
                 .iter()
                 .all(|key| config.string(key).is_none()),
             "reset must remove every shared AI configuration key"
+        );
+    }
+
+    #[test]
+    fn custom_openai_endpoint_only_applies_to_own_keys() {
+        let mut configuration = AiConfiguration::default();
+        configuration.openai.custom_endpoint = Some("not a URL".into());
+
+        assert!(
+            configuration.validate().is_ok(),
+            "the GitButler proxy ignores custom endpoints"
+        );
+
+        configuration.openai.key_option = CredentialsKeyOption::BringYourOwn;
+        assert!(
+            configuration.validate().is_err(),
+            "own-key endpoints must remain valid URLs"
         );
     }
 }

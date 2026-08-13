@@ -4,8 +4,6 @@ import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
 import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
 import type { StreamAiResponseToken } from "./ipc";
 
-let nextAiRequestId = 0;
-
 /**
  * The map of subscription IDs to channels and callbacks.
  *
@@ -95,7 +93,7 @@ const api: LiteElectronApi = {
 		return () => ipcRenderer.removeListener("fullScreenChange", listener);
 	},
 	streamAiResponse: async (systemMessage, prompt, onToken) => {
-		const requestId = `ai-${nextAiRequestId++}`;
+		const requestId = crypto.randomUUID();
 		const listener = (_event: Electron.IpcRendererEvent, payload: StreamAiResponseToken) => {
 			if (payload.requestId === requestId) onToken(payload.token);
 		};

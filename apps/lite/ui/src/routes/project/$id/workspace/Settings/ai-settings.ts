@@ -11,7 +11,7 @@ export const modelSelection = (model: string, presets: ReadonlyArray<string>) =>
 	presets.includes(model) ? model : "custom";
 
 export const configurationUpdate = (configuration: AiConfiguration): AiConfigurationUpdate => ({
-	provider: configuration.provider,
+	provider: configuration.provider === "openrouter" ? "openai" : configuration.provider,
 	openaiKeyOption: configuration.openaiKeyOption,
 	openaiModel: configuration.openaiModel,
 	openaiCustomEndpoint: configuration.openaiCustomEndpoint,

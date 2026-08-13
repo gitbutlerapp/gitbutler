@@ -20,7 +20,7 @@ use crate::to_napi_err;
 #[derive(Clone)]
 #[napi(object)]
 pub struct AiConfiguration {
-    #[napi(ts_type = "'openai' | 'anthropic' | 'ollama' | 'lmstudio'")]
+    #[napi(ts_type = "'openai' | 'anthropic' | 'ollama' | 'lmstudio' | 'openrouter'")]
     pub provider: String,
     #[napi(ts_type = "'butlerAPI' | 'bringYourOwn'")]
     pub openai_key_option: String,
@@ -64,10 +64,9 @@ fn has_secret(handle: &str) -> Result<bool> {
 fn get_configuration() -> Result<AiConfiguration> {
     let config = gix::config::File::from_globals()?;
     let configuration = DomainConfiguration::from_git_config(&config)?;
-    let provider = provider(configuration.provider.as_git_config_value())?;
 
     Ok(AiConfiguration {
-        provider: provider.as_git_config_value().into(),
+        provider: configuration.provider.as_git_config_value().into(),
         openai_key_option: configuration.openai.key_option.as_git_config_value().into(),
         openai_model: configuration.openai.model,
         openai_custom_endpoint: configuration.openai.custom_endpoint,

@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { modelSelection, saveThenTest } from "./ai-settings.ts";
+import { configurationUpdate, modelSelection, saveThenTest } from "./ai-settings.ts";
 import type { AiConfiguration, AiConfigurationUpdate } from "@gitbutler/but-sdk";
 
 describe("AI settings", () => {
 	it("uses custom for models outside the presets", () => {
 		expect(modelSelection("gpt-5.4-nano", ["gpt-5.4-nano"])).toBe("gpt-5.4-nano");
 		expect(modelSelection("local-model", ["gpt-5.4-nano"])).toBe("custom");
+	});
+
+	it("offers a supported provider when OpenRouter is configured elsewhere", () => {
+		expect(configurationUpdate({ provider: "openrouter" } as AiConfiguration).provider).toBe(
+			"openai",
+		);
 	});
 
 	it("saves before starting the connection test", async () => {

@@ -15,7 +15,7 @@ import {
 import { Row, Section } from "./Section.tsx";
 import styles from "./Ai.module.css";
 
-type Provider = AiConfiguration["provider"];
+type Provider = AiConfigurationUpdate["provider"];
 type KeyOption = AiConfiguration["openaiKeyOption"];
 
 const providerLabels: Record<Provider, string> = {
@@ -84,7 +84,7 @@ export const Ai: FC = () => {
 		configurationUpdate(configuration),
 	);
 	const [saved, setSaved] = useState<AiConfiguration>(configuration);
-	const [dirty, setDirty] = useState(false);
+	const [dirty, setDirty] = useState(configuration.provider === "openrouter");
 	const [saving, setSaving] = useState(false);
 	const [resetting, setResetting] = useState(false);
 	const [testing, setTesting] = useState(false);
@@ -215,15 +215,17 @@ export const Ai: FC = () => {
 							presets={openAiModels}
 							onChange={(model) => change("openaiModel", model)}
 						/>
-						<Row label="Custom endpoint" htmlFor="openai-endpoint" hint="Optional.">
-							<input
-								id="openai-endpoint"
-								type="url"
-								placeholder="https://api.openai.com/v1"
-								value={update.openaiCustomEndpoint ?? ""}
-								onChange={(event) => change("openaiCustomEndpoint", event.currentTarget.value)}
-							/>
-						</Row>
+						{update.openaiKeyOption === "bringYourOwn" && (
+							<Row label="Custom endpoint" htmlFor="openai-endpoint" hint="Optional.">
+								<input
+									id="openai-endpoint"
+									type="url"
+									placeholder="https://api.openai.com/v1"
+									value={update.openaiCustomEndpoint ?? ""}
+									onChange={(event) => change("openaiCustomEndpoint", event.currentTarget.value)}
+								/>
+							</Row>
+						)}
 					</>
 				)}
 
@@ -313,6 +315,13 @@ export const Ai: FC = () => {
 					</>
 				)}
 			</Section>
+
+			{saved.provider === "openrouter" && (
+				<p className={classes("text-12", styles.warning)}>
+					OpenRouter is configured but is not supported in Lite. Save to switch providers, or reset
+					these settings.
+				</p>
+			)}
 
 			{usesGitButler && profile === null && (
 				<p className={classes("text-12", styles.warning)}>

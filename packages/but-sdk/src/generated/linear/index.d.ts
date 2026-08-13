@@ -1122,7 +1122,7 @@ export declare class WatcherHandle {
 }
 
 export interface AiConfiguration {
-  provider: 'openai' | 'anthropic' | 'ollama' | 'lmstudio'
+  provider: 'openai' | 'anthropic' | 'ollama' | 'lmstudio' | 'openrouter'
   openaiKeyOption: 'butlerAPI' | 'bringYourOwn'
   openaiModel: string
   openaiCustomEndpoint?: string
