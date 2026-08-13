@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
 import type { BundledLanguage, ThemedToken } from "shiki";
 import styles from "./Markdown.module.css";
@@ -168,7 +169,7 @@ const fencedLanguage = (className: string | undefined): string | undefined =>
 export const Markdown: FC<{ children: string }> = ({ children }) => (
 	<div className={classes("text-13", "text-body", styles.markdown)}>
 		<ReactMarkdown
-			remarkPlugins={[remarkGfm]}
+			remarkPlugins={[remarkGfm, remarkGemoji]}
 			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
 			components={{
 				// oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- href and children arrive via the spread; it stays a real anchor.
