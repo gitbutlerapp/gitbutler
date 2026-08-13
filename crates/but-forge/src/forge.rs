@@ -59,6 +59,21 @@ impl ForgeUser {
             _ => None,
         }
     }
+    pub fn forge_name(&self) -> ForgeName {
+        match self {
+            ForgeUser::GitHub(_) => ForgeName::GitHub,
+            ForgeUser::GitLab(_) => ForgeName::GitLab,
+            ForgeUser::Bitbucket(_) => ForgeName::Bitbucket,
+        }
+    }
+    /// The enterprise/self-hosted instance host, when the account has one.
+    pub fn custom_host(&self) -> Option<String> {
+        match self {
+            ForgeUser::GitHub(id) => id.custom_host(),
+            ForgeUser::GitLab(id) => id.custom_host(),
+            ForgeUser::Bitbucket(id) => id.custom_host(),
+        }
+    }
 }
 
 // Custom deserializer for Option<ForgeUser> that accepts either a string or ForgeUser

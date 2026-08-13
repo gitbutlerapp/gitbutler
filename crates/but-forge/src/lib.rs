@@ -79,28 +79,10 @@ pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
 /// Look for the best matching account by comparing the repository host to the
 /// account custom host string.
 fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Option<ForgeName> {
-    let user = accounts.iter().find(|account| match account {
-        ForgeUser::GitHub(gh_account) => gh_account
-            .custom_host()
-            .as_deref()
-            .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
-        ForgeUser::GitLab(gl_account) => gl_account
-            .custom_host()
-            .as_deref()
-            .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
-        // Bitbucket Cloud is fixed-host, so it never matches a custom host.
-        ForgeUser::Bitbucket(bb_account) => bb_account
-            .custom_host()
-            .as_deref()
-            .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
-    });
-
-    match user {
-        Some(ForgeUser::GitHub(_)) => Some(ForgeName::GitHub),
-        Some(ForgeUser::GitLab(_)) => Some(ForgeName::GitLab),
-        Some(ForgeUser::Bitbucket(_)) => Some(ForgeName::Bitbucket),
-        None => None,
-    }
+    accounts.iter().find_map(|account| {
+        let custom_host = account.custom_host()?;
+        custom_host_matches_repository_host(host, &custom_host).then(|| account.forge_name())
+    })
 }
 
 /// Compare a repository host to an account custom-host string.
