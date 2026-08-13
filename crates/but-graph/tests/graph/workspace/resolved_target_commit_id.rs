@@ -1,5 +1,6 @@
-use but_graph::Graph;
-use but_testsupport::visualize_commit_graph_all;
+use but_core::ref_metadata::ProjectMeta;
+use but_graph::{Graph, workspace::WorkspaceKind};
+use but_testsupport::{graph_workspace_determinisitcally, visualize_commit_graph_all};
 use snapbox::IntoData;
 
 use super::target_meta;
@@ -7,6 +8,89 @@ use crate::init::utils::{
     add_workspace, add_workspace_with_target, read_only_in_memory_scenario, standard_options,
     standard_options_with_extra_target,
 };
+
+#[test]
+fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?.replace("  \n", "\n"),
+        snapbox::str![[r#"
+* 7ad98e8 (old-target) OLD
+| * d623019 (origin/trunk) RM1
+| * d03b217 (HEAD -> feature) F1
+|/
+* 3183e43 (main) M1
+
+"#]]
+    );
+    let expected_target = repo.rev_parse_single("refs/remotes/origin/trunk")?.detach();
+    let project_meta = ProjectMeta {
+        target_ref: Some("refs/remotes/origin/trunk".try_into()?),
+        ..Default::default()
+    };
+
+    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
+        .validated()?
+        .into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:[..]:feature[🌳] <> ✓refs/remotes/origin/trunk⇣1 on d03b217
+└── ≡:[..]:feature[🌳] on 3183e43 {1}
+    └── :[..]:feature[🌳]
+
+"#]]
+    );
+
+    assert!(matches!(ws.kind, WorkspaceKind::AdHoc));
+    assert_eq!(
+        ws.target_ref_name().map(ToString::to_string),
+        Some("refs/remotes/origin/trunk".into())
+    );
+    assert_eq!(ws.target_ref_tip_commit_id(), Some(expected_target));
+
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?.replace("  \n", "\n"),
+        snapbox::str![[r#"
+* 7ad98e8 (old-target) OLD
+| * d623019 (origin/trunk) RM1
+| * d03b217 (HEAD -> feature) F1
+|/
+* 3183e43 (main) M1
+
+"#]]
+    );
+    let expected_target = repo.rev_parse_single(":/OLD")?.detach();
+    let project_meta = ProjectMeta {
+        target_commit_id: Some(expected_target),
+        ..Default::default()
+    };
+
+    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
+        .validated()?
+        .into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:[..]:feature[🌳] <> ✓! on 3183e43
+└── ≡:[..]:feature[🌳] on 3183e43 {1}
+    └── :[..]:feature[🌳]
+        └── ·d03b217
+
+"#]]
+    );
+
+    assert!(matches!(ws.kind, WorkspaceKind::AdHoc));
+    assert_eq!(ws.stored_target_commit_id(), Some(expected_target));
+
+    Ok(())
+}
 
 #[test]
 fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {

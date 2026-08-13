@@ -40,6 +40,19 @@ git init only-remote-advanced
   add_main_remote_setup
 )
 
+git init ad-hoc-branch-integrated-upstream
+(cd ad-hoc-branch-integrated-upstream
+  commit M1
+  git checkout -b old-target
+    commit OLD
+  git checkout -b feature main
+    commit F1
+  git checkout -b soon-upstream-trunk
+    commit RM1
+  setup_remote_tracking soon-upstream-trunk trunk "move"
+  git checkout feature
+)
+
 cp -R only-remote-advanced only-remote-advanced-with-special-branch-name
 (cd only-remote-advanced-with-special-branch-name
   git branch gitbutler/target :/^M1

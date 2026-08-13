@@ -1363,7 +1363,7 @@ fn initial_tips_from_tips(
         auxiliary_integrated_tip_ids.insert(extra_target);
         push_integrated_tip_once(&mut tips, extra_target);
     }
-    let frontload_workspace_related_tips = has_workspace_related_tips(&tips);
+    let frontload_workspace_related_tips = has_workspace_related_tips(&tips, project_meta);
     if frontload_workspace_related_tips {
         auxiliary_integrated_tip_ids.extend(tips.iter().filter_map(|tip| {
             tip.is_anonymous_integrated_target_context()
@@ -1371,7 +1371,11 @@ fn initial_tips_from_tips(
         }));
     }
     collapse_anonymous_integrated_tips_into_named_targets(&mut tips);
-    let tips = tips_in_queue_order(tips, &auxiliary_integrated_tip_ids);
+    let tips = tips_in_queue_order(
+        tips,
+        frontload_workspace_related_tips,
+        &auxiliary_integrated_tip_ids,
+    );
     let workspace_tips = tips
         .iter()
         .filter(|tip| matches!(tip.role, TipRole::Workspace))
@@ -1464,9 +1468,9 @@ fn collapse_anonymous_integrated_tips_into_named_targets(tips: &mut Vec<Tip>) {
 /// order so existing explicit traversal behavior stays predictable.
 fn tips_in_queue_order(
     tips: Vec<Tip>,
+    has_workspace_related_tips: bool,
     auxiliary_integrated_tip_ids: &BTreeSet<gix::ObjectId>,
 ) -> Vec<Tip> {
-    let has_workspace_related_tips = has_workspace_related_tips(&tips);
     let workspace_branch_order = workspace_branch_order_from_tips(&tips);
     let mut tips: Vec<_> = tips.into_iter().enumerate().collect();
     tips.sort_by(|(a_idx, a), (b_idx, b)| {
@@ -1504,14 +1508,21 @@ fn tips_in_queue_order(
 /// Workspace, workspace-stack, and target-local tips are not just additional
 /// roots. Their relative order influences which segment owns a shared commit
 /// and how post-processing reconstructs virtual workspace and stack segments.
+/// A named target matching the configured project target needs the same ordering,
+/// regardless of whether its tip was metadata-derived or supplied explicitly.
 /// Detecting such tips switches sorting from "mostly preserve caller order" to
 /// "rebuild the metadata order deterministically".
-fn has_workspace_related_tips(tips: &[Tip]) -> bool {
+fn has_workspace_related_tips(tips: &[Tip], project_meta: &ProjectMeta) -> bool {
     tips.iter().any(|tip| {
         matches!(
             tip.role,
             TipRole::Workspace | TipRole::TargetLocal { .. } | TipRole::WorkspaceStackBranch { .. }
         ) || matches!(tip.metadata, Some(SegmentMetadata::Workspace(_)))
+            || matches!(tip.role, TipRole::TargetRemote)
+                && project_meta
+                    .target_ref
+                    .as_ref()
+                    .is_some_and(|target_ref| tip.ref_name.as_ref() == Some(target_ref))
     })
 }
 
@@ -1717,7 +1728,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
 
     for (ws_tip, ws_ref, ws_meta) in workspaces {
         workspace_metas.push(ws_meta.clone());
-        additional_target_commits.extend(project_meta.target_commit_id);
         tips.push(
             Tip::new(ws_tip)
                 .with_ref_name(Some(ws_ref.clone()))
@@ -1726,26 +1736,13 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
                 .with_is_entrypoint(Some(&ws_ref) == entrypoint_ref),
         );
 
-        let target = if let Some((target_ref, target_ref_id, local_info)) =
-            workspace_target_tip(repo, project_meta.target_ref.as_ref())?
-        {
-            let local_info =
-                local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
-            tips.push(
-                Tip::new(target_ref_id)
-                    .with_ref_name(Some(target_ref))
-                    .with_role(TipRole::TargetRemote),
-            );
-            if let Some((local_ref_name, local_tip)) = local_info.clone() {
-                tips.push(Tip::new(local_tip).with_role(TipRole::TargetLocal { local_ref_name }));
-            }
-            Some((
-                target_ref_id,
-                local_info.map(|(_local_ref_name, local_tip)| local_tip),
-            ))
-        } else {
-            None
-        };
+        let target = append_project_target_tips(
+            repo,
+            project_meta,
+            &queued_ids,
+            &mut tips,
+            &mut additional_target_commits,
+        )?;
         queued_ids.push(ws_tip);
         if let Some((target_ref_id, local_tip)) = target {
             queued_ids.push(target_ref_id);
@@ -1753,6 +1750,16 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
                 queued_ids.push(local_tip);
             }
         }
+    }
+
+    if workspace_metas.is_empty() {
+        append_project_target_tips(
+            repo,
+            project_meta,
+            &queued_ids,
+            &mut tips,
+            &mut additional_target_commits,
+        )?;
     }
 
     if let Some(extra_target) = extra_target_commit_id {
@@ -1801,6 +1808,37 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     }
 
     Ok(tips)
+}
+
+/// Seed project-level targets and return the remote and optional local tip IDs.
+///
+/// An ad-hoc `HEAD` may no longer reach the current target after upstream integrates it, so both
+/// the named target and its previously stored position must be explicit traversal tips.
+fn append_project_target_tips(
+    repo: &OverlayRepo<'_>,
+    project_meta: &ProjectMeta,
+    queued_ids: &[gix::ObjectId],
+    tips: &mut Vec<Tip>,
+    additional_target_commits: &mut Vec<gix::ObjectId>,
+) -> anyhow::Result<Option<(gix::ObjectId, Option<gix::ObjectId>)>> {
+    additional_target_commits.extend(project_meta.target_commit_id);
+    if let Some((target_ref, target_ref_id, local_info)) =
+        workspace_target_tip(repo, project_meta.target_ref.as_ref())?
+    {
+        let local_info =
+            local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
+        let local_tip = local_info.as_ref().map(|(_, local_tip)| *local_tip);
+        tips.push(
+            Tip::new(target_ref_id)
+                .with_ref_name(Some(target_ref))
+                .with_role(TipRole::TargetRemote),
+        );
+        if let Some((local_ref_name, local_tip)) = local_info {
+            tips.push(Tip::new(local_tip).with_role(TipRole::TargetLocal { local_ref_name }));
+        }
+        return Ok(Some((target_ref_id, local_tip)));
+    }
+    Ok(None)
 }
 
 fn push_integrated_tip_once(tips: &mut Vec<Tip>, id: gix::ObjectId) {

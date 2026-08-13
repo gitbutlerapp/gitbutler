@@ -67,8 +67,6 @@ Created commit 1 on new branch 'feature'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
-┊│     ply:k A init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -208,7 +206,6 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init

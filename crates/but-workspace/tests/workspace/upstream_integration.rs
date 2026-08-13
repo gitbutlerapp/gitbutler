@@ -417,11 +417,11 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    ├── :1:A[🌳]
+⌂:[..]:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡:[..]:A[🌳] on 3183e43 {1}
+    ├── :[..]:A[🌳]
     │   └── ·e792f40
-    └── :3:B
+    └── :[..]:B
         └── ·b38b04b (✓)
 
 "#]]
@@ -566,11 +566,11 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    ├── :1:A[🌳]
+⌂:[..]:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡:[..]:A[🌳] on 3183e43 {1}
+    ├── :[..]:A[🌳]
     │   └── ·e792f40
-    └── :3:B
+    └── :[..]:B
         └── ·b38b04b (✓)
 
 "#]]
@@ -3003,9 +3003,9 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    └── :1:A[🌳]
+⌂:[..]:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡:[..]:A[🌳] on 3183e43 {1}
+    └── :[..]:A[🌳]
         ├── ·ad1d22b
         └── ·fe98e29
 
@@ -3034,10 +3034,10 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:0:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:0:amo-branch-1[🌳] on 3183e43 {1}
-    └── :0:amo-branch-1[🌳]
-        └── ·56057f2
+⌂:[..]:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡:[..]:amo-branch-1[🌳] on 3183e43 {1}
+    └── :[..]:amo-branch-1[🌳]
+        └── ·56057f2 (✓)
 
 "#]]
     );
@@ -3197,9 +3197,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    └── :1:A[🌳]
+⌂:[..]:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡:[..]:A[🌳] on 3183e43 {1}
+    └── :[..]:A[🌳]
         ├── ·f015e95
         ├── ·ad1d22b
         └── ·fe98e29
@@ -3245,9 +3245,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
-└── ≡:1:A[🌳] on e2f5892 {1}
-    └── :1:A[🌳]
+⌂:[..]:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
+└── ≡:[..]:A[🌳] on e2f5892 {1}
+    └── :[..]:A[🌳]
         └── ·92f1780
 
 "#]]

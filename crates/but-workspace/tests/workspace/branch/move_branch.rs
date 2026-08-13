@@ -1558,15 +1558,15 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
-    ├── 📙:2:empty-top
-    ├── 📙:3:empty-bottom
-    └── 📙:0:base
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+⌂:[..]:main[🌳] <> ✓! on 281da94
+└── ≡:[..]:main[🌳] {1}
+    ├── :[..]:main[🌳]
+    ├── 📙:[..]:empty-top
+    ├── 📙:[..]:empty-bottom
+    └── 📙:[..]:base
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );
@@ -1617,15 +1617,15 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
-    ├── 📙:2:empty-bottom
-    ├── 📙:3:empty-top
-    └── 📙:0:base
-        ├── ·281da94
-        ├── ·12995d7
-        └── ·3d57fc1
+⌂:[..]:main[🌳] <> ✓! on 281da94
+└── ≡:[..]:main[🌳] {1}
+    ├── :[..]:main[🌳]
+    ├── 📙:[..]:empty-bottom
+    ├── 📙:[..]:empty-top
+    └── 📙:[..]:base
+        ├── ·281da94 (✓)
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );
@@ -1913,15 +1913,15 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓! on 281da94
-└── ≡:1:main[🌳] {1}
-    ├── :1:main[🌳]
-    ├── 📙:2:empty-top
-    ├── 📙:3:empty-bottom
-    └── 📙:0:base
-        ├── ·281da94 ►x, ►y
-        ├── ·12995d7
-        └── ·3d57fc1
+⌂:[..]:main[🌳] <> ✓! on 281da94
+└── ≡:[..]:main[🌳] {1}
+    ├── :[..]:main[🌳]
+    ├── 📙:[..]:empty-top
+    ├── 📙:[..]:empty-bottom
+    └── 📙:[..]:base
+        ├── ·281da94 (✓) ►x, ►y
+        ├── ·12995d7 (✓)
+        └── ·3d57fc1 (✓)
 
 "#]]
         );

@@ -1,4 +1,73 @@
+use snapbox::str;
+
 use crate::utils::{CommandExt, Sandbox};
+
+#[test]
+fn land_rejects_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    let head = env.invoke_git("rev-parse HEAD");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ma [main]
+┊●   nmy M (no changes)
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("land main --yes")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Failed to land branch. `but land` requires an active GitButler workspace (`gitbutler/workspace`). Switch into the workspace and try again.
+
+"#]]);
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ma [main]
+┊●   nmy M (no changes)
+├╯
+┊
+┴ e31e6ca (common base) 2000-01-02 add init
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head,
+        "a rejected land must not move the checked-out branch"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "a rejected land must not create a managed workspace"
+    );
+}
 
 /// Headline real-remote path: landing a branch that is ahead of `origin/main` fast-forwards the
 /// remote target (no merge commit), leaves the local `main` untouched, and rebases the sibling

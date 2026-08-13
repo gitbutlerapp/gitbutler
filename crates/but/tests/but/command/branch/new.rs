@@ -217,7 +217,6 @@ Created branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -248,7 +247,6 @@ Created branch 'bottom' below branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -281,7 +279,6 @@ Created branch 'top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -316,7 +313,6 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -392,7 +388,6 @@ Created branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -428,7 +423,6 @@ Created branch 'top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -467,7 +461,6 @@ Created branch 'bottom' below branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init
@@ -509,7 +502,6 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
-┊●   ply add init
 ├╯
 ┊
 ┴ e31e6ca (common base) 2000-01-02 add init

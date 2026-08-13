@@ -880,13 +880,13 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:0:child-stack[🌳] on aa67ae0 {1}
-    ├── :0:child-stack[🌳]
+⌂:[..]:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡:[..]:child-stack[🌳] on aa67ae0 {1}
+    ├── :[..]:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :[..]:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :[..]:M
         └── ·197bdf1
 
 "#]]
@@ -964,13 +964,13 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:0:child-stack[🌳] on aa67ae0 {1}
-    ├── :0:child-stack[🌳]
+⌂:[..]:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡:[..]:child-stack[🌳] on aa67ae0 {1}
+    ├── :[..]:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :[..]:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :[..]:M
         └── ·197bdf1
 
 "#]]
