@@ -33,6 +33,7 @@ import {
 	type HunkOperand,
 	type Operand,
 	weakCommitIdentityKey,
+	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -151,11 +152,18 @@ import {
 	type DiffView,
 	getDiffView,
 	hunkOperandIdentityKey,
+	prepareDiffFiles,
 	withoutFoldedHunks,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
 import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import {
+	type ReviewedFileVersions,
+	reviewedFilesQueryOptions,
+	type SetFilesReviewedInput,
+	useSetFilesReviewed,
+} from "#ui/reviewed-files.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -166,6 +174,12 @@ type PanelId = "files-panel" | "diff-panel";
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
 const EMPTY_MANUAL: Array<ManualConflict> = [];
+
+const isInteractiveElement = (target: EventTarget): boolean =>
+	target instanceof Element &&
+	target.matches(
+		'a, button, input, select, textarea, [contenteditable]:not([contenteditable="false"])',
+	);
 
 const getCommitFileRowItems = ({
 	commitDetails,
@@ -259,6 +273,10 @@ const DiffContents: FC<{
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
+	reviewedFiles: ReviewedFileVersions;
+	manualCollapseByItem: Map<string, boolean>;
+	setManualCollapse: (itemId: string, collapsed: boolean | undefined) => void;
+	setFilesReviewed: (input: SetFilesReviewedInput) => void;
 	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
@@ -272,11 +290,13 @@ const DiffContents: FC<{
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
+	reviewedFiles,
+	manualCollapseByItem,
+	setManualCollapse,
+	setFilesReviewed,
 	viewerRef,
 	didScrollToViaFileRef,
 }) => {
-	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
-	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
 	const { mutate: createComment } = useCommentCreate();
@@ -298,6 +318,26 @@ const DiffContents: FC<{
 	const store = useAppStore();
 	const hunkCheckRangeAnchor = useRef<string>(null);
 	const hunkCheckRangeEnd = useRef<string>(null);
+
+	const collapsedItems: Set<string> = new Set(
+		items.flatMap((item) => {
+			const manuallyCollapsed = manualCollapseByItem.get(item.id);
+			if (manuallyCollapsed !== undefined) return manuallyCollapsed ? item.id : [];
+
+			const file = fileByItemId.get(item.id);
+			if (!file) return [];
+
+			const {
+				change: { path },
+				item: { version },
+			} = file;
+			if (version === undefined) return [];
+
+			const reviewedLatestVersion = reviewedFiles.get(path)?.has(version);
+			return reviewedLatestVersion ? item.id : [];
+		}),
+	);
+	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
 
 	const diffSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionDiff(state, projectId, visibleNavigationIndex),
@@ -369,17 +409,7 @@ const DiffContents: FC<{
 	});
 
 	function toggleSelectedHunkChecked(event: KeyboardEvent): void {
-		if (
-			diffSelection === null ||
-			event
-				.composedPath()
-				.some(
-					(target) =>
-						target instanceof HTMLElement &&
-						target.hasAttribute("data-gitbutler-diff-gutter-checkbox"),
-				)
-		)
-			return;
+		if (diffSelection === null || event.composedPath().some(isInteractiveElement)) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -427,6 +457,23 @@ const DiffContents: FC<{
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
 				meta: diffHotkeys.toggleFoldFile.meta,
+			},
+		},
+		{
+			hotkey: diffHotkeys.toggleReviewedFile.hotkey,
+			callback: () => {
+				if (!diffSelectionHunk) return;
+
+				const { id, version } = diffSelectionHunk.file.item;
+				if (version === undefined) throw new Error("Diff view item missing version");
+
+				const { path } = diffSelectionHunk.file.change;
+				handleSetReviewed(id, path, version)(!reviewedFiles.get(path)?.has(version));
+			},
+			options: {
+				enabled: hasStoredDiffSelection && !!diffSelectionHunk,
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
 			},
 		},
 		{
@@ -604,16 +651,7 @@ const DiffContents: FC<{
 	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
 		useDiffGutterCheckboxes(handleHunkPostRender, getHunkOperandAtLine, projectId, checkHunk);
 
-	const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
-		const s = new Set(collapsedItems);
-
-		if (collapsed) s.add(itemId);
-		else s.delete(itemId);
-
-		setCollapsedItems(s);
-
-		if (!collapsed) return;
-
+	const handOffCollapsedSelection = (itemId: string): void => {
 		// Folding hides the selected hunk's lines; hand the selection to the
 		// file's first hunk, which stands in for the folded file, and keep the
 		// header in view. The stored selection is read off the store rather than
@@ -630,6 +668,23 @@ const DiffContents: FC<{
 		);
 		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "nearest" });
 	};
+
+	const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
+		setManualCollapse(itemId, collapsed);
+		if (collapsed && !collapsedItems.has(itemId)) handOffCollapsedSelection(itemId);
+	};
+
+	const handleSetReviewed =
+		(itemId: string, path: string, version: number) => (reviewed: boolean) => {
+			setFilesReviewed({
+				projectId,
+				contextId: weakFileParentIdentityKey(fileParent),
+				files: [{ path, version }],
+				reviewed,
+			});
+			setManualCollapse(itemId, undefined);
+			if (reviewed && !collapsedItems.has(itemId)) handOffCollapsedSelection(itemId);
+		};
 
 	// We must change the version for updates to the collapsed property to be respected. The versions
 	// should be as stable as possible, collapsed or not, for performance. The selected flag is
@@ -665,9 +720,20 @@ const DiffContents: FC<{
 					if (item.type === "file") throw new Error("Only diff items may be rendered");
 
 					const file = fileByItemId.get(item.id);
-
 					// CodeView may briefly hold onto stale snapshots of our data.
 					if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
+
+					const { version } = file.item;
+					if (version === undefined) throw new Error("Diff view item missing version");
+
+					const allReviewedVersions = reviewedFiles.get(file.change.path);
+					const hasReviewedThisVersion = !!allReviewedVersions?.has(version);
+					const reviewState =
+						allReviewedVersions !== undefined
+							? hasReviewedThisVersion
+								? "reviewed"
+								: "changed"
+							: null;
 
 					return (
 						<DiffFileHeader
@@ -677,8 +743,10 @@ const DiffContents: FC<{
 							change={file.change}
 							hasDiff={item.fileDiff.hunks.length !== 0}
 							collapsed={item.collapsed ?? false}
+							reviewState={reviewState}
 							selected={item.id === selectedFoldedFileId}
 							setCollapsed={handleSetCollapsed(item.id)}
+							setReviewed={handleSetReviewed(item.id, file.change.path, version)}
 						/>
 					);
 				}}
@@ -830,9 +898,11 @@ type DiffFileHeaderProps = {
 	change: TreeChange;
 	hasDiff: boolean;
 	collapsed: boolean;
+	reviewState: "reviewed" | "changed" | null;
 	/** Whether the folded file's stand-in hunk holds the diff selection. */
 	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
+	setReviewed: (reviewed: boolean) => void;
 };
 
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
@@ -848,6 +918,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
 	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
+	const reviewLabel =
+		p.reviewState === "reviewed"
+			? "Reviewed"
+			: p.reviewState === "changed"
+				? "Needs review"
+				: "Not reviewed";
 
 	return (
 		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)} outline="inside">
@@ -885,6 +961,22 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
+				<button
+					type="button"
+					aria-pressed={p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"}
+					className={classes(
+						getButtonClassName({ variant: "outline", size: "small" }),
+						styles.fileReview,
+					)}
+					onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
+				>
+					<span className={styles.fileReviewIndicator} aria-hidden="true">
+						{p.reviewState !== null && (
+							<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
+						)}
+					</span>
+					{reviewLabel}
+				</button>
 				<ChangeTypeBadge type={p.item.fileDiff.type} />
 				<span>
 					<span className={styles.fileDiffAdded}>+{p.item.fileDiff.additionLines.length}</span>{" "}
@@ -1102,6 +1194,18 @@ const Diff: FC<{
 	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const dispatch = useAppDispatch();
+	const { mutate: setFilesReviewed } = useSetFilesReviewed();
+	const [manualCollapseByItem, setManualCollapseByItem] = useState<Map<string, boolean>>(new Map());
+	const setManualCollapse = (itemId: string, collapsed: boolean | undefined): void => {
+		setManualCollapseByItem((current) => {
+			if (collapsed === current.get(itemId)) return current;
+
+			const next = new Map(current);
+			if (collapsed === undefined) next.delete(itemId);
+			else next.set(itemId, collapsed);
+			return next;
+		});
+	};
 	// One mutation for the batch bar and every card, so `isPending` means "a
 	// resolution is in flight" rather than "this one's is". Each apply rewrites
 	// the commit, and a second started meanwhile would address the id it replaced.
@@ -1165,6 +1269,10 @@ const Diff: FC<{
 			),
 		[selection],
 	);
+	const reviewedFilesContextId = weakFileParentIdentityKey(fileParent);
+	const { data: reviewedFiles } = useSuspenseQuery(
+		reviewedFilesQueryOptions(projectId, reviewedFilesContextId),
+	);
 
 	// Eagerly fetch all diffs regardless of unidiff setting, both for UX and for the total line
 	// stats.
@@ -1192,22 +1300,36 @@ const Diff: FC<{
 	const shownFileIndex = renderAllFiles
 		? null
 		: changes.findIndex((change) => change.path === activeFilePath);
+	const preparedDiffFiles = useMemo(
+		() => prepareDiffFiles({ fileParent, changes, treeChangeDiffs }),
+		[fileParent, changes, treeChangeDiffs],
+	);
 
 	const diffViewSansAnno = useMemo(
 		() =>
-			getDiffView({
-				fileParent,
-				changes:
-					shownFileIndex === null ? changes : changes.slice(shownFileIndex, shownFileIndex + 1),
-				treeChangeDiffs:
-					shownFileIndex === null
-						? treeChangeDiffs
-						: treeChangeDiffs.slice(shownFileIndex, shownFileIndex + 1),
-			}),
-		[fileParent, shownFileIndex, changes, treeChangeDiffs],
+			getDiffView(
+				shownFileIndex === null
+					? preparedDiffFiles
+					: preparedDiffFiles.slice(shownFileIndex, shownFileIndex + 1),
+			),
+		[shownFileIndex, preparedDiffFiles],
 	);
 
 	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
+
+	const allFilesReviewed =
+		preparedDiffFiles.length > 0 &&
+		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
+
+	const toggleAllFilesReviewed = (): void => {
+		setManualCollapseByItem(new Map());
+		setFilesReviewed({
+			projectId,
+			contextId: reviewedFilesContextId,
+			files: preparedDiffFiles.map(({ change, version }) => ({ path: change.path, version })),
+			reviewed: !allFilesReviewed,
+		});
+	};
 
 	// The diff panel resolves this selection for the viewer; the ruler wants it in
 	// file line numbers, which is what the hunk's own range already holds.
@@ -1297,25 +1419,16 @@ const Diff: FC<{
 		() =>
 			minimapShown
 				? getMinimapFiles({
-						fileParent,
-						changes: shownIndex < 0 ? changes : changes.slice(shownIndex, shownIndex + 1),
-						treeChangeDiffs:
-							shownIndex < 0 ? treeChangeDiffs : treeChangeDiffs.slice(shownIndex, shownIndex + 1),
+						files:
+							shownIndex < 0
+								? preparedDiffFiles
+								: preparedDiffFiles.slice(shownIndex, shownIndex + 1),
 						diffStyle,
 						tabSize,
 						wrapColumns,
 					})
 				: [],
-		[
-			minimapShown,
-			shownIndex,
-			fileParent,
-			changes,
-			treeChangeDiffs,
-			diffStyle,
-			tabSize,
-			wrapColumns,
-		],
+		[minimapShown, shownIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
 	);
 
 	useHotkeys([
@@ -1447,6 +1560,13 @@ const Diff: FC<{
 						)}
 
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+							<Toolbar.Button
+								className={getButtonClassName({ variant: "outline" })}
+								disabled={preparedDiffFiles.length === 0}
+								onClick={toggleAllFilesReviewed}
+							>
+								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
+							</Toolbar.Button>
 							<ToggleGroupStyles>
 								<Toolbar.Button
 									render={
@@ -1516,6 +1636,10 @@ const Diff: FC<{
 								diffBackgrounds={diffSettings?.diffBackground}
 								diffOverflow={diffSettings?.diffOverflow}
 								diffStyle={diffStyle}
+								reviewedFiles={reviewedFiles}
+								manualCollapseByItem={manualCollapseByItem}
+								setManualCollapse={setManualCollapse}
+								setFilesReviewed={setFilesReviewed}
 								selectionScopeRef={selectionScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}

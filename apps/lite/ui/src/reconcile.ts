@@ -13,7 +13,7 @@ import {
 } from "./api/queries.ts";
 import { useParams } from "@tanstack/react-router";
 import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
-import { useEffectEvent, useLayoutEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
 import {
@@ -23,15 +23,21 @@ import {
 	operandIdentityKey,
 	type FileParent,
 	type Operand,
+	uncommittedChangesFileParent,
+	weakFileParentIdentityKey,
 } from "./operands.ts";
 import { decodeBytes } from "./api/bytes.ts";
 import { hunkContainsHunk } from "./hunk.ts";
 import type { RefInfo, TreeChange } from "@gitbutler/but-sdk";
+import { reviewedFilesQueryOptions, usePruneReviewedFiles } from "./reviewed-files.ts";
 
 /**
- * Reconcile state between Redux and React Query. This hook should be called very high up in the
- * tree so that synchronous dispatches in layout effects don't waste too much work. This hook
- * remains subscribed to any queries that are relevant to the current state.
+ * Reconcile in-memory and persisted client state against current repository data, most notably
+ * between Redux and React Query.
+ *
+ * This hook should be called very high up in the tree so that synchronous dispatches in layout
+ * effects don't waste too much work. This hook remains subscribed to queries relevant to state that
+ * may need reconciliation.
  */
 export const useStateReconciler = (): void => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
@@ -125,6 +131,11 @@ export const useStateReconciler = (): void => {
 	const checkedUncommittedFiles = checkedFiles.filter(
 		(file) => file.parent._tag === "UncommittedChanges",
 	);
+	const reviewedFilesContextId = weakFileParentIdentityKey(uncommittedChangesFileParent);
+	const { data: reviewedUncommittedFiles } = useQuery(
+		reviewedFilesQueryOptions(projectId, reviewedFilesContextId),
+	);
+	const { mutate: pruneReviewedFiles } = usePruneReviewedFiles();
 	const reconcileCheckedUncommittedFiles = useEffectEvent(
 		(worktreeChangesByPath: Map<string, TreeChange>) => {
 			const invalidated = checkedUncommittedFiles.flatMap((file) =>
@@ -201,13 +212,38 @@ export const useStateReconciler = (): void => {
 	const { data: worktreeChangesByPath } = useQuery({
 		...changesInWorktreeQueryOptions(projectId),
 		select: (data) => new Map(data.changes.map((change) => [change.path, change])),
-		enabled: checkedUncommittedFiles.length > 0,
+		enabled:
+			checkedUncommittedFiles.length > 0 ||
+			(reviewedUncommittedFiles && reviewedUncommittedFiles.size > 0),
 	});
+
 	useLayoutEffect(() => {
 		if (!worktreeChangesByPath) return;
 
 		reconcileCheckedUncommittedFiles(worktreeChangesByPath);
 	}, [worktreeChangesByPath]);
+
+	const pruneReviewedUncommittedFiles = useEffectEvent(
+		(worktreeChangesByPath: Map<string, TreeChange>) => {
+			if (!reviewedUncommittedFiles) return;
+
+			const stalePaths = new Set(reviewedUncommittedFiles.keys()).difference(
+				new Set(worktreeChangesByPath.keys()),
+			);
+			if (stalePaths.size === 0) return;
+
+			pruneReviewedFiles({
+				projectId,
+				contextId: reviewedFilesContextId,
+				paths: stalePaths,
+			});
+		},
+	);
+	useEffect(() => {
+		if (!worktreeChangesByPath) return;
+
+		pruneReviewedUncommittedFiles(worktreeChangesByPath);
+	}, [reviewedUncommittedFiles, worktreeChangesByPath]);
 
 	const checkedCommitFileCommitIds = new Set(
 		checkedCommitFiles.map((file) => file.parent.commitId),

@@ -31,7 +31,12 @@ type GlobalQueryKey =
  * memoizes an imperative preview: its key carries the operation and changes it
  * was measured against, and nothing refreshes it in place.
  */
-type LocalQueryKey = "commitMessageDraft" | "dryRun" | "prMergeMethod" | "prDraft";
+type LocalQueryKey =
+	| "commitMessageDraft"
+	| "dryRun"
+	| "prMergeMethod"
+	| "prDraft"
+	| "reviewedFiles";
 
 export type QueryKey = ProjectQueryKey | GlobalQueryKey | LocalQueryKey;
 
