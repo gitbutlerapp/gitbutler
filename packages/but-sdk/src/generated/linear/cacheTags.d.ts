@@ -10,6 +10,7 @@ export declare const apiProvides: {
 	readonly branchList: readonly ["Branches"];
 	readonly changesInWorktree: readonly ["WorktreeChanges"];
 	readonly checkSigningSettings: readonly ["SigningSettings"];
+	readonly commentAgentsList: readonly ["Comments"];
 	readonly commentsList: readonly ["Comments"];
 	readonly commitConflicts: readonly [];
 	readonly commitDetailsWithLineStats: readonly ["Commits"];

@@ -1,7 +1,10 @@
 //! Implementation of the `but _comment` command.
 
 use but_api::comments::{self, store};
-use but_comments::{DiffComment, DiffSide, NewComment, StoredComment};
+use but_comments::{
+    CommentAuthorKind, CommentMessage, DiffComment, DiffSide, NewComment, NewCommentMessage,
+    StoredComment,
+};
 use but_core::sync::RepoShared;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt as _;
@@ -11,12 +14,21 @@ use crate::{
     CliResult, IdMap,
     args::{
         atoms::{Purpose, ResolvedCliIdArg},
-        comment::{Platform, Subcommands},
+        comment::{AuthorKind, Platform, Subcommands},
     },
     bad_input,
     theme::Theme,
     utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
 };
+
+impl From<AuthorKind> for CommentAuthorKind {
+    fn from(value: AuthorKind) -> Self {
+        match value {
+            AuthorKind::Human => CommentAuthorKind::Human,
+            AuthorKind::Agent => CommentAuthorKind::Agent,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum CommentOperation {
@@ -31,22 +43,47 @@ pub enum CommentOperation {
         /// The full id of the already-archived comment.
         id: String,
     },
+    Acknowledge {
+        comment_id: String,
+        message_id: String,
+        client_id: String,
+    },
+    Reply {
+        /// The full id of the comment to reply to.
+        id: String,
+        message: NewCommentMessage,
+        acknowledge_through: Option<String>,
+    },
     Add {
         path: String,
         /// The commit whose diff to anchor to, or `None` for the uncommitted worktree diff.
         commit_id: Option<gix::ObjectId>,
         side: DiffSide,
         line_number: u32,
-        payload: String,
+        message: NewCommentMessage,
     },
 }
 
 #[must_use]
 pub enum CommentOutcome {
     Listed(Vec<DiffComment>),
-    WaitTimedOut { timeout_secs: u64 },
-    Archived { id: String },
-    AlreadyArchived { id: String },
+    WaitTimedOut {
+        timeout_secs: u64,
+    },
+    Archived {
+        id: String,
+    },
+    AlreadyArchived {
+        id: String,
+    },
+    Acknowledged {
+        comment_id: String,
+        message_id: String,
+    },
+    Replied {
+        comment_id: String,
+        message: CommentMessage,
+    },
     Added(DiffComment),
 }
 
@@ -72,7 +109,7 @@ impl CliOutputHuman for CommentOutcome {
             CommentOutcome::WaitTimedOut { timeout_secs } => {
                 writeln!(
                     out,
-                    "No comments appeared within {timeout_secs}s. Run `but _comment list --wait` again to keep waiting."
+                    "No comments appeared within {timeout_secs}s. Run the same `but _comment list --wait --client-id ... --author ... --author-kind agent` command again to keep waiting."
                 )?;
             }
             CommentOutcome::Archived { id } => {
@@ -80,6 +117,22 @@ impl CliOutputHuman for CommentOutcome {
             }
             CommentOutcome::AlreadyArchived { id } => {
                 writeln!(out, "Comment {id} was already archived; nothing to do")?;
+            }
+            CommentOutcome::Acknowledged {
+                comment_id,
+                message_id,
+            } => {
+                writeln!(
+                    out,
+                    "Acknowledged comment {comment_id} through message {message_id}"
+                )?;
+            }
+            CommentOutcome::Replied {
+                comment_id,
+                message,
+            } => {
+                writeln!(out, "Replied to comment {comment_id}")?;
+                write_message(out, &message)?;
             }
             CommentOutcome::Added(comment) => {
                 writeln!(out, "Added comment")?;
@@ -108,13 +161,30 @@ fn write_comment(
         "[{}] {}:{} ({scope}{side})",
         comment.id, comment.path, comment.line_number
     )?;
-    for line in comment.payload.lines() {
-        writeln!(out, "  {line}")?;
+    for message in &comment.messages {
+        write_message(out, message)?;
     }
     if with_context && let Some(context) = &comment.context {
         for line in context.lines() {
             writeln!(out, "  | {line}")?;
         }
+    }
+    Ok(())
+}
+
+fn write_message(out: &mut dyn WriteWithUtils, message: &CommentMessage) -> anyhow::Result<()> {
+    let kind = match message.author_kind {
+        CommentAuthorKind::Human => "human",
+        CommentAuthorKind::Agent => "agent",
+    };
+    let title = message
+        .author_title
+        .as_deref()
+        .map(|title| format!(" ({title})"))
+        .unwrap_or_default();
+    writeln!(out, "  [{}] {}{title} ({kind})", message.id, message.author)?;
+    for line in message.payload.lines() {
+        writeln!(out, "    {line}")?;
     }
     Ok(())
 }
@@ -128,9 +198,23 @@ impl CliOutput for CommentOutcome {
             rename_all_fields = "camelCase"
         )]
         enum Output {
-            Listed { comments: Vec<DiffComment> },
-            Archived { archived: String },
-            Added { comment: DiffComment },
+            Listed {
+                comments: Vec<DiffComment>,
+            },
+            Archived {
+                archived: String,
+            },
+            Acknowledged {
+                comment_id: String,
+                message_id: String,
+            },
+            Replied {
+                comment_id: String,
+                message: CommentMessage,
+            },
+            Added {
+                comment: DiffComment,
+            },
         }
 
         match self {
@@ -142,6 +226,20 @@ impl CliOutput for CommentOutcome {
             CommentOutcome::Archived { id } | CommentOutcome::AlreadyArchived { id } => {
                 Output::Archived { archived: id }
             }
+            CommentOutcome::Acknowledged {
+                comment_id,
+                message_id,
+            } => Output::Acknowledged {
+                comment_id,
+                message_id,
+            },
+            CommentOutcome::Replied {
+                comment_id,
+                message,
+            } => Output::Replied {
+                comment_id,
+                message,
+            },
             CommentOutcome::Added(comment) => Output::Added { comment },
         }
     }
@@ -158,9 +256,47 @@ pub fn comment(
     if let Subcommands::List {
         wait: true,
         timeout,
+        author,
+        client_id,
+        title,
+        author_kind,
     } = args.cmd
     {
-        return Ok(run_wait(ctx, timeout)?);
+        let author = author
+            .ok_or_else(|| bad_input("--author is required with --wait").arg_name("--author"))?;
+        if author.trim().is_empty() {
+            return Err(bad_input("The waiting author cannot be blank")
+                .arg_name("--author")
+                .arg_value(author)
+                .into());
+        }
+        let author_kind = author_kind.ok_or_else(|| {
+            bad_input("--author-kind is required with --wait").arg_name("--author-kind")
+        })?;
+        if !matches!(author_kind, AuthorKind::Agent) {
+            return Err(
+                bad_input("Only agent clients can wait for invited comment threads")
+                    .arg_name("--author-kind")
+                    .arg_value("human")
+                    .into(),
+            );
+        }
+        let client_id = client_id.ok_or_else(|| {
+            bad_input("--client-id is required with --wait").arg_name("--client-id")
+        })?;
+        if client_id.trim().is_empty() {
+            return Err(bad_input("The waiting client id cannot be blank")
+                .arg_name("--client-id")
+                .arg_value(client_id)
+                .into());
+        }
+        return Ok(run_wait(
+            ctx,
+            timeout,
+            &client_id,
+            &author,
+            title.as_deref(),
+        )?);
     }
 
     let guard = ctx.shared_worktree_access();
@@ -175,7 +311,13 @@ pub fn comment(
 /// auto-archiving) listing runs only when rows the CLI could actually surface exist. A row can
 /// exist yet produce an empty listing when its anchor is gone — the listing archives it and the
 /// wait continues.
-fn run_wait(ctx: &Context, timeout_secs: u64) -> anyhow::Result<CommentOutcome> {
+fn run_wait(
+    ctx: &Context,
+    timeout_secs: u64,
+    client_id: &str,
+    author: &str,
+    title: Option<&str>,
+) -> anyhow::Result<CommentOutcome> {
     const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
     /// When rows exist but none are listable (e.g. their commit's branch is unapplied), every
     /// poll pays for a full listing — back off so a watching agent doesn't burn a status scan
@@ -183,12 +325,20 @@ fn run_wait(ctx: &Context, timeout_secs: u64) -> anyhow::Result<CommentOutcome> 
     const POLL_INTERVAL_NOTHING_LISTABLE: std::time::Duration = std::time::Duration::from_secs(10);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
     loop {
+        but_comments::register_comment_client(
+            &store(ctx),
+            client_id,
+            author,
+            title,
+            chrono::Utc::now().timestamp_millis(),
+        )?;
         let mut interval = POLL_INTERVAL;
+        let receipts = store(ctx).read_receipts();
         // Blank rows are invisible to the CLI, so they must not trigger the expensive listing.
-        let rows_exist = store(ctx)
-            .read()
-            .iter()
-            .any(|comment| comment.archived_at_ms.is_none() && !comment.payload.trim().is_empty());
+        let rows_exist = store(ctx).read().iter().any(|comment| {
+            comment.archived_at_ms.is_none()
+                && but_comments::is_actionable_for(comment, client_id, &receipts)
+        });
         if rows_exist {
             // Long waits outlive the cached workspace projection: a commit created mid-wait
             // must be resolvable or its comments would be treated as scope-less.
@@ -197,7 +347,19 @@ fn run_wait(ctx: &Context, timeout_secs: u64) -> anyhow::Result<CommentOutcome> 
                 let guard = ctx.shared_worktree_access();
                 comments::comments_list_with_perm(ctx, guard.read_permission())?
             };
-            let comments = without_blank_payloads(comments);
+            let actionable_ids = store(ctx)
+                .read()
+                .into_iter()
+                .filter(|comment| {
+                    comment.archived_at_ms.is_none()
+                        && but_comments::is_actionable_for(comment, client_id, &receipts)
+                })
+                .map(|comment| comment.id)
+                .collect::<std::collections::HashSet<_>>();
+            let comments = without_blank_payloads(comments)
+                .into_iter()
+                .filter(|comment| actionable_ids.contains(&comment.id))
+                .collect::<Vec<_>>();
             if !comments.is_empty() {
                 return Ok(CommentOutcome::Listed(comments));
             }
@@ -217,8 +379,35 @@ fn run_wait(ctx: &Context, timeout_secs: u64) -> anyhow::Result<CommentOutcome> 
 fn without_blank_payloads(comments: Vec<DiffComment>) -> Vec<DiffComment> {
     comments
         .into_iter()
-        .filter(|comment| !comment.payload.trim().is_empty())
+        .filter(|comment| {
+            comment
+                .messages
+                .iter()
+                .any(|message| !message.payload.trim().is_empty())
+        })
         .collect()
+}
+
+fn resolve_author_client_id(
+    author_kind: AuthorKind,
+    client_id: Option<String>,
+) -> CliResult<Option<String>> {
+    match (author_kind, client_id) {
+        (AuthorKind::Agent, Some(client_id)) if !client_id.trim().is_empty() => Ok(Some(client_id)),
+        (AuthorKind::Agent, client_id) => {
+            Err(bad_input("--client-id is required for agent authors")
+                .arg_name("--client-id")
+                .arg_value(client_id.unwrap_or_default())
+                .into())
+        }
+        (AuthorKind::Human, None) => Ok(None),
+        (AuthorKind::Human, Some(client_id)) => Err(bad_input(
+            "--client-id identifies agent workstreams and cannot be used by a human author",
+        )
+        .arg_name("--client-id")
+        .arg_value(client_id)
+        .into()),
+    }
 }
 
 fn resolve(ctx: &Context, args: Platform, perm: &RepoShared) -> CliResult<CommentOperation> {
@@ -262,12 +451,150 @@ fn resolve(ctx: &Context, args: Platform, perm: &RepoShared) -> CliResult<Commen
                     .into()),
             }
         }
+        Subcommands::Ack {
+            id,
+            message,
+            client_id,
+        } => {
+            let matches = store(ctx)
+                .read()
+                .into_iter()
+                .filter(|comment| comment.id.starts_with(&id))
+                .collect::<Vec<_>>();
+            let [comment] = matches.as_slice() else {
+                let error = if matches.is_empty() {
+                    "No comment with this id"
+                } else {
+                    "The id prefix matches more than one comment"
+                };
+                return Err(bad_input(error).arg_name("<ID>").arg_value(id).into());
+            };
+            let messages = comment
+                .messages
+                .iter()
+                .filter(|stored| stored.id.starts_with(&message))
+                .collect::<Vec<_>>();
+            let [stored_message] = messages.as_slice() else {
+                let error = if messages.is_empty() {
+                    "No message with this id in the comment"
+                } else {
+                    "The message id prefix matches more than one message"
+                };
+                return Err(bad_input(error)
+                    .arg_name("--message")
+                    .arg_value(message)
+                    .into());
+            };
+            Ok(CommentOperation::Acknowledge {
+                comment_id: comment.id.clone(),
+                message_id: stored_message.id.clone(),
+                client_id,
+            })
+        }
+        Subcommands::Reply {
+            id,
+            message,
+            author,
+            author_kind,
+            client_id,
+            mention,
+            ack_through,
+        } => {
+            if message.trim().is_empty() {
+                return Err(bad_input("A comment reply cannot be blank")
+                    .arg_name("--message")
+                    .arg_value(message)
+                    .into());
+            }
+            if author.trim().is_empty() {
+                return Err(bad_input("The reply author cannot be blank")
+                    .arg_name("--author")
+                    .arg_value(author)
+                    .into());
+            }
+            let author_client_id = resolve_author_client_id(author_kind, client_id)?;
+            let matches = store(ctx)
+                .read()
+                .into_iter()
+                .filter(|comment| comment.id.starts_with(&id))
+                .collect::<Vec<_>>();
+            if matches.is_empty() {
+                return Err(bad_input("No comment with this id")
+                    .arg_name("<ID>")
+                    .arg_value(id)
+                    .hint("Use `but _comment list` to see the ids of all comments")
+                    .into());
+            }
+            let unarchived = matches
+                .iter()
+                .filter(|comment| comment.archived_at_ms.is_none())
+                .collect::<Vec<_>>();
+            match unarchived.as_slice() {
+                [comment] => {
+                    let acknowledge_through = ack_through
+                        .map(|prefix| -> CliResult<String> {
+                            let matches = comment
+                                .messages
+                                .iter()
+                                .filter(|message| message.id.starts_with(&prefix))
+                                .collect::<Vec<_>>();
+                            match matches.as_slice() {
+                                [message] => Ok(message.id.clone()),
+                                [] => Err(bad_input("No message with this id in the comment")
+                                    .arg_name("--ack-through")
+                                    .arg_value(prefix)
+                                    .into()),
+                                _ => Err(bad_input(
+                                    "The message id prefix matches more than one message",
+                                )
+                                .arg_name("--ack-through")
+                                .arg_value(prefix)
+                                .into()),
+                            }
+                        })
+                        .transpose()?;
+                    Ok(CommentOperation::Reply {
+                        id: comment.id.clone(),
+                        message: NewCommentMessage {
+                            id: None,
+                            author,
+                            author_kind: author_kind.into(),
+                            author_client_id,
+                            mentioned_client_ids: mention,
+                            payload: message,
+                        },
+                        acknowledge_through,
+                    })
+                }
+                [] if matches.len() == 1 => Err(bad_input("This comment is archived")
+                    .arg_name("<ID>")
+                    .arg_value(id)
+                    .hint("Reply to an unarchived comment shown by `but _comment list`")
+                    .into()),
+                _ => Err(bad_input("The id prefix matches more than one comment")
+                    .arg_name("<ID>")
+                    .arg_value(id)
+                    .hint("Use more characters of the id shown by `but _comment list`")
+                    .into()),
+            }
+        }
         Subcommands::Add {
             anchor,
             message,
+            author,
+            author_kind,
+            client_id,
+            mention,
             commit,
             old,
         } => {
+            if author.trim().is_empty() {
+                return Err(bad_input("The comment author cannot be blank")
+                    .arg_name("--author")
+                    .arg_value(author)
+                    .into());
+            }
+            let author_client_id = resolve_author_client_id(author_kind, client_id)?;
             let (path, line_number) = anchor
                 .rsplit_once(':')
                 .and_then(|(path, line)| Some((path, line.parse::<u32>().ok()?)))
@@ -298,7 +625,14 @@ fn resolve(ctx: &Context, args: Platform, perm: &RepoShared) -> CliResult<Commen
                 commit_id,
                 side: if old { DiffSide::Old } else { DiffSide::New },
                 line_number,
-                payload: message,
+                message: NewCommentMessage {
+                    id: None,
+                    author,
+                    author_kind: author_kind.into(),
+                    author_client_id,
+                    mentioned_client_ids: mention,
+                    payload: message,
+                },
             })
         }
     }
@@ -323,12 +657,34 @@ pub fn run(
             }
         }
         CommentOperation::ArchiveAlreadyDone { id } => Ok(CommentOutcome::AlreadyArchived { id }),
+        CommentOperation::Acknowledge {
+            comment_id,
+            message_id,
+            client_id,
+        } => {
+            comments::comment_acknowledge(ctx, comment_id.clone(), message_id.clone(), client_id)?;
+            Ok(CommentOutcome::Acknowledged {
+                comment_id,
+                message_id,
+            })
+        }
+        CommentOperation::Reply {
+            id,
+            message,
+            acknowledge_through,
+        } => {
+            let message = comments::comment_reply(ctx, id.clone(), message, acknowledge_through)?;
+            Ok(CommentOutcome::Replied {
+                comment_id: id,
+                message,
+            })
+        }
         CommentOperation::Add {
             path,
             commit_id,
             side,
             line_number,
-            payload,
+            message,
         } => {
             let commit_change_id = commit_id
                 .map(|commit_id| -> anyhow::Result<String> {
@@ -348,7 +704,7 @@ pub fn run(
                     commit_change_id,
                     side,
                     line_number,
-                    payload,
+                    message,
                 },
                 perm,
             )?;

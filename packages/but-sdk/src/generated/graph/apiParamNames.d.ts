@@ -23,9 +23,12 @@ export declare const apiParamNames: {
 	readonly changesInWorktreeWithPerm: readonly ["projectId", "changesSource", "computeDepsAndAssignments"];
 	readonly checkGithubAuthStatus: readonly ["deviceCode"];
 	readonly checkSigningSettings: readonly ["projectId"];
+	readonly commentAcknowledge: readonly ["projectId", "commentId", "messageId", "clientId"];
+	readonly commentAgentsList: readonly ["projectId"];
 	readonly commentArchive: readonly ["projectId", "id"];
 	readonly commentCreate: readonly ["projectId", "comment"];
-	readonly commentUpdate: readonly ["projectId", "id", "payload"];
+	readonly commentDraftPublish: readonly ["projectId", "commentId", "messageId", "payload", "mentionedClientIds"];
+	readonly commentReply: readonly ["projectId", "id", "message", "acknowledgeThrough"];
 	readonly commentsList: readonly ["projectId"];
 	readonly commitAmend: readonly ["projectId", "commitId", "changes", "changesSource", "dryRun"];
 	readonly commitCherryPick: readonly ["projectId", "sourceCommitIds", "relativeTo", "side", "dryRun"];

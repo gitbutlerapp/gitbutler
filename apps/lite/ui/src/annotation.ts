@@ -4,7 +4,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { FileParent } from "#ui/operands.ts";
 import { Toast } from "@base-ui/react";
-import type { DiffComment, DiffSide } from "@gitbutler/but-sdk";
+import type { CommentMessage, CommentParticipant, DiffComment, DiffSide } from "@gitbutler/but-sdk";
 import type { AnnotationSide } from "@pierre/diffs";
 import { useMutation } from "@tanstack/react-query";
 
@@ -16,8 +16,9 @@ export type LocalAnnotation = {
 	id: string;
 	lineNumber: number;
 	side: AnnotationSide;
-	body: string;
-	updatedAtMs: number;
+	messages: Array<CommentMessage>;
+	agentParticipantIds: Array<string>;
+	agentParticipants: Array<CommentParticipant>;
 };
 
 export type LocalAnnotationsByPath = Map<string, Array<LocalAnnotation>>;
@@ -47,8 +48,9 @@ export const annotationsByPathForScope = (
 			id: comment.id,
 			lineNumber: comment.lineNumber,
 			side: diffSideToAnnotationSide(comment.side),
-			body: comment.payload,
-			updatedAtMs: comment.updatedAtMs,
+			messages: comment.messages,
+			agentParticipantIds: comment.agentParticipantIds,
+			agentParticipants: comment.agentParticipants,
 		});
 		byPath.set(comment.path, annotations);
 	}
@@ -63,16 +65,31 @@ export const useCommentCreate = () => {
 		mutationFn: (params: PayloadFor<"commentCreate"> & { comment: { id: string } }) =>
 			window.lite.commentCreate(params),
 		onMutate: async (input, ctx) => {
+			const messageId = input.comment.message.id;
+			if (messageId === null) throw new Error("Optimistic message requires an id");
 			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
 
 			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
 
 			const now = Date.now();
+			const { message, ...thread } = input.comment;
 			const appended: DiffComment = {
-				...input.comment,
+				...thread,
 				lineContent: "",
-				createdAtMs: now,
-				updatedAtMs: now,
+				messages: [
+					{
+						...message,
+						authorTitle: null,
+						mentionedClientIds: message.mentionedClientIds ?? [],
+						acknowledgements: [],
+						expectedAcknowledgementCount: message.mentionedClientIds?.length ?? 0,
+						id: messageId,
+						createdAtMs: now,
+						updatedAtMs: now,
+					},
+				],
+				agentParticipantIds: message.mentionedClientIds ?? [],
+				agentParticipants: [],
 				context: null,
 			};
 
@@ -101,11 +118,12 @@ export const useCommentCreate = () => {
 	});
 };
 
-export const useCommentUpdate = () => {
+export const useCommentDraftPublish = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (params: PayloadFor<"commentUpdate">) => window.lite.commentUpdate(params),
+		mutationFn: (params: PayloadFor<"commentDraftPublish">) =>
+			window.lite.commentDraftPublish(params),
 		onSettled: (_comment, _err, input, _result, ctx) =>
 			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error) => {
@@ -115,6 +133,61 @@ export const useCommentUpdate = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to update comment",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useCommentReply = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (params: PayloadFor<"commentReply"> & { message: { id: string } }) =>
+			window.lite.commentReply(params),
+		onMutate: async (input, ctx) => {
+			await ctx.client.cancelQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey });
+			const prev = ctx.client.getQueryData(commentsQueryOptions(input.projectId).queryKey);
+			const now = Date.now();
+			ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, (comments) =>
+				comments?.map((comment) =>
+					comment.id === input.id
+						? {
+								...comment,
+								messages: comment.messages.concat({
+									...input.message,
+									authorTitle: null,
+									mentionedClientIds: input.message.mentionedClientIds ?? [],
+									acknowledgements: [],
+									expectedAcknowledgementCount: new Set([
+										...comment.agentParticipantIds,
+										...(input.message.mentionedClientIds ?? []),
+									]).size,
+									createdAtMs: now,
+									updatedAtMs: now,
+								}),
+								agentParticipantIds: [
+									...new Set([
+										...comment.agentParticipantIds,
+										...(input.message.mentionedClientIds ?? []),
+									]),
+								],
+							}
+						: comment,
+				),
+			);
+			return prev;
+		},
+		onSettled: (_message, _err, input, _result, ctx) =>
+			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
+		onError: (error, input, prev, ctx) => {
+			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
+			// oxlint-disable-next-line no-console
+			console.error(error);
+			toastManager.add({
+				type: "error",
+				title: "Failed to reply to comment",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -182,7 +255,10 @@ ${allFeedback
 			idx,
 		) => `${idx + 1}. ${feedback.path}:${feedback.annotation.lineNumber} (${feedback.annotation.side}) in ${localAnnotationRevision(feedback.fileParent)}
 
-${feedback.annotation.body}
+${feedback.annotation.messages
+	.filter((message) => message.payload.trim() !== "")
+	.map((message) => `${message.author} (${message.authorKind}): ${message.payload}`)
+	.join("\n\n")}
 `,
 	)
 	.join("\n")}`;

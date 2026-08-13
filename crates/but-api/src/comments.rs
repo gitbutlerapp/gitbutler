@@ -4,7 +4,9 @@
 //! time).
 
 use but_api_macros::but_api;
-use but_comments::{CommentStore, DiffComment, NewComment};
+use but_comments::{
+    CommentClient, CommentMessage, CommentStore, DiffComment, NewComment, NewCommentMessage,
+};
 use but_core::sync::RepoShared;
 use but_ctx::Context;
 use tracing::instrument;
@@ -65,6 +67,13 @@ pub fn comments_list(ctx: &Context) -> anyhow::Result<Vec<DiffComment>> {
     comments_list_with_perm(ctx, guard.read_permission())
 }
 
+/// List agent workstreams with a live polling lease in this project.
+#[but_api(napi, provides = [Comments])]
+#[instrument(skip(ctx), err(Debug))]
+pub fn comment_agents_list(ctx: &Context) -> anyhow::Result<Vec<CommentClient>> {
+    Ok(but_comments::active_comment_clients(&store(ctx), now_ms()))
+}
+
 /// See [`comments_list`]; this variant is for callers that already hold shared worktree access.
 pub fn comments_list_with_perm(
     ctx: &Context,
@@ -88,11 +97,58 @@ pub fn comments_list_with_perm(
     Ok(listing.comments)
 }
 
-/// Replace the payload of the unarchived comment with the given `id`.
+/// Publish the payload of a blank draft message in an unarchived comment thread.
 #[but_api(napi)]
 #[instrument(skip(ctx, payload), err(Debug))]
-pub fn comment_update(ctx: &Context, id: String, payload: String) -> anyhow::Result<()> {
-    but_comments::update_payload(&store(ctx), &id, payload, now_ms())?;
+pub fn comment_draft_publish(
+    ctx: &Context,
+    comment_id: String,
+    message_id: String,
+    payload: String,
+    mentioned_client_ids: Vec<String>,
+) -> anyhow::Result<()> {
+    but_comments::publish_draft_message(
+        &store(ctx),
+        &comment_id,
+        &message_id,
+        payload,
+        mentioned_client_ids,
+        now_ms(),
+    )?;
+    notify_desktop_watcher(ctx);
+    Ok(())
+}
+
+/// Append an authored message to an unarchived comment thread.
+#[but_api(napi)]
+#[instrument(skip(ctx, message), err(Debug))]
+pub fn comment_reply(
+    ctx: &Context,
+    id: String,
+    message: NewCommentMessage,
+    acknowledge_through: Option<String>,
+) -> anyhow::Result<CommentMessage> {
+    let reply = but_comments::reply_to_comment(
+        &store(ctx),
+        &id,
+        message,
+        acknowledge_through.as_deref(),
+        now_ms(),
+    )?;
+    notify_desktop_watcher(ctx);
+    Ok(reply)
+}
+
+/// Explicitly acknowledge every message through `message_id` for one thread and agent client.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn comment_acknowledge(
+    ctx: &Context,
+    comment_id: String,
+    message_id: String,
+    client_id: String,
+) -> anyhow::Result<()> {
+    but_comments::acknowledge_comment(&store(ctx), &comment_id, &message_id, &client_id)?;
     notify_desktop_watcher(ctx);
     Ok(())
 }
