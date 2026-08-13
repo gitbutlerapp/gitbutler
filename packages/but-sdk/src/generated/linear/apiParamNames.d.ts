@@ -121,7 +121,6 @@ export declare const apiParamNames: {
 	readonly tearOffBranch: readonly ["projectId", "subjectBranch", "dryRun"];
 	readonly treeChangeDiffs: readonly ["projectId", "change"];
 	readonly unapplyStack: readonly ["projectId", "stackId"];
-	readonly updateBranchName: readonly ["projectId", "stackId", "branchName", "newName"];
 	readonly updateProfileAndPersist: readonly ["params"];
 	readonly updateProjectSettings: readonly ["projectId", "settings"];
 	readonly updateReview: readonly ["projectId", "reviewId", "title", "body", "state", "targetBase"];

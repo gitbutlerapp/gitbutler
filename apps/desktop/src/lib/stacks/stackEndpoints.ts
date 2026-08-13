@@ -24,7 +24,6 @@ import type {
 	BranchLandResult,
 	CommitAbsorption,
 	BranchDetails,
-	BranchReference,
 	UpstreamCommit,
 	Commit,
 	InitialBranchIntegration,
@@ -680,27 +679,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.HeadSha),
 				invalidatesList(ReduxTag.BranchListing),
 				invalidatesList(ReduxTag.Stacks),
-			],
-		}),
-		updateBranchName: build.mutation<
-			BranchReference,
-			{
-				projectId: string;
-				stackId?: string;
-				laneId: string;
-				branchName: string;
-				newName: string;
-			}
-		>({
-			extraOptions: {
-				command: "update_branch_name",
-				actionName: "Update Branch Name",
-			},
-			query: (args) => args,
-			invalidatesTags: (_r, _e, args) => [
-				invalidatesList(ReduxTag.Stacks), // Probably still needed
-				invalidatesItem(ReduxTag.StackDetails, args.stackId), // This probably is still needed as well
-				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
 		/**

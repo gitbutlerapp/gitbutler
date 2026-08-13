@@ -2095,6 +2095,36 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
 }
 
 #[test]
+fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    add_workspace(&mut meta);
+    let stack_id =
+        add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["missing"]);
+
+    let metadata = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
+        .validated()?
+        .into_workspace()?
+        .metadata_from_projection()?
+        .expect("workspace metadata is present");
+    let stack = metadata
+        .stacks
+        .iter()
+        .find(|stack| stack.id == stack_id)
+        .expect("projected stack retains its metadata");
+
+    assert_eq!(
+        stack
+            .branches
+            .iter()
+            .map(|branch| branch.ref_name.shorten())
+            .collect::<Vec<_>>(),
+        ["B"],
+        "branches missing from a partially projected stack must be excluded"
+    );
+    Ok(())
+}
+
+#[test]
 fn just_init_with_archived_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
@@ -5490,6 +5520,50 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
 └── ≡📙:3:advanced-lane on fafd9d0 {1}
     └── 📙:3:advanced-lane
         └── ·cbc6713 (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
+
+    add_stack(&mut meta, 0, "A", StackState::InWorkspace);
+    let stack_b_id = add_stack(&mut meta, 1, "B", StackState::InWorkspace);
+    // C is notably missing at the tip of the second stack.
+
+    let workspace = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    assert_eq!(
+        workspace.stacks[0]
+            .ref_name()
+            .map(ToString::to_string)
+            .as_deref(),
+        Some("refs/heads/A"),
+        "metadata order places A before the physical C-on-B stack"
+    );
+    assert_eq!(
+        workspace.stacks[1].id,
+        Some(stack_b_id),
+        "the physical stack with unrecorded top C keeps B's stable stack identity"
+    );
+    // Incomplete metadata orders the whole physical stack through its present lower branch.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:3:A on 85efbe4 {0}
+│   └── 📙:3:A
+│       └── ·09d8e52 (🏘️)
+└── ≡:5:C on 85efbe4 {1}
+    ├── :5:C
+    │   └── ·09bc93e (🏘️)
+    └── 📙:4:B
+        └── ·c813d8d (🏘️)
 
 "#]]
     );

@@ -1,40 +1,12 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
 
-function tick () {
-  if test -z "${tick+set}"; then
-    tick=1675176957
-  else
-    tick=$(($tick + 60))
-  fi
-  GIT_COMMITTER_DATE="$tick +0100"
-  GIT_AUTHOR_DATE="$tick +0100"
-  export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
-}
-
-function commit_exact () {
-  local message=${1:?}
-  git add -A
-  local tree
-  tree=$(git write-tree)
-  local parent_args=()
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then
-    parent_args=(-p HEAD)
-  fi
-  local commit
-  commit=$(printf "%s" "$message" | git commit-tree "$tree" "${parent_args[@]}")
-  local current_branch
-  current_branch=$(git symbolic-ref -q HEAD || true)
-  if [[ -n "$current_branch" ]]; then
-    git update-ref "$current_branch" "$commit"
-  fi
-  git reset --hard "$commit" >/dev/null
-}
+source "${BASH_SOURCE[0]%/*}/../../../but/tests/fixtures/scenario/shared.sh"
 
 function commit_with_tick () {
-  local message=${1:?}
   tick
-  commit_exact "$message"
+  git add -A
+  commit "${1:?}"
 }
 
 git init --initial-branch=main remote
@@ -62,12 +34,11 @@ git clone remote conflicting-stacks
   echo "content from stack b" > shared.txt
   commit_with_tick "stack_b commit"
 
-  # The workspace commit merges both stacks.
-  # remerged_workspace_tree_v2 will detect that they conflict.
-  git checkout -b gitbutler/workspace main
-  # We can't actually merge conflicting branches, so just point workspace
-  # at main. The seed + update_workspace_commit call in the test will
-  # rebuild it properly.
+  stack_a_oid=$(git rev-parse stack_a)
+  stack_b_oid=$(git rev-parse stack_b)
+  tree=$(git rev-parse main^{tree})
+  ws_commit=$(echo "GitButler Workspace Commit" | git commit-tree "$tree" -p "$stack_a_oid" -p "$stack_b_oid")
+  git checkout -b gitbutler/workspace "$ws_commit"
 )
 
 # Two stacks each modifying nearby, non-overlapping sections of the same file.
@@ -89,9 +60,8 @@ git clone remote adjacent-stacks
   printf '1\n2\n3\n4\n5\n6\nb7\nb8\nb9\n10\n11\n12\n13\n14\n15\n' > file
   commit_with_tick "stack_b: change middle section"
 
-  # Point workspace at main; update_workspace_commit in the test rebuilds it properly.
-  git checkout -b gitbutler/workspace main
-  git commit --allow-empty -m "GitButler Workspace Commit"
+  git checkout main
+  create_workspace_commit_once main
 )
 
 git clone remote diverged-stacks
@@ -129,6 +99,7 @@ git clone remote diverged-stacks
 
   stack_c_oid=$(git rev-parse stack_c)
   stack_d_oid=$(git rev-parse stack_d)
+  # Start with stack C's incomplete tree so the test must rebuild the workspace merge.
   tree=$(git rev-parse stack_c^{tree})
   ws_commit=$(echo "GitButler Workspace Commit" | git commit-tree "$tree" -p "$stack_c_oid" -p "$stack_d_oid")
   git checkout -b gitbutler/workspace

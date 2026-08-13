@@ -1,21 +1,12 @@
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
-use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_operating_modes::is_well_known_workspace_ref;
-use gitbutler_repo::{
-    SignaturePurpose, commit_with_signature_gix, commit_without_signature_gix,
-    first_parent_commit_ids_until, signature_gix,
-};
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use tracing::instrument;
 
-use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
-
-const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 // Before switching the user to our gitbutler workspace branch we save
@@ -49,29 +40,33 @@ fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()>
 
 /// Update `gitbutler/workspace` using the current virtual branch state from `ctx`.
 pub fn update_workspace_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     checkout_new_worktree: bool,
 ) -> Result<gix::ObjectId> {
-    update_workspace_commit_with_vb_state(&ctx.virtual_branches(), ctx, checkout_new_worktree)
+    let mut guard = ctx.exclusive_worktree_access();
+    update_workspace_commit_with_perm(ctx, checkout_new_worktree, guard.write_permission())
 }
 
-/// Update `gitbutler/workspace` using the caller-provided virtual branch state handle.
-///
-/// This variant exists for flows that have just mutated stacks or the default target through an
-/// already-existing `VirtualBranchesHandle`. Passing that handle keeps it obvious that the
-/// workspace commit must be rebuilt from the same state mutation sequence instead of implicitly
-/// reacquiring a fresh handle from `ctx`.
-///
-/// Most callers should use [`update_workspace_commit()`]. Reach for this helper only when the
-/// handle is already part of the operation itself, such as branch creation, base-branch changes,
-/// or rebases that update stack metadata before refreshing the workspace commit.
-#[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
-pub(crate) fn update_workspace_commit_with_vb_state(
-    vb_state: &VirtualBranchesHandle,
+/// Update `gitbutler/workspace` while reusing caller-held exclusive repository access.
+#[instrument(level = "debug", skip(ctx, perm), err(Debug))]
+pub fn update_workspace_commit_with_perm(
     ctx: &Context,
     checkout_new_worktree: bool,
+    perm: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
-    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
+    let ws = ctx.workspace_from_head_uncached(perm.read_permission())?;
+    update_workspace_commit_from_workspace(ctx, checkout_new_worktree, &ws, perm)
+}
+
+pub(crate) fn update_workspace_commit_from_workspace(
+    ctx: &Context,
+    checkout_new_worktree: bool,
+    ws: &but_graph::Workspace,
+    _perm: &mut RepoExclusive,
+) -> Result<gix::ObjectId> {
+    let target_base_oid = ws
+        .stored_target_commit_id()
+        .context("failed to get target base oid")?;
 
     #[expect(deprecated, reason = "workspace checkout/index boundary")]
     let repo = &*ctx.git2_repo.get()?;
@@ -97,18 +92,14 @@ pub(crate) fn update_workspace_commit_with_vb_state(
     }
     let prev_head_id = head_ref.target();
 
-    // get all virtual branches, we need to try to update them all
-    let virtual_branches: Vec<Stack> = vb_state
-        .list_stacks_in_workspace()
-        .context("failed to list virtual branches")?;
-
-    let workspace_head =
-        gix_repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
+    let workspace_head = gix_repo.find_commit(
+        but_workspace::legacy::remerged_workspace_commit_v2(ctx, ws)?,
+    )?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
     message.push_str("\n\n");
-    if !virtual_branches.is_empty() {
+    if !ws.stacks.is_empty() {
         message.push_str("This is a merge commit the virtual branches in your workspace.\n\n");
     } else {
         message.push_str("This is placeholder commit and will be replaced by a merge of your ");
@@ -121,17 +112,21 @@ pub(crate) fn update_workspace_commit_with_vb_state(
 
     message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
     message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
-    if !virtual_branches.is_empty() {
+    if !ws.stacks.is_empty() {
         message.push_str("Here are the branches that are currently applied:\n");
-        for branch in &virtual_branches {
+        for stack in &ws.stacks {
+            let Some(ref_name) = stack.ref_name() else {
+                continue;
+            };
             message.push_str(" - ");
-            message.push_str(&branch.name());
-            message.push_str(format!(" ({})", &branch.refname()?).as_str());
+            message.push_str(&ref_name.shorten().to_string());
+            message.push_str(format!(" ({ref_name})").as_str());
             message.push('\n');
 
-            if branch.head_oid(ctx)? != target_base_oid {
+            let head = stack.tip_skip_empty().unwrap_or(target_base_oid);
+            if head != target_base_oid {
                 message.push_str("   branch head: ");
-                message.push_str(&branch.head_oid(ctx)?.to_string());
+                message.push_str(&head.to_string());
                 message.push('\n');
             }
         }
@@ -211,142 +206,4 @@ pub(crate) fn update_workspace_commit_with_vb_state(
     ctx.invalidate_workspace_cache()?;
 
     Ok(final_commit)
-}
-
-pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
-    verify_current_branch_name(ctx)
-        .and_then(verify_head_is_set)
-        .and_then(|()| verify_head_is_clean(ctx, perm))
-        .context(Marker::VerificationFailure)?;
-    Ok(())
-}
-
-fn verify_head_is_set(ctx: &Context) -> Result<()> {
-    match ctx
-        .repo
-        .get()?
-        .head()
-        .context("failed to get head")?
-        .referent_name()
-    {
-        Some(refname) => {
-            if is_well_known_workspace_ref(refname) {
-                Ok(())
-            } else {
-                Err(invalid_head_err(refname))
-            }
-        }
-        None => Err(anyhow!(
-            "project in detached head state. Please checkout {} to continue",
-            GITBUTLER_WORKSPACE_REFERENCE.branch()
-        )),
-    }
-}
-
-// Returns an error if repo head is not pointing to the workspace branch.
-fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
-    match ctx.repo.get()?.head()?.referent_name() {
-        Some(head) => {
-            if !is_well_known_workspace_ref(head) {
-                return Err(invalid_head_err(head));
-            }
-            Ok(ctx)
-        }
-        None => Err(anyhow!("Repo HEAD is unavailable")),
-    }
-}
-
-// TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
-    #[expect(deprecated, reason = "soft reset/index boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?.clone();
-    let head_commit_id = gix_repo.head_id()?.detach();
-
-    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
-
-    let commit_ids = first_parent_commit_ids_until(&gix_repo, head_commit_id, target_base_oid)
-        .context("failed to get log")?;
-    let workspace_index = commit_ids
-        .iter()
-        .position(|commit_id| {
-            gix_repo
-                .find_commit(*commit_id)
-                .ok()
-                .and_then(|commit| {
-                    commit.message_raw().ok().map(|message| {
-                        message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE.as_bytes())
-                            || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE.as_bytes())
-                    })
-                })
-                .unwrap_or(false)
-        })
-        .context("GitButler workspace commit not found")?;
-    let workspace_commit = git2_repo.find_commit(commit_ids[workspace_index].to_git2())?;
-    let mut extra_commit_ids = commit_ids[..workspace_index].to_vec();
-    extra_commit_ids.reverse();
-
-    if extra_commit_ids.is_empty() {
-        // no extra commits found, so we're good
-        return Ok(());
-    }
-
-    git2_repo
-        .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
-        .context("failed to reset to workspace commit")?;
-
-    let mut vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let branch_manager = ctx.branch_manager();
-    let mut new_branch = branch_manager
-        .create_virtual_branch(
-            &BranchCreateRequest {
-                name: extra_commit_ids
-                    .last()
-                    .map(|commit_id| {
-                        gix_repo
-                            .find_commit(*commit_id)?
-                            .message_raw()
-                            .map(|message| message.to_string())
-                            .with_context(|| format!("failed to read extra commit {commit_id}"))
-                    })
-                    .transpose()?,
-                ..Default::default()
-            },
-            perm,
-        )
-        .context("failed to create virtual branch")?;
-
-    // rebasing the extra commits onto the new branch
-    let mut head = new_branch.head_oid(ctx)?;
-    for commit_id in extra_commit_ids {
-        let commit = gix_repo
-            .find_commit(commit_id)
-            .with_context(|| format!("failed to find extra commit {commit_id}"))?;
-        let commit = commit.decode()?;
-        let rebased_commit_oid = commit_with_signature_gix(
-            &gix_repo,
-            None,
-            commit.author()?.into(),
-            commit.committer()?.into(),
-            commit.message,
-            commit.tree(),
-            &[head],
-            None,
-        )
-        .context(format!(
-            "failed to rebase commit {commit_id} onto new branch"
-        ))?;
-
-        head = rebased_commit_oid;
-        new_branch.set_stack_head(&mut vb_handle, &gix_repo, head)?;
-    }
-    Ok(())
-}
-
-fn invalid_head_err(head_name: &gix::refs::FullNameRef) -> anyhow::Error {
-    anyhow!(
-        "project is on {head_name}. Please checkout {} to continue",
-        GITBUTLER_WORKSPACE_REFERENCE.branch(),
-        head_name = head_name.shorten(),
-    )
 }

@@ -749,7 +749,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 }
 
 #[test]
-fn status_marks_empty_remote_branch_merged_upstream_when_tip_matches_target() {
+fn status_marks_fast_forward_remote_branch_merged_upstream_when_tip_matches_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch-ff");
     env.set_target_sha("refs/heads/base");

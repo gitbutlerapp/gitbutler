@@ -26,7 +26,7 @@ use crate::{
 // here to keep `but_workspace::ui::CommitState` (and the SDK schema) stable.
 pub use but_core::ui::CommitState;
 
-/// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
+/// Commit that is part of a legacy stack branch and contains state derived in relation to it.
 #[derive(Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]

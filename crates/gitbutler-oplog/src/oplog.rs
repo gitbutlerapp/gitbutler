@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{
-    RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes, ref_metadata::ProjectMeta,
+    RefMetadata, RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes,
+    ref_metadata::ProjectMeta,
 };
 use but_ctx::{
     Context,
@@ -118,6 +119,9 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 ///
 /// ```text
 /// .
+/// ├── checkout/ (ad-hoc checkouts only)
+/// │   ├── commit
+/// │   └── ref
 /// ├── conflicts/…
 /// ├── index/
 /// ├── index-conflicts/…
@@ -506,6 +510,50 @@ struct PreparedSnapshot {
     target_base_oid: gix::ObjectId,
 }
 
+/// The branch checkout to restore from a snapshot.
+///
+/// Snapshots created outside the managed workspace branch store this explicitly. Managed workspace
+/// snapshots derive it from their stored workspace commit instead, while legacy snapshots may have
+/// neither form of checkout identity.
+struct SnapshotCheckout {
+    /// The local branch checked out when the snapshot was created.
+    ref_name: gix::refs::FullName,
+    /// The commit `ref_name` pointed to when the snapshot was created.
+    commit_id: gix::ObjectId,
+}
+
+fn snapshot_checkout(
+    snapshot_tree: &gix::Tree<'_>,
+    repo: &gix::Repository,
+) -> Result<Option<SnapshotCheckout>> {
+    let Some(ref_entry) = snapshot_tree.lookup_entry_by_path("checkout/ref")? else {
+        return Ok(None);
+    };
+    let commit_entry = snapshot_tree
+        .lookup_entry_by_path("checkout/commit")?
+        .context("snapshot checkout ref has no commit")?;
+    let ref_blob = repo
+        .find_blob(ref_entry.id())
+        .context("failed to read snapshot checkout ref")?;
+    let ref_name = gix::refs::FullName::try_from(ref_blob.data.as_bstr())
+        .context("snapshot checkout ref is invalid")?;
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        bail!("snapshot checkout ref is not a local branch");
+    }
+    let commit_blob = repo
+        .find_blob(commit_entry.id())
+        .context("failed to read snapshot checkout commit")?;
+    let commit_id = gix::ObjectId::from_hex(&commit_blob.data)
+        .context("snapshot checkout commit is invalid")?;
+    if commit_id.is_null() {
+        bail!("snapshot checkout commit is null");
+    }
+    Ok(Some(SnapshotCheckout {
+        ref_name,
+        commit_id,
+    }))
+}
+
 fn snapshot_metadata(
     snapshot_tree: &gix::Tree<'_>,
     repo: &gix::Repository,
@@ -562,7 +610,7 @@ fn snapshot_metadata(
 mod legacy_virtual_branches {
     use std::path::PathBuf;
 
-    use anyhow::Result;
+    use anyhow::{Result, bail};
     use but_ctx::Context;
     use but_meta::{
         legacy_storage,
@@ -622,13 +670,10 @@ mod legacy_virtual_branches {
     }
 
     fn branch_head_oid(branch: &StackBranch, repo: &gix::Repository) -> Result<gix::ObjectId> {
-        if let Some(mut reference) = repo.try_find_reference(&branch.name)? {
-            let commit = reference.peel_to_commit()?;
-            Ok(commit.id)
-        } else {
-            set_reference_to_stored_head(branch, repo)?;
-            Ok(branch.head)
-        }
+        let Some(mut reference) = repo.try_find_reference(&branch.name)? else {
+            bail!("branch '{}' no longer exists", branch.name);
+        };
+        Ok(reference.peel_to_commit()?.id)
     }
 
     pub(super) fn set_reference_to_stored_head(
@@ -661,10 +706,12 @@ mod legacy_virtual_branches {
 
 fn prepare_snapshot_with_target(
     ctx: &Context,
-    _shared_access: &RepoShared,
+    shared_access: &RepoShared,
 ) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
+    let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
+    let workspace_ref_exists = repo.try_find_reference(workspace_ref)?.is_some();
 
     // Grab the target once so every representation in this snapshot agrees.
     let project_meta = ctx.project_meta()?;
@@ -697,9 +744,51 @@ fn prepare_snapshot_with_target(
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
 
+    let mut head = repo.head()?;
+    if let Some(head_ref) = head
+        .referent_name()
+        .filter(|head_ref| head_ref.as_bstr() != WORKSPACE_REF_NAME)
+        .map(ToOwned::to_owned)
+    {
+        let head_commit = head.peel_to_commit()?.id;
+        snapshot_tree.upsert(
+            "checkout/ref",
+            EntryKind::Blob,
+            repo.write_blob(head_ref.as_bstr())?,
+        )?;
+        snapshot_tree.upsert(
+            "checkout/commit",
+            EntryKind::Blob,
+            repo.write_blob(head_commit.to_string().as_bytes())?,
+        )?;
+    }
+
     let vb_content = {
-        let mut legacy_meta = ctx.legacy_meta()?;
-        let mut virtual_branches_changed = false;
+        // TODO(perf): use the cached version on `ctx`, why is the cache stale?
+        let ws = if workspace_ref_exists {
+            ctx.workspace_from_ref_uncached(workspace_ref, shared_access)?
+        } else {
+            ctx.workspace_from_head_uncached(shared_access)?
+        };
+        // Open this read-only so there is no write-back, there should be no side-effects when
+        // preparing a snapshot.
+        let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
+            ctx.project_data_dir().join("virtual_branches.toml"),
+        )?;
+        // Overlay *projected* workspace metadata onto the legacy snapshot format.
+        // We want the metadata to represent what's actually there.
+        if let Some(workspace_meta) = ws.metadata_from_projection()? {
+            let workspace_ref = ws
+                .ref_name()
+                .context("workspace metadata requires a workspace reference")?;
+            let mut handle = legacy_meta.workspace(workspace_ref)?;
+            *handle = workspace_meta;
+            legacy_meta.set_workspace(&handle)?;
+        } else {
+            for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
+                stack.in_workspace = false;
+            }
+        }
         for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
             let stack_head =
                 legacy_virtual_branches::stack_head_oid(stack, default_target_commit_id, &repo)?;
@@ -712,9 +801,8 @@ fn prepare_snapshot_with_target(
             // calculate all the commits between branch.head and the target and codify them
             stack_tree_cursor.upsert("tree", EntryKind::Tree, stack_tree)?;
 
-            // If the references are out of sync, now is a good time to update them
-            virtual_branches_changed |=
-                legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
+            // Keep the snapshot-local legacy metadata in sync with the references.
+            let _ = legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
 
             for commit_id in commit_ids_excluding_reachable_from_with_graph(
                 &repo,
@@ -739,10 +827,6 @@ fn prepare_snapshot_with_target(
             }
         }
 
-        if virtual_branches_changed {
-            legacy_meta.set_changed_to_necessitate_write();
-            legacy_meta.write_unreconciled()?;
-        }
         toml::to_string(legacy_meta.data())?
     };
 
@@ -753,31 +837,28 @@ fn prepare_snapshot_with_target(
     let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
     snapshot_tree.upsert("worktree", EntryKind::Tree, worktree)?;
 
-    // also add the gitbutler/workspace commit to the branches tree
-    let mut head = repo.head()?;
-    if head
-        .referent_name()
-        .is_some_and(|name| name.as_bstr() == WORKSPACE_REF_NAME)
-    {
-        let head_commit = head.peel_to_commit()?;
-        let head_tree_id = head_commit.tree_id()?.detach();
-        let head_commit_id = head_commit.id;
-        let commit_data_blob = repo.write_blob(&head_commit.data)?;
+    // Preserve the managed workspace independently of HEAD: when an ad-hoc branch is checked out,
+    // restoring its checkout identity must not lose the commit needed to restore the workspace ref.
+    if let Some(mut workspace_ref) = repo.try_find_reference(workspace_ref)? {
+        let workspace_commit = workspace_ref.peel_to_commit()?;
+        let workspace_tree_id = workspace_commit.tree_id()?.detach();
+        let workspace_commit_id = workspace_commit.id;
+        let commit_data_blob = repo.write_blob(&workspace_commit.data)?;
 
         snapshot_tree.upsert(
             "virtual_branches/workspace/tree",
             EntryKind::Tree,
-            head_tree_id,
+            workspace_tree_id,
         )?;
         snapshot_tree.upsert(
-            format!("virtual_branches/workspace/commits/{head_commit_id}/commit"),
+            format!("virtual_branches/workspace/commits/{workspace_commit_id}/commit"),
             EntryKind::Blob,
             commit_data_blob,
         )?;
         snapshot_tree.upsert(
-            format!("virtual_branches/workspace/commits/{head_commit_id}/tree"),
+            format!("virtual_branches/workspace/commits/{workspace_commit_id}/tree"),
             EntryKind::Tree,
-            head_tree_id,
+            workspace_tree_id,
         )?;
     }
 
@@ -868,6 +949,7 @@ fn restore_snapshot(
     // worktree, refs, config, TOML, or database.
     let (restored_project_meta, restored_virtual_branches) =
         snapshot_metadata(&snapshot_tree, &repo)?;
+    let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
@@ -932,13 +1014,34 @@ fn restore_snapshot(
             }
         }
     }
+    if let Some(checkout) = restored_checkout.as_ref() {
+        if !repo.has_object(checkout.commit_id) {
+            bail!(
+                "snapshot checkout commit {} is unavailable",
+                checkout.commit_id
+            );
+        }
+        if checkout.ref_name.as_ref() == workspace_ref
+            && restored_workspace_commit != Some(checkout.commit_id)
+        {
+            bail!("snapshot checkout and workspace commits disagree");
+        }
+    }
+    // Managed snapshots already identify their checkout through the workspace commit entry.
+    let restored_checkout = restored_checkout.or_else(|| {
+        restored_workspace_commit.map(|commit_id| SnapshotCheckout {
+            ref_name: workspace_ref.to_owned(),
+            commit_id,
+        })
+    });
 
     let head = repo.head()?;
     let head_ref = head
         .referent_name()
         .context("We will not change a worktree in detached HEAD state")?;
-    if head_ref != workspace_ref {
-        bail!("We will not change a worktree which for some reason isn't on the workspace branch");
+    // Snapshots with neither checkout identity nor a workspace commit retain the old guard.
+    if restored_checkout.is_none() && head_ref != workspace_ref {
+        bail!("cannot restore a snapshot without checkout identity outside the workspace branch");
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;
@@ -965,13 +1068,22 @@ fn restore_snapshot(
 
     // Tracked content now matches the snapshot (untracked files outside the restored diff are
     // left in place); repoint gitbutler/workspace at the restored commit.
-    if let Some(commit_oid) = restored_workspace_commit {
-        repo.reference(
-            workspace_ref,
-            commit_oid,
-            gix::refs::transaction::PreviousValue::Any,
-            "restore snapshot workspace ref",
-        )?;
+    match restored_workspace_commit {
+        Some(commit_oid) => {
+            repo.reference(
+                workspace_ref,
+                commit_oid,
+                gix::refs::transaction::PreviousValue::Any,
+                "restore snapshot workspace ref",
+            )?;
+        }
+        // A new-format snapshot with no workspace commit records that the ref did not exist.
+        None if restored_checkout.is_some() => {
+            if let Some(workspace_ref) = repo.try_find_reference(workspace_ref)? {
+                workspace_ref.delete()?;
+            }
+        }
+        None => {}
     }
 
     // Update virtual_branches.toml with the state from the snapshot
@@ -996,6 +1108,27 @@ fn restore_snapshot(
         .lookup_entry_by_path("index-conflicts")?
         .map(|entry| entry.id().detach());
     reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
+
+    if let Some(checkout) = restored_checkout {
+        if checkout.ref_name.as_ref() != workspace_ref {
+            repo.reference(
+                checkout.ref_name.as_ref(),
+                checkout.commit_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "restore snapshot checkout ref",
+            )?;
+        }
+        if repo.head_name()?.as_ref() != Some(&checkout.ref_name) {
+            but_core::update_head_reference(
+                &repo,
+                gix::refs::Target::Symbolic(checkout.ref_name),
+                false,
+                "restore snapshot",
+                b"checkout identity".as_bstr(),
+                0,
+            )?;
+        }
+    }
 
     let restored_operation = snapshot_commit
         .message_raw()?

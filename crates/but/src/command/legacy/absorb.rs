@@ -8,7 +8,6 @@ use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
 };
-use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -156,7 +155,7 @@ fn absorb_assignments(
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
     // with the rewritten branch commits. Without this, tools that inspect HEAD
     // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
-    update_workspace_commit(ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm)?;
 
     // Display completion message
     let t = theme::get();

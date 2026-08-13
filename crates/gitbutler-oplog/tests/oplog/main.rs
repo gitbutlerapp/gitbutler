@@ -181,3 +181,43 @@ mod snapshot_details {
         }
     }
 }
+
+mod prepare_snapshot {
+    use but_meta::virtual_branches_legacy_types::VirtualBranches;
+    use but_testsupport::Sandbox;
+    use gitbutler_oplog::OplogExt;
+
+    #[test]
+    fn metadata_free_workspace_marks_legacy_stacks_outside() -> anyhow::Result<()> {
+        let env =
+            Sandbox::init_scenario_with_target_and_default_settings("metadata-free-workspace");
+        let [stack_id] = *env.setup_metadata(&["A"]) else {
+            unreachable!("one branch creates one stack")
+        };
+        env.invoke_git("checkout main");
+
+        let ctx = but_ctx::Context::from_repo_for_testing(env.open_repo())?;
+        let guard = ctx.shared_worktree_access();
+        let snapshot_tree_id = ctx.prepare_snapshot(guard.read_permission())?;
+        let repo = ctx.repo.get()?;
+        let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
+        let metadata_blob = snapshot_tree
+            .lookup_entry_by_path("virtual_branches.toml")?
+            .expect("snapshot contains legacy metadata")
+            .object()?
+            .into_blob();
+        let metadata: VirtualBranches = toml::from_str(std::str::from_utf8(&metadata_blob.data)?)?;
+
+        assert!(
+            !metadata
+                .branches
+                .get(&stack_id)
+                .expect("legacy stack is retained")
+                .in_workspace,
+            "metadata-free projections must mark legacy stacks outside the workspace"
+        );
+        Ok(())
+    }
+}
+
+mod integration;

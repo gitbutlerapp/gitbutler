@@ -1,11 +1,10 @@
 //! Functions relate to the GitButler workspace head
 
-use anyhow::Result;
+use anyhow::{Context as _, Result, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
 
@@ -15,6 +14,7 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub fn merge_worktree_with_workspace<'a>(
     ctx: &Context,
     gix_repo: &'a gix::Repository,
+    ws: &but_graph::Workspace,
 ) -> Result<(gix::merge::tree::Outcome<'a>, TreatAsUnresolved)> {
     let mut head = gix_repo.head()?;
 
@@ -24,7 +24,7 @@ pub fn merge_worktree_with_workspace<'a>(
 
     // The tree of where the gitbutler workspace is at
     let workspace_tree = gix_repo
-        .find_commit(super::remerged_workspace_commit_v2(ctx)?)?
+        .find_commit(super::remerged_workspace_commit_v2(ctx, ws)?)?
         .tree_id()?
         .detach();
 
@@ -42,20 +42,21 @@ pub fn merge_worktree_with_workspace<'a>(
     Ok((outcome, conflict_kind))
 }
 
-/// Merge all currently stored stacks together into a new tree and return `(merged_tree, stacks, target_commit)` id accordingly.
+/// Merge the projected workspace stacks into a new tree and return
+/// `(merged_tree, stack_heads, target_commit)`.
 /// `gix_repo` should be optimised for merging.
 pub fn remerged_workspace_tree_v2(
-    ctx: &Context,
     repo: &gix::Repository,
-) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
-    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
-    let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
-
-    let heads = stacks
+    ws: &but_graph::Workspace,
+) -> Result<(gix::ObjectId, Vec<gix::ObjectId>, gix::ObjectId)> {
+    let target_base_oid = ws
+        .stored_target_commit_id()
+        .context("failed to get target base oid")?;
+    let heads = ws
+        .stacks
         .iter()
-        .map(|s| s.head_oid(ctx))
-        .collect::<Result<Vec<_>>>()?;
+        .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
+        .collect::<Vec<_>>();
     let workspace_tree_id = if heads.is_empty() {
         repo.find_real_tree(&repo.find_commit(target_base_oid)?, Default::default())?
             .detach()
@@ -66,15 +67,15 @@ pub fn remerged_workspace_tree_v2(
     } else {
         let base_tree_id = repo
             .find_real_tree(
-                &repo.find_commit(repo.merge_base_octopus(heads)?)?,
+                &repo.find_commit(repo.merge_base_octopus(heads.iter().copied())?)?,
                 Default::default(),
             )?
             .detach();
         let mut workspace_tree_id = base_tree_id;
 
         let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
-        for stack in stacks.iter_mut() {
-            let stack_head = repo.find_commit(stack.head_oid(ctx)?)?;
+        for head in &heads {
+            let stack_head = repo.find_commit(*head)?;
             let branch_tree_id = repo
                 .find_real_tree(&stack_head, Default::default())?
                 .detach();
@@ -90,17 +91,16 @@ pub fn remerged_workspace_tree_v2(
             if !merge.has_unresolved_conflicts(conflict_kind) {
                 workspace_tree_id = merge.tree.write()?.detach();
             } else {
-                // This branch should have already been unapplied during the "update" command but for some reason that failed
-                tracing::warn!("Merge conflict between base and {:?}", stack.name());
-                stack.in_workspace = false;
-                vb_state.set_stack(stack.clone())?;
+                bail!(
+                    "BUG: Merge conflict between projected workspace stacks: This branch should have already been unapplied during the 'update' command but for some reason that failed"
+                );
             }
         }
 
         workspace_tree_id
     };
 
-    Ok((workspace_tree_id, stacks, target_base_oid))
+    Ok((workspace_tree_id, heads, target_base_oid))
 }
 
 /// Creates and returns a merge commit of all active branch heads.
@@ -111,19 +111,16 @@ pub fn remerged_workspace_tree_v2(
 /// This should be used to update the `gitbutler/workspace` ref with, which is usually
 /// done from `update_workspace_commit()`, after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
-#[instrument(level = "debug", skip(ctx))]
-pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
+#[instrument(level = "debug", skip(ctx, ws))]
+pub fn remerged_workspace_commit_v2(
+    ctx: &Context,
+    ws: &but_graph::Workspace,
+) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
-    let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
+    let (workspace_tree_id, mut heads, target_commit) = remerged_workspace_tree_v2(&repo, ws)?;
 
     let committer = signature_gix(SignaturePurpose::Committer);
     let author = signature_gix(SignaturePurpose::Author);
-    let mut heads = stacks
-        .iter()
-        .filter(|stack| stack.in_workspace)
-        .filter_map(|stack| stack.head_oid(ctx).ok())
-        .collect::<Vec<_>>();
-
     if heads.is_empty() {
         heads = vec![target_commit]
     }

@@ -176,14 +176,11 @@ fn delete_project_at_app_data_dir(
 
 /// Prepare an already-known project for activation in the UI or server.
 ///
-/// This repairs missing target metadata in freshly selected storage locations and then reconciles
-/// the legacy metadata view with the workspace currently present in Git. It is safe for activation
-/// paths because it avoids rewriting `gitbutler/workspace`.
+/// This repairs missing target metadata in freshly selected storage locations.
 pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
     assure_repo_ownership(&*ctx.repo.get()?)?;
-    let mut guard = ctx.exclusive_worktree_access();
+    let _guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::base::bootstrap_default_target_if_missing(ctx)?;
-    super::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
     Ok(())
 }
 
@@ -230,17 +227,19 @@ mod tests {
 
     #[test]
     fn delete_project_is_idempotent() -> Result<()> {
-        let app_data_dir = tempfile::tempdir()?;
-        let repo_dir = tempfile::tempdir()?;
-        gix::init(repo_dir.path())?;
-        let project = gitbutler_project::add_at_app_data_dir(app_data_dir.path(), repo_dir.path())?
-            .unwrap_project();
-        let project_id = project.id.clone();
+        but_testsupport::isolated_app_data_dir(|| -> Result<()> {
+            let app_data_dir = but_path::app_data_dir()?;
+            let repo_dir = tempfile::tempdir()?;
+            gix::init(repo_dir.path())?;
+            let project = gitbutler_project::add_at_app_data_dir(&app_data_dir, repo_dir.path())?
+                .unwrap_project();
+            let project_id = project.id.clone();
 
-        delete_project_at_app_data_dir(app_data_dir.path(), project_id.clone())?;
-        delete_project_at_app_data_dir(app_data_dir.path(), project_id.clone())?;
+            delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
+            delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
 
-        assert!(gitbutler_project::get_with_path(app_data_dir.path(), project_id).is_err());
-        Ok(())
+            assert!(gitbutler_project::get(project_id).is_err());
+            Ok(())
+        })
     }
 }

@@ -396,6 +396,21 @@ mkdir ws
      create_workspace_commit_once B
   )
 
+  git init incomplete-metadata-stack-order
+  (cd incomplete-metadata-stack-order
+     commit M
+     setup_target_to_match_main
+
+     git branch B
+     git checkout -b A
+       commit A
+     git checkout B
+       commit B
+     git checkout -b C
+       commit C
+     create_workspace_commit_once A C
+  )
+
   git init single-merge-into-main
   (cd single-merge-into-main
      commit init

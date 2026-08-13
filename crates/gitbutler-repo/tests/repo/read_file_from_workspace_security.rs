@@ -7,7 +7,7 @@ use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
 
 fn context_for_repo(workdir: &Path) -> Context {
-    let project = projects::Project::new_for_gitbutler_repo(workdir.to_path_buf());
+    let project = projects::Project::from_path(workdir).expect("valid test project");
     Context::new_from_legacy_project_and_settings_with_repo_open_mode(
         &project,
         AppSettings::default(),

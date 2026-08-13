@@ -1,5 +1,6 @@
 use super::*;
-use gitbutler_branch_actions::BranchManagerExt;
+use but_core::RefMetadata as _;
+use gitbutler_oplog::OplogExt as _;
 
 #[test]
 fn success() {
@@ -12,6 +13,22 @@ fn success() {
         guard.write_permission(),
     )
     .unwrap();
+}
+
+#[test]
+fn reconfiguring_base_branch_records_snapshot() {
+    let Test { ctx, .. } = &mut Test::default();
+    let target = "refs/remotes/origin/master".parse().unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    gitbutler_branch_actions::set_base_branch(ctx, &target, guard.write_permission()).unwrap();
+    drop(guard);
+
+    assert_eq!(
+        ctx.snapshots_iter(None, Vec::new(), None).unwrap().count(),
+        1,
+        "the first call initializes the project without a snapshot because there is no target yet; the second call snapshots that initialized state before reconfiguration"
+    );
 }
 
 #[test]
@@ -54,6 +71,168 @@ fn switching_the_target_is_observed_within_the_same_context() {
     assert_eq!(
         project_meta.target_ref.map(|name| name.to_string()),
         Some("refs/remotes/origin/other".to_string())
+    );
+}
+
+#[test]
+fn switching_the_target_outside_the_workspace_does_not_partially_update_the_project() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    let gix_repo = repo.open();
+    {
+        let head_id = gix_repo.head_id().unwrap();
+        gix_repo
+            .reference(
+                "refs/remotes/origin/other",
+                head_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "test",
+            )
+            .unwrap();
+    }
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+    repo.commit_all("feature");
+    repo.checkout(&"refs/heads/master".parse().unwrap());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+
+    let project_meta_before = ctx.project_meta().unwrap();
+    let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+    let workspace_meta_before = (*ctx
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref.as_ref())
+        .unwrap())
+    .clone();
+    let workspace_ref_before = gix_repo
+        .find_reference(&workspace_ref)
+        .unwrap()
+        .peel_to_id()
+        .unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let err = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
+
+    assert_eq!(
+        err.custom_context().map(|ctx| ctx.code),
+        Some(Code::PreconditionFailed),
+        "changing targets outside the managed workspace is an unsupported project state"
+    );
+    assert_eq!(
+        err.to_string(),
+        "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first",
+        "the error explains how to satisfy the target-switch precondition"
+    );
+    assert_eq!(
+        ctx.project_meta().unwrap(),
+        project_meta_before,
+        "rejecting the target switch must preserve the configured project target"
+    );
+    assert_eq!(
+        *ctx.meta()
+            .unwrap()
+            .workspace(workspace_ref.as_ref())
+            .unwrap(),
+        workspace_meta_before,
+        "rejecting the target switch must preserve stack metadata"
+    );
+    assert_eq!(
+        gix_repo
+            .find_reference(&workspace_ref)
+            .unwrap()
+            .peel_to_id()
+            .unwrap(),
+        workspace_ref_before,
+        "rejecting the target switch must preserve the existing workspace ref"
+    );
+}
+
+#[test]
+fn switching_a_missing_target_outside_the_workspace_is_rejected() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    let gix_repo = repo.open();
+    let head_id = gix_repo.head_id().unwrap();
+    gix_repo
+        .reference(
+            "refs/remotes/origin/other",
+            head_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )
+        .unwrap();
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+    repo.commit_all("feature");
+    repo.checkout(&"refs/heads/master".parse().unwrap());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Here is the key - the target we try to set later is deleted.
+    gix_repo
+        .find_reference("refs/remotes/origin/master")
+        .unwrap()
+        .delete()
+        .unwrap();
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    let workspace_ref_before = gix_repo
+        .find_reference(but_core::WORKSPACE_REF_NAME)
+        .unwrap()
+        .peel_to_id()
+        .unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let err = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
+
+    assert_eq!(
+        err.custom_context().map(|ctx| ctx.code),
+        Some(Code::PreconditionFailed),
+        "a repaired missing target must still enforce the target-switch precondition"
+    );
+    assert!(
+        ctx.project_meta().unwrap().target_ref.is_none(),
+        "the replacement target must not be persisted"
+    );
+    assert!(
+        stack_details(ctx).is_empty(),
+        "the checked-out branch must not be added to workspace metadata"
+    );
+    assert_eq!(
+        gix_repo
+            .find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .peel_to_id()
+            .unwrap(),
+        workspace_ref_before,
+        "the existing workspace ref must remain unchanged"
     );
 }
 
@@ -143,13 +322,12 @@ mod error {
 }
 
 mod go_back_to_workspace {
-    use gitbutler_branch::BranchCreateRequest;
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[test]
-    fn should_preserve_applied_vbranches() {
+    fn preserves_applied_vbranches() {
         let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
@@ -157,6 +335,10 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("file.txt"), "two").unwrap();
         repo.commit_all("two");
         repo.push();
+
+        repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
+        repo.commit_all("feature");
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -167,19 +349,7 @@ mod go_back_to_workspace {
         .unwrap();
         drop(guard);
 
-        let mut guard = ctx.exclusive_worktree_access();
-        let stack_entry = ctx
-            .branch_manager()
-            .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-            .unwrap();
-        drop(guard);
-
-        std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
-        super::create_commit(ctx, stack_entry.id, "one").unwrap();
-
-        let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-
+        let stack_id = stack_details(ctx)[0].0;
         repo.checkout_commit(oid_one);
 
         let mut guard = ctx.exclusive_worktree_access();
@@ -189,10 +359,11 @@ mod go_back_to_workspace {
             guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
-        assert_eq!(stacks.len(), 1);
-        assert_eq!(stacks[0].0, stack_entry.id);
+        assert_eq!(stacks.len(), 1, "the applied stack is preserved");
+        assert_eq!(stacks[0].0, stack_id, "the preserved stack keeps its id");
     }
 
     #[test]

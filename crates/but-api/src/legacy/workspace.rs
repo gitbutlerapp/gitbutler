@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::{Context, ThreadSafeContext};
@@ -15,7 +16,6 @@ use but_workspace::{
     commit_engine,
     legacy::{StacksFilter, ui::StackEntry},
 };
-use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -326,16 +326,20 @@ pub fn stash_into_branch(
 
     let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
 
-    let stack = ctx.branch_manager().create_virtual_branch(
-        &gitbutler_branch::BranchCreateRequest {
-            name: Some(branch_name.clone()),
-            ..Default::default()
-        },
+    let full_ref_name = gix::refs::Category::LocalBranch
+        .to_full_name(but_core::branch::normalize_short_name(branch_name.as_str())?.as_bstr())?;
+    crate::branch::branch_create_with_perm(
+        ctx,
+        Some(full_ref_name.clone()),
+        crate::branch::json::BranchCreatePlacement::Independent,
         perm,
     )?;
-
-    let branch_name = stack.derived_name()?;
-    let full_ref_name: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into()?;
+    let stack_id = {
+        let (_, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        ws.find_segment_and_stack_by_refname(full_ref_name.as_ref())
+            .and_then(|(stack, _)| stack.id)
+            .context("created stash branch is missing its stack id")?
+    };
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
@@ -389,10 +393,10 @@ pub fn stash_into_branch(
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
-    gitbutler_branch_actions::update_workspace_commit(ctx, false)
+    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm)
         .context("failed to update gitbutler workspace")?;
 
-    super::virtual_branches::unapply_stack_with_perm(ctx, stack.id, perm)?;
+    super::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;
 
     outcome
 }

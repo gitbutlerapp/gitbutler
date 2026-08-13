@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use but_core::RepositoryExt as _;
 use but_ctx::{
     Context,
@@ -6,8 +6,6 @@ use but_ctx::{
 };
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-
-use crate::{legacy_target_base_oid, legacy_workspace_stack_heads};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -19,10 +17,16 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn create(ctx: &Context, _perm: &RepoShared) -> Result<Self> {
-        let repo = ctx.repo.get()?;
-        let target_base_oid = legacy_target_base_oid(ctx)?;
-        let head_oids = legacy_workspace_stack_heads(ctx, &repo, target_base_oid)?;
+    pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+        let target_base_oid = ws
+            .stored_target_commit_id()
+            .context("failed to get target base oid")?;
+        let head_oids = ws
+            .stacks
+            .iter()
+            .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
+            .collect::<Vec<_>>();
         Self::create_from_heads_and_target(&repo, &head_oids, target_base_oid)
     }
 
@@ -150,10 +154,7 @@ fn move_tree(
 /// Takes N trees and a base tree and merges all the heads together with respect to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-pub fn merge_workspace(
-    repo: &gix::Repository,
-    workspace: &WorkspaceState,
-) -> Result<gix::ObjectId> {
+fn merge_workspace(repo: &gix::Repository, workspace: &WorkspaceState) -> Result<gix::ObjectId> {
     if workspace.heads.is_empty() {
         return Ok(workspace.base);
     } else if workspace.heads.len() == 1 {
@@ -181,4 +182,93 @@ pub fn merge_workspace(
     }
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use gix::object::tree::EntryKind;
+
+    use super::*;
+
+    fn tree(repo: &gix::Repository, files: &[(&str, &str)]) -> Result<gix::ObjectId> {
+        let mut tree = repo.empty_tree().edit()?;
+        for (path, contents) in files {
+            tree.upsert(
+                *path,
+                EntryKind::Blob,
+                repo.write_blob(contents.as_bytes())?.detach(),
+            )?;
+        }
+        Ok(tree.write()?.detach())
+    }
+
+    #[test]
+    fn merges_separated_hunks_from_both_sides() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = gix::init(temp.path())?;
+        let base = tree(
+            &repo,
+            &[(
+                "file",
+                "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n",
+            )],
+        )?;
+        let a = tree(
+            &repo,
+            &[(
+                "file",
+                "a1\na2\na3\na4\na5\n6\n7\n8\n9\n10\na11\na12\na13\na14\na15\n",
+            )],
+        )?;
+        let b = tree(
+            &repo,
+            &[(
+                "file",
+                "1\n2\n3\n4\n5\n6\nb7\nb8\nb9\n10\n11\n12\n13\n14\n15\n",
+            )],
+        )?;
+        let expected = tree(
+            &repo,
+            &[(
+                "file",
+                "a1\na2\na3\na4\na5\n6\nb7\nb8\nb9\n10\na11\na12\na13\na14\na15\n",
+            )],
+        )?;
+
+        assert_eq!(
+            merge_workspace(
+                &repo,
+                &WorkspaceState {
+                    heads: vec![a, b],
+                    base,
+                },
+            )?,
+            expected,
+            "separated changes from both stacks are merged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn merges_diverged_stacks_against_their_shared_base() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = gix::init(temp.path())?;
+        let base = tree(&repo, &[("a", "a\n"), ("b", "b\n"), ("c", "c\n")])?;
+        let c = tree(&repo, &[("x", "x\n"), ("y", "y\n"), ("c", "c\n")])?;
+        let d = tree(&repo, &[("a", "a\n"), ("b", "b\n"), ("z", "z\n")])?;
+        let expected = tree(&repo, &[("x", "x\n"), ("y", "y\n"), ("z", "z\n")])?;
+
+        assert_eq!(
+            merge_workspace(
+                &repo,
+                &WorkspaceState {
+                    heads: vec![c, d],
+                    base,
+                },
+            )?,
+            expected,
+            "both stacks are merged against their shared base"
+        );
+        Ok(())
+    }
 }

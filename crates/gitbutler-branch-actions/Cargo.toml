@@ -35,12 +35,10 @@ gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true
 anyhow.workspace = true
-git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision"] }
 serde.workspace = true
 bstr.workspace = true
@@ -54,14 +52,11 @@ but-askpass.workspace = true
 but-project-handle.workspace = true
 but-rebase.workspace = true
 but-settings.workspace = true
-git2.workspace = true
 pretty_assertions = "1.4"
 but-graph.workspace = true
 but-testsupport.workspace = true
 gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
-itertools.workspace = true
-glob = "0.3.3"
 tempfile.workspace = true
 ctor = "0.6.3"
 snapbox.workspace = true

@@ -950,12 +950,42 @@ impl Graph {
             .map(|(_e, sidx, _rn)| *sidx)
             .collect();
         edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, ri)| {
-            let res = ws_data.stacks.iter().position(|s| {
-                s.is_in_workspace()
-                    && s.branches
-                        .first()
-                        .is_some_and(|b| Some(&b.ref_name) == ri.as_ref().map(|ri| &ri.ref_name))
-            });
+            let res = ws_data
+                .stacks
+                .iter()
+                .position(|stack| {
+                    stack.is_in_workspace()
+                        && stack.branches.first().is_some_and(|branch| {
+                            Some(&branch.ref_name) == ri.as_ref().map(|ri| &ri.ref_name)
+                        })
+                })
+                .or_else(|| {
+                    // Metadata may omit a physical top branch. In that case, use a named
+                    // lower branch's stable stack ID without reordering anonymous stacks.
+                    // This block is super-specific and will hopefully be removed once the
+                    // data structure changes.
+                    ws_stacks
+                        .iter()
+                        .find(|stack| {
+                            stack
+                                .segments
+                                .first()
+                                .is_some_and(|segment| segment.id == *sidx)
+                        })
+                        .and_then(|projected_stack| {
+                            projected_stack.segments.first()?.ref_name()?;
+                            projected_stack.id.and_then(|id| {
+                                ws_data.stacks.iter().position(|stack| {
+                                    stack.id == id
+                                        && stack.branches.first().is_some_and(|branch| {
+                                            projected_stack.segments.iter().skip(1).any(|segment| {
+                                                segment.ref_name() == Some(branch.ref_name.as_ref())
+                                            })
+                                        })
+                                })
+                            })
+                        })
+                });
             // This makes it so that edges that weren't mentioned in workspace metadata
             // retain their relative order, with first-come-first-serve semantics.
             // The expected case is that each segment is defined.

@@ -29,6 +29,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
 [dev-dependencies]
+but-testsupport.workspace = true
 serial_test = "3.2.0"
 tempfile.workspace = true
 keyring.workspace = true

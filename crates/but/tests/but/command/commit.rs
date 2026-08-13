@@ -872,7 +872,6 @@ fn newly_created_branches_are_included_in_json_output() {
 #[test]
 fn empty_flag_to_force_empty_commit_when_changes_exist() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&["A"]);
 
     env.file(
         "changes",
@@ -899,6 +898,24 @@ fn empty_flag_to_force_empty_commit_when_changes_exist() {
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
+}
+
+#[test]
+fn empty_commit_ignores_metadata_for_missing_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
+
+    env.but("commit -m 'empty commit' --empty")
+        .assert()
+        .success();
+
+    assert!(
+        env.open_repo()
+            .try_find_reference("refs/heads/A")
+            .expect("reference lookup succeeds")
+            .is_none(),
+        "oplog preparation must not recreate a branch from stale metadata"
+    );
 }
 
 #[test]

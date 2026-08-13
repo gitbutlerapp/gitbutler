@@ -1,12 +1,4 @@
-#![expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-
-use std::path::Path;
-
 use but_ctx::Context;
-use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
 pub mod head;
@@ -17,7 +9,7 @@ pub use head::{
 
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 #[expect(deprecated, reason = "re-exports stacks_v3 and stack_details_v3")]
-pub use stacks::{stack_branches, stack_details_v3, stacks_v3};
+pub use stacks::{stack_details_v3, stacks_v3};
 
 /// Various types for the frontend.
 pub mod ui;
@@ -87,8 +79,4 @@ pub enum StacksFilter {
     /// Show only unapplied stacks
     // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
     Unapplied,
-}
-
-fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
-    VirtualBranchesHandle::new(gb_state_path)
 }

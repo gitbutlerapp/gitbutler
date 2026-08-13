@@ -53,7 +53,11 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
     // with the rewritten branch commits. Without this, tools that inspect HEAD
     // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
-    gitbutler_branch_actions::update_workspace_commit(ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit_with_perm(
+        ctx,
+        false,
+        guard.write_permission(),
+    )?;
 
     Ok(total_rejected)
 }

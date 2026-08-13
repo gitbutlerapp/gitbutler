@@ -1014,17 +1014,6 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
 
 /**
- * Change the branch name from `branch_name` to `new_name` in the stack
- * identified by `stack_id`.
- *
- * This acquires exclusive worktree access from `ctx` before applying the
- * rename.
- *
- * See [`update_branch_name_with_perm()`] for the underlying mutation.
- */
-export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
-
-/**
  * Change the profile on gitbutler.com and keep the stored account in step.
  *
  * The API call alone would leave the local copy stale, so the name shown next to the
@@ -1770,7 +1759,7 @@ export type Claude = {
  */
 export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
-/** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
+/** Commit that is part of a legacy stack branch and contains state derived in relation to it. */
 export type Commit = {
   /** The OID of the commit. */
   id: string;
@@ -3585,7 +3574,7 @@ export type StackDetails = {
 };
 
 /**
- * Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
+ * Represents a lightweight version of a legacy stack for listing.
  * NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
  */
 export type StackEntry = {
