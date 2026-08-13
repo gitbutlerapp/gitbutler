@@ -123,12 +123,6 @@ export const workspaceHotkeys = {
 	focusHorizontalSelectionScopeRight: {
 		hotkey: "ArrowRight",
 	},
-	focusVerticalSelectionScopeUp: {
-		hotkey: "Mod+Alt+ArrowUp",
-	},
-	focusVerticalSelectionScopeDown: {
-		hotkey: "Mod+Alt+ArrowDown",
-	},
 	openInTerminal: {
 		hotkey: "Mod+Shift+T",
 		meta: { group: "Workspace", name: "Open project in terminal" },
