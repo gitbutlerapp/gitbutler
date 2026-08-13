@@ -11,7 +11,6 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	focusHorizontalSelectionScope,
 	focusSelectionScope,
-	focusVerticalSelectionScope,
 	getFocusedSelectionScope,
 	type SelectionScope,
 } from "#ui/selection-scopes.ts";
@@ -231,20 +230,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: "L",
 			callback: focusPaneRight,
-			options: {
-				conflictBehavior: "allow",
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.focusVerticalSelectionScopeUp.hotkey,
-			callback: () => focusVerticalSelectionScope(-1),
-			options: {
-				conflictBehavior: "allow",
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.focusVerticalSelectionScopeDown.hotkey,
-			callback: () => focusVerticalSelectionScope(1),
 			options: {
 				conflictBehavior: "allow",
 			},

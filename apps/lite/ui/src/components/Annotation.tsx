@@ -7,9 +7,7 @@ import { FieldTextareaStyles } from "./Field.tsx";
 type Props = {
 	author: string;
 	defaultBody: string;
-	formId: string;
 	name: string;
-	onBlur?: (body: string) => void;
 	textareaRef?: Ref<HTMLTextAreaElement>;
 	updatedAt?: number;
 	actions?: ReactNode;
@@ -32,14 +30,10 @@ export const Annotation: FC<Props> = ({ textareaRef, ...p }) => (
 		<FieldTextareaStyles
 			className={classes(styles.body, "text-13")}
 			defaultValue={p.defaultBody}
-			form={p.formId}
 			name={p.name}
 			ref={textareaRef}
+			required
 			rows={3}
-			onBlur={(event) => {
-				const body = event.currentTarget.value;
-				if (body !== p.defaultBody) p.onBlur?.(body);
-			}}
 		/>
 
 		<div className={styles.actions}>{p.actions}</div>

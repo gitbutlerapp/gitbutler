@@ -9,11 +9,11 @@ import { Annotation } from "#ui/components/Annotation.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { FileParent } from "#ui/operands.ts";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useRef, useState, type FC, type RefObject } from "react";
 
 type Props = {
 	projectId: string;
-	formId: string;
 	annotation: LocalAnnotation;
 	path: string;
 	fileParent: FileParent;
@@ -34,9 +34,10 @@ export const AnnotationCard: FC<Props> = (p) => {
 	// derived from the body: blur persists typed text (see persistBody), and deriving would swap
 	// Save/Cancel for the saved-comment actions mid-interaction, under the user's focus.
 	const [isDraft, setIsDraft] = useState(annotation.body.trim() === "");
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	// The last body we sent to the backend, so blur followed by an explicit Save (whose click blurs
-	// the textarea first) does not fire a duplicate update.
+	// The last body we sent to the backend, so leaving the form after an explicit Save does not fire
+	// a duplicate update.
 	const persistedBodyRef = useRef(annotation.body);
 	const persistBody = (body: string) => {
 		if (body === persistedBodyRef.current) return;
@@ -52,131 +53,158 @@ export const AnnotationCard: FC<Props> = (p) => {
 	};
 
 	const archiveAndRefocus = () => {
+		// Discard the live edit before moving focus outside the form; otherwise the form-level blur
+		// handler would persist it immediately before the archive mutation.
+		textareaRef.current?.form?.reset();
 		archiveComment({ projectId: p.projectId, id: annotation.id });
 		p.selectionScopeRef.current?.focus({ focusVisible: false });
 	};
 
+	const saveAndRefocus = (body: string) => {
+		persistBody(body);
+		setIsDraft(false);
+		p.selectionScopeRef.current?.focus({ focusVisible: false });
+	};
+
+	const copyAll = () => {
+		const forms = p.selectionScopeRef.current?.querySelectorAll<HTMLFormElement>(
+			"form[data-local-annotation]",
+		);
+
+		const mountedBodies: Map<string, string> = new Map(
+			forms
+				?.values()
+				.flatMap((form) =>
+					new FormData(form)
+						.entries()
+						.flatMap(([id, body]) => (typeof body === "string" ? [[id, body]] : [])),
+				),
+		);
+
+		const feedback = p.annotationsByPath.entries().flatMap(([path, annotations]) =>
+			annotations.map((annotation) => ({
+				annotation: {
+					...annotation,
+					// Use any live mounted bodies, falling back to persisted.
+					body: mountedBodies.get(annotation.id) ?? annotation.body,
+				},
+				fileParent: p.fileParent,
+				path,
+			})),
+		);
+
+		void window.lite.clipboardWriteText(feedbackPrompt(feedback.toArray()));
+	};
+
+	useHotkey("Mod+Enter", () => textareaRef.current?.form?.requestSubmit(), {
+		conflictBehavior: "allow",
+		ignoreInputs: false,
+		target: textareaRef,
+	});
+
+	useHotkey(
+		"Escape",
+		() => {
+			const form = textareaRef.current?.form;
+			if (form && bodyFromForm(form).trim() === "") archiveAndRefocus();
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: isDraft,
+			ignoreInputs: false,
+			target: textareaRef,
+		},
+	);
+
 	return (
-		<Annotation
-			author="You"
-			defaultBody={annotation.body}
-			updatedAt={annotation.updatedAtMs}
-			formId={p.formId}
-			name={annotation.id}
-			textareaRef={(textarea) => {
-				if (textarea && focusAnnotationIdRef.current === annotation.id) {
-					focusAnnotationIdRef.current = null;
-					textarea.focus();
-				}
+		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Equivalent to a blur event on each input.
+		<form
+			data-local-annotation
+			onBlur={(evt) => {
+				const next = evt.relatedTarget;
+				// Moving between the textarea and its actions has not left this annotation.
+				if (next instanceof Node && evt.currentTarget.contains(next)) return;
+				// Pierre gracefully blurs focused annotations before virtualizing their item,
+				// permitting uncontrolled input state to be persisted.
+				persistBody(bodyFromForm(evt.currentTarget));
 			}}
-			// Pierre gracefully blurs focused annotations before virtualizing their item,
-			// permitting uncontrolled input state to be persisted.
-			onBlur={(body) => {
-				// A comment that never got any text is an abandoned gutter click:
-				// archive it (cancel) rather than leaving a blank box around forever.
-				if (body.trim() === "" && annotation.body.trim() === "")
-					archiveComment({ projectId: p.projectId, id: annotation.id });
-				else persistBody(body);
+			onSubmit={(evt) => {
+				evt.preventDefault();
+				saveAndRefocus(bodyFromForm(evt.currentTarget));
 			}}
-			actions={
-				isDraft ? (
-					<>
-						<button
-							type="button"
-							form={p.formId}
-							className={getButtonClassName({ variant: "pop" })}
-							onClick={(evt) => {
-								const body = bodyFromForm(evt.currentTarget.form);
-								if (body.trim() === "") {
-									archiveAndRefocus();
-								} else {
-									persistBody(body);
-									setIsDraft(false);
-									p.selectionScopeRef.current?.focus({ focusVisible: false });
-								}
-							}}
-						>
-							Save
-						</button>
+		>
+			<Annotation
+				author="You"
+				defaultBody={annotation.body}
+				updatedAt={annotation.updatedAtMs}
+				name={annotation.id}
+				textareaRef={(textarea) => {
+					textareaRef.current = textarea;
+					if (textarea && focusAnnotationIdRef.current === annotation.id) {
+						focusAnnotationIdRef.current = null;
+						textarea.focus();
+					}
+				}}
+				actions={
+					isDraft ? (
+						<>
+							<button type="submit" className={getButtonClassName({ variant: "pop" })}>
+								Save
+							</button>
 
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "ghost" })}
-							onClick={archiveAndRefocus}
-						>
-							Cancel
-						</button>
-					</>
-				) : (
-					<>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "ghost" })}
-							onClick={archiveAndRefocus}
-						>
-							Archive
-						</button>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "ghost" })}
+								onClick={archiveAndRefocus}
+							>
+								Cancel
+							</button>
+						</>
+					) : (
+						<>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "ghost" })}
+								onClick={archiveAndRefocus}
+							>
+								Archive
+							</button>
 
-						<button
-							type="button"
-							form={p.formId}
-							aria-label="Copy as prompt"
-							title="Copy as prompt"
-							style={{ marginLeft: "auto" }}
-							className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-							onClick={(evt) => {
-								const body = bodyFromForm(evt.currentTarget.form);
-								void window.lite.clipboardWriteText(
-									feedbackPrompt([
-										{
-											annotation: { ...annotation, body },
-											fileParent: p.fileParent,
-											path: p.path,
-										},
-									]),
-								);
-							}}
-						>
-							<Icon name="copy" />
-						</button>
-
-						<button
-							type="button"
-							form={p.formId}
-							aria-label="Copy all as prompt"
-							title="Copy all as prompt"
-							className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-							onClick={(evt) => {
-								const form = evt.currentTarget.form;
-								if (!form) throw new Error("Missing owning form");
-
-								const formData = new FormData(form);
-								const feedback = p.annotationsByPath
-									.entries()
-									.flatMap(([path, annotations]) =>
-										annotations.map((annotation) => {
-											// Use any live mounted bodies, falling back to persisted.
-											const formBody = formData.get(annotation.id);
-											return {
-												annotation: {
-													...annotation,
-													body: typeof formBody === "string" ? formBody : annotation.body,
-												},
+							<button
+								type="button"
+								aria-label="Copy as prompt"
+								title="Copy as prompt"
+								style={{ marginLeft: "auto" }}
+								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								onClick={(evt) => {
+									const body = bodyFromForm(evt.currentTarget.form);
+									void window.lite.clipboardWriteText(
+										feedbackPrompt([
+											{
+												annotation: { ...annotation, body },
 												fileParent: p.fileParent,
-												path,
-											};
-										}),
-									)
-									.toArray();
+												path: p.path,
+											},
+										]),
+									);
+								}}
+							>
+								<Icon name="copy" />
+							</button>
 
-								void window.lite.clipboardWriteText(feedbackPrompt(feedback));
-							}}
-						>
-							<Icon name="checklist" />
-						</button>
-					</>
-				)
-			}
-		/>
+							<button
+								type="button"
+								aria-label="Copy all as prompt"
+								title="Copy all as prompt"
+								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								onClick={copyAll}
+							>
+								<Icon name="checklist" />
+							</button>
+						</>
+					)
+				}
+			/>
+		</form>
 	);
 };

@@ -118,20 +118,6 @@ export const focusHorizontalSelectionScope = ({
 	}
 };
 
-export const focusVerticalSelectionScope = (offset: -1 | 1) => {
-	if (!paneNavigationAllowed()) return;
-
-	const currentSelectionScope = getFocusedSelectionScope(document.activeElement);
-	const orderedSelectionScopes: Array<SelectionScope> = ["uncommitted-files", "outline"];
-	const currentIndex =
-		currentSelectionScope === null ? -1 : orderedSelectionScopes.indexOf(currentSelectionScope);
-	if (currentIndex === -1) return;
-
-	const nextIndex = currentIndex + offset;
-	const nextSelectionScope = nextIndex < 0 ? undefined : orderedSelectionScopes.at(nextIndex);
-	if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
-};
-
 /**
  * Returns a ref callback that focuses the scope when its element first attaches.
  *
