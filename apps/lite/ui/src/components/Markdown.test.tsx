@@ -89,6 +89,12 @@ describe("Markdown safety", () => {
 		expect(html).toContain("disabled");
 	});
 
+	it("renders GitHub emoji shortcodes outside code spans", () => {
+		const html = render(":+1: `:+1:`");
+		expect(html).toContain("👍");
+		expect(html).toContain("<code>:+1:</code>");
+	});
+
 	it("renders fenced code as plain text until highlighting resolves", () => {
 		const html = render("```rust\nfn main() {}\n```");
 		expect(html).toContain("fn main() {}");
