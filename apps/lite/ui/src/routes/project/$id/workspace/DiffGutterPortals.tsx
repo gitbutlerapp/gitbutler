@@ -31,16 +31,17 @@ const HunkCheckboxes: FC<{
 	const checked = useAppSelector((state) =>
 		projectSlice.selectors.selectOperandChecked(state, p.projectId, p.operand),
 	);
-	const enabled = useAppSelector((state) =>
+	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.operand.parent.parent),
 	);
+	if (!canCheck) return null;
+
 	return p.slotNames.map((slotName, index) => (
 		<input
 			key={slotName}
 			type="checkbox"
 			slot={slotName}
 			checked={checked}
-			disabled={!enabled}
 			tabIndex={index === 0 ? 0 : -1}
 			onMouseDown={(event) => {
 				// Keep the diff selection scope focused so hunk navigation continues after a click.
