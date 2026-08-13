@@ -174,12 +174,10 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
 fn account_web_origin(accounts: &[ForgeUser], forge: &ForgeName, host: &str) -> Option<String> {
     let host = crate::normalize_host_for_comparison(host);
     accounts.iter().find_map(|account| {
-        let custom_host = match (account, forge) {
-            (ForgeUser::GitHub(id), ForgeName::GitHub) => id.custom_host(),
-            (ForgeUser::GitLab(id), ForgeName::GitLab) => id.custom_host(),
-            (ForgeUser::Bitbucket(id), ForgeName::Bitbucket) => id.custom_host(),
-            _ => None,
-        }?;
+        if account.forge_name() != *forge {
+            return None;
+        }
+        let custom_host = account.custom_host()?;
         (crate::normalize_host_for_comparison(&custom_host) == host)
             .then(|| custom_host_origin(&custom_host))
     })
