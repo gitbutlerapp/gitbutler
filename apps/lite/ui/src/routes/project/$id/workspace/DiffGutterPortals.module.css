@@ -1,3 +1,9 @@
 .checkbox {
 	margin: 0;
+	opacity: var(--gitbutler-diff-gutter-checkbox-opacity, 0);
+
+	&:checked,
+	&:focus {
+		opacity: 1;
+	}
 }

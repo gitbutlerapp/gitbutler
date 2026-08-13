@@ -10,6 +10,8 @@ import {
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
 const GUTTER_SLOT_ATTRIBUTE = "data-gitbutler-diff-gutter-slot";
+const GUTTER_GROUP_ATTRIBUTE = "data-gitbutler-diff-gutter-group";
+const GUTTER_HOVERED_ATTRIBUTE = "data-gitbutler-diff-gutter-hovered";
 
 export const diffGutterUnsafeCSS = `
 	:host {
@@ -28,6 +30,10 @@ export const diffGutterUnsafeCSS = `
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	slot[${GUTTER_HOVERED_ATTRIBUTE}] {
+		--gitbutler-diff-gutter-checkbox-opacity: 1;
 	}
 
 	[data-indicators="bars"] [data-column-number]::before {
@@ -55,6 +61,9 @@ const createGutterStore = <T>(
 ): InternalGutterStore<T> => {
 	const listeners = new Set<() => void>();
 	const targets = new Map<HTMLElement, GutterTarget>();
+	const hoveredGroupKeys = new Map<HTMLElement, string>();
+	const slotsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLSlotElement>>>();
+	const removeHoverListenersByHost = new Map<HTMLElement, () => void>();
 	let nextKey = 0;
 	let notificationQueued = false;
 	let snapshot: ReadonlyArray<GutterTarget> = [];
@@ -70,7 +79,55 @@ const createGutterStore = <T>(
 		});
 	};
 
+	const setHoveredGroup = (host: HTMLElement, groupKey: string | undefined): void => {
+		const previousGroupKey = hoveredGroupKeys.get(host);
+		if (previousGroupKey === groupKey) return;
+
+		const slotsByGroup = slotsByGroupByHost.get(host);
+		for (const slot of slotsByGroup?.get(previousGroupKey ?? "") ?? [])
+			slot.removeAttribute(GUTTER_HOVERED_ATTRIBUTE);
+		for (const slot of slotsByGroup?.get(groupKey ?? "") ?? [])
+			slot.setAttribute(GUTTER_HOVERED_ATTRIBUTE, "");
+
+		if (groupKey === undefined) hoveredGroupKeys.delete(host);
+		else hoveredGroupKeys.set(host, groupKey);
+	};
+
+	const gutterGroupKeyFromEvent = (event: Event): string | undefined => {
+		const cell = event
+			.composedPath()
+			.find(
+				(target): target is HTMLElement =>
+					target instanceof HTMLElement && target.hasAttribute("data-column-number"),
+			);
+		return (
+			cell
+				?.querySelector<HTMLSlotElement>(`:scope > slot[${GUTTER_SLOT_ATTRIBUTE}]`)
+				?.getAttribute(GUTTER_GROUP_ATTRIBUTE) ?? undefined
+		);
+	};
+
+	const ensureHoverListeners = (host: HTMLElement, shadowRoot: ShadowRoot): void => {
+		if (removeHoverListenersByHost.has(host)) return;
+
+		// CSS can see the hovered number cell, but cannot match its dynamic hunk key to sibling slots.
+		// Delegate once per diff host, then let CSS reveal every slot in the resolved hunk group.
+		const handlePointerOver = (event: Event) =>
+			setHoveredGroup(host, gutterGroupKeyFromEvent(event));
+		const handlePointerLeave = () => setHoveredGroup(host, undefined);
+		shadowRoot.addEventListener("pointerover", handlePointerOver);
+		host.addEventListener("pointerleave", handlePointerLeave);
+		removeHoverListenersByHost.set(host, () => {
+			shadowRoot.removeEventListener("pointerover", handlePointerOver);
+			host.removeEventListener("pointerleave", handlePointerLeave);
+		});
+	};
+
 	const removeTarget = (host: HTMLElement): void => {
+		removeHoverListenersByHost.get(host)?.();
+		removeHoverListenersByHost.delete(host);
+		hoveredGroupKeys.delete(host);
+		slotsByGroupByHost.delete(host);
 		removeGutterSlots(host);
 		if (!targets.delete(host)) return;
 		publish();
@@ -86,7 +143,9 @@ const createGutterStore = <T>(
 		const existing = targets.get(host);
 		const key = existing?.key ?? nextKey++;
 		const groupsByKey = new Map<string, GutterCheckboxGroup>();
+		const slotsByGroup = new Map<string, Array<HTMLSlotElement>>();
 		const usedSlots = new Set<HTMLSlotElement>();
+		ensureHoverListeners(host, shadowRoot);
 
 		for (const [index, cell] of cells.entries()) {
 			const target = diffLineTargetFromElement({ element: cell, itemId });
@@ -120,8 +179,17 @@ const createGutterStore = <T>(
 				cell.prepend(slot);
 			}
 			slot.name = slotName;
+			slot.setAttribute(GUTTER_GROUP_ATTRIBUTE, operandKey);
+			slot.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, hoveredGroupKeys.get(host) === operandKey);
+			const groupSlots = slotsByGroup.get(operandKey);
+			if (groupSlots) groupSlots.push(slot);
+			else slotsByGroup.set(operandKey, [slot]);
 			usedSlots.add(slot);
 		}
+		slotsByGroupByHost.set(host, slotsByGroup);
+		const hoveredGroupKey = hoveredGroupKeys.get(host);
+		if (hoveredGroupKey !== undefined && !slotsByGroup.has(hoveredGroupKey))
+			setHoveredGroup(host, undefined);
 
 		for (const slot of shadowRoot.querySelectorAll<HTMLSlotElement>(
 			`slot[${GUTTER_SLOT_ATTRIBUTE}]`,
@@ -161,7 +229,13 @@ const createGutterStore = <T>(
 			return () => listeners.delete(listener);
 		},
 		cleanUp: () => {
-			for (const host of targets.keys()) removeGutterSlots(host);
+			for (const host of targets.keys()) {
+				removeHoverListenersByHost.get(host)?.();
+				removeGutterSlots(host);
+			}
+			removeHoverListenersByHost.clear();
+			hoveredGroupKeys.clear();
+			slotsByGroupByHost.clear();
 			targets.clear();
 			snapshot = [];
 		},
