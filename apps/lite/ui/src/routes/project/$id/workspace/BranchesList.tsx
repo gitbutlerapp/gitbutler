@@ -1,6 +1,6 @@
 import rowStyles from "./Row.module.css";
 import { Scroller } from "#ui/components/Scroller.tsx";
-import { useApply, useBranchRemove } from "#ui/api/mutations.ts";
+import { useBranchRemove } from "#ui/api/mutations.ts";
 import { branchDetailsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
@@ -62,6 +62,7 @@ import {
 import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
+import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import styles from "./BranchesList.module.css";
 
 /** The filter menu, in the order it is shown. */
@@ -163,31 +164,11 @@ const BranchItem: FC<{
 
 	const review = branch.review;
 
-	const { isPending: isApplyPending, mutate: apply } = useApply();
+	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 
 	const toggleUnfolded = () => {
 		dispatch(projectSlice.actions.toggleBranchUnfolded({ projectId, branchRef }));
-	};
-
-	const applyBranch = () => {
-		apply(
-			{ projectId, existingBranch: branchRef },
-			{
-				onSuccess: (response) => {
-					const appliedRef = response.appliedBranches[0];
-					if (!appliedRef) return;
-
-					dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({ branchRef: encodeBytes(appliedRef.full) }),
-						}),
-					);
-				},
-			},
-		);
 	};
 
 	const openReviewInBrowser = async (): Promise<void> => {
@@ -200,7 +181,7 @@ const BranchItem: FC<{
 			// brings the whole stack with it — the label says so.
 			label: isTopBranch && isStacked ? "Apply Stack to Workspace" : "Apply to Workspace",
 			enabled: !isApplyPending,
-			onSelect: applyBranch,
+			onSelect: () => apply(branchRef),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
