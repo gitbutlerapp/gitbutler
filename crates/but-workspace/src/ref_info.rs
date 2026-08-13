@@ -105,11 +105,12 @@ impl Commit {
 
     /// A special constructor for very specific case.
     pub(crate) fn from_commit_ahead_of_workspace_commit(
-        commit: gix::objs::Commit,
+        commit: but_core::Commit<'_>,
         graph_commit: &but_graph::Commit,
     ) -> Self {
-        let hdr = but_core::commit::Headers::try_from_commit(&commit);
-        let has_conflicts = but_core::commit::is_conflicted(commit.message.as_ref(), hdr.as_ref());
+        let has_conflicts = commit.is_conflicted();
+        let hdr = commit.headers();
+        let commit = commit.inner;
         let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
         Commit {
             id: graph_commit.id,
@@ -510,7 +511,10 @@ pub(crate) fn find_ancestor_workspace_commit(
             }
             commits_outside.push(
                 crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
-                    commit.inner,
+                    but_core::Commit {
+                        id: commit.id,
+                        inner: commit.inner,
+                    },
                     graph_commit,
                 ),
             );

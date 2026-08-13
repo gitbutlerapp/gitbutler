@@ -15,6 +15,16 @@ fn log_target_first_parent_uses_persisted_target_outside_workspace() -> anyhow::
     git_at_dir(&remote_dir)
         .args(["commit", "-m", "initial"])
         .run();
+    git_at_dir(&remote_dir)
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            "marked ordinary commit",
+            "-m",
+            "GitButler-Conflict: true",
+        ])
+        .run();
 
     git_at_dir(&remote_dir)
         .args(["checkout", "-b", "feature"])
@@ -61,6 +71,10 @@ fn log_target_first_parent_uses_persisted_target_outside_workspace() -> anyhow::
         commits.first().map(|commit| commit.id),
         Some(main_tip),
         "outside-workspace target history must use persisted GitButler target metadata, not the current branch upstream"
+    );
+    assert!(
+        commits.first().is_some_and(|commit| !commit.has_conflicts),
+        "target history must not project a stale conflict trailer as conflict state"
     );
     Ok(())
 }

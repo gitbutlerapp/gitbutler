@@ -567,10 +567,28 @@ impl<'repo> Commit<'repo> {
 
     /// Return `true` if this commit contains a tree that is conflicted.
     ///
-    /// Checks the commit message for conflict markers first (new style),
-    /// then falls back to the `gitbutler-conflicted` header (legacy).
+    /// Conflict metadata is only authoritative when the tree contains at least
+    /// one synthetic conflict entry. This avoids treating copied conflict
+    /// trailers on otherwise ordinary commits as conflict state while keeping
+    /// partial synthetic layouts visible as malformed conflicts.
     pub fn is_conflicted(&self) -> bool {
-        is_conflicted(self.inner.message.as_ref(), self.headers().as_ref())
+        if !is_conflicted(self.inner.message.as_ref(), self.headers().as_ref()) {
+            return false;
+        }
+
+        let Ok(tree) = self
+            .inner
+            .tree
+            .attach(self.id.repo)
+            .object()
+            .map(|object| object.into_tree())
+        else {
+            return true;
+        };
+        tree.iter().any(|entry| {
+            entry.is_err()
+                || entry.is_ok_and(|entry| is_synthetic_conflict_entry(entry.filename().as_bytes()))
+        })
     }
 
     /// If the commit is conflicted, then it returns the auto-resolution tree,
@@ -666,6 +684,18 @@ impl<'repo> Commit<'repo> {
             .change_id
             .expect("change-id is ensured")
     }
+}
+
+fn is_synthetic_conflict_entry(name: &[u8]) -> bool {
+    [TreeKind::AutoResolution, TreeKind::ConflictFiles]
+        .into_iter()
+        .any(|kind| name == kind.as_tree_entry_name().as_bytes())
+        || [b".conflict-side-".as_slice(), b".conflict-base-"]
+            .into_iter()
+            .any(|prefix| {
+                name.strip_prefix(prefix)
+                    .is_some_and(|index| !index.is_empty() && index.iter().all(u8::is_ascii_digit))
+            })
 }
 
 /// Conflict specific details

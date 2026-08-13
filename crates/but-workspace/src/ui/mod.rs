@@ -81,26 +81,27 @@ but_schemars::register_sdk_type!(Commit);
 impl TryFrom<gix::Commit<'_>> for Commit {
     type Error = anyhow::Error;
     fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
-        let commit_id = commit.id;
-        let commit = commit.decode()?;
-        let headers = but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers());
-        let has_conflicts = but_core::commit::is_conflicted(commit.message, headers.as_ref());
+        let commit = but_core::Commit::try_from(commit)?;
+        let commit_id = commit.id.detach();
+        let has_conflicts = commit.is_conflicted();
+        let commit = commit.inner;
+        let headers = commit::Headers::try_from_commit(&commit);
         let change_id = headers
             .unwrap_or_default()
             .ensure_change_id(commit_id)
             .change_id
             .expect("change-id is ensured")
             .to_string();
-        let message = but_core::commit::strip_conflict_markers(commit.message);
+        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
         Ok(Commit {
             id: commit_id,
-            parent_ids: commit.parents().collect(),
+            parent_ids: commit.parents.into_iter().collect(),
             message,
             has_conflicts,
             state: CommitState::LocalAndRemote(commit_id),
-            authored_at: i128::from(commit.author()?.time()?.seconds) * 1000,
-            committed_at: i128::from(commit.time()?.seconds) * 1000,
-            author: commit.author()?.into(),
+            authored_at: i128::from(commit.author.time.seconds) * 1000,
+            committed_at: i128::from(commit.committer.time.seconds) * 1000,
+            author: commit.author.to_ref(&mut TimeBuf::default()).into(),
             change_id,
             gerrit_review_url: None,
         })
