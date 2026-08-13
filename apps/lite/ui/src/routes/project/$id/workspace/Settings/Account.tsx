@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FC } from "react";
 import type { UserProfile } from "@gitbutler/but-sdk";
-import { userProfileQueryOptions } from "#ui/api/queries.ts";
+import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -50,6 +50,7 @@ const SignedOut: FC = () => {
 				signal: controller.signal,
 			});
 			await client.invalidateQueries({ queryKey: userProfileQueryOptions.queryKey });
+			await client.invalidateQueries({ queryKey: aiConfigurationQueryOptions.queryKey });
 		} catch (caught) {
 			// Abandoning is not a failure to report.
 			if (!controller.signal.aborted) setError(errorMessageForToast(caught));
@@ -148,6 +149,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		try {
 			await window.lite.deleteUser();
 			await client.invalidateQueries({ queryKey: userProfileQueryOptions.queryKey });
+			await client.invalidateQueries({ queryKey: aiConfigurationQueryOptions.queryKey });
 		} catch (caught) {
 			// Otherwise the click leaves a rejected promise and the account still showing.
 			setError(errorMessageForToast(caught));

@@ -19,6 +19,7 @@ pub const AI_OPENROUTER_ENDPOINT_KEY: &str = "gitbutler.aiOpenRouterEndpoint";
 pub const AI_OPENAI_SECRET_HANDLE: &str = "aiOpenAIKey";
 pub const AI_ANTHROPIC_SECRET_HANDLE: &str = "aiAnthropicKey";
 pub const AI_OPENROUTER_SECRET_HANDLE: &str = "aiOpenRouterKey";
+pub const GITBUTLER_ACCESS_TOKEN_HANDLE: &str = "gitbutler_access_token";
 
 pub const DEFAULT_OPENAI_MODEL: &str = "gpt-5.4-nano";
 pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-haiku-4-5";
@@ -190,6 +191,30 @@ impl AiConfiguration {
             LLMProviderKind::OpenRouter => {}
         }
         Ok(())
+    }
+
+    /// Return whether the active provider has valid settings and its required credentials.
+    pub fn is_configured(
+        &self,
+        has_openai_key: bool,
+        has_anthropic_key: bool,
+        has_gitbutler_token: bool,
+    ) -> bool {
+        if self.validate_active().is_err() {
+            return false;
+        }
+        match self.provider {
+            LLMProviderKind::OpenAi => match self.openai.key_option {
+                CredentialsKeyOption::BringYourOwn => has_openai_key,
+                CredentialsKeyOption::ButlerApi => has_gitbutler_token,
+            },
+            LLMProviderKind::Anthropic => match self.anthropic.key_option {
+                CredentialsKeyOption::BringYourOwn => has_anthropic_key,
+                CredentialsKeyOption::ButlerApi => has_gitbutler_token,
+            },
+            LLMProviderKind::Ollama | LLMProviderKind::LMStudio => true,
+            LLMProviderKind::OpenRouter => false,
+        }
     }
 
     pub fn apply(&self, config: &mut gix::config::File) -> Result<()> {
@@ -463,6 +488,43 @@ mod tests {
         assert!(
             configuration.validate().is_err(),
             "own-key endpoints must remain valid URLs"
+        );
+    }
+
+    #[test]
+    fn configured_requires_the_active_providers_credentials() {
+        let mut config = AiConfiguration::default();
+        assert!(
+            !config.is_configured(false, false, false),
+            "GitButler-proxied OpenAI needs an account token"
+        );
+        assert!(
+            config.is_configured(false, false, true),
+            "an account token configures GitButler-proxied OpenAI"
+        );
+
+        config.openai.key_option = CredentialsKeyOption::BringYourOwn;
+        assert!(
+            config.is_configured(true, false, false),
+            "BYOK OpenAI needs only its own key"
+        );
+
+        config.provider = LLMProviderKind::Anthropic;
+        config.anthropic.key_option = CredentialsKeyOption::BringYourOwn;
+        assert!(
+            config.is_configured(false, true, false),
+            "BYOK Anthropic needs its own key"
+        );
+
+        config.provider = LLMProviderKind::Ollama;
+        assert!(
+            config.is_configured(false, false, false),
+            "a valid local provider needs no credentials"
+        );
+        config.ollama.endpoint.clear();
+        assert!(
+            !config.is_configured(false, false, false),
+            "an invalid local provider is not configured"
         );
     }
 }

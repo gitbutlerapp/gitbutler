@@ -28,6 +28,7 @@ export const settingsPages = [
 	{ key: "global:git", label: "Git", icon: "branch" },
 	{ key: "global:integrations", label: "Integrations", icon: "globe" },
 	{ key: "project:project", label: "Project", icon: "workbench" },
+	{ key: "project:ai", label: "AI", icon: "ai" },
 	{ key: "project:git", label: "Git", icon: "branch" },
 	{ key: "project:experimental", label: "Experimental", icon: "danger" },
 ] as const satisfies ReadonlyArray<SettingsPage>;

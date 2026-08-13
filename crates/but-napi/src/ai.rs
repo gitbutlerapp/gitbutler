@@ -5,8 +5,8 @@ use but_core::git_config::edit_config;
 use but_llm::{
     AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_SECRET_HANDLE,
     AiConfiguration as DomainConfiguration, AnthropicConfiguration, ChatMessage,
-    CredentialsKeyOption, LLMProvider, LLMProviderKind, LmStudioConfiguration, OllamaConfiguration,
-    OpenAiConfiguration, clear_ai_configuration,
+    CredentialsKeyOption, GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProvider, LLMProviderKind,
+    LmStudioConfiguration, OllamaConfiguration, OpenAiConfiguration, clear_ai_configuration,
 };
 use but_secret::{Sensitive, secret};
 use napi::{
@@ -35,6 +35,7 @@ pub struct AiConfiguration {
     pub ollama_model: String,
     pub lmstudio_endpoint: String,
     pub lmstudio_model: String,
+    pub is_configured: bool,
 }
 
 #[derive(Clone)]
@@ -57,31 +58,42 @@ pub struct AiConfigurationUpdate {
     pub lmstudio_model: String,
 }
 
-fn has_secret(handle: &str) -> Result<bool> {
-    Ok(secret::retrieve(handle, secret::Namespace::Global)?.is_some())
+fn has_secret(handle: &str, namespace: secret::Namespace) -> Result<bool> {
+    Ok(secret::retrieve(handle, namespace)?.is_some())
 }
 
 fn get_configuration() -> Result<AiConfiguration> {
     let config = gix::config::File::from_globals()?;
     let configuration = DomainConfiguration::from_git_config(&config)?;
 
+    let openai_has_api_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
+    let anthropic_has_api_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?;
+    let has_gitbutler_token =
+        has_secret(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?;
+    let is_configured = configuration.is_configured(
+        openai_has_api_key,
+        anthropic_has_api_key,
+        has_gitbutler_token,
+    );
+
     Ok(AiConfiguration {
         provider: configuration.provider.as_git_config_value().into(),
         openai_key_option: configuration.openai.key_option.as_git_config_value().into(),
         openai_model: configuration.openai.model,
         openai_custom_endpoint: configuration.openai.custom_endpoint,
-        openai_has_api_key: has_secret(AI_OPENAI_SECRET_HANDLE)?,
+        openai_has_api_key,
         anthropic_key_option: configuration
             .anthropic
             .key_option
             .as_git_config_value()
             .into(),
         anthropic_model: configuration.anthropic.model,
-        anthropic_has_api_key: has_secret(AI_ANTHROPIC_SECRET_HANDLE)?,
+        anthropic_has_api_key,
         ollama_endpoint: configuration.ollama.endpoint,
         ollama_model: configuration.ollama.model,
         lmstudio_endpoint: configuration.lmstudio.endpoint,
         lmstudio_model: configuration.lmstudio.model,
+        is_configured,
     })
 }
 
@@ -160,8 +172,8 @@ fn domain_configuration(
 }
 
 fn update_configuration(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
-    let openai_has_key = has_secret(AI_OPENAI_SECRET_HANDLE)?;
-    let anthropic_has_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE)?;
+    let openai_has_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
+    let anthropic_has_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?;
     validate_update(&update, openai_has_key, anthropic_has_key)?;
 
     if let Some(value) = submitted_key(update.openai_api_key.clone()) {

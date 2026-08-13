@@ -1,24 +1,38 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { useBranchCreate, useCommitCreate } from "#ui/api/mutations.ts";
-import { branchCannedNameQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	aiConfigurationQueryOptions,
+	branchCannedNameQueryOptions,
+	headInfoQueryOptions,
+	treeChangeDiffsQueryOptions,
+} from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import {
+	buildCommitMessagePrompt,
+	changesSelectedForCommit,
+	commitMessageGenerationButtonState,
+	COMMIT_MESSAGE_SYSTEM_PROMPT,
+	streamCommitMessage,
+} from "#ui/commit-message-generation.ts";
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
+import { errorMessageForToast } from "#ui/errors.ts";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { Button, Combobox, Tooltip } from "@base-ui/react";
+import { Button, Combobox, Toast, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { useIsMutating, useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type FC,
@@ -127,6 +141,8 @@ export const CommitForm: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
+	const client = useQueryClient();
+	const toastManager = Toast.useToastManager();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
 
@@ -135,6 +151,14 @@ export const CommitForm: FC<{
 
 	const { data: draftMessage } = useQuery(draftCommitMessageQueryOptions(projectId));
 	const { mutate: persistDraftMessage } = usePersistDraftCommitMessage();
+	const { data: isAiConfigured = false } = useQuery({
+		...aiConfigurationQueryOptions,
+		select: (configuration) => configuration.isConfigured,
+	});
+	const { data: isProjectAiEnabled = false } = useQuery({
+		...projectAiSettingsQueryOptions(projectId),
+		select: (settings) => settings.enabled,
+	});
 
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
@@ -162,6 +186,13 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
+	const [isGenerating, setIsGenerating] = useState(false);
+	const generationButton = commitMessageGenerationButtonState({
+		enabled: isProjectAiEnabled,
+		configured: isAiConfigured,
+		busy: isGenerating || isCommitOrAmendPending,
+		changeCount: worktreeChanges?.changes.length ?? 0,
+	});
 
 	// Track whether the container query hides the label, including while resizing.
 	// This is a ref callback rather than a mount effect because the form is
@@ -182,11 +213,13 @@ export const CommitForm: FC<{
 		return () => observer.disconnect();
 	};
 
-	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
+	const canCommitOrAmendBase =
+		isDefaultMode && commitTarget !== null && !isCommitOrAmendPending && !isGenerating;
 	// Without branches there is no target to pick, but the commit creates one, so
 	// it must not be blocked. Amending still needs a commit that already exists.
 	const canCommit =
-		canCommitOrAmendBase || (isDefaultMode && hasNoBranches && !isCommitOrAmendPending);
+		canCommitOrAmendBase ||
+		(isDefaultMode && hasNoBranches && !isCommitOrAmendPending && !isGenerating);
 	const amendTargetCommitId =
 		commitTarget && headInfoIndex
 			? resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo })
@@ -276,8 +309,49 @@ export const CommitForm: FC<{
 
 		createCommit();
 	};
+
+	const generateCommitMessage = async () => {
+		if (!worktreeChanges || isGenerating) return;
+
+		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
+			store.getState(),
+			projectId,
+		);
+		const changes = changesSelectedForCommit(worktreeChanges.changes, checkedPaths);
+		if (changes.length === 0) return;
+
+		setIsGenerating(true);
+		try {
+			const [settings, patches] = await Promise.all([
+				client.ensureQueryData(projectAiSettingsQueryOptions(projectId)),
+				Promise.all(
+					changes.map((change) =>
+						client.ensureQueryData(treeChangeDiffsQueryOptions({ projectId, change })),
+					),
+				),
+			]);
+			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, changes, patches);
+			const response = await streamCommitMessage(
+				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
+				(value) => {
+					if (commitTextareaRef.current) commitTextareaRef.current.value = value;
+				},
+			);
+			const message = response.trim();
+			if (commitTextareaRef.current) commitTextareaRef.current.value = message;
+			persistDraftMessage({ projectId, message });
+		} catch (error) {
+			toastManager.add({
+				type: "error",
+				title: "Failed to generate commit message",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		} finally {
+			setIsGenerating(false);
+		}
+	};
 	const commitMenuItems: Array<NativeMenuItem> = [
-		// oxlint-disable-next-line react-hooks-js/refs -- False positive. Ref is only accessed in `onSelect` event handler.
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
@@ -338,7 +412,7 @@ export const CommitForm: FC<{
 		},
 		{
 			conflictBehavior: "allow",
-			enabled: isExpanded,
+			enabled: isExpanded && !isGenerating,
 		},
 	);
 
@@ -456,7 +530,7 @@ export const CommitForm: FC<{
 				}}
 				aria-label={commitTextareaLabel}
 				disabled={!isDefaultMode}
-				readOnly={isCommitOrAmendPending}
+				readOnly={isCommitOrAmendPending || isGenerating}
 				placeholder={commitTextareaLabel}
 				defaultValue={draftMessage ?? ""}
 				className={classes("text-13", "text-body", styles.textarea, uiStyles.overlayScrollbar)}
@@ -469,7 +543,7 @@ export const CommitForm: FC<{
 					open={open}
 					onOpenChange={setOpen}
 					onValueChange={selectBranch}
-					disabled={!isDefaultMode || isCommitOrAmendPending || hasNoBranches}
+					disabled={!isDefaultMode || isCommitOrAmendPending || isGenerating || hasNoBranches}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
@@ -527,7 +601,11 @@ export const CommitForm: FC<{
 								focusSelectionScope("uncommitted-files");
 							}}
 							render={
-								<Button focusableWhenDisabled disabled={isCommitOrAmendPending} type="button" />
+								<Button
+									focusableWhenDisabled
+									disabled={isCommitOrAmendPending || isGenerating}
+									type="button"
+								/>
 							}
 						>
 							Cancel
@@ -538,6 +616,32 @@ export const CommitForm: FC<{
 							</Tooltip.Positioner>
 						</Tooltip.Portal>
 					</Tooltip.Root>
+
+					{generationButton.visible && (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label="Generate commit message"
+								className={getButtonClassName({ variant: "outline", iconOnly: true })}
+								onClick={() => void generateCommitMessage()}
+								render={
+									<Button
+										focusableWhenDisabled
+										type="button"
+										disabled={generationButton.disabled}
+									/>
+								}
+							>
+								<Icon name={isGenerating ? "spinner" : "ai"} />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>
+										{isGenerating ? "Generating commit message…" : "Generate commit message"}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					)}
 
 					{/* The tooltip is redundant while the label is visible. */}
 					<Tooltip.Root disabled={!commitLabelHidden}>
