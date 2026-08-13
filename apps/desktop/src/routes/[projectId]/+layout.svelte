@@ -218,6 +218,7 @@
 					clientState.backendApi.util.invalidateTags([
 						invalidatesList(ReduxTag.Stacks),
 						invalidatesList(ReduxTag.StackDetails),
+						invalidatesList(ReduxTag.WorktreeChanges),
 						invalidatesList(ReduxTag.IntegrationSteps),
 						invalidatesList(ReduxTag.BranchListing),
 					]),
