@@ -19,10 +19,6 @@ use crate::{
     ui::PushStatus,
 };
 
-// The by-ids similarity entry point now lives in `but-core`; re-exported so existing
-// `crate::changeset::compute_similarity_by_commit_ids` callers stay unchanged.
-pub(crate) use but_core::changeset::compute_similarity_by_commit_ids;
-
 /// Lets the `but-core` changeset engine read `ref_info::Commit` directly, without
 /// copying it into an intermediate struct. The message is already conflict-stripped
 /// and the change-id already derived, so these are cheap accessors.

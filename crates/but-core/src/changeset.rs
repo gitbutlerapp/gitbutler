@@ -90,43 +90,44 @@ impl<T: ChangesetCommit + ?Sized> ChangesetCommit for &T {
     }
 }
 
-/// Similarity matches between workspace commits and upstream commits, computed from commit IDs.
-pub struct SimilarityByCommitIds {
-    /// Upstream commit IDs keyed by the workspace commit ID that matched them.
-    pub matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
-}
-
-/// Compute upstream similarity for the provided workspace commits.
-///
-/// The returned matches use the same cheap and optional expensive checks as the per-segment
-/// similarity used for upstream integration: change IDs are skipped, while commit data and
-/// changeset IDs are considered.
-pub fn compute_similarity_by_commit_ids(
+/// Build the changeset-similarity lookup table for `upstream_commit_ids`, with the expensive
+/// changeset-id computation enabled so content-equivalence survives rewritten commit metadata.
+pub fn compute_upstream_commits_lut(
     repo: &gix::Repository,
     upstream_commit_ids: &[gix::ObjectId],
-    workspace_commit_ids: &[gix::ObjectId],
-    expensive: bool,
-) -> anyhow::Result<SimilarityByCommitIds> {
+) -> anyhow::Result<Identity> {
     let cost_info = (
         upstream_commit_ids.len(),
         repo.index_or_empty()?.entries().len(),
     );
-    let upstream_lut = create_similarity_lut(
+    create_similarity_lut(
         repo,
         upstream_commit_ids
             .iter()
             .filter_map(|id| Commit::from_id(id.attach(repo)).ok()),
         cost_info,
-        expensive,
-    )?;
+        true,
+    )
+}
 
+/// Match each of `workspace_commit_ids` against `upstream_lut`, returning the matched upstream
+/// commit id keyed by the workspace commit id.
+///
+/// The matches use the same cheap and expensive checks as the per-segment similarity used for
+/// upstream integration: change IDs are skipped, while commit data and changeset IDs are
+/// considered.
+pub fn identify_matching_content(
+    repo: &gix::Repository,
+    upstream_lut: &Identity,
+    workspace_commit_ids: &[gix::ObjectId],
+) -> anyhow::Result<HashMap<gix::ObjectId, gix::ObjectId>> {
     let mut time_used = std::time::Duration::default();
     let mut matches_by_workspace_commit = HashMap::new();
     for workspace_commit_id in workspace_commit_ids {
         let commit = Commit::from_id(workspace_commit_id.attach(repo))?;
-        let expensive = changeset_identifier(repo, expensive.then_some(&commit), &mut time_used)?;
+        let expensive = changeset_identifier(repo, Some(&commit), &mut time_used)?;
         if let Some(upstream_commit_id) = lookup_similar(
-            &upstream_lut,
+            upstream_lut,
             &commit,
             expensive.as_ref(),
             ChangeIdMode::Skip,
@@ -134,10 +135,22 @@ pub fn compute_similarity_by_commit_ids(
             matches_by_workspace_commit.insert(*workspace_commit_id, *upstream_commit_id);
         }
     }
+    Ok(matches_by_workspace_commit)
+}
 
-    Ok(SimilarityByCommitIds {
-        matches_by_workspace_commit,
-    })
+/// Detect a squash integration: compute the changeset id of the virtual squash commit spanning
+/// `bottom_parent..top` (both commit-ish) and return the upstream commit in `lut` that introduced
+/// the same changes, if any.
+pub fn squash_in_lut(
+    repo: &gix::Repository,
+    lut: &Identity,
+    bottom_parent: gix::ObjectId,
+    top: gix::ObjectId,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    let Some(changeset_id) = id_for_tree_diff(repo, Some(bottom_parent), top)? else {
+        return Ok(None);
+    };
+    Ok(lut.get(&Identifier::ChangesetId(changeset_id)).copied())
 }
 
 /// Compute the changeset identifier of `commit` (the changes it introduces over its first parent),
