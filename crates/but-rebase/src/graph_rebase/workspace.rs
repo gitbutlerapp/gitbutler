@@ -11,7 +11,8 @@ use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
     branch::resolve_tracking_branch_ref_name,
     changeset::{
-        ChangeIdMode, Identity, changeset_identifier, create_similarity_lut, lookup_similar,
+        ChangeIdMode, Identity, changeset_identifier, compute_upstream_commits_lut,
+        identify_matching_content, lookup_similar,
     },
     ui::{CommitState, PushStatus},
 };
@@ -391,12 +392,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
         let upstream_ids = self.pick_ids(upstream.into_iter())?;
         let workspace_ids = self.pick_ids(nodes.iter().copied())?;
-        let content = but_core::changeset::compute_similarity_by_commit_ids(
-            self.repo(),
-            &upstream_ids,
-            &workspace_ids,
-            true,
-        )?;
+        let upstream_lut = self.similarity_lut(&upstream_ids)?;
+        let content = identify_matching_content(self.repo(), &upstream_lut, &workspace_ids)?;
 
         let reference_names: HashMap<Selector, gix::refs::FullName> = nodes
             .iter()
@@ -412,9 +409,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 return Ok(true);
             }
             Ok(match self.lookup_step(selector)? {
-                Step::Pick(Pick { id, .. }) => {
-                    content.matches_by_workspace_commit.contains_key(&id)
-                }
+                Step::Pick(Pick { id, .. }) => content.contains_key(&id),
                 _ => false,
             })
         };
@@ -526,18 +521,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// Build a changeset-similarity lookup table over `commit_ids`.
     fn similarity_lut(&self, commit_ids: &[gix::ObjectId]) -> Result<Identity> {
-        let cost_info = (
-            commit_ids.len(),
-            self.repo().index_or_empty()?.entries().len(),
-        );
-        create_similarity_lut(
-            self.repo(),
-            commit_ids
-                .iter()
-                .filter_map(|id| but_core::Commit::from_id(id.attach(self.repo())).ok()),
-            cost_info,
-            true,
-        )
+        compute_upstream_commits_lut(self.repo(), commit_ids)
     }
 
     /// The id of the commit in `lut` that is content-equivalent to the commit

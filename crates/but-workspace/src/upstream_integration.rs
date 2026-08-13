@@ -15,9 +15,9 @@ use but_rebase::{
     },
 };
 
-use crate::changeset::compute_similarity_by_commit_ids;
 use crate::graph_manipulation::traverse_nodes;
 use crate::resolve_tracking_branch_ref_name;
+use but_core::changeset::{compute_upstream_commits_lut, identify_matching_content, squash_in_lut};
 
 /// Whether a bottom most commit should be rebased, or a merge commit should be
 /// created at the top of the commit run.
@@ -616,11 +616,11 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     for stack in &output_stacks {
         workspace_selectors.extend(stack.nodes.keys());
     }
-    let integration = compute_similarity_by_commit_ids(
+    let upstream_lut = compute_upstream_commits_lut(editor.repo(), &upstream_commits)?;
+    let matches_by_workspace_commit = identify_matching_content(
         editor.repo(),
-        &upstream_commits,
+        &upstream_lut,
         &commit_ids(editor, workspace_selectors)?,
-        true,
     )?;
 
     for stack in &mut output_stacks {
@@ -650,7 +650,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
 
             if let Step::Pick(Pick { id, .. }) = step
-                && integration.matches_by_workspace_commit.contains_key(&id)
+                && matches_by_workspace_commit.contains_key(&id)
             {
                 attrs.content_integrated = true;
             }
@@ -682,35 +682,75 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         for (r_sel, r_name) in reference_nodes.iter() {
             let mut tips = vec![*r_sel];
             let mut seen = tips.iter().cloned().collect::<HashSet<_>>();
-            let mut all_integrated = true;
-            let mut traversed_commits = false;
+            let mut members = Vec::new();
+            let mut passed_through_references = Vec::new();
+            let mut linear = true;
+            let mut base = None;
 
-            'traversal: while let Some(tip) = tips.pop() {
-                for (parent, _) in editor.direct_parents(tip)? {
-                    let Some(attrs) = stack.nodes.get(&parent) else {
+            while let Some(tip) = tips.pop() {
+                let parents = editor.direct_parents(tip)?;
+                if parents.len() != 1 {
+                    linear = false;
+                }
+                for (parent, _) in parents {
+                    if !stack.nodes.contains_key(&parent)
+                        || reference_nodes.get(&parent).is_some_and(|parent_ref| {
+                            parent_ref.category() == Some(gix::refs::Category::LocalBranch)
+                        })
+                    {
+                        base = Some(parent);
                         continue;
-                    };
-                    let parent_is_non_local_reference =
-                        if let Some(r_parent_name) = reference_nodes.get(&parent) {
-                            if r_parent_name.category() == Some(gix::refs::Category::LocalBranch) {
-                                continue;
-                            } else {
-                                true
-                            }
-                        } else {
-                            traversed_commits = true;
-                            false
-                        };
-
+                    }
                     if seen.insert(parent) {
-                        if !(parent_is_non_local_reference || attrs.is_integrated()) {
-                            all_integrated = false;
-                            break 'traversal;
+                        if reference_nodes.contains_key(&parent) {
+                            passed_through_references.push(parent);
+                        } else {
+                            members.push(parent);
                         }
                         tips.push(parent);
                     }
                 }
             }
+
+            let traversed_commits = !members.is_empty();
+            let mut all_integrated = members.iter().all(|m| {
+                stack
+                    .nodes
+                    .get(m)
+                    .is_some_and(|attrs| attrs.is_integrated())
+            });
+            let is_local_reference = r_name.category() == Some(gix::refs::Category::LocalBranch);
+
+            if is_local_reference
+                && members.len() > 1
+                && !all_integrated
+                && linear
+                && let Some(base) = base
+                && let (Some(base_id), Some(top_id)) = (
+                    selector_commit_id(editor, base)?,
+                    selector_commit_id(editor, *r_sel)?,
+                )
+                && squash_in_lut(editor.repo(), &upstream_lut, base_id, top_id)?.is_some()
+            {
+                all_integrated = true;
+                for member in &members {
+                    if let Some(attrs) = stack.nodes.get_mut(member) {
+                        attrs.content_integrated = true;
+                    }
+                }
+            }
+
+            if is_local_reference && traversed_commits && all_integrated {
+                for passed_sel in &passed_through_references {
+                    if let (Some(node), Some(passed_name)) = (
+                        stack.nodes.get_mut(passed_sel),
+                        reference_nodes.get(passed_sel),
+                    ) {
+                        node.reference_integrated = Some(passed_name.clone());
+                    }
+                }
+            }
+
             let Some(node) = stack.nodes.get_mut(r_sel) else {
                 continue;
             };
@@ -729,10 +769,10 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 // we have traversed local commits, those commits decide whether
                 // the segment is integrated so local work ahead of its tracking
                 // branch is not discarded.
-                node.reference_integrated = all_integrated.then_some(r_name.clone());
-            } else if !head_is_workspace_commit
-                && stack.heads.contains(r_sel)
-                && r_name.category() == Some(gix::refs::Category::LocalBranch)
+                if all_integrated {
+                    node.reference_integrated = Some(r_name.clone());
+                }
+            } else if !head_is_workspace_commit && stack.heads.contains(r_sel) && is_local_reference
             {
                 // A local ref pointing to target-reachable history is not by itself evidence that
                 // the branch was integrated. For an empty local segment, require branch-specific
@@ -747,11 +787,11 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                                 direct_checkout_head_commit_id,
                             )
                         });
-                node.reference_integrated =
-                    (remote_tip_integrated || review_integrated).then_some(r_name.clone());
-            } else {
-                node.reference_integrated =
-                    (node.is_integrated() || remote_tip_integrated).then_some(r_name.clone());
+                if remote_tip_integrated || review_integrated {
+                    node.reference_integrated = Some(r_name.clone());
+                }
+            } else if node.is_integrated() || remote_tip_integrated {
+                node.reference_integrated = Some(r_name.clone());
             }
         }
     }
