@@ -393,7 +393,11 @@ const WorkspacePage: FC = () => {
 
 		if (renderAllFiles) {
 			didScrollToViaFileRef.current = true;
-			viewerRef.current?.scrollTo({
+			const viewer = viewerRef.current?.getInstance();
+			// Details selection is deferred, so the ref may still point at a viewer without this file.
+			if (!viewer?.getItem(itemId)) return;
+
+			viewer.scrollTo({
 				type: "item",
 				id: itemId,
 			});
