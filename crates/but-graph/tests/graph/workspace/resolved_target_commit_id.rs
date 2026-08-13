@@ -35,9 +35,9 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:feature[🌳] <> ✓refs/remotes/origin/trunk⇣1 on d03b217
-└── ≡:0:feature[🌳] on 3183e43 {1}
-    └── :0:feature[🌳]
+⌂:[..]:feature[🌳] <> ✓refs/remotes/origin/trunk⇣1 on d03b217
+└── ≡:[..]:feature[🌳] on 3183e43 {1}
+    └── :[..]:feature[🌳]
 
 "#]]
     );
@@ -78,9 +78,9 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:1:feature[🌳] <> ✓! on 3183e43
-└── ≡:1:feature[🌳] on 3183e43 {1}
-    └── :1:feature[🌳]
+⌂:[..]:feature[🌳] <> ✓! on 3183e43
+└── ≡:[..]:feature[🌳] on 3183e43 {1}
+    └── :[..]:feature[🌳]
         └── ·d03b217
 
 "#]]
