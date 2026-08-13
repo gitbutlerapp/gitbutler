@@ -328,6 +328,9 @@ export const diffHotkeys = {
 		hotkey: "Z",
 		meta: { group: "Diff", name: "Fold/unfold file" },
 	},
+	toggleReviewedFile: {
+		hotkey: "R",
+	},
 	toggleDiffStyle: {
 		hotkey: "Mod+B",
 		meta: { group: "Diff", name: "Toggle diff style" },

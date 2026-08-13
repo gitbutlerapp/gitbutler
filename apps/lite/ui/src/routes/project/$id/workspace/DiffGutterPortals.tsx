@@ -55,7 +55,6 @@ const HunkCheckboxes: FC<{
 				p.onCheck({ operand: p.operand, shiftKey });
 			}}
 			aria-label="Select hunk"
-			data-gitbutler-diff-gutter-checkbox=""
 			className={styles.checkbox}
 		/>
 	));

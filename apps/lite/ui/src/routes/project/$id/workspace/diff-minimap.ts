@@ -1,13 +1,12 @@
 import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
-import { weakFileIdentityKey, type FileParent } from "#ui/operands.ts";
 import type { GUISettings } from "#electron/settings.ts";
-import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import type { CodeView } from "@pierre/diffs";
 import {
 	type Annotation,
 	codeViewItemMetrics,
 	codeViewLayout,
-	parseChangeDiff,
+	parsePreparedDiffFile,
+	type PreparedDiffFile,
 } from "./diff-view.ts";
 
 /**
@@ -187,27 +186,23 @@ const pairSplitRows = (deletions: RunMetrics, additions: RunMetrics): void => {
  * separator bar — so a change's offset is a sum of whole rows and bars rather
  * than a share of the file's line count.
  *
- * Item IDs are derived the same way as in `getDiffView` rather than read back
- * off it, so the minimap doesn't inherit that view's selection-driven churn.
+ * Item IDs and synthesized patches come from the same prepared files as the
+ * diff view, avoiding another versioning pass.
  */
 export const getMinimapFiles = ({
-	fileParent,
-	changes,
-	treeChangeDiffs,
+	files,
 	diffStyle,
 	tabSize,
 	wrapColumns,
 }: {
-	fileParent: FileParent;
-	changes: Array<TreeChange>;
-	treeChangeDiffs: Array<UnifiedPatch | null>;
+	files: Array<PreparedDiffFile>;
 	diffStyle: GUISettings["diffStyle"];
 	tabSize: number;
 	/** Columns a line gets before it wraps, or null when the viewer scrolls instead. */
 	wrapColumns: number | null;
 }): Array<MinimapFile> => {
-	const changedLines = treeChangeDiffs.reduce(
-		(total, diff) =>
+	const changedLines = files.reduce(
+		(total, { treeChangeDiff: diff }) =>
 			total + (diff?.type === "Patch" ? diff.subject.linesAdded + diff.subject.linesRemoved : 0),
 		0,
 	);
@@ -215,8 +210,9 @@ export const getMinimapFiles = ({
 
 	const split = diffStyle === "split";
 
-	return changes.map((change, changeIndex) => {
-		const { fileDiff } = parseChangeDiff(change, treeChangeDiffs[changeIndex] ?? null);
+	return files.map((file) => {
+		const { change, fileId } = file;
+		const fileDiff = parsePreparedDiffFile(file);
 		const marks: Array<MinimapMark> = [];
 		const anchors: Array<MinimapAnchor> = [];
 		let top = codeViewItemMetrics.diffHeaderHeight;
@@ -331,7 +327,7 @@ export const getMinimapFiles = ({
 		}
 
 		return {
-			itemId: weakFileIdentityKey({ parent: fileParent, path: change.path }),
+			itemId: fileId,
 			path: change.path,
 			contentHeight: top + codeViewItemMetrics.paddingBottom,
 			marks,

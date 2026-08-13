@@ -41,10 +41,19 @@ export const codeViewItemMetrics = {
 	paddingBottom: 9,
 } satisfies Partial<VirtualFileMetrics>;
 
-type DiffViewDeps = {
+type PrepareDiffFilesDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<UnifiedPatch | null>;
+};
+
+export type PreparedDiffFile = {
+	file: FileOperand;
+	fileId: string;
+	change: TreeChange;
+	treeChangeDiff: UnifiedPatch | null;
+	patch: string;
+	version: number;
 };
 
 export type DiffViewFile = {
@@ -83,19 +92,36 @@ const parseFileDiff = (
 };
 
 /**
- * Parse a change into CodeView's diff shape. Shared with the minimap, which
- * needs the same hunk layout — going through here keeps both on one parse
- * cache entry instead of paying for the patch twice.
+ * Prepare stable file IDs and patch versions once for both review state and
+ * the rendered diff. Parsing remains separate so single-file mode only builds
+ * Pierre's diff shape for the selected file.
  */
-export const parseChangeDiff = (
-	change: TreeChange,
-	patch: UnifiedPatch | null,
-): { version: number; fileDiff: CodeViewDiffItem<Annotation>["fileDiff"] } => {
-	const combined = synthesizeFilePatch(change, patch?.type === "Patch" ? patch.subject.hunks : []);
-	const version = hash(combined);
+export const prepareDiffFiles = ({
+	fileParent,
+	changes,
+	treeChangeDiffs,
+}: PrepareDiffFilesDeps): Array<PreparedDiffFile> =>
+	changes.map((change, index) => {
+		const file: FileOperand = { parent: fileParent, path: change.path };
+		const treeChangeDiff = treeChangeDiffs[index] ?? null;
+		const patch = synthesizeFilePatch(
+			change,
+			treeChangeDiff?.type === "Patch" ? treeChangeDiff.subject.hunks : [],
+		);
 
-	return { version, fileDiff: parseFileDiff(combined, String(version)) };
-};
+		return {
+			file,
+			fileId: weakFileIdentityKey(file),
+			change,
+			treeChangeDiff,
+			patch,
+			version: hash(patch),
+		};
+	});
+
+export const parsePreparedDiffFile = (
+	file: PreparedDiffFile,
+): CodeViewDiffItem<Annotation>["fileDiff"] => parseFileDiff(file.patch, String(file.version));
 
 type DiffFileNavigation = {
 	itemId: string;
@@ -142,7 +168,7 @@ export const getDiffFileNavigation = ({
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
-export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDeps): DiffView => {
+export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
 		indexByKey: new Map(),
@@ -154,20 +180,13 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 	const fileByPath = new Map<string, DiffViewFile>();
 	const hunkByKey = new Map<string, DiffViewHunk>();
 
-	for (const [ci, change] of changes.entries()) {
-		const mdiff = treeChangeDiffs[ci];
-
-		const file: FileOperand = {
-			parent: fileParent,
-			path: change.path,
-		};
-
-		const { version, fileDiff } = parseChangeDiff(change, mdiff ?? null);
+	for (const prepared of files) {
+		const { file, fileId, change, treeChangeDiff: mdiff, version } = prepared;
 		const item: CodeViewDiffItem<Annotation> = {
 			type: "diff",
-			id: weakFileIdentityKey(file),
+			id: fileId,
 			version,
-			fileDiff,
+			fileDiff: parsePreparedDiffFile(prepared),
 		};
 
 		items.push(item);
@@ -176,7 +195,7 @@ export const getDiffView = ({ fileParent, changes, treeChangeDiffs }: DiffViewDe
 			operand: file,
 			item,
 			change,
-			patch: mdiff ?? null,
+			patch: mdiff,
 			hunks: [],
 		};
 

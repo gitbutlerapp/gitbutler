@@ -274,7 +274,7 @@
 
 .fileHeader {
 	display: grid;
-	grid-template-columns: auto 1fr auto auto auto;
+	grid-template-columns: auto 1fr auto auto auto auto;
 	column-gap: 12px;
 	align-items: center;
 	justify-content: space-between;
@@ -311,6 +311,29 @@
 
 .fileHeaderActions {
 	display: flex;
+}
+
+.fileReview {
+	--button-height: 22px;
+	--button-gap: 6px;
+}
+
+.fileReviewIndicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	border-radius: var(--radius-xs);
+	background-color: var(--bg-1);
+	box-shadow: inset 0 0 0 1px var(--border-2);
+
+	[aria-pressed="true"] &,
+	[aria-pressed="mixed"] & {
+		background-color: var(--fill-pop-bg);
+		box-shadow: inset 0 0 0 1px var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
+	}
 }
 
 .filePath {
