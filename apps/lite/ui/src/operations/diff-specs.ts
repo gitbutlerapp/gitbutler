@@ -125,7 +125,7 @@ const resolvedDiffSpecsFromSources = ({
 	worktreeChanges: WorktreeChanges | undefined;
 	commitDetails: CommitDetails | undefined;
 }): Array<DiffSpec> | null => {
-	const diffSpecs: Array<DiffSpec> = [];
+	const diffSpecsByPath = new Map<string, DiffSpec>();
 
 	for (const operand of sources) {
 		const resolvedDiffSpecs = resolvedDiffSpecsFromOperand({
@@ -135,10 +135,23 @@ const resolvedDiffSpecsFromSources = ({
 		});
 		if (!resolvedDiffSpecs) return null;
 
-		diffSpecs.push(...resolvedDiffSpecs);
+		for (const diffSpec of resolvedDiffSpecs) {
+			const path = diffSpec.pathBytes.join(",");
+			const existing = diffSpecsByPath.get(path);
+
+			if (!existing) diffSpecsByPath.set(path, diffSpec);
+			else if (
+				// One current path cannot originate from different rename sources.
+				existing.previousPathBytes?.join(",") !== diffSpec.previousPathBytes?.join(",") ||
+				// Empty headers select the whole file, which cannot mix with selected hunks.
+				(existing.hunkHeaders.length === 0) !== (diffSpec.hunkHeaders.length === 0)
+			)
+				return null;
+			else existing.hunkHeaders.push(...diffSpec.hunkHeaders);
+		}
 	}
 
-	return diffSpecs;
+	return diffSpecsByPath.values().toArray();
 };
 
 export const resolveDiffSpecs = async ({

@@ -61,7 +61,7 @@ export const hunkOperand = ({
 	parent,
 	isResultOfBinaryToTextConversion,
 	...lineSelection
-}: HunkOperand): Operand => ({
+}: HunkOperand): Extract<Operand, { _tag: "Hunk" }> => ({
 	_tag: "Hunk",
 	parent,
 	isResultOfBinaryToTextConversion,

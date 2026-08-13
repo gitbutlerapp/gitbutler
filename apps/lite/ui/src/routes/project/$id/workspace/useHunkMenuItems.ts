@@ -16,7 +16,7 @@ import { hunkOperand, type HunkOperand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useAppDispatch, useAppStore } from "#ui/store.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -33,6 +33,7 @@ export const useHunkMenuItems = ({
 	projectId: string;
 }): ((target: HunkMenuTarget) => Array<NativeMenuItem>) => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -55,10 +56,14 @@ export const useHunkMenuItems = ({
 		const source = hunkOperand(operand);
 		const canUseHunk = !operand.isResultOfBinaryToTextConversion;
 		const cutHunk = () => {
+			const state = store.getState();
+			const sources = projectSlice.selectors.selectOperandChecked(state, projectId, source)
+				? projectSlice.selectors.selectCheckedOperands(state, projectId)
+				: [source];
 			dispatch(
 				projectSlice.actions.enterKeyboardTransferMode({
 					projectId,
-					sources: [source],
+					sources,
 				}),
 			);
 			focusSelectionScope("outline");

@@ -124,7 +124,13 @@ export const useDiffHunkDrag = <T>({
 			if (!target) return null;
 
 			const operand = configRef.current.getHunkOperand(target);
-			return operand ? [hunkOperand(operand)] : null;
+			if (!operand) return null;
+
+			const source = hunkOperand(operand);
+			const state = store.getState();
+			return projectSlice.selectors.selectOperandChecked(state, projectId, source)
+				? projectSlice.selectors.selectCheckedOperands(state, projectId)
+				: [source];
 		};
 
 		registration.cleanup = draggable({

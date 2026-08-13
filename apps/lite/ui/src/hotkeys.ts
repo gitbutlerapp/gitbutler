@@ -320,6 +320,10 @@ export const operationHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const diffHotkeys = {
+	checkHunk: {
+		hotkey: "Space",
+		meta: { group: "Diff", name: "Check hunk" },
+	},
 	toggleFoldFile: {
 		hotkey: "Z",
 		meta: { group: "Diff", name: "Fold/unfold file" },
