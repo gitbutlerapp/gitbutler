@@ -11,6 +11,7 @@ import {
 	type SettingsPageKey,
 } from "./pages.ts";
 import { Appearance } from "./Appearance.tsx";
+import { Ai } from "./Ai.tsx";
 import { General } from "./General.tsx";
 import { Git } from "./Git.tsx";
 import { Integrations } from "./Integrations.tsx";
@@ -26,6 +27,7 @@ import { ProjectGit } from "./ProjectGit.tsx";
 const pageContent: Record<SettingsPageKey, FC<{ projectId: string }>> = {
 	"global:general": General,
 	"global:appearance": Appearance,
+	"global:ai": Ai,
 	"global:git": Git,
 	"global:integrations": Integrations,
 	"project:project": Project,

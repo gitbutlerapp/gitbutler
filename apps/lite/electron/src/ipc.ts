@@ -1,4 +1,9 @@
-import type { WatcherEvent, AskpassPromptEvent } from "@gitbutler/but-sdk";
+import type {
+	AiConfiguration,
+	AiConfigurationUpdate,
+	WatcherEvent,
+	AskpassPromptEvent,
+} from "@gitbutler/but-sdk";
 import type * as sdk from "@gitbutler/but-sdk";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import type { GUISettings } from "./settings.js";
@@ -13,12 +18,20 @@ export type LiteElectronApi = {
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	clipboardWriteText: (text: string) => Promise<void>;
+	getAiConfiguration: () => Promise<AiConfiguration>;
 	getVersion: () => Promise<string>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
+	resetAiConfiguration: () => Promise<AiConfiguration>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
+	streamAiResponse: (
+		systemMessage: string,
+		prompt: string,
+		onToken: (token: string) => void,
+	) => Promise<string>;
+	updateAiConfiguration: (update: AiConfigurationUpdate) => Promise<AiConfiguration>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
@@ -41,12 +54,16 @@ export const localEndpoints = [
 	"askpassSubmitPromptResponse",
 	"clipboardWriteText",
 	"fullScreenChange",
+	"getAiConfiguration",
 	"getVersion",
 	"isFullScreen",
 	"openInWebBrowser",
 	"pathJoin",
 	"readGUISettings",
+	"resetAiConfiguration",
 	"showNativeMenu",
+	"streamAiResponse",
+	"updateAiConfiguration",
 	"watcherStopAll",
 	"watcherSubscribe",
 	"watcherUnsubscribe",
@@ -105,6 +122,17 @@ export interface WatcherSubscribeResult {
 
 export interface WatcherUnsubscribeParams {
 	subscriptionId: string;
+}
+
+export interface StreamAiResponseParams {
+	requestId: string;
+	systemMessage: string;
+	prompt: string;
+}
+
+export interface StreamAiResponseToken {
+	requestId: string;
+	token: string;
 }
 
 export interface NativeMenuPosition {

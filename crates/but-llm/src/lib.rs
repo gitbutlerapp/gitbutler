@@ -1,6 +1,7 @@
 mod anthropic;
 mod chat;
 mod client;
+mod config;
 mod key;
 mod lmstudio;
 mod ollama;
@@ -11,30 +12,14 @@ mod openrouter;
 use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
+pub use config::*;
+pub use key::CredentialsKeyOption;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::client::LLMClient;
 
-pub const AI_MODEL_PROVIDER_KEY: &str = "gitbutler.aiModelProvider";
-pub const AI_OPENAI_KEY_OPTION_KEY: &str = "gitbutler.aiOpenAIKeyOption";
-pub const AI_OPENAI_MODEL_NAME_KEY: &str = "gitbutler.aiOpenAIModelName";
-pub const AI_OPENAI_CUSTOM_ENDPOINT_KEY: &str = "gitbutler.aiOpenAICustomEndpoint";
-pub const AI_ANTHROPIC_KEY_OPTION_KEY: &str = "gitbutler.aiAnthropicKeyOption";
-pub const AI_ANTHROPIC_MODEL_NAME_KEY: &str = "gitbutler.aiAnthropicModelName";
-pub const AI_OLLAMA_ENDPOINT_KEY: &str = "gitbutler.aiOllamaEndpoint";
-pub const AI_OLLAMA_MODEL_NAME_KEY: &str = "gitbutler.aiOllamaModelName";
-pub const AI_LMSTUDIO_ENDPOINT_KEY: &str = "gitbutler.aiLMStudioEndpoint";
-pub const AI_LMSTUDIO_MODEL_NAME_KEY: &str = "gitbutler.aiLMStudioModelName";
-
-pub const AI_OPENROUTER_MODEL_NAME_KEY: &str = "gitbutler.aiOpenRouterModelName";
-pub const AI_OPENROUTER_ENDPOINT_KEY: &str = "gitbutler.aiOpenRouterEndpoint";
-
-pub const AI_OPENAI_SECRET_HANDLE: &str = "aiOpenAIKey";
-pub const AI_ANTHROPIC_SECRET_HANDLE: &str = "aiAnthropicKey";
-pub const AI_OPENROUTER_SECRET_HANDLE: &str = "aiOpenRouterKey";
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LLMProviderKind {
     OpenAi,
@@ -175,42 +160,75 @@ impl LLMProvider {
     /// - The configured provider is not supported
     /// - Provider-specific initialization fails (e.g., missing credentials)
     pub fn from_git_config(config: &gix::config::File) -> Option<Self> {
-        let provider_str = config
-            .string(AI_MODEL_PROVIDER_KEY)
-            .map(|v| v.to_string())?;
-        let provider = LLMProviderKind::from_git_config_value(&provider_str);
-        match provider {
-            Some(LLMProviderKind::OpenAi) => {
-                let client = openai::OpenAiProvider::from_git_config(config)?;
+        let configuration = AiConfiguration::from_git_config(config).ok()?;
+        configuration.validate_active().ok()?;
+        match configuration.provider {
+            LLMProviderKind::OpenAi => {
+                let credentials = match configuration.openai.key_option {
+                    CredentialsKeyOption::BringYourOwn => openai::CredentialsKind::OwnOpenAiKey,
+                    CredentialsKeyOption::ButlerApi => openai::CredentialsKind::GitButlerProxied,
+                };
+                let client = openai::OpenAiProvider::with(
+                    Some(credentials),
+                    Some(configuration.openai.model),
+                    configuration.openai.custom_endpoint,
+                )?;
                 Some(Self {
                     client: LLMClientType::OpenAi(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::Anthropic) => {
-                let client = anthropic::AnthropicProvider::from_git_config(config)?;
+            LLMProviderKind::Anthropic => {
+                let credentials = match configuration.anthropic.key_option {
+                    CredentialsKeyOption::BringYourOwn => {
+                        anthropic::CredentialsKind::OwnAnthropicKey
+                    }
+                    CredentialsKeyOption::ButlerApi => anthropic::CredentialsKind::GitButlerProxied,
+                };
+                let client = anthropic::AnthropicProvider::with(
+                    Some(credentials),
+                    Some(configuration.anthropic.model),
+                )?;
                 Some(Self {
                     client: LLMClientType::Anthropic(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::Ollama) => {
-                let client = ollama::OllamaProvider::from_git_config(config)?;
+            LLMProviderKind::Ollama => {
+                let host_config = ollama::OllamaHostConfig::from(configuration.ollama.endpoint);
+                let client = ollama::OllamaProvider::new(
+                    ollama::OllamaConfig {
+                        host_config: Some(host_config),
+                    },
+                    Some(configuration.ollama.model),
+                );
                 Some(Self {
                     client: LLMClientType::Ollama(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::LMStudio) => {
-                let client = lmstudio::LMStudioProvider::from_git_config(config)?;
+            LLMProviderKind::LMStudio => {
+                let client = lmstudio::LMStudioProvider::with(
+                    Some(lmstudio::LMStudioConfig {
+                        api_base: configuration.lmstudio.endpoint,
+                    }),
+                    Some(configuration.lmstudio.model),
+                )?;
                 Some(Self {
                     client: LLMClientType::LMStudio(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::OpenRouter) => {
-                let client = openrouter::OpenRouterProvider::from_git_config(config)?;
+            LLMProviderKind::OpenRouter => {
+                let provider_config = config.string(AI_OPENROUTER_ENDPOINT_KEY).map(|api_base| {
+                    openrouter::OpenRouterConfig {
+                        api_base: api_base.to_string(),
+                    }
+                });
+                let model = config
+                    .string(AI_OPENROUTER_MODEL_NAME_KEY)
+                    .map(|model| model.to_string());
+                let client = openrouter::OpenRouterProvider::with(provider_config, model)?;
                 Some(Self {
                     client: LLMClientType::OpenRouter(Arc::new(client)),
                 })
             }
-            None => None,
         }
     }
 
@@ -243,17 +261,19 @@ impl LLMProvider {
     /// Callers that need a concrete model name (e.g. structured output) must not
     /// hardcode a provider-specific model, as it would 404 against other providers.
     /// This returns the configured model when available, otherwise a sensible
-    /// default for the active provider: `claude-haiku-4-5` for Anthropic (so the
-    /// proxied path, which carries no model name, still hits a real model) and
-    /// `gpt-5-mini` for everything else.
+    /// default for the active provider.
     pub fn model_or_default(&self) -> String {
         if let Some(model) = self.model() {
             return model;
         }
         match &self.client {
-            LLMClientType::Anthropic(_) => "claude-haiku-4-5".to_string(),
-            _ => "gpt-5-mini".to_string(),
+            LLMClientType::OpenAi(_) => DEFAULT_OPENAI_MODEL,
+            LLMClientType::Anthropic(_) => DEFAULT_ANTHROPIC_MODEL,
+            LLMClientType::Ollama(_) => DEFAULT_OLLAMA_MODEL,
+            LLMClientType::LMStudio(_) => DEFAULT_LMSTUDIO_MODEL,
+            LLMClientType::OpenRouter(_) => DEFAULT_OPENROUTER_MODEL,
         }
+        .to_string()
     }
 
     /// Creates a default OpenAI LLM provider using environment-based credentials.

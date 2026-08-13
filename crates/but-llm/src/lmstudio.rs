@@ -5,7 +5,6 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY,
     chat::ChatMessage,
     client::LLMClient,
     openai_utils::{
@@ -26,17 +25,6 @@ impl Default for LMStudioConfig {
         Self {
             api_base: LMSTUDIO_API_BASE_DEFAULT.to_string(),
         }
-    }
-}
-
-impl LMStudioConfig {
-    fn from_git_config(config: &gix::config::File) -> Self {
-        let api_base = config
-            .string(AI_LMSTUDIO_ENDPOINT_KEY)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| LMSTUDIO_API_BASE_DEFAULT.to_string());
-
-        Self { api_base }
     }
 }
 
@@ -68,20 +56,6 @@ impl OpenAIClientProvider for LMStudioProvider {
 }
 
 impl LLMClient for LMStudioProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let lmstudio_config = LMStudioConfig::from_git_config(config);
-        let model = config
-            .string(AI_LMSTUDIO_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        Some(Self {
-            config: lmstudio_config,
-            model,
-        })
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

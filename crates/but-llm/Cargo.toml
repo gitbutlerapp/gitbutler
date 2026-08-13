@@ -9,6 +9,7 @@ rust-version.workspace = true
 description = "LLM client interface"
 
 [dependencies]
+but-core.workspace = true
 but-secret.workspace = true
 but-tools.workspace = true
 async-openai.workspace = true
@@ -22,6 +23,7 @@ anyhow.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 gix.workspace = true
 reqwest.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true

@@ -1,0 +1,34 @@
+.intro {
+	color: var(--text-2);
+	text-wrap: pretty;
+}
+
+.warning {
+	padding: 8px 10px;
+	border-radius: var(--radius-button);
+	background-color: var(--bg-2);
+	color: var(--text-2);
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.reset {
+	margin-right: auto;
+}
+
+.result {
+	padding: 10px 12px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+	color: var(--text-2);
+	white-space: pre-wrap;
+}
+
+.resultError {
+	color: var(--text-danger);
+}

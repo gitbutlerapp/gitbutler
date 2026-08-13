@@ -1121,6 +1121,36 @@ export declare class WatcherHandle {
   get active(): boolean
 }
 
+export interface AiConfiguration {
+  provider: 'openai' | 'anthropic' | 'ollama' | 'lmstudio'
+  openaiKeyOption: 'butlerAPI' | 'bringYourOwn'
+  openaiModel: string
+  openaiCustomEndpoint?: string
+  openaiHasApiKey: boolean
+  anthropicKeyOption: 'butlerAPI' | 'bringYourOwn'
+  anthropicModel: string
+  anthropicHasApiKey: boolean
+  ollamaEndpoint: string
+  ollamaModel: string
+  lmstudioEndpoint: string
+  lmstudioModel: string
+}
+
+export interface AiConfigurationUpdate {
+  provider: 'openai' | 'anthropic' | 'ollama' | 'lmstudio'
+  openaiKeyOption: 'butlerAPI' | 'bringYourOwn'
+  openaiModel: string
+  openaiCustomEndpoint?: string
+  openaiApiKey?: string
+  anthropicKeyOption: 'butlerAPI' | 'bringYourOwn'
+  anthropicModel: string
+  anthropicApiKey?: string
+  ollamaEndpoint: string
+  ollamaModel: string
+  lmstudioEndpoint: string
+  lmstudioModel: string
+}
+
 /** Any fork link line. */
 export const ANY_FORK: number
 
@@ -1156,6 +1186,9 @@ export declare function askpassSubmitPromptResponse(id: string, response?: strin
 /** The target node of this link line is the child of this column. */
 export const CHILD: number
 
+/** Read application-global AI configuration without exposing stored secrets. */
+export declare function getAiConfiguration(): Promise<AiConfiguration>
+
 /** Get the application settings. */
 export declare function getAppSettings(): Promise<AppSettings>
 
@@ -1186,6 +1219,9 @@ export const LEFT_MERGE_ANCESTOR: number
 /** The child of this cell is linked to parents on the left. */
 export const LEFT_MERGE_PARENT: number
 
+/** Clear application-global AI configuration and stored provider API keys. */
+export declare function resetAiConfiguration(): Promise<AiConfiguration>
+
 /** Any right fork link line. */
 export const RIGHT_FORK: number
 
@@ -1203,6 +1239,12 @@ export const RIGHT_MERGE_ANCESTOR: number
 
 /** The child of this cell is linked to parents on the right. */
 export const RIGHT_MERGE_PARENT: number
+
+/** Stream a text response from the configured provider. */
+export declare function streamAiResponse(systemMessage: string, prompt: string, onToken: ((err: Error | null, arg: string) => void)): Promise<string>
+
+/** Validate and save one complete application-global AI configuration. */
+export declare function updateAiConfiguration(update: AiConfigurationUpdate): Promise<AiConfiguration>
 
 /** Update feature flags; unset fields are left unchanged. */
 export declare function updateFeatureFlags(update: FeatureFlagsUpdate): Promise<void>

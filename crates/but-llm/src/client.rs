@@ -8,10 +8,6 @@ use serde::de::DeserializeOwned;
 use crate::ChatMessage;
 
 pub trait LLMClient: Debug + Clone {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized;
-
     fn model(&self) -> Option<String>;
 
     fn tool_calling_loop_stream(

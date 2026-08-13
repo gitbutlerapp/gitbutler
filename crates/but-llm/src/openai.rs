@@ -7,11 +7,9 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_OPENAI_CUSTOM_ENDPOINT_KEY, AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY,
     AI_OPENAI_SECRET_HANDLE,
     chat::ChatMessage,
     client::LLMClient,
-    key::CredentialsKeyOption,
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
         structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
@@ -25,19 +23,6 @@ pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,
     GitButlerProxied,
-}
-
-impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File) -> Option<Self> {
-        let key_option_str = config
-            .string(AI_OPENAI_KEY_OPTION_KEY)
-            .map(|v| v.to_string())?;
-        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
-        match key_option {
-            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
-            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -158,21 +143,6 @@ impl OpenAIClientProvider for OpenAiProvider {
 }
 
 impl LLMClient for OpenAiProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config
-            .string(AI_OPENAI_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        let custom_endpoint = config
-            .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
-            .map(|v| v.to_string());
-
-        OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }

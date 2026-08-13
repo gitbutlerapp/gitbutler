@@ -14,11 +14,10 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_llm::{
-    AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
-    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY, AI_MODEL_PROVIDER_KEY,
-    AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, AI_OPENAI_CUSTOM_ENDPOINT_KEY,
-    AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY, AI_OPENAI_SECRET_HANDLE,
-    AI_OPENROUTER_MODEL_NAME_KEY, AI_OPENROUTER_SECRET_HANDLE, LLMProviderKind,
+    AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_SECRET_HANDLE,
+    AiConfigurationSnapshot, LLMProviderKind, apply_anthropic_configuration,
+    apply_lmstudio_configuration, apply_ollama_configuration, apply_openai_configuration,
+    apply_openrouter_configuration,
 };
 use but_secret::{Sensitive, secret};
 use but_settings::{
@@ -77,19 +76,7 @@ impl AiScope {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct AiConfigInfo {
-    provider: Option<String>,
-    openai_key_option: Option<String>,
-    openai_model: Option<String>,
-    openai_endpoint: Option<String>,
-    anthropic_key_option: Option<String>,
-    anthropic_model: Option<String>,
-    ollama_endpoint: Option<String>,
-    ollama_model: Option<String>,
-    lmstudio_endpoint: Option<String>,
-    lmstudio_model: Option<String>,
-}
+type AiConfigInfo = AiConfigurationSnapshot;
 
 /// Main entry point for config command
 pub async fn exec(
@@ -1758,17 +1745,6 @@ fn edit_ai_git_config(
     }
 }
 
-fn set_optional_config_value(
-    config: &mut gix::config::File,
-    key: &str,
-    value: Option<String>,
-) -> Result<()> {
-    match value {
-        Some(value) if !value.trim().is_empty() => set_config_value(config, key, &value),
-        _ => remove_config_value(config, key),
-    }
-}
-
 fn apply_openai_config(
     repo: Option<&gix::Repository>,
     scope: AiScope,
@@ -1778,15 +1754,12 @@ fn apply_openai_config(
     api_key: Option<Sensitive<String>>,
 ) -> Result<()> {
     edit_ai_git_config(repo, scope, |config| {
-        set_config_value(
+        apply_openai_configuration(
             config,
-            AI_MODEL_PROVIDER_KEY,
-            LLMProviderKind::OpenAi.as_git_config_value(),
-        )?;
-        set_config_value(config, AI_OPENAI_KEY_OPTION_KEY, key_option.as_git_value())?;
-        set_optional_config_value(config, AI_OPENAI_MODEL_NAME_KEY, model)?;
-        set_optional_config_value(config, AI_OPENAI_CUSTOM_ENDPOINT_KEY, endpoint)?;
-        Ok(())
+            key_option.into(),
+            model.as_deref(),
+            endpoint.as_deref(),
+        )
     })?;
 
     if matches!(key_option, AiKeyOption::BringYourOwn) {
@@ -1803,18 +1776,7 @@ fn apply_anthropic_config(
     api_key: Option<Sensitive<String>>,
 ) -> Result<()> {
     edit_ai_git_config(repo, scope, |config| {
-        set_config_value(
-            config,
-            AI_MODEL_PROVIDER_KEY,
-            LLMProviderKind::Anthropic.as_git_config_value(),
-        )?;
-        set_config_value(
-            config,
-            AI_ANTHROPIC_KEY_OPTION_KEY,
-            key_option.as_git_value(),
-        )?;
-        set_optional_config_value(config, AI_ANTHROPIC_MODEL_NAME_KEY, model)?;
-        Ok(())
+        apply_anthropic_configuration(config, key_option.into(), model.as_deref())
     })?;
 
     if matches!(key_option, AiKeyOption::BringYourOwn) {
@@ -1830,14 +1792,7 @@ fn apply_ollama_config(
     model: Option<String>,
 ) -> Result<()> {
     edit_ai_git_config(repo, scope, |config| {
-        set_config_value(
-            config,
-            AI_MODEL_PROVIDER_KEY,
-            LLMProviderKind::Ollama.as_git_config_value(),
-        )?;
-        set_optional_config_value(config, AI_OLLAMA_ENDPOINT_KEY, endpoint)?;
-        set_optional_config_value(config, AI_OLLAMA_MODEL_NAME_KEY, model)?;
-        Ok(())
+        apply_ollama_configuration(config, endpoint.as_deref(), model.as_deref())
     })
 }
 
@@ -1848,14 +1803,7 @@ fn apply_lmstudio_config(
     model: Option<String>,
 ) -> Result<()> {
     edit_ai_git_config(repo, scope, |config| {
-        set_config_value(
-            config,
-            AI_MODEL_PROVIDER_KEY,
-            LLMProviderKind::LMStudio.as_git_config_value(),
-        )?;
-        set_optional_config_value(config, AI_LMSTUDIO_ENDPOINT_KEY, endpoint)?;
-        set_optional_config_value(config, AI_LMSTUDIO_MODEL_NAME_KEY, model)?;
-        Ok(())
+        apply_lmstudio_configuration(config, endpoint.as_deref(), model.as_deref())
     })
 }
 
@@ -1866,13 +1814,7 @@ fn apply_openrouter_config(
     secret: Option<Sensitive<String>>,
 ) -> Result<()> {
     edit_ai_git_config(repo, scope, |config| {
-        set_config_value(
-            config,
-            AI_MODEL_PROVIDER_KEY,
-            LLMProviderKind::OpenRouter.as_git_config_value(),
-        )?;
-        set_optional_config_value(config, AI_OPENROUTER_MODEL_NAME_KEY, model)?;
-        Ok(())
+        apply_openrouter_configuration(config, model.as_deref())
     })?;
     if let Some(key) = secret {
         secret::persist(AI_OPENROUTER_SECRET_HANDLE, &key, secret::Namespace::Global)?;
@@ -1884,58 +1826,12 @@ fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<
     match scope {
         AiScope::Global => {
             let file = gix::config::File::from_globals()?;
-            Ok(AiConfigInfo {
-                provider: file.string(AI_MODEL_PROVIDER_KEY).map(|v| v.to_string()),
-                openai_key_option: file.string(AI_OPENAI_KEY_OPTION_KEY).map(|v| v.to_string()),
-                openai_model: file.string(AI_OPENAI_MODEL_NAME_KEY).map(|v| v.to_string()),
-                openai_endpoint: file
-                    .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
-                    .map(|v| v.to_string()),
-                anthropic_key_option: file
-                    .string(AI_ANTHROPIC_KEY_OPTION_KEY)
-                    .map(|v| v.to_string()),
-                anthropic_model: file
-                    .string(AI_ANTHROPIC_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-                ollama_endpoint: file.string(AI_OLLAMA_ENDPOINT_KEY).map(|v| v.to_string()),
-                ollama_model: file.string(AI_OLLAMA_MODEL_NAME_KEY).map(|v| v.to_string()),
-                lmstudio_endpoint: file.string(AI_LMSTUDIO_ENDPOINT_KEY).map(|v| v.to_string()),
-                lmstudio_model: file
-                    .string(AI_LMSTUDIO_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-            })
+            Ok(AiConfigInfo::from_git_config(&file))
         }
         AiScope::Local => {
             let repo = repo.context("Local AI configuration requires a git repository")?;
             let config = repo.config_snapshot();
-            Ok(AiConfigInfo {
-                provider: config.string(AI_MODEL_PROVIDER_KEY).map(|v| v.to_string()),
-                openai_key_option: config
-                    .string(AI_OPENAI_KEY_OPTION_KEY)
-                    .map(|v| v.to_string()),
-                openai_model: config
-                    .string(AI_OPENAI_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-                openai_endpoint: config
-                    .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
-                    .map(|v| v.to_string()),
-                anthropic_key_option: config
-                    .string(AI_ANTHROPIC_KEY_OPTION_KEY)
-                    .map(|v| v.to_string()),
-                anthropic_model: config
-                    .string(AI_ANTHROPIC_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-                ollama_endpoint: config.string(AI_OLLAMA_ENDPOINT_KEY).map(|v| v.to_string()),
-                ollama_model: config
-                    .string(AI_OLLAMA_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-                lmstudio_endpoint: config
-                    .string(AI_LMSTUDIO_ENDPOINT_KEY)
-                    .map(|v| v.to_string()),
-                lmstudio_model: config
-                    .string(AI_LMSTUDIO_MODEL_NAME_KEY)
-                    .map(|v| v.to_string()),
-            })
+            Ok(AiConfigInfo::from_git_config(&config))
         }
     }
 }

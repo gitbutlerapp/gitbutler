@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer } from "electron";
 import { exposedEndpoints, localEndpoints } from "./ipc.js";
 import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
 import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
+import type { StreamAiResponseToken } from "./ipc";
+
+let nextAiRequestId = 0;
 
 /**
  * The map of subscription IDs to channels and callbacks.
@@ -22,6 +25,7 @@ type SpecialKey =
 	| "onAskpassPrompt"
 	| "onFullScreenChange"
 	| "platform"
+	| "streamAiResponse"
 	| "watcherSubscribe"
 	| "watcherUnsubscribe"
 	| "watcherStopAll";
@@ -30,6 +34,7 @@ type SpecialKey =
 const specialNames = [
 	"askpassPrompt",
 	"fullScreenChange",
+	"streamAiResponse",
 	"watcherSubscribe",
 	"watcherUnsubscribe",
 	"watcherStopAll",
@@ -88,6 +93,18 @@ const api: LiteElectronApi = {
 		};
 		ipcRenderer.on("fullScreenChange", listener);
 		return () => ipcRenderer.removeListener("fullScreenChange", listener);
+	},
+	streamAiResponse: async (systemMessage, prompt, onToken) => {
+		const requestId = `ai-${nextAiRequestId++}`;
+		const listener = (_event: Electron.IpcRendererEvent, payload: StreamAiResponseToken) => {
+			if (payload.requestId === requestId) onToken(payload.token);
+		};
+		ipcRenderer.on("streamAiResponseToken", listener);
+		try {
+			return (await invoke("streamAiResponse", { requestId, systemMessage, prompt })) as string;
+		} finally {
+			ipcRenderer.removeListener("streamAiResponseToken", listener);
+		}
 	},
 	/**
 	 * Subscribe to a project.

@@ -352,11 +352,11 @@ pub enum AiKeyOption {
     ButlerApi,
 }
 
-impl AiKeyOption {
-    pub fn as_git_value(self) -> &'static str {
-        match self {
-            AiKeyOption::BringYourOwn => "bringYourOwn",
-            AiKeyOption::ButlerApi => "butlerAPI",
+impl From<AiKeyOption> for but_llm::CredentialsKeyOption {
+    fn from(value: AiKeyOption) -> Self {
+        match value {
+            AiKeyOption::BringYourOwn => Self::BringYourOwn,
+            AiKeyOption::ButlerApi => Self::ButlerApi,
         }
     }
 }

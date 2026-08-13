@@ -11,9 +11,8 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
-    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient, key::CredentialsKeyOption,
+    AI_ANTHROPIC_SECRET_HANDLE, StreamToolCallResult, ToolCall, ToolCallContent,
+    ToolResponseContent, chat::ChatMessage, client::LLMClient,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
@@ -31,19 +30,6 @@ pub enum CredentialsKind {
     EnvVarAnthropicKey,
     OwnAnthropicKey,
     GitButlerProxied,
-}
-
-impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File) -> Option<Self> {
-        let key_option_str = config
-            .string(AI_ANTHROPIC_KEY_OPTION_KEY)
-            .map(|v| v.to_string())?;
-        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
-        match key_option {
-            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
-            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -177,17 +163,6 @@ impl AnthropicProvider {
 }
 
 impl LLMClient for AnthropicProvider {
-    fn from_git_config(config: &gix::config::File) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config
-            .string(AI_ANTHROPIC_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        AnthropicProvider::with(Some(credentials_kind), model)
-    }
-
     fn model(&self) -> Option<String> {
         self.model.clone()
     }
