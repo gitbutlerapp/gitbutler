@@ -263,7 +263,6 @@ const withAnnotations = (
 });
 
 const DiffContents: FC<{
-	localAnnotationFormId: string;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
@@ -280,7 +279,6 @@ const DiffContents: FC<{
 	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
-	localAnnotationFormId,
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
@@ -807,7 +805,6 @@ const DiffContents: FC<{
 					return (
 						<AnnotationCard
 							projectId={projectId}
-							formId={localAnnotationFormId}
 							annotation={annotation}
 							path={file.operand.path}
 							fileParent={fileParent}
@@ -1191,7 +1188,6 @@ const Diff: FC<{
 	didScrollToViaFileRef,
 	headerSlot,
 }) => {
-	const localAnnotationFormId = useId();
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const dispatch = useAppDispatch();
 	const { mutate: setFilesReviewed } = useSetFilesReviewed();
@@ -1487,8 +1483,6 @@ const Diff: FC<{
 
 	return (
 		<div className={styles.diffTab}>
-			<form id={localAnnotationFormId} hidden />
-
 			<Group
 				id={layoutId}
 				className={styles.panels}
@@ -1627,7 +1621,6 @@ const Diff: FC<{
 							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
 						>
 							<DiffContents
-								localAnnotationFormId={localAnnotationFormId}
 								onViewerFileSelection={onPassiveFileSelection}
 								fileParent={fileParent}
 								projectId={projectId}

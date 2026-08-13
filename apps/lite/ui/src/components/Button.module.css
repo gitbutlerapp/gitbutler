@@ -27,7 +27,8 @@
 	}
 
 	&:disabled,
-	&[data-disabled] {
+	&[data-disabled],
+	form:invalid &[type="submit"] {
 		opacity: 0.5;
 	}
 
