@@ -88,6 +88,11 @@ export const FileRow: FC<
 					<Row
 						{...restProps}
 						isChecked={isChecked}
+						onShiftSelect={
+							isDefaultMode && canCheck
+								? () => checkFile({ path: relativePath, shiftKey: true })
+								: undefined
+						}
 						className={classes(restProps.className, treeStyles.row)}
 						onContextMenu={(event) => {
 							void showNativeContextMenu(event, menuItems);
