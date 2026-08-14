@@ -167,6 +167,7 @@ import {
 	type SetFilesReviewedInput,
 	useSetFilesReviewed,
 } from "#ui/reviewed-files.ts";
+import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -2040,9 +2041,15 @@ const BranchDetails: FC<{
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
 
+	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+
 	// Use push status of segment, not branch details; something about remote
 	// tracking refs.
 	const branchCtx = headInfoIndex?.branchContextByRefBytes(selection.branchRef);
+	// Appliedness is a workspace fact: applied iff head info resolves the ref to
+	// a segment. Unknown until head info loads, so the apply affordance stays
+	// hidden rather than flashing on applied branches.
+	const unapplied = headInfo !== undefined && branchCtx === undefined;
 	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
 	const targetBranch =
 		!parentSegment || parentSegment.pushStatus === "integrated"
@@ -2082,6 +2089,20 @@ const BranchDetails: FC<{
 							Pull Request
 						</Toggle>
 					</ToggleGroup>
+
+					{unapplied && (
+						<div className={styles.tabsRowRight}>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "pop" })}
+								disabled={isApplyPending}
+								onClick={() => apply(branchRef)}
+							>
+								{isApplyPending && <Icon name="spinner" />}
+								Apply to workspace
+							</button>
+						</div>
+					)}
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
 						<Suspense>
