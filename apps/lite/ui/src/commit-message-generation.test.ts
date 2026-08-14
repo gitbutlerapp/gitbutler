@@ -48,20 +48,41 @@ describe("commit message generation", () => {
 		expect(diff).toHaveLength(5_000);
 	});
 
-	it("preserves the current value until the first token", async () => {
+	it("preserves the current value on a failed stream", async () => {
 		const onValue = vi.fn();
 		await expect(
-			streamCommitMessage(async () => {
-				throw new Error("failed before response");
-			}, onValue),
+			streamCommitMessage(
+				async () => {
+					throw new Error("failed before response");
+				},
+				onValue,
+				"original",
+			),
 		).rejects.toThrow("failed before response");
 		expect(onValue).not.toHaveBeenCalled();
 
-		await streamCommitMessage(async (onToken) => {
-			onToken("feat: ");
-			onToken("generated");
-			return "feat: generated";
-		}, onValue);
+		await expect(
+			streamCommitMessage(
+				async (onToken) => {
+					onToken("partial");
+					throw new Error("failed during response");
+				},
+				onValue,
+				"original",
+			),
+		).rejects.toThrow("failed during response");
+		expect(onValue.mock.calls).toEqual([["partial"], ["original"]]);
+
+		onValue.mockClear();
+		await streamCommitMessage(
+			async (onToken) => {
+				onToken("feat: ");
+				onToken("generated");
+				return "feat: generated";
+			},
+			onValue,
+			"original",
+		);
 		expect(onValue.mock.calls).toEqual([["feat: "], ["feat: generated"], ["feat: generated"]]);
 	});
 });

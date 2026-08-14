@@ -20,7 +20,6 @@ import {
 	streamCommitMessage,
 } from "#ui/commit-message-generation.ts";
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
@@ -29,10 +28,10 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { Button, Combobox, Toast, Tooltip } from "@base-ui/react";
-import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
+import { Button, Combobox, Tooltip } from "@base-ui/react";
+import type { InsertSide, RelativeTo, TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type FC,
@@ -142,7 +141,6 @@ export const CommitForm: FC<{
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const client = useQueryClient();
-	const toastManager = Toast.useToastManager();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
 
@@ -158,6 +156,38 @@ export const CommitForm: FC<{
 	const { data: isProjectAiEnabled = false } = useQuery({
 		...projectAiSettingsQueryOptions(projectId),
 		select: (settings) => settings.enabled,
+	});
+	const { isPending: isGenerating, mutate: generateMessage } = useMutation({
+		mutationFn: async ({
+			changes,
+			previousMessage,
+		}: {
+			changes: Array<TreeChange>;
+			previousMessage: string;
+		}) => {
+			const [settings, patches] = await Promise.all([
+				client.ensureQueryData(projectAiSettingsQueryOptions(projectId)),
+				Promise.all(
+					changes.map((change) =>
+						client.ensureQueryData(treeChangeDiffsQueryOptions({ projectId, change })),
+					),
+				),
+			]);
+			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, changes, patches);
+			return streamCommitMessage(
+				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
+				(value) => {
+					if (commitTextareaRef.current) commitTextareaRef.current.value = value;
+				},
+				previousMessage,
+			);
+		},
+		onSuccess: (response) => {
+			const message = response.trim();
+			if (commitTextareaRef.current) commitTextareaRef.current.value = message;
+			persistDraftMessage({ projectId, message });
+		},
+		meta: { failureTitle: "Failed to generate commit message" },
 	});
 
 	const isDefaultMode = useAppSelector(
@@ -186,7 +216,6 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
-	const [isGenerating, setIsGenerating] = useState(false);
 	const generationButton = commitMessageGenerationButtonState({
 		enabled: isProjectAiEnabled,
 		configured: isAiConfigured,
@@ -310,7 +339,7 @@ export const CommitForm: FC<{
 		createCommit();
 	};
 
-	const generateCommitMessage = async () => {
+	const generateCommitMessage = () => {
 		if (!worktreeChanges || isGenerating) return;
 
 		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
@@ -320,38 +349,13 @@ export const CommitForm: FC<{
 		const changes = changesSelectedForCommit(worktreeChanges.changes, checkedPaths);
 		if (changes.length === 0) return;
 
-		setIsGenerating(true);
-		try {
-			const [settings, patches] = await Promise.all([
-				client.ensureQueryData(projectAiSettingsQueryOptions(projectId)),
-				Promise.all(
-					changes.map((change) =>
-						client.ensureQueryData(treeChangeDiffsQueryOptions({ projectId, change })),
-					),
-				),
-			]);
-			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, changes, patches);
-			const response = await streamCommitMessage(
-				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
-				(value) => {
-					if (commitTextareaRef.current) commitTextareaRef.current.value = value;
-				},
-			);
-			const message = response.trim();
-			if (commitTextareaRef.current) commitTextareaRef.current.value = message;
-			persistDraftMessage({ projectId, message });
-		} catch (error) {
-			toastManager.add({
-				type: "error",
-				title: "Failed to generate commit message",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		} finally {
-			setIsGenerating(false);
-		}
+		generateMessage({
+			changes,
+			previousMessage: commitTextareaRef.current?.value ?? draftMessage ?? "",
+		});
 	};
 	const commitMenuItems: Array<NativeMenuItem> = [
+		// oxlint-disable-next-line react-hooks-js/refs -- The ref is only read by the onSelect callback.
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
@@ -622,7 +626,7 @@ export const CommitForm: FC<{
 							<Tooltip.Trigger
 								aria-label="Generate commit message"
 								className={getButtonClassName({ variant: "outline", iconOnly: true })}
-								onClick={() => void generateCommitMessage()}
+								onClick={generateCommitMessage}
 								render={
 									<Button
 										focusableWhenDisabled

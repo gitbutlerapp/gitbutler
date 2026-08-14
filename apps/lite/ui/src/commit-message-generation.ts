@@ -46,12 +46,18 @@ export const buildCommitMessagePrompt = (
 export const streamCommitMessage = async (
 	stream: (onToken: (token: string) => void) => Promise<string>,
 	onValue: (value: string) => void,
+	previousValue: string,
 ): Promise<string> => {
 	let partial = "";
-	const response = await stream((token) => {
-		partial += token;
-		onValue(partial);
-	});
-	onValue(response);
-	return response;
+	try {
+		const response = await stream((token) => {
+			partial += token;
+			onValue(partial);
+		});
+		onValue(response);
+		return response;
+	} catch (error) {
+		if (partial.length > 0) onValue(previousValue);
+		throw error;
+	}
 };
