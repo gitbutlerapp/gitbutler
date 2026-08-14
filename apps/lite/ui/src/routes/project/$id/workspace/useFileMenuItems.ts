@@ -1,8 +1,4 @@
-import {
-	useCommitUncommitChanges,
-	useDiscardFileChanges,
-	useOpenInProgram,
-} from "#ui/api/mutations.ts";
+import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
@@ -15,9 +11,8 @@ import {
 } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -28,13 +23,18 @@ export const useFileMenuItems = ({
 	operand,
 	path,
 	change,
+	canUncommit,
+	uncommit,
 }: {
 	projectId: string;
 	operand: FileOperand;
 	path: string;
 	change?: TreeChange;
+	canUncommit: boolean;
+	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }): Array<NativeMenuItem> => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -45,8 +45,6 @@ export const useFileMenuItems = ({
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
-	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
-		useCommitUncommitChanges();
 	const { canDiscard, discard } = useDiscardFileChanges({
 		projectId,
 		fileParent: operand.parent,
@@ -65,10 +63,16 @@ export const useFileMenuItems = ({
 		discardFileCount > 1 ? `Discard Changes in ${discardFileCount} Files` : "Discard Changes";
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 	const cutFile = () => {
+		const source = fileOperand(operand);
+		const state = store.getState();
+		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, source)
+			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+			: [source];
+
 		dispatch(
 			projectSlice.actions.enterKeyboardTransferMode({
 				projectId,
-				sources: [fileOperand(operand)],
+				sources,
 			}),
 		);
 		focusSelectionScope("outline");
@@ -137,33 +141,22 @@ export const useFileMenuItems = ({
 		...(change
 			? Match.value(operand).pipe(
 					Match.withReturnType<Array<Array<NativeMenuItem>>>(),
-					Match.when({ parent: { _tag: "Commit" } }, (operand) => {
-						const uncommit = () =>
-							commitUncommitChanges({
-								projectId,
-								commitId: operand.parent.commitId,
-								assignTo: null,
-								changes: [createDiffSpec(change, [])],
-								dryRun: false,
-							});
-
-						return [
-							[
-								nativeMenuItem({
-									label: "Uncommit",
-									enabled: !isCommitUncommitChangesPending,
-									accelerator: toElectronAccelerator(changesFileHotkeys.uncommit.hotkey),
-									onSelect: uncommit,
-								}),
-								nativeMenuItem({
-									label: discardLabel,
-									enabled: canDiscard,
-									accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
-									onSelect: () => discard({ change, extendToCheckedFiles: isChecked }),
-								}),
-							],
-						];
-					}),
+					Match.when({ parent: { _tag: "Commit" } }, () => [
+						[
+							nativeMenuItem({
+								label: "Uncommit",
+								enabled: canUncommit,
+								accelerator: toElectronAccelerator(changesFileHotkeys.uncommit.hotkey),
+								onSelect: () => uncommit?.(change, isChecked),
+							}),
+							nativeMenuItem({
+								label: discardLabel,
+								enabled: canDiscard,
+								accelerator: toElectronAccelerator(changesFileHotkeys.discard.hotkey),
+								onSelect: () => discard({ change, extendToCheckedFiles: isChecked }),
+							}),
+						],
+					]),
 					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
 							dispatch(

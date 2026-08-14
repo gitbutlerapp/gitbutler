@@ -31,7 +31,7 @@ import {
 import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
 import { Toast, Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
@@ -83,6 +83,7 @@ export const CommitRow: FC<
 	);
 
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
@@ -193,13 +194,32 @@ export const CommitRow: FC<
 	};
 
 	const cutCommit = () => {
+		const state = store.getState();
+		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+			: [operand];
+
 		dispatch(
 			projectSlice.actions.enterKeyboardTransferMode({
 				projectId,
-				sources: [operand],
+				sources,
 			}),
 		);
 		focusSelectionScope("outline");
+	};
+
+	const uncommitCommit = () => {
+		const state = store.getState();
+		const subjectCommitIds = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+			? Array.from(projectSlice.selectors.selectCheckedCommitIds(state, projectId))
+			: [commit.id];
+
+		commitUncommit({
+			projectId,
+			assignTo: null,
+			subjectCommitIds,
+			dryRun: false,
+		});
 	};
 
 	const startEditing = () => {
@@ -326,13 +346,7 @@ export const CommitRow: FC<
 			label: "Uncommit",
 			enabled: !isCommitUncommitPending,
 			accelerator: toElectronAccelerator(outlineHotkeys.uncommitCommit.hotkey),
-			onSelect: () =>
-				commitUncommit({
-					projectId,
-					assignTo: null,
-					subjectCommitIds: [commit.id],
-					dryRun: false,
-				}),
+			onSelect: uncommitCommit,
 		}),
 	];
 

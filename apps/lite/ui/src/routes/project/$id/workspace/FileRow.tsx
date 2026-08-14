@@ -21,6 +21,7 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export const FileRow: FC<
 	{
@@ -29,6 +30,8 @@ export const FileRow: FC<
 		fileParent: FileParent;
 		branchNameByCommitId: (commitId: string) => string | undefined;
 		canCheck: boolean;
+		canUncommit: boolean;
+		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 		isChecked: boolean;
 		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 		/** How many directories this row sits inside. Zero in list mode. */
@@ -46,6 +49,8 @@ export const FileRow: FC<
 	fileParent,
 	branchNameByCommitId,
 	canCheck,
+	canUncommit,
+	uncommit,
 	isChecked,
 	checkFile,
 	depth,
@@ -64,6 +69,8 @@ export const FileRow: FC<
 		operand: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
+		canUncommit,
+		uncommit,
 	});
 
 	const lastSepIdx = relativePath.lastIndexOf("/");
@@ -81,6 +88,11 @@ export const FileRow: FC<
 					<Row
 						{...restProps}
 						isChecked={isChecked}
+						onShiftSelect={
+							isDefaultMode && canCheck
+								? () => checkFile({ path: relativePath, shiftKey: true })
+								: undefined
+						}
 						className={classes(restProps.className, treeStyles.row)}
 						onContextMenu={(event) => {
 							void showNativeContextMenu(event, menuItems);
