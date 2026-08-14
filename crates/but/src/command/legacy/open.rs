@@ -87,7 +87,7 @@ fn run(operation: OpenOperation) -> anyhow::Result<OpenOutcome> {
 
     // The app's own address space, as `apps/lite/ui/src/cursor-url.ts` writes
     // it: the stacks cursor names what the workspace page has selected.
-    let mut url = format!("lite://app/project/{project}/workspace");
+    let mut url = format!("but://app/project/{project}/workspace");
     let cursor = match selection {
         Selection::Workspace => None,
         Selection::Branch(ref_name) => Some(format!("branch:{ref_name}")),

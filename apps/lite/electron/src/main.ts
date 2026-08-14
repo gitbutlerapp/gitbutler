@@ -100,7 +100,7 @@ const imgSrc = [
 	"https://gitbutler-public.s3.amazonaws.com",
 ].join(" ");
 
-const liteProtocolScheme = "lite";
+const liteProtocolScheme = "but";
 const liteProtocolHost = "app";
 const contentRootURL = pathToFileURL(path.join(currentDirPath, "../ui"));
 const askpassExecutableName =
@@ -437,7 +437,7 @@ const registerIpcHandlers = (): void => {
 };
 
 /**
- * A `lite://app/...` link, translated to whatever this build actually serves:
+ * A `but://app/...` link, translated to whatever this build actually serves:
  * the dev server in development, our own scheme when packaged. Returns null
  * for anything that is not one of our links.
  */
@@ -463,11 +463,36 @@ const deepLinkTargetUrl = (link: string): string | null => {
 };
 
 /**
+ * Sign in from a `but://login?access_token=…` link, which is how the login page
+ * hands the account back once it knows which client asked.
+ */
+const completeLogin = async (url: URL): Promise<boolean> => {
+	if (url.host !== "login") return false;
+
+	const accessToken = url.searchParams.get("access_token");
+	if (accessToken === null) return true;
+
+	try {
+		await sdk.loginAndPersist(accessToken);
+	} catch (error) {
+		// oxlint-disable-next-line no-console
+		console.error("Failed to sign in from a login link", error);
+	}
+	return true;
+};
+
+/**
  * Open a deep link in the window we already have, or start one if the app was
  * launched by the link. The project it names is checked by the route itself,
  * which covers every other way a URL arrives too.
  */
 const openDeepLink = async (link: string): Promise<void> => {
+	const url = newUrlOrNull(link);
+	if (url !== null && url.protocol === `${liteProtocolScheme}:` && (await completeLogin(url))) {
+		BrowserWindow.getAllWindows()[0]?.focus();
+		return;
+	}
+
 	const target = deepLinkTargetUrl(link);
 	if (target === null) {
 		// oxlint-disable-next-line no-console
@@ -486,7 +511,7 @@ const openDeepLink = async (link: string): Promise<void> => {
 	await existing.loadURL(target);
 };
 
-/** The `lite://` link in a launch argv, if the OS started us with one. */
+/** The `but://` link in a launch argv, if the OS started us with one. */
 const deepLinkFromArgv = (argv: Array<string>): string | undefined =>
 	argv.find((arg) => arg.startsWith(`${liteProtocolScheme}://`));
 
@@ -645,6 +670,11 @@ void app.whenReady().then(async () => {
 	}
 
 	const launchLink = deepLinkFromArgv(process.argv);
+	// Windows and Linux deliver a cold-launch link only through argv, never as
+	// `open-url`, so a login link arriving that way has to be handled here too.
+	const launchUrl = launchLink === undefined ? null : newUrlOrNull(launchLink);
+	if (launchUrl?.protocol === `${liteProtocolScheme}:`) await completeLogin(launchUrl);
+
 	await createMainWindow(
 		launchLink === undefined ? undefined : (deepLinkTargetUrl(launchLink) ?? undefined),
 	);

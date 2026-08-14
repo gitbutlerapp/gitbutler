@@ -42,9 +42,23 @@ const SignedOut: FC = () => {
 		setError(null);
 		try {
 			const login = await window.lite.getLoginToken();
-			await window.lite.openInWebBrowser(login.url);
+			// Names the client for the login page, as apps/desktop does with its
+			// build type. Without it the page can only offer a token to copy.
+			const url = new URL(login.url);
+			url.searchParams.set("bt", "release");
+			await window.lite.openInWebBrowser(url.toString());
+			// The page sends the account back over `but://login`, which the main
+			// process persists, so this waits for the account to appear rather
+			// than for a reply of its own.
 			await pollUntilSuccess({
-				attempt: () => window.lite.loginAndPersist(login.token),
+				attempt: async () => {
+					// Signed out reads as `null` rather than an error, which would end
+					// the poll on its first try. The message is only ever seen if the
+					// poll then runs out of time, so it reads as the failure.
+					const profile = await window.lite.getUserProfileLocal();
+					if (profile === null) throw new Error("The browser did not finish signing in");
+					return profile;
+				},
 				intervalMs: pollIntervalMs,
 				timeoutMs: pollTimeoutMs,
 				signal: controller.signal,
