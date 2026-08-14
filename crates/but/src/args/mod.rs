@@ -953,7 +953,7 @@ pub enum Subcommands {
     /// the same time, or for isolating changes in different workspaces.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(hide = true)]
+    #[clap(hide = true, alias = "wt")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Worktree(worktree::Platform),
 

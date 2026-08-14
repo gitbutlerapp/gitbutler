@@ -3,6 +3,20 @@ use snapbox::str;
 
 use crate::utils::Sandbox;
 
+#[test]
+fn wt_alias_lists_worktrees() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.but("wt list")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+No worktrees found
+
+"#]]);
+}
+
 /// The typical journey: create an isolated worktree off a workspace branch, do
 /// work there, then squash-integrate the result back into the workspace.
 #[test]
