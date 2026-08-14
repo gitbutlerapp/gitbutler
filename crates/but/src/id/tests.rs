@@ -365,6 +365,68 @@ uncommitted_hunks: [ nx:q, yz:q ]
 }
 
 #[test]
+fn many_uncommitted_files_do_not_exhaust_generated_ids() -> anyhow::Result<()> {
+    const FILE_COUNT: usize = 26_641;
+    let stacks = vec![
+        Stack {
+            id: Some(StackId::from_number_for_testing(1)),
+            ..stack([segment("0", [id(1)], None, [])])
+        },
+        Stack {
+            id: Some(StackId::from_number_for_testing(2)),
+            ..stack([segment("1", [id(2)], None, [])])
+        },
+    ];
+    let hunks = (0..FILE_COUNT)
+        .map(|index| hunk(&format!("untracked-{index}")))
+        .collect();
+
+    let id_map = IdMap::new(stacks, hunks, gix::hashtable::HashMap::default())?;
+
+    assert_eq!(
+        id_map.uncommitted_files.len(),
+        FILE_COUNT,
+        "all uncommitted files should receive path-derived IDs"
+    );
+    let file_id = id_map
+        .uncommitted_files
+        .values()
+        .next()
+        .expect("at least one uncommitted file")
+        .short_id
+        .clone();
+    let resolved_file = id_map.parse(&file_id, Box::new(|_, _| unreachable!()))?;
+    assert!(matches!(
+        resolved_file.as_slice(),
+        [CliId::UncommittedHunkOrFile(_)]
+    ));
+    assert_eq!(resolved_file[0].to_short_string(), file_id);
+
+    let real_ids: Vec<_> = id_map
+        .branch_ids()
+        .into_iter()
+        .chain(id_map.stack_ids.values().map(CliId::to_short_string))
+        .collect();
+    assert_eq!(real_ids.len(), 4);
+    for (index, real_id) in real_ids.iter().enumerate() {
+        assert!(
+            !real_ids[..index].contains(real_id),
+            "real IDs should be unique"
+        );
+        let resolved = id_map.parse(real_id, Box::new(|_, _| unreachable!()))?;
+        assert!(
+            matches!(
+                resolved.as_slice(),
+                [CliId::Branch(_) | CliId::Stack { .. }]
+            ),
+            "real IDs should resolve after synthetic fallback"
+        );
+        assert_eq!(resolved[0].to_short_string(), *real_id);
+    }
+    Ok(())
+}
+
+#[test]
 fn branch_that_is_substring_of_other_substring_still_gets_id() -> anyhow::Result<()> {
     let stacks = vec![
         stack([segment("substring", [id(1)], None, [])]),
