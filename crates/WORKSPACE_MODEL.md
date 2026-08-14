@@ -132,6 +132,18 @@ Important graph editor concepts:
 
 The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is currently created from a mutable workspace projection, so projection may be involved in editor setup even when the mutation decision should be graph-shaped.
 
+### What the editor borrows
+
+`Editor::create(workspace, meta, repo, db)` takes the workspace projection, the metadata handle, and the project database handle **mutably**, and holds all three for the life of the editor, the `SuccessfulRebase` it rebases into, and the `MaterializeOutcome` that materializing produces. The database handle is carriage only — the editor never reads it — but it travels the whole chain so that code after the rewrite can get it back:
+
+- `SuccessfulRebase::db()` — shared, for reads such as the forge review cache.
+- `SuccessfulRebase::repo_meta_and_db_mut()` — for the dry-run path, which never materializes.
+- `MaterializeOutcome::db` — for the real path.
+
+That exclusivity is the part worth remembering. `but_ctx::Context` hands out its database handle through a runtime-checked cell, so **asking `Context` for another database handle while an editor chain is alive fails at run time, not at compile time** (`RefCell already mutably borrowed`). Take the handle once, thread it through the editor, and pull it back off the rebase or the materialize outcome instead of re-borrowing from `Context`. If later work in the same function needs `Context` again, drop the editor chain and the handle first.
+
+The same applies to the workspace and metadata borrows: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
+
 ## Push and upstream integration
 
 Push should be graph-based, not stack-based.
@@ -189,6 +201,7 @@ Ask this for both read/query code and mutation code:
 - Operation flattens a stack and assumes a linear range.
 - New push/upstream or internal query logic depends on workspace projection buckets instead of graph topology.
 - Lower-level crate takes `but_ctx::Context` and reacquires locks.
+- Code re-borrows a handle from `but_ctx::Context` while an editor chain still holds it, trading a compile error for a run-time one.
 - Code assumes target ref equals current branch’s remote-tracking branch.
 - Code assumes a user/CLI-provided commit ID is a valid operation target merely because the object exists.
 
