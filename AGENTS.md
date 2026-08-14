@@ -30,6 +30,11 @@ this order:
   (desktop, web, Lite, CLI/TUI, N-API, SDK, and docs) and update it or explicitly
   determine that it is unaffected.
 - Run targeted validation for the area touched.
+- Before adding new machinery to fix a behavior bug, reproduce the bug in a failing
+  test and survey the target file's existing loops and classifications as candidate
+  hosts; let the tests, not the diagnosis, set how much implementation the fix needs.
+- When a fix calls for a new mechanism (a new module, a new public API, or a parallel
+  walk where one already exists), propose the intended shape before building it.
 
 ## Scoped Instructions
 
