@@ -23,7 +23,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitOperand, filesUnder, type FileParent } from "#ui/operands.ts";
+import { commitOperand, operandEquals, type FileParent } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
@@ -774,19 +774,19 @@ export const useDiscardFileChanges = ({
 		change: TreeChange;
 		extendToCheckedFiles: boolean;
 	}): Promise<void> => {
-		// A checked set belonging to another list says nothing about this file, so the subject then
-		// stands alone, as it does when nothing is checked at all.
-		const checkedFiles = extendToCheckedFiles
-			? filesUnder(
-					projectSlice.selectors.selectCheckedOperands(store.getState(), projectId),
-					fileParent,
-				)
-			: [];
-		if (checkedFiles.length === 0) return runDiscard([createDiffSpec(change, [])]);
+		const sources = projectSlice.selectors.selectCheckedOperands(store.getState(), projectId);
+
+		const areAllFilesUnder = () =>
+			sources.every(
+				(operand) => operand._tag === "File" && operandEquals(operand.parent, fileParent),
+			);
+
+		if (!extendToCheckedFiles || sources.length === 0 || !areAllFilesUnder())
+			return runDiscard([createDiffSpec(change, [])]);
 
 		// Checked files carry only paths, so their changes have to be looked up.
 		try {
-			const changes = await resolveDiffSpecs({ projectId, queryClient, sources: checkedFiles });
+			const changes = await resolveDiffSpecs({ projectId, queryClient, sources });
 			// One of them gone stale fails resolution for the whole set — the reconciler is about to
 			// uncheck it — and discarding the subject instead is not what was asked for.
 			if (changes) runDiscard(changes);
