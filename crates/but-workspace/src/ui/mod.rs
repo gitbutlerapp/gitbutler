@@ -82,29 +82,8 @@ impl TryFrom<gix::Commit<'_>> for Commit {
     type Error = anyhow::Error;
     fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
         let commit = but_core::Commit::try_from(commit)?;
-        let commit_id = commit.id.detach();
         let has_conflicts = commit.is_conflicted();
-        let commit = commit.inner;
-        let headers = commit::Headers::try_from_commit(&commit);
-        let change_id = headers
-            .unwrap_or_default()
-            .ensure_change_id(commit_id)
-            .change_id
-            .expect("change-id is ensured")
-            .to_string();
-        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
-        Ok(Commit {
-            id: commit_id,
-            parent_ids: commit.parents.into_iter().collect(),
-            message,
-            has_conflicts,
-            state: CommitState::LocalAndRemote(commit_id),
-            authored_at: i128::from(commit.author.time.seconds) * 1000,
-            committed_at: i128::from(commit.committer.time.seconds) * 1000,
-            author: commit.author.to_ref(&mut TimeBuf::default()).into(),
-            change_id,
-            gerrit_review_url: None,
-        })
+        Ok(Commit::from_commit_owned(commit.detach(), has_conflicts))
     }
 }
 
@@ -112,14 +91,9 @@ impl Commit {
     /// Convert a detached `commit`. Its tree is not accessible without a repository,
     /// so the caller must provide `has_conflicts` as determined by
     /// [`but_core::Commit::is_conflicted()`] or an equivalent source.
-    pub fn from_commit_owned(CommitOwned { id, inner }: CommitOwned, has_conflicts: bool) -> Self {
-        let headers = commit::Headers::try_from_commit(&inner);
-        let change_id = headers
-            .unwrap_or_default()
-            .ensure_change_id(id)
-            .change_id
-            .expect("change-id is ensured")
-            .to_string();
+    pub fn from_commit_owned(commit: CommitOwned, has_conflicts: bool) -> Self {
+        let change_id = commit.change_id().to_string();
+        let CommitOwned { id, inner } = commit;
         let gix::objs::Commit {
             tree: _,
             parents,
@@ -138,7 +112,7 @@ impl Commit {
             state: CommitState::LocalAndRemote(id),
             authored_at: author.time.seconds as i128 * 1000,
             committed_at: committer.time.seconds as i128 * 1000,
-            author: author.to_ref(&mut TimeBuf::default()).into(),
+            author: author.to_ref(&mut TimeBuf::default()).trim().into(),
             change_id,
             gerrit_review_url: None,
         }

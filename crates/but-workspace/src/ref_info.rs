@@ -108,28 +108,11 @@ impl Commit {
         commit: but_core::Commit<'_>,
         graph_commit: &but_graph::Commit,
     ) -> Self {
-        let has_conflicts = commit.is_conflicted();
-        let hdr = commit.headers();
-        let commit = commit.inner;
-        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
         Commit {
             id: graph_commit.id,
-            parent_ids: commit.parents.into_iter().collect(),
-            tree_id: commit.tree,
-            message,
-            has_conflicts,
-            author: commit
-                .author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
-            committer: commit
-                .committer
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
             refs: graph_commit.refs.clone(),
             flags: graph_commit.flags.into(),
-            change_id: hdr.and_then(|hdr| hdr.change_id),
-            gerrit_review_url: None,
+            ..commit.into()
         }
     }
 }

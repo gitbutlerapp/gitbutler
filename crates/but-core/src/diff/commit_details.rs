@@ -3,6 +3,9 @@
 pub struct CommitDetails {
     /// The fully decoded commit.
     pub commit: crate::CommitOwned,
+    /// Whether [`commit`](Self::commit) is conflicted, per [`crate::Commit::is_conflicted()`],
+    /// captured here as the detached commit cannot determine it anymore.
+    pub has_conflicts: bool,
     /// The changes between the tree of the first parent and this commit.
     pub diff_with_first_parent: Vec<crate::TreeChange>,
     /// The stats of the changes, which are computed only when explicitly requested.
@@ -41,9 +44,11 @@ impl CommitDetails {
             .transpose()?;
 
         let commit = crate::Commit::try_from(commit)?;
+        let has_conflicts = commit.is_conflicted();
         let conflict_entries = commit.conflict_entries()?;
         Ok(CommitDetails {
             commit: commit.detach(),
+            has_conflicts,
             diff_with_first_parent: changes.into_tree_changes(),
             line_stats: line_stats.map(Into::into),
             conflict_entries,
