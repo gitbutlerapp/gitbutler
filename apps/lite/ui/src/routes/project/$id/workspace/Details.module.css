@@ -127,13 +127,7 @@
 }
 
 .diffFiles {
-	padding-inline: var(--panel-padding-inline);
 	padding-block-end: var(--panel-padding-block);
-
-	/* Stretch the scroll separator over the inline padding to full width. */
-	&::before {
-		margin-inline: calc(-1 * var(--panel-padding-inline));
-	}
 }
 
 .diffContentsContainer {

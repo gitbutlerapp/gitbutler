@@ -8,7 +8,10 @@
 	display: flex;
 	column-gap: 8px;
 	min-height: var(--single-line-row-height);
-	padding-inline: 8px;
+	/* Sections whose rows run edge to edge — the file lists — raise this and take
+	   the inset onto the row itself, so the row's background reaches the panel
+	   edge while its contents stay lined up. */
+	padding-inline: var(--row-padding-inline, 8px);
 
 	&[inert] {
 		opacity: 0.5;
@@ -16,22 +19,15 @@
 }
 
 .sectionHeader {
+	display: flex;
 	flex-shrink: 0;
-	/* The label gets an extra inset to line up with row content inside the
-	   section, while action buttons on the right align with the panel edge. */
-	padding-inline: calc(var(--panel-padding-inline) + 4px) calc(var(--panel-padding-inline) + 4px);
-	padding-block: calc(var(--panel-padding-block) - 2px);
-}
-
-/* A section header whose contents are boxes rather than text — a filter input,
-   say. It drops the label's extra inset so its contents line up with the
-   backgrounds of the rows in the section below. */
-.sectionHeaderFlush {
+	align-items: center;
+	height: 44px;
 	padding-inline: var(--panel-padding-inline);
 }
 
 .containerInteractive {
-	border-radius: var(--radius-button);
+	border-radius: var(--row-radius, var(--radius-button));
 
 	&:where(:hover) {
 		background-color: var(--list-item-hover-bg);
