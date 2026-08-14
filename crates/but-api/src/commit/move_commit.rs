@@ -57,7 +57,7 @@ pub fn commit_move_only_with_perm(
         but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?,
+        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
     })
 }
 

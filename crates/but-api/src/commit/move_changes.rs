@@ -63,7 +63,7 @@ pub fn commit_move_changes_between_only_with_perm(
         changes,
         context_lines,
     )?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(outcome.rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
 
     Ok(MoveChangesResult { workspace })
 }

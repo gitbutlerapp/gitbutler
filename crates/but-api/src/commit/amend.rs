@@ -70,7 +70,7 @@ pub(crate) fn commit_amend_only_impl(
     let new_commit = commit_selector
         .map(|commit_selector| rebase.lookup_pick(commit_selector))
         .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitCreateResult {
         new_commit,

@@ -46,7 +46,7 @@ pub(crate) fn commit_insert_blank_only_impl(
     let (rebase, blank_commit_selector) =
         but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
     let new_commit = rebase.lookup_pick(blank_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitInsertBlankResult {
         new_commit,

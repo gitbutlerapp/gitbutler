@@ -61,7 +61,7 @@ pub fn commit_cherry_pick_only_with_perm(
 
     Ok(CommitCherryPickResult {
         new_commits,
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?,
+        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
     })
 }
 

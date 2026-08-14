@@ -52,7 +52,7 @@ pub fn commit_reword_only_with_perm(
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
     let new_commit = rebase.lookup_pick(edited_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitRewordResult {
         new_commit,

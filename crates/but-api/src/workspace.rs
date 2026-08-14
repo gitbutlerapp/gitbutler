@@ -564,7 +564,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         if dry_run.into() {
             let replaced_commits = rebase.history.commit_mappings();
             let workspace_state =
-                WorkspaceState::from_rebase_preview_with_db(&mut rebase, replaced_commits)?;
+                WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
@@ -583,14 +583,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             materialized.meta.set_workspace(&md)?;
         }
 
-        let mut workspace_state = WorkspaceState::from_workspace_with_db(
-            materialized.workspace,
-            materialized.meta,
-            &repo,
-            materialized.history.commit_mappings(),
-            materialized.db,
-        )?;
-        workspace_state.checkout_conflict_occurred = materialized.checkout_conflict_occurred;
+        let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
         (workspace_state, worktree_conflicts)
     };
     ctx.invalidate_workspace_cache()?;

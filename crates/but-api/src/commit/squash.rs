@@ -66,7 +66,7 @@ pub fn commit_squash_only_with_perm(
         how_to_combine_messages,
     )?;
     let new_commit = rebase.lookup_pick(commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitSquashResult {
         new_commit,

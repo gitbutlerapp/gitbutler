@@ -125,10 +125,15 @@ pub fn commit_uncommit_only_with_perm(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let before_assignments = if assign_to.is_some() {
-        let mut tx = db.transaction()?;
+    // A dry run persists no assignments and reports none, so skip the reconciliation
+    // entirely rather than performing it and rolling it back. On a real run it is
+    // written straight through, without a transaction: it mints the assignment ids
+    // that the post-uncommit pass below diffs against, so discarding it would make
+    // that pass mint fresh ids for pre-existing hunks and sweep them all into
+    // `assign_to`.
+    let before_assignments = if assign_to.is_some() && dry_run == DryRun::No {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
             &ws,
             None::<Vec<but_core::TreeChange>>,
@@ -211,11 +216,8 @@ pub fn commit_uncommit_only_with_perm(
             context_lines,
         )?;
 
-        // The assignment writes only persist on a real run; on a dry run
-        // dropping the transaction rolls them back.
-        if dry_run == DryRun::No {
-            tx.commit()?;
-        }
+        // Only reachable on a real run: `before_assignments` is `None` for a dry run.
+        tx.commit()?;
     }
 
     Ok(UncommitResult {
@@ -281,10 +283,15 @@ pub fn commit_uncommit_changes_only_with_perm(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let before_assignments = if assign_to.is_some() {
-        let mut tx = db.transaction()?;
+    // A dry run persists no assignments and reports none, so skip the reconciliation
+    // entirely rather than performing it and rolling it back. On a real run it is
+    // written straight through, without a transaction: it mints the assignment ids
+    // that the post-uncommit pass below diffs against, so discarding it would make
+    // that pass mint fresh ids for pre-existing hunks and sweep them all into
+    // `assign_to`.
+    let before_assignments = if assign_to.is_some() && dry_run == DryRun::No {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
             &ws,
             None::<Vec<but_core::TreeChange>>,
@@ -354,11 +361,8 @@ pub fn commit_uncommit_changes_only_with_perm(
             context_lines,
         )?;
 
-        // The assignment writes only persist on a real run; on a dry run
-        // dropping the transaction rolls them back.
-        if dry_run == DryRun::No {
-            tx.commit()?;
-        }
+        // Only reachable on a real run: `before_assignments` is `None` for a dry run.
+        tx.commit()?;
     }
 
     Ok(MoveChangesResult {
@@ -477,10 +481,15 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let before_assignments = if assign_to.is_some() {
-        let mut tx = db.transaction()?;
+    // A dry run persists no assignments and reports none, so skip the reconciliation
+    // entirely rather than performing it and rolling it back. On a real run it is
+    // written straight through, without a transaction: it mints the assignment ids
+    // that the post-uncommit pass below diffs against, so discarding it would make
+    // that pass mint fresh ids for pre-existing hunks and sweep them all into
+    // `assign_to`.
+    let before_assignments = if assign_to.is_some() && dry_run == DryRun::No {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
             &ws,
             None::<Vec<but_core::TreeChange>>,
@@ -576,11 +585,8 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             context_lines,
         )?;
 
-        // The assignment writes only persist on a real run; on a dry run
-        // dropping the transaction rolls them back.
-        if dry_run == DryRun::No {
-            tx.commit()?;
-        }
+        // Only reachable on a real run: `before_assignments` is `None` for a dry run.
+        tx.commit()?;
     }
 
     Ok(UncommitChangesFromCommitsResult {

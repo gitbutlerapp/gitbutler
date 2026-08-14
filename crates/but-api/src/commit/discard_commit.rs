@@ -43,7 +43,7 @@ pub fn commit_discard_only_with_perm(
 
     let rebase = but_workspace::commit::discard_commits(editor, [subject_commit_id])?;
 
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitDiscardResult {
         discarded_commit: subject_commit_id,
@@ -146,7 +146,7 @@ pub fn commit_discard_changes_only_with_perm(
 
     let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(outcome.rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
 
     Ok(MoveChangesResult { workspace })
 }
