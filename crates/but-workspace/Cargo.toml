@@ -22,7 +22,6 @@ doctest = false
 legacy = [
     "dep:but-ctx",
     "dep:git2",
-    "dep:gitbutler-cherry-pick",
     "dep:gitbutler-repo",
     "dep:gitbutler-git",
     "dep:gitbutler-reference",
@@ -40,7 +39,6 @@ but-error.workspace = true
 but-serde.workspace = true
 but-ctx = { workspace = true, optional = true }
 
-gitbutler-cherry-pick = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
 gitbutler-reference = { workspace = true, optional = true }

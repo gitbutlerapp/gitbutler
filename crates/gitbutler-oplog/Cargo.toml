@@ -21,7 +21,6 @@ but-ctx = { workspace = true }
 but-schemars = { workspace = true, optional = true }
 
 gitbutler-repo.workspace = true
-gitbutler-cherry-pick.workspace = true
 
 anyhow.workspace = true
 serde.workspace = true

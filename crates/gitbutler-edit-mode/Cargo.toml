@@ -22,7 +22,6 @@ but-ctx.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-cherry-pick.workspace = true
 gitbutler-workspace.workspace = true
 
 git2.workspace = true

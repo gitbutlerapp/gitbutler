@@ -5,7 +5,6 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_cherry_pick::GixRepositoryExt as _;
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -38,29 +37,28 @@ impl WorkspaceState {
         let heads = head_oids
             .iter()
             .map(|head| -> Result<gix::ObjectId> {
-                let commit = repo.find_commit(*head)?;
-                let tree = repo.find_real_tree(&commit, Default::default())?;
-                Ok(tree.detach())
+                let commit = but_core::Commit::try_from(repo.find_commit(*head)?)?;
+                Ok(commit.tree_id_or_auto_resolution()?.detach())
             })
             .collect::<Result<Vec<_>>>()?;
 
         let base_tree_id = if head_oids.is_empty() {
-            repo.find_real_tree(&repo.find_commit(target_base_oid)?, Default::default())?
+            but_core::Commit::try_from(repo.find_commit(target_base_oid)?)?
+                .tree_id_or_auto_resolution()?
                 .detach()
         } else if head_oids.len() == 1 {
-            repo.find_real_tree(
-                &repo.find_commit(*head_oids.first().expect("Head oids is len 1"))?,
-                Default::default(),
+            but_core::Commit::try_from(
+                repo.find_commit(*head_oids.first().expect("Head oids is len 1"))?,
             )?
+            .tree_id_or_auto_resolution()?
             .detach()
         } else {
-            repo.find_real_tree(
-                &repo
-                    .merge_base_octopus(head_oids.iter().cloned())?
+            but_core::Commit::try_from(
+                repo.merge_base_octopus(head_oids.iter().cloned())?
                     .object()?
                     .into_commit(),
-                Default::default(),
             )?
+            .tree_id_or_auto_resolution()?
             .detach()
         };
 

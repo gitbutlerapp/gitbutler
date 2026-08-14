@@ -14,7 +14,6 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types::VirtualBranches;
-use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{
     SignaturePurpose, commit_ids_excluding_reachable_from_with_graph, commit_without_signature_gix,
     signature_gix,
@@ -1275,8 +1274,8 @@ fn tree_from_applied_vbranches(
         .map(|stack| {
             let head_oid =
                 legacy_virtual_branches::stack_head_oid(stack, default_target_oid, repo)?;
-            let commit = repo.find_commit(head_oid)?;
-            repo.find_real_tree(&commit, Default::default())
+            but_core::Commit::try_from(repo.find_commit(head_oid)?)?
+                .tree_id_or_auto_resolution()
                 .map(|id| id.detach())
         })
         .collect::<Result<Vec<_>>>()?;
