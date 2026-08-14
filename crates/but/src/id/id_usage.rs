@@ -83,7 +83,7 @@ impl UintId {
 }
 
 /// A tracker of which [UintId]s have been used.
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct IdUsage {
     /// A [UintId] is used if it's in this set.
     uint_ids_used: HashSet<UintId>,
@@ -108,9 +108,34 @@ impl IdUsage {
         Ok(result)
     }
 
+    pub(crate) fn skip_available(&mut self) {
+        self.forward_next_uint_id_to_not_conflict_with_marked();
+        if self.next_uint_id.0 < UintId::LIMIT {
+            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
+        }
+    }
+
     pub(crate) fn forward_next_uint_id_to_not_conflict_with_marked(&mut self) {
         while self.uint_ids_used.remove(&self.next_uint_id) {
             self.next_uint_id = UintId(self.next_uint_id.0 + 1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn true_exhaustion_remains_an_error() {
+        let mut usage = IdUsage::default();
+        for value in 0..UintId::LIMIT {
+            usage.mark_used(UintId(value));
+        }
+
+        assert_eq!(
+            usage.next_available().unwrap_err().to_string(),
+            "too many IDs"
+        );
     }
 }
