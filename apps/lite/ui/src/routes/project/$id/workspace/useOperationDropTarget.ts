@@ -4,6 +4,7 @@ import {
 	type Placement,
 	useExecuteOperation,
 } from "#ui/operations/operation.ts";
+import { cancelMode } from "#ui/use-cursor.ts";
 import type { Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -120,7 +121,7 @@ export const useOperationDropTarget = ({
 						: null;
 
 				if (!operation) {
-					dispatch(projectSlice.actions.cancelMode({ projectId }));
+					cancelMode();
 					return;
 				}
 

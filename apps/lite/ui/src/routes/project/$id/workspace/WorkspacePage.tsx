@@ -31,12 +31,11 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useDeferredValue, useRef } from "react";
+import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
-	fileOperand,
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
@@ -45,7 +44,13 @@ import {
 	type Operand,
 	uncommittedChangesFileParent,
 } from "#ui/operands.ts";
-import { Details, type DiffViewerHandle } from "./Details.tsx";
+import {
+	BranchesDetails,
+	type DiffViewerHandle,
+	UncommittedFilesDetails,
+	UpstreamDetails,
+	WorkspaceDetails,
+} from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { pathMatchesFilter } from "./file-row.ts";
 import {
@@ -71,6 +76,14 @@ import { useBranchesOutline } from "./useBranchesOutline.ts";
 import { useUpstreamOutline } from "./useUpstreamOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
+import {
+	setCursor,
+	useCanShowFiles,
+	useOutlineSelectionScope,
+	usePage,
+	useResolvedCursor,
+	useWorkspaceList,
+} from "#ui/use-cursor.ts";
 import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
@@ -84,22 +97,16 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
-	const canShowFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanShowFiles(state, projectId),
-	);
+	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
 	const outlineVisible = !detailsFullWindow;
-	const outlineSelectionScope = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsSelectionScope(state, projectId),
-	);
+	const outlineSelectionScope = useOutlineSelectionScope();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const outlineTab = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineTab(state, projectId),
-	);
+	const outlineTab = usePage();
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -383,26 +390,26 @@ const WorkspacePage: FC = () => {
 	// container, but that comes with other complexities and tradeoffs.
 	const didScrollToViaFileRef = useRef(false);
 
-	const onActiveFileSelection = (itemId: string, firstHunk: HunkOperand | null) => {
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: firstHunk,
-			}),
-		);
+	// useCallback, not compiler memoisation: the deferred details element below
+	// keys on this identity, so it must be stable by construction.
+	const onActiveFileSelection = useCallback(
+		(itemId: string, firstHunk: HunkOperand | null) => {
+			setCursor("diff", firstHunk);
 
-		if (renderAllFiles) {
-			didScrollToViaFileRef.current = true;
-			const viewer = viewerRef.current?.getInstance();
-			// Details selection is deferred, so the ref may still point at a viewer without this file.
-			if (!viewer?.getItem(itemId)) return;
+			if (renderAllFiles) {
+				didScrollToViaFileRef.current = true;
+				const viewer = viewerRef.current?.getInstance();
+				// Details selection is deferred, so the ref may still point at a viewer without this file.
+				if (!viewer?.getItem(itemId)) return;
 
-			viewer.scrollTo({
-				type: "item",
-				id: itemId,
-			});
-		}
-	};
+				viewer.scrollTo({
+					type: "item",
+					id: itemId,
+				});
+			}
+		},
+		[renderAllFiles],
+	);
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
@@ -413,12 +420,7 @@ const WorkspacePage: FC = () => {
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		setCursor("stacks", branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
@@ -509,29 +511,13 @@ const WorkspacePage: FC = () => {
 		foldedSegments,
 	});
 
-	const outlineTab = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineTab(state, projectId),
-	);
+	const outlineTab = usePage();
 	const branchesOutline = useBranchesOutline(projectId);
 	const upstreamOutline = useUpstreamOutline(projectId);
 
-	const outlineSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
-	);
-	const branchesSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionBranches(
-			state,
-			projectId,
-			branchesOutline.navigationIndex,
-		),
-	);
-	const upstreamSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionUpstream(
-			state,
-			projectId,
-			upstreamOutline.navigationIndex,
-		),
-	);
+	const outlineSelection = useResolvedCursor("stacks", outlineNavigationIndex);
+	const branchesSelection = useResolvedCursor("branches", branchesOutline.navigationIndex);
+	const upstreamSelection = useResolvedCursor("upstream", upstreamOutline.navigationIndex);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -580,40 +566,59 @@ const WorkspacePage: FC = () => {
 					})
 				: null;
 
-		dispatch(projectSlice.actions.selectUncommittedFiles({ projectId, selection }));
+		setCursor("uncommitted", selection);
 		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
 	};
 
-	const uncommittedFilesSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionUncommittedFiles(
-			state,
-			projectId,
-			uncommittedFilesNavigationIndex,
-		),
+	const uncommittedFilesSelection = useResolvedCursor(
+		"uncommitted",
+		uncommittedFilesNavigationIndex,
 	);
 
-	const detailsSelectionScope = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsSelectionScope(state, projectId),
-	);
-	const detailsSelection = Match.value(detailsSelectionScope).pipe(
-		Match.when("outline", () =>
-			Match.value(outlineTab).pipe(
-				Match.when("workspace", () => outlineSelection),
-				Match.when("upstream", () => upstreamSelection),
-				Match.when("branches", () => branchesSelection),
-				Match.exhaustive,
+	const workspaceList = useWorkspaceList();
+	// The pane's content is one component per page, as the outline has one list
+	// per tab — the component tree, not a tag on the selection, carries where a
+	// selection came from. Only the workspace page has two lists, so only its arm
+	// asks which one drives. Memoised because `useDeferredValue` compares by
+	// identity, so a freshly built element every render would defer every render.
+	const details = useMemo(() => {
+		const viewProps = { onActiveFileSelection, viewerRef, didScrollToViaFileRef };
+
+		return Match.value(outlineTab).pipe(
+			Match.when("workspace", () =>
+				Match.value(workspaceList).pipe(
+					Match.when("stacks", () => (
+						<WorkspaceDetails selection={outlineSelection} {...viewProps} />
+					)),
+					Match.when(
+						"uncommitted",
+						() =>
+							uncommittedFilesSelection !== null && (
+								<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
+							),
+					),
+					Match.exhaustive,
+				),
 			),
-		),
-		Match.when("uncommitted-files", () =>
-			uncommittedFilesSelection === null
-				? null
-				: fileOperand({ parent: uncommittedChangesFileParent, path: uncommittedFilesSelection }),
-		),
-		Match.when(null, () => null),
-		Match.exhaustive,
-	);
+			Match.when("upstream", () => (
+				<UpstreamDetails selection={upstreamSelection} {...viewProps} />
+			)),
+			Match.when("branches", () => (
+				<BranchesDetails selection={branchesSelection} {...viewProps} />
+			)),
+			Match.exhaustive,
+		);
+	}, [
+		branchesSelection,
+		onActiveFileSelection,
+		outlineSelection,
+		outlineTab,
+		uncommittedFilesSelection,
+		upstreamSelection,
+		workspaceList,
+	]);
 
-	const deferredDetailsSelection = useDeferredValue(detailsSelection);
+	const deferredDetails = useDeferredValue(details);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((candidate) => candidate.id === projectId);
@@ -691,12 +696,7 @@ const WorkspacePage: FC = () => {
 					className={styles.panel}
 					data-selection-scope={"details" satisfies SelectionScope}
 				>
-					<Details
-						selection={deferredDetailsSelection}
-						onActiveFileSelection={onActiveFileSelection}
-						viewerRef={viewerRef}
-						didScrollToViaFileRef={didScrollToViaFileRef}
-					/>
+					{deferredDetails}
 				</Panel>
 			</Group>
 

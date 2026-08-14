@@ -860,6 +860,7 @@ dependencies = [
  "but-llm",
  "but-meta",
  "but-path",
+ "but-project-handle",
  "but-rebase",
  "but-secret",
  "but-settings",

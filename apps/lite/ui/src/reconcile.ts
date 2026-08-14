@@ -4,6 +4,7 @@
  */
 
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { branchParamRef } from "#ui/cursor-url.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -11,14 +12,13 @@ import {
 	headInfoQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "./api/queries.ts";
+import { currentParams, remapSearchBranch } from "#ui/use-cursor.ts";
 import { useParams } from "@tanstack/react-router";
 import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
 import {
-	branchOperand,
-	commitOperand,
 	fileOperand,
 	operandIdentityKey,
 	type FileParent,
@@ -26,7 +26,7 @@ import {
 	uncommittedChangesFileParent,
 	weakFileParentIdentityKey,
 } from "./operands.ts";
-import { decodeBytes } from "./api/bytes.ts";
+import { decodeBytes, encodeBytes } from "./api/bytes.ts";
 import { hunkContainsHunk } from "./hunk.ts";
 import type { RefInfo, TreeChange } from "@gitbutler/but-sdk";
 import { reviewedFilesQueryOptions, usePruneReviewedFiles } from "./reviewed-files.ts";
@@ -44,36 +44,17 @@ export const useStateReconciler = (): void => {
 
 	const dispatch = useAppDispatch();
 
-	const outlineSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectPrimaryOutlineSelection(state, projectId),
-	);
-	const reconcileSelectedCommit = useEffectEvent((headInfoIndex: HeadInfoIndex) => {
-		if (outlineSelection?._tag !== "Commit") return;
-
-		const curr = headInfoIndex.commitContextByCommitId(outlineSelection.commitId);
-		if (curr) return;
-
-		// Change IDs are not necessarily globally unique, but typically will be. In any case this
-		// is a best-effort fallback.
-		const commit = headInfoIndex.commitContextsByChangeId(outlineSelection.changeId)?.[0].commit;
-
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: commit
-					? commitOperand({ commitId: commit.id, changeId: commit.changeId })
-					: null,
-			}),
-		);
-	});
+	// Commit cursors need no repair here: `change:` params re-resolve by change
+	// id (encode-match), and a `commit:` param names an identity nothing survives.
 	const reconcileSelectedBranch = useEffectEvent(
 		(headInfo: RefInfo, headInfoIndex: HeadInfoIndex, prevHeadInfoIndex: HeadInfoIndex) => {
-			if (outlineSelection?._tag !== "Branch") return;
+			const refName = branchParamRef(currentParams().stacks);
+			if (refName === null) return;
 
-			const curr = headInfoIndex.branchContextByRefBytes(outlineSelection.branchRef);
-			if (curr) return;
+			const refBytes = encodeBytes(refName);
+			if (headInfoIndex.branchContextByRefBytes(refBytes)) return;
 
-			const prev = prevHeadInfoIndex.branchContextByRefBytes(outlineSelection.branchRef);
+			const prev = prevHeadInfoIndex.branchContextByRefBytes(refBytes);
 			if (!prev) return;
 
 			// We've no stable identifier for branches, so assume a rename retains its stack and segment
@@ -86,12 +67,7 @@ export const useStateReconciler = (): void => {
 			)
 				return;
 
-			dispatch(
-				projectSlice.actions.selectOutline({
-					projectId,
-					selection: branchOperand({ branchRef: sameSegmentBranch.fullNameBytes }),
-				}),
-			);
+			remapSearchBranch(refName, decodeBytes(sameSegmentBranch.fullNameBytes));
 		},
 	);
 
@@ -203,7 +179,6 @@ export const useStateReconciler = (): void => {
 		const prevHeadInfoIndex = prevHeadInfoIndexRef.current;
 		if (prevHeadInfoIndex) reconcileSelectedBranch(headInfo, headInfoIndex, prevHeadInfoIndex);
 
-		reconcileSelectedCommit(headInfoIndex);
 		reconcileCheckedCommits(headInfoIndex);
 
 		prevHeadInfoIndexRef.current = headInfoIndex;

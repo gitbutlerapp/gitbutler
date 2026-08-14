@@ -1,7 +1,7 @@
 import { type ButtonSize, type ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
-import { useAppSelector, type RootState } from "#ui/store.ts";
+import { operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { useCursorMatches } from "#ui/use-cursor.ts";
 import { Match } from "effect";
 import styles from "./Row.module.css";
 
@@ -18,28 +18,8 @@ export const treeItemId = (operand: Operand): string =>
 export const useIsSelected = (
 	projectId: string,
 	operand: Operand,
-	selectStored: (state: RootState, projectId: string) => Operand | null,
-): boolean =>
-	useAppSelector((state) => {
-		const stored = selectStored(state, projectId);
-		return stored !== null && operandEquals(stored, operand);
-	});
-
-/**
- * Rows highlight by comparing against the stored selection (see
- * `useIsSelected`), so whenever resolving against the index lands elsewhere —
- * entering the tab, or the selected item leaving the index — the list must
- * store the resolved selection to keep the two in agreement. Returns the
- * selection to store, or `null` when the two already agree; each list
- * dispatches its own select action for it in an effect.
- */
-export const selectionOutOfSync = (
-	selection: Operand | null,
-	storedSelection: Operand | null,
-): Operand | null =>
-	selection !== null && (storedSelection === null || !operandEquals(storedSelection, selection))
-		? selection
-		: null;
+	list: "stacks" | "branches" | "upstream",
+): boolean => useCursorMatches(list, operand);
 
 export const getRowButtonClassName = ({
 	variant = "ghost",

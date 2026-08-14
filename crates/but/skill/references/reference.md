@@ -4,7 +4,7 @@ Agent-focused reference for useful `but` commands.
 
 ## Contents
 
-- [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
+- [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`, `open`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Committing](#committing) - `commit`
 - [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
@@ -64,6 +64,20 @@ inspect committed files or other entities one target at a time. Unlike `commit`,
 **Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
 
 For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
+
+### `but open [target]`
+
+Open the GitButler app at a branch or commit, or print the link with `--print`.
+
+```bash
+but open                    # The workspace
+but open <branch-id>        # With that branch selected
+but open <commit-id>        # With that commit selected
+but open --print <id>       # Print the link instead of opening it
+```
+
+Commits are addressed by change ID where they have one, so the link keeps
+working after the commit is amended or rebased.
 
 ## Branching
 

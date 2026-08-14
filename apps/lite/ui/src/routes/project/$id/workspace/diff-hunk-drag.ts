@@ -1,4 +1,5 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { cancelMode } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { hunkOperand, type HunkOperand } from "#ui/operands.ts";
 import { pointerTransferMode } from "#ui/outline/mode.ts";
@@ -177,8 +178,7 @@ export const useDiffHunkDrag = <T>({
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				const config = configRef.current;
-				config.dispatch(projectSlice.actions.cancelMode({ projectId: config.projectId }));
+				cancelMode();
 			},
 		});
 

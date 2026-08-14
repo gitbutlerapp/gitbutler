@@ -1,8 +1,7 @@
 import { MutationCache, QueryClient, focusManager } from "@tanstack/react-query";
-import { createRouter } from "@tanstack/react-router";
 import { App } from "#ui/App.tsx";
 import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
-import { routeTree } from "#ui/routeTree.ts";
+import { createAppRouter } from "#ui/router.ts";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
@@ -60,13 +59,7 @@ focusManager.setEventListener((setFocused) => {
 	};
 });
 
-const router = createRouter({ routeTree, context: { queryClient } });
-
-declare module "@tanstack/react-router" {
-	interface Register {
-		router: typeof router;
-	}
-}
+const router = createAppRouter(queryClient);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

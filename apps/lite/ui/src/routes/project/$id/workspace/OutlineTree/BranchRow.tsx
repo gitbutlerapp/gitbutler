@@ -1,5 +1,12 @@
 import rowStyles from "../Row.module.css";
 import {
+	currentParams,
+	enterKeyboardTransfer,
+	setCursor,
+	startRenameBranch,
+} from "#ui/use-cursor.ts";
+import { commitParamRef } from "#ui/cursor-url.ts";
+import {
 	useBranchCreate,
 	useBranchRemove,
 	useCommitInsertBlank,
@@ -36,7 +43,7 @@ import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.t
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import {
@@ -154,7 +161,6 @@ export const BranchRow: FC<
 		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
-	const store = useAppStore();
 	const branchOperandV: BranchOperand = {
 		branchRef: refName.fullNameBytes,
 	};
@@ -184,12 +190,12 @@ export const BranchRow: FC<
 	const { mutateAsync: branchRename } = useBranchRename();
 
 	const startEditing = () => {
-		dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: branchOperandV }));
+		startRenameBranch(branchOperandV);
 	};
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
+		setCursor("stacks", operand);
 		focusSelectionScope("outline");
 	};
 
@@ -236,12 +242,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				sources: [operand],
-			}),
-		);
+		enterKeyboardTransfer({ sources: [operand] });
 		focusSelectionScope("outline");
 	};
 
@@ -269,14 +270,7 @@ export const BranchRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({
-								branchRef: response.newRef.fullNameBytes,
-							}),
-						}),
-					);
+					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -327,14 +321,13 @@ export const BranchRow: FC<
 		// Hand the selection over only when folding would hide it — the selected
 		// commit sits in this segment. Unrelated selections (and the details pane
 		// they drive) stay put.
-		const stored = projectSlice.selectors.selectPrimaryOutlineSelection(
-			store.getState(),
-			projectId,
-		);
+		const commitRef = commitParamRef(currentParams().stacks);
 		const storedSegmentRef =
-			stored?._tag === "Commit"
-				? headInfoIndex?.commitContextByCommitId(stored.commitId)?.segment.refName
-				: undefined;
+			commitRef === null
+				? undefined
+				: "changeId" in commitRef
+					? headInfoIndex?.commitContextsByChangeId(commitRef.changeId)?.[0].segment.refName
+					: headInfoIndex?.commitContextByCommitId(commitRef.commitId)?.segment.refName;
 		const foldHidesSelection =
 			!isFolded &&
 			storedSegmentRef != null &&
@@ -421,7 +414,6 @@ export const BranchRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			projectId={projectId}
 			operand={operand}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

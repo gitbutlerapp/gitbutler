@@ -42,7 +42,7 @@ import { Field, Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type ComponentProps, type FC, Fragment, useEffect, useRef, useState } from "react";
+import { type ComponentProps, type FC, Fragment, useRef, useState } from "react";
 import {
 	Row,
 	RowFoldToggle,
@@ -55,13 +55,13 @@ import {
 } from "./Row.tsx";
 import {
 	getRowButtonClassName,
-	selectionOutOfSync,
 	treeItemId,
 	useIsSelected as useIsSelectedInList,
 } from "./Row-utils.ts";
 import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
+import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import styles from "./BranchesList.module.css";
 
@@ -81,7 +81,7 @@ const branchGraphStatus = (branch: ListedBranch): GraphSegmentStatus =>
 	branch.remoteRefs.length > 0 ? "LocalAndRemote" : "LocalOnly";
 
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useIsSelectedInList(projectId, operand, projectSlice.selectors.selectPrimaryBranchesSelection);
+	useIsSelectedInList(projectId, operand, "branches");
 
 const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }) => (
 	<Row interactive={false} role="treeitem" aria-label={label}>
@@ -93,7 +93,6 @@ const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }
 );
 
 const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, commit }) => {
-	const dispatch = useAppDispatch();
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(projectId, operand);
 	const title = commitTitle(commit.message);
@@ -105,9 +104,7 @@ const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, comm
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() =>
-				dispatch(projectSlice.actions.selectBranches({ projectId, selection: operand }))
-			}
+			onSelect={() => setCursor("branches", operand)}
 		>
 			<GraphSegment
 				glyph="commit"
@@ -220,9 +217,7 @@ const BranchItem: FC<{
 		>
 			<Row
 				isSelected={isSelected}
-				onSelect={() =>
-					dispatch(projectSlice.actions.selectBranches({ projectId, selection: operand }))
-				}
+				onSelect={() => setCursor("branches", operand)}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
@@ -324,18 +319,8 @@ export const BranchesList: FC<
 		projectSlice.selectors.selectBranchSearch(state, projectId),
 	);
 
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionBranches(state, projectId, navigationIndex),
-	);
-	const storedSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectPrimaryBranchesSelection(state, projectId),
-	);
-
-	const outOfSyncSelection = selectionOutOfSync(selection, storedSelection);
-	useEffect(() => {
-		if (outOfSyncSelection !== null)
-			dispatch(projectSlice.actions.selectBranches({ projectId, selection: outOfSyncSelection }));
-	}, [dispatch, outOfSyncSelection, projectId]);
+	const selection = useResolvedCursor("branches", navigationIndex);
+	useCursorWriteBack("branches", navigationIndex);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
@@ -347,10 +332,8 @@ export const BranchesList: FC<
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		projectId,
 		group: "Outline",
-		select: (newItem) =>
-			dispatch(projectSlice.actions.selectBranches({ projectId, selection: newItem })),
+		select: (newItem) => setCursor("branches", newItem),
 		selection,
 		selectSectionPredicate: (operand) => operand._tag === "Branch",
 		ref: hotkeysRef,
@@ -435,9 +418,6 @@ export const BranchesList: FC<
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-selection-scope={"outline" satisfies SelectionScope}
 					className={styles.tree}
-					onFocus={() =>
-						dispatch(projectSlice.actions.setDetailsSelectionScope({ projectId, scope: "outline" }))
-					}
 					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 				>
 					{stacks.map((stack) => (

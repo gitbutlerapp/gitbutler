@@ -1,8 +1,7 @@
 import { useApply } from "#ui/api/mutations.ts";
+import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
 import { branchOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
 
 /**
  * Apply a branch and follow it into the workspace: on success the outline
@@ -10,7 +9,6 @@ import { useAppDispatch } from "#ui/store.ts";
  * details pane stays on the branch the user was looking at.
  */
 export const useApplyToWorkspace = (projectId: string) => {
-	const dispatch = useAppDispatch();
 	const { isPending, mutate } = useApply();
 
 	const apply = (branchRef: string) => {
@@ -23,13 +21,8 @@ export const useApplyToWorkspace = (projectId: string) => {
 					const appliedRef = response.appliedBranches[0];
 					if (!appliedRef) return;
 
-					dispatch(projectSlice.actions.setOutlineTab({ projectId, tab: "workspace" }));
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({ branchRef: encodeBytes(appliedRef.full) }),
-						}),
-					);
+					setPage("workspace");
+					setCursor("stacks", branchOperand({ branchRef: encodeBytes(appliedRef.full) }));
 				},
 			},
 		);

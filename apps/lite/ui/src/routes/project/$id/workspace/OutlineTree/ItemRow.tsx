@@ -1,7 +1,6 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
+import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { Row } from "../Row.tsx";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
 import { type ComponentProps, type FC, use } from "react";
@@ -9,17 +8,13 @@ import { assert } from "#ui/assert.ts";
 
 export const ItemRow: FC<
 	{
-		projectId: string;
 		operand: Operand;
 	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
-> = ({ projectId, operand, ...props }) => {
-	const dispatch = useAppDispatch();
+> = ({ operand, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
+	const isSelected = useIsCursorAt("stacks", navigationIndex, operand);
 	const selectItem = () => {
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
+		setCursor("stacks", operand);
 	};
 
 	return (

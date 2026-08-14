@@ -8,6 +8,12 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
+import {
+	setCursor,
+	startRenameBranch,
+	startRewordCommit,
+	useResolvedCursor,
+} from "#ui/use-cursor.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -84,9 +90,7 @@ export const useOutlineTreeHotkeys = ({
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const store = useAppStore();
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, navigationIndex),
-	);
+	const selection = useResolvedCursor("stacks", navigationIndex);
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -187,14 +191,7 @@ export const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: branchOperand({
-								branchRef: response.newRef.fullNameBytes,
-							}),
-						}),
-					);
+					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -308,12 +305,7 @@ export const useOutlineTreeHotkeys = ({
 						});
 					}
 
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: latestSelectionAfterDiscard,
-						}),
-					);
+					setCursor("stacks", latestSelectionAfterDiscard);
 				},
 			},
 		);
@@ -432,10 +424,8 @@ export const useOutlineTreeHotkeys = ({
 	useNavigationIndexHotkeys({
 		ref,
 		navigationIndex,
-		projectId,
 		group: "Outline",
-		select: (newItem) =>
-			dispatch(projectSlice.actions.selectOutline({ projectId, selection: newItem })),
+		select: (newItem) => setCursor("stacks", newItem),
 		selection,
 		onEdgeSpill,
 		getKey: operandIdentityKey,
@@ -472,7 +462,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.rewordCommit.hotkey,
 						callback: () => {
-							dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: selection }));
+							startRewordCommit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -484,7 +474,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: "F2",
 						callback: () => {
-							dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: selection }));
+							startRewordCommit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -497,7 +487,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.renameBranch.hotkey,
 						callback: () => {
-							dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: selection }));
+							startRenameBranch(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -509,7 +499,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: "F2",
 						callback: () => {
-							dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: selection }));
+							startRenameBranch(selection);
 						},
 						options: {
 							conflictBehavior: "allow",

@@ -1,8 +1,7 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
+import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
 import type { Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useRef } from "react";
@@ -125,11 +124,19 @@ export const focusHorizontalSelectionScope = ({
  * as it hides and reveals a subtree, and focusing on a reveal would switch the details pane away
  * from whatever the user had selected before hiding it.
  */
-export const useAutofocusSelectionScope = () => {
+export const useAutofocusSelectionScope = (enabled = true) => {
 	const attached = useRef(false);
 
 	return (el: HTMLElement | null) => {
 		if (el === null || attached.current) return;
+
+		// A list that is not the one driving the pane must not take focus on
+		// mount: its onFocus would then name it the driving list, so autofocus
+		// would decide where the URL says the user is. Checked before the latch,
+		// which records having taken the one autofocus rather than having seen a
+		// ref, so a list that starts out passive can still take it later.
+		if (!enabled) return;
+
 		attached.current = true;
 
 		// Don't steal focus if this component is mounted later on.
@@ -141,7 +148,6 @@ export const useAutofocusSelectionScope = () => {
 
 export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
-	projectId,
 	group,
 	select,
 	selection,
@@ -152,7 +158,6 @@ export const useNavigationIndexHotkeys = <T>({
 	getKey,
 }: {
 	navigationIndex: NavigationIndex<T>;
-	projectId: string;
 	group: CommandGroup;
 	select: (newItem: T) => void;
 	selection: T | null;
@@ -168,8 +173,6 @@ export const useNavigationIndexHotkeys = <T>({
 	onEdgeSpill?: (offset: -1 | 1) => void;
 	getKey: (item: T) => string;
 }) => {
-	const dispatch = useAppDispatch();
-
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
 			selection === null
@@ -355,13 +358,7 @@ export const useNavigationIndexHotkeys = <T>({
 	const enterTransferModeForSelection = (placement: Placement) => {
 		if (selection === null || operationSourcesForItem === undefined) return;
 
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				sources: operationSourcesForItem(selection),
-				placement,
-			}),
-		);
+		enterKeyboardTransfer({ sources: operationSourcesForItem(selection), placement });
 
 		focusSelectionScope("outline");
 	};

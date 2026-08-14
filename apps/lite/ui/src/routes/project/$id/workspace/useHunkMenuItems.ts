@@ -4,6 +4,7 @@ import {
 	useDiscardWorktreeChanges,
 	useOpenInProgram,
 } from "#ui/api/mutations.ts";
+import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
@@ -16,7 +17,7 @@ import { hunkOperand, type HunkOperand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppStore } from "#ui/store.ts";
+import { useAppStore } from "#ui/store.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -32,7 +33,6 @@ export const useHunkMenuItems = ({
 }: {
 	projectId: string;
 }): ((target: HunkMenuTarget) => Array<NativeMenuItem>) => {
-	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -60,12 +60,7 @@ export const useHunkMenuItems = ({
 			const sources = projectSlice.selectors.selectOperandChecked(state, projectId, source)
 				? projectSlice.selectors.selectCheckedOperands(state, projectId)
 				: [source];
-			dispatch(
-				projectSlice.actions.enterKeyboardTransferMode({
-					projectId,
-					sources,
-				}),
-			);
+			enterKeyboardTransfer({ sources });
 			focusSelectionScope("outline");
 		};
 		const discardDiffSpec = createDiffSpec(

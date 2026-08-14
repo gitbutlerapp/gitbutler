@@ -20,6 +20,7 @@ pub mod discard;
 pub mod forge;
 pub mod land;
 pub mod r#move;
+pub mod open;
 pub mod oplog;
 pub mod pick;
 pub mod pull;

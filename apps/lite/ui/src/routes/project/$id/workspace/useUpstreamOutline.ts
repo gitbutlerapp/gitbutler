@@ -1,4 +1,5 @@
 import { headInfoQueryOptions, workspaceTargetCommitsQueryOptions } from "#ui/api/queries.ts";
+import { usePage } from "#ui/use-cursor.ts";
 import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -239,9 +240,7 @@ const buildItems = (
  * workspace page consume it, so the two cannot drift apart.
  */
 export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
-	const active = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineTab(state, projectId) === "upstream",
-	);
+	const active = usePage() === "upstream";
 	const expandedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectExpandedUpstreamSegments(state, projectId),
 	);

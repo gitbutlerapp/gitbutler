@@ -1,4 +1,5 @@
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
+import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
@@ -12,7 +13,7 @@ import {
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
+import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -33,7 +34,6 @@ export const useFileMenuItems = ({
 	canUncommit: boolean;
 	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }): Array<NativeMenuItem> => {
-	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -69,12 +69,7 @@ export const useFileMenuItems = ({
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [source];
 
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				sources,
-			}),
-		);
+		enterKeyboardTransfer({ sources });
 		focusSelectionScope("outline");
 	};
 
@@ -159,19 +154,16 @@ export const useFileMenuItems = ({
 					]),
 					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
-							dispatch(
-								projectSlice.actions.enterAbsorbMode({
-									projectId,
-									source: fileOperand(operand),
-									sourceTarget: {
-										type: "treeChanges",
-										subject: {
-											changes: [change],
-											assignedStackId: null,
-										},
+							enterAbsorb({
+								source: fileOperand(operand),
+								sourceTarget: {
+									type: "treeChanges",
+									subject: {
+										changes: [change],
+										assignedStackId: null,
 									},
-								}),
-							);
+								},
+							});
 							focusSelectionScope("outline");
 						};
 

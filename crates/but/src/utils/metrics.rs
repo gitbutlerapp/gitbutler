@@ -137,6 +137,8 @@ impl Subcommands {
             Subcommands::Unapply { .. } => BranchUnapply,
             #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
+            #[cfg(feature = "legacy")]
+            Subcommands::Open { .. } => Open,
             Subcommands::Switch { .. } => Switch,
             #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,

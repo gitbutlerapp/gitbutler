@@ -1,4 +1,5 @@
 import { branchDetailsQueryOptions, branchListQueryOptions } from "#ui/api/queries.ts";
+import { usePage } from "#ui/use-cursor.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
 import {
 	branchDetailsParams,
@@ -41,9 +42,7 @@ const emptyContent: OutlineContent = {
  * filtering and fold state cannot drift between the two.
  */
 export const useBranchesOutline = (projectId: string): BranchesOutline => {
-	const active = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineTab(state, projectId) === "branches",
-	);
+	const active = usePage() === "branches";
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);

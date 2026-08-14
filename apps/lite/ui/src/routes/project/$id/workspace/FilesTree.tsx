@@ -1,4 +1,5 @@
 import rowStyles from "./Row.module.css";
+import { enterAbsorb } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
@@ -84,7 +85,6 @@ const useFilesTreeHotkeys = ({
 	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
 
 	const store = useAppStore();
-	const dispatch = useAppDispatch();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 	const selectedUncommittedChange =
@@ -93,22 +93,19 @@ const useFilesTreeHotkeys = ({
 	const absorbSelectedFile = () => {
 		if (selectedUncommittedChange === null) return;
 
-		dispatch(
-			projectSlice.actions.enterAbsorbMode({
-				projectId,
-				source: fileOperand({
-					parent: uncommittedChangesFileParent,
-					path: selectedUncommittedChange.path,
-				}),
-				sourceTarget: {
-					type: "treeChanges",
-					subject: {
-						changes: [selectedUncommittedChange],
-						assignedStackId: null,
-					},
-				},
+		enterAbsorb({
+			source: fileOperand({
+				parent: uncommittedChangesFileParent,
+				path: selectedUncommittedChange.path,
 			}),
-		);
+			sourceTarget: {
+				type: "treeChanges",
+				subject: {
+					changes: [selectedUncommittedChange],
+					assignedStackId: null,
+				},
+			},
+		});
 		focusSelectionScope("outline");
 	};
 
@@ -253,7 +250,6 @@ const useFilesTreeHotkeys = ({
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		projectId,
 		group: "File",
 		select: onRowSelection,
 		selection,
