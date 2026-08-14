@@ -1,7 +1,5 @@
 use bstr::{BStr, BString, ByteSlice};
 
-use super::Headers;
-
 /// The prefix prepended to the commit subject line to mark a conflicted commit.
 const CONFLICT_MESSAGE_PREFIX: &[u8] = b"[conflict] ";
 
@@ -60,8 +58,7 @@ pub fn add_conflict_markers(message: &BStr) -> BString {
 }
 
 /// Strip conflict markers from a commit message.
-/// Returns the message unchanged when it is not conflicted (per
-/// [`message_is_conflicted`]).
+/// Returns the message unchanged when it carries no conflict trailer.
 ///
 /// Strips the `[conflict] ` subject prefix (if present) and the
 /// `GitButler-Conflict` trailer line together with all its indented
@@ -109,12 +106,6 @@ pub fn strip_conflict_markers(message: &BStr) -> BString {
             out
         },
     )
-}
-
-/// Returns `true` when the commit is conflicted either by message marker
-/// (current encoding) or by the legacy `gitbutler-conflicted` header.
-pub fn is_conflicted(message: &BStr, headers: Option<&Headers>) -> bool {
-    message_is_conflicted(message) || headers.is_some_and(Headers::is_conflicted)
 }
 
 /// Returns `true` when the commit message contains a `GitButler-Conflict:`
@@ -202,7 +193,7 @@ fn push_with_line_endings(out: &mut BString, text: &[u8], line_ending: &[u8]) {
 #[cfg(test)]
 mod tests {
     use crate::commit::{
-        Headers, add_conflict_markers, is_conflicted, message_is_conflicted,
+        Headers, add_conflict_markers, message_is_conflicted,
         rewrite_conflict_markers_on_message_change, strip_conflict_markers,
     };
     use bstr::{BStr, BString, ByteSlice};
@@ -430,18 +421,18 @@ mod tests {
 
     #[test]
     fn detects_conflicts_from_headers_too() {
-        assert!(is_conflicted(
-            BStr::new("ordinary message"),
-            Some(&Headers {
+        assert!(
+            Headers {
                 change_id: None,
                 conflicted: Some(1),
-            }),
-        ));
-        assert!(!is_conflicted(
-            BStr::new("ordinary message"),
-            Some(&Headers::default()),
-        ));
-        assert!(!is_conflicted(BStr::new("ordinary message"), None));
+            }
+            .is_conflicted(),
+            "the legacy header alone marks conflict metadata"
+        );
+        assert!(
+            !Headers::default().is_conflicted(),
+            "no conflict metadata without the legacy header"
+        );
     }
 
     /// The `GitButler-Conflict` trailer must always be the last trailer in

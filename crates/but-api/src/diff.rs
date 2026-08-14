@@ -50,11 +50,11 @@ pub mod json {
                 line_stats,
                 conflict_entries,
             } = value;
-            let mut commit: but_workspace::ui::Commit = commit.into();
-            commit.has_conflicts = conflict_entries.is_some();
-
             CommitDetails {
-                commit,
+                commit: but_workspace::ui::Commit::from_commit_owned(
+                    commit,
+                    conflict_entries.is_some(),
+                ),
                 changes: diff_with_first_parent.into_iter().map(Into::into).collect(),
                 line_stats,
                 conflict_entries,

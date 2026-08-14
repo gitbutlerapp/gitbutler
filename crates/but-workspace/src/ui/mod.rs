@@ -108,11 +108,12 @@ impl TryFrom<gix::Commit<'_>> for Commit {
     }
 }
 
-impl From<but_core::CommitOwned> for Commit {
-    fn from(CommitOwned { id, inner }: CommitOwned) -> Self {
+impl Commit {
+    /// Convert a detached `commit`. Its tree is not accessible without a repository,
+    /// so the caller must provide `has_conflicts` as determined by
+    /// [`but_core::Commit::is_conflicted()`] or an equivalent source.
+    pub fn from_commit_owned(CommitOwned { id, inner }: CommitOwned, has_conflicts: bool) -> Self {
         let headers = commit::Headers::try_from_commit(&inner);
-        let has_conflicts =
-            but_core::commit::is_conflicted(inner.message.as_ref(), headers.as_ref());
         let change_id = headers
             .unwrap_or_default()
             .ensure_change_id(id)

@@ -572,7 +572,11 @@ impl<'repo> Commit<'repo> {
     /// trailers on otherwise ordinary commits as conflict state while keeping
     /// partial synthetic layouts visible as malformed conflicts.
     pub fn is_conflicted(&self) -> bool {
-        if !is_conflicted(self.inner.message.as_ref(), self.headers().as_ref()) {
+        let has_conflict_metadata = message_is_conflicted(self.inner.message.as_ref())
+            || self
+                .headers()
+                .is_some_and(|headers| headers.is_conflicted());
+        if !has_conflict_metadata {
             return false;
         }
 
@@ -844,9 +848,9 @@ pub fn conflict_entries_from_merge_outcome(
 }
 
 mod conflict;
+use conflict::message_is_conflicted;
 pub use conflict::{
-    add_conflict_markers, is_conflicted, message_is_conflicted,
-    rewrite_conflict_markers_on_message_change, strip_conflict_markers,
+    add_conflict_markers, rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
 pub mod tree_expression;
 
