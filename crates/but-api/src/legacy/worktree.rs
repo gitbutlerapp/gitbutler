@@ -38,12 +38,14 @@ pub fn worktree_integration_status(
 ) -> Result<WorktreeIntegrationStatus> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, mut ws, mut db) =
+        ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
 
     but_worktrees::integrate::worktree_integration_status(
         &repo,
         &mut ws,
         &mut meta,
+        &mut db,
         &id,
         target.as_ref(),
     )
@@ -58,9 +60,17 @@ pub fn worktree_integrate(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, mut ws, mut db) =
+        ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
 
-    but_worktrees::integrate::worktree_integrate(&repo, &mut ws, &mut meta, &id, target.as_ref())
+    but_worktrees::integrate::worktree_integrate(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
+        &id,
+        target.as_ref(),
+    )
 }
 
 #[but_api]

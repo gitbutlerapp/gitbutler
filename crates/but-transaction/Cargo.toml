@@ -16,7 +16,6 @@ but-oplog.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-rebase.workspace = true
-but-db.workspace = true
 but-graph.workspace = true
 
 gix.workspace = true

@@ -37,7 +37,8 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
     let selector = editor.select_commit(id.detach())?;
@@ -118,7 +119,8 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -227,7 +229,8 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("HEAD")?;
     let selector = editor.select_commit(id.detach())?;
@@ -305,7 +308,8 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
     // depends on a file created in c
@@ -404,7 +408,8 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // The rebase should succeed even though the workspace commit has a
     // parent that no longer has a corresponding Reference node.

@@ -28,11 +28,13 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -65,11 +67,13 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -97,11 +101,13 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -141,11 +147,13 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -173,11 +181,13 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
+    let mut db = but_testsupport::in_memory_db();
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),

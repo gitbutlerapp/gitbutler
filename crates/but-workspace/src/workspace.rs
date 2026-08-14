@@ -92,8 +92,9 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
+    db: &mut but_db::DbHandle,
 ) -> Result<DetailedGraphWorkspace> {
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = Editor::create(workspace, meta, repo, db)?;
     let ws = editor.graph_workspace()?;
 
     Ok(DetailedGraphWorkspace {

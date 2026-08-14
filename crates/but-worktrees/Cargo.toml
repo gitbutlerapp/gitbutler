@@ -12,6 +12,7 @@ doctest = false
 [dependencies]
 but-rebase.workspace = true
 but-core.workspace = true
+but-db.workspace = true
 but-graph.workspace = true
 
 anyhow.workspace = true

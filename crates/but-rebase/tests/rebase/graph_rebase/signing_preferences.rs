@@ -32,7 +32,8 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -90,7 +91,8 @@ fn commits_are_signed_by_default() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -180,7 +182,8 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -266,10 +269,12 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
         &repo,
+        &mut db,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::No,
             ..<_>::default()
@@ -348,10 +353,12 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
         &repo,
+        &mut db,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::No,
             ..<_>::default()
@@ -449,10 +456,12 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
         &repo,
+        &mut db,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::Yes,
             ..<_>::default()
@@ -548,10 +557,12 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
+    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
         &repo,
+        &mut db,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
             ..<_>::default()
@@ -630,10 +641,12 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
+    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
         &repo,
+        &mut db,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
             ..<_>::default()

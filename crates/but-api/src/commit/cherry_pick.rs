@@ -50,8 +50,8 @@ pub fn commit_cherry_pick_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let (rebase, inserted_selectors) =
         but_workspace::commit::cherry_pick_commits(editor, source_commit_ids, relative_to, side)?;
     let new_commits = inserted_selectors
@@ -61,7 +61,7 @@ pub fn commit_cherry_pick_only_with_perm(
 
     Ok(CommitCherryPickResult {
         new_commits,
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?,
+        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
     })
 }
 

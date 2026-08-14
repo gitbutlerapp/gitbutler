@@ -219,6 +219,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             history,
             workspace: self.workspace,
             meta: self.meta,
+            db: self.db,
         })
     }
 }

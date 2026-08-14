@@ -107,6 +107,11 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     Ok(repo)
 }
 
+/// An empty in-memory project database, for editor-backed operations under test.
+pub fn in_memory_db() -> but_db::DbHandle {
+    but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
+}
+
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
 /// This includes the author configuration in particular.
 pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {

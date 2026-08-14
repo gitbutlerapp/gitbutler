@@ -96,7 +96,8 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -177,7 +178,8 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -237,7 +239,8 @@ fn both_methods_update_references_identically() -> Result<()> {
         let graph =
             Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -261,7 +264,8 @@ fn both_methods_update_references_identically() -> Result<()> {
         let graph =
             Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -314,7 +318,8 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
@@ -368,7 +373,8 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
@@ -421,7 +427,8 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let stack_tip = repo.rev_parse_single("stack-2")?.detach();
     let stack_tip_sel = editor.select_commit(stack_tip)?;
@@ -463,7 +470,8 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
     let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
     editor.replace(main_sel, Step::None)?;
@@ -509,7 +517,8 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     let a = repo.rev_parse_single("middle:a")?.detach();
@@ -588,7 +597,8 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     for refname in ["refs/heads/middle", "refs/heads/doomed"] {
         let selector = editor.select_reference(refname.try_into()?)?;
         editor.replace(selector, Step::None)?;
@@ -633,7 +643,8 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let middle_selector = editor.select_commit(middle)?;
     editor.replace(middle_selector, Step::new_pick(amended))?;
     editor.set_worktree_merge_base_override(gix::bstr::BStr::new("wt"), consumed_tree)?;
@@ -667,7 +678,8 @@ fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let tree = repo.rev_parse_single("middle^{tree}")?.detach();
 
     let err = editor
@@ -695,7 +707,8 @@ fn materialize_without_checkout_moves_detached_worktree_heads_only() -> Result<(
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     replacement.message = "a rewritten".into();
@@ -735,7 +748,8 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     replacement.message = "a rewritten".into();

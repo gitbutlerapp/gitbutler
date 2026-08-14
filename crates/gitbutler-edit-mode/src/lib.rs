@@ -353,7 +353,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
@@ -370,6 +371,9 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     // because there are none (they have been written to a tree earlier in this
     // function). Therefore, use `materialize_without_checkout`.
     outcome.materialize_without_checkout()?;
+    // Nothing below needs the database, and `WorkspaceState::create` re-enters `ctx`
+    // for a shared handle - which the exclusive one taken above would refuse.
+    drop(db);
     ctx.invalidate_workspace_cache()?;
 
     // Switch branch to gitbutler/workspace

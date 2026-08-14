@@ -40,13 +40,13 @@ pub(crate) fn commit_insert_blank_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let (rebase, blank_commit_selector) =
         but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
     let new_commit = rebase.lookup_pick(blank_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitInsertBlankResult {
         new_commit,

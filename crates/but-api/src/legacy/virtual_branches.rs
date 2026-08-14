@@ -651,16 +651,17 @@ fn commit_assigned_diffspec(
         return Ok(());
     }
 
+    let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
         RelativeToRef::Reference(branch),
         InsertSide::Below,
         "WIP Assignments",
-        ctx.settings.context_lines,
+        context_lines,
         but_workspace::commit::ChangeSource::Head,
     )?;
     if !outcome.rejected_specs.is_empty() {
@@ -671,7 +672,7 @@ fn commit_assigned_diffspec(
     }
     if outcome.commit_selector.is_some() {
         outcome.rebase.materialize(Default::default())?;
-        drop((repo, ws));
+        drop((repo, ws, db));
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }
     Ok(())

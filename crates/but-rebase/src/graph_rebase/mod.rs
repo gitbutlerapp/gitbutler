@@ -290,6 +290,10 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// A handle to the project database, shared with the resulting
+    /// [`SuccessfulRebase`]. It re-uses the `'meta` lifetime to avoid growing
+    /// the editor's generics.
+    db: &'meta mut but_db::DbHandle,
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
@@ -309,6 +313,9 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// The database handle inherited from the [`Editor`], so [`Self::into_editor`]
+    /// can hand it back.
+    db: &'meta mut but_db::DbHandle,
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
@@ -327,6 +334,16 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// workspace preview computed from [`Self::overlayed_graph`].
     pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
         (&self.repo, self.meta)
+    }
+
+    /// Returns the database handle the editor was created with.
+    pub fn db(&self) -> &but_db::DbHandle {
+        self.db
+    }
+
+    /// Like [`Self::repo_and_meta_mut`], but also returns the database handle.
+    pub fn repo_meta_and_db_mut(&mut self) -> (&gix::Repository, &mut M, &mut but_db::DbHandle) {
+        (&self.repo, self.meta, self.db)
     }
 
     fn checkout_target(
@@ -474,6 +491,8 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
+    /// The database handle the editor was created with.
+    pub db: &'meta mut but_db::DbHandle,
     /// True if a conflict occurred during checkout. This is always false if
     /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
     /// struct passed to the materialize call is false.

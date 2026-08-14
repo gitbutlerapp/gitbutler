@@ -14,6 +14,90 @@ use super::types::{
     UncommitChangesSource, UncommitResult,
 };
 
+/// Tracks which worktree hunks an uncommit surfaces, so `assign_to` can claim exactly those.
+struct SurfacedHunks {
+    stack_id: but_core::ref_metadata::StackId,
+    before_ids: HashSet<uuid::Uuid>,
+}
+
+impl SurfacedHunks {
+    /// Record the worktree's hunk assignments as they stand before the rewrite.
+    ///
+    /// `None` when there is nothing to assign, and on a dry run - which reports no assignments and
+    /// must persist none, so the exchange is skipped outright rather than performed and undone.
+    fn record_before(
+        assign_to: Option<but_core::ref_metadata::StackId>,
+        dry_run: DryRun,
+        db: &mut but_db::DbHandle,
+        repo: &gix::Repository,
+        workspace: &but_graph::Workspace,
+        context_lines: u32,
+    ) -> anyhow::Result<Option<Self>> {
+        let (Some(stack_id), DryRun::No) = (assign_to, dry_run) else {
+            return Ok(None);
+        };
+        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            repo,
+            workspace,
+            None::<Vec<but_core::TreeChange>>,
+            context_lines,
+        )?;
+        Ok(Some(Self {
+            stack_id,
+            before_ids: assignments
+                .into_iter()
+                .filter_map(|assignment| assignment.id)
+                .collect(),
+        }))
+    }
+
+    /// Assign every hunk that appeared since [`Self::record_before()`] to the target stack.
+    fn assign_after(
+        self,
+        db: &mut but_db::DbHandle,
+        repo: &gix::Repository,
+        workspace: &but_graph::Workspace,
+        context_lines: u32,
+    ) -> anyhow::Result<()> {
+        let mut tx = db.transaction()?;
+        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            tx.hunk_assignments_mut()?,
+            repo,
+            workspace,
+            None::<Vec<but_core::TreeChange>>,
+            context_lines,
+        )?;
+
+        let to_assign: Vec<_> = after_assignments
+            .into_iter()
+            .filter(|assignment| {
+                assignment
+                    .id
+                    .is_some_and(|id| !self.before_ids.contains(&id))
+            })
+            .map(|assignment| HunkAssignmentRequest {
+                hunk_header: assignment.hunk_header,
+                path_bytes: assignment.path_bytes,
+                target: Some(HunkAssignmentTarget::Stack {
+                    stack_id: self.stack_id,
+                }),
+            })
+            .collect();
+
+        but_hunk_assignment::assign(
+            tx.hunk_assignments_mut()?,
+            repo,
+            workspace,
+            to_assign,
+            context_lines,
+        )?;
+        // Only reached on a real run, so the writes always persist.
+        tx.commit()?;
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Uncommit entire commits (changes are kept in the workspace)
 // ---------------------------------------------------------------------------
@@ -124,22 +208,11 @@ pub fn commit_uncommit_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
-    let before_assignments = if assign_to.is_some() {
-        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-        Some(assignments)
-    } else {
-        None
-    };
+    let surfaced =
+        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let mut rebase =
         but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
@@ -154,11 +227,17 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
         let replaced_commits = rebase.history.commit_mappings();
-        let (repo, meta) = rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        (
+            &mut graph.into_workspace()?,
+            replaced_commits,
+            repo,
+            meta,
+            db,
+        )
     } else {
         let materialized = rebase.materialize_without_checkout()?;
         (
@@ -166,48 +245,12 @@ pub fn commit_uncommit_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     };
 
-    if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
-        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-
-        let before_ids: HashSet<_> = before_assignments
-            .into_iter()
-            .filter_map(|assignment| assignment.id)
-            .collect();
-
-        let to_assign: Vec<_> = after_assignments
-            .into_iter()
-            .filter(|assignment| assignment.id.is_some_and(|id| !before_ids.contains(&id)))
-            .map(|assignment| HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target: Some(HunkAssignmentTarget::Stack {
-                    stack_id: assign_to,
-                }),
-            })
-            .collect();
-
-        but_hunk_assignment::assign(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            to_assign,
-            context_lines,
-        )?;
-    }
-
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+    if let Some(surfaced) = surfaced {
+        surfaced.assign_after(db, repo, workspace, context_lines)?;
     }
 
     Ok(UncommitResult {
@@ -217,7 +260,7 @@ pub fn commit_uncommit_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
     })
 }
@@ -272,30 +315,25 @@ pub fn commit_uncommit_changes_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
-    let before_assignments = if assign_to.is_some() {
-        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-        Some(assignments)
-    } else {
-        None
-    };
+    let surfaced =
+        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
-        let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
+        (
+            &mut graph.into_workspace()?,
+            replaced_commits,
+            repo,
+            meta,
+            db,
+        )
     } else {
         let materialized = outcome.rebase.materialize_without_checkout()?;
         (
@@ -303,46 +341,12 @@ pub fn commit_uncommit_changes_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     };
 
-    if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
-        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-
-        let before_ids: HashSet<_> = before_assignments
-            .into_iter()
-            .filter_map(|assignment| assignment.id)
-            .collect();
-
-        let to_assign: Vec<_> = after_assignments
-            .into_iter()
-            .filter(|assignment| assignment.id.is_some_and(|id| !before_ids.contains(&id)))
-            .map(|assignment| HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target: Some(HunkAssignmentTarget::Stack { stack_id }),
-            })
-            .collect();
-
-        but_hunk_assignment::assign(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            to_assign,
-            context_lines,
-        )?;
-    }
-
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+    if let Some(surfaced) = surfaced {
+        surfaced.assign_after(db, repo, workspace, context_lines)?;
     }
 
     Ok(MoveChangesResult {
@@ -351,7 +355,7 @@ pub fn commit_uncommit_changes_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
     })
 }
@@ -460,22 +464,11 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
-    let before_assignments = if assign_to.is_some() {
-        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-        Some(assignments)
-    } else {
-        None
-    };
+    let surfaced =
+        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let workspace_sources = sources
         .into_iter()
         .map(|source| but_workspace::commit::UncommitChangesSource {
@@ -499,14 +492,20 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
             let graph = rebase.overlayed_graph()?;
             let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta) = rebase.repo_and_meta_mut();
-            (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+            (
+                &mut graph.into_workspace()?,
+                replaced_commits,
+                repo,
+                meta,
+                db,
+            )
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+            (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
         }
     } else if let Some(rebase) = rebase {
         let materialized = rebase.materialize_without_checkout()?;
@@ -515,48 +514,14 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+        (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
     };
 
-    if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
-        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-
-        let before_ids: HashSet<_> = before_assignments
-            .into_iter()
-            .filter_map(|assignment| assignment.id)
-            .collect();
-
-        let to_assign: Vec<_> = after_assignments
-            .into_iter()
-            .filter(|assignment| assignment.id.is_some_and(|id| !before_ids.contains(&id)))
-            .map(|assignment| HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target: Some(HunkAssignmentTarget::Stack { stack_id }),
-            })
-            .collect();
-
-        but_hunk_assignment::assign(
-            tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
-            to_assign,
-            context_lines,
-        )?;
-    }
-
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+    if let Some(surfaced) = surfaced {
+        surfaced.assign_after(db, repo, workspace, context_lines)?;
     }
 
     Ok(UncommitChangesFromCommitsResult {
@@ -565,7 +530,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
         failures,
     })
