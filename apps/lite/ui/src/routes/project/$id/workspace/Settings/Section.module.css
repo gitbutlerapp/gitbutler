@@ -34,6 +34,19 @@
 	justify-content: space-between;
 }
 
+.stacked {
+	& > .label,
+	& > .control,
+	& > .hint {
+		grid-column: 1 / -1;
+	}
+
+	& > .control {
+		grid-row: 3;
+		justify-content: stretch;
+	}
+}
+
 .label {
 	color: var(--text-1);
 	text-wrap: pretty;

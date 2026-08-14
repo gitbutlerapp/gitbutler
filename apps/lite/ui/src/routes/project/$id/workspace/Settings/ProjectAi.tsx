@@ -57,6 +57,7 @@ export const ProjectAi: FC<{ projectId: string }> = ({ projectId }) => {
 					label="Commit prompt"
 					htmlFor="project-ai-commit-prompt"
 					hint="The selected file diffs are appended automatically."
+					stacked
 				>
 					<textarea
 						id="project-ai-commit-prompt"
