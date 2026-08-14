@@ -100,6 +100,13 @@ export const commentsQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.commentsList(projectId),
 	});
 
+export const commentAgentsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["commentAgentsList", projectId],
+		queryFn: () => window.lite.commentAgentsList(projectId),
+		refetchInterval: 5_000,
+	});
+
 export const commitDetailsWithLineStatsQueryOptions = ({
 	projectId,
 	...params

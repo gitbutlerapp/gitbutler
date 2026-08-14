@@ -8,6 +8,7 @@ export const apiProvides = {
 	branchList: ["Branches"],
 	changesInWorktree: ["WorktreeChanges"],
 	checkSigningSettings: ["SigningSettings"],
+	commentAgentsList: ["Comments"],
 	commentsList: ["Comments"],
 	commitConflicts: [],
 	commitDetailsWithLineStats: ["Commits"],

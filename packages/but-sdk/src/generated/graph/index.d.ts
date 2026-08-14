@@ -221,6 +221,12 @@ export declare function checkGithubAuthStatus(deviceCode: string): Promise<Githu
 
 export declare function checkSigningSettings(projectId: string): Promise<boolean>
 
+/** Explicitly acknowledge every message through `message_id` for one thread and agent client. */
+export declare function commentAcknowledge(projectId: string, commentId: string, messageId: string, clientId: string): Promise<void>
+
+/** List agent workstreams with a live polling lease in this project. */
+export declare function commentAgentsList(projectId: string): Promise<Array<CommentClient>>
+
 /**
  * Archive the comment with the given `id`, hiding it from all future listings.
  * Returns `false` if the comment does not exist or was already archived.
@@ -234,15 +240,18 @@ export declare function commentArchive(projectId: string, id: string): Promise<b
  */
 export declare function commentCreate(projectId: string, comment: NewComment): Promise<DiffComment>
 
+/** Publish the payload of a blank draft message in an unarchived comment thread. */
+export declare function commentDraftPublish(projectId: string, commentId: string, messageId: string, payload: string, mentionedClientIds: Array<string>): Promise<void>
+
+/** Append an authored message to an unarchived comment thread. */
+export declare function commentReply(projectId: string, id: string, message: NewCommentMessage, acknowledgeThrough: string | null): Promise<CommentMessage>
+
 /**
  * List all unarchived comments, re-anchored against the current diffs.
  *
  * See [`but_comments::list_comments`] for the re-anchoring and auto-archiving semantics.
  */
 export declare function commentsList(projectId: string): Promise<Array<DiffComment>>
-
-/** Replace the payload of the unarchived comment with the given `id`. */
-export declare function commentUpdate(projectId: string, id: string, payload: string): Promise<void>
 
 /**
  * Amend the commit at `commit_id` with the `changes` of `changes_source` and
@@ -1802,6 +1811,74 @@ export type Claude = {
  */
 export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
+/** Friendly identity for an agent that acknowledged a message. */
+export type CommentAcknowledgement = {
+  /** Stable agent workstream identity. */
+  clientId: string;
+  /** Human-facing agent name. */
+  author: string;
+  /** Optional human-facing workstream title. */
+  title: string | null;
+};
+
+/** The kind of author identity asserted by a comment client. */
+export type CommentAuthorKind = "human" | "agent";
+
+/** An agent workstream currently polling this project's comments. */
+export type CommentClient = {
+  /** Stable identity supplied by the agent harness. */
+  id: string;
+  /** Human-facing agent name, such as `Codex`. */
+  author: string;
+  /** Optional human-facing workstream title. */
+  title: string | null;
+  /** Last lease renewal, in milliseconds since the Unix epoch (UTC). */
+  lastSeenAtMs: number;
+};
+
+/** One authored message in a diff comment thread. */
+export type CommentMessage = {
+  /** The unique identifier of the message. */
+  id: string;
+  /** The display name asserted by the client that created the message. */
+  author: string;
+  /** Whether the client identifies the author as a human or an agent. */
+  authorKind: CommentAuthorKind;
+  /** Stable workstream identity for an agent-authored message. */
+  authorClientId: string | null;
+  /** Friendly workstream title captured when an agent authored this message. */
+  authorTitle: string | null;
+  /** Agent workstreams invited into the thread by this message. */
+  mentionedClientIds: Array<string>;
+  /** Agent workstreams that have explicitly acknowledged this message. */
+  acknowledgements: Array<CommentAcknowledgement>;
+  /**
+   * Number of agent participants expected to acknowledge this message.
+   *
+   * This snapshots the participants present when the message was authored, so inviting an
+   * agent later does not change an older message's read state.
+   */
+  expectedAcknowledgementCount: number;
+  /** The message text. */
+  payload: string;
+  /** When the message was created, in milliseconds since the Unix epoch (UTC). */
+  createdAtMs: number;
+  /** When the message was last updated, in milliseconds since the Unix epoch (UTC). */
+  updatedAtMs: number;
+};
+
+/** An agent workstream participating in a comment thread. */
+export type CommentParticipant = {
+  /** Stable agent workstream identity. */
+  id: string;
+  /** Human-facing agent name. */
+  author: string;
+  /** Optional human-facing workstream title. */
+  title: string | null;
+  /** Whether the workstream has renewed its project polling lease recently. */
+  active: boolean;
+};
+
 /** Commit that is part of a legacy stack branch and contains state derived in relation to it. */
 export type Commit = {
   /** The OID of the commit. */
@@ -2123,12 +2200,12 @@ export type DiffComment = {
   lineNumber: number;
   /** The content of the anchored line (without the leading `+`/`-`/space diff marker). */
   lineContent: string;
-  /** The comment text itself. */
-  payload: string;
-  /** When the comment was created, in milliseconds since the Unix epoch (UTC). */
-  createdAtMs: number;
-  /** When the comment payload was last updated, in milliseconds since the Unix epoch (UTC). */
-  updatedAtMs: number;
+  /** The authored messages in this thread, in insertion order. */
+  messages: Array<CommentMessage>;
+  /** Agent workstreams that have been invited into this thread. */
+  agentParticipantIds: Array<string>;
+  /** Friendly identities and current listening state for invited agent workstreams. */
+  agentParticipants: Array<CommentParticipant>;
   /**
    * A unified-diff-formatted excerpt of the current diff around the anchored line, so consumers
    * can understand what the comment is about without recomputing the diff.
@@ -3104,7 +3181,23 @@ export type NewComment = {
   side: DiffSide;
   /** The 1-based line number of the line to anchor to, in `side`'s coordinates. */
   lineNumber: number;
-  /** The comment text. */
+  /** The first authored message in the thread. */
+  message: NewCommentMessage;
+};
+
+/** Client-supplied content and authorship for a new thread message. */
+export type NewCommentMessage = {
+  /** An optional client-supplied ID. An ID will be generated if this is absent. */
+  id: string | null;
+  /** The display name asserted by the client. */
+  author: string;
+  /** Whether the client identifies the author as a human or an agent. */
+  authorKind: CommentAuthorKind;
+  /** Stable workstream identity when the author is an agent. */
+  authorClientId: string | null;
+  /** Agent workstreams to invite into the thread with this message. */
+  mentionedClientIds?: Array<string>;
+  /** The message text. */
   payload: string;
 };
 

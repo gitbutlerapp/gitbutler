@@ -10,14 +10,117 @@
 	background: var(--bg-1);
 }
 
+.humanReply {
+	margin-left: 44px;
+	border-top-right-radius: 0;
+	border-top-left-radius: var(--radius-card);
+	background: color-mix(in srgb, var(--fill-pop-bg) 14%, var(--bg-1));
+}
+
+.agentReply {
+	margin-right: 44px;
+}
+
 .header {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 8px;
 }
 
 .author {
+	margin: 0;
 	font-weight: bold;
+}
+
+.authorIdentity {
+	display: flex;
+	flex-direction: column;
+}
+
+.authorTitle {
+	color: var(--text-2);
+}
+
+.agentAvatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 24px;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	color: white;
+	font-size: 12px;
+	font-weight: 600;
+	user-select: none;
+}
+
+.agentAvatarInactive {
+	opacity: 0.55;
+}
+
+.agentAvatarSelected {
+	box-shadow: 0 0 0 2px var(--text-1);
+}
+
+.agentAvatarSmall {
+	flex-basis: 16px;
+	width: 16px;
+	height: 16px;
+	font-size: 9px;
+}
+
+.agentParticipants {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	max-width: 100ch;
+	margin: 0 12px 12px 44px;
+	gap: 6px;
+}
+
+.readTooltip {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.readTooltipRow {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.agentParticipant {
+	display: inline-flex;
+}
+
+.agentParticipantButton {
+	display: inline-flex;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	cursor: pointer;
+}
+
+.agentParticipantButton:hover .agentAvatar,
+.agentParticipantButton:focus-visible .agentAvatar {
+	opacity: 0.8;
+}
+
+.agentParticipantSeparator {
+	margin: 0 2px;
+	color: var(--text-2);
+}
+
+.agentTooltip {
+	display: flex;
+	flex-direction: column;
+}
+
+.agentTooltip > span {
+	color: var(--text-2);
 }
 
 .date {
@@ -25,11 +128,77 @@
 	color: var(--text-2);
 }
 
+.messageMeta {
+	display: flex;
+	align-items: flex-start;
+	margin-left: auto;
+	gap: 10px;
+}
+
+.readReceipt {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--text-2);
+	letter-spacing: -3px;
+	cursor: default;
+}
+
 .body {
 	line-height: 21px;
+}
+
+.replyBody {
+	margin: 0;
+	line-height: 21px;
+	white-space: pre-wrap;
 }
 
 .actions {
 	display: flex;
 	gap: 12px;
+}
+
+.mentionPicker {
+	display: flex;
+	flex-direction: column;
+	max-height: 180px;
+	margin-top: -6px;
+	padding: 4px;
+	overflow-y: auto;
+	border: 1px solid var(--border-1);
+	border-radius: var(--radius-card);
+	background: var(--bg-1);
+	box-shadow: var(--shadow-tooltip);
+}
+
+.mentionEmpty {
+	padding: 7px 8px;
+	color: var(--text-2);
+}
+
+.mentionOption {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 7px 8px;
+	gap: 12px;
+	border: 0;
+	border-radius: var(--radius-element);
+	background: transparent;
+	color: var(--text-1);
+	text-align: left;
+	cursor: pointer;
+}
+
+.mentionOption:hover,
+.mentionOption:focus-visible {
+	background: var(--list-item-hover-bg);
+}
+
+.mentionOption small {
+	overflow: hidden;
+	color: var(--text-2);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

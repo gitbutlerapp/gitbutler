@@ -9,6 +9,7 @@ import {
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
+	commentAgentsQueryOptions,
 	commentsQueryOptions,
 	commitConflictsQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
@@ -55,7 +56,13 @@ import {
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
-import type { CommitDetails, ConflictedFile, ManualConflict, TreeChange } from "@gitbutler/but-sdk";
+import type {
+	CommentClient,
+	CommitDetails,
+	ConflictedFile,
+	ManualConflict,
+	TreeChange,
+} from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
@@ -172,6 +179,7 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 type PanelId = "files-panel" | "diff-panel";
 
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
+const EMPTY_COMMENT_CLIENTS: Array<CommentClient> = [];
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
 const EMPTY_MANUAL: Array<ManualConflict> = [];
 
@@ -245,10 +253,15 @@ const withAnnotations = (
 			}),
 		);
 
-		// Annotations move when their backend anchor drifts, so the version must cover their
-		// positions and identities, not just their count.
+		// Annotations move when anchors drift and gain messages independently of the diff, so the
+		// version must cover both placement and thread content.
 		const annoHash = hash(
-			persistedAnnotations.map((a) => `${a.id}:${a.side}:${a.lineNumber}`).join(),
+			persistedAnnotations
+				.map(
+					(a) =>
+						`${a.id}:${a.side}:${a.lineNumber}:${a.messages.map((message) => `${message.id}:${message.updatedAtMs}`).join(":")}`,
+				)
+				.join(),
 		);
 
 		const version = item.version;
@@ -300,6 +313,9 @@ const DiffContents: FC<{
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
 	const dispatch = useAppDispatch();
 	const { mutate: createComment } = useCommentCreate();
+	const { data: commentAgents = EMPTY_COMMENT_CLIENTS } = useQuery(
+		commentAgentsQueryOptions(projectId),
+	);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: settings } = useQuery({
 		...guiSettingsQueryOptions,
@@ -775,7 +791,14 @@ const DiffContents: FC<{
 								commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
 								side: annotationSideToDiffSide(line.side),
 								lineNumber: line.lineNumber,
-								payload: "",
+								message: {
+									id: crypto.randomUUID(),
+									author: "You",
+									authorKind: "human",
+									authorClientId: null,
+									mentionedClientIds: [],
+									payload: "",
+								},
 							},
 						});
 					};
@@ -810,6 +833,7 @@ const DiffContents: FC<{
 						<AnnotationCard
 							projectId={projectId}
 							annotation={annotation}
+							agents={commentAgents}
 							path={file.operand.path}
 							fileParent={fileParent}
 							annotationsByPath={annotationsByPath}
