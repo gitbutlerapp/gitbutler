@@ -1134,6 +1134,7 @@ export interface AiConfiguration {
   ollamaModel: string
   lmstudioEndpoint: string
   lmstudioModel: string
+  isConfigured: boolean
 }
 
 export interface AiConfigurationUpdate {

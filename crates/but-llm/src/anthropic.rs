@@ -11,8 +11,8 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_ANTHROPIC_SECRET_HANDLE, StreamToolCallResult, ToolCall, ToolCallContent,
-    ToolResponseContent, chat::ChatMessage, client::LLMClient,
+    AI_ANTHROPIC_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE, StreamToolCallResult, ToolCall,
+    ToolCallContent, ToolResponseContent, chat::ChatMessage, client::LLMClient,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
@@ -134,7 +134,7 @@ impl AnthropicProvider {
         self.credentials.0.clone()
     }
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?
+        let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
                 "No GitButler token available. Log-in to use the GitButler Anthropic provider"
             ))?;

@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_OPENAI_SECRET_HANDLE,
+    AI_OPENAI_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE,
     chat::ChatMessage,
     client::LLMClient,
     openai_utils::{
@@ -80,7 +80,7 @@ impl OpenAiProvider {
     }
 
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?
+        let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
                 "No GitButler token available. Log-in to use the GitButler OpenAI provider"
             ))?;

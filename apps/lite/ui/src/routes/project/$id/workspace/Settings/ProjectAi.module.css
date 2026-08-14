@@ -1,0 +1,7 @@
+.prompt {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 180px;
+	padding: 8px;
+	resize: vertical;
+}

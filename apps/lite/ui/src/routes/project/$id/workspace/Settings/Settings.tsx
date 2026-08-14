@@ -16,6 +16,7 @@ import { General } from "./General.tsx";
 import { Git } from "./Git.tsx";
 import { Integrations } from "./Integrations.tsx";
 import { Project } from "./Project.tsx";
+import { ProjectAi } from "./ProjectAi.tsx";
 import { ProjectExperimental } from "./ProjectExperimental.tsx";
 import { ProjectGit } from "./ProjectGit.tsx";
 
@@ -31,6 +32,7 @@ const pageContent: Record<SettingsPageKey, FC<{ projectId: string }>> = {
 	"global:git": Git,
 	"global:integrations": Integrations,
 	"project:project": Project,
+	"project:ai": ProjectAi,
 	"project:git": ProjectGit,
 	"project:experimental": ProjectExperimental,
 };

@@ -20,6 +20,8 @@ export const Section: FC<SectionProps> = (p) => (
 
 type RowProps = {
 	label: string;
+	/** Places the control below the label and hint, spanning the row. */
+	stacked?: boolean;
 	/** Ties the label to a native control. Composite widgets pass `labelId` instead. */
 	htmlFor?: string;
 	/** Names the label so a composite widget can point `aria-labelledby` at it. */
@@ -35,7 +37,7 @@ type RowProps = {
  * label is not always a `<label>`.
  */
 export const Row: FC<RowProps> = (p) => (
-	<div className={styles.row}>
+	<div className={classes(styles.row, p.stacked && styles.stacked)}>
 		{p.htmlFor === undefined ? (
 			<span id={p.labelId} className={classes("text-semibold", styles.label)}>
 				{p.label}

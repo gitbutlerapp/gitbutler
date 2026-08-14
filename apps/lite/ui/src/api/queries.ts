@@ -37,6 +37,7 @@ type LocalQueryKey =
 	| "dryRun"
 	| "prMergeMethod"
 	| "prDraft"
+	| "projectAiSettings"
 	| "reviewedFiles";
 
 export type QueryKey = ProjectQueryKey | GlobalQueryKey | LocalQueryKey;
