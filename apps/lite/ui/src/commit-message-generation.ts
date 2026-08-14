@@ -43,6 +43,7 @@ export const buildCommitMessagePrompt = (
 	return `${instructions.trim()}\n\nSelected changes:\n\`\`\`diff\n${diff}\n\`\`\``;
 };
 
+/** Streams partial values and restores the previous value if a started stream fails. */
 export const streamCommitMessage = async (
 	stream: (onToken: (token: string) => void) => Promise<string>,
 	onValue: (value: string) => void,

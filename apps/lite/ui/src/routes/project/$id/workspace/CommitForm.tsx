@@ -1,10 +1,9 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { useBranchCreate, useCommitCreate } from "#ui/api/mutations.ts";
+import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
 	aiConfigurationQueryOptions,
 	branchCannedNameQueryOptions,
 	headInfoQueryOptions,
-	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -13,11 +12,8 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import {
-	buildCommitMessagePrompt,
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,
-	COMMIT_MESSAGE_SYSTEM_PROMPT,
-	streamCommitMessage,
 } from "#ui/commit-message-generation.ts";
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
@@ -29,9 +25,9 @@ import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
-import type { InsertSide, RelativeTo, TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
+import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type FC,
@@ -140,9 +136,9 @@ export const CommitForm: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
-	const client = useQueryClient();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
 	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
+	const { isPending: isGenerating, mutate: generateMessage } = useGenerateCommitMessage();
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -157,39 +153,6 @@ export const CommitForm: FC<{
 		...projectAiSettingsQueryOptions(projectId),
 		select: (settings) => settings.enabled,
 	});
-	const { isPending: isGenerating, mutate: generateMessage } = useMutation({
-		mutationFn: async ({
-			changes,
-			previousMessage,
-		}: {
-			changes: Array<TreeChange>;
-			previousMessage: string;
-		}) => {
-			const [settings, patches] = await Promise.all([
-				client.ensureQueryData(projectAiSettingsQueryOptions(projectId)),
-				Promise.all(
-					changes.map((change) =>
-						client.ensureQueryData(treeChangeDiffsQueryOptions({ projectId, change })),
-					),
-				),
-			]);
-			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, changes, patches);
-			return streamCommitMessage(
-				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
-				(value) => {
-					if (commitTextareaRef.current) commitTextareaRef.current.value = value;
-				},
-				previousMessage,
-			);
-		},
-		onSuccess: (response) => {
-			const message = response.trim();
-			if (commitTextareaRef.current) commitTextareaRef.current.value = message;
-			persistDraftMessage({ projectId, message });
-		},
-		meta: { failureTitle: "Failed to generate commit message" },
-	});
-
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -349,10 +312,23 @@ export const CommitForm: FC<{
 		const changes = changesSelectedForCommit(worktreeChanges.changes, checkedPaths);
 		if (changes.length === 0) return;
 
-		generateMessage({
-			changes,
-			previousMessage: commitTextareaRef.current?.value ?? draftMessage ?? "",
-		});
+		generateMessage(
+			{
+				projectId,
+				changes,
+				previousMessage: commitTextareaRef.current?.value ?? draftMessage ?? "",
+				onValue: (value) => {
+					if (commitTextareaRef.current) commitTextareaRef.current.value = value;
+				},
+			},
+			{
+				onSuccess: (response) => {
+					const message = response.trim();
+					if (commitTextareaRef.current) commitTextareaRef.current.value = message;
+					persistDraftMessage({ projectId, message });
+				},
+			},
+		);
 	};
 	const commitMenuItems: Array<NativeMenuItem> = [
 		// oxlint-disable-next-line react-hooks-js/refs -- The ref is only read by the onSelect callback.

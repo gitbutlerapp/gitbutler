@@ -8,9 +8,15 @@ import {
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
 	listReviewReactionsQueryOptions,
+	treeChangeDiffsQueryOptions,
 	workspaceFetchQueryOptions,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
+import {
+	buildCommitMessagePrompt,
+	COMMIT_MESSAGE_SYSTEM_PROMPT,
+	streamCommitMessage,
+} from "#ui/commit-message-generation.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
@@ -19,6 +25,7 @@ import {
 } from "#ui/operations/toastOptions.tsx";
 import { commitOperand, filesUnder, type FileParent } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Toast } from "@base-ui/react";
@@ -54,6 +61,39 @@ const pluralRules = new Intl.PluralRules("en");
 // oxlint-disable-next-line typescript/no-explicit-any
 type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
 type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
+
+type GenerateCommitMessageInput = {
+	projectId: string;
+	changes: Array<TreeChange>;
+	previousMessage: string;
+	onValue: (value: string) => void;
+};
+
+/** Loads selected patches and streams a generated commit message to the caller. */
+export const useGenerateCommitMessage = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: GenerateCommitMessageInput) => {
+			const [settings, patches] = await Promise.all([
+				queryClient.ensureQueryData(projectAiSettingsQueryOptions(input.projectId)),
+				Promise.all(
+					input.changes.map((change) =>
+						queryClient.ensureQueryData(
+							treeChangeDiffsQueryOptions({ projectId: input.projectId, change }),
+						),
+					),
+				),
+			]);
+			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, input.changes, patches);
+			return streamCommitMessage(
+				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
+				input.onValue,
+				input.previousMessage,
+			);
+		},
+		meta: { failureTitle: "Failed to generate commit message" },
+	});
+};
 
 export const syncCoreCaches = (
 	queryClient: QueryClient,
