@@ -1758,9 +1758,8 @@ pub fn get_initial_branch_integration(
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
     let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let mut ws = ws.clone();
-    let mut db = ctx.db.get_cache_mut()?;
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();

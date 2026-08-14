@@ -204,9 +204,8 @@ pub fn get_workspace(
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
-    let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
+    let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
-    let mut db = ctx.db.get_cache_mut()?;
     but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
         .map(Into::into)
 }
