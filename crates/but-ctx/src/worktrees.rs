@@ -3,11 +3,14 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
 use anyhow::Result;
-use gix::bstr::BString;
+use gix::bstr::{BStr, BString};
 
 use crate::Context;
 
-/// A usable linked worktree with its archived state and resolved `HEAD`.
+/// A linked worktree whose checkout exists on disk, with its archived state.
+///
+/// This is identity only - anything `HEAD`-derived is resolved freshly by
+/// [`Context::worktree_head()`] where a consumer actually needs it.
 #[derive(Debug, Clone)]
 pub struct WorktreeEntry {
     /// Whether the worktree is hidden from listings and graph traversal.
@@ -17,14 +20,22 @@ pub struct WorktreeEntry {
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`,
     /// which survives `git worktree move`.
     pub name: BString,
+}
+
+/// The `HEAD` of a linked worktree at resolution time, see [`Context::worktree_head()`].
+#[derive(Debug, Clone)]
+pub struct WorktreeHead {
     /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
     pub ref_name: Option<gix::refs::FullName>,
     /// The commit the worktree `HEAD` peels to.
-    pub head: gix::ObjectId,
+    pub id: gix::ObjectId,
 }
 
 impl Context {
     /// Add active linked-worktree tips to `options` when worktree manipulation is enabled.
+    ///
+    /// Each tip's `HEAD` is resolved freshly via [`Self::worktree_head()`]; worktrees
+    /// with nothing to seed are skipped.
     ///
     /// Like [`Self::active_worktrees()`], this must not be called while a database
     /// handle is borrowed.
@@ -32,16 +43,68 @@ impl Context {
         &self,
         mut options: but_graph::init::Options,
     ) -> Result<but_graph::init::Options> {
-        options
-            .worktree_tips
-            .extend(self.active_worktrees()?.into_iter().map(|worktree| {
-                but_graph::init::WorktreeTip {
-                    name: worktree.name,
-                    ref_name: worktree.ref_name,
-                    id: worktree.head,
-                }
-            }));
+        for worktree in self.active_worktrees()? {
+            let Some(head) = self.worktree_head(worktree.name.as_ref())? else {
+                continue;
+            };
+            options.worktree_tips.push(but_graph::init::WorktreeTip {
+                name: worktree.name,
+                ref_name: head.ref_name,
+                id: head.id,
+            });
+        }
         Ok(options)
+    }
+
+    /// Resolve the `HEAD` of the linked worktree named `name` freshly from its
+    /// repository, or `None` when there is no commit to see: the worktree vanished,
+    /// its repository or `HEAD` cannot be read, its branch is unborn, or it has the
+    /// workspace ref checked out - a ref GitButler fully manages already.
+    ///
+    /// This is the single home of linked-worktree `HEAD` semantics: consumers
+    /// resolve a worktree's branch or commit here at their point of use instead of
+    /// holding on to an eagerly captured snapshot.
+    pub fn worktree_head(&self, name: &BStr) -> Result<Option<WorktreeHead>> {
+        let repo = self.repo.get()?;
+        let Some(proxy) = repo.worktree_proxy_by_id(name) else {
+            return Ok(None);
+        };
+        let wt_repo = match proxy.into_repo_with_possibly_inaccessible_worktree() {
+            Ok(wt_repo) => wt_repo,
+            Err(err) => {
+                // Unlike the other `None` states, this is never expected.
+                tracing::warn!(%name, ?err, "Skipping linked worktree whose repository cannot be opened");
+                return Ok(None);
+            }
+        };
+        let mut head = match wt_repo.head() {
+            Ok(head) => head,
+            Err(err) => {
+                tracing::warn!(%name, ?err, "Skipping linked worktree with an unreadable HEAD");
+                return Ok(None);
+            }
+        };
+        let ref_name = head.referent_name().map(ToOwned::to_owned);
+        if ref_name
+            .as_ref()
+            .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
+        {
+            return Ok(None);
+        }
+        match head.peel_to_commit() {
+            Ok(commit) => Ok(Some(WorktreeHead {
+                ref_name,
+                id: commit.id,
+            })),
+            // A worktree on an unborn branch has nothing to see yet.
+            Err(gix::head::peel::to_commit::Error::PeelToObject(
+                gix::head::peel::to_object::Error::Unborn { .. },
+            )) => Ok(None),
+            Err(err) => {
+                tracing::warn!(%name, ?err, "Skipping linked worktree whose HEAD cannot be peeled to a commit");
+                Ok(None)
+            }
+        }
     }
 
     /// List all usable linked worktrees with their archived state and resolved `HEAD`s.
@@ -61,8 +124,10 @@ impl Context {
     /// listings intersect with the worktrees on disk - so a worktree recreated under
     /// a previously archived name stays archived until explicitly unarchived.
     ///
-    /// Worktrees that are broken (pruned checkout, unresolvable `HEAD`) and worktrees
-    /// checked out on the workspace ref are never returned.
+    /// Worktrees whose checkout is gone from disk (prunable) are never returned.
+    /// Entries are identity only - whether a worktree has a usable `HEAD` (readable,
+    /// born, not the workspace ref) is resolved freshly by [`Self::worktree_head()`]
+    /// wherever a consumer actually needs it.
     ///
     /// Errors when the context repository is itself a linked worktree: such a context
     /// stores its database in the worktree's private git dir, so adoption and archived
@@ -115,8 +180,8 @@ impl Context {
         Ok(())
     }
 
-    /// List all non-archived linked worktrees with their resolved `HEAD`s; every
-    /// returned entry has `archived == false`.
+    /// List all non-archived linked worktrees; every returned entry has
+    /// `archived == false`.
     ///
     /// This is [`Self::worktrees_with_state()`] filtered down to active worktrees,
     /// including its adoption side-effect, flag gating, and linked-worktree error;
@@ -132,8 +197,11 @@ impl Context {
 
 /// Enumerate the linked worktrees of `repo`, returning the names of ALL of them
 /// (for adoption - a worktree that is unusable today must still be adopted today,
-/// not when it becomes usable) along with the usable entries. The `archived` state
-/// is not yet known and left `false`.
+/// not when it becomes usable) along with the entries whose checkout still exists
+/// on disk. The `archived` state is not yet known and left `false`.
+///
+/// This is purely filesystem-based and opens no worktree repositories - anything
+/// `HEAD`-derived is [`Context::worktree_head()`]'s concern.
 ///
 /// `repo` must be the main worktree, so none of the linked worktrees enumerated
 /// here can be the repository's own.
@@ -169,48 +237,10 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
                 continue;
             }
         }
-        let wt_repo = match proxy.into_repo_with_possibly_inaccessible_worktree() {
-            Ok(wt_repo) => wt_repo,
-            Err(err) => {
-                // Unlike the prunable states above, this is never expected.
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose repository cannot be opened");
-                continue;
-            }
-        };
-        let mut head = match wt_repo.head() {
-            Ok(head) => head,
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree with an unreadable HEAD");
-                continue;
-            }
-        };
-        let ref_name = head.referent_name().map(ToOwned::to_owned);
-        if ref_name
-            .as_ref()
-            .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
-        {
-            // The workspace ref is fully managed by GitButler already.
-            continue;
-        }
-        let commit = match head.peel_to_commit() {
-            Ok(commit) => commit,
-            Err(gix::head::peel::to_commit::Error::PeelToObject(
-                gix::head::peel::to_object::Error::Unborn { .. },
-            )) => {
-                // A worktree on an unborn branch has nothing to list yet.
-                continue;
-            }
-            Err(err) => {
-                tracing::warn!(%name, ?err, "Skipping linked worktree whose HEAD cannot be peeled to a commit");
-                continue;
-            }
-        };
         out.push(WorktreeEntry {
             archived: false,
             path,
             name,
-            ref_name,
-            head: commit.id,
         });
     }
     Ok((all_names, out))
