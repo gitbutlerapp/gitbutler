@@ -283,6 +283,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            db: self.db,
             checkout_conflict_occurred,
         })
     }

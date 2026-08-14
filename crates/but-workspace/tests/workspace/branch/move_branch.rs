@@ -52,7 +52,8 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -115,7 +116,8 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
 
     let mut ws = graph.into_workspace()?;
     let before = graph_workspace(&ws).to_string();
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let err = but_workspace::branch::move_branch(
         editor,
@@ -179,7 +181,8 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -270,7 +273,8 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -358,7 +362,8 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -450,7 +455,8 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -530,7 +536,8 @@ fn move_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -604,7 +611,8 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -680,7 +688,8 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -746,7 +755,8 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -825,7 +835,8 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     // Move non-empty C on top of non-empty A.
     // This rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -937,7 +948,8 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     // Move empty B on top of non-empty A.
     // This path rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
     } = but_workspace::branch::move_branch(
@@ -1028,7 +1040,8 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1115,7 +1128,8 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put empty B on top of non-empty A.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1197,7 +1211,8 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put non-empty A on top of empty B.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -1352,7 +1367,8 @@ mod single_branch_mode {
     ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
         let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, Options::limited())?
             .into_workspace()?;
-        let editor = Editor::create(&mut ws, meta, repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, meta, repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             ws_meta,
@@ -1484,7 +1500,8 @@ mod single_branch_mode {
         assert_eq!(ws.ref_name(), Some(main_ref));
 
         // Move empty `empty-bottom` on top of the checked-out `main`, which makes it the new tip.
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1519,7 +1536,8 @@ mod single_branch_mode {
         let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
             .into_workspace()?;
 
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1581,7 +1599,8 @@ mod single_branch_mode {
         );
 
         // Move `empty-bottom` on top of `empty-top` (both empty) - a pure metadata reorder.
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             ws_meta,
@@ -1861,7 +1880,8 @@ mod single_branch_mode {
 
         // `base` owns the stack's commits; moving the empty `empty-top` on top of it is still just a
         // metadata reorder and must succeed (previously rejected because the target owns commits).
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             new_tip,
@@ -1926,7 +1946,8 @@ mod single_branch_mode {
 "#]]
         );
 
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let err = match but_workspace::branch::move_branch(
             editor,
             r("refs/heads/x"),
@@ -1957,7 +1978,8 @@ mod single_branch_mode {
 
         let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
             .into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
             rebase,
             branch_stack_order,

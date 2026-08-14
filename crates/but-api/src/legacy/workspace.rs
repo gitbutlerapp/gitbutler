@@ -344,9 +344,10 @@ pub fn stash_into_branch(
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
     let outcome = {
+        let context_lines = ctx.settings.context_lines;
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -357,7 +358,7 @@ pub fn stash_into_branch(
             RelativeToRef::Reference(full_ref_name.as_ref()),
             InsertSide::Below,
             "Mo-Stashed changes",
-            ctx.settings.context_lines,
+            context_lines,
             but_workspace::commit::ChangeSource::Head,
         )?;
 

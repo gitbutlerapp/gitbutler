@@ -114,7 +114,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws, meta, repo, db)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,

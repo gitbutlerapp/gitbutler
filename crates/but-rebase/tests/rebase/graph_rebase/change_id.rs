@@ -37,7 +37,8 @@ fn temporary_change_id_persisted() -> Result<()> {
 
     // An operation to cause the parent we care about to be rebased
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace(target_parent, Step::None)?;
 
@@ -84,7 +85,8 @@ fn empty_commit_uses_default_change_id() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let ec = editor.empty_commit()?;
 

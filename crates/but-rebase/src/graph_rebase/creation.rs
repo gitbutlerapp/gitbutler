@@ -40,8 +40,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
         repo: &gix::Repository,
+        db: &'meta mut but_db::DbHandle,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, &GraphEditorOptions::default())
+        Self::create_with_opts(workspace, meta, repo, db, &GraphEditorOptions::default())
     }
 
     /// Creates an editor out of the workspace graph with the specified options.
@@ -49,6 +50,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
         repo: &gix::Repository,
+        db: &'meta mut but_db::DbHandle,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
         // This first creates runs of nodes and associates them with the
@@ -369,6 +371,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             history: RevisionHistory::new(),
             workspace,
             meta,
+            db,
         })
     }
 }
@@ -388,6 +391,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            db: self.db,
         }
     }
 }

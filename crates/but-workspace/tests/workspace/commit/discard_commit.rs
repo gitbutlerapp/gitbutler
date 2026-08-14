@@ -28,7 +28,8 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let three = repo.rev_parse_single("three")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
     outcome.materialize(Default::default())?;
@@ -116,7 +117,8 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [c.detach()])?;
 
     let outcome = outcome.materialize(Default::default())?;
@@ -201,7 +203,8 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [b.detach()])?;
 
     let outcome = outcome.materialize(Default::default())?;
@@ -269,7 +272,8 @@ fn can_discard_conflicted_commit() -> Result<()> {
     let conflicted = repo.rev_parse_single("conflicted")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
     outcome.materialize(Default::default())?;
@@ -306,7 +310,8 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let three = repo.rev_parse_single("three")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
 
@@ -378,7 +383,8 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let main = repo.rev_parse_single("main")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;
 

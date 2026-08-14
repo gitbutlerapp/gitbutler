@@ -211,9 +211,8 @@ impl WorkspaceState {
     pub(crate) fn from_rebase_preview_with_db<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
+        let prs_by_head = forge_prs_by_head(rebase.db())?;
         Self::from_rebase_preview(rebase, replaced_commits, &prs_by_head)
     }
 
@@ -271,9 +270,8 @@ impl WorkspaceState {
         rebase: SuccessfulRebase<'_, '_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,
-        db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
+        let prs_by_head = forge_prs_by_head(rebase.db())?;
         Self::from_successful_rebase(rebase, repo, dry_run, &prs_by_head)
     }
 }

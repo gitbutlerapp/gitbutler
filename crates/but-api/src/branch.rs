@@ -1752,11 +1752,12 @@ pub fn get_initial_branch_integration(
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let mut ws = ws.clone();
+    let mut db = ctx.db.get_cache_mut()?;
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo,
+        branch, strategy, &mut ws, &mut meta, &repo, &mut db,
     )
 }
 
@@ -1800,19 +1801,18 @@ pub fn apply_branch_integration_with_perm(
         dry_run,
         |ctx, perm| {
             let mut meta = ctx.meta()?;
-            let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
                 &mut ws,
                 &mut meta,
                 &repo,
+                &mut db,
             )?;
 
             Ok(IntegrateBranchResult {
-                workspace: WorkspaceState::from_successful_rebase_with_db(
-                    rebase, &repo, dry_run, &db,
-                )?,
+                workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run)?,
             })
         },
     )
@@ -1866,8 +1866,8 @@ pub fn move_branch_with_perm(
         dry_run,
         |ctx, perm| {
             let mut meta = ctx.meta()?;
-            let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase,
                 ws_meta,
@@ -1883,7 +1883,6 @@ pub fn move_branch_with_perm(
                     branch_stack_order.as_deref(),
                     &repo,
                     dry_run,
-                    &db,
                 )?,
             };
             Ok((result, new_tip))
@@ -1946,15 +1945,15 @@ pub fn tear_off_branch_with_perm(
         dry_run,
         |ctx, perm| {
             let mut meta = ctx.meta()?;
-            let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase, ws_meta, ..
             } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
-                    rebase, ws_meta, None, None, &repo, dry_run, &db,
+                    rebase, ws_meta, None, None, &repo, dry_run,
                 )?,
             })
         },
@@ -1995,7 +1994,6 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     branch_stack_order: Option<&[gix::refs::FullName]>,
     repo: &gix::Repository,
     dry_run: DryRun,
-    db: &but_db::DbHandle,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
         let entrypoint = new_tip
@@ -2007,7 +2005,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
             .into_workspace()?;
-        let (repo, meta) = rebase.repo_and_meta_mut();
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
             &workspace,
             meta,
@@ -2036,6 +2034,6 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),
-        db,
+        materialized.db,
     )
 }

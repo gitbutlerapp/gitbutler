@@ -30,6 +30,7 @@ sandbox-but-api = [
 [dependencies]
 but-graph.workspace = true
 but-core.workspace = true
+but-db.workspace = true
 but-settings = { workspace = true, optional = true }
 but-meta = { workspace = true, optional = true, features = ["legacy"] }
 but-ctx = { workspace = true, optional = true }

@@ -71,11 +71,13 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -158,11 +160,13 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -258,11 +262,13 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -335,11 +341,13 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -427,11 +435,13 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
@@ -494,11 +504,13 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(integrated_bottom_commit),
@@ -576,11 +588,13 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
             selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
@@ -657,11 +671,13 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -1365,11 +1381,13 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     )?;
 
     let mut workspace = graph.into_workspace()?;
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -1529,11 +1547,13 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -1619,11 +1639,13 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
     );
 
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
@@ -1669,11 +1691,13 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
@@ -1726,11 +1750,13 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
@@ -1785,11 +1811,13 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/topic")?),
@@ -1858,11 +1886,13 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -2094,11 +2124,13 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -2146,11 +2178,13 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     git(&repo).args(["add", "shared.txt"]).run();
     std::fs::write(tmp.path().join("shared.txt"), "base\n")?;
 
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -2675,11 +2709,13 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
 
     let topic_bottom_commit = repo.rev_parse_single("topic")?.object()?.id;
 
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(topic_bottom_commit),
@@ -2871,11 +2907,13 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     );
 
     let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(bottom_bottom_commit),
@@ -2953,11 +2991,13 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
         },
     )?;
     let mut workspace = graph.into_workspace()?;
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(bottom_tip),
@@ -3099,11 +3139,13 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
@@ -3184,11 +3226,13 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
 
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -3292,11 +3336,13 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -3486,6 +3532,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     );
 
     let current_project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         project_meta: updated_project_meta,
@@ -3495,6 +3542,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         &mut meta,
         current_project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^^")?.detach()),
@@ -3581,11 +3629,13 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
+    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
@@ -3624,11 +3674,19 @@ fn integrate_and_materialize<M: RefMetadata>(
     updates: Vec<BottomUpdate>,
 ) -> Result<ProjectMeta> {
     let current_project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
         project_meta,
-    } = integrate_upstream(workspace, meta, current_project_meta, repo, updates)?;
+    } = integrate_upstream(
+        workspace,
+        meta,
+        current_project_meta,
+        repo,
+        &mut db,
+        updates,
+    )?;
     let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
@@ -3659,6 +3717,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<ProjectMeta> {
     let current_project_meta = workspace.graph.project_meta.clone();
+    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
@@ -3668,6 +3727,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         meta,
         current_project_meta,
         repo,
+        &mut db,
         updates,
         review_hints,
     )?;

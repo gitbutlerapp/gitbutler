@@ -36,7 +36,8 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 
     let commit_id = repo.rev_parse_single("three")?.detach();
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     // Moving changes from a commit to itself should be a no-op
     let outcome =
@@ -104,7 +105,8 @@ aac5238
 
     // Move three.txt from commit three to commit two
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -192,7 +194,8 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
     // Move two.txt from commit two up to commit three
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         two_id,
@@ -278,7 +281,8 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
     // Move three.txt from commit three to commit one (skipping two)
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -372,7 +376,8 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
 
     // Try to move a file that doesn't exist in source commit
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let result = move_changes_between_commits(
         editor,
         three_id,

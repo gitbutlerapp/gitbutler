@@ -38,7 +38,8 @@ fn reword_a_commit() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -149,7 +150,8 @@ f766d1f
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;

@@ -124,9 +124,9 @@ pub fn commit_uncommit_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
     let before_assignments = if assign_to.is_some() {
+        let mut tx = db.transaction()?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             &repo,
@@ -139,7 +139,7 @@ pub fn commit_uncommit_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
     let mut rebase =
         but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
@@ -154,11 +154,17 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
         let replaced_commits = rebase.history.commit_mappings();
-        let (repo, meta) = rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        (
+            &mut graph.into_workspace()?,
+            replaced_commits,
+            repo,
+            meta,
+            db,
+        )
     } else {
         let materialized = rebase.materialize_without_checkout()?;
         (
@@ -166,10 +172,12 @@ pub fn commit_uncommit_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     };
 
     if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
+        let mut tx = db.transaction()?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             repo,
@@ -202,12 +210,12 @@ pub fn commit_uncommit_only_with_perm(
             to_assign,
             context_lines,
         )?;
-    }
 
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+        // The assignment writes only persist on a real run; on a dry run
+        // dropping the transaction rolls them back.
+        if dry_run == DryRun::No {
+            tx.commit()?;
+        }
     }
 
     Ok(UncommitResult {
@@ -217,7 +225,7 @@ pub fn commit_uncommit_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
     })
 }
@@ -272,9 +280,9 @@ pub fn commit_uncommit_changes_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
     let before_assignments = if assign_to.is_some() {
+        let mut tx = db.transaction()?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             &repo,
@@ -287,15 +295,21 @@ pub fn commit_uncommit_changes_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
-        let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
+        (
+            &mut graph.into_workspace()?,
+            replaced_commits,
+            repo,
+            meta,
+            db,
+        )
     } else {
         let materialized = outcome.rebase.materialize_without_checkout()?;
         (
@@ -303,10 +317,12 @@ pub fn commit_uncommit_changes_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+        let mut tx = db.transaction()?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             repo,
@@ -337,12 +353,12 @@ pub fn commit_uncommit_changes_only_with_perm(
             to_assign,
             context_lines,
         )?;
-    }
 
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+        // The assignment writes only persist on a real run; on a dry run
+        // dropping the transaction rolls them back.
+        if dry_run == DryRun::No {
+            tx.commit()?;
+        }
     }
 
     Ok(MoveChangesResult {
@@ -351,7 +367,7 @@ pub fn commit_uncommit_changes_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
     })
 }
@@ -460,9 +476,9 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut tx = db.transaction()?;
 
     let before_assignments = if assign_to.is_some() {
+        let mut tx = db.transaction()?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             &repo,
@@ -475,7 +491,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let workspace_sources = sources
         .into_iter()
         .map(|source| but_workspace::commit::UncommitChangesSource {
@@ -499,14 +515,20 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
+    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
             let graph = rebase.overlayed_graph()?;
             let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta) = rebase.repo_and_meta_mut();
-            (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+            (
+                &mut graph.into_workspace()?,
+                replaced_commits,
+                repo,
+                meta,
+                db,
+            )
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+            (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
         }
     } else if let Some(rebase) = rebase {
         let materialized = rebase.materialize_without_checkout()?;
@@ -515,12 +537,14 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             materialized.history.commit_mappings(),
             &*repo,
             materialized.meta,
+            materialized.db,
         )
     } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+        (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
     };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+        let mut tx = db.transaction()?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             repo,
@@ -551,12 +575,12 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             to_assign,
             context_lines,
         )?;
-    }
 
-    if dry_run == DryRun::No {
-        tx.commit()?;
-    } else {
-        drop(tx);
+        // The assignment writes only persist on a real run; on a dry run
+        // dropping the transaction rolls them back.
+        if dry_run == DryRun::No {
+            tx.commit()?;
+        }
     }
 
     Ok(UncommitChangesFromCommitsResult {
@@ -565,7 +589,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             meta,
             repo,
             replaced_commits,
-            &db,
+            db,
         )?,
         failures,
     })

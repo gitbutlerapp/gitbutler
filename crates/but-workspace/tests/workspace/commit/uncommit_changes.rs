@@ -138,7 +138,8 @@ e0495e9
 
     // Uncommit three.txt from commit three
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize(Default::default())?;
@@ -202,7 +203,8 @@ aac5238
 
     // Uncommit two.txt from commit two
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = uncommit_changes(editor, two_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize(Default::default())?;
@@ -280,7 +282,8 @@ fn uncommit_file_from_root_commit() -> Result<()> {
 
     // Uncommit one.txt from commit one (the root commit)
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = uncommit_changes(editor, one_id, vec![diff_spec_for_file("one.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize(Default::default())?;
@@ -322,7 +325,8 @@ fn error_when_changes_not_found() -> Result<()> {
 
     // Try to uncommit a file that doesn't exist in source commit
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let result = uncommit_changes(
         editor,
         three_id,
@@ -359,7 +363,8 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
 
     // Uncommit with empty changes should effectively be a no-op rebase
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = uncommit_changes(editor, three_id, Vec::<DiffSpec>::new(), 0)?;
 
     outcome.rebase.materialize(Default::default())?;
@@ -389,7 +394,8 @@ fn uncommit_changes_from_commits_groups_and_orders_sources() -> Result<()> {
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -460,7 +466,8 @@ fn uncommit_changes_from_commits_removes_multiple_changes_from_one_source() -> R
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // A single source carries several changes for the same commit.
     let outcome = uncommit_changes_from_commits(
         editor,
@@ -519,7 +526,8 @@ fn uncommit_changes_from_commits_groups_duplicate_commit_ids() -> Result<()> {
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Two separate sources point at the same commit and must be grouped so that
     // both changes are removed in a single tree replacement.
     let outcome = uncommit_changes_from_commits(
@@ -580,7 +588,8 @@ fn uncommit_changes_from_commits_reports_failures_and_materializes_successes() -
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -652,7 +661,8 @@ fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
     let three_before = repo.rev_parse_single("three")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -685,7 +695,8 @@ fn uncommit_changes_from_commits_can_uncommit_selected_lines() -> Result<()> {
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [source_with_hunks(
@@ -753,7 +764,8 @@ fn uncommit_changes_from_commits_merges_multiple_specs_for_same_file() -> Result
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Two separate sources target the same file in the same commit, one per hunk.
     // They must be merged into a single spec so both hunks are removed; without
     // merging, the tree rebuild would keep only the last spec's change.
@@ -819,7 +831,8 @@ fn uncommit_changes_from_commits_whole_file_spec_supersedes_hunk_specs() -> Resu
     let branch_id = repo.rev_parse_single("branch")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // A single source mixes a whole-file spec (empty hunks) with a hunk spec for
     // the same file. The whole-file spec must win, removing every change rather
     // than just the named hunk.
@@ -874,7 +887,8 @@ fn uncommit_changes_from_commits_handles_parallel_stacks() -> Result<()> {
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [source(stack_b_id, "b.txt"), source(stack_a_id, "a.txt")],
@@ -950,7 +964,8 @@ fn uncommit_changes_from_commits_handles_unordered_overwrites_of_same_file() -> 
     let graph_before = visualize_commit_graph_all(&repo)?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [

@@ -34,7 +34,8 @@ fn four_commits() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
@@ -104,7 +105,8 @@ fn four_commits_with_short_traversal() -> Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
@@ -163,7 +165,8 @@ fn merge_in_the_middle() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
@@ -232,7 +235,8 @@ fn three_branches_merged() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(

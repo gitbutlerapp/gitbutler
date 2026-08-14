@@ -43,7 +43,8 @@ fn handles_zero_nodes() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -81,7 +82,8 @@ fn handles_one_node() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -119,7 +121,8 @@ fn orders_linear_commits_parent_first_for_n_nodes() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let base = repo.rev_parse_single("HEAD~3")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -156,7 +159,8 @@ fn orders_disjoint_commits_by_editor_graph_traversal_1() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
     snapbox::assert_data_eq!(
@@ -208,7 +212,8 @@ fn orders_disjoint_commits_by_editor_graph_traversal_2() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
     snapbox::assert_data_eq!(
@@ -269,7 +274,8 @@ fn orders_disjoint_commits_by_editor_graph_traversal_3() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
     snapbox::assert_data_eq!(
@@ -345,7 +351,8 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -391,7 +398,8 @@ fn deduplicates_duplicate_selectors_by_commit_id() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("HEAD~2")?.detach();
     let b = repo.rev_parse_single("HEAD~1")?.detach();
@@ -426,7 +434,8 @@ fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() ->
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("HEAD~2")?.detach();
     let a_obj = repo.find_commit(a)?;
@@ -464,7 +473,8 @@ fn orders_commit_disconnected_from_checkout_roots_if_still_in_editor_graph() -> 
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~1")?.detach();
     let b_selector = editor.select_commit(b)?;
@@ -522,7 +532,8 @@ fn orders_all_commits_in_y_shaped_two_branch_fixture() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("HEAD")?.detach();
     let left = repo.rev_parse_single("left")?.detach();

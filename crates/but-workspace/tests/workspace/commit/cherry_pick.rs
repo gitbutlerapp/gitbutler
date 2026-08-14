@@ -27,7 +27,8 @@ fn insert_below_commit() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -71,7 +72,8 @@ fn insert_above_commit() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -113,7 +115,8 @@ fn insert_below_reference() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     but_workspace::commit::cherry_pick_commits(
         editor,
         [one],
@@ -161,7 +164,8 @@ fn sources_are_applied_in_the_order_given() -> anyhow::Result<()> {
         .raw()
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     let (rebase, _) = but_workspace::commit::cherry_pick_commits(
         editor,
         [b, c],
@@ -213,7 +217,8 @@ fn sources_are_deduped() -> anyhow::Result<()> {
         .raw()
     );
 
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
         [b, b],
@@ -254,7 +259,8 @@ fn copies_get_new_change_ids() -> anyhow::Result<()> {
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
@@ -281,7 +287,8 @@ fn copies_commit_contents() -> anyhow::Result<()> {
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
         editor,
@@ -322,7 +329,8 @@ fn rebased_children_keep_contents() -> anyhow::Result<()> {
     let mut workspace = graph.into_workspace()?;
     let source = repo.rev_parse_single("B")?.detach();
     let target = repo.rev_parse_single("A")?.detach();
-    let editor = Editor::create(&mut workspace, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
 
     but_workspace::commit::cherry_pick_commits(
         editor,

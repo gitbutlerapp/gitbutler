@@ -49,7 +49,8 @@ fn amend_commit_smoke_test() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = commit_amend(
         editor,
         two_id,
@@ -105,7 +106,8 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 
     let context_lines = 0;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(
         editor,
         save_1_id,
@@ -182,7 +184,8 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     let a_commit_id = repo.rev_parse_single("A")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -292,7 +295,8 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -348,7 +352,8 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let change = but_core::diff::worktree_changes(&wt_repo)?
             .changes
@@ -402,7 +407,8 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
             git_status_at_dir(repo.workdir().unwrap())?,
@@ -491,7 +497,8 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
         // The detached worktree's commit is in the graph, but no branch points at
@@ -519,7 +526,8 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -554,7 +562,8 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut db = but_testsupport::in_memory_db();
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
 

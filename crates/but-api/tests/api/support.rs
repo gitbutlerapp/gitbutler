@@ -174,5 +174,7 @@ pub fn fresh_graph_workspace(
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
     let mut ws = ws.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut ws, &mut meta, &repo).map(Into::into)
+    let mut db = ctx.db.get_cache_mut()?;
+    but_workspace::workspace::detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)
+        .map(Into::into)
 }

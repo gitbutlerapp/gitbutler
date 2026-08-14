@@ -50,7 +50,8 @@ fn detailed(
     };
     let graph = Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((repo, detailed))
 }
 
@@ -82,7 +83,8 @@ fn detailed_writable(
         },
     )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
 }
 
@@ -1160,7 +1162,8 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
         },
     )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
+    let mut db = but_testsupport::in_memory_db();
+    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),
         snapbox::str![[r#"
