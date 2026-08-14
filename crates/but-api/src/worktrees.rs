@@ -6,14 +6,42 @@
 //! Linked worktrees are identified by their stable *name*, i.e. the directory name
 //! under `$GIT_COMMON_DIR/worktrees/`, which survives `git worktree move`.
 
+use std::path::PathBuf;
+
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_ctx::worktrees::WorktreeEntry;
-use but_workspace::worktrees::{WorktreeListing, WorktreeSource, open_worktree_repo};
+use but_workspace::worktrees::open_worktree_repo;
 use gix::bstr::{BStr, BString, ByteSlice};
+use serde::Serialize;
 use tracing::instrument;
 
 use crate::commit::json::ChangesSource;
+
+/// A linked worktree as listed by [`worktrees_list()`].
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Worktree {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    #[serde(with = "but_serde::bstring_lossy")]
+    pub name: BString,
+    /// The worktree checkout directory.
+    #[serde(with = "but_serde::path_lossy")]
+    pub path: PathBuf,
+    /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
+    #[serde(with = "but_serde::fullname_lossy_opt")]
+    pub ref_name: Option<gix::refs::FullName>,
+}
+
+/// All listable linked worktrees, separated by archived state.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeListing {
+    /// Non-archived worktrees.
+    pub active: Vec<Worktree>,
+    /// Archived worktrees, hidden from the workspace but still on disk.
+    pub archived: Vec<Worktree>,
+}
 
 /// Fail unless the user opted into worktree manipulation.
 fn ensure_worktree_manipulation_enabled(ctx: &but_ctx::Context) -> Result<()> {
@@ -38,6 +66,10 @@ fn active_worktree(ctx: &but_ctx::Context, name: &str) -> Result<WorktreeEntry> 
         .with_context(|| format!("Worktree {name} does not exist"))?;
     if worktree.archived {
         bail!("Worktree {name} is archived");
+    }
+    if ctx.worktree_head(worktree.name.as_bstr())?.is_none() {
+        // Unborn, workspace-ref checkout, or broken - nothing to operate on.
+        bail!("Worktree {name} has no usable HEAD");
     }
     Ok(worktree)
 }
@@ -70,20 +102,30 @@ pub(crate) fn open_changes_source(
 pub fn worktrees_list(ctx: &mut but_ctx::Context) -> Result<WorktreeListing> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let _guard = ctx.shared_worktree_access();
+    let mut listing = WorktreeListing {
+        active: Vec::new(),
+        archived: Vec::new(),
+    };
     // This reconciles the archived state and must run before any database
     // handle is borrowed.
-    let sources = ctx
-        .worktrees_with_state()?
-        .into_iter()
-        .map(|worktree| WorktreeSource {
-            archived: worktree.archived,
-            path: worktree.path,
-            name: worktree.name,
-            ref_name: worktree.ref_name,
-            head: worktree.head,
-        })
-        .collect();
-    Ok(but_workspace::worktrees::list_worktrees(sources))
+    for entry in ctx.worktrees_with_state()? {
+        // A worktree with nothing to show yet (unborn, workspace-ref checkout,
+        // broken) stays adopted and archivable, but is not listed.
+        let Some(head) = ctx.worktree_head(entry.name.as_bstr())? else {
+            continue;
+        };
+        let worktree = Worktree {
+            name: entry.name,
+            path: entry.path,
+            ref_name: head.ref_name,
+        };
+        if entry.archived {
+            listing.archived.push(worktree);
+        } else {
+            listing.active.push(worktree);
+        }
+    }
+    Ok(listing)
 }
 
 /// Persist the archived state of the linked worktree named `name`.

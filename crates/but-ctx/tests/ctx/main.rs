@@ -415,16 +415,18 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
         ["wt-c"],
         "worktrees created after adoption are active by default"
     );
+    let head = ctx
+        .worktree_head("wt-c".into())?
+        .expect("an active worktree on a born branch resolves a head");
     assert_eq!(
-        active[0]
-            .ref_name
+        head.ref_name
             .as_ref()
             .map(|name| name.as_bstr().to_string()),
         Some("refs/heads/feat-c".into()),
-        "the checked-out branch is recorded for ref-first graph seeding"
+        "the checked-out branch is resolved for ref-first graph seeding"
     );
     assert_eq!(
-        active[0].head,
+        head.id,
         ctx.repo.get()?.rev_parse_single("feat-c")?.detach(),
         "the head is the worktree's own HEAD, which has advanced past the main one"
     );
@@ -559,14 +561,17 @@ fn worktree_adoption_with_zero_worktrees_is_persisted() -> anyhow::Result<()> {
          git worktree add --detach ../wt-detached",
         &*ctx.repo.get()?,
     );
-    let active = ctx.active_worktrees()?;
     assert_eq!(
-        active
-            .iter()
-            .map(|wt| (wt.name.to_string(), wt.ref_name.is_some()))
-            .collect::<Vec<_>>(),
-        [("wt-detached".into(), false), ("wt-new".into(), true)],
-        "a detached worktree is listed like any other, just without a ref name"
+        active_names(&ctx)?,
+        ["wt-detached", "wt-new"],
+        "worktrees created after adoption are active, detached ones included"
+    );
+    let detached = ctx
+        .worktree_head("wt-detached".into())?
+        .expect("a detached HEAD still resolves to its commit");
+    assert_eq!(
+        detached.ref_name, None,
+        "a detached worktree resolves without a ref name"
     );
     Ok(())
 }
@@ -611,7 +616,7 @@ fn pruned_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
 }
 
 #[test]
-fn unborn_head_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
+fn unborn_head_worktrees_enumerate_but_resolve_no_head() -> anyhow::Result<()> {
     let root = TempDir::new()?;
     gix::init(root.path().join("main"))?;
     let repo = open_repo(&root.path().join("main"))?;
@@ -627,17 +632,10 @@ fn unborn_head_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
-        "an unborn HEAD has no commit to list - the worktree is skipped, not an error"
+        "the unborn worktree was archived at adoption like any other"
     );
     {
         let mut db = ctx.db.get_cache_mut()?;
-        assert_eq!(
-            db.worktree_meta()
-                .get(b"wt-unborn")?
-                .map(|row| row.archived),
-            Some(true),
-            "the unborn worktree was still archived at adoption"
-        );
         db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
             name: b"wt-unborn".to_vec(),
             archived: false,
@@ -645,14 +643,18 @@ fn unborn_head_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
     }
     assert_eq!(
         active_names(&ctx)?,
-        Vec::<String>::new(),
-        "even unarchived, an unborn-HEAD worktree is not listed until its branch is born"
+        ["wt-unborn"],
+        "the worktree itself enumerates - its checkout exists on disk"
+    );
+    assert!(
+        ctx.worktree_head("wt-unborn".into())?.is_none(),
+        "but an unborn HEAD has no commit to resolve - consumers skip it, not an error"
     );
     Ok(())
 }
 
 #[test]
-fn workspace_ref_worktrees_are_adopted_but_never_returned() -> anyhow::Result<()> {
+fn workspace_ref_worktrees_enumerate_but_never_resolve_or_seed() -> anyhow::Result<()> {
     let root = TempDir::new()?;
     gix::init(root.path().join("main"))?;
     let repo = open_repo(&root.path().join("main"))?;
@@ -680,9 +682,18 @@ fn workspace_ref_worktrees_are_adopted_but_never_returned() -> anyhow::Result<()
     }
     assert_eq!(
         active_names(&ctx)?,
-        Vec::<String>::new(),
-        "even unarchived, a worktree on the workspace ref is never listed - \
+        ["wt-ws"],
+        "the worktree itself enumerates - its checkout exists on disk"
+    );
+    assert!(
+        ctx.worktree_head("wt-ws".into())?.is_none(),
+        "but a worktree on the workspace ref never resolves a head - \
          GitButler manages that ref itself"
+    );
+    assert_eq!(
+        ctx.graph_options(Default::default())?.worktree_tips.len(),
+        0,
+        "and so it is never seeded into graph traversal"
     );
     Ok(())
 }
