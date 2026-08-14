@@ -243,24 +243,36 @@ export const useOutlineTreeHotkeys = ({
 		const selectionIdx = navigationIndex.indexByKey.get(operandIdentityKey(source));
 		if (selectionIdx === undefined) return;
 
-		const nextItem = navigationIndex.items[selectionIdx + offset];
+		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
+			store.getState(),
+			projectId,
+		);
+		const subjectCommitIds =
+			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
+
+		let nextItemIndex = selectionIdx;
+		let nextItem: Operand | undefined;
+		do {
+			nextItemIndex += offset;
+			nextItem = navigationIndex.items[nextItemIndex];
+		} while (nextItem?._tag === "Commit" && subjectCommitIds.has(nextItem.commitId));
 		if (!nextItem) return;
 
-		const relativeTo = Match.value(nextItem).pipe(
-			Match.tags({
-				Commit: ({ commitId }): RelativeTo => ({ type: "commit", subject: commitId }),
-				Branch: ({ branchRef }): RelativeTo => ({
-					type: "referenceBytes",
-					subject: branchRef,
-				}),
-			}),
-			Match.orElse(() => null),
-		);
-		if (!relativeTo) return;
+		let relativeTo: RelativeTo;
+		switch (nextItem._tag) {
+			case "Commit":
+				relativeTo = { type: "commit", subject: nextItem.commitId };
+				break;
+			case "Branch":
+				relativeTo = { type: "referenceBytes", subject: nextItem.branchRef };
+				break;
+			default:
+				throw new Error("Only commits and branches are valid outline items");
+		}
 
 		commitMove({
 			projectId,
-			subjectCommitIds: [selection.commitId],
+			subjectCommitIds: Array.from(subjectCommitIds),
 			relativeTo,
 			side: offset === -1 ? "above" : "below",
 			dryRun: false,
@@ -332,10 +344,15 @@ export const useOutlineTreeHotkeys = ({
 	const uncommitSelectedCommit = () => {
 		if (!selection || selection._tag !== "Commit") return;
 
+		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
+			store.getState(),
+			projectId,
+		);
 		commitUncommit({
 			projectId,
 			assignTo: null,
-			subjectCommitIds: [selection.commitId],
+			subjectCommitIds:
+				checkedCommitIds.size > 0 ? Array.from(checkedCommitIds) : [selection.commitId],
 			dryRun: false,
 		});
 	};

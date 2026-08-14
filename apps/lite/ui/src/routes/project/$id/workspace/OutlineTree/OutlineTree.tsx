@@ -346,6 +346,7 @@ const UncommittedChanges: FC<{
 				viewportClassName={styles.uncommittedChangesTree}
 			>
 				<FilesTree
+					canUncommit={false}
 					selectionScope="uncommitted-files"
 					onFocus={() =>
 						dispatch(
