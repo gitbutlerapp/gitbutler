@@ -3,7 +3,6 @@
 use anyhow::{Context as _, Result, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
@@ -58,27 +57,26 @@ pub fn remerged_workspace_tree_v2(
         .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
         .collect::<Vec<_>>();
     let workspace_tree_id = if heads.is_empty() {
-        repo.find_real_tree(&repo.find_commit(target_base_oid)?, Default::default())?
+        but_core::Commit::try_from(repo.find_commit(target_base_oid)?)?
+            .tree_id_or_auto_resolution()?
             .detach()
     } else if heads.len() == 1 {
-        let commit = repo.find_commit(*heads.first().expect("Heads is length 1"))?;
-        let first_head = repo.find_real_tree(&commit, Default::default())?;
-        first_head.detach()
+        let commit = but_core::Commit::try_from(
+            repo.find_commit(*heads.first().expect("Heads is length 1"))?,
+        )?;
+        commit.tree_id_or_auto_resolution()?.detach()
     } else {
-        let base_tree_id = repo
-            .find_real_tree(
-                &repo.find_commit(repo.merge_base_octopus(heads.iter().copied())?)?,
-                Default::default(),
-            )?
-            .detach();
+        let base_tree_id = but_core::Commit::try_from(
+            repo.find_commit(repo.merge_base_octopus(heads.iter().copied())?)?,
+        )?
+        .tree_id_or_auto_resolution()?
+        .detach();
         let mut workspace_tree_id = base_tree_id;
 
         let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
         for head in &heads {
-            let stack_head = repo.find_commit(*head)?;
-            let branch_tree_id = repo
-                .find_real_tree(&stack_head, Default::default())?
-                .detach();
+            let stack_head = but_core::Commit::try_from(repo.find_commit(*head)?)?;
+            let branch_tree_id = stack_head.tree_id_or_auto_resolution()?.detach();
 
             let mut merge = repo.merge_trees(
                 base_tree_id,

@@ -200,7 +200,6 @@ gitbutler-reference = { path = "crates/gitbutler-reference" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
-gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 

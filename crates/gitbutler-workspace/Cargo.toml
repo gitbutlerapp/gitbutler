@@ -14,7 +14,6 @@ but-oxidize.workspace = true
 but-core.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
-gitbutler-cherry-pick.workspace = true
 
 anyhow.workspace = true
 gix.workspace = true
