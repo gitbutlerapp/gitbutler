@@ -105,30 +105,14 @@ impl Commit {
 
     /// A special constructor for very specific case.
     pub(crate) fn from_commit_ahead_of_workspace_commit(
-        commit: gix::objs::Commit,
+        commit: but_core::Commit<'_>,
         graph_commit: &but_graph::Commit,
     ) -> Self {
-        let hdr = but_core::commit::Headers::try_from_commit(&commit);
-        let has_conflicts = but_core::commit::is_conflicted(commit.message.as_ref(), hdr.as_ref());
-        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
         Commit {
             id: graph_commit.id,
-            parent_ids: commit.parents.into_iter().collect(),
-            tree_id: commit.tree,
-            message,
-            has_conflicts,
-            author: commit
-                .author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
-            committer: commit
-                .committer
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
             refs: graph_commit.refs.clone(),
             flags: graph_commit.flags.into(),
-            change_id: hdr.and_then(|hdr| hdr.change_id),
-            gerrit_review_url: None,
+            ..commit.into()
         }
     }
 }
@@ -510,7 +494,10 @@ pub(crate) fn find_ancestor_workspace_commit(
             }
             commits_outside.push(
                 crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
-                    commit.inner,
+                    but_core::Commit {
+                        id: commit.id,
+                        inner: commit.inner,
+                    },
                     graph_commit,
                 ),
             );

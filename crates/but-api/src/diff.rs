@@ -46,13 +46,13 @@ pub mod json {
         fn from(value: but_core::diff::CommitDetails) -> Self {
             let but_core::diff::CommitDetails {
                 commit,
+                has_conflicts,
                 diff_with_first_parent,
                 line_stats,
                 conflict_entries,
             } = value;
-
             CommitDetails {
-                commit: commit.into(),
+                commit: but_workspace::ui::Commit::from_commit_owned(commit, has_conflicts),
                 changes: diff_with_first_parent.into_iter().map(Into::into).collect(),
                 line_stats,
                 conflict_entries,

@@ -21,11 +21,7 @@ impl CommitExt for gix::Commit<'_> {
     }
 
     fn is_conflicted(&self) -> bool {
-        let Ok(commit) = self.decode() else {
-            return false;
-        };
-        let headers = Headers::try_from_commit_headers(|| commit.extra_headers());
-        but_core::commit::is_conflicted(commit.message, headers.as_ref())
+        but_core::Commit::try_from(self.clone()).is_ok_and(|commit| commit.is_conflicted())
     }
 }
 

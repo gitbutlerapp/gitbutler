@@ -4,10 +4,69 @@ use but_testsupport::gix_testtools;
 fn is_conflicted() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;
     let normal = but_core::Commit::from_id(repo.rev_parse_single("normal")?)?;
-    assert!(!normal.is_conflicted());
+    assert!(
+        !normal.is_conflicted(),
+        "an ordinary commit is not conflicted"
+    );
 
     let conflicted = but_core::Commit::from_id(repo.rev_parse_single("conflicted")?)?;
-    assert!(conflicted.is_conflicted());
+    assert!(
+        conflicted.is_conflicted(),
+        "a legacy synthetic conflict remains conflicted"
+    );
+
+    let marked_conflict = but_core::Commit::from_id(repo.rev_parse_single("marked-conflict")?)?;
+    assert!(
+        marked_conflict.is_conflicted(),
+        "a marked synthetic conflict remains conflicted"
+    );
+
+    let marked_ordinary = but_core::Commit::from_id(repo.rev_parse_single("marked-ordinary")?)?;
+    assert!(
+        !marked_ordinary.is_conflicted(),
+        "conflict metadata alone does not make an ordinary tree conflicted"
+    );
+    assert_eq!(
+        marked_ordinary.tree_id_or_auto_resolution()?.detach(),
+        marked_ordinary.tree,
+        "an ordinary tree is used even if the commit retained conflict metadata"
+    );
+    assert_eq!(
+        marked_ordinary.conflict_entries()?,
+        None,
+        "ordinary commits do not project conflict details"
+    );
+    assert_eq!(
+        but_core::diff::CommitDetails::from_commit_id(marked_ordinary.id, false)?.conflict_entries,
+        None,
+        "commit details do not project a stale conflict trailer as conflict state"
+    );
+
+    let partial = but_core::Commit::from_id(repo.rev_parse_single("partial-conflict")?)?;
+    assert!(
+        partial.is_conflicted(),
+        "a partial synthetic layout is still recognized as a conflict"
+    );
+    let error = partial
+        .tree_id_or_auto_resolution()
+        .expect_err("the auto-resolution tree is missing");
+    assert!(
+        error
+            .to_string()
+            .contains("Unexpected tree in conflicting commit"),
+        "a partial synthetic layout must report a malformed conflict: {error}"
+    );
+
+    let high_index_partial =
+        but_core::Commit::from_id(repo.rev_parse_single("high-index-partial-conflict")?)?;
+    assert!(
+        high_index_partial.is_conflicted(),
+        "a numbered synthetic entry is recognized without lower-numbered entries"
+    );
+    assert!(
+        high_index_partial.tree_id_or_auto_resolution().is_err(),
+        "a high-index-only partial layout remains an explicit error"
+    );
     Ok(())
 }
 

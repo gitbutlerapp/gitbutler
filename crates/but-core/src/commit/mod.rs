@@ -455,6 +455,11 @@ pub enum TreeKind {
     ConflictFiles,
 }
 
+/// Name prefixes of the numbered side/base entries in a synthetic conflict tree.
+/// Keep in sync with [`TreeKind::as_tree_entry_name()`].
+const CONFLICT_SIDE_PREFIX: &str = ".conflict-side-";
+const CONFLICT_BASE_PREFIX: &str = ".conflict-base-";
+
 impl TreeKind {
     /// Return then name of the entry this tree would take in the 'meta' tree that captures cherry-pick conflicts.
     pub fn as_tree_entry_name(&self) -> &'static str {
@@ -567,10 +572,32 @@ impl<'repo> Commit<'repo> {
 
     /// Return `true` if this commit contains a tree that is conflicted.
     ///
-    /// Checks the commit message for conflict markers first (new style),
-    /// then falls back to the `gitbutler-conflicted` header (legacy).
+    /// Conflict metadata is only authoritative when the tree contains at least
+    /// one synthetic conflict entry. This avoids treating copied conflict
+    /// trailers on otherwise ordinary commits as conflict state while keeping
+    /// partial synthetic layouts visible as malformed conflicts.
+    ///
+    /// When the tree cannot be read at all, the metadata is trusted as-is and
+    /// the commit reports as conflicted.
     pub fn is_conflicted(&self) -> bool {
-        is_conflicted(self.inner.message.as_ref(), self.headers().as_ref())
+        let has_conflict_metadata = message_is_conflicted(self.inner.message.as_ref())
+            || self
+                .headers()
+                .is_some_and(|headers| headers.is_conflicted());
+        if !has_conflict_metadata {
+            return false;
+        }
+
+        let Ok(tree) = self.id.repo.find_tree(self.inner.tree) else {
+            return true;
+        };
+        tree.iter().any(|entry| {
+            entry.map_or(true, |entry| {
+                let name = entry.filename();
+                name == TreeKind::AutoResolution.as_tree_entry_name().as_bytes()
+                    || name.starts_with(b".conflict-")
+            })
+        })
     }
 
     /// If the commit is conflicted, then it returns the auto-resolution tree,
@@ -631,7 +658,7 @@ impl<'repo> Commit<'repo> {
         let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
         let mut ids = Vec::new();
         let mut i = 0;
-        while let Some(entry) = tree.find_entry(format!(".conflict-base-{i}")) {
+        while let Some(entry) = tree.find_entry(format!("{CONFLICT_BASE_PREFIX}{i}")) {
             ids.push(entry.id().detach());
             i += 1;
         }
@@ -646,7 +673,7 @@ impl<'repo> Commit<'repo> {
         let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
         let mut ids = SmallVec::new();
         let mut i = 0;
-        while let Some(entry) = tree.find_entry(format!(".conflict-side-{i}")) {
+        while let Some(entry) = tree.find_entry(format!("{CONFLICT_SIDE_PREFIX}{i}")) {
             ids.push(entry.id().detach());
             i += 1;
         }
@@ -814,9 +841,9 @@ pub fn conflict_entries_from_merge_outcome(
 }
 
 mod conflict;
+use conflict::message_is_conflicted;
 pub use conflict::{
-    add_conflict_markers, is_conflicted, message_is_conflicted,
-    rewrite_conflict_markers_on_message_change, strip_conflict_markers,
+    add_conflict_markers, rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
 pub mod tree_expression;
 
@@ -845,10 +872,18 @@ pub fn write_conflicted_tree(
 
     let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
     for (i, tree_id) in tree_expression.base_tree_ids.iter().enumerate() {
-        tree.upsert(format!(".conflict-base-{i}"), EntryKind::Tree, *tree_id)?;
+        tree.upsert(
+            format!("{CONFLICT_BASE_PREFIX}{i}"),
+            EntryKind::Tree,
+            *tree_id,
+        )?;
     }
     for (i, tree_id) in tree_expression.side_tree_ids.iter().enumerate() {
-        tree.upsert(format!(".conflict-side-{i}"), EntryKind::Tree, *tree_id)?;
+        tree.upsert(
+            format!("{CONFLICT_SIDE_PREFIX}{i}"),
+            EntryKind::Tree,
+            *tree_id,
+        )?;
     }
     tree.upsert(
         TreeKind::AutoResolution.as_tree_entry_name(),
