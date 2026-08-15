@@ -1,0 +1,19 @@
+.error {
+	max-width: 500px;
+	margin: auto;
+	padding: 24px;
+}
+
+.errorTitle {
+	margin-block-end: 16px;
+	font-size: 15px;
+}
+
+.errorActions {
+	margin-block: 16px;
+}
+
+.errorMessage {
+	font-size: 13px;
+	word-break: break-word;
+}

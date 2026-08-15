@@ -1,6 +1,6 @@
-import { routeTree } from "#ui/routeTree.ts";
 import { createRouter } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
+import type { RouteTree } from "#ui/routeTree.ts";
 
 /* Every search param is a plain string (see cursor-url.ts), so the default
    JSON search serialization would only add quoting noise. Slashes and colons
@@ -17,13 +17,16 @@ const stringifySearch = (search: Record<string, unknown>): string => {
 const parseSearch = (searchStr: string): Record<string, unknown> =>
 	Object.fromEntries(new URLSearchParams(searchStr));
 
-const buildRouter = (queryClient: QueryClient) =>
+/* The tree is passed in, not imported: importing its value closes a cycle back
+   through use-cursor.ts, and workspace/route.tsx reads its page component at
+   module scope, so HMR re-entry throws on the half-built binding. */
+const buildRouter = (queryClient: QueryClient, routeTree: RouteTree) =>
 	createRouter({ routeTree, context: { queryClient }, parseSearch, stringifySearch });
 
 type AppRouter = ReturnType<typeof buildRouter>;
 
-export const createAppRouter = (queryClient: QueryClient): AppRouter => {
-	router = buildRouter(queryClient);
+export const createAppRouter = (queryClient: QueryClient, routeTree: RouteTree): AppRouter => {
+	router = buildRouter(queryClient, routeTree);
 	return router;
 };
 

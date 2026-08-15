@@ -6,3 +6,5 @@ import { Route as projectWorkspaceRoute } from "#ui/routes/project/$id/workspace
 const projectRouteTree = projectRoute.addChildren([projectWorkspaceRoute]);
 
 export const routeTree = rootRoute.addChildren([indexRoute, projectRouteTree]);
+
+export type RouteTree = typeof routeTree;
