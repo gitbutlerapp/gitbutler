@@ -74,26 +74,27 @@
 
 .stacksHeader {
 	flex-shrink: 0;
+	border-block-end: 1px solid var(--border-section);
 }
 
 .stacksScroller {
 	flex-grow: 1;
 }
 
-.stacksViewport {
-	padding-inline: var(--panel-padding-inline);
-
-	/* Stretch the scroll separator over the inline padding to full width. */
-	&::before {
-		margin-inline: calc(-1 * var(--panel-padding-inline));
-	}
-}
-
+/* The cards run the full width of the panel, so nothing insets them and the
+   scroll separator already spans it. */
 .stacks {
+	/* Flush cards: no rounding or lift to hold them off the panel edge, and no
+	   body inset — the rows inside reach the edges themselves, square. */
+	--stack-card-radius: 0;
+	--stack-card-shadow: none;
+	--stack-card-body-inset-inline: 0;
+	--row-radius: 0;
+
 	display: flex;
-	row-gap: 8px;
+	/* The panel's own background is all that separates one card from the next. */
+	row-gap: 10px;
 	flex-direction: column;
-	padding-top: 1px; /* hack to avoid drop shadow crop */
 	padding-bottom: var(--panel-padding-block);
 }
 

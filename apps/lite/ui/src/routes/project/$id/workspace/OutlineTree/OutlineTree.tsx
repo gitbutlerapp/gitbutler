@@ -948,11 +948,7 @@ export const OutlineTree: FC<
 							actions={stacksHeaderActions}
 						/>
 
-						<Scroller
-							withSeparator
-							className={styles.stacksScroller}
-							viewportClassName={styles.stacksViewport}
-						>
+						<Scroller className={styles.stacksScroller}>
 							<Stacks
 								projectId={projectId}
 								checkCommit={checkCommit}

@@ -8,10 +8,11 @@
 	display: flex;
 	column-gap: 8px;
 	min-height: var(--single-line-row-height);
-	/* Sections whose rows run edge to edge — the file lists — raise this and take
-	   the inset onto the row itself, so the row's background reaches the panel
-	   edge while its contents stay lined up. */
-	padding-inline: var(--row-padding-inline, 8px);
+	/* Sections whose rows run edge to edge take the inset onto the row itself, so
+	   the row's background reaches the panel edge while its contents stay lined
+	   up. The two ends are separate because a row that ends in a toolbar wants
+	   less trailing inset than leading. */
+	padding-inline: var(--row-padding-inline-start, 12px) var(--row-padding-inline-end, 8px);
 
 	&[inert] {
 		opacity: 0.5;
