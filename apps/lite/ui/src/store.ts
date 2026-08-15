@@ -10,6 +10,10 @@ export const store = configureStore({
 	},
 });
 
+/* Without this a hot update rebuilds the store under still-mounted components,
+   leaving two of them: measured 2 distinct stores, no reload. */
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
+
 type AppStore = typeof store;
 type RootState = ReturnType<AppStore["getState"]>;
 export type AppDispatch = AppStore["dispatch"];
