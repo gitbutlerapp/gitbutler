@@ -70,7 +70,7 @@ import { Outline } from "./Outline.tsx";
 import { getOperations } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
-import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
+import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import { useUpstreamOutline } from "./useUpstreamOutline.ts";
@@ -677,16 +677,20 @@ const WorkspacePage: FC = () => {
 						defaultSize={420}
 						groupResizeBehavior="preserve-pixel-size"
 					>
-						<Outline
-							projectId={projectId}
-							project={selectedProject}
-							branchesOutline={branchesOutline}
-							upstreamOutline={upstreamOutline}
-							navigationIndex={outlineNavigationIndex}
-							uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
-							absorptionTargetCommitIds={absorptionTargetCommitIds}
-							onActiveFileSelection={onActiveUncommittedFileSelection}
-						/>
+						{/* No reset key: the child is built inline, so its identity changes
+						    every render. Recovery here is the fallback's Retry button. */}
+						<ErrorBoundary>
+							<Outline
+								projectId={projectId}
+								project={selectedProject}
+								branchesOutline={branchesOutline}
+								upstreamOutline={upstreamOutline}
+								navigationIndex={outlineNavigationIndex}
+								uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
+								absorptionTargetCommitIds={absorptionTargetCommitIds}
+								onActiveFileSelection={onActiveUncommittedFileSelection}
+							/>
+						</ErrorBoundary>
 					</Panel>
 					<ResizeHandle />
 				</Activity>
@@ -696,7 +700,10 @@ const WorkspacePage: FC = () => {
 					className={styles.panel}
 					data-selection-scope={"details" satisfies SelectionScope}
 				>
-					{deferredDetails}
+					{/* Keyed on the deferred view itself, not on the URL: the deferred
+					    value still holds the old view for a beat after navigating, so a
+					    URL key would clear the error onto the element that just threw. */}
+					<ErrorBoundary resetKeys={[deferredDetails]}>{deferredDetails}</ErrorBoundary>
 				</Panel>
 			</Group>
 
@@ -744,9 +751,9 @@ export const Route: FC = () => {
 	return (
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
-				<WorkspacePageErrorBoundary onReset={reset}>
+				<ErrorBoundary onReset={reset}>
 					<WorkspacePage />
-				</WorkspacePageErrorBoundary>
+				</ErrorBoundary>
 			)}
 		</QueryErrorResetBoundary>
 	);
