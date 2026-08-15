@@ -197,7 +197,7 @@
 
 .labelContainer {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 10px;
 	flex-grow: 1;
 	align-items: center;
 	min-width: 0;

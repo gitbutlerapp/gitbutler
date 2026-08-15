@@ -10,7 +10,7 @@
 }
 
 .header {
-	--row-padding-inline-start: 12px;
+	--row-padding-inline-start: 14px;
 	/* The toolbar at this end brings its own inset. */
 	--row-padding-inline-end: 8px;
 

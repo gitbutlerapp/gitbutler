@@ -24,19 +24,23 @@
 	flex-grow: 1;
 }
 
+/* The cards run the full width of the panel, so nothing insets them. */
 .list {
 	display: flex;
-	row-gap: 14px;
 	flex-direction: column;
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block);
 }
 
 /* The tree holds only stack groups, so the heading and empty-state message
    above it stay out of the ARIA tree. */
 .tree {
+	/* Flush cards: no rounding to hold them off the panel edge, and no body
+	   inset — the rows inside reach the edges themselves, square. One card's
+	   floor divides it from the next, so they sit together without a gap. */
+	--stack-card-radius: 0;
+	--stack-card-body-inset-inline: 0;
+	--row-radius: 0;
+
 	display: flex;
-	row-gap: 8px;
 	flex-direction: column;
 
 	&:focus {
@@ -52,7 +56,11 @@
 	color: var(--text-2);
 }
 
+/* Stands alone above the list rather than in a card, so it carries the inset
+   the list gave up. */
 .msg {
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
 	color: var(--text-2);
 }
 
