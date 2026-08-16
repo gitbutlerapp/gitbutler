@@ -623,7 +623,6 @@ const StackC: FC<{
 			role="group"
 			aria-label="Stack"
 			header={<StackRow projectId={projectId} stack={stack} />}
-			bodyClassName={styles.segments}
 		>
 			{stack.segments.map((segment, index) => {
 				const downstackPushStatus = assert(downstackPushStatuses[index]);

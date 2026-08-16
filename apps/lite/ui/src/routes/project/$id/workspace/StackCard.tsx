@@ -8,27 +8,22 @@ import styles from "./StackCard.module.css";
 
 /**
  * The card a stack is drawn in, shared by the workspace outline and the
- * branches tab: a rounded, shadowed container holding an optional full-bleed
- * header above an inset body.
+ * branches tab: a full-width container holding an optional header above a
+ * body.
  *
  * The card itself is the ARIA group the tree items live in: callers pass its
  * role and label as props and render only the items as children. The body is a
  * plain layout wrapper, so that the group is not nested inside itself.
  */
-export const StackCard: FC<
-	{
-		header?: ReactNode;
-		/**
-		 * Applied to the inset body wrapping `children`, in the same spirit as
-		 * `Scroller`'s `viewportClassName`.
-		 */
-		bodyClassName?: string;
-	} & ComponentProps<"div">
-> = ({ header, bodyClassName, children, ...props }) => (
+export const StackCard: FC<{ header?: ReactNode } & ComponentProps<"div">> = ({
+	header,
+	children,
+	...props
+}) => (
 	<div {...props} className={classes(props.className, styles.card)}>
 		{header}
 
-		<div className={classes(bodyClassName, styles.body)}>{children}</div>
+		<div className={styles.body}>{children}</div>
 	</div>
 );
 

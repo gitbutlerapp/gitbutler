@@ -84,22 +84,9 @@
 /* The cards run the full width of the panel, so nothing insets them and the
    scroll separator already spans it. */
 .stacks {
-	/* Flush cards: no rounding or lift to hold them off the panel edge, and no
-	   body inset — the rows inside reach the edges themselves, square. */
-	--stack-card-radius: 0;
-	--stack-card-shadow: none;
-	--stack-card-body-inset-inline: 0;
-	--row-radius: 0;
-
 	display: flex;
 	/* The panel's own background is all that separates one card from the next. */
 	row-gap: 10px;
 	flex-direction: column;
 	padding-bottom: var(--panel-padding-block);
-}
-
-/* The last segment's connector row is clipped to a stub below, which already
-   supplies the card's floor. */
-.segments {
-	--stack-card-body-inset-block-end: 0;
 }

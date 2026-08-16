@@ -1,4 +1,9 @@
 .container {
+	/* Blocks that stand in for a row — the rail tails, the expander, the update
+	   block, the messages — line up with the rows around them, so they take the
+	   row's own leading inset rather than restating it. */
+	--upstream-row-inset: var(--row-padding-inline-start, 12px);
+
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
@@ -68,7 +73,7 @@
 	display: flex;
 	height: 14px;
 	margin-block-end: -6px;
-	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-inline: var(--upstream-row-inset);
 	overflow: hidden;
 }
 
@@ -79,7 +84,7 @@
 }
 
 .message {
-	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-inline: var(--upstream-row-inset);
 	padding-block: 2px;
 	color: var(--text-2);
 }
@@ -110,7 +115,7 @@
 .expanderRow {
 	display: flex;
 	column-gap: 8px;
-	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-inline: var(--upstream-row-inset);
 }
 
 /* Stacks the glyph over a stub of rail. That stub is the only way to add space
@@ -125,7 +130,7 @@
    above its toggle. Aligned like a row so its rail lands on the same line. */
 .runTail {
 	display: flex;
-	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-inline: var(--upstream-row-inset);
 }
 
 /* Reversing the column puts the plain stretch band above the glyph, where it
@@ -159,7 +164,7 @@
 .updateBlock {
 	display: flex;
 	column-gap: 8px;
-	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-inline: var(--upstream-row-inset);
 }
 
 .updateBlockBody {

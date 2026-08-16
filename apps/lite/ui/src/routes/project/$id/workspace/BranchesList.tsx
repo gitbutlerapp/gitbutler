@@ -432,7 +432,6 @@ export const BranchesList: FC<
 							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
 							role="group"
 							aria-label="Stack"
-							bodyClassName={styles.stackBody}
 						>
 							{stack.branches.map((branch, index) => (
 								<Fragment key={branch.refName.full}>
