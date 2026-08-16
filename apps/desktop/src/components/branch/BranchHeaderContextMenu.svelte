@@ -205,6 +205,7 @@
 					label="Open in browser"
 					icon="open-in-browser"
 					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
+					disabled={!branchUrl}
 					onclick={() => {
 						if (branchUrl) urlService.openExternalUrl(branchUrl);
 						close();
