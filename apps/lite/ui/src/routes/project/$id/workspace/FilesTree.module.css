@@ -1,4 +1,10 @@
 .tree {
+	/* File rows run the full width of their panel: the hover and selection fills
+	   reach both edges, and the inset that used to sit on the panel is carried by
+	   the rows instead. */
+	--row-padding-inline-start: 14px;
+	--row-padding-inline-end: 14px;
+
 	display: flex;
 	flex-direction: column;
 

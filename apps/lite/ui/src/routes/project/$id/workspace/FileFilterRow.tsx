@@ -24,7 +24,7 @@ export const FileFilterRow: FC<{
 }> = ({ filter, inputId, onFilterChange, onClose, onEnterList }) => (
 	<Row
 		interactive={false}
-		className={classes(rowStyles.sectionHeader, rowStyles.sectionHeaderFlush, styles.filterRow)}
+		className={classes(rowStyles.sectionHeader, styles.filterRow)}
 		onKeyDown={(event) => {
 			// Escape closes the filter rather than reaching the outline's cancel
 			// shortcut, which has nothing to cancel while the input holds focus.

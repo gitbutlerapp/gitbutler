@@ -548,44 +548,47 @@ export const BranchRow: FC<
 								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
 
 								return (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-label={pushButtonLabel}
-											onClick={pushBranch}
-											className={getRowButtonClassName({ variant: "outline" })}
-											// We pass `disabled` here because we want to disable the button, not
-											// the tooltip. Other props should be passed above.
-											render={
-												<Button
-													focusableWhenDisabled
-													disabled={workspaceBranchAndAncestorsPushDisabled}
-												/>
-											}
-										>
-											Push
-											{isWorkspaceBranchAndAncestorsPushPending ? (
-												<Icon name="spinner" />
-											) : pushesMultipleBranches ? (
-												<Icon size={12} name="arrow-double-up" />
-											) : (
-												<Icon size={12} name="arrow-up" />
-											)}
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup
-													render={
-														<TooltipPopup
-															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-															kbdScope="outline"
-														/>
-													}
-												>
-													{pushButtonLabel}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
+									<>
+										<RowMetaSeparator />
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												aria-label={pushButtonLabel}
+												onClick={pushBranch}
+												className={getRowButtonClassName({ variant: "outline" })}
+												// We pass `disabled` here because we want to disable the button, not
+												// the tooltip. Other props should be passed above.
+												render={
+													<Button
+														focusableWhenDisabled
+														disabled={workspaceBranchAndAncestorsPushDisabled}
+													/>
+												}
+											>
+												Push
+												{isWorkspaceBranchAndAncestorsPushPending ? (
+													<Icon name="spinner" />
+												) : pushesMultipleBranches ? (
+													<Icon size={12} name="arrow-double-up" />
+												) : (
+													<Icon size={12} name="arrow-up" />
+												)}
+											</Tooltip.Trigger>
+											<Tooltip.Portal>
+												<Tooltip.Positioner sideOffset={4}>
+													<Tooltip.Popup
+														render={
+															<TooltipPopup
+																kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+																kbdScope="outline"
+															/>
+														}
+													>
+														{pushButtonLabel}
+													</Tooltip.Popup>
+												</Tooltip.Positioner>
+											</Tooltip.Portal>
+										</Tooltip.Root>
+									</>
 								);
 							})()}
 					</RowMeta>

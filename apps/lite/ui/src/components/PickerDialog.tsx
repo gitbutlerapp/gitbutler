@@ -4,7 +4,8 @@
 
 import { Autocomplete, Dialog } from "@base-ui/react";
 import { type ReactNode, useRef } from "react";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import { classes } from "#ui/components/classes.ts";
+import uiStyles from "#ui/components/ui.module.css";
 import styles from "./PickerDialog.module.css";
 
 /** @public */
@@ -66,7 +67,7 @@ export const PickerDialog = <Item,>({
 							/>
 							<Dialog.Close className={styles.visuallyHiddenClose}>{closeLabel}</Dialog.Close>
 
-							<Scroller className={styles.listArea} viewportClassName={styles.listViewport}>
+							<div className={classes(uiStyles.scroller, styles.listArea)}>
 								<div className={styles.listContent}>
 									<Autocomplete.Status>
 										{statusLabel !== undefined ? (
@@ -111,7 +112,7 @@ export const PickerDialog = <Item,>({
 										)}
 									</Autocomplete.List>
 								</div>
-							</Scroller>
+							</div>
 
 							<div className={styles.footer}>
 								<div className={styles.footerLeft}>

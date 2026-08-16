@@ -1,4 +1,9 @@
 .popup {
+	/* A popup's scroller spans the whole popup, so the gutter takes the popup's
+	   own background and there is no content beside it to divide from. */
+	--scrollbar-track-bg: var(--bg-1);
+	--scrollbar-track-border: transparent;
+
 	border-radius: 8px;
 	outline: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
 	background-color: var(--bg-1);
@@ -16,112 +21,18 @@
 	transform: translate(-50%, -50%);
 }
 
-/* Utility class for scroll containers: replaces the default scrollbar with a
-   slim custom-styled native one. Being native, it doesn't interfere with
-   drag-and-drop or other pointer interactions.
-
-   The scrollbar reserves --overlay-scrollbar-size of space at the end edge.
-   To make it look like an overlay scrollbar, subtract that amount from the
-   container's end padding, e.g.:
-   padding-right: calc(var(--panel-padding-inline) - var(--overlay-scrollbar-size)); */
-.overlayScrollbar {
-	--overlay-scrollbar-size: 10px;
-
-	scrollbar-gutter: stable;
-
-	&::-webkit-scrollbar {
-		width: var(--overlay-scrollbar-size);
-		height: var(--overlay-scrollbar-size);
-		background-color: transparent;
-	}
-
-	&::-webkit-scrollbar-thumb {
-		/* Inset the thumb from the edges via a transparent border, using
-		   background-clip so the border doesn't get painted. */
-		border: 3px solid transparent;
-		border-radius: 5px;
-		background-clip: padding-box;
-		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
-
-		&:hover {
-			background-color: color-mix(in srgb, var(--text-1) 40%, transparent);
-		}
-	}
-
-	&::-webkit-scrollbar-corner {
-		background-color: transparent;
-	}
-}
-
-/* Scrollbar/thumb styles for Base UI's ScrollArea (see Scroller.tsx). Unlike
-   .overlayScrollbar, the scrollbar is a true overlay: it doesn't reserve
-   gutter space, so sticky separators and content can span the full viewport
-   width. */
-.scrollAreaRoot {
-	display: flex;
-	position: relative;
+/* Utility class for a pane's scroll container: it scrolls within the flex
+   layout that holds it rather than growing it, and keeps its scrolling to
+   itself. The scrollbar it shows is the app's, styled globally. */
+.scroller {
 	min-height: 0;
-}
-
-.scrollAreaViewport {
-	flex: 1 1 auto;
-	min-width: 0;
+	overflow: auto;
 	overscroll-behavior: contain;
 }
 
-.scrollAreaScrollbar {
-	display: flex;
-	z-index: 1;
-	position: absolute;
-	inset-block: 0;
-	right: 0;
-	width: 10px;
-	padding-block: 3px;
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 120ms ease;
-
-	&[data-hovering],
-	&[data-scrolling] {
-		opacity: 1;
-		pointer-events: auto;
-	}
-}
-
-.scrollAreaThumb {
-	display: flex;
-	justify-content: center;
-	width: 100%;
-
-	/* The visible pill is painted on a pseudo-element so its border radius
-	   applies to the actual painted box, keeping the end caps circular as the
-	   thumb widens on hover. */
-	&::before {
-		display: block;
-		width: 4px;
-		height: 100%;
-		border-radius: 10px;
-		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
-		content: "";
-		transition:
-			width 120ms ease,
-			background-color 120ms ease;
-	}
-
-	/* Widen while scrolling or hovering; darken only on hover. */
-	.scrollAreaScrollbar:hover &::before,
-	.scrollAreaScrollbar[data-scrolling] &::before {
-		width: 6px;
-	}
-
-	.scrollAreaScrollbar:hover &::before {
-		background-color: color-mix(in srgb, var(--text-1) 40%, transparent);
-	}
-}
-
+/* Shows a separator line at a scroller's top edge while it is scrolled down. */
 .scrollerWithSeparator {
 	container-type: scroll-state;
-	overflow: auto;
 
 	&:before {
 		display: block;

@@ -36,7 +36,7 @@ import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/nav
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import uiStyles from "#ui/components/ui.module.css";
 import type {
 	BranchReference,
 	Segment,
@@ -336,10 +336,12 @@ const UncommittedChanges: FC<{
 				<FileFilterRow {...fileFilter.rowProps} />
 			)}
 
-			<Scroller
-				withSeparator
-				className={styles.uncommittedChangesTreeArea}
-				viewportClassName={styles.uncommittedChangesTree}
+			<div
+				className={classes(
+					uiStyles.scroller,
+					uiStyles.scrollerWithSeparator,
+					styles.uncommittedChangesTree,
+				)}
 			>
 				<FilesTree
 					canUncommit={false}
@@ -368,7 +370,7 @@ const UncommittedChanges: FC<{
 					)}
 					selection={fileSelection}
 				/>
-			</Scroller>
+			</div>
 
 			<CommitForm
 				projectId={projectId}
@@ -551,6 +553,62 @@ const SegmentContent: FC<{
 	);
 };
 
+/**
+ * The rail between one segment and the next, carrying the line down past the
+ * segment's last row — and, after the final segment, standing in as the card's
+ * floor.
+ *
+ * It dims with the rows it joins, so it has to ask about the same operand the
+ * row above it stands for: the last commit while the segment is unfolded, and
+ * the branch itself once it is folded, because folding takes the commits out of
+ * the navigation index (see `buildOutlineNavigationIndex`). Asking after a
+ * folded commit would always miss, dimming the connector to half the weight of
+ * the rail on either side of it and breaking the line between branches.
+ */
+const SegmentRailConnector: FC<{
+	projectId: string;
+	segment: Segment;
+}> = ({ projectId, segment }) => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+
+	// A plain boolean, so this re-renders only when this segment's own fold
+	// state changes rather than on every fold anywhere.
+	const isFolded = useAppSelector(
+		(state) =>
+			segment.refName !== null &&
+			projectSlice.selectors.selectSegmentFolded(
+				state,
+				projectId,
+				decodeBytes(segment.refName.fullNameBytes),
+			),
+	);
+
+	const lastCommit = segment.commits.at(-1);
+	const standsFor =
+		lastCommit === undefined || isFolded
+			? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
+			: commitOperand({ commitId: lastCommit.id, changeId: lastCommit.changeId });
+
+	return (
+		<Row
+			interactive={false}
+			className={stackCardStyles.railConnector}
+			inert={!navigationIndexIncludes(navigationIndex, standsFor, operandIdentityKey)}
+		>
+			<GraphSegment
+				glyph="parent"
+				status={
+					lastCommit === undefined
+						? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
+						: commitIsDiverged(lastCommit)
+							? "Diverged"
+							: lastCommit.state.type
+				}
+			/>
+		</Row>
+	);
+};
+
 const StackC: FC<{
 	projectId: string;
 	stack: Stack;
@@ -560,7 +618,6 @@ const StackC: FC<{
 }> = ({ projectId, stack, checkCommit, onAmendCommit, canAmendCommit }) => {
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
-	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
 		<StackCard
@@ -568,7 +625,6 @@ const StackC: FC<{
 			role="group"
 			aria-label="Stack"
 			header={<StackRow projectId={projectId} stack={stack} />}
-			bodyClassName={styles.segments}
 		>
 			{stack.segments.map((segment, index) => {
 				const downstackPushStatus = assert(downstackPushStatuses[index]);
@@ -605,33 +661,7 @@ const StackC: FC<{
 								/>
 							)}
 						</div>
-						<Row
-							interactive={false}
-							className={stackCardStyles.railConnector}
-							inert={
-								!navigationIndexIncludes(
-									navigationIndex,
-									segment.commits.length === 0
-										? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-										: commitOperand({
-												commitId: assert(segment.commits.at(-1)).id,
-												changeId: assert(segment.commits.at(-1)).changeId,
-											}),
-									operandIdentityKey,
-								)
-							}
-						>
-							<GraphSegment
-								glyph="parent"
-								status={
-									segment.commits.length === 0
-										? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
-										: commitIsDiverged(assert(segment.commits.at(-1)))
-											? "Diverged"
-											: assert(segment.commits.at(-1)).state.type
-								}
-							/>
-						</Row>
+						<SegmentRailConnector projectId={projectId} segment={segment} />
 					</Fragment>
 				);
 			})}
@@ -919,11 +949,7 @@ export const OutlineTree: FC<
 							actions={stacksHeaderActions}
 						/>
 
-						<Scroller
-							withSeparator
-							className={styles.stacksScroller}
-							viewportClassName={styles.stacksViewport}
-						>
+						<div className={classes(uiStyles.scroller, styles.stacksScroller)}>
 							<Stacks
 								projectId={projectId}
 								checkCommit={checkCommit}
@@ -931,7 +957,7 @@ export const OutlineTree: FC<
 								canAmendCommit={canAmendCommit}
 								onEdgeSpill={spillIntoUncommittedChanges}
 							/>
-						</Scroller>
+						</div>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>

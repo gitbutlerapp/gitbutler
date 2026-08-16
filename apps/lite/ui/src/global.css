@@ -18,10 +18,66 @@
 	--transition-fast: 0.08s ease;
 	--panel-padding-block: 12px;
 	--panel-padding-inline: 12px;
+
+	/* The scrollbar gutter carries the panel background by default. Surfaces
+	   that sit on another background (popups) restate these on themselves. */
+	--scrollbar-track-bg: var(--bg-2);
+	--scrollbar-track-border: var(--border-section);
 }
 
 body {
 	user-select: none;
+}
+
+/* The app's scrollbar, on every scroller: a gutter carrying the panel
+   background, divided from the content by a hairline, with a square thumb
+   spanning it. Being native, it doesn't interfere with drag-and-drop or other
+   pointer interactions, and the gutter is only taken while the content
+   overflows — content that fits still spans its container's full width. */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background-color: var(--scrollbar-track-bg);
+}
+
+/* Divides the gutter from the content it scrolls. */
+::-webkit-scrollbar-track:vertical {
+	border-left: 1px solid var(--scrollbar-track-border);
+}
+
+::-webkit-scrollbar-track:horizontal {
+	border-top: 1px solid var(--scrollbar-track-border);
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: color-mix(in srgb, var(--text-1) 12%, transparent);
+}
+
+/* A transparent border keeps the track's divider visible alongside the thumb,
+   using background-clip so the border doesn't get painted. */
+::-webkit-scrollbar-thumb:vertical {
+	border-left: 1px solid transparent;
+	background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:horizontal {
+	border-top: 1px solid transparent;
+	background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: color-mix(in srgb, var(--text-1) 20%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+	background-color: color-mix(in srgb, var(--text-1) 28%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+	background-color: var(--scrollbar-track-bg);
 }
 
 button {

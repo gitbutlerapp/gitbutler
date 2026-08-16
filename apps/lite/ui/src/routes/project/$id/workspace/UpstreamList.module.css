@@ -1,20 +1,21 @@
 .container {
+	/* Blocks that stand in for a row — the rail tails, the expander, the update
+	   block, the messages — line up with the rows around them, so they take the
+	   row's own leading inset rather than restating it. */
+	--upstream-row-inset: var(--row-padding-inline-start, 12px);
+
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
 	background-color: var(--bg-2);
 }
 
-.listArea {
-	flex-grow: 1;
-}
-
+/* The card runs the full width of the panel, so nothing insets it. */
 .list {
 	display: flex;
 	row-gap: 8px;
+	flex-grow: 1;
 	flex-direction: column;
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block);
 }
 
 /* The heading names the tree for screen readers; the target's own row heads
@@ -39,12 +40,14 @@
 	   `.railStub`. */
 	--expander-glyph-air: 4px;
 
+	/* The rows inside carry their own inline inset, so the card only holds them
+	   off its floor and ceiling. Flush with the panel: no rounding, and a
+	   hairline floor in place of the lift a boxed card would have. */
 	display: flex;
 	flex-direction: column;
-	padding: 6px;
-	border-radius: var(--radius-card);
+	padding-block: 6px;
+	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-1);
-	box-shadow: var(--shadow-card);
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
@@ -56,7 +59,6 @@
    than of the rows inset within it. The rail tail above supplies its own gap,
    so the divider only insets below. */
 .divider {
-	margin-inline: -6px;
 	margin-block: 0 6px;
 	border-block-start: 1px dashed var(--border-3);
 }
@@ -68,7 +70,7 @@
 	display: flex;
 	height: 14px;
 	margin-block-end: -6px;
-	padding-inline: 8px;
+	padding-inline: var(--upstream-row-inset);
 	overflow: hidden;
 }
 
@@ -79,7 +81,7 @@
 }
 
 .message {
-	padding-inline: 8px;
+	padding-inline: var(--upstream-row-inset);
 	padding-block: 2px;
 	color: var(--text-2);
 }
@@ -110,7 +112,7 @@
 .expanderRow {
 	display: flex;
 	column-gap: 8px;
-	padding-inline: 8px;
+	padding-inline: var(--upstream-row-inset);
 }
 
 /* Stacks the glyph over a stub of rail. That stub is the only way to add space
@@ -125,7 +127,7 @@
    above its toggle. Aligned like a row so its rail lands on the same line. */
 .runTail {
 	display: flex;
-	padding-inline: 8px;
+	padding-inline: var(--upstream-row-inset);
 }
 
 /* Reversing the column puts the plain stretch band above the glyph, where it
@@ -159,7 +161,7 @@
 .updateBlock {
 	display: flex;
 	column-gap: 8px;
-	padding-inline: 8px;
+	padding-inline: var(--upstream-row-inset);
 }
 
 .updateBlockBody {
