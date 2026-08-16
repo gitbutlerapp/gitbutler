@@ -1,0 +1,84 @@
+name: Lite UI Screenshots
+
+# Reminds a pull request that touches Lite's UI to attach before/after
+# screenshots, and does nothing else.
+#
+# Capturing them in CI was tried and abandoned: under the bare X server on the
+# Linux runners this Electron build paints a frame on load and not reliably
+# afterwards, so three of eight surfaces hung indefinitely regardless of whether
+# the capture went through Playwright or the DevTools protocol directly. The
+# same spec passes on a developer machine, so capture lives there — see the
+# `lite-screenshots` skill.
+#
+# This job renders nothing, so it cannot fail that way.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      css: ${{ steps.filter.outputs.css }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          filters: |
+            css:
+              - 'apps/lite/ui/**/*.css'
+
+  remind:
+    needs: changes
+    # The paths filter is not redundant with the label. pr-labeler applies
+    # `screenshots` using GITHUB_TOKEN, and GitHub does not start workflow runs
+    # from token-generated events — so an auto-applied label fires nothing. Only
+    # a human applying it does. The filter is what makes this run on its own.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(github.event.pull_request.labels.*.name, 'screenshots') ||
+       needs.changes.outputs.css == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # One comment, posted once. Nothing here edits or re-posts on later pushes:
+      # a reminder that repeats is a reminder people mute.
+      - name: Ask for screenshots
+        run: |
+          marker="<!-- lite-screenshots-reminder -->"
+          existing="$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+            --jq "map(select(.body | startswith(\"${marker}\"))) | first | .id // empty")"
+          if [ -n "$existing" ]; then
+            echo "Already asked."
+            exit 0
+          fi
+          cat > /tmp/comment.md <<EOF
+          ${marker}
+          This pull request changes Lite's UI. Before/after screenshots make it
+          reviewable without checking the branch out.
+
+          To attach them, ask your agent for the \`lite-screenshots\` skill — it
+          captures both sides against seeded fixtures, publishes the surfaces that
+          changed, and posts them here.
+
+          Remove the \`screenshots\` label if this change is not visual.
+          EOF
+          gh api -X POST "repos/${REPO}/issues/${PR}/comments" \
+            --input <(jq -Rs '{body: .}' /tmp/comment.md) --silent
+          echo "Asked for screenshots on #${PR}."
