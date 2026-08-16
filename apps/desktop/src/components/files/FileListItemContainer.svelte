@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
+	import { highlightDependencyCommitRows } from "$lib/dependencies/dependencyHighlights";
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { FileChangeDropData } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
@@ -17,6 +18,7 @@
 	import { FileListItem, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { type FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
+	import { onDestroy } from "svelte";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { HunkLockTarget } from "@gitbutler/but-sdk";
 	import type { TreeChange } from "@gitbutler/but-sdk";
@@ -76,6 +78,7 @@
 
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
+	let clearLockHighlight: (() => void) | undefined;
 
 	const previousTooltipText = $derived(
 		change.status.type === "Rename" && change.status.subject.previousPath
@@ -129,20 +132,15 @@
 	});
 
 	function handleLockHover() {
-		lockedCommitIds.forEach((commitId) => {
-			const commitRows = document.querySelectorAll(`[data-commit-id="${commitId}"]`);
-			commitRows.forEach((row) => {
-				row.classList.add("dependency-highlighted");
-			});
-		});
+		clearLockHighlight = highlightDependencyCommitRows(lockedCommitIds);
 	}
 
 	function handleLockUnhover() {
-		const highlighted = document.querySelectorAll(".dependency-highlighted");
-		highlighted.forEach((row) => {
-			row.classList.remove("dependency-highlighted");
-		});
+		clearLockHighlight?.();
+		clearLockHighlight = undefined;
 	}
+
+	onDestroy(() => clearLockHighlight?.());
 </script>
 
 <div
