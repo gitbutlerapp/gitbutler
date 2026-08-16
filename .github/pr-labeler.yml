@@ -16,6 +16,10 @@ CLI:
   - changed-files:
       - any-glob-to-any-file: apps/web/**/*
 
+"@gitbutler/lite":
+  - changed-files:
+      - any-glob-to-any-file: apps/lite/**/*
+
 "@gitbutler/ui":
   - changed-files:
       - any-glob-to-any-file: packages/ui/**/*
@@ -23,3 +27,9 @@ CLI:
 "@gitbutler/no-relative-imports":
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*
+
+# Drives the Lite UI Screenshots workflow. Applying it by hand opts a change in
+# that this rule does not cover, such as a layout change with no CSS in it.
+screenshots:
+  - changed-files:
+      - any-glob-to-any-file: apps/lite/ui/**/*.css
