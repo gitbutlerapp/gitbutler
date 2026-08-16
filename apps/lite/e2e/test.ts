@@ -46,9 +46,18 @@ export const test = base.extend<TestOptions & TestFixtures>({
 		}
 	},
 	electronApp: async ({ headless, mainProcessLogs, testEnvironment }, provide) => {
+		// Capturing screenshots under a bare X server needs GPU compositing off:
+		// otherwise the compositor produces a frame only on load, and a screenshot
+		// taken at any other moment waits for one that never arrives. Scoped to
+		// capture runs so ordinary e2e keeps the default rendering path.
+		const capturing = (process.env.SCREENSHOT_OUT ?? "") !== "";
 		const app = await _electron.launch({
 			executablePath: electronPath,
-			args: [`--user-data-dir=${testEnvironment.electronUserDataDir}`, paths.electronMain],
+			args: [
+				`--user-data-dir=${testEnvironment.electronUserDataDir}`,
+				...(capturing ? ["--disable-gpu", "--disable-gpu-compositing"] : []),
+				paths.electronMain,
+			],
 			env: processEnvironment({
 				E2E_TEST_APP_DATA_DIR: testEnvironment.appDataDir,
 				GIT_CONFIG_GLOBAL: testEnvironment.gitConfig,
