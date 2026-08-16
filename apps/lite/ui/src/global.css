@@ -18,6 +18,11 @@
 	--transition-fast: 0.08s ease;
 	--panel-padding-block: 12px;
 	--panel-padding-inline: 12px;
+
+	/* The scrollbar gutter carries the panel background by default. Surfaces
+	   that sit on another background (popups) restate these on themselves. */
+	--scrollbar-track-bg: var(--bg-2);
+	--scrollbar-track-border: var(--border-section);
 }
 
 body {
@@ -35,16 +40,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-	background-color: var(--bg-2);
+	background-color: var(--scrollbar-track-bg);
 }
 
 /* Divides the gutter from the content it scrolls. */
 ::-webkit-scrollbar-track:vertical {
-	border-left: 1px solid var(--border-section);
+	border-left: 1px solid var(--scrollbar-track-border);
 }
 
 ::-webkit-scrollbar-track:horizontal {
-	border-top: 1px solid var(--border-section);
+	border-top: 1px solid var(--scrollbar-track-border);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -72,7 +77,7 @@ body {
 }
 
 ::-webkit-scrollbar-corner {
-	background-color: var(--bg-2);
+	background-color: var(--scrollbar-track-bg);
 }
 
 button {

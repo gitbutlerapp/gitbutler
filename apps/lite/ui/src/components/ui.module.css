@@ -1,4 +1,9 @@
 .popup {
+	/* A popup's scroller spans the whole popup, so the gutter takes the popup's
+	   own background and there is no content beside it to divide from. */
+	--scrollbar-track-bg: var(--bg-1);
+	--scrollbar-track-border: transparent;
+
 	border-radius: 8px;
 	outline: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
 	background-color: var(--bg-1);
