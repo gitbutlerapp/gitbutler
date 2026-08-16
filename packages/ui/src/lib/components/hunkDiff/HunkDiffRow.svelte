@@ -18,8 +18,8 @@
 		type Row,
 	} from "$lib/utils/diffParsing";
 	import { getHunkLineId } from "$lib/utils/hunk";
+	import { onDestroy, type Snippet } from "svelte";
 	import type LineSelection from "$components/hunkDiff/lineSelection.svelte";
-	import type { Snippet } from "svelte";
 
 	interface Props {
 		idx: number;
@@ -36,6 +36,7 @@
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 		hunkHasLocks?: boolean;
+		onLockHover?: (locks: DependencyLock[]) => (() => void) | undefined;
 	}
 
 	const {
@@ -53,13 +54,54 @@
 		minWidth,
 		lockWarning,
 		hunkHasLocks,
+		onLockHover,
 	}: Props = $props();
 
 	let stagingColumnWidth = $state<number>(0);
+	let lockHovered = false;
+	let lockFocused = false;
+	let clearLockHighlight: (() => void) | undefined;
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 	const clickable = $derived(isClickable);
 	const isSelectingForCommit = $derived(staged !== undefined && !hideCheckboxes);
+
+	function handleLockHover(locks: DependencyLock[]) {
+		if (!lockFocused) clearLockHighlight = onLockHover?.(locks);
+		lockHovered = true;
+	}
+
+	function handleLockUnhover() {
+		lockHovered = false;
+		if (!lockFocused) clearHighlight();
+	}
+
+	function handleLockFocus(locks: DependencyLock[]) {
+		if (!lockHovered) clearLockHighlight = onLockHover?.(locks);
+		lockFocused = true;
+	}
+
+	function handleLockBlur() {
+		lockFocused = false;
+		if (!lockHovered) clearHighlight();
+	}
+
+	function clearHighlight() {
+		clearLockHighlight?.();
+		clearLockHighlight = undefined;
+	}
+
+	function clearLockInteraction() {
+		lockHovered = false;
+		lockFocused = false;
+		clearHighlight();
+	}
+
+	function clearHighlightOnDestroy(_node: HTMLElement) {
+		return { destroy: clearLockInteraction };
+	}
+
+	onDestroy(clearLockInteraction);
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -153,16 +195,27 @@
 				class:locked
 				class:staged
 			>
-				<InfoButton
-					inheritColor
-					size="small"
-					icon="lock"
-					iconSize={10}
-					maxWidth="15rem"
-					iconTopOffset="0"
+				<button
+					type="button"
+					class="table__lockButton"
+					aria-label="Highlight depended-on commits"
+					use:clearHighlightOnDestroy
+					onmouseenter={() => handleLockHover(row.locks ?? [])}
+					onmouseleave={handleLockUnhover}
+					onfocus={() => handleLockFocus(row.locks ?? [])}
+					onblur={handleLockBlur}
 				>
-					{@render lockWarning(row.locks ?? [])}
-				</InfoButton>
+					<InfoButton
+						inheritColor
+						size="small"
+						icon="lock"
+						iconSize={10}
+						maxWidth="15rem"
+						iconTopOffset="0"
+					>
+						{@render lockWarning(row.locks ?? [])}
+					</InfoButton>
+				</button>
 			</td>
 		{:else}
 			<td
@@ -230,6 +283,14 @@
 		cursor: text;
 		tab-size: var(--tab-size);
 		user-select: text;
+	}
+
+	.table__lockButton {
+		display: inline-flex;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
 	}
 
 	.table__row-header {

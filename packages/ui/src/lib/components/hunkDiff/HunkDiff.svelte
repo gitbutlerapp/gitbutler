@@ -39,6 +39,7 @@
 		onLineClick?: (params: LineSelectionParams) => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		lockWarning?: Snippet<[DependencyLock[]]>;
+		onLockHover?: (locks: DependencyLock[]) => (() => void) | undefined;
 	}
 
 	const {
@@ -63,6 +64,7 @@
 		handleLineContextMenu,
 		draggingDisabled,
 		lockWarning,
+		onLockHover,
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -204,6 +206,7 @@
 					{hideCheckboxes}
 					{handleLineContextMenu}
 					{lockWarning}
+					{onLockHover}
 				/>
 			{:else if tableWrapperElem}
 				<tbody>

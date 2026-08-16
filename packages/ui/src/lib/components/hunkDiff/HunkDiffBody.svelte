@@ -34,6 +34,7 @@
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		comment?: string;
 		lockWarning?: Snippet<[DependencyLock[]]>;
+		onLockHover?: (locks: DependencyLock[]) => (() => void) | undefined;
 	}
 
 	const {
@@ -53,6 +54,7 @@
 		hideCheckboxes,
 		handleLineContextMenu,
 		lockWarning,
+		onLockHover,
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
@@ -177,6 +179,7 @@
 				{hideCheckboxes}
 				{handleLineContextMenu}
 				{lockWarning}
+				{onLockHover}
 				hunkHasLocks={lineLocks && lineLocks.length > 0}
 			/>
 		{/each}

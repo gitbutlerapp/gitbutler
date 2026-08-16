@@ -7,6 +7,7 @@
 	import binarySvg from "$lib/assets/empty-state/binary.svg?raw";
 	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
 	import tooLargeSvg from "$lib/assets/empty-state/too-large.svg?raw";
+	import { highlightDependencyCommitRows } from "$lib/dependencies/dependencyHighlights";
 	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { HunkDropDataV3 } from "$lib/dragging/draggables";
@@ -309,6 +310,8 @@
 									afterLineNumber: params.afterLineNumber,
 								});
 							}}
+							onLockHover={(locks) =>
+								highlightDependencyCommitRows(locks.map((lock) => lock.commitId))}
 						>
 							{#snippet lockWarning(locks)}
 								<LineLocksWarning {projectId} {locks} />
