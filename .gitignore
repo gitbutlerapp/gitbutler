@@ -49,6 +49,7 @@ tsconfig.tsbuildinfo
 test-results*
 playwright-report
 packages/ui/tests/.cache
+apps/lite/e2e/screenshots/
 
 # storybook
 *storybook.log
