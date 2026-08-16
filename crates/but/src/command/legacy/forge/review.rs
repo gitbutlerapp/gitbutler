@@ -663,11 +663,23 @@ async fn publish_reviews_for_branch_and_dependents(
     )?;
 
     if let Some(out) = out.for_human() {
+        // Show the remote the subject branch actually landed on, which may differ from the
+        // push default when the branch tracks another remote.
+        let remote_names = ctx.repo.get()?.remote_names();
+        let pushed_to = result
+            .branch_to_remote
+            .iter()
+            .find(|(pushed_branch, _, _)| pushed_branch == branch_name)
+            .and_then(|(_, remote_ref, _)| {
+                but_core::extract_remote_name_and_short_name(remote_ref.as_ref(), &remote_names)
+            })
+            .map(|(remote, _)| remote)
+            .unwrap_or_else(|| result.remote.clone());
         writeln!(
             out,
             "  {} Pushed to {}",
             t.sym().success,
-            t.remote_branch.paint(&result.remote)
+            t.remote_branch.paint(&pushed_to)
         )?;
     }
 

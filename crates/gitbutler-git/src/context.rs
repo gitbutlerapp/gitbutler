@@ -11,11 +11,18 @@ use serde::Serialize;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushResult {
-    /// The name of the remote to which the branches were pushed.
+    /// The name of the remote the push defaulted to.
+    ///
+    /// A branch may track a different remote, so read the remote off each entry's
+    /// refname in [`Self::branch_to_remote`] rather than this one when acting on a branch.
     pub remote: String,
-    /// The list of pushed branches and their corresponding remote refnames.
+    /// The list of pushed branches with their remote refnames and the branch name on the remote.
+    ///
+    /// Format: `(branch_name, remote_refname, remote_branch_name)`. The last element is the
+    /// refname with `refs/remotes/<remote>/` already stripped, so callers never have to
+    /// know where the remote name ends.
     #[serde(serialize_with = "serialize_branch_to_remote")]
-    pub branch_to_remote: Vec<(String, gix::refs::FullName)>,
+    pub branch_to_remote: Vec<(String, gix::refs::FullName, String)>,
     /// The list of branches with their before/after commit SHAs.
     ///
     /// Format: `(branch_name, before_sha, after_sha)`.
@@ -295,7 +302,7 @@ where
 }
 
 fn serialize_branch_to_remote<S>(
-    branch_to_remote: &[(String, gix::refs::FullName)],
+    branch_to_remote: &[(String, gix::refs::FullName, String)],
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error>
 where
@@ -303,7 +310,9 @@ where
 {
     branch_to_remote
         .iter()
-        .map(|(branch_name, refname)| (branch_name, refname.to_string()))
+        .map(|(branch_name, refname, remote_branch_name)| {
+            (branch_name, refname.to_string(), remote_branch_name)
+        })
         .collect::<Vec<_>>()
         .serialize(serializer)
 }

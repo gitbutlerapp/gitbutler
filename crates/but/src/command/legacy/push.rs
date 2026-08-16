@@ -1186,8 +1186,8 @@ fn branch_remote_ref_for_display(
     result
         .branch_to_remote
         .iter()
-        .find(|(pushed_branch, _)| pushed_branch == branch)
-        .map(|(_, remote_ref)| remote_ref.shorten().to_string())
+        .find(|(pushed_branch, _, _)| pushed_branch == branch)
+        .map(|(_, remote_ref, _)| remote_ref.shorten().to_string())
         .unwrap_or_else(|| format!("{}/{}", result.remote, branch))
 }
 
@@ -1298,6 +1298,7 @@ mod tests {
             branch_to_remote: vec![(
                 "feature".to_string(),
                 "refs/remotes/upstream/feature".try_into()?,
+                "feature".to_string(),
             )],
             branch_sha_updates: vec![],
         };

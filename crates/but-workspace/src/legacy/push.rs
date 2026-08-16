@@ -78,7 +78,7 @@ pub fn workspace_branch_and_ancestors_push(
             Some(r) => r.clone(),
             None => format_remote_refname(ref_name, &push_remote)?,
         };
-        let (remote_name, _) =
+        let (remote_name, remote_branch_name) =
             extract_remote_name_and_short_name(remote_refname.as_ref(), &remote_names)
                 .with_context(|| {
                     format!("failed to determine remote name for `{remote_refname}`")
@@ -129,9 +129,11 @@ pub fn workspace_branch_and_ancestors_push(
 
         maybe_record_gerrit_push_metadata(repo, db, gerrit_mode, segment, &push_output)?;
         let branch_name = ref_name.shorten().to_str_lossy().to_string();
-        result
-            .branch_to_remote
-            .push((branch_name.clone(), remote_refname));
+        result.branch_to_remote.push((
+            branch_name.clone(),
+            remote_refname,
+            remote_branch_name.to_str_lossy().to_string(),
+        ));
         result.branch_sha_updates.push((
             branch_name,
             before_sha.to_string(),

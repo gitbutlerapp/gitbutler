@@ -577,10 +577,14 @@ pub mod json {
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct PushResult {
-        /// The name of the remote to which the branches were pushed.
+        /// The name of the remote the push defaulted to.
+        ///
+        /// A branch may track a different remote, so read the remote off each entry's
+        /// refname in `branchToRemote` rather than this one when acting on a branch.
         pub remote: String,
-        /// The list of pushed branches and their corresponding remote refnames.
-        pub branch_to_remote: Vec<(String, String)>,
+        /// The list of pushed branches with their remote refnames and the branch name on the remote.
+        /// Format: (branch_name, remote_refname, remote_branch_name)
+        pub branch_to_remote: Vec<(String, String, String)>,
         /// The list of branches with their before/after commit SHAs.
         /// Format: (branch_name, before_sha, after_sha)
         pub branch_sha_updates: Vec<(String, String, String)>,
@@ -598,7 +602,9 @@ pub mod json {
                     .push
                     .branch_to_remote
                     .into_iter()
-                    .map(|(name, refname)| (name, refname.to_string()))
+                    .map(|(name, refname, remote_branch_name)| {
+                        (name, refname.to_string(), remote_branch_name)
+                    })
                     .collect(),
                 branch_sha_updates: value.push.branch_sha_updates,
                 review_sync: value.review_sync,
@@ -627,6 +633,7 @@ mod tests {
                 "refs/remotes/origin/feature"
                     .try_into()
                     .expect("valid remote reference"),
+                "feature".into(),
             )],
             branch_sha_updates: Vec::new(),
         };
