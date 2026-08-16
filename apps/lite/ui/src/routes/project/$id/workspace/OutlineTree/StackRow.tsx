@@ -90,13 +90,13 @@ export const StackRow: FC<
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Update Stack (Rebases)",
-			enabled: !!rebaseUpdate,
+			enabled: isDefaultMode && !!rebaseUpdate,
 			accelerator: toElectronAccelerator(outlineHotkeys.updateStack.hotkey),
 			onSelect: updateStack,
 		}),
 		nativeMenuItem({
 			label: "Unapply Stack",
-			enabled: !isUnapplyStackPending,
+			enabled: isDefaultMode && !isUnapplyStackPending,
 			onSelect: unapply,
 		}),
 	];
@@ -113,9 +113,10 @@ export const StackRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
+			{/* The menu stays reachable outside the default mode: folding is a view
+			    operation, and the items that mutate the stack gate themselves. */}
 			<Toolbar.Button
 				aria-label="Stack menu"
-				disabled={!isDefaultMode}
 				onClick={(event) => {
 					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 				}}
