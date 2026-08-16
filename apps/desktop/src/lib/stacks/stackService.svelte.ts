@@ -1,4 +1,3 @@
-import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showWarning } from "$lib/notifications/toasts";
 import {
@@ -396,10 +395,7 @@ export class StackService {
 					const invalidations = [invalidatesList(ReduxTag.PullRequests)];
 
 					if (result) {
-						const upstreamBranchNames = result.branchToRemote
-							.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
-							.filter(isDefined);
-						for (const name of upstreamBranchNames) {
+						for (const [, , name] of result.branchToRemote) {
 							invalidations.push(invalidatesItem(ReduxTag.Checks, name));
 						}
 					}

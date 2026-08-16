@@ -3249,10 +3249,18 @@ export type PushFlag = {
 
 /** JSON-friendly version of [`gitbutler_git::PushResult`]. */
 export type PushResult = {
-  /** The name of the remote to which the branches were pushed. */
+  /**
+   * The name of the remote the push defaulted to.
+   *
+   * A branch may track a different remote, so read the remote off each entry's
+   * refname in `branchToRemote` rather than this one when acting on a branch.
+   */
   remote: string;
-  /** The list of pushed branches and their corresponding remote refnames. */
-  branchToRemote: Array<[string, string]>;
+  /**
+   * The list of pushed branches with their remote refnames and the branch name on the remote.
+   * Format: (branch_name, remote_refname, remote_branch_name)
+   */
+  branchToRemote: Array<[string, string, string]>;
   /**
    * The list of branches with their before/after commit SHAs.
    * Format: (branch_name, before_sha, after_sha)

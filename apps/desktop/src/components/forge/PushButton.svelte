@@ -2,7 +2,6 @@
 	import GerritPushModal from "$components/forge/GerritPushModal.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
-	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 	import { commitCommittedAtDate } from "$lib/branches/v3";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectRunCommitHooks } from "$lib/config/config";
@@ -22,7 +21,6 @@
 		ScrollableContainer,
 		chipToasts,
 	} from "@gitbutler/ui";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import type { GerritPushFlag } from "$lib/stacks/stack";
 	import type { Segment } from "@gitbutler/but-sdk";
 
@@ -114,9 +112,7 @@
 				pushOpts: gerritFlags,
 			});
 
-			const upstreamBranchNames = pushResult.branchToRemote
-				.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
-				.filter(isDefined);
+			const upstreamBranchNames = pushResult.branchToRemote.map(([, , name]) => name);
 			if (upstreamBranchNames.length === 0) return;
 			uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
 

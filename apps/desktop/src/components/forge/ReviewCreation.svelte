@@ -14,7 +14,6 @@
 	import MessageEditorInput from "$components/editor/MessageEditorInput.svelte";
 	import PrTemplateSection from "$components/forge/PrTemplateSection.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
-	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectAiGenEnabled, projectRunCommitHooks } from "$lib/config/config";
 	import { showError } from "$lib/error/showError";
@@ -34,7 +33,6 @@
 	import { persisted } from "@gitbutler/shared/persisted";
 	import { chipToasts, TestId } from "@gitbutler/ui";
 	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { tick, untrack } from "svelte";
 	import type { Commit, Segment } from "@gitbutler/but-sdk";
 
@@ -170,11 +168,9 @@
 				await sleep(500);
 			}
 
-			const remoteRef = pushQuery.branchToRemote.find(([branch]) => branch === branchName)?.[1];
-
-			const upstreamBranchName = remoteRef
-				? getBranchNameFromRef(remoteRef, pushQuery.remote)
-				: undefined;
+			const upstreamBranchName = pushQuery.branchToRemote.find(
+				([branch]) => branch === branchName,
+			)?.[2];
 
 			return [upstreamBranchName, pushQuery];
 		}
@@ -214,9 +210,7 @@
 			uiState.project(projectId).exclusiveAction.set(undefined);
 
 			if (pushQuery) {
-				const upstreamBranchNames = pushQuery.branchToRemote
-					.map(([_, refname]) => getBranchNameFromRef(refname, pushQuery.remote))
-					.filter(isDefined);
+				const upstreamBranchNames = pushQuery.branchToRemote.map(([, , name]) => name);
 				if (upstreamBranchNames.length === 0) return;
 				uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
 			}
