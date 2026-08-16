@@ -10,14 +10,11 @@
 	background-color: var(--bg-2);
 }
 
-.listArea {
-	flex-grow: 1;
-}
-
 /* The card runs the full width of the panel, so nothing insets it. */
 .list {
 	display: flex;
 	row-gap: 8px;
+	flex-grow: 1;
 	flex-direction: column;
 }
 

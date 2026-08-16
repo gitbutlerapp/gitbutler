@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import uiStyles from "#ui/components/ui.module.css";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { branchDetailsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
@@ -404,7 +404,7 @@ export const BranchesList: FC<
 				</Field.Root>
 			</div>
 
-			<Scroller className={styles.listArea} viewportClassName={styles.list}>
+			<div className={classes(uiStyles.scroller, styles.list)}>
 				{stacks.length === 0 && (
 					<p className={classes("text-13", styles.msg)}>
 						{isPending
@@ -453,7 +453,7 @@ export const BranchesList: FC<
 						</StackCard>
 					))}
 				</div>
-			</Scroller>
+			</div>
 		</div>
 	);
 };

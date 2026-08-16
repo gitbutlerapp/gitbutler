@@ -1,6 +1,6 @@
 import rowStyles from "./Row.module.css";
 import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import uiStyles from "#ui/components/ui.module.css";
 import { commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -378,7 +378,7 @@ export const UpstreamList: FC<
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
-			<Scroller className={styles.listArea} viewportClassName={styles.list}>
+			<div className={classes(uiStyles.scroller, styles.list)}>
 				<h4 id={headingId} className={styles.srOnly}>
 					Incoming changes{targetLabel !== null && <> from {targetLabel}</>}
 				</h4>
@@ -451,7 +451,7 @@ export const UpstreamList: FC<
 						Only the most recent target history is shown.
 					</p>
 				)}
-			</Scroller>
+			</div>
 		</div>
 	);
 };

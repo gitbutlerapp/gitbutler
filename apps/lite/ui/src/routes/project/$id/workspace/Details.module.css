@@ -121,11 +121,6 @@
 	overflow: hidden;
 }
 
-.filesScrollerArea {
-	--scroll-gradient-height: 14px;
-	--scroll-gradient-overlap: 4px;
-}
-
 .diffFiles {
 	padding-block-end: var(--panel-padding-block);
 }

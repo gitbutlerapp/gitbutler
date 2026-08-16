@@ -36,7 +36,7 @@ import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/nav
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import uiStyles from "#ui/components/ui.module.css";
 import type {
 	BranchReference,
 	Segment,
@@ -336,10 +336,12 @@ const UncommittedChanges: FC<{
 				<FileFilterRow {...fileFilter.rowProps} />
 			)}
 
-			<Scroller
-				withSeparator
-				className={styles.uncommittedChangesTreeArea}
-				viewportClassName={styles.uncommittedChangesTree}
+			<div
+				className={classes(
+					uiStyles.scroller,
+					uiStyles.scrollerWithSeparator,
+					styles.uncommittedChangesTree,
+				)}
 			>
 				<FilesTree
 					canUncommit={false}
@@ -368,7 +370,7 @@ const UncommittedChanges: FC<{
 					)}
 					selection={fileSelection}
 				/>
-			</Scroller>
+			</div>
 
 			<CommitForm
 				projectId={projectId}
@@ -947,7 +949,7 @@ export const OutlineTree: FC<
 							actions={stacksHeaderActions}
 						/>
 
-						<Scroller className={styles.stacksScroller}>
+						<div className={classes(uiStyles.scroller, styles.stacksScroller)}>
 							<Stacks
 								projectId={projectId}
 								checkCommit={checkCommit}
@@ -955,7 +957,7 @@ export const OutlineTree: FC<
 								canAmendCommit={canAmendCommit}
 								onEdgeSpill={spillIntoUncommittedChanges}
 							/>
-						</Scroller>
+						</div>
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>

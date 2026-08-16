@@ -1,6 +1,6 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
-import { Scroller } from "#ui/components/Scroller.tsx";
+import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	useCommitUncommitChanges,
@@ -1554,10 +1554,12 @@ const Diff: FC<{
 								) : (
 									<FileFilterRow {...fileFilter.rowProps} />
 								)}
-								<Scroller
-									withSeparator
-									className={styles.filesScrollerArea}
-									viewportClassName={styles.diffFiles}
+								<div
+									className={classes(
+										uiStyles.scroller,
+										uiStyles.scrollerWithSeparator,
+										styles.diffFiles,
+									)}
 								>
 									<FilesTree
 										selectionScope="files"
@@ -1582,7 +1584,7 @@ const Diff: FC<{
 										}
 										ref={filesTreeRef}
 									/>
-								</Scroller>
+								</div>
 							</div>
 						</Panel>
 						<ResizeHandle />

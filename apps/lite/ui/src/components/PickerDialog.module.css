@@ -81,13 +81,9 @@
 }
 
 .listArea {
+	box-sizing: border-box;
 	flex: 0 1 auto;
 	max-height: min(60dvh, 24rem);
-	overflow: hidden;
-}
-
-.listViewport {
-	box-sizing: border-box;
 	scroll-padding-block: 0.25rem;
 
 	&:focus-visible {

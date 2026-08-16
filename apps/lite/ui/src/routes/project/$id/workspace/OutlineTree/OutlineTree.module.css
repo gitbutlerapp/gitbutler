@@ -26,12 +26,10 @@
 	min-height: 0;
 }
 
-.uncommittedChangesTreeArea {
-	flex-grow: 1;
-}
-
 .uncommittedChangesTree {
 	--scroll-gradient-height: 14px;
+
+	flex-grow: 1;
 	--scroll-gradient-overlap: 4px;
 
 	/* The sticky gradient below takes up flow space at the end of the content.

@@ -20,13 +20,10 @@
 	min-width: 0;
 }
 
-.listArea {
-	flex-grow: 1;
-}
-
 /* The cards run the full width of the panel, so nothing insets them. */
 .list {
 	display: flex;
+	flex-grow: 1;
 	flex-direction: column;
 }
 
