@@ -9,11 +9,32 @@ describe.concurrent("getBranchNameFromRef", () => {
 		expect(BranchUtils.getBranchNameFromRef(ref, remote)).toBe("main");
 	});
 
-	test("When provided a ref with a remote prefix that can't be found, it throws an error", () => {
+	test("When the ref is on a different remote than the one provided, it strips the ref's own remote", () => {
+		const ref = "refs/remotes/valeras/fix-open-in-browser";
+		const remote = "origin";
+
+		expect(BranchUtils.getBranchNameFromRef(ref, remote)).toBe("fix-open-in-browser");
+	});
+
+	test("When the ref is on a different remote and the branch name has separators, it keeps the whole branch name", () => {
+		const ref = "refs/remotes/valeras/feature/cool-thing";
+		const remote = "origin";
+
+		expect(BranchUtils.getBranchNameFromRef(ref, remote)).toBe("feature/cool-thing");
+	});
+
+	test("When the ref has no branch segment after the remote, it returns undefined", () => {
+		const ref = "refs/remotes/valeras";
+		const remote = "origin";
+
+		expect(BranchUtils.getBranchNameFromRef(ref, remote)).toBeUndefined();
+	});
+
+	test("When provided a ref with no remote prefix to strip, it returns the ref unchanged", () => {
 		const ref = "main";
 		const remote = "origin";
 
-		expect(() => BranchUtils.getBranchNameFromRef(ref, remote)).toThrowError();
+		expect(BranchUtils.getBranchNameFromRef(ref, remote)).toBe("main");
 	});
 
 	test("When provided a ref with a remote prefix and multiple separators, it returns the correct branch name", () => {

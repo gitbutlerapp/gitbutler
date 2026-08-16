@@ -13,22 +13,31 @@ export function createBranchRef(branchName: string, remote: string | undefined):
 /**
  * Get the branch name from a refname.
  *
- * If a remote is provided, the remote prefix will be removed.
+ * If a remote is provided, the remote prefix will be removed. The remote is only
+ * a hint: a single push can span remotes, so a branch may track a remote other
+ * than the one the push reports. When the hint does not match the ref, the first
+ * segment of the ref is taken to be the remote name.
  */
 export function getBranchNameFromRef(ref: string, remote?: string): string | undefined {
-	if (ref.startsWith(REF_REMOTES_PREFIX)) {
-		ref = ref.replace(REF_REMOTES_PREFIX, "");
+	if (!ref.startsWith(REF_REMOTES_PREFIX)) {
+		return ref;
+	}
+	ref = ref.slice(REF_REMOTES_PREFIX.length);
+
+	if (remote === undefined) {
+		return ref;
 	}
 
-	if (remote !== undefined) {
-		const originPrefix = `${remote}${BRANCH_SEPARATOR}`;
-		if (!ref.startsWith(originPrefix)) {
-			throw new Error("Failed to parse branch name as reference");
-		}
-		ref = ref.replace(originPrefix, "");
+	const remotePrefix = `${remote}${BRANCH_SEPARATOR}`;
+	if (ref.startsWith(remotePrefix)) {
+		return ref.slice(remotePrefix.length);
 	}
 
-	return ref;
+	// The ref belongs to a different remote than the one we were given, so take
+	// its first segment as the remote name instead. Without a segment after the
+	// remote there is no branch name to return.
+	const separatorIndex = ref.indexOf(BRANCH_SEPARATOR);
+	return separatorIndex === -1 ? undefined : ref.slice(separatorIndex + 1);
 }
 
 export function getBranchRemoteFromRef(ref: string): string | undefined {
