@@ -6,22 +6,24 @@ import type { FC } from "react";
 import rowStyles from "./Row.module.css";
 import { Row } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
-import styles from "./FileFilterRow.module.css";
+import styles from "./ListFilterRow.module.css";
 
 /**
- * Takes the place of a file list's section header while its filter is open, so
+ * Takes the place of a list's section header while its filter is open, so
  * narrowing the list does not cost a row of vertical space in an already tight
- * panel. Pair it with `useFileFilter`, which supplies these props and binds the
+ * panel. Pair it with `useListFilter`, which supplies these props and binds the
  * keys that lead in and out of the input.
  */
-export const FileFilterRow: FC<{
+export const ListFilterRow: FC<{
 	filter: string;
 	inputId: string;
+	/** What is being filtered, plural and lowercase — "files", "branches". */
+	subject: string;
 	onFilterChange: (filter: string) => void;
 	onClose: () => void;
 	/** Moves focus down into the filtered list, so a match can be previewed without the mouse. */
 	onEnterList: () => void;
-}> = ({ filter, inputId, onFilterChange, onClose, onEnterList }) => (
+}> = ({ filter, inputId, subject, onFilterChange, onClose, onEnterList }) => (
 	<Row
 		interactive={false}
 		className={classes(rowStyles.sectionHeader, styles.filterRow)}
@@ -50,8 +52,8 @@ export const FileFilterRow: FC<{
 				id={inputId}
 				className="text-13"
 				icon={<Icon name="search" />}
-				aria-label="Filter files"
-				placeholder="Filter files"
+				aria-label={`Filter ${subject}`}
+				placeholder={`Filter ${subject}`}
 				value={filter}
 				onChange={(event) => onFilterChange(event.currentTarget.value)}
 				// oxlint-disable-next-line jsx_a11y/no-autofocus
@@ -61,7 +63,7 @@ export const FileFilterRow: FC<{
 
 		<button
 			type="button"
-			aria-label="Close file filter"
+			aria-label={`Close ${subject} filter`}
 			className={getRowButtonClassName({ size: "regular", iconOnly: true })}
 			onClick={onClose}
 		>

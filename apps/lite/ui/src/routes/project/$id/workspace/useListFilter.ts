@@ -2,9 +2,7 @@ import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { ComponentProps, RefObject } from "react";
-import type { FileFilterRow } from "./FileFilterRow.tsx";
-
-type FileListSelectionScope = Extract<SelectionScope, "uncommitted-files" | "files">;
+import type { ListFilterRow } from "./ListFilterRow.tsx";
 
 /**
  * Focused by id rather than by ref because the input is only mounted while the
@@ -21,23 +19,28 @@ const focusFilterInput = (inputId: string) => {
 };
 
 /**
- * The keyboard loop around a file list's filter: a hotkey in, down into the
- * list, up at its top back to the query, escape out. The query itself lives
- * with whichever list is being filtered — this only needs to read it and hand
- * back a new one.
+ * The keyboard loop around a list's filter: a hotkey in, down into the list, up
+ * at its top back to the query, escape out. The query itself lives with
+ * whichever list is being filtered — this only needs to read it and hand back a
+ * new one.
+ *
+ * Rows are named by key rather than by value so lists of any item type can use
+ * it: only the comparison "is the selection the first row" is needed here, and
+ * `onEnterList` closes over whatever the caller has to select.
  *
  * Pass `panelRef` for the region the hotkey should reach (header, list, and
  * anything else that belongs to the same list) and `listRef` for the list
- * itself, then render {@link FileFilterRow} with `rowProps` whenever it is not
+ * itself, then render {@link ListFilterRow} with `rowProps` whenever it is not
  * null.
  */
-export const useFileFilter = ({
+export const useListFilter = ({
 	filter,
 	setFilter,
 	inputId,
+	subject,
 	scope,
-	selection,
-	firstPath,
+	selectionKey,
+	firstKey,
 	onEnterList,
 	panelRef,
 	listRef,
@@ -48,12 +51,15 @@ export const useFileFilter = ({
 	setFilter: (filter: string | null) => void;
 	/** Unique per list: two filters can be open at once. */
 	inputId: string;
-	scope: FileListSelectionScope;
-	/** The list's resolved selection, previewed on entering it. */
-	selection: string | null;
-	/** The first row of the filtered list, where up leaves for the input again. */
-	firstPath: string | undefined;
-	onEnterList: (selection: string) => void;
+	/** What is being filtered, plural and lowercase — "files", "branches". */
+	subject: string;
+	scope: SelectionScope;
+	/** Identifies the list's resolved selection; `null` when it has none. */
+	selectionKey: string | null;
+	/** Identifies the first row of the filtered list, where up leaves for the input again. */
+	firstKey: string | undefined;
+	/** Previews the list's resolved selection, then hands it focus. */
+	onEnterList: () => void;
 	/** The region the open hotkey reaches: the list and whatever else belongs to it. */
 	panelRef: RefObject<HTMLElement | null>;
 	listRef: RefObject<HTMLElement | null>;
@@ -61,7 +67,7 @@ export const useFileFilter = ({
 	enabled?: boolean;
 }): {
 	open: () => void;
-	rowProps: ComponentProps<typeof FileFilterRow> | null;
+	rowProps: ComponentProps<typeof ListFilterRow> | null;
 } => {
 	const open = () => {
 		// The input takes focus itself when it mounts.
@@ -81,7 +87,7 @@ export const useFileFilter = ({
 		// a match even when the filter narrowed away whatever was selected before.
 		// Selecting it stores that resolution, keeping the row highlight and the
 		// details pane in step.
-		if (selection !== null) onEnterList(selection);
+		onEnterList();
 		focusSelectionScope(scope);
 	};
 
@@ -97,7 +103,7 @@ export const useFileFilter = ({
 	// stop at the top of an unfiltered list.
 	useHotkey("ArrowUp", () => focusFilterInput(inputId), {
 		conflictBehavior: "allow",
-		enabled: filter !== null && (selection === null || selection === firstPath),
+		enabled: filter !== null && (selectionKey === null || selectionKey === firstKey),
 		target: listRef,
 	});
 
@@ -109,6 +115,7 @@ export const useFileFilter = ({
 				: {
 						filter,
 						inputId,
+						subject,
 						onFilterChange: setFilter,
 						onClose: close,
 						onEnterList: enterList,

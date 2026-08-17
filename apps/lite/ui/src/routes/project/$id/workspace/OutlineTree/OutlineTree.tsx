@@ -74,8 +74,8 @@ import { BranchRow } from "./BranchRow.tsx";
 import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
-import { FileFilterRow } from "../FileFilterRow.tsx";
-import { useFileFilter } from "../useFileFilter.ts";
+import { ListFilterRow } from "../ListFilterRow.tsx";
+import { useListFilter } from "../useListFilter.ts";
 import { getChangesFileRowItems, pathMatchesFilter, type FileRowItem } from "../file-row.ts";
 import { buildFileTreeRows, type FileDisplayMode, type FileTreeRow } from "../file-tree.ts";
 import { useFileDisplayMode } from "../useFileDisplayMode.ts";
@@ -310,15 +310,18 @@ const UncommittedChanges: FC<{
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
-	const fileFilter = useFileFilter({
+	const fileFilter = useListFilter({
 		filter,
 		setFilter: (filter) =>
 			dispatch(projectSlice.actions.setUncommittedFilesFilter({ projectId, filter })),
 		inputId: "uncommitted-files-filter-input",
+		subject: "files",
 		scope: "uncommitted-files",
-		selection: fileSelection,
-		firstPath: fileRows[0]?.path,
-		onEnterList: onActiveFileSelection,
+		selectionKey: fileSelection,
+		firstKey: fileRows[0]?.path,
+		onEnterList: () => {
+			if (fileSelection !== null) onActiveFileSelection(fileSelection);
+		},
 		panelRef,
 		listRef: fileListRef,
 		enabled: (worktreeChanges?.changes.length ?? 0) > 0,
@@ -333,7 +336,7 @@ const UncommittedChanges: FC<{
 					onOpenFilter={fileFilter.open}
 				/>
 			) : (
-				<FileFilterRow {...fileFilter.rowProps} />
+				<ListFilterRow {...fileFilter.rowProps} />
 			)}
 
 			<div

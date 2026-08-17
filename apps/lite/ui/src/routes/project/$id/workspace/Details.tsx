@@ -122,8 +122,8 @@ import {
 	type FileTreeRow,
 } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { FileFilterRow } from "./FileFilterRow.tsx";
-import { useFileFilter } from "./useFileFilter.ts";
+import { ListFilterRow } from "./ListFilterRow.tsx";
+import { useListFilter } from "./useListFilter.ts";
 import { contiguousSelectionByLine, wholeHunkSelectionByLine } from "#ui/hunk.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
@@ -1403,14 +1403,17 @@ const Diff: FC<{
 
 	const filesPanelRef = useRef<HTMLDivElement>(null);
 	const filesTreeRef = useRef<HTMLDivElement>(null);
-	const fileFilter = useFileFilter({
+	const fileFilter = useListFilter({
 		filter: filesFilter,
 		setFilter: (filter) => dispatch(projectSlice.actions.setFilesFilter({ projectId, filter })),
 		inputId: "files-filter-input",
+		subject: "files",
 		scope: "files",
-		selection: filesSelection,
-		firstPath: filesRows[0]?.path,
-		onEnterList: activateRow,
+		selectionKey: filesSelection,
+		firstKey: filesRows[0]?.path,
+		onEnterList: () => {
+			if (filesSelection !== null) activateRow(filesSelection);
+		},
 		panelRef: filesPanelRef,
 		listRef: filesTreeRef,
 		enabled: filesVisible && changes.length > 0,
@@ -1552,7 +1555,7 @@ const Diff: FC<{
 										onOpenFilter={fileFilter.open}
 									/>
 								) : (
-									<FileFilterRow {...fileFilter.rowProps} />
+									<ListFilterRow {...fileFilter.rowProps} />
 								)}
 								<div
 									className={classes(
