@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, bail};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use but_api::legacy::modes::{
     abort_edit_and_return_to_workspace, edit_initial_index_state, enter_edit_mode, operating_mode,
     save_edit_and_return_to_workspace_with_output,
@@ -26,9 +26,32 @@ pub(crate) fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
     cmd: Option<Subcommands>,
-    commit_id: Option<String>,
+    targets: Vec<String>,
     ai: bool,
 ) -> Result<()> {
+    // Conflicted uncommitted files are marked resolved; anything else is a commit.
+    let conflicted_paths = if targets.is_empty() {
+        Vec::new()
+    } else {
+        conflicted_worktree_paths(ctx)?
+    };
+    let commit_id = match targets.as_slice() {
+        [] => None,
+        [target] if !conflicted_paths.contains(target) => Some(target.clone()),
+        _ => {
+            if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(t)) {
+                bail!(
+                    "'{other}' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`)."
+                );
+            }
+            if ai {
+                bail!(
+                    "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
+                );
+            }
+            return mark_worktree_conflicts_resolved(ctx, out, targets);
+        }
+    };
     if ai {
         if cmd.is_some() {
             bail!(
@@ -84,6 +107,48 @@ pub(crate) fn handle(
             }
         }
     }
+}
+
+/// The worktree-relative paths of uncommitted files with an unresolved index conflict.
+fn conflicted_worktree_paths(ctx: &Context) -> Result<Vec<String>> {
+    let repo = ctx.repo.get()?;
+    let index = repo.index_or_empty()?;
+    Ok(index
+        .entries()
+        .iter()
+        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+        .map(|entry| entry.path(&index).to_string())
+        .collect())
+}
+
+/// Mark the conflicted uncommitted files at `paths` as resolved, taking their
+/// current worktree content.
+fn mark_worktree_conflicts_resolved(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    paths: Vec<String>,
+) -> Result<()> {
+    if matches!(operating_mode(ctx)?.operating_mode, OperatingMode::Edit(_)) {
+        bail!("In resolution mode, edit the files and run `but resolve finish` instead.");
+    }
+    but_api::workspace::resolve_worktree_conflicts(
+        ctx,
+        paths.iter().map(|p| BString::from(p.as_str())).collect(),
+    )?;
+    if let Some(json_out) = out.for_json() {
+        json_out.write_value(serde_json::json!({ "resolved_files": paths }))?;
+    } else if let Some(human_out) = out.for_human() {
+        let t = theme::get();
+        for path in &paths {
+            writeln!(
+                human_out,
+                "{} {}",
+                t.success.paint("✓ Marked as resolved:"),
+                t.attention.paint(path)
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// Resolve a user-provided commit identifier (CLI ID or partial SHA) to an

@@ -1576,11 +1576,11 @@ async fn match_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Resolve { cmd, commit, ai } => {
+        Subcommands::Resolve { cmd, targets, ai } => {
             let status_after = args.status_after
                 && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
             out.begin_status_after(status_after);
-            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, commit, ai)
+            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, targets, ai)
                 .context("Failed to handle conflict resolution.");
             if result.is_ok() {
                 run_status_after_if_requested(status_after, &mut ctx, out);

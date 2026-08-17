@@ -1030,7 +1030,7 @@ To undo this operation:
 ├╯
 ┊
 ┴ 7f73771 (common base) 2000-01-02 upstream change
-⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
 
 Hint: run `but help` for all commands
 

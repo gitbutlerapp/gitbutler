@@ -397,7 +397,7 @@ Discarded commit 1
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
-⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
 
 Hint: run `but help` for all commands
 
@@ -461,7 +461,7 @@ Discarded commit 1
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
-⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
 
 Hint: run `but help` for all commands
 
