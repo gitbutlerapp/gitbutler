@@ -29,7 +29,7 @@ async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
 
 async function expectAdHocBranchAtOriginMaster(pathToRepo: string): Promise<string> {
 	await expect
-		.poll(() => git(pathToRepo, ["branch", "--show-current"]), {
+		.poll(() => git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]), {
 			message: "Expected a regular branch to be checked out",
 			intervals: [100, 200, 500, 1000],
 		})
@@ -42,7 +42,7 @@ async function expectAdHocBranchAtOriginMaster(pathToRepo: string): Promise<stri
 	await expect
 		.poll(() => git(pathToRepo, ["rev-parse", "HEAD"]))
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
-	return git(pathToRepo, ["branch", "--show-current"]);
+	return git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]);
 }
 
 async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
