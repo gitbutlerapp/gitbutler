@@ -39,6 +39,21 @@ export class WorktreeService {
 		);
 	}
 
+	/**
+	 * Paths of uncommitted files with an unresolved index conflict. They are not
+	 * part of `changes` until the conflict is resolved.
+	 */
+	conflictedPaths(projectId: string) {
+		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
+		return getChanges.useQueryState(
+			{ projectId },
+			{
+				transform: (res) =>
+					res.ignoredChanges.filter((c) => c.status === "Conflict").map((c) => c.path),
+			},
+		);
+	}
+
 	treeChangesByPaths(projectId: string, paths: string[]) {
 		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
 		return getChanges.useQueryState(
