@@ -1,15 +1,20 @@
-import { headInfoQueryOptions, workspaceTargetCommitsQueryOptions } from "#ui/api/queries.ts";
+import {
+	headInfoQueryOptions,
+	olderTargetCommitsInfiniteQueryOptions,
+	workspaceTargetCommitsQueryOptions,
+} from "#ui/api/queries.ts";
 import { usePage } from "#ui/use-cursor.ts";
 import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import type { RefInfo, TargetCommit } from "@gitbutler/but-sdk";
-import { useQueries } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
 // Stable empties for the inactive-tab result, so consumers' identities do not
 // churn while the tab is hidden.
 const noItems: Array<UpstreamListItem> = [];
+const noCommits: Array<UpstreamCommitItem> = [];
 const emptyNavigationIndex: NavigationIndex<Operand> = { items: [], indexByKey: new Map() };
 
 /**
@@ -68,6 +73,12 @@ export type UpstreamOutline = {
 	 * shared history between them.
 	 */
 	incomingItemCount: number;
+	/**
+	 * Target history continuing below where `items` stops — commits the
+	 * workspace has long had, paged in on demand. Shown as its own section, so
+	 * it stays out of the interleaved listing above.
+	 */
+	olderItems: Array<UpstreamCommitItem>;
 	/** The target's display label, like `origin/main`, or `null` without a target. */
 	targetLabel: string | null;
 	/**
@@ -79,8 +90,6 @@ export type UpstreamOutline = {
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
 	hasIntegrated: boolean;
-	/** Whether the base listing was clipped before its natural bound. */
-	truncated: boolean;
 	navigationIndex: NavigationIndex<Operand>;
 	/**
 	 * The target-commits query's state, so the tab can tell a genuinely empty
@@ -143,12 +152,24 @@ const workspaceStackBranches = (headInfo: RefInfo | undefined): Array<WorkspaceS
  * and it cannot be recovered from the items afterwards, because an integrated
  * branch attached to the last incoming commit and one parked at the boundary
  * land in the same place.
+ *
+ * The run trailing the deepest fork point comes back separately. It has no
+ * fork point below it to measure against, so it cannot become a shared-history
+ * toggle like the runs above it — but it is target history the workspace
+ * already has, which is exactly what the older section shows, and it has to
+ * join the front of that section rather than be dropped: the older pages
+ * continue below the listing's last commit, so dropping it would leave a hole
+ * the rail draws straight across.
  */
 const buildItems = (
 	commits: Array<UpstreamCommitItem>,
 	stacks: Array<WorkspaceStackBranches>,
 	expanded: Record<string, true>,
-): { items: Array<UpstreamListItem>; incomingItemCount: number } => {
+): {
+	items: Array<UpstreamListItem>;
+	incomingItemCount: number;
+	trailingRun: Array<UpstreamCommitItem>;
+} => {
 	const stubsByBase = new Map<string, Array<UpstreamBranchItem>>();
 	const strandedStubs: Array<UpstreamBranchItem> = [];
 	for (const stack of stacks) {
@@ -185,9 +206,9 @@ const buildItems = (
 
 	// Commits already in the workspace are not shown outright — the tab is
 	// about what's upstream — but each run of them *between* fork points
-	// becomes an expandable shared-history segment. The run trailing the
-	// deepest fork point has no fork point below it to measure against, so it
-	// is dropped rather than flushed: target history simply continues there.
+	// becomes an expandable shared-history segment. Whatever is left in the gap
+	// when the walk ends trails the deepest fork point, and goes to the older
+	// section instead; see this function's doc comment.
 	let gap: Array<UpstreamCommitItem> = [];
 	const flushGap = () => {
 		const first = gap[0];
@@ -229,7 +250,7 @@ const buildItems = (
 	// integrated branches visible at the end instead of dropping them.
 	if (!boundarySeen) items.push(...unmatchedIntegrated());
 
-	return { items, incomingItemCount };
+	return { items, incomingItemCount, trailingRun: gap };
 };
 
 /**
@@ -244,6 +265,19 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 	const expandedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectExpandedUpstreamSegments(state, projectId),
 	);
+	// The older pages continue below the base listing's last commit, so the
+	// cursor is read back off that same (deduplicated) query rather than fetched
+	// again. Both hooks have to run before `combine` can see their results, so
+	// the pages are captured into the closure instead of joining `useQueries`.
+	const { data: olderFrom = null } = useQuery({
+		...workspaceTargetCommitsQueryOptions(projectId),
+		enabled: active,
+		select: (page) => page.commits.at(-1)?.commit.id ?? null,
+	});
+	const { data: olderPages } = useInfiniteQuery({
+		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
+		enabled: active && olderFrom !== null,
+	});
 	// The whole derivation lives in `combine` so its result keeps a stable
 	// identity: react-query caches it on the query results and the `combine`
 	// reference — which itself only changes when a captured input like the
@@ -265,7 +299,6 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			const targetLabel = headInfo?.target
 				? `${headInfo.target.remoteTrackingRef.remoteName}/${headInfo.target.remoteTrackingRef.displayName}`
 				: null;
-			const truncated = targetPage?.hasMore === true;
 			const isPending = targetResult.isPending || headInfoResult.isPending;
 			const isError = targetResult.isError || headInfoResult.isError;
 
@@ -276,10 +309,10 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 				return {
 					items: noItems,
 					incomingItemCount: 0,
+					olderItems: noCommits,
 					targetLabel,
 					incomingCount,
 					hasIntegrated: false,
-					truncated,
 					navigationIndex: emptyNavigationIndex,
 					isPending,
 					isError,
@@ -288,9 +321,24 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 
 			const stacks = workspaceStackBranches(headInfo);
 			const commits = targetCommits.map(asItem);
-			const { items, incomingItemCount } = buildItems(commits, stacks, expandedSegments);
+			const { items, incomingItemCount, trailingRun } = buildItems(
+				commits,
+				stacks,
+				expandedSegments,
+			);
+			// The paged history continues below the base listing's last commit, so
+			// the run trailing the deepest fork point heads the section those pages
+			// fill out. Leaving it off would open a hole the rail draws across.
+			const olderPageItems = olderPages?.pages.flatMap((page) => page.commits).map(asItem) ?? [];
+			const olderItems =
+				trailingRun.length === 0 && olderPageItems.length === 0
+					? noCommits
+					: [...trailingRun, ...olderPageItems];
 
-			const navigationItems = items.flatMap((item): Array<Operand> => {
+			// Commit rows are selectable wherever they appear, older ones
+			// included, so the index runs on into the older section and arrow
+			// navigation crosses into it like any other row.
+			const navigationItems = [...items, ...olderItems].flatMap((item): Array<Operand> => {
 				switch (item.type) {
 					case "commit":
 						// Upstream commits often carry no change-id; the commit id is
@@ -314,10 +362,10 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			return {
 				items,
 				incomingItemCount,
+				olderItems,
 				targetLabel,
 				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),
-				truncated,
 				navigationIndex: {
 					items: navigationItems,
 					indexByKey: buildIndexByKey(navigationItems, operandIdentityKey),

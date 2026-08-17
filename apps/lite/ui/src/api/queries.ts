@@ -3,7 +3,7 @@ import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
 import { apiProvides } from "@gitbutler/but-sdk/cache-tags";
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import * as ms from "ms";
 
 /**
@@ -154,6 +154,43 @@ export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["workspaceTargetCommits", projectId],
 		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
+	});
+
+/**
+ * Enough older history to show the section has depth without it crowding out
+ * the bands above it on arriving at the tab.
+ */
+const olderTargetCommitsFirstPageSize = 10;
+
+/**
+ * What each "load more" adds. Larger than the first page: asking for more is
+ * deliberate, so it should cover ground rather than need pressing repeatedly.
+ */
+const olderTargetCommitsPageSize = 25;
+
+/**
+ * Target history continuing below where the base listing stops, walked from a
+ * commit-id cursor. `from` is exclusive: the backend starts at that commit's
+ * first parent, so passing the base listing's last commit continues the line
+ * without repeating it.
+ *
+ * Keyed under the base listing's own root, so whatever invalidates the target
+ * line — a fetch, a workspace update — reaches the pages hanging off it too.
+ */
+export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
+	infiniteQueryOptions({
+		queryKey: ["workspaceTargetCommits", projectId, { olderThan: from }],
+		queryFn: ({ pageParam }) =>
+			window.lite.workspaceTargetCommits({
+				projectId,
+				from: pageParam,
+				// The first page is the one nobody asked for, and it is the only
+				// fetch whose cursor is still the one the walk started from.
+				limit: pageParam === from ? olderTargetCommitsFirstPageSize : olderTargetCommitsPageSize,
+			}),
+		initialPageParam: from,
+		getNextPageParam: (lastPage) =>
+			lastPage.hasMore ? lastPage.commits.at(-1)?.commit.id : undefined,
 	});
 
 /**

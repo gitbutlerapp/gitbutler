@@ -11,9 +11,7 @@ import {
 	type BranchFilters,
 } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { FieldControlWithIcon, FieldRootStyles } from "#ui/components/Field.tsx";
 import {
 	GraphSegment,
 	type GraphSegmentGlyph,
@@ -38,7 +36,7 @@ import {
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
-import { Field, Toolbar } from "@base-ui/react";
+import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -52,7 +50,11 @@ import {
 	RowMeta,
 	RowMetaSeparator,
 	RowToolbar,
+	SectionHeaderRow,
 } from "./Row.tsx";
+import { ListFilterRow } from "./ListFilterRow.tsx";
+import { useListFilter } from "./useListFilter.ts";
+import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
 import {
 	getRowButtonClassName,
 	treeItemId,
@@ -63,6 +65,7 @@ import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
 import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
+import type { NewBranchActions } from "./useNewBranch.ts";
 import styles from "./BranchesList.module.css";
 
 /** The filter menu, in the order it is shown. */
@@ -312,8 +315,16 @@ const BranchItem: FC<{
 };
 
 export const BranchesList: FC<
-	{ projectId: string; outline: BranchesOutline } & ComponentProps<"div">
-> = ({ projectId, outline, ...restProps }) => {
+	{
+		projectId: string;
+		outline: BranchesOutline;
+		/**
+		 * Owned by the outline and shared with its stacks header, so both `+`
+		 * buttons offer the same menu and see the same create in flight.
+		 */
+		newBranch: NewBranchActions;
+	} & ComponentProps<"div">
+> = ({ projectId, outline, newBranch, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
@@ -328,6 +339,7 @@ export const BranchesList: FC<
 	const selection = useResolvedCursor("branches", navigationIndex);
 	useCursorWriteBack("branches", navigationIndex);
 
+	const panelRef = useRef<HTMLDivElement>(null);
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
 	const selectedBranchIsLocal =
@@ -358,6 +370,25 @@ export const BranchesList: FC<
 		},
 	);
 
+	const firstBranch = stacks[0]?.branches[0];
+	const branchFilter = useListFilter({
+		filter: search,
+		setFilter: (search) => dispatch(projectSlice.actions.setBranchSearch({ projectId, search })),
+		inputId: "branches-filter-input",
+		subject: "branches",
+		scope: "outline",
+		selectionKey: selection === null ? null : operandIdentityKey(selection),
+		firstKey:
+			firstBranch === undefined
+				? undefined
+				: operandIdentityKey(branchOperand({ branchRef: encodeBytes(firstBranch.refName.full) })),
+		onEnterList: () => {
+			if (selection !== null) setCursor("branches", selection);
+		},
+		panelRef,
+		listRef: hotkeysRef,
+	});
+
 	const showFilterMenu = (trigger: HTMLElement) => {
 		void showNativeMenuFromTrigger(
 			trigger,
@@ -374,35 +405,49 @@ export const BranchesList: FC<
 	};
 
 	return (
-		<div {...restProps} className={classes(restProps.className, styles.container)}>
-			<div className={styles.toolbar}>
-				<button
-					type="button"
-					aria-label="Branch filters"
-					className={getButtonClassName({ iconOnly: true })}
-					onClick={(evt) => showFilterMenu(evt.currentTarget)}
-				>
-					<Icon name="filter" />
-				</button>
+		<div {...restProps} className={classes(restProps.className, styles.container)} ref={panelRef}>
+			{branchFilter.rowProps === null ? (
+				<SectionHeaderRow
+					className={styles.header}
+					label="Recent branches"
+					childrenBefore={<SelectionScopeKbd hotkey="1" scope="outline" />}
+					actions={
+						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
+							<Toolbar.Group className={styles.headerGroup}>
+								<Toolbar.Button
+									aria-label="Branch filters"
+									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+									onClick={(evt) => showFilterMenu(evt.currentTarget)}
+								>
+									<Icon name="filter" />
+								</Toolbar.Button>
 
-				<Field.Root render={<FieldRootStyles />} className={styles.filterField}>
-					<FieldControlWithIcon
-						className="text-13"
-						icon={<Icon name="search" />}
-						aria-label="Filter branches"
-						placeholder="Filter branches…"
-						value={search}
-						onChange={(evt) =>
-							dispatch(
-								projectSlice.actions.setBranchSearch({
-									projectId,
-									search: evt.currentTarget.value,
-								}),
-							)
-						}
-					/>
-				</Field.Root>
-			</div>
+								<Toolbar.Button
+									aria-label="Filter branches"
+									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+									onClick={branchFilter.open}
+								>
+									<Icon name="search" />
+								</Toolbar.Button>
+							</Toolbar.Group>
+
+							<Toolbar.Separator className={styles.headerSeparator} />
+
+							<Toolbar.Button
+								aria-label="New branch"
+								className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+								onClick={(evt) => {
+									void showNativeMenuFromTrigger(evt.currentTarget, newBranch.menuItems);
+								}}
+							>
+								{newBranch.isPending ? <Icon name="spinner" /> : <Icon name="plus" />}
+							</Toolbar.Button>
+						</Toolbar.Root>
+					}
+				/>
+			) : (
+				<ListFilterRow {...branchFilter.rowProps} />
+			)}
 
 			<div className={classes(uiStyles.scroller, styles.list)}>
 				{stacks.length === 0 && (
@@ -411,7 +456,7 @@ export const BranchesList: FC<
 							? "Loading branches…"
 							: isError
 								? "Unable to load branches."
-								: search.trim() !== ""
+								: (search ?? "").trim() !== ""
 									? "No matching branches."
 									: "No branches."}
 					</p>

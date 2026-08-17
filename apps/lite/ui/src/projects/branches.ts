@@ -9,14 +9,18 @@ export type BranchFilter = keyof BranchFilters;
  */
 export type BranchesState = {
 	filters: BranchFilters;
-	search: string;
+	/**
+	 * The filter query, or `null` while the filter is closed — the list's header
+	 * stands in its place then, as the file lists' filters do.
+	 */
+	search: string | null;
 	/** Branches with their commits unfolded, keyed by full ref name. */
 	unfolded: Record<string, true>;
 };
 
 const initialState = (): BranchesState => ({
 	filters: { showEmpty: false, onlyLocal: true, onlyStacks: false },
-	search: "",
+	search: null,
 	unfolded: {},
 });
 
@@ -44,7 +48,7 @@ const branchesSlice = createSlice({
 				else delete state.unfolded[branchRef];
 			}
 		},
-		setSearch: (state, { payload: { search } }: PayloadAction<{ search: string }>) => {
+		setSearch: (state, { payload: { search } }: PayloadAction<{ search: string | null }>) => {
 			if (state.search === search) return;
 
 			state.search = search;
@@ -73,7 +77,7 @@ export const branchesReducers = {
 	) => {
 		branchesSlice.caseReducers.setUnfolded(state, branchesSlice.actions.setUnfolded(payload));
 	},
-	setSearch: (state: BranchesState, payload: { search: string }) => {
+	setSearch: (state: BranchesState, payload: { search: string | null }) => {
 		branchesSlice.caseReducers.setSearch(state, branchesSlice.actions.setSearch(payload));
 	},
 	toggleFilter: (state: BranchesState, payload: { filter: BranchFilter }) => {

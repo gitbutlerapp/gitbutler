@@ -4,34 +4,6 @@
 	   row's own leading inset rather than restating it. */
 	--upstream-row-inset: var(--row-padding-inline-start, 12px);
 
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	background-color: var(--bg-2);
-}
-
-/* The card runs the full width of the panel, so nothing insets it. */
-.list {
-	display: flex;
-	row-gap: 8px;
-	flex-grow: 1;
-	flex-direction: column;
-}
-
-/* The heading names the tree for screen readers; the target's own row heads
-   the card visually, so a second visible heading would only repeat it. */
-.srOnly {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	white-space: nowrap;
-	clip-path: inset(50%);
-}
-
-/* The target history and the workspace's branches are two regions of one
-   graph, so they share a single card and are divided rather than boxed apart. */
-.card {
 	/* The one knob for how much room a shared-history run gets: above its
 	   toggle, and below the last commit it reveals. Padding cannot supply that
 	   room — the graph line is drawn by the glyphs, so it only reaches as far
@@ -40,14 +12,18 @@
 	   `.railStub`. */
 	--expander-glyph-air: 4px;
 
-	/* The rows inside carry their own inline inset, so the card only holds them
-	   off its floor and ceiling. Flush with the panel: no rounding, and a
-	   hairline floor in place of the lift a boxed card would have. */
 	display: flex;
 	flex-direction: column;
-	padding-block: 6px;
-	border-block-end: 1px solid var(--border-section);
-	background-color: var(--bg-1);
+	min-height: 0;
+	background-color: var(--bg-2);
+}
+
+/* The bands run the full width of the panel, so nothing insets them and no gap
+   separates them: each one's own hairline floor is the whole division. */
+.list {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
@@ -55,29 +31,83 @@
 	}
 }
 
-/* Spans the card's full width, so it reads as a division of the card rather
-   than of the rows inset within it. The rail tail above supplies its own gap,
-   so the divider only insets below. */
-.divider {
-	margin-block: 0 6px;
-	border-block-start: 1px dashed var(--border-3);
+/* Named bands rather than cards: they divide one listing, so they carry the
+   panel's own recessed fill and are only ruled off from what follows. Shorter
+   and quieter than the outline's pane headings — three of them fall inside one
+   list, where a full-height heading each would read as three panels. */
+.sectionHeader {
+	display: flex;
+	column-gap: 12px;
+	flex-shrink: 0;
+	align-items: center;
+	height: 32px;
+	padding-inline: 13px 4px;
+	padding-block: 4px;
+	border-block-end: 1px solid var(--border-section);
+	background-color: var(--bg-2);
 }
 
-/* Carries a rail past the last row of its region: the glyph is clipped to a
-   stub so only the top of its vertical line shows, and the negative inset lets
-   it run out through the card's own padding to the floor. */
-.railTail {
+/* The key badge and the icon are one leading cluster, so the label closes up
+   to them rather than sitting the full gap away from a lone glyph. */
+.withKbd {
+	column-gap: 8px;
+}
+
+.sectionHeaderIcon {
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+.sectionHeaderLabel {
+	flex-grow: 1;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-2);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The rows inside carry their own inline inset, so a section only holds them
+   off its ceiling and floor. */
+.section {
+	display: flex;
+	flex-direction: column;
+	padding-block: 6px;
+	border-block-end: 1px solid var(--border-section);
+	background-color: var(--bg-1);
+}
+
+/* A band that acts on the listing rather than showing part of it: the update
+   prose and button, and the control paging the target line further back. Off
+   the graph, so it takes the panel's own inset instead of a row's. */
+.block {
+	display: flex;
+	row-gap: 10px;
+	flex-direction: column;
+	padding: 16px;
+	border-block-end: 1px solid var(--border-section);
+	background-color: var(--bg-1);
+}
+
+/* Carries a rail past the first or last row of its region: the glyph is
+   clipped to a stub so only a length of its vertical line shows, and the
+   negative inset lets it run out through the section's own padding to the
+   edge. */
+.railEdge {
 	display: flex;
 	height: 14px;
-	margin-block-end: -6px;
 	padding-inline: var(--upstream-row-inset);
 	overflow: hidden;
 }
 
-/* The target's stub ends at the divider instead, which supplies the gap below
-   it. */
-.railTailBridge {
-	margin-block-end: 0;
+/* The glyph is a plain vertical line, so which end of it the clip keeps makes
+   no difference; only which edge the stub bleeds out through does. */
+.railHead {
+	margin-block-start: -6px;
+}
+
+.railTail {
+	margin-block-end: -6px;
 }
 
 .message {
@@ -154,22 +184,4 @@
 /* Sized by the button itself; this only keeps it from stretching. */
 .expanderButton {
 	align-self: center;
-}
-
-/* Hangs off the target rail below the incoming commits, so the prose and the
-   button read as acting on them. */
-.updateBlock {
-	display: flex;
-	column-gap: 8px;
-	padding-inline: var(--upstream-row-inset);
-}
-
-.updateBlockBody {
-	display: flex;
-	row-gap: 12px;
-	flex-grow: 1;
-	flex-direction: column;
-	min-width: 0;
-	padding-block-start: 12px;
-	padding-block-end: 6px;
 }

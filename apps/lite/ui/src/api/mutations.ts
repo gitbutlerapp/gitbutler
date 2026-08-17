@@ -188,6 +188,22 @@ export const useBranchCreate = () => {
 	});
 };
 
+/**
+ * Creates a branch at the target and checks it out, leaving the workspace
+ * behind the way a plain `git checkout -b` would — the counterpart to
+ * {@link useBranchCreate}, which adds one to the workspace instead.
+ */
+export const useBranchCheckoutNew = () => {
+	const dispatch = useAppDispatch();
+	return useMutation({
+		mutationFn: window.lite.branchCheckoutNew,
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		},
+		meta: { failureTitle: "Failed to create and switch to branch" },
+	});
+};
+
 export const usePublishReview = () =>
 	useMutation({
 		mutationFn: window.lite.publishReview,
