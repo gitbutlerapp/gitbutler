@@ -322,6 +322,10 @@ export const operationHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const diffHotkeys = {
+	absorb: {
+		hotkey: "A",
+		meta: { group: "Diff", name: "Absorb hunk" },
+	},
 	checkHunk: {
 		hotkey: "Space",
 		meta: { group: "Diff", name: "Check selected lines" },

@@ -1,5 +1,5 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
+import { enterAbsorb, setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
@@ -98,6 +98,7 @@ import styles from "./Details.module.css";
 import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import {
+	focusSelectionScope,
 	type SelectionScope,
 	useAutofocusSelectionScope,
 	useNavigationIndexHotkeys,
@@ -426,6 +427,9 @@ const DiffContents: FC<{
 	const canCheckHunks = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
 	);
+	const isDefaultMode = useAppSelector(
+		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
 	const diffSelectionKey = diffSelection === null ? null : hunkOperandIdentityKey(diffSelection);
@@ -718,6 +722,49 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.absorb.hotkey,
+			callback: () => {
+				if (!diffSelectionHunk) return;
+				const firstLine = diffSelectionHunk.operand.lineGroups[0];
+				if (!firstLine) return;
+
+				const hunk = getHunkOperandAtLine({
+					itemId: diffSelectionHunk.file.item.id,
+					lineNumber: firstLine.start,
+					side: firstLine.side,
+					lineType: "change",
+				});
+				if (!hunk) return;
+
+				enterAbsorb({
+					source: hunkOperand(hunk),
+					sourceTarget: {
+						type: "hunks",
+						subject: {
+							hunks: [
+								{
+									pathBytes: diffSelectionHunk.file.change.pathBytes,
+									hunkHeader: hunk.hunkHeader,
+								},
+							],
+						},
+					},
+				});
+
+				focusSelectionScope("outline");
+			},
+			options: {
+				enabled:
+					fileParent._tag === "UncommittedChanges" &&
+					isDefaultMode &&
+					!!diffSelectionHunk &&
+					!diffSelectionHunk.operand.isResultOfBinaryToTextConversion,
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
+				meta: diffHotkeys.absorb.meta,
 			},
 		},
 		{
@@ -1105,6 +1152,8 @@ const DiffContents: FC<{
 		if (!file) return;
 		const operand = getContextMenuOperandAtLine(target);
 		if (!operand) return;
+		const hunk = getHunkOperandAtLine(target);
+		if (!hunk) return;
 		const lineOperand = getLineOperandAtLine(target);
 		const checkedProbe = lineOperand ? hunkOperand(lineOperand) : null;
 		const selectedOperands = operandsForSelectedLines(selectedLines, "compact");
@@ -1123,6 +1172,7 @@ const DiffContents: FC<{
 			event,
 			hunkMenuItems({
 				change: file.change,
+				hunk,
 				lineNumber: target.lineNumber,
 				sources: usesSelectedLines ? selectedOperands : [hunkOperand(operand)],
 				checkedProbe,
