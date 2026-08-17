@@ -18,8 +18,14 @@
 	background-color: var(--bg-2);
 }
 
-/* The bands run the full width of the panel, so nothing insets them and no gap
-   separates them: each one's own hairline floor is the whole division. */
+/* Titles the pane, like the other tabs' headings. */
+.header {
+	flex-shrink: 0;
+	border-block-end: 1px solid var(--border-section);
+}
+
+/* The regions run the full width of the panel, so nothing insets them and no
+   gap separates them: each one's own hairline floor is the whole division. */
 .list {
 	display: flex;
 	flex-grow: 1;
@@ -31,42 +37,6 @@
 	}
 }
 
-/* Named bands rather than cards: they divide one listing, so they carry the
-   panel's own recessed fill and are only ruled off from what follows. Shorter
-   and quieter than the outline's pane headings — three of them fall inside one
-   list, where a full-height heading each would read as three panels. */
-.sectionHeader {
-	display: flex;
-	column-gap: 12px;
-	flex-shrink: 0;
-	align-items: center;
-	height: 32px;
-	padding-inline: 13px 4px;
-	padding-block: 4px;
-	border-block-end: 1px solid var(--border-section);
-	background-color: var(--bg-2);
-}
-
-/* The key badge and the icon are one leading cluster, so the label closes up
-   to them rather than sitting the full gap away from a lone glyph. */
-.withKbd {
-	column-gap: 8px;
-}
-
-.sectionHeaderIcon {
-	flex-shrink: 0;
-	color: var(--text-3);
-}
-
-.sectionHeaderLabel {
-	flex-grow: 1;
-	min-width: 0;
-	overflow: hidden;
-	color: var(--text-2);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 /* The rows inside carry their own inline inset, so a section only holds them
    off its ceiling and floor. */
 .section {
@@ -75,6 +45,15 @@
 	padding-block: 6px;
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-1);
+}
+
+/* The one break in the listing: what is coming in above, where the workspace
+   stands against it below. A hairline is what divides one region from the next,
+   so the halves are parted by the panel's own fill showing through instead —
+   ruled on both sides, so each half still closes and opens on a floor. */
+.regionBreak {
+	margin-block-start: 8px;
+	border-block-start: 1px solid var(--border-section);
 }
 
 /* A band that acts on the listing rather than showing part of it: the update

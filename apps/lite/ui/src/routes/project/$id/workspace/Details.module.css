@@ -63,16 +63,10 @@
 .actions {
 	display: flex;
 	align-items: center;
-	padding-inline: 10px var(--panel-padding-inline);
 	/* With a separate header above (commit/branch views), use tighter padding. */
-	padding-block: 8px;
+	padding: 8px;
 	gap: 12px;
 	border-bottom: 1px solid var(--border-section);
-
-	/* No files panel to the left, so align with the panel padding. */
-	/* &.filesHidden {
-		padding-inline-start: 8px;
-	} */
 
 	/* Lone layout: the title lives in this row, match the panel padding. */
 	.containerLone & {

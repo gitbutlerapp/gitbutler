@@ -7,6 +7,7 @@ import {
 	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -534,16 +535,18 @@ export const CommitForm: FC<{
 								name={commitTarget?.operand._tag === "Commit" ? "commit" : "branch"}
 								size={14}
 							/>
-							<span className={styles.targetTriggerLabel}>
-								{hasNoBranches ? (
-									<>
-										{draftBranchLabel}
-										<span className={styles.targetTriggerBadge}>new</span>
-									</>
-								) : (
+							{hasNoBranches ? (
+								<>
+									<span className={styles.targetTriggerLabel}>{draftBranchLabel}</span>
+									<Badge variant="lightGray" className={styles.targetTriggerBadge}>
+										new
+									</Badge>
+								</>
+							) : (
+								<span className={styles.targetTriggerLabel}>
 									<Combobox.Value placeholder="Select commit target" />
-								)}
-							</span>
+								</span>
+							)}
 						</Combobox.Trigger>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4}>

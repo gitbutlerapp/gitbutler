@@ -10,7 +10,6 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
 import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
@@ -28,15 +27,8 @@ import {
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import {
-	type ComponentProps,
-	type FC,
-	type MouseEvent,
-	type ReactNode,
-	useRef,
-	useState,
-} from "react";
-import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "./Row.tsx";
+import { type ComponentProps, type FC, type MouseEvent, useRef, useState } from "react";
+import { Row, RowLabel, RowLabelContainer, RowLabelFooter, SectionHeaderRow } from "./Row.tsx";
 import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
 	UpstreamBranchItem,
@@ -50,26 +42,6 @@ const pluralRules = new Intl.PluralRules("en");
 
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
 	useIsSelectedInList(projectId, operand, "upstream");
-
-/**
- * The band naming the section below it.
- *
- * Not the outline's `SectionHeaderRow`: that one titles a whole pane and is
- * sized to it. Three of these divide a single listing, so they are shorter and
- * quieter — a rule with a name on it rather than a heading over a panel.
- */
-const UpstreamSectionHeader: FC<{
-	icon: IconName;
-	label: string;
-	/** The key that focuses the list, shown only on the band that heads it. */
-	kbd?: ReactNode;
-}> = ({ icon, label, kbd }) => (
-	<div role="none" className={classes(styles.sectionHeader, kbd !== undefined && styles.withKbd)}>
-		{kbd}
-		<Icon className={styles.sectionHeaderIcon} name={icon} size={14} />
-		<span className={classes("text-12", styles.sectionHeaderLabel)}>{label}</span>
-	</div>
-);
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -96,7 +68,7 @@ const TargetCommitRow: FC<{
 	 * Overrides the rail colour the commit's own position would give it. The
 	 * older section is one unbroken length of target line, so its rows keep the
 	 * target's colour rather than each reporting that the workspace has them —
-	 * which is the whole section's premise, and its heading already says so.
+	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
 }> = ({ projectId, item, status }) => {
@@ -333,7 +305,10 @@ const LoadMoreOlder: FC<{ projectId: string }> = ({ projectId }) => {
 				disabled={isFetching}
 				onClick={() => void fetchNextPage()}
 			>
-				{isFetching ? <Icon name="spinner" /> : isError ? "Try again" : "Load more"}
+				{/* Names what it pages in rather than saying "more": it closes a run
+				    nothing titles, so it is the only thing that says what is down
+				    there. */}
+				{isFetching ? <Icon name="spinner" /> : isError ? "Try again" : "Load older commits"}
 			</button>
 		</div>
 	);
@@ -457,12 +432,25 @@ export const UpstreamList: FC<
 	// The rail's tail carries on from the last branch, so it has to be coloured
 	// the same as the segment it continues rather than always as local work.
 	const lastBranch = workspaceItems.findLast((item) => item.type === "branch");
+	// The listing parts once, under everything about what is coming in. Whichever
+	// region opens what is below carries that break.
+	const breaksFromIncoming = workspaceItems.length > 0 ? "workspace" : "older";
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
-			{/* One graph across three bands: what is coming in, where the
+			{/* Headed like the other tabs: one title over the whole pane, held out
+			    of the scroller so it stays put while the listing moves. */}
+			<SectionHeaderRow
+				className={styles.header}
+				label="Incoming changes"
+				childrenBefore={<SelectionScopeKbd hotkey="1" scope="outline" />}
+			/>
+
+			{/* One graph across three regions: what is coming in, where the
 			    workspace's branches sit against it, and the history behind them.
-			    The headings divide the listing; the rails carry through it. */}
+			    Nothing names them — each region's own floor divides it from the
+			    next, and the rails carry through. The one wider break falls under
+			    everything about what is coming in; see `.regionBreak`. */}
 			<div
 				tabIndex={0}
 				role="tree"
@@ -472,12 +460,6 @@ export const UpstreamList: FC<
 				className={classes(uiStyles.scroller, styles.list)}
 				ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
 			>
-				<UpstreamSectionHeader
-					icon="arrow-down"
-					label="Incoming changes"
-					kbd={<SelectionScopeKbd hotkey="1" scope="outline" />}
-				/>
-
 				<div role="none" className={styles.section}>
 					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}
 
@@ -515,50 +497,54 @@ export const UpstreamList: FC<
 				)}
 
 				{workspaceItems.length > 0 && (
-					<>
-						<UpstreamSectionHeader icon="workbench" label="Workspace branches" />
+					<div
+						role="none"
+						className={classes(
+							styles.section,
+							breaksFromIncoming === "workspace" && styles.regionBreak,
+						)}
+					>
+						{workspaceItems.flatMap((item, index) => {
+							const row = listItem(projectId, item, item === railHead);
+							// Commits only appear here as the body of an expanded run, so
+							// the last one before anything else is where a run closes.
+							const next = workspaceItems[index + 1];
+							return item.type === "commit" && next !== undefined && next.type !== "commit"
+								? [row, <RunTail key={`${item.commit.id}-tail`} />]
+								: [row];
+						})}
 
-						<div role="none" className={styles.section}>
-							{workspaceItems.flatMap((item, index) => {
-								const row = listItem(projectId, item, item === railHead);
-								// Commits only appear here as the body of an expanded run, so
-								// the last one before anything else is where a run closes.
-								const next = workspaceItems[index + 1];
-								return item.type === "commit" && next !== undefined && next.type !== "commit"
-									? [row, <RunTail key={`${item.commit.id}-tail`} />]
-									: [row];
-							})}
-
-							<RailEdge
-								status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"}
-								edge="tail"
-							/>
-						</div>
-					</>
+						<RailEdge
+							status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"}
+							edge="tail"
+						/>
+					</div>
 				)}
 
 				{olderItems.length > 0 && (
-					<>
-						<UpstreamSectionHeader icon="docs" label="Older integrated commits" />
+					<div
+						role="none"
+						className={classes(
+							styles.section,
+							breaksFromIncoming === "older" && styles.regionBreak,
+						)}
+					>
+						{/* The run opens mid-line rather than at a fork, so a stub
+						    supplies the rail the first row would otherwise start from
+						    nothing. */}
+						<RailEdge status="Upstream" edge="head" />
 
-						<div role="none" className={styles.section}>
-							{/* The run opens mid-line rather than at a fork, so a stub
-							    supplies the rail the first row would otherwise start from
-							    nothing. */}
-							<RailEdge status="Upstream" edge="head" />
+						{olderItems.map((item) => (
+							<TargetCommitRow
+								key={item.commit.id}
+								projectId={projectId}
+								item={item}
+								status="Upstream"
+							/>
+						))}
 
-							{olderItems.map((item) => (
-								<TargetCommitRow
-									key={item.commit.id}
-									projectId={projectId}
-									item={item}
-									status="Upstream"
-								/>
-							))}
-
-							<RailEdge status="Upstream" edge="tail" />
-						</div>
-					</>
+						<RailEdge status="Upstream" edge="tail" />
+					</div>
 				)}
 
 				<LoadMoreOlder projectId={projectId} />

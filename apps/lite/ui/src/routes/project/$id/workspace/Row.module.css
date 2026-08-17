@@ -24,7 +24,7 @@
 	flex-shrink: 0;
 	align-items: center;
 	height: 44px;
-	padding-inline: 14px;
+	padding-inline: var(--panel-padding-inline);
 }
 
 /* Square, and edge to edge in every list that has them: a row's fill is a band
@@ -225,6 +225,12 @@
 .metaSeparator {
 	flex-shrink: 0;
 	opacity: 0.4;
+}
+
+/* Button sitting in a meta row: stands a little further off from the facts it
+   follows, since no separator dot divides them. */
+.metaButton {
+	margin-left: 4px;
 }
 
 /* Item that yields space to its siblings by truncating its text. */
