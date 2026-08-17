@@ -497,8 +497,9 @@ const WorkspacePage: FC = () => {
 			absorptionPlanQueryOptions({ projectId, target }),
 		),
 	});
-	const absorptionTargetCommitIds = new Set(
-		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
+	const absorptionTargetCommitIds = useMemo(
+		() => new Set(absorptionPlanQuery?.data?.map(({ commitId }) => commitId)),
+		[absorptionPlanQuery?.data],
 	);
 
 	const foldedSegments = useAppSelector((state) =>
