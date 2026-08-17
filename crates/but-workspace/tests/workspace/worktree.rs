@@ -3,7 +3,8 @@ use but_core::ref_metadata::ProjectMeta;
 use but_graph::init::Options;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_workspace::{
-    BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
+    BottomUpdate, BottomUpdateKind, integrate_upstream, resolve_worktree_conflicts,
+    worktree_conflicts_for_rebase,
 };
 
 use crate::ref_info::with_workspace_commit::utils::{
@@ -202,6 +203,99 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
         "ignored-only changes cannot be represented in the snapshot and should be a no-op"
     );
     Ok(())
+}
+
+#[test]
+fn resolve_worktree_conflict_takes_worktree_content() -> Result<()> {
+    let (_tmp, repo, _meta, _description) = upstream_conflict_fixture()?;
+    make_index_conflict(&repo)?;
+    std::fs::write(
+        repo.workdir_path("shared.txt").expect("non-bare"),
+        "resolved\n",
+    )?;
+
+    resolve_worktree_conflicts(&repo, ["shared.txt".into()])?;
+
+    let index = repo.index()?;
+    let entries: Vec<_> = index
+        .prefixed_entries("shared.txt".into())
+        .unwrap_or_default()
+        .iter()
+        .map(|e| (e.stage(), e.id))
+        .collect();
+    assert_eq!(
+        entries,
+        vec![(
+            gix::index::entry::Stage::Unconflicted,
+            repo.write_blob("resolved\n")?.detach()
+        )],
+        "only a stage-0 entry with the worktree content remains"
+    );
+
+    let changes = but_core::diff::worktree_changes(&repo)?;
+    assert!(changes.index_conflicts.is_empty(), "the conflict is gone");
+    assert_eq!(
+        changes
+            .changes
+            .iter()
+            .map(|c| c.path.to_string())
+            .collect::<Vec<_>>(),
+        ["shared.txt"],
+        "the file is now an ordinary uncommitted change"
+    );
+    assert_eq!(
+        changes.changes[0].status.kind(),
+        but_core::TreeStatusKind::Modification,
+        "resolved with different content than HEAD"
+    );
+    Ok(())
+}
+
+#[test]
+fn resolve_worktree_conflict_of_deleted_file_removes_all_stages() -> Result<()> {
+    let (_tmp, repo, _meta, _description) = upstream_conflict_fixture()?;
+    make_index_conflict(&repo)?;
+    std::fs::remove_file(repo.workdir_path("shared.txt").expect("non-bare"))?;
+
+    resolve_worktree_conflicts(&repo, ["shared.txt".into()])?;
+
+    let index = repo.index()?;
+    assert!(
+        index.prefixed_entries("shared.txt".into()).is_none(),
+        "no index entry is left for a file that was deleted to resolve"
+    );
+    let changes = but_core::diff::worktree_changes(&repo)?;
+    assert!(changes.index_conflicts.is_empty(), "the conflict is gone");
+    assert_eq!(
+        changes
+            .changes
+            .iter()
+            .map(|c| c.path.to_string())
+            .collect::<Vec<_>>(),
+        ["shared.txt"],
+        "the file is now an ordinary uncommitted change"
+    );
+    assert_eq!(
+        changes.changes[0].status.kind(),
+        but_core::TreeStatusKind::Deletion,
+        "the file is tracked in HEAD but gone from the worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn resolve_worktree_conflict_refuses_unconflicted_path() -> Result<()> {
+    let (_tmp, repo, _meta, _description) = upstream_conflict_fixture()?;
+    let err = resolve_worktree_conflicts(&repo, ["shared.txt".into()]).unwrap_err();
+    assert_eq!(err.to_string(), "'shared.txt' has no unresolved conflict");
+    Ok(())
+}
+
+/// Leave behind what a conflicting checkout produces for `shared.txt`: unmerged
+/// entries in the index.
+fn make_index_conflict(repo: &gix::Repository) -> Result<()> {
+    git(repo, ["update-index", "--refresh"])?;
+    git(repo, ["read-tree", "-m", "-u", "main", "A", "new-origin"])
 }
 
 fn upstream_conflict_fixture() -> Result<(

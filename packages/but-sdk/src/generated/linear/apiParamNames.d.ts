@@ -106,6 +106,7 @@ export declare const apiParamNames: {
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];
 	readonly requestReview: readonly ["projectId", "reviewId", "logins"];
 	readonly resolveCommitConflictHunks: readonly ["projectId", "commitId", "specs"];
+	readonly resolveWorktreeConflicts: readonly ["projectId", "paths"];
 	readonly restoreSnapshotWithKind: readonly ["projectId", "restoreKind", "sha"];
 	readonly reviewApply: readonly ["projectId", "reviewId"];
 	readonly reviewTemplate: readonly ["projectId"];
