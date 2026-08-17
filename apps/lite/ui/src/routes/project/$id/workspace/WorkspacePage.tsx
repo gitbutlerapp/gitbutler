@@ -21,7 +21,7 @@ import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import type { ProjectForFrontend, RefInfo, TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
+import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
@@ -52,14 +52,8 @@ import {
 	WorkspaceDetails,
 } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
-import { pathMatchesFilter } from "./file-row.ts";
-import {
-	buildFileTreeRows,
-	fileTreeNavigationIndex,
-	selectedFilePath,
-	type FileDisplayMode,
-	type FileTreeRow,
-} from "./file-tree.ts";
+import { buildUncommittedFileRows } from "./file-row.ts";
+import { fileTreeNavigationIndex, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
@@ -248,24 +242,6 @@ const hasAnyOperation = (sources: Array<Operand>, target: Operand) => {
 	const operations = getOperations(sources, target);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
-
-const buildUncommittedFileRows = ({
-	worktreeChanges,
-	filter,
-	mode,
-	collapsedDirectories,
-}: {
-	worktreeChanges: WorktreeChanges | undefined;
-	filter: string | null;
-	mode: FileDisplayMode;
-	collapsedDirectories: Record<string, true>;
-}): Array<FileTreeRow<TreeChange>> =>
-	buildFileTreeRows({
-		items:
-			worktreeChanges?.changes.filter((change) => pathMatchesFilter(change.path, filter)) ?? [],
-		mode,
-		collapsedDirectories,
-	});
 
 const buildOutlineNavigationIndex = ({
 	headInfo,
