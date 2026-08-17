@@ -1,5 +1,5 @@
-import { useBranchCreate, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
-import { setCursor, setPage, usePage } from "#ui/use-cursor.ts";
+import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
+import { setPage, usePage } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
@@ -13,10 +13,9 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
+import type { Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -38,6 +37,8 @@ import { Badge } from "#ui/components/Badge.tsx";
 import type { OutlineTab } from "#ui/projects/project.ts";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { useNewBranch } from "#ui/routes/project/$id/workspace/useNewBranch.ts";
+import { showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { RowToolbar } from "#ui/routes/project/$id/workspace/Row.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 
@@ -141,11 +142,6 @@ export const Outline: FC<{
 		setPage(head);
 	};
 
-	const selectBranch = (branch: BranchOperand) => {
-		setCursor("stacks", branchOperand(branch));
-		focusSelectionScope("outline");
-	};
-
 	const openApplyBranchPicker = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ApplyBranchPicker" } }));
 	};
@@ -158,21 +154,7 @@ export const Outline: FC<{
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
 	};
 
-	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
-	const createIndependentBranch = () => {
-		branchCreate(
-			{
-				projectId,
-				newRef: null,
-				placement: { type: "independent" },
-			},
-			{
-				onSuccess: (response) => {
-					selectBranch({ branchRef: response.newRef.fullNameBytes });
-				},
-			},
-		);
-	};
+	const newBranch = useNewBranch(projectId);
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: autoFetchFrequency } = useQuery({
@@ -214,7 +196,7 @@ export const Outline: FC<{
 		isDefaultMode && headInfo?.target?.isCurrent === false && !isWorkspaceIntegrateUpstreamPending;
 	const canFetchFromRemotes = isDefaultMode && !isWorkspaceFetchFromRemotesPending;
 
-	const canCreateIndependentBranch = isDefaultMode && !isBranchCreatePending;
+	const canCreateBranch = newBranch.enabled;
 
 	const canApplyBranch = isDefaultMode;
 
@@ -234,11 +216,24 @@ export const Outline: FC<{
 		},
 		{
 			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
-			callback: createIndependentBranch,
+			callback: newBranch.createInWorkspace,
 			options: {
 				conflictBehavior: "allow",
-				enabled: canCreateIndependentBranch,
+				enabled: canCreateBranch,
 				meta: workspaceHotkeys.createIndependentBranch.meta,
+				requireReset: true,
+			},
+		},
+		// Bound beside its unshifted twin rather than on the branches tab that
+		// first offered it: both `+` buttons now put it on their menu, so the
+		// accelerator they show has to work wherever the outline is.
+		{
+			hotkey: workspaceHotkeys.createBranchAndSwitch.hotkey,
+			callback: newBranch.createAndSwitch,
+			options: {
+				conflictBehavior: "allow",
+				enabled: canCreateBranch,
+				meta: workspaceHotkeys.createBranchAndSwitch.meta,
 				requireReset: true,
 			},
 		},
@@ -384,6 +379,7 @@ export const Outline: FC<{
 					className={styles.outlineTree}
 					projectId={projectId}
 					outline={branchesOutline}
+					newBranch={newBranch}
 				/>
 			) : outlineTab === "upstream" ? (
 				<UpstreamList
@@ -406,23 +402,27 @@ export const Outline: FC<{
 						<RowToolbar forceVisible>
 							<Tooltip.Root>
 								<Tooltip.Trigger
-									aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
+									aria-label="New branch"
 									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
-									onClick={createIndependentBranch}
+									onClick={(event) => {
+										void showNativeMenuFromTrigger(event.currentTarget, newBranch.menuItems);
+									}}
 									// We pass `disabled` here because we want to disable the button, not
 									// the tooltip. Other props should be passed above.
-									render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+									render={<Button focusableWhenDisabled disabled={!canCreateBranch} />}
 								>
-									{isBranchCreatePending ? <Icon name="spinner" /> : <Icon name="plus" />}
+									{newBranch.isPending ? <Icon name="spinner" /> : <Icon name="plus" />}
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
+										{/* The menu carries both keys; the tooltip names the one that
+										    skips it. */}
 										<Tooltip.Popup
 											render={
 												<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
 											}
 										>
-											{workspaceHotkeys.createIndependentBranch.meta.name}
+											New branch
 										</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>

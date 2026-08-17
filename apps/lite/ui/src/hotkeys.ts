@@ -106,6 +106,14 @@ export const workspaceHotkeys = {
 		hotkey: "Mod+N",
 		meta: { group: "Workspace", name: "Add new branch" },
 	},
+	/**
+	 * The shifted counterpart of `createIndependentBranch`: the same act, but
+	 * leaving the workspace for the new branch rather than adding it alongside.
+	 */
+	createBranchAndSwitch: {
+		hotkey: "Mod+Shift+N",
+		meta: { group: "Workspace", name: "Add new branch and switch to it" },
+	},
 	fetchFromRemotes: {
 		hotkey: "Alt+Shift+F",
 		meta: { group: "Workspace", name: "Fetch" },
