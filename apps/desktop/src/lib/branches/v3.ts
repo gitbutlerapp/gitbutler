@@ -1,6 +1,6 @@
 import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
-/** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
+/** Commit that is part of a stack branch, with state derived relative to that branch. */
 
 /** Safely extract the committed time in milliseconds */
 export function commitCommittedAt(commit: Commit | UpstreamCommit): number {

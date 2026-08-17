@@ -4127,28 +4127,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-stack"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-askpass",
- "but-core",
- "but-ctx",
- "but-db",
- "but-error",
- "but-meta",
- "but-testsupport",
- "ctor 0.6.3",
- "filetime",
- "gitbutler-git",
- "gitbutler-reference",
- "gix",
- "itertools",
- "tempfile",
- "toml 0.9.12+spec-1.1.0",
-]
-
-[[package]]
 name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
