@@ -6,12 +6,14 @@
 	}
 }
 
+/* Appears when the pointer is over the glyph cell, not the whole row, so the
+   row stays quiet while browsing. */
 .checkbox {
 	justify-self: center;
 	opacity: 0;
 
 	&[data-checked],
-	.row:hover &,
+	.iconWithCheckbox:hover &,
 	&:focus {
 		opacity: 1;
 	}
