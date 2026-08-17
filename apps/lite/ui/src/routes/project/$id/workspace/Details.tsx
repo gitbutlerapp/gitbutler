@@ -68,10 +68,11 @@ import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
+	type CodeViewOptions,
 	type DiffLineAnnotation,
 	isDiffAnnotation,
 } from "@pierre/diffs";
-import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
+import { CodeView, type CodeViewHandle, useStableCallback } from "@pierre/diffs/react";
 import {
 	keepPreviousData,
 	useQuery,
@@ -962,6 +963,25 @@ const DiffContents: FC<{
 		);
 	};
 
+	// Keep this option's identity fixed while reading the latest diff state. An inline callback (or
+	// useCallback with the render-local helpers as dependencies) invalidates the compiler's cached
+	// CodeView on focus, causing Pierre to rebuild its DOM during native text selection.
+	const handleLineNumberClick: NonNullable<CodeViewOptions<Annotation>["onLineNumberClick"]> =
+		useStableCallback(({ event, numberElement }, context) => {
+			if (event.detail !== 2) return;
+			const target = diffLineTargetFromElement({
+				element: numberElement,
+				itemId: context.item.id,
+			});
+			if (!target) return;
+			const operand = getHunkOperandAtLine(target);
+			if (!operand) return;
+			const range = rangeFromLineGroups(operand.lineGroups);
+			if (!range) return;
+
+			applySelectedLines({ id: target.itemId, range });
+		});
+
 	const getContiguousHunkOperandAtLine = ({
 		itemId,
 		lineNumber,
@@ -1359,20 +1379,7 @@ const DiffContents: FC<{
 					themeType: settings?.theme ?? defaultSettings.theme,
 					stickyHeaders: true,
 					enableLineSelection: true,
-					onLineNumberClick: ({ event, numberElement }, context) => {
-						if (event.detail !== 2) return;
-						const target = diffLineTargetFromElement({
-							element: numberElement,
-							itemId: context.item.id,
-						});
-						if (!target) return;
-						const operand = getHunkOperandAtLine(target);
-						if (!operand) return;
-						const range = rangeFromLineGroups(operand.lineGroups);
-						if (!range) return;
-
-						applySelectedLines({ id: target.itemId, range });
-					},
+					onLineNumberClick: handleLineNumberClick,
 					layout: codeViewLayout,
 					// This appears to validate before our custom header has been slotted, in which case - if
 					// our metrics are correct - we should see deltas in multiples of our custom header height
