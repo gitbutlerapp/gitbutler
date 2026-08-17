@@ -42,7 +42,7 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
+			featureFlags: { singleBranch: true, unapplyV3Pgm: false },
 		},
 	},
 });
@@ -682,6 +682,8 @@ test.describe("unapply-v3-pgm enabled", () => {
 	test("undoes and redoes the transition to a single checkout", async ({ page, gitbutler }) => {
 		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
 		await unapplyStack(page, "branch3");
+		await assertSymbolicHead("branch1", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
 
 		await gitbutler.runScript("undo-redo.sh", ["undo", "local-clone"]);
 		await page.reload();
