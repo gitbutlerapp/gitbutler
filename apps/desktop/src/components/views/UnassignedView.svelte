@@ -9,6 +9,7 @@
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Button, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
@@ -25,6 +26,7 @@
 
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const worktreeService = inject(WORKTREE_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const projectState = $derived(uiState.project(projectId));
@@ -35,6 +37,9 @@
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
 	const changesToCommit = $derived(treeChangesCount > 0);
+	// Conflicted files can't be committed yet, but the folded badge must not hide them.
+	const conflictedPaths = $derived(worktreeService.conflictedPaths(projectId));
+	const fileCount = $derived(treeChangesCount + (conflictedPaths.response?.length ?? 0));
 	let foldedContentWidth = $state<number>(0);
 
 	function unfoldView() {
@@ -168,7 +173,7 @@
 
 		<div class="unassigned-folded-content">
 			<Badge>
-				{treeChangesCount > 99 ? "99+" : treeChangesCount}
+				{fileCount > 99 ? "99+" : fileCount}
 			</Badge>
 			<span
 				bind:clientWidth={foldedContentWidth}

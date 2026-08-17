@@ -13,9 +13,10 @@
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, TestId } from "@gitbutler/ui";
+	import { Badge, FileListItem, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { untrack, type Snippet } from "svelte";
@@ -74,6 +75,14 @@
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
+	// Conflicted files can't be assigned, so they only show in the unassigned lane.
+	const worktreeService = inject(WORKTREE_SERVICE);
+	const conflictedPathsQuery = $derived(
+		mode === "unassigned" ? worktreeService.conflictedPaths(projectId) : undefined,
+	);
+	const conflictedPaths = $derived(conflictedPathsQuery?.response ?? []);
+	const fileCount = $derived(changes.current.length + conflictedPaths.length);
+
 	let listMode: "list" | "tree" = $state("list");
 
 	let scrollTopIsVisible = $state(true);
@@ -94,6 +103,16 @@
 </script>
 
 {#snippet fileList()}
+	{#each conflictedPaths as filePath (filePath)}
+		<FileListItem
+			{filePath}
+			listMode="list"
+			pathFirst={uiState.global.pathFirst.current}
+			conflicted
+			conflictHint="Resolve the conflict, then right-click → Mark as Resolved"
+			clickable={false}
+		/>
+	{/each}
 	<FileListProvider changes={changes.current} {selectionId}>
 		<FileListItems
 			{projectId}
@@ -143,16 +162,16 @@
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>
-						<Badge>{changes.current.length}</Badge>
+						<Badge>{fileCount}</Badge>
 					</div>
 				</div>
-				{#if changes.current.length > 0}
+				{#if fileCount > 0}
 					<FileListViewToggle bind:mode={listMode} {persistId} />
 				{/if}
 			</div>
 		{/if}
 
-		{#if changes.current.length > 0}
+		{#if fileCount > 0}
 			<ScrollableContainer
 				{onscrollexists}
 				onscrollTop={(visible) => {
