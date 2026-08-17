@@ -12,7 +12,9 @@ import {
 	assertCleanWorktree,
 	assertCommitSubjects,
 	assertDirtyWorktree,
+	assertRefDoesNotExist,
 	assertSymbolicHead,
+	unapplyStack,
 } from "../../src/branch.ts";
 import {
 	openCommitDrawer,
@@ -23,6 +25,7 @@ import {
 	verifyCommitPlaceholderPosition,
 } from "../../src/commit.ts";
 import { assertFileContent, unstageAllFiles, writeToFile } from "../../src/file.ts";
+import { applyUpstream, type GitButler } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import {
 	clickByTestId,
@@ -39,7 +42,7 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
+			featureFlags: { singleBranch: true, unapplyV3Pgm: false },
 		},
 	},
 });
@@ -566,6 +569,178 @@ test("can apply another branch after leaving a managed workspace", async ({ page
 		getByTestId(page, "branch-card").filter({ hasText: "stale-workspace-branch" }),
 	).toHaveCount(0);
 	await assertCleanWorktree(localClone);
+});
+
+async function openManagedWorkspace(
+	page: Page,
+	gitbutler: GitButler,
+	...branches: string[]
+): Promise<string> {
+	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, ...branches);
+	await openSingleBranchWorkspace(page);
+	return gitbutler.pathInWorkdir("local-clone");
+}
+
+test.describe("unapply-v3-pgm enabled", () => {
+	test.use({
+		gitbutlerOptions: {
+			config: {
+				onboardingComplete: true,
+				featureFlags: { singleBranch: true, unapplyV3Pgm: true },
+			},
+		},
+	});
+
+	test("stays managed with two stacks, then moves to a single checkout", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch2", "branch3");
+
+		await assertBranch("gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(3);
+
+		await unapplyStack(page, "branch3");
+		await assertSymbolicHead("gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(2);
+		await expect(stack(page, "branch1")).toBeVisible();
+		await expect(stack(page, "branch2")).toBeVisible();
+
+		await unapplyStack(page, "branch2");
+
+		await assertSymbolicHead("branch1", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "branch1");
+		await expect(stack(page)).toHaveCount(1);
+		await expect(stack(page, "branch1")).toBeVisible();
+		await assertCleanWorktree(localClone);
+	});
+
+	test("checks out the last-applied stack when the first-applied stack is unapplied", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+
+		await unapplyStack(page, "branch1");
+
+		await assertSymbolicHead("branch3", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "branch3");
+		await expect(stack(page)).toHaveCount(1);
+		await expect(stack(page, "branch3")).toBeVisible();
+	});
+
+	test("checks out the tip of a remaining multi-branch stack", async ({ page, gitbutler }) => {
+		await gitbutler.runScript("project-with-stacks.sh");
+		await applyUpstream(gitbutler, "branch1", "branch3");
+		await gitbutler.runScript("move-branch.sh", ["branch3", "branch1", "local-clone"]);
+		await applyUpstream(gitbutler, "branch2");
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		await openSingleBranchWorkspace(page);
+
+		await expect(stack(page)).toHaveCount(2);
+		await unapplyStack(page, "branch2");
+
+		await assertSymbolicHead("branch3", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(1);
+		await expect(stack(page, "branch3").getByTestId("branch-header")).toHaveCount(2);
+	});
+
+	test("recreates the managed workspace when another branch is applied", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+		await unapplyStack(page, "branch3");
+
+		await applyBranchFromBranchesView(page, "branch2");
+
+		await assertSymbolicHead("gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "gitbutler/workspace");
+		await expect(stack(page)).toHaveCount(2);
+		await expect(stack(page, "branch1")).toBeVisible();
+		await expect(stack(page, "branch2")).toBeVisible();
+	});
+
+	test("preserves the single checkout across a reload", async ({ page, gitbutler }) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+		await unapplyStack(page, "branch3");
+
+		await page.reload();
+		await waitForTestId(page, "workspace-view");
+
+		await assertSymbolicHead("branch1", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "branch1");
+		await expect(stack(page)).toHaveCount(1);
+		await expect(stack(page, "branch1")).toBeVisible();
+	});
+
+	test("undoes and redoes the transition to a single checkout", async ({ page, gitbutler }) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+		await unapplyStack(page, "branch3");
+		await assertSymbolicHead("branch1", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+
+		await gitbutler.runScript("undo-redo.sh", ["undo", "local-clone"]);
+		await page.reload();
+		await waitForTestId(page, "workspace-view");
+		await assertSymbolicHead("gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(2);
+
+		await gitbutler.runScript("undo-redo.sh", ["redo", "local-clone"]);
+		await page.reload();
+		await waitForTestId(page, "workspace-view");
+		await assertSymbolicHead("branch1", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(1);
+	});
+
+	test("checks out the local target when the final stack is unapplied", async ({
+		page,
+		gitbutler,
+	}) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1");
+
+		await unapplyStack(page, "branch1");
+
+		await assertSymbolicHead("master", localClone);
+		await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "master");
+		await assertCleanWorktree(localClone);
+	});
+
+	test("keeps an empty managed workspace when the target has no local branch", async ({
+		page,
+		gitbutler,
+	}) => {
+		await gitbutler.runScript("project-with-stacks.sh");
+		await applyUpstream(gitbutler, "branch1");
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		git(localClone, ["branch", "-D", "master"]);
+		await openSingleBranchWorkspace(page);
+
+		await unapplyStack(page, "branch1");
+
+		await assertSymbolicHead("gitbutler/workspace", localClone);
+		await expectCurrentBranchChip(page, "gitbutler/workspace");
+		await expect(stack(page)).toHaveCount(0);
+		await assertCleanWorktree(localClone);
+	});
+});
+
+test("keeps the managed workspace when unapply-v3-pgm is disabled", async ({ page, gitbutler }) => {
+	const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+
+	await unapplyStack(page, "branch3");
+
+	await assertSymbolicHead("gitbutler/workspace", localClone);
+	await expectCurrentBranchChip(page, "gitbutler/workspace");
+	await expect(stack(page)).toHaveCount(1);
+	await expect(stack(page, "branch1")).toBeVisible();
 });
 
 test("rebuilds an enclosed ad-hoc workspace around the current and applied branches", async ({
