@@ -48,9 +48,9 @@ pub fn update_project_settings(
 
 /// Adds an existing git repository as a GitButler project.
 /// `path` is the Git repository to remember as project.
-#[but_api]
+#[but_api(napi, json::AddProjectOutcome, invalidates = [Projects])]
 #[instrument(err(Debug))]
-pub fn add_project(path: PathBuf) -> Result<gitbutler_project::AddProjectOutcome> {
+pub fn add_project(path: String) -> Result<gitbutler_project::AddProjectOutcome> {
     gitbutler_project::add(&path)
 }
 
@@ -220,6 +220,65 @@ pub struct ProjectForFrontend {
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ProjectForFrontend);
+
+/// JSON transport types for project APIs.
+pub mod json {
+    use super::ProjectForFrontend;
+
+    /// Result of adding a local repository as a project.
+    #[derive(serde::Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+    pub enum AddProjectOutcome {
+        /// The repository was added.
+        Added(ProjectForFrontend),
+        /// The repository was already configured.
+        AlreadyExists(ProjectForFrontend),
+        /// The selected path does not exist.
+        PathNotFound,
+        /// The selected path is not a directory.
+        NotADirectory,
+        /// Bare repositories are not supported.
+        BareRepository,
+        /// Only main worktrees are supported.
+        NonMainWorktree,
+        /// The repository has no worktree.
+        NoWorkdir,
+        /// The repository has no `.git` directory.
+        NoDotGitDirectory,
+        /// Reftable reference storage is not supported.
+        ReftableRefFormatUnsupported,
+        /// The selected directory is not a Git repository.
+        NotAGitRepository(String),
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(AddProjectOutcome);
+
+    impl From<gitbutler_project::AddProjectOutcome> for AddProjectOutcome {
+        fn from(value: gitbutler_project::AddProjectOutcome) -> Self {
+            use gitbutler_project::AddProjectOutcome as Domain;
+
+            match value {
+                Domain::Added(project) => Self::Added(ProjectForFrontend {
+                    inner: project.into(),
+                    is_open: false,
+                }),
+                Domain::AlreadyExists(project) => Self::AlreadyExists(ProjectForFrontend {
+                    inner: project.into(),
+                    is_open: false,
+                }),
+                Domain::PathNotFound => Self::PathNotFound,
+                Domain::NotADirectory => Self::NotADirectory,
+                Domain::BareRepository => Self::BareRepository,
+                Domain::NonMainWorktree => Self::NonMainWorktree,
+                Domain::NoWorkdir => Self::NoWorkdir,
+                Domain::NoDotGitDirectory => Self::NoDotGitDirectory,
+                Domain::ReftableRefFormatUnsupported => Self::ReftableRefFormatUnsupported,
+                Domain::NotAGitRepository(error) => Self::NotAGitRepository(error),
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

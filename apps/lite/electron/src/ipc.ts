@@ -24,6 +24,7 @@ export type LiteElectronApi = {
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
+	pickDirectory: () => Promise<string | null>;
 	resetAiConfiguration: () => Promise<AiConfiguration>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	streamAiResponse: (
@@ -59,6 +60,7 @@ export const localEndpoints = [
 	"isFullScreen",
 	"openInWebBrowser",
 	"pathJoin",
+	"pickDirectory",
 	"readGUISettings",
 	"resetAiConfiguration",
 	"showNativeMenu",

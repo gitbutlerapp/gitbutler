@@ -4,6 +4,7 @@ export const apiParamNames = {
 	absorb: ["projectId", "absorptionPlan"],
 	absorptionPlan: ["projectId", "target"],
 	addCommentReaction: ["projectId", "commentId", "kind"],
+	addProject: ["path"],
 	addReviewLabels: ["projectId", "reviewId", "labels"],
 	addReviewReaction: ["projectId", "reviewId", "kind"],
 	apply: ["projectId", "existingBranch"],

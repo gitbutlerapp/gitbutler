@@ -17,11 +17,13 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
+import { AddProjectButton } from "#ui/components/AddProjectButton.tsx";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
+import { LiteTestId } from "@gitbutler/ui/utils/testIds";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
@@ -325,6 +327,13 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 			ariaLabel="Select project"
 			closeLabel="Close project picker"
 			emptyLabel="No projects found."
+			footerAction={
+				<AddProjectButton
+					testId={LiteTestId.ProjectPickerAddLocalProjectButton}
+					size="small"
+					onBeforePick={() => p.onOpenChange(false)}
+				/>
+			}
 			getItemKey={(project) => project.id}
 			getItemLabel={(project) => project.title}
 			getItemType={(project) => (project.id === p.selectedProjectId ? "Current" : "Project")}
@@ -646,6 +655,7 @@ const WorkspacePage: FC = () => {
 			<Group
 				id={layoutId}
 				className={styles.page}
+				data-testid={LiteTestId.Workspace}
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 				data-selection-focus-styles={

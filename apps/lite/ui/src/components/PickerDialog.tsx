@@ -18,6 +18,7 @@ export const PickerDialog = <Item,>({
 	ariaLabel,
 	closeLabel,
 	emptyLabel,
+	footerAction,
 	getItemKey,
 	getItemLabel,
 	getItemType,
@@ -32,6 +33,7 @@ export const PickerDialog = <Item,>({
 	ariaLabel: string;
 	closeLabel: string;
 	emptyLabel: string;
+	footerAction?: ReactNode;
 	getItemKey: (item: Item) => string;
 	getItemLabel: (item: Item) => string;
 	getItemType: (item: Item, group: PickerDialogGroup<Item>) => ReactNode;
@@ -119,6 +121,7 @@ export const PickerDialog = <Item,>({
 									<span>Activate</span>
 									<kbd className={styles.kbd}>Enter</kbd>
 								</div>
+								{footerAction}
 							</div>
 						</Autocomplete.Root>
 					</Dialog.Popup>

@@ -21,6 +21,7 @@ import { formatRelativeTime } from "#ui/time.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, Toast, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
+import { LiteTestId } from "@gitbutler/ui/utils/testIds";
 import { useIsFetching, useIsMutating, useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
@@ -286,6 +287,7 @@ export const Outline: FC<{
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${project.title})`}
+								data-testid={LiteTestId.ProjectPickerButton}
 								className={classes(
 									getButtonClassName({ variant: "ghost" }),
 									"text-15",
