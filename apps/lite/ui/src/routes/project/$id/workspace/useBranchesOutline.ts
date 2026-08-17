@@ -47,9 +47,10 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);
 	// Deferred so the fuzzy filter runs at low priority and typing stays
-	// responsive; the input itself is controlled by the non-deferred value.
+	// responsive; the input itself is controlled by the non-deferred value. A
+	// closed filter narrows nothing, so it reads the same here as an empty query.
 	const search = useDeferredValue(
-		useAppSelector((state) => projectSlice.selectors.selectBranchSearch(state, projectId)),
+		useAppSelector((state) => projectSlice.selectors.selectBranchSearch(state, projectId)) ?? "",
 	);
 	const unfoldedBranches = useAppSelector((state) =>
 		projectSlice.selectors.selectUnfoldedBranches(state, projectId),

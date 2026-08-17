@@ -5,19 +5,27 @@
 	background-color: var(--bg-2);
 }
 
-.toolbar {
-	display: flex;
-	column-gap: 6px;
-	align-items: center;
-	padding-inline: var(--panel-padding-inline);
-	padding-block: 10px;
-	border-bottom: 1px solid var(--border-section);
-	background-color: var(--bg-1);
+/* Heads the panel, and gives way to the filter row while that is open — so
+   narrowing the list costs no vertical space, as in the file lists. */
+.header {
+	flex-shrink: 0;
+	border-block-end: 1px solid var(--border-section);
 }
 
-.filterField {
-	flex-grow: 1;
-	min-width: 0;
+/* The two ways of narrowing the list sit together; starting a branch is a
+   different kind of act, so the rule holds it apart. */
+.headerGroup {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+}
+
+.headerSeparator {
+	align-self: center;
+	width: 1px;
+	height: 24px;
+	margin-inline: 6px;
+	background-color: var(--border-3);
 }
 
 /* The cards run the full width of the panel, so nothing insets them. */
