@@ -1,0 +1,86 @@
+# TEMPORARY. Delete before this branch merges.
+#
+# Answers one question: does the capture container produce the whole catalogue on
+# a Linux runner? Capture was abandoned on these runners because three of eight
+# surfaces hung under the bare X server, and the container exists to fix that.
+# The claim can only be tested here, so it is tested here.
+#
+# Not a before/after run. It captures one side and uploads it; a surface that
+# hangs fails the job on the spec's own 180s budget.
+name: "Lite screenshots (container proof)"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "apps/lite/e2e/docker/**"
+      - "apps/lite/e2e/playwright.docker.config.ts"
+      - ".github/workflows/lite-screenshots-container-proof.yml"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    # A cold run builds the image, a Rust toolchain, `but`, and the napi SDK
+    # twice over. The volumes that make this cheap locally are empty on an
+    # ephemeral runner, so every run pays full price.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A debug build of the workspace plus the Playwright base image does not
+      # fit next to the runner's preinstalled toolchains.
+      - name: Reclaim disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-}"
+          df -h /
+
+      # --retries=0 so a hanging surface is reported once rather than three times.
+      # Passing --timeout would achieve nothing: screenshots.spec.ts sets its own
+      # 180s through test.describe.configure, and that beats both the config and
+      # the command line. Eight surfaces at 180s is the 24 minutes the outer bound
+      # below has to clear.
+      #
+      # `timeout` bounds the whole thing from outside, because a job GitHub
+      # cancels uploads nothing and the artifacts are the entire point. capture.sh
+      # traps the signal and stops the container, so the run flushes what it has.
+      #
+      # DEBUG=pw:browser prints the Electron launch and its stderr, which is where
+      # "sandboxed_renderer.bundle.js script failed to run" would appear.
+      - name: Capture
+        env:
+          DEBUG: pw:browser
+        run: |
+          timeout --signal=INT --kill-after=3m 40m \
+            bash apps/lite/e2e/docker/capture.sh proof --retries=0
+
+      # warn, not error: a partial capture is the most informative outcome there
+      # is, and failing the upload would discard exactly the surfaces that worked.
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lite-screenshots-container-proof
+          path: apps/lite/e2e/screenshots/proof
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Playwright attaches the Electron main- and renderer-process logs to failed
+      # tests (see e2e/test.ts). On a hang that is the only account of what the
+      # renderer was doing.
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lite-screenshots-container-proof-diagnostics
+          path: apps/lite/e2e/screenshots/_diagnostics
+          if-no-files-found: warn
+          retention-days: 7
