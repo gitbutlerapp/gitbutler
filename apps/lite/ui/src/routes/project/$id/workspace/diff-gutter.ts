@@ -23,6 +23,7 @@ const GUTTER_SLOT_KIND_ATTRIBUTE = "data-gitbutler-diff-gutter-slot-kind";
 const GUTTER_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
 const GUTTER_GROUP_ATTRIBUTE = "data-gitbutler-diff-gutter-group";
 const GUTTER_HOVERED_ATTRIBUTE = "data-gitbutler-diff-gutter-hovered";
+const COMMENT_SLOT_ATTRIBUTE = "data-gitbutler-diff-comment-slot";
 const OPERATION_SOURCE_ATTRIBUTE = "data-gitbutler-operation-source";
 
 export const diffGutterUnsafeCSS = `
@@ -70,6 +71,14 @@ export const diffGutterUnsafeCSS = `
 		background: radial-gradient(circle, currentColor 1px, transparent 1.5px) 0 0 / 4px 4px;
 	}
 
+	slot[${COMMENT_SLOT_ATTRIBUTE}] {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0;
+		display: flex;
+		z-index: 4;
+	}
+
 	slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="hunk"][${GUTTER_HOVERED_ATTRIBUTE}],
 	[data-column-number]:hover > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"] {
 		--gitbutler-diff-gutter-checkbox-opacity: 1;
@@ -101,7 +110,7 @@ type GetHunkOperand = (target: DiffLineTarget) => HunkOperand | null;
 
 const removeGutterControls = (host: HTMLElement): void => {
 	for (const control of host.shadowRoot?.querySelectorAll(
-		`[${GUTTER_SLOT_ATTRIBUTE}], [${GUTTER_DRAG_HANDLE_ATTRIBUTE}]`,
+		`[${GUTTER_SLOT_ATTRIBUTE}], [${GUTTER_DRAG_HANDLE_ATTRIBUTE}], [${COMMENT_SLOT_ATTRIBUTE}]`,
 	) ?? [])
 		control.remove();
 };
@@ -135,6 +144,8 @@ const createGutterStore = <T>(
 	const controlsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLElement>>>();
 	const removeHoverListenersByHost = new Map<HTMLElement, () => void>();
 	const itemIdsByHost = new Map<HTMLElement, string>();
+	const commentSlotsByHost = new Map<HTMLElement, HTMLSlotElement>();
+	const commentTargetsByHost = new Map<HTMLElement, DiffLineTarget>();
 	let nextKey = 0;
 	let notificationQueued = false;
 	let snapshot: ReadonlyArray<GutterTarget> = [];
@@ -183,9 +194,30 @@ const createGutterStore = <T>(
 
 		// CSS can see the hovered number cell, but cannot match its dynamic hunk key to the parent
 		// checkbox at the top of the group. The line checkbox and drag handle stay local to :hover.
-		const handlePointerOver = (event: Event) =>
+		const handlePointerOver = (event: Event) => {
 			setHoveredGroup(host, gutterGroupKeyFromEvent(event));
-		const handlePointerLeave = () => setHoveredGroup(host, undefined);
+
+			const cell = event
+				.composedPath()
+				.find(
+					(target): target is HTMLElement =>
+						target instanceof HTMLElement && target.hasAttribute("data-column-number"),
+				);
+			const itemId = itemIdsByHost.get(host);
+			if (!cell || itemId === undefined) return;
+
+			const target = diffLineTargetFromElement({ element: cell, itemId });
+			const slot = commentSlotsByHost.get(host);
+			if (!target || !slot) return;
+
+			commentTargetsByHost.set(host, target);
+			cell.appendChild(slot);
+		};
+		const handlePointerLeave = () => {
+			setHoveredGroup(host, undefined);
+			commentTargetsByHost.delete(host);
+			commentSlotsByHost.get(host)?.remove();
+		};
 		shadowRoot.addEventListener("pointerover", handlePointerOver);
 		host.addEventListener("pointerleave", handlePointerLeave);
 		removeHoverListenersByHost.set(host, () => {
@@ -200,6 +232,8 @@ const createGutterStore = <T>(
 		hoveredGroupKeys.delete(host);
 		controlsByGroupByHost.delete(host);
 		itemIdsByHost.delete(host);
+		commentSlotsByHost.delete(host);
+		commentTargetsByHost.delete(host);
 		removeGutterControls(host);
 		clearOperationSources(host);
 		if (!targets.delete(host)) return;
@@ -215,6 +249,19 @@ const createGutterStore = <T>(
 
 		const existing = targets.get(host);
 		const key = existing?.key ?? nextKey++;
+		let commentSlot = commentSlotsByHost.get(host);
+		if (!commentSlot) {
+			commentSlot = document.createElement("slot");
+			commentSlot.name = `gitbutler-diff-comment-${key}`;
+			commentSlot.setAttribute(COMMENT_SLOT_ATTRIBUTE, "");
+			commentSlotsByHost.set(host, commentSlot);
+		}
+		const comment =
+			existing?.comment ??
+			({
+				slotName: commentSlot.name,
+				getTarget: () => commentTargetsByHost.get(host),
+			} satisfies GutterTarget["comment"]);
 		const groupsByKey = new Map<string, GutterCheckboxGroup>();
 		const controlsByGroup = new Map<string, Array<HTMLElement>>();
 		const usedControls = new Set<HTMLElement>();
@@ -340,7 +387,7 @@ const createGutterStore = <T>(
 		)
 			return;
 
-		targets.set(host, { host, key, groups });
+		targets.set(host, { host, key, groups, comment });
 		publish();
 	};
 
@@ -369,6 +416,8 @@ const createGutterStore = <T>(
 			hoveredGroupKeys.clear();
 			controlsByGroupByHost.clear();
 			itemIdsByHost.clear();
+			commentSlotsByHost.clear();
+			commentTargetsByHost.clear();
 			targets.clear();
 			snapshot = [];
 		},
@@ -386,6 +435,7 @@ export const useDiffGutterCheckboxes = <T>(
 		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void,
+	onComment?: (target: DiffLineTarget) => void,
 ): {
 	onPostRender: OnPostRender<T>;
 	portals: ReactElement;
@@ -439,6 +489,7 @@ export const useDiffGutterCheckboxes = <T>(
 			store,
 			onCheckLine,
 			onCheckHunk,
+			onComment,
 		}),
 	};
 };
