@@ -10,13 +10,17 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
+import {
+	fileOperand,
+	uncommittedChangesFileParent,
+	uncommittedChangesOperand,
+} from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";
-import type { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
@@ -36,6 +40,7 @@ export const UncommittedChangesRow: FC<{
 	});
 
 	const operand = uncommittedChangesOperand;
+	const store = useAppStore();
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -43,12 +48,28 @@ export const UncommittedChangesRow: FC<{
 		useDiscardWorktreeChanges();
 	const fileDisplayModeMenuItems = useFileDisplayModeMenuItems();
 
-	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		enterAbsorb({ source, sourceTarget });
-	};
-
 	const absorb = () => {
-		enterAbsorbMode(operand, { type: "all" });
+		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
+			store.getState(),
+			projectId,
+		);
+		if (checkedPaths.size === 0) {
+			enterAbsorb({ sources: [operand], sourceTarget: { type: "all" } });
+			return;
+		}
+
+		enterAbsorb({
+			sources: Array.from(checkedPaths, (path) =>
+				fileOperand({ parent: uncommittedChangesFileParent, path }),
+			),
+			sourceTarget: {
+				type: "treeChanges",
+				subject: {
+					changes: changes.filter((change) => checkedPaths.has(change.path)),
+					assignedStackId: null,
+				},
+			},
+		});
 	};
 
 	const cutChanges = () => {

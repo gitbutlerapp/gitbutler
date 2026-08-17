@@ -1,6 +1,7 @@
 import rowStyles from "./Row.module.css";
 import { enterAbsorb } from "#ui/use-cursor.ts";
 import {
+	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
@@ -18,7 +19,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -85,6 +86,7 @@ const useFilesTreeHotkeys = ({
 	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
 
 	const store = useAppStore();
+	const queryClient = useQueryClient();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 	const selectedUncommittedChange =
@@ -92,16 +94,33 @@ const useFilesTreeHotkeys = ({
 
 	const absorbSelectedFile = () => {
 		if (selectedUncommittedChange === null) return;
+		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
+			store.getState(),
+			projectId,
+		);
+		const checkedChanges =
+			checkedPaths.size === 0
+				? null
+				: queryClient
+						.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
+						?.changes.filter((change) => checkedPaths.has(change.path));
+		if (checkedPaths.size > 0 && !checkedChanges) return;
 
 		enterAbsorb({
-			source: fileOperand({
-				parent: uncommittedChangesFileParent,
-				path: selectedUncommittedChange.path,
-			}),
+			sources: (checkedPaths.size > 0
+				? Array.from(checkedPaths, (path) =>
+						fileOperand({ parent: uncommittedChangesFileParent, path }),
+					)
+				: null) ?? [
+				fileOperand({
+					parent: uncommittedChangesFileParent,
+					path: selectedUncommittedChange.path,
+				}),
+			],
 			sourceTarget: {
 				type: "treeChanges",
 				subject: {
-					changes: [selectedUncommittedChange],
+					changes: checkedChanges ?? [selectedUncommittedChange],
 					assignedStackId: null,
 				},
 			},

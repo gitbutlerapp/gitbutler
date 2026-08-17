@@ -177,7 +177,7 @@ export const useHunkMenuItems = ({
 							enabled: !hunk.isResultOfBinaryToTextConversion,
 							onSelect: () => {
 								enterAbsorb({
-									source: hunkOperand(hunk),
+									sources: [hunkOperand(hunk)],
 									sourceTarget: {
 										type: "hunks",
 										subject: {

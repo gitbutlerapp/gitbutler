@@ -1,6 +1,7 @@
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
+	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
@@ -16,7 +17,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 
 export const useFileMenuItems = ({
@@ -35,6 +36,7 @@ export const useFileMenuItems = ({
 	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }): Array<NativeMenuItem> => {
 	const store = useAppStore();
+	const queryClient = useQueryClient();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -154,12 +156,33 @@ export const useFileMenuItems = ({
 					]),
 					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
+							const source = fileOperand(operand);
+							const state = store.getState();
+							const checkedPaths = projectSlice.selectors.selectOperandChecked(
+								state,
+								projectId,
+								source,
+							)
+								? projectSlice.selectors.selectCheckedUncommittedFilePaths(state, projectId)
+								: new Set<string>();
+							const checkedChanges =
+								checkedPaths.size === 0
+									? null
+									: queryClient
+											.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
+											?.changes.filter((change) => checkedPaths.has(change.path));
+							if (checkedPaths.size > 0 && !checkedChanges) return;
+
 							enterAbsorb({
-								source: fileOperand(operand),
+								sources: (checkedPaths.size > 0
+									? Array.from(checkedPaths, (path) =>
+											fileOperand({ parent: operand.parent, path }),
+										)
+									: null) ?? [source],
 								sourceTarget: {
 									type: "treeChanges",
 									subject: {
-										changes: [change],
+										changes: checkedChanges ?? [change],
 										assignedStackId: null,
 									},
 								},

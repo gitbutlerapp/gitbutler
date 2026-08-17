@@ -14,7 +14,7 @@ import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 
 /** @public */
 export type AbsorbMode = {
-	source: Operand;
+	sources: Array<Operand>;
 	sourceTarget: AbsorptionTarget;
 	restoreSelection: WorkspaceCursorSnapshot;
 };
@@ -81,12 +81,12 @@ export const getTransferTarget = (
 
 /** @public */
 export const absorbOutlineMode = ({
-	source,
+	sources,
 	restoreSelection,
 	sourceTarget,
 }: AbsorbMode): OutlineMode => ({
 	_tag: "Absorb",
-	source,
+	sources,
 	restoreSelection,
 	sourceTarget,
 });
@@ -146,7 +146,7 @@ export const getOperationSources = (mode: OutlineMode): Array<Operand> | null =>
 	Match.value(mode).pipe(
 		Match.tagsExhaustive({
 			Default: () => null,
-			Absorb: (x) => [x.source],
+			Absorb: (x) => x.sources,
 			Transfer: (x) => x.value.sources,
 			RenameBranch: () => null,
 			RewordCommit: () => null,

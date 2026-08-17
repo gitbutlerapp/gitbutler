@@ -740,7 +740,7 @@ const DiffContents: FC<{
 				if (!hunk) return;
 
 				enterAbsorb({
-					source: hunkOperand(hunk),
+					sources: [hunkOperand(hunk)],
 					sourceTarget: {
 						type: "hunks",
 						subject: {
