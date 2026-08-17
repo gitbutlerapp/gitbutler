@@ -28,7 +28,7 @@ const glyphPaths = {
 
 const commitGlyph = (
 	<>
-		<path opacity="0.4" d="M8 0V11M8 17V28" stroke="currentColor" strokeWidth="1.5" />
+		<path className={styles.line} d="M8 0V11M8 17V28" strokeWidth="1.5" />
 		<path
 			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
 			stroke="currentColor"
@@ -42,7 +42,7 @@ const groupRingsPath =
 
 const groupGlyph = (
 	<>
-		<path opacity="0.4" d="M8 0V2.78571M8 17.0038V26" stroke="currentColor" strokeWidth="1.5" />
+		<path className={styles.line} d="M8 0V2.78571M8 17.0038V26" strokeWidth="1.5" />
 		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
 	</>
 );
@@ -50,7 +50,7 @@ const groupGlyph = (
 /** The rings without the tail above them, for a row that starts a rail. */
 const groupHeadGlyph = (
 	<>
-		<path opacity="0.4" d="M8 17.0038V26" stroke="currentColor" strokeWidth="1.5" />
+		<path className={styles.line} d="M8 17.0038V26" strokeWidth="1.5" />
 		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
 	</>
 );
@@ -109,7 +109,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			) : glyph === "groupHead" ? (
 				groupHeadGlyph
 			) : (
-				<path d={glyphPaths[glyph]} opacity="0.4" stroke="currentColor" strokeWidth="1.5" />
+				<path className={styles.line} d={glyphPaths[glyph]} strokeWidth="1.5" />
 			)}
 		</svg>
 
@@ -123,7 +123,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 				aria-hidden="true"
 				focusable="false"
 			>
-				<path d={glyphPaths.parent} opacity="0.4" stroke="currentColor" strokeWidth="1.5" />
+				<path className={styles.line} d={glyphPaths.parent} strokeWidth="1.5" />
 			</svg>
 		)}
 	</div>
