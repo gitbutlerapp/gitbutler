@@ -106,6 +106,7 @@ export const apiParamNames = {
 	removeReviewReaction: ["projectId", "reviewId", "reactionId"],
 	requestReview: ["projectId", "reviewId", "logins"],
 	resolveCommitConflictHunks: ["projectId", "commitId", "specs"],
+	resolveWorktreeConflicts: ["projectId", "paths"],
 	restoreSnapshotWithKind: ["projectId", "restoreKind", "sha"],
 	reviewApply: ["projectId", "reviewId"],
 	reviewTemplate: ["projectId"],

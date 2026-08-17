@@ -875,6 +875,14 @@ export declare function requestReview(projectId: string, reviewId: number, login
 export declare function resolveCommitConflictHunks(projectId: string, commitId: string, specs: Array<ResolutionSpec>): Promise<HunkResolutionResult>
 
 /**
+ * Mark the conflicted uncommitted files at the worktree-relative `paths` as resolved,
+ * taking the current worktree content (or the file's absence) as the resolution.
+ *
+ * For lower-level details, see [`but_workspace::resolve_worktree_conflicts()`].
+ */
+export declare function resolveWorktreeConflicts(projectId: string, paths: Array<string>): Promise<void>
+
+/**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
  * also creates a new snapshot in the oplog.
  */
