@@ -142,11 +142,22 @@ export const FileRow: FC<
 
 				<RowLabelContainer>
 					{item._tag === "Conflict" && (
-						<ConflictIcon
-							variant="conflict"
-							className={styles.conflictIcon}
-							aria-label="Conflicted"
-						/>
+						<Tooltip.Root disableHoverablePopup>
+							<Tooltip.Trigger
+								aria-label="Conflicted"
+								// Not interactive, so no button.
+								render={<span className={styles.conflictIcon} />}
+							>
+								<ConflictIcon variant="conflict" />
+							</Tooltip.Trigger>
+							{item.hint && (
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup render={<TooltipPopup />}>{item.hint}</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							)}
+						</Tooltip.Root>
 					)}
 					<RowLabel singleLine>
 						{directoryPath !== null && pathDisplay === "lead" && (

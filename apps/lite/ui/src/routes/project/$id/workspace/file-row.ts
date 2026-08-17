@@ -20,19 +20,29 @@ export const changeFileRowItem = ({
 
 type ConflictFileRowItem = {
 	path: string;
+	/** Shown when hovering the conflict icon; tells the user how to get out of the state. */
+	hint?: string;
 };
 
-export const conflictFileRowItem = ({ path }: ConflictFileRowItem): FileRowItem => ({
+export const conflictFileRowItem = ({ path, hint }: ConflictFileRowItem): FileRowItem => ({
 	_tag: "Conflict",
 	path,
+	hint,
 });
+
+const uncommittedConflictHint = "Resolve the conflict, then right-click → Mark as resolved";
 
 export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<FileRowItem> => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 
-	return worktreeChanges.changes.map((change) => {
+	// Conflicted files are kept out of `changes` until resolved; list them first.
+	const conflicts = worktreeChanges.ignoredChanges
+		.filter((change) => change.status === "Conflict")
+		.map((change) => conflictFileRowItem({ path: change.path, hint: uncommittedConflictHint }));
+
+	const changes = worktreeChanges.changes.map((change) => {
 		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 		const dependencyCommitIds = hunkDependencyDiffs
 			? getDependencyCommitIds({ hunkDependencyDiffs })
@@ -44,6 +54,8 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 			path: change.path,
 		});
 	});
+
+	return [...conflicts, ...changes];
 };
 
 /**
