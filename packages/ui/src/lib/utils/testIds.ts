@@ -187,7 +187,6 @@ export enum TestId {
 export enum LiteTestId {
 	OnboardingPage = "lite-onboarding-page",
 	OnboardingAddLocalProjectButton = "lite-onboarding-add-local-project-button",
-	Workspace = "lite-workspace",
 	ProjectPickerButton = "lite-project-picker-button",
 	ProjectPickerAddLocalProjectButton = "lite-project-picker-add-local-project-button",
 }

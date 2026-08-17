@@ -21,7 +21,7 @@ test("adds a local repository without changing its branch", async ({
 	await expect(appWindow.getByTestId(LiteTestId.OnboardingPage)).toBeVisible();
 	await appWindow.getByTestId(LiteTestId.OnboardingAddLocalProjectButton).click();
 
-	await expect(appWindow.getByTestId(LiteTestId.Workspace)).toBeVisible();
+	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
 	await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toBeVisible();
 
 	await appWindow.getByTestId(LiteTestId.ProjectPickerButton).click();

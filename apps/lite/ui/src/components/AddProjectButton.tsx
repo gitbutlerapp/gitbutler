@@ -41,7 +41,7 @@ type Props = {
 export const AddProjectButton: FC<Props> = ({ testId, size, onBeforePick }) => {
 	const navigate = useNavigate();
 	const toastManager = Toast.useToastManager();
-	const { isPending, mutate } = useAddProject();
+	const { isPending, mutateAsync } = useAddProject();
 
 	const addProject = async () => {
 		onBeforePick?.();
@@ -59,23 +59,27 @@ export const AddProjectButton: FC<Props> = ({ testId, size, onBeforePick }) => {
 		}
 
 		if (path === null) return;
-		mutate(path, {
-			onSuccess: (outcome) => {
-				if (outcome.type === "added" || outcome.type === "alreadyExists") {
-					writeLastOpenedProject(outcome.subject.id);
-					void navigate({
-						to: "/project/$id/workspace",
-						params: { id: outcome.subject.id },
-					});
-					return;
-				}
 
-				toastManager.add({
-					type: "error",
-					title: "Could not add project",
-					description: outcomeError(outcome),
-				});
-			},
+		let outcome: AddProjectOutcome;
+		try {
+			outcome = await mutateAsync(path);
+		} catch {
+			return;
+		}
+
+		if (outcome.type === "added" || outcome.type === "alreadyExists") {
+			writeLastOpenedProject(outcome.subject.id);
+			void navigate({
+				to: "/project/$id/workspace",
+				params: { id: outcome.subject.id },
+			});
+			return;
+		}
+
+		toastManager.add({
+			type: "error",
+			title: "Could not add project",
+			description: outcomeError(outcome),
 		});
 	};
 

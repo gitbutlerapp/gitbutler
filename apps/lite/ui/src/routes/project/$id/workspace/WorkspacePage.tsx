@@ -655,7 +655,6 @@ const WorkspacePage: FC = () => {
 			<Group
 				id={layoutId}
 				className={styles.page}
-				data-testid={LiteTestId.Workspace}
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 				data-selection-focus-styles={
