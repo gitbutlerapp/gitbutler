@@ -22,6 +22,7 @@ const guiSettingsV1 = type({
 	"diffOverflow?": "'scroll' | 'wrap'",
 	"diffStyle?": '"unified" | "split"',
 	"diffTabSize?": "number",
+	"dryRunOperations?": "boolean",
 	"editorId?": "string",
 	"fileDisplayMode?": "'list' | 'tree'",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",

@@ -15,6 +15,8 @@ import type { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { type Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
+import { defaultSettings } from "#ui/settings.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -188,11 +190,17 @@ const executeOperation = async ({
 
 export const useDryRunOperation = ({
 	projectId,
-	operation,
+	operation: requestedOperation,
 }: {
 	projectId: string;
 	operation?: Operation;
 }) => {
+	const { data: dryRunsEnabled } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.dryRunOperations ?? defaultSettings.dryRunOperations,
+	});
+	// Blank the operation when disabled so nothing below it does any work.
+	const operation = dryRunsEnabled ? requestedOperation : undefined;
 	const changes = useResolveDiffSpecs({
 		projectId,
 		sources: operation && "sources" in operation ? operation.sources : undefined,

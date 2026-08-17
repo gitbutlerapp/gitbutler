@@ -12,6 +12,9 @@ export const defaultSettings = {
 	diffOverflow: "scroll",
 	diffStyle: "split",
 	diffTabSize: 4,
+	// Previewing while dragging runs a dry run for every target the pointer crosses, and
+	// each one takes the same workspace lock as the real operation. Off until that's cheap.
+	dryRunOperations: false,
 	// Lite has always shown a flat list; the tree is the mode you opt into.
 	fileDisplayMode: "list",
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
