@@ -1,4 +1,8 @@
-import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
+import {
+	useDiscardFileChanges,
+	useOpenInProgram,
+	useResolveWorktreeConflicts,
+} from "#ui/api/mutations.ts";
 import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	changesInWorktreeQueryOptions,
@@ -64,6 +68,10 @@ export const useFileMenuItems = ({
 	const discardLabel =
 		discardFileCount > 1 ? `Discard Changes in ${discardFileCount} Files` : "Discard Changes";
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
+	const { isPending: isResolvePending, mutate: resolveWorktreeConflicts } =
+		useResolveWorktreeConflicts();
+	// A file listed under uncommitted changes without a change is a conflicted one.
+	const isWorktreeConflict = !change && operand.parent._tag === "UncommittedChanges";
 	const cutFile = () => {
 		const source = fileOperand(operand);
 		const state = store.getState();
@@ -124,6 +132,17 @@ export const useFileMenuItems = ({
 				],
 			}),
 		],
+		...(isWorktreeConflict
+			? [
+					[
+						nativeMenuItem({
+							label: "Mark as Resolved",
+							enabled: !isResolvePending,
+							onSelect: () => resolveWorktreeConflicts({ projectId, paths: [path] }),
+						}),
+					] satisfies Array<NativeMenuItem>,
+				]
+			: []),
 		...(change && operand.parent._tag !== "Branch"
 			? [
 					[

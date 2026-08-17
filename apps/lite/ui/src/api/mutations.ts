@@ -742,6 +742,12 @@ export const useDiscardWorktreeChanges = () => {
 	});
 };
 
+export const useResolveWorktreeConflicts = () =>
+	useMutation({
+		mutationFn: window.lite.resolveWorktreeConflicts,
+		meta: { failureTitle: "Failed to mark conflict as resolved" },
+	});
+
 /** Discards a file's changes, whichever of the two discards its parent calls for. */
 export const useDiscardFileChanges = ({
 	projectId,
