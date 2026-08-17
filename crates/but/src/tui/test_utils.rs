@@ -193,6 +193,10 @@ pub fn configure_test_repo(env: &Sandbox) {
     env.invoke_git("config user.email committer@example.com");
     env.invoke_git("config gitoxide.commit.authorDate '2000-01-01 00:00:00 +0000'");
     env.invoke_git("config gitoxide.commit.committerDate '2000-01-01 00:00:00 +0000'");
+    env.invoke_git("config commit.gpgsign false");
+    env.invoke_git("config tag.gpgsign false");
+    env.invoke_git("config init.defaultBranch main");
+    env.invoke_git("config protocol.file.allow always");
     env.invoke_git("config gitbutler.testing.changeId 1");
 }
 
@@ -206,17 +210,6 @@ pub fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
             ("GIT_COMMITTER_EMAIL", Some("committer@example.com")),
             ("GIT_COMMITTER_NAME", Some("committer")),
             ("TZ", Some("UTC0")),
-            ("GIT_CONFIG_COUNT", Some("5")),
-            ("GIT_CONFIG_KEY_0", Some("commit.gpgsign")),
-            ("GIT_CONFIG_VALUE_0", Some("false")),
-            ("GIT_CONFIG_KEY_1", Some("tag.gpgsign")),
-            ("GIT_CONFIG_VALUE_1", Some("false")),
-            ("GIT_CONFIG_KEY_2", Some("init.defaultBranch")),
-            ("GIT_CONFIG_VALUE_2", Some("main")),
-            ("GIT_CONFIG_KEY_3", Some("protocol.file.allow")),
-            ("GIT_CONFIG_VALUE_3", Some("always")),
-            ("GIT_CONFIG_KEY_4", Some("gitbutler.testing.changeId")),
-            ("GIT_CONFIG_VALUE_4", Some("1")),
         ],
         closure,
     )
