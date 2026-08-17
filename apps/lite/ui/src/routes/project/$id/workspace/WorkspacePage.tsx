@@ -304,8 +304,9 @@ const buildOutlineNavigationIndex = ({
 			Absorb: (activeMode) =>
 				allItems().filter(
 					(operand) =>
-						operandEquals(operand, activeMode.source) ||
-						operandContains(operand, activeMode.source) ||
+						activeMode.sources.some(
+							(source) => operandEquals(operand, source) || operandContains(operand, source),
+						) ||
 						(operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId)),
 				),
 			Transfer: ({ value: activeMode }) =>

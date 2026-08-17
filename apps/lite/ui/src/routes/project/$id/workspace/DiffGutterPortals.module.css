@@ -8,3 +8,9 @@
 		opacity: 1;
 	}
 }
+
+.comment {
+	z-index: 1;
+	position: relative;
+	translate: calc(50% + 1px) 0;
+}

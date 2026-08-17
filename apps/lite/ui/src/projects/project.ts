@@ -219,16 +219,16 @@ export const projectReducers = {
 	enterAbsorbMode: (
 		state: ProjectState,
 		{
-			source,
+			sources,
 			sourceTarget,
 			restoreSelection,
 		}: {
-			source: Operand;
+			sources: Array<Operand>;
 			sourceTarget: AbsorptionTarget;
 			restoreSelection: WorkspaceCursorSnapshot;
 		},
 	) => {
-		state.workspace.mode = absorbOutlineMode({ source, restoreSelection, sourceTarget });
+		state.workspace.mode = absorbOutlineMode({ sources, restoreSelection, sourceTarget });
 	},
 	updatePointerTransfer: (
 		state: ProjectState,

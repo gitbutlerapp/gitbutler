@@ -68,7 +68,6 @@ import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
-	type GetHoveredLineResult,
 	type DiffLineAnnotation,
 	isDiffAnnotation,
 } from "@pierre/diffs";
@@ -740,7 +739,7 @@ const DiffContents: FC<{
 				if (!hunk) return;
 
 				enterAbsorb({
-					source: hunkOperand(hunk),
+					sources: [hunkOperand(hunk)],
 					sourceTarget: {
 						type: "hunks",
 						subject: {
@@ -1185,6 +1184,25 @@ const DiffContents: FC<{
 		viewerRef,
 		onContextMenu: handleLineContextMenu,
 	});
+	const handleCreateComment = (line: DiffLineTarget): void => {
+		const file = fileByItemId.get(line.itemId);
+		if (!file) return;
+
+		const id = crypto.randomUUID();
+		newFocusableAnnotationIdRef.current = id;
+
+		createComment({
+			projectId,
+			comment: {
+				id,
+				path: file.operand.path,
+				commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+				side: annotationSideToDiffSide(line.side),
+				lineNumber: line.lineNumber,
+				payload: "",
+			},
+		});
+	};
 
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
@@ -1201,6 +1219,7 @@ const DiffContents: FC<{
 			projectId,
 			checkLine,
 			checkHunkLines,
+			fileParent._tag === "Branch" ? undefined : handleCreateComment,
 		);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
@@ -1299,48 +1318,6 @@ const DiffContents: FC<{
 						/>
 					);
 				}}
-				renderGutterUtility={(getHoveredLine, item) => {
-					// We don't currently support annotations on branches.
-					if (fileParent._tag === "Branch") return;
-
-					const handleClick = () => {
-						const badlyTypedLine = getHoveredLine();
-						if (!badlyTypedLine || !("side" in badlyTypedLine)) return;
-						const line = badlyTypedLine as GetHoveredLineResult<"diff">;
-
-						const file = fileByItemId.get(item.id);
-						if (!file) return;
-
-						const id = crypto.randomUUID();
-						newFocusableAnnotationIdRef.current = id;
-
-						createComment({
-							projectId,
-							comment: {
-								id,
-								path: file.operand.path,
-								commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
-								side: annotationSideToDiffSide(line.side),
-								lineNumber: line.lineNumber,
-								payload: "",
-							},
-						});
-					};
-
-					return (
-						<button
-							type="button"
-							onClick={handleClick}
-							aria-label="Annotate"
-							className={classes(
-								getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-								styles.annotate,
-							)}
-						>
-							<Icon name="plus" />
-						</button>
-					);
-				}}
 				renderAnnotation={(anno, item) => {
 					if (!isDiffAnnotation<Annotation>(anno))
 						throw new Error("Only diff items may be rendered");
@@ -1391,17 +1368,6 @@ const DiffContents: FC<{
 						if (!range) return;
 
 						applySelectedLines({ id: target.itemId, range });
-					},
-					// Manually wire these up instead of using renderGutterUtility to separate annotations from
-					// selections.
-					onLineEnter: ({ numberElement }) => {
-						const slot = document.createElement("slot");
-						slot.name = "gutter-utility-slot";
-						slot.setAttribute("data-gutter-utility-slot", "");
-						numberElement.appendChild(slot);
-					},
-					onLineLeave: ({ numberElement }) => {
-						numberElement.querySelector(':scope > slot[name="gutter-utility-slot"]')?.remove();
 					},
 					layout: codeViewLayout,
 					// This appears to validate before our custom header has been slotted, in which case - if

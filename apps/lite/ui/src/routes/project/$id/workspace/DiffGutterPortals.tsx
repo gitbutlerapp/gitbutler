@@ -1,9 +1,13 @@
+import { getButtonClassName } from "#ui/components/Button.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import type { Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Fragment, memo, type FC, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import type { DiffLineTarget } from "./diff-line-target.ts";
 import styles from "./DiffGutterPortals.module.css";
 
 export type GutterCheckboxGroup = {
@@ -20,6 +24,10 @@ export type GutterTarget = {
 	key: number;
 	host: HTMLElement;
 	groups: Array<GutterCheckboxGroup>;
+	comment: {
+		slotName: string;
+		getTarget: () => DiffLineTarget | undefined;
+	};
 };
 
 export type GutterStore = {
@@ -62,6 +70,34 @@ const LineCheckbox: FC<{
 };
 
 type HunkCheckedState = "checked" | "indeterminate" | "unchecked";
+
+const CommentButton: FC<{
+	slotName: string;
+	getTarget: () => DiffLineTarget | undefined;
+	onComment: (target: DiffLineTarget) => void;
+}> = (p) => (
+	<button
+		slot={p.slotName}
+		type="button"
+		onPointerDown={(event) => {
+			// This control lives inside a line-number cell, but pressing it is not a line selection.
+			event.preventDefault();
+			event.stopPropagation();
+		}}
+		onClick={(event) => {
+			event.stopPropagation();
+			const target = p.getTarget();
+			if (target) p.onComment(target);
+		}}
+		aria-label="Annotate"
+		className={classes(
+			getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
+			styles.comment,
+		)}
+	>
+		<Icon name="plus" />
+	</button>
+);
 
 const HunkCheckbox: FC<{
 	projectId: string;
@@ -112,6 +148,7 @@ export const DiffGutterPortals = memo(function DiffGutterPortals({
 	store,
 	onCheckLine,
 	onCheckHunk,
+	onComment,
 }: {
 	projectId: string;
 	store: GutterStore;
@@ -121,31 +158,41 @@ export const DiffGutterPortals = memo(function DiffGutterPortals({
 		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void;
+	onComment?: (target: DiffLineTarget) => void;
 }) {
 	const targets = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
-	return targets.map(({ host, key, groups }) =>
+	return targets.map(({ host, key, groups, comment }) =>
 		createPortal(
-			groups.map((group) => (
-				<Fragment key={group.key}>
-					<HunkCheckbox
-						projectId={projectId}
-						operand={group.parentOperand}
-						slotName={group.parentSlotName}
-						lineOperands={group.lines.map((line) => line.operand)}
-						onCheck={onCheckHunk}
+			<>
+				{onComment && (
+					<CommentButton
+						slotName={comment.slotName}
+						getTarget={comment.getTarget}
+						onComment={onComment}
 					/>
-					{group.lines.map((line) => (
-						<LineCheckbox
-							key={line.slotName}
+				)}
+				{groups.map((group) => (
+					<Fragment key={group.key}>
+						<HunkCheckbox
 							projectId={projectId}
-							operand={line.operand}
-							slotName={line.slotName}
-							onCheck={onCheckLine}
+							operand={group.parentOperand}
+							slotName={group.parentSlotName}
+							lineOperands={group.lines.map((line) => line.operand)}
+							onCheck={onCheckHunk}
 						/>
-					))}
-				</Fragment>
-			)),
+						{group.lines.map((line) => (
+							<LineCheckbox
+								key={line.slotName}
+								projectId={projectId}
+								operand={line.operand}
+								slotName={line.slotName}
+								onCheck={onCheckLine}
+							/>
+						))}
+					</Fragment>
+				))}
+			</>,
 			host,
 			key,
 		),

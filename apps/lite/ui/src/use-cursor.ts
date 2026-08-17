@@ -290,16 +290,16 @@ export const enterKeyboardTransfer = ({
 };
 
 export const enterAbsorb = ({
-	source,
+	sources,
 	sourceTarget,
 }: {
-	source: Operand;
+	sources: Array<Operand>;
 	sourceTarget: AbsorptionTarget;
 }): void => {
 	store.dispatch(
 		projectSlice.actions.enterAbsorbMode({
 			projectId: projectIdOf(),
-			source,
+			sources,
 			sourceTarget,
 			restoreSelection: snapshotWorkspaceCursors(),
 		}),
