@@ -14,7 +14,15 @@ import {
 	seedScenario,
 } from "./setup.ts";
 
-type TestOptions = {
+export type TestOptions = {
+	/**
+	 * Extra Chromium switches for the Electron launch.
+	 *
+	 * Empty for every ordinary run; the container capture config sets the sandbox
+	 * and rasterisation switches Xvfb needs. Keeping them out of the launch below
+	 * means a developer's local run renders the way their machine does.
+	 */
+	electronArgs: Array<string>;
 	scenario: string | null;
 };
 
@@ -30,6 +38,7 @@ const require = createRequire(import.meta.url);
 const electronPath = require("electron") as string;
 
 export const test = base.extend<TestOptions & TestFixtures>({
+	electronArgs: [[], { option: true }],
 	scenario: [null, { option: true }],
 	// Playwright requires an object binding pattern even for fixtures without dependencies.
 	// oxlint-disable-next-line no-empty-pattern
@@ -45,10 +54,15 @@ export const test = base.extend<TestOptions & TestFixtures>({
 			removeLiteTestEnvironment(environment);
 		}
 	},
-	electronApp: async ({ headless, mainProcessLogs, testEnvironment }, provide) => {
+	electronApp: async ({ electronArgs, headless, mainProcessLogs, testEnvironment }, provide) => {
 		const app = await _electron.launch({
 			executablePath: electronPath,
-			args: [`--user-data-dir=${testEnvironment.electronUserDataDir}`, paths.electronMain],
+			args: [
+				`--user-data-dir=${testEnvironment.electronUserDataDir}`,
+				...electronArgs,
+				// Electron takes switches before the entry point, so this stays last.
+				paths.electronMain,
+			],
 			env: processEnvironment({
 				E2E_TEST_APP_DATA_DIR: testEnvironment.appDataDir,
 				GIT_CONFIG_GLOBAL: testEnvironment.gitConfig,

@@ -13,6 +13,11 @@ on load and not reliably afterwards, so several surfaces hung indefinitely
 whether the capture went through Playwright or the DevTools protocol. The same
 spec passes here. The CI workflow only leaves a reminder.
 
+There are two ways to capture, and the flow below is the same for both. Use the
+host by default; use [the container](#capturing-in-a-container) when the two
+halves of a comparison will not come from the same machine, or when the host
+capture is hitting the renderer problem above.
+
 ## Before capturing: is the surface covered?
 
 Work this out first, by reading the diff — not by capturing and inferring it from
@@ -134,6 +139,37 @@ clobbering their concurrent edits.
   were written, not that they show the surface.
 - Confirm the workspace is whole: `but status` should show the branch applied and
   no stray uncommitted changes.
+
+## Capturing in a container
+
+`apps/lite/e2e/docker/` builds an image that runs the same catalogue under Xvfb,
+driven by `apps/lite/e2e/playwright.docker.config.ts`. It substitutes for steps 1
+and 2 only; selecting, publishing and posting are unchanged.
+
+```console
+$ bash apps/lite/e2e/docker/capture.sh head
+$ but unapply <branch>
+$ bash apps/lite/e2e/docker/capture.sh base
+$ but apply <branch>
+```
+
+Output lands in the same `apps/lite/e2e/screenshots/<name>/`, so
+`compare-screenshots.mjs` does not know the difference.
+
+What it is for: a before/after pair only means something if both halves were
+rendered the same way, and font hinting and device scale differ between two
+contributors' machines before the UI is even considered. The container fixes the
+OS, the font set and the rasteriser, so **the two halves do not have to be
+captured by the same person**.
+
+- The host checkout is mounted read-only and mirrored into a volume. Your
+  `node_modules` and `target/` are never written to — the container's Linux
+  Electron and Linux `but` live in volumes of their own.
+- The first run builds a Rust toolchain, `but`, and the napi SDK, and is slow.
+  Later runs reuse the volumes. Removing `gitbutler-lite-screenshots-*` pays that
+  cost again.
+- Requires a container runtime on the host. There is none in CI: this is still a
+  developer-machine flow, and the CI workflow still only leaves a reminder.
 
 ## Extending the catalogue
 
