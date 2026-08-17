@@ -257,7 +257,8 @@ pub fn run(
             let (new_commits, branch_name_target) = match commit_op {
                 CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
                     branch_name,
-                    stack_on_head,
+                    // TODO(david): handle this
+                    stack_on_head: _,
                 }) => {
                     let branch_name = if let Some(branch_name) = branch_name {
                         branch_name
