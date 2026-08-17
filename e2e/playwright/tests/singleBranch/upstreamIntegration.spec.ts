@@ -3,7 +3,13 @@ import {
 	expectCurrentBranchChip,
 	openSingleBranchWorkspace,
 } from "./helpers.ts";
-import { assertBranch, assertCleanWorktree, assertCommitSubjects } from "../../src/branch.ts";
+import {
+	assertBranch,
+	assertCleanWorktree,
+	assertCommitSubjects,
+	assertRefDoesNotExist,
+} from "../../src/branch.ts";
+import { applyUpstream } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import {
 	clickByTestId,
@@ -157,6 +163,34 @@ test("creates a new branch on top of the advanced target after branch is fully i
 	expect(git(localClone, ["rev-parse", replacementBranch])).toBe(
 		git(localClone, ["rev-parse", TARGET_REMOTE_BRANCH]),
 	);
+	await assertCleanWorktree(localClone);
+	await expectNoErrorToast(page);
+});
+
+test("checks out a new branch after all managed stacks are integrated", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openSingleBranchWorkspace(page);
+
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await assertBranch("gitbutler/workspace", localClone);
+	await expect(stack(page)).toHaveCount(2);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
+	await syncAndIntegrateWorkspace(page);
+
+	await expectLocalBranchNotToExist(localClone, "branch1");
+	await expectLocalBranchNotToExist(localClone, "branch2");
+	await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+	const replacementBranch = await replacementBranchAtTarget(localClone);
+	await assertBranch(replacementBranch, localClone);
+	await expectCurrentBranchChip(page, replacementBranch);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });
