@@ -4,7 +4,7 @@ import {
 	useDiscardWorktreeChanges,
 	useOpenInProgram,
 } from "#ui/api/mutations.ts";
-import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
@@ -13,7 +13,7 @@ import {
 import { diffHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
-import type { Operand } from "#ui/operands.ts";
+import { hunkOperand, type HunkOperand, type Operand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
@@ -24,6 +24,7 @@ import { Match } from "effect";
 
 type HunkMenuTarget = {
 	change: TreeChange;
+	hunk: HunkOperand;
 	lineNumber: number;
 	sources: Array<Extract<Operand, { _tag: "Hunk" }>>;
 	checkedProbe: Extract<Operand, { _tag: "Hunk" }> | null;
@@ -54,7 +55,7 @@ export const useHunkMenuItems = ({
 		useDiscardWorktreeChanges();
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 
-	return ({ sources, checkedProbe, usesSelectedLines, change, lineNumber }) => {
+	return ({ sources, checkedProbe, usesSelectedLines, change, hunk, lineNumber }) => {
 		const state = store.getState();
 		const usesCheckedLines =
 			checkedProbe !== null &&
@@ -171,6 +172,24 @@ export const useHunkMenuItems = ({
 				]),
 				Match.when({ _tag: "UncommittedChanges" }, () => [
 					[
+						nativeMenuItem({
+							label: "Absorb Hunk",
+							enabled: !hunk.isResultOfBinaryToTextConversion,
+							onSelect: () => {
+								enterAbsorb({
+									source: hunkOperand(hunk),
+									sourceTarget: {
+										type: "hunks",
+										subject: {
+											hunks: [{ pathBytes: change.pathBytes, hunkHeader: hunk.hunkHeader }],
+										},
+									},
+								});
+
+								focusSelectionScope("outline");
+							},
+							accelerator: toElectronAccelerator(diffHotkeys.absorb.hotkey),
+						}),
 						nativeMenuItem({
 							label: usesSelectedLines ? "Discard Selected Lines" : "Discard Hunk",
 							enabled: canUseHunk && !isDiscardWorktreeChangesPending,
