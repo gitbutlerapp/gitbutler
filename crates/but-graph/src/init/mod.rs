@@ -614,18 +614,6 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
-        Self::from_head_with_worktree_tips(repo, meta, project_meta, worktree_tips, options)
-    }
-
-    /// Like [`Self::from_head()`], but seed the given `worktree_tips` instead of
-    /// discovering them, e.g. to reuse the snapshot of an existing graph.
-    pub(crate) fn from_head_with_worktree_tips(
-        repo: &gix::Repository,
-        meta: &impl RefMetadata,
-        project_meta: ProjectMeta,
-        worktree_tips: Vec<WorktreeTip>,
-        options: Options,
-    ) -> anyhow::Result<Self> {
         let head = repo.head()?;
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {

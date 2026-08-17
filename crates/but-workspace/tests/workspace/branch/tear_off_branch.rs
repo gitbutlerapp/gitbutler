@@ -62,7 +62,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -155,7 +155,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -248,7 +248,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -329,7 +329,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -407,7 +407,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -485,7 +485,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -561,7 +561,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

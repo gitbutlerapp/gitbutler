@@ -1946,6 +1946,29 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
 "#]]
         );
     }
+
+    // A workspace refresh re-discovers worktrees instead of reusing the previous
+    // traversal's tips, picking up the detached worktree unarchived here.
+    db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+        name: b"worktree-ahead-detached".to_vec(),
+        archived: false,
+    })?;
+    let mut ws = graph.into_workspace()?;
+    ws.refresh_from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+    )?;
+    assert_eq!(
+        ws.graph
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.to_string())
+            .collect::<Vec<_>>(),
+        ["worktree-ahead-detached", "worktree-ahead-feature"],
+        "the refreshed workspace sees the worktree that became active since"
+    );
     Ok(())
 }
 

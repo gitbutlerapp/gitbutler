@@ -276,7 +276,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
+            .refresh_from_head(&repo, &*self.meta, project_meta, &mut *self.db)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,

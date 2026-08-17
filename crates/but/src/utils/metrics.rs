@@ -528,9 +528,11 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
     );
 }
 
-/// The workspace as seen from `HEAD`, built strictly read-only: unlike the
-/// `Context::workspace_and_db()` family this never creates or migrates the project database
-/// or rewrites `virtual_branches.toml`.
+/// The workspace as seen from `HEAD`, built without rewriting `virtual_branches.toml`,
+/// unlike the `Context::workspace_and_db()` family.
+///
+/// The caller guarantees the project database already exists, so borrowing it here
+/// cannot be what initializes a project.
 fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     let repo = ctx.repo.get().ok()?;
     let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
