@@ -7,58 +7,6 @@
 	background-color: var(--bg-1);
 }
 
-.header {
-	--row-padding-inline-start: 14px;
-	/* The toolbar at this end brings its own inset. */
-	--row-padding-inline-end: 8px;
-
-	position: relative;
-	column-gap: 6px;
-	align-items: center;
-	padding-block: 4px;
-
-	/* Divider drawn as a pseudo-element so it spans the full card width without
-	   the header having to opt out of the body's inset. */
-	&::after {
-		position: absolute;
-		right: 0;
-		bottom: 0;
-		left: 0;
-		height: 1px;
-		background-color: var(--border-3);
-		content: "";
-	}
-}
-
-/* The icon and label, which take the space the toolbar leaves. */
-.headerContent {
-	display: flex;
-	column-gap: 8px;
-	flex-grow: 1;
-	align-items: center;
-	min-width: 0;
-}
-
-.headerIcon {
-	flex-shrink: 0;
-	color: var(--text-3);
-}
-
-.headerLabel {
-	overflow: hidden;
-	color: var(--text-2);
-	line-height: 1;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.headerToolbar {
-	/* The toolbar sizes itself to a row's line height; the header's is shorter,
-	   set through the variable so the toolbar's own rule keeps winning. */
-	--single-line-row-height: 20px;
-	flex-shrink: 0;
-}
-
 /* No inset of its own: the rows carry theirs, so their backgrounds reach the
    card's edges, and the clipped connector stub the card ends in supplies its
    floor. */

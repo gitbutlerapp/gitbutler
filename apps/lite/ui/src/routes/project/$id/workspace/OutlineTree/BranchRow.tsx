@@ -22,7 +22,13 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { Button, Toast, Toolbar, Tooltip } from "@base-ui/react";
-import type { BranchReference, InsertSide, PushStatus, RelativeTo } from "@gitbutler/but-sdk";
+import type {
+	BranchReference,
+	InsertSide,
+	PushStatus,
+	RelativeTo,
+	Stack,
+} from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransition } from "react";
@@ -60,6 +66,7 @@ import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
+import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
 
@@ -123,6 +130,8 @@ export const BranchRow: FC<
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
 		commitCount: number;
+		/** The stack this branch sits in, for the stack-wide menu items. */
+		stack: Stack;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -135,6 +144,7 @@ export const BranchRow: FC<
 	bottomRelativeTo,
 	isTopSegment,
 	commitCount,
+	stack,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -340,6 +350,8 @@ export const BranchRow: FC<
 		});
 	};
 
+	const stackMenuItems = useStackMenuItems(projectId, stack);
+
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: isFolded ? "Unfold Commits" : "Fold Commits",
@@ -409,6 +421,8 @@ export const BranchRow: FC<
 					refName: refName.fullNameBytes,
 				}),
 		}),
+		nativeMenuSeparator,
+		...stackMenuItems,
 	];
 
 	return (
