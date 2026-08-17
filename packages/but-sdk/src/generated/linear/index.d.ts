@@ -299,15 +299,15 @@ export declare function commitCreate(projectId: string, relativeTo: RelativeTo, 
 export declare function commitDetailsWithLineStats(projectId: string, commitId: string): Promise<CommitDetails>
 
 /**
- * Discard `subject_commit_id`, removing it from the branch history.
+ * Discard `subject_commit_ids`, removing them from branch history.
  *
- * Unlike [`super::uncommit::commit_uncommit()`], the commit's changes are **not**
- * reassigned to the workspace — they are permanently removed from the branch.
+ * Unlike [`super::uncommit::commit_uncommit()`], the commits' changes are **not**
+ * reassigned to the workspace — they are permanently removed from their branches.
  *
  * When `dry_run` is enabled, the returned workspace previews the discard and
  * no oplog entry is persisted. See [`commit_discard_with_perm()`] for details.
  */
-export declare function commitDiscard(projectId: string, subjectCommitId: string, dryRun: boolean): Promise<CommitDiscardResult>
+export declare function commitDiscard(projectId: string, subjectCommitIds: Array<string>, dryRun: boolean): Promise<CommitDiscardResult>
 
 /**
  * Discard specific changes from `commit_id`, removing them from the commit
@@ -1891,11 +1891,11 @@ export type CommitDetails = {
   conflictEntries: ConflictEntries | null;
 };
 
-/** JSON transport type for discarding a commit. */
+/** JSON transport type for discarding one or more commits. */
 export type CommitDiscardResult = {
-  /** The commit that was discarded as a result of this operation. */
-  discardedCommit: string;
-  /** Workspace state after discarding the commit. */
+  /** The commits that were discarded as a result of this operation. */
+  discardedCommits: Array<string>;
+  /** Workspace state after discarding the commits. */
   workspace: WorkspaceState;
 };
 

@@ -108,6 +108,18 @@ pub(crate) fn show_oplog(
                             details.operation.title().to_owned()
                         }
                     }
+                    OperationKind::DiscardCommit => {
+                        let commit_count = details
+                            .trailers
+                            .iter()
+                            .filter(|trailer| matches!(trailer, Trailer::Sha(_)))
+                            .count();
+                        if commit_count > 1 {
+                            format!("Discarded {commit_count} commits")
+                        } else {
+                            details.operation.title().to_owned()
+                        }
+                    }
                     OperationKind::RestoreFromSnapshotViaUndo
                     | OperationKind::RestoreFromSnapshotViaRedo
                     | OperationKind::RestoreFromSnapshot => {
@@ -152,7 +164,6 @@ pub(crate) fn show_oplog(
                     | OperationKind::Absorb
                     | OperationKind::AutoCommit
                     | OperationKind::UndoCommit
-                    | OperationKind::DiscardCommit
                     | OperationKind::UnapplyBranch
                     | OperationKind::CherryPick
                     | OperationKind::SquashCommit

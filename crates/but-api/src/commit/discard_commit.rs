@@ -7,10 +7,24 @@ use tracing::instrument;
 
 use crate::commit::types::{CommitDiscardResult, MoveChangesResult};
 
-/// Discard `subject_commit_id`, removing it from the branch history.
+fn unique_subject_commit_ids(
+    subject_commit_ids: Vec<gix::ObjectId>,
+) -> anyhow::Result<Vec<gix::ObjectId>> {
+    let mut seen = gix::hashtable::HashSet::default();
+    let subject_commit_ids = subject_commit_ids
+        .into_iter()
+        .filter(|commit_id| seen.insert(*commit_id))
+        .collect::<Vec<_>>();
+    if subject_commit_ids.is_empty() {
+        anyhow::bail!("no commit IDs provided for discard");
+    }
+    Ok(subject_commit_ids)
+}
+
+/// Discard `subject_commit_ids`, removing them from branch history.
 ///
-/// Unlike [`super::uncommit::commit_uncommit()`], the commit's changes are **not**
-/// reassigned to the workspace — they are permanently removed from the branch.
+/// Unlike [`super::uncommit::commit_uncommit()`], the commits' changes are **not**
+/// reassigned to the workspace — they are permanently removed from their branches.
 ///
 /// When `dry_run` is enabled, the returned workspace previews the discard
 /// without materializing the rebase.
@@ -18,43 +32,45 @@ use crate::commit::types::{CommitDiscardResult, MoveChangesResult};
 #[but_api(try_from = crate::commit::json::CommitDiscardResult)]
 pub fn commit_discard_only(
     ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitDiscardResult> {
     let mut guard = ctx.exclusive_worktree_access();
-    commit_discard_only_with_perm(ctx, subject_commit_id, dry_run, guard.write_permission())
+    commit_discard_only_with_perm(ctx, subject_commit_ids, dry_run, guard.write_permission())
 }
 
-/// Discard `subject_commit_id` under caller-held exclusive repository access.
+/// Discard `subject_commit_ids` under caller-held exclusive repository access.
 ///
-/// The commit is removed from branch history and its changes are **lost**
+/// The commits are removed from branch history and their changes are **lost**
 /// (not reassigned to the workspace). This variant does not create an oplog
 /// entry. When `dry_run` is enabled, it returns the projected workspace state
 /// without materializing the rebase.
 pub fn commit_discard_only_with_perm(
     ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitDiscardResult> {
+    let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
-    let rebase = but_workspace::commit::discard_commits(editor, [subject_commit_id])?;
+    let rebase =
+        but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())?;
 
     let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
     Ok(CommitDiscardResult {
-        discarded_commit: subject_commit_id,
+        discarded_commits: subject_commit_ids,
         workspace,
     })
 }
 
-/// Discard `subject_commit_id`, removing it from the branch history.
+/// Discard `subject_commit_ids`, removing them from branch history.
 ///
-/// Unlike [`super::uncommit::commit_uncommit()`], the commit's changes are **not**
-/// reassigned to the workspace — they are permanently removed from the branch.
+/// Unlike [`super::uncommit::commit_uncommit()`], the commits' changes are **not**
+/// reassigned to the workspace — they are permanently removed from their branches.
 ///
 /// When `dry_run` is enabled, the returned workspace previews the discard and
 /// no oplog entry is persisted. See [`commit_discard_with_perm()`] for details.
@@ -62,28 +78,30 @@ pub fn commit_discard_only_with_perm(
 #[instrument(err(Debug))]
 pub fn commit_discard(
     ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitDiscardResult> {
     let mut guard = ctx.exclusive_worktree_access();
-    commit_discard_with_perm(ctx, subject_commit_id, dry_run, guard.write_permission())
+    commit_discard_with_perm(ctx, subject_commit_ids, dry_run, guard.write_permission())
 }
 
-/// Discard `subject_commit_id` under caller-held exclusive repository access
+/// Discard `subject_commit_ids` under caller-held exclusive repository access
 /// and record an oplog snapshot on success.
 ///
-/// The commit is removed from branch history and its changes are **lost**
+/// The commits are removed from branch history and their changes are **lost**
 /// (not reassigned to the workspace). An oplog snapshot is recorded so the
 /// operation can be reverted from the timeline. When `dry_run` is enabled,
 /// it returns the projected workspace state and skips oplog persistence.
 pub fn commit_discard_with_perm(
     ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitDiscardResult> {
+    let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
     let details = SnapshotDetails::new(OperationKind::DiscardCommit)
-        .with_trailers([Trailer::Sha(subject_commit_id)]);
+        .with_count(subject_commit_ids.len())
+        .with_trailers(subject_commit_ids.iter().copied().map(Trailer::Sha));
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         details,
@@ -91,7 +109,7 @@ pub fn commit_discard_with_perm(
         dry_run,
     );
 
-    let res = commit_discard_only_with_perm(ctx, subject_commit_id, dry_run, perm);
+    let res = commit_discard_only_with_perm(ctx, subject_commit_ids, dry_run, perm);
     if let Some(snapshot) = maybe_oplog_entry
         && res.is_ok()
     {

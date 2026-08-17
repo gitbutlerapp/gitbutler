@@ -32,7 +32,7 @@ export const apiParamNames = {
 	commitConflicts: ["projectId", "commitId"],
 	commitCreate: ["projectId", "relativeTo", "side", "changes", "changesSource", "message", "dryRun"],
 	commitDetailsWithLineStats: ["projectId", "commitId"],
-	commitDiscard: ["projectId", "subjectCommitId", "dryRun"],
+	commitDiscard: ["projectId", "subjectCommitIds", "dryRun"],
 	commitDiscardChanges: ["projectId", "commitId", "changes", "dryRun"],
 	commitInsertBlank: ["projectId", "relativeTo", "side", "dryRun"],
 	commitMove: ["projectId", "subjectCommitIds", "relativeTo", "side", "dryRun"],

@@ -43,7 +43,7 @@ import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
-import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
+import { selectAfterDiscardedCommits } from "./selectAfterDiscardedCommit.ts";
 import styles from "./CommitRow.module.css";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 
@@ -150,16 +150,21 @@ export const CommitRow: FC<
 	});
 
 	const deleteCommit = () => {
-		const selectionAfterDiscard = selectAfterDiscardedCommit({
+		const state = store.getState();
+		const subjectCommitIds = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+			? projectSlice.selectors.selectCheckedCommitIds(state, projectId)
+			: new Set([commit.id]);
+		const selectionAfterDiscard = selectAfterDiscardedCommits({
 			navigationIndex,
 			commit: commitOperandV,
+			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,
 		});
 
 		commitDiscard(
 			{
 				projectId,
-				subjectCommitId: commit.id,
+				subjectCommitIds: Array.from(subjectCommitIds),
 				dryRun: false,
 			},
 			{

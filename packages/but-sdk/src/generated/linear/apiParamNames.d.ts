@@ -32,7 +32,7 @@ export declare const apiParamNames: {
 	readonly commitConflicts: readonly ["projectId", "commitId"];
 	readonly commitCreate: readonly ["projectId", "relativeTo", "side", "changes", "changesSource", "message", "dryRun"];
 	readonly commitDetailsWithLineStats: readonly ["projectId", "commitId"];
-	readonly commitDiscard: readonly ["projectId", "subjectCommitId", "dryRun"];
+	readonly commitDiscard: readonly ["projectId", "subjectCommitIds", "dryRun"];
 	readonly commitDiscardChanges: readonly ["projectId", "commitId", "changes", "dryRun"];
 	readonly commitInsertBlank: readonly ["projectId", "relativeTo", "side", "dryRun"];
 	readonly commitMove: readonly ["projectId", "subjectCommitIds", "relativeTo", "side", "dryRun"];
