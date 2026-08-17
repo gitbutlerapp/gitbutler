@@ -24,8 +24,13 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph =
-            but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?;
         let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
@@ -170,6 +175,7 @@ TreeChanges {
         let mut ref_info: ui::RefInfo = but_workspace::head_info(
             &repo,
             &*meta,
+            &mut but_testsupport::in_memory_db(),
             but_workspace::ref_info::Options {
                 project_meta: project_meta(&repo)?,
                 ..Default::default()

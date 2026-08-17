@@ -460,7 +460,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
         let mut graph = self.workspace.graph.clone();
-        graph.options.worktree_tips = self.worktree_tips_after_rebase()?;
+        graph.worktree_tips = self.worktree_tips_after_rebase()?;
         graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
     }
 

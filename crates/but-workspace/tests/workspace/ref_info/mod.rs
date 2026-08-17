@@ -23,7 +23,7 @@ pub fn head_info(
     if opts.project_meta == Default::default() {
         opts.project_meta = project_meta(repo)?;
     }
-    but_workspace::head_info(repo, meta, opts)
+    but_workspace::head_info(repo, meta, &mut but_testsupport::in_memory_db(), opts)
 }
 
 fn project_meta(repo: &gix::Repository) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
@@ -49,6 +49,7 @@ pub fn stacks_v3(
         repo,
         meta,
         &project_meta(repo)?,
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::limited(),
         filter,
         ref_name_override,
@@ -68,6 +69,7 @@ pub fn stack_details_v3(
         repo,
         meta,
         &project_meta(repo)?,
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::limited(),
     )
 }
@@ -108,7 +110,12 @@ fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Resul
         .headers()
         .and_then(|headers| headers.change_id)
         .expect("fixture commit has change id in header");
-    let info = but_workspace::ref_info(repo.find_reference("A")?, &*meta, standard_options())?;
+    let info = but_workspace::ref_info(
+        repo.find_reference("A")?,
+        &*meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?;
     let commit = first_commit(&info);
 
     assert_eq!(commit.id, commit_id);

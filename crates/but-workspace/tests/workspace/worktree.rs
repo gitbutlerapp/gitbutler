@@ -320,6 +320,7 @@ fn workspace_for_stack(
         repo,
         meta,
         project_meta(repo)?,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()

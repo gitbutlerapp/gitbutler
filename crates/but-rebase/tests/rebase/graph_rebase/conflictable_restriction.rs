@@ -30,6 +30,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -109,6 +110,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -165,6 +167,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

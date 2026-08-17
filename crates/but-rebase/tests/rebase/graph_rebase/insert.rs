@@ -32,6 +32,7 @@ fn insert_below_merge_commit() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -135,6 +136,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -241,6 +243,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

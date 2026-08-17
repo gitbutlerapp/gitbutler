@@ -1137,15 +1137,20 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
         repo.path().join("should-never-be-written.toml"),
     )?);
-    let mut options = but_graph::init::Options::limited();
-    for (name, branch) in [("wt", "feat"), ("other", "other")] {
-        options.worktree_tips.push(but_graph::init::WorktreeTip {
-            name: name.into(),
-            ref_name: Some(format!("refs/heads/{branch}").try_into()?),
-            id: repo.find_reference(branch)?.peel_to_id()?.detach(),
-        });
-    }
-    let graph = Graph::from_head(&repo, &*meta, Default::default(), options)?.validated()?;
+    let mut db = but_testsupport::in_memory_db();
+    // Adoption already ran, so both linked worktrees are discovered as active tips.
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..but_graph::init::Options::limited()
+        },
+    )?
+    .validated()?;
 
     // `main` stacks two commits above `stack-base`; `feat` is a linked worktree with one
     // commit; `other`, `stable` and `target` are all co-located at the base commit.
@@ -1165,7 +1170,6 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     let main = repo.rev_parse_single("main")?.detach();
     let feat = repo.rev_parse_single("feat")?.detach();
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     but_workspace::commit::move_commits(
         editor,

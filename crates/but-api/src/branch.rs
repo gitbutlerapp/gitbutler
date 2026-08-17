@@ -1698,9 +1698,11 @@ pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
     let _guard = ctx.shared_worktree_access();
     let listing = {
         let repo = ctx.repo.get()?;
+        let mut db = ctx.db.get_cache_mut()?;
         but_branches::list(
             &repo,
             &meta,
+            &mut db,
             but_branches::Options {
                 project_meta,
                 hard_limit: None,

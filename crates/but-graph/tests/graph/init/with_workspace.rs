@@ -50,6 +50,7 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -124,8 +125,14 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -175,8 +182,14 @@ fn reproduce_11483() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let ws = &graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
@@ -197,8 +210,14 @@ fn reproduce_11483() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["below"]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -235,8 +254,14 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -300,8 +325,14 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "X", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "feat-2", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -340,8 +371,14 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     // Just a workspace, no additional ref information.
     // As the segments are ambiguous, there are many unnamed segments.
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -401,6 +438,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -463,6 +501,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -526,6 +565,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -588,6 +628,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         tag_ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -677,8 +718,14 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         ],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -744,7 +791,13 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         &["A-empty-02", "A-empty-01", "A"],
     );
 
-    let graph = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -804,6 +857,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -864,6 +918,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
 
@@ -909,8 +964,14 @@ fn single_stack() -> anyhow::Result<()> {
     // Just a workspace, no additional ref information.
     // It segments across the unambiguous ref names.
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -956,8 +1017,14 @@ fn single_stack() -> anyhow::Result<()> {
         &["below-new-A"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1017,8 +1084,14 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     );
 
     let stack_id = add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["merge"]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     // By default, everything with metadata on the branch will show up, even if on the base.
     let ws = graph.into_workspace()?;
@@ -1062,8 +1135,14 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     // Finally, when the 'merge' branch is independent, it still works as it should.
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "merge", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1081,8 +1160,14 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     // The order is respected.
     add_stack_with_segments(&mut meta, 1, "C", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 0, "merge", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -1123,8 +1208,14 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
     );
 
     // Without hints.
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1187,9 +1278,15 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     // Without hints - needs to split `refs/heads/main` at `b688f2d`
     let (id, name) = id_at(&repo, "entrypoint");
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_commit_traversal(id, name, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        name,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Segment boundaries at incoming connections are the property under test,
     // so this keeps the segment-structure rendering.
     snapbox::assert_data_eq!(
@@ -1253,8 +1350,14 @@ fn minimal_merge() -> anyhow::Result<()> {
     );
 
     // Without hints, and no workspace data, the branch is normal!
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1318,8 +1421,14 @@ fn minimal_merge() -> anyhow::Result<()> {
         StackState::InWorkspace,
         &["empty-1-on-merge", "merge"],
     );
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1394,9 +1503,15 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
     );
     add_workspace(&mut meta);
     let (id, name) = id_at(&repo, "C");
-    let graph =
-        Graph::from_commit_traversal(id, name, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        name,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1481,6 +1596,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         extra_target_options.clone(),
     )?
     .validated()?;
@@ -1533,6 +1649,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         extra_target_options.clone(),
     )?
     .validated()?;
@@ -1567,6 +1684,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         extra_target_options,
     )?
     .validated()?;
@@ -1613,8 +1731,14 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
     // Without hints - `main` is picked up as it's the entrypoint.
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -1657,6 +1781,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -1704,6 +1829,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1747,6 +1873,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -1809,6 +1936,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options {
             dangerously_skip_postprocessing_for_debugging: true,
             ..standard_options()
@@ -1873,8 +2001,14 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     let origin_main_ref = super::ref_name("refs/remotes/origin/main");
     let stack_ref = |name: &str| super::ref_name(&format!("refs/heads/{name}"));
 
-    let head_baseline =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let head_baseline = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let head_baseline_tree = graph_dag(&head_baseline);
     let head_baseline_workspace = graph_workspace(&head_baseline.into_workspace()?).to_string();
 
@@ -1914,6 +2048,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -1972,6 +2107,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         head_tips,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -1991,6 +2127,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         explicit_tips.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2032,8 +2169,14 @@ fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Resu
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
-    let baseline =
-        Graph::from_head(&repo, &*meta, project_meta.clone(), standard_options())?.validated()?;
+    let baseline = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let baseline_tree = graph_dag(&baseline);
     let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
 
@@ -2041,6 +2184,7 @@ fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Resu
         &repo,
         &*meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_extra_target_commit_id(target_id),
     )?
     .validated()?;
@@ -2066,8 +2210,14 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
-    let baseline =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let baseline = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let baseline_tree = graph_dag(&baseline);
     let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
 
@@ -2076,6 +2226,7 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2101,11 +2252,17 @@ fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::R
     let stack_id =
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["missing"]);
 
-    let metadata = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?
-        .metadata_from_projection()?
-        .expect("workspace metadata is present");
+    let metadata = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?
+    .metadata_from_projection()?
+    .expect("workspace metadata is present");
     let stack = metadata
         .stacks
         .iter()
@@ -2144,6 +2301,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2238,8 +2396,14 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Without any information it looks quite barren.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -2290,6 +2454,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2341,8 +2506,14 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 4, "D", StackState::InWorkspace, &["E"]);
 
     // We see that all segments are used: S1 C B A E D G F
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2392,6 +2563,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2457,6 +2629,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2505,6 +2678,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2570,8 +2744,14 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
 
     // Remote segments are picked up automatically and traversed - they never take ownership of already assigned commits.
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2603,6 +2783,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
         Some(ref_name),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2661,7 +2842,13 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
 
     // Remote segments are picked up automatically and traversed - they never take ownership of already assigned commits.
     add_workspace(&mut meta);
-    let graph = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2704,8 +2891,14 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     );
 
     let id = id_by_rev(&repo, ":/init");
-    let graph =
-        Graph::from_commit_traversal(id, None, &*meta, default_project_meta(), standard_options())?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        None,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2750,7 +2943,13 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     // When the push-remote is configured, it overrides the remote we use for listing, even if a fetch remote is available.
     let mut pm = default_project_meta();
     pm.push_remote = Some("push-remote".into());
-    let graph = Graph::from_head(&repo, &*meta, pm, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        pm,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2817,6 +3016,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -2855,9 +3055,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // The result is the same when changing the entrypoint.
     let (id, name) = id_at(&repo, "A");
-    let graph =
-        Graph::from_commit_traversal(id, name, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        name,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2983,8 +3189,14 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     );
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3013,8 +3225,14 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
 
     // But mention it if it's in the workspace. It should retain order.
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["main"]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -3029,8 +3247,14 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
 
     // But mention it if it's in the workspace. It should retain order - inverting the order is fine.
     add_stack_with_segments(&mut meta, 1, "main", StackState::InWorkspace, &["A"]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -3072,8 +3296,14 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     // need to get better as disambiguation.
     // The target branch is actually counted as remote, but it doesn't come through here as
     // it steals the commit from `main`. This should be fine.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3132,8 +3362,14 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
 
     // If 'C' is in the workspace, it's naturally disambiguated.
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3228,6 +3464,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -3288,8 +3525,14 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // This special handling was removed for now, relying on limits and extensions.
     // And since it's integrated, traversal is stopped without convergence.
     // We see more though as we add workspace segments immediately.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3334,6 +3577,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3385,6 +3629,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -3438,6 +3683,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3486,6 +3732,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         None,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "gitbutler/workspace"),
     )?
     .validated()?;
@@ -3543,6 +3790,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         None,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "B"),
     )?
     .validated()?;
@@ -3634,8 +3882,14 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
     // Thanks to the remote `main` is searched for by the entrypoint.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3687,6 +3941,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -3717,6 +3972,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -3773,6 +4029,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -3801,6 +4058,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -3820,9 +4078,15 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     );
 
     let id = id_by_rev(&repo, "main~1");
-    let graph =
-        Graph::from_commit_traversal(id, None, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        None,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Detached states are also possible. They keep the anonymous container while
     // preserving target context and pruning integrated commits.
     snapbox::assert_data_eq!(
@@ -3872,8 +4136,14 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     }
     meta.set_workspace(&ws)?;
 
-    let graph =
-        Graph::from_head(&repo, &meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Main is a normal branch, and its remote is known.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -3970,6 +4240,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -3999,6 +4270,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -4058,8 +4330,14 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4103,8 +4381,14 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     );
 
     // Lanes are properly ordered
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4159,8 +4443,14 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
     // It sees the entire history as it had to find `main`.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4198,8 +4488,14 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
 
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B", "A"]);
     add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E", "F"]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4247,6 +4543,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -4334,6 +4631,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         main_ref_name.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -4416,6 +4714,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         main_ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4486,8 +4785,14 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
 
     // From the workspace, even without limit, we don't traverse all of 'main' as it's uninteresting.
     // However, we wait for the target to be fully reconciled to get the proper workspace configuration.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4579,6 +4884,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4684,6 +4990,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -4767,8 +5074,14 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
     // Now the target looks for the entrypoint, which is the workspace, something it can do more easily.
     // We wait for targets to fully reconcile as well.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4939,6 +5252,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -5011,8 +5325,14 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
     );
 
     // If we do not, integrated portions are removed.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5064,8 +5384,14 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5138,6 +5464,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
         Some(ref_name),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -5186,8 +5513,14 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
     // `main` tracks the target `origin/main`. Remote-tracking discovery at `main` must
     // recognize the project-metadata target ref as already queued instead of inserting
     // a second `origin/main` segment, which can leave disconnected segments behind.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let target_segments = graph
         .segments()
         .filter(|sidx| {
@@ -5229,8 +5562,14 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         &["advanced-lane"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5274,8 +5613,14 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         &["dependent"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5319,6 +5664,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -5340,6 +5686,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -5380,8 +5727,14 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
 
     add_stack_with_segments(&mut meta, 1, "C-on-A", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5451,8 +5804,14 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
         add_stack_with_segments(&mut meta, idx, name, StackState::InWorkspace, &[]);
     }
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5491,8 +5850,14 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     for (idx, name) in lanes.into_iter().rev().enumerate() {
         add_stack_with_segments(&mut meta, idx, name, StackState::InWorkspace, &[]);
     }
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5534,9 +5899,15 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
     let stack_b_id = add_stack(&mut meta, 1, "B", StackState::InWorkspace);
     // C is notably missing at the tip of the second stack.
 
-    let workspace = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let workspace = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert_eq!(
         workspace.stacks[0]
@@ -5597,6 +5968,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -5640,8 +6012,14 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
 
     // Otherwise, nothing that's integrated is shown. Note how 96a2408 seems missing,
     // but it's skipped because it's actually part of an integrated otherwise ignored segment.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5685,6 +6063,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -5732,6 +6111,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "A"),
     )?
     .validated()?;
@@ -5771,8 +6151,14 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
 
     add_stack_with_segments(&mut meta, 0, "top", StackState::InWorkspace, &["bottom"]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -5815,8 +6201,14 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
     // But even with metadata, it still works fine.
     add_stack_with_segments(&mut meta, 0, "D", StackState::InWorkspace, &["C", "B", "A"]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5902,8 +6294,14 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     // But even with metadata, it still works fine.
     add_stack_with_segments(&mut meta, 0, "D", StackState::InWorkspace, &["C", "B", "A"]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -5963,8 +6361,14 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6000,6 +6404,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6053,8 +6458,14 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
     // Without disambiguation, there is no segment name.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6096,6 +6507,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6133,8 +6545,14 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     );
 
     // Finally, show the normal version with just disambiguated 'B".
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6173,6 +6591,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6200,6 +6619,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6238,8 +6658,14 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
 
     add_workspace(&mut meta);
     // Without disambiguation, there is no segment name.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6279,6 +6705,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         a_ref.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6320,6 +6747,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         b_ref,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6344,6 +6772,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         a_ref.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6406,8 +6835,14 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
     // The commit is ambiguous, so there is just the entrypoint to split the segment.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6445,6 +6880,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6496,8 +6932,14 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6536,8 +6978,14 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6598,8 +7046,14 @@ fn no_workspace_commit() -> anyhow::Result<()> {
         &["lane-2-segment-01", "lane-2-segment-02"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Notably we also pick up 'lane' which sits on the base.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -6654,8 +7108,14 @@ fn no_workspace_commit() -> anyhow::Result<()> {
         &["lane-segment-01", "lane-segment-02"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // the order is maintained as provided in the workspace.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -6713,8 +7173,14 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -6764,8 +7230,14 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // Standard handling after traversal and post-processing.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -6822,6 +7294,7 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
         &*meta,
         project_meta,
         // standard_options_with_extra_target(&repo, "gitbutler/target"),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -6925,6 +7398,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -6989,6 +7463,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, ":/init"),
     )?
     .validated()?;
@@ -7117,6 +7592,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         ref_name,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7154,6 +7630,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7188,8 +7665,14 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7251,8 +7734,14 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7306,6 +7795,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7383,8 +7873,14 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
 
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7451,8 +7947,14 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
     );
 
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7492,8 +7994,14 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
     )?;
 
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7540,8 +8048,14 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7578,8 +8092,14 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // The same is true if stacks are known in workspace metadata.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -7620,6 +8140,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, ":/M3"),
     )?
     .validated()?;
@@ -7684,8 +8205,14 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7773,8 +8300,14 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
         ],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -7910,6 +8443,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -7950,6 +8484,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -7996,6 +8531,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -8027,8 +8563,14 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     );
     add_workspace(&mut meta);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8054,8 +8596,14 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
 
     // An applied branch would be present, but has no commit.
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -8069,8 +8617,14 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     // We simulate an unapplied branch on the base by giving it branch metadata, but not listing
     // it in the workspace.
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     // This will be an empty workspace.
     snapbox::assert_data_eq!(
@@ -8105,8 +8659,14 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
         "fixture must contain {target_head_ref}",
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8199,7 +8759,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
 
 #[test]
 fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead-checkout")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8213,8 +8773,14 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     add_workspace(&mut meta);
 
     // Without the worktree tip, the branch ahead of the base is invisible.
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8227,21 +8793,28 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Seeding it adds the branch outside the workspace, leaving workspace,
+    // Discovering it adds the branch outside the workspace, leaving workspace,
     // target, and remote computations undisturbed.
-    let mut options = standard_options();
-    options.worktree_tips = vec![but_graph::init::WorktreeTip {
-        name: "workspace-with-external-branch-feature".into(),
-        ref_name: Some("refs/heads/wt-feature".try_into()?),
-        id: repo.find_reference("wt-feature")?.peel_to_id()?.detach(),
-    }];
-    let graph = Graph::from_head(&repo, &*meta, default_project_meta(), options)?.validated()?;
+    let mut db = but_testsupport::in_memory_db();
+    // Adoption already ran, so the fixture worktree counts as active.
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  👉📕gitbutler/workspace[🌳]
+◎  👉📕gitbutler/workspace[🌳@repo]
 ●  ·a26ae77 (⌂|🏘|01)
-│ ◎  wt-feature
+│ ◎  wt-feature[📁worktree-ahead-checkout-feature]
 │ ●  ·26837d3 (⌂)
 ├─╯
 │ ◎  origin/main
@@ -8253,7 +8826,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
 
 "#]]
     );
@@ -8281,6 +8854,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         ws_ref.clone(),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -8297,6 +8871,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         )),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -8327,6 +8902,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::reachable(head_id.detach(), Some(ws_ref.clone()))),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -8343,6 +8919,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::reachable(main_id.detach(), Some(main_ref))),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -8358,6 +8935,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::detached_entrypoint(wt_feature_id)),
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )
     .unwrap_err();
@@ -8381,8 +8959,14 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     );
     add_workspace(&mut meta);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8413,8 +8997,14 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "main", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8443,8 +9033,14 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     // We simulate an unapplied branch on the base by giving it branch metadata, but not listing
     // it in the workspace.
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     // Now only `main` shows up.
     snapbox::assert_data_eq!(
@@ -8474,8 +9070,14 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "main", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // notably the target ref and local tracking branch have sibling links setup
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -8530,8 +9132,14 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     );
 
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8584,6 +9192,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         &linked_repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -8650,8 +9259,14 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
 
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     // Our graph is incapable of showing these two connections due to traversal
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8738,8 +9353,14 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -8813,6 +9434,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?;
     snapbox::assert_data_eq!(
@@ -8833,6 +9455,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?;
     snapbox::assert_data_eq!(
@@ -8872,8 +9495,14 @@ mod edit_commit {
         );
 
         add_workspace(&mut meta);
-        let graph = Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            default_project_meta(),
+            &mut but_testsupport::in_memory_db(),
+            standard_options(),
+        )?
+        .validated()?;
         snapbox::assert_data_eq!(
             graph_dag(&graph),
             snapbox::str![[r#"
@@ -8910,6 +9539,7 @@ mod edit_commit {
             ref_name,
             &*meta,
             default_project_meta(),
+            &mut but_testsupport::in_memory_db(),
             standard_options(),
         )?
         .validated()?;
@@ -8988,8 +9618,14 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
     // Add workspace with origin/main as target (not origin/main)
     add_workspace(&mut meta);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9012,8 +9648,14 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
         &["reconstructed-insert-blank-commit-branch"],
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9051,8 +9693,14 @@ fn reproduce_12146() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9119,8 +9767,14 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
     );
 
     add_stack_with_segments(&mut meta, 0, "local-stack", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -9161,8 +9815,14 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
     );
 
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9230,7 +9890,14 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, init_id);
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     // With the target at "init", A and B are above the target and should be
     // kept even though they are marked integrated.
     snapbox::assert_data_eq!(
@@ -9251,8 +9918,14 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     let main_id = repo.rev_parse_single("main")?.detach();
     let project_meta = add_workspace_with_target(&mut meta, main_id);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta.clone(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9267,6 +9940,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
         &repo,
         &*meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         standard_options().with_hard_limit(usize::MAX),
     )?
     .validated()?;
@@ -9314,7 +9988,14 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
     // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
     // integrated and at or below the target, so they are pruned from both stacks
     // even though origin/main has advanced past the target.
-    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9363,7 +10044,14 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9398,8 +10086,14 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9431,9 +10125,15 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
 
     // Now traverse from the tag that points at the workspace commit.
     let (id, name) = id_at(&repo, "my-tag");
-    let graph =
-        Graph::from_commit_traversal(id, name, &*meta, default_project_meta(), standard_options())?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        name,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9482,8 +10182,14 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9532,8 +10238,14 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -9580,8 +10292,14 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, default_project_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"

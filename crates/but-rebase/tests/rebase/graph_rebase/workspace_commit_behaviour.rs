@@ -32,6 +32,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -115,6 +116,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -224,6 +226,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -303,6 +306,7 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -403,6 +407,7 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

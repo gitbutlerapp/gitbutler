@@ -38,6 +38,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -128,6 +129,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -216,6 +218,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -311,6 +314,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -403,6 +407,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -496,6 +501,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -556,6 +562,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -651,6 +658,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -753,6 +761,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -804,8 +813,13 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -843,6 +857,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -882,8 +897,13 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -917,6 +937,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -960,8 +981,13 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -997,6 +1023,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1043,8 +1070,13 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     // Neither commit matches the squash commit one-to-one, but their cumulative changeset
     // does - the branch must be recognized as integrated and leave the workspace.
@@ -1082,6 +1114,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1131,8 +1164,13 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     // The trial at B's boundary misses (B carries unmerged work), but the retry at A's
     // boundary matches the squash commit: A is pruned while B is rebased onto the new
@@ -1175,6 +1213,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1228,8 +1267,13 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     // The cumulative diff at C's boundary equals the squash commit's changeset, but that
     // must only prune A: B's and C's changes cancel out and never landed individually.
@@ -1277,6 +1321,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1321,6 +1366,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1374,6 +1420,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1408,7 +1455,13 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         repo.try_find_reference("A")?.is_some(),
         "local branch should remain when update selector is not a stack bottom"
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1439,6 +1492,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1487,8 +1541,13 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1539,6 +1598,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1623,6 +1683,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1684,6 +1745,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1744,6 +1806,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1806,6 +1869,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1881,6 +1945,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1952,6 +2017,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1991,6 +2057,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2023,6 +2090,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2068,8 +2136,13 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2119,6 +2192,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2170,6 +2244,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2217,6 +2292,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2271,8 +2347,13 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2318,6 +2399,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2372,8 +2454,13 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2416,6 +2503,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2519,6 +2607,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2543,8 +2632,13 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     // Without single-branch mode the emptied managed workspace stays checked out at the target.
     snapbox::assert_data_eq!(
@@ -2589,6 +2683,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2629,6 +2724,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2668,6 +2764,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2711,6 +2808,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2749,6 +2847,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2805,7 +2904,13 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         "workspace metadata should no longer expose the integrated empty branch"
     );
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2846,6 +2951,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2903,7 +3009,13 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
             .trim_end(),
         "add local",
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2947,6 +3059,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3012,7 +3125,13 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         "workspace metadata should retain only the unmerged empty top branch"
     );
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3060,6 +3179,7 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_tip),
             ..Options::limited()
@@ -3110,6 +3230,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3158,6 +3279,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3216,6 +3338,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3271,6 +3394,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3331,7 +3455,13 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     )?;
     out.rebase.materialize(Default::default())?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3391,6 +3521,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3441,7 +3572,13 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         false,
     )?;
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3490,6 +3627,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         &repo,
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3538,8 +3676,13 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3586,6 +3729,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3654,6 +3798,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         ],
         &meta,
         updated_project_meta,
+        &mut but_testsupport::in_memory_db(),
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -3710,6 +3855,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()

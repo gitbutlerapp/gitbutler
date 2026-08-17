@@ -24,8 +24,14 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut db = but_testsupport::in_memory_db();
@@ -64,8 +70,14 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut db = but_testsupport::in_memory_db();
@@ -115,8 +127,14 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut db = but_testsupport::in_memory_db();
@@ -162,8 +180,14 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -220,8 +244,14 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -292,8 +322,14 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -368,7 +404,14 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -440,7 +483,14 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -508,8 +558,14 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -549,8 +605,14 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph =
-            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            target_meta(),
+            &mut but_testsupport::in_memory_db(),
+            standard_options(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
@@ -578,8 +640,14 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph =
-            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            target_meta(),
+            &mut but_testsupport::in_memory_db(),
+            standard_options(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
         let editor = Editor::create_with_opts(
@@ -643,8 +711,14 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -732,6 +806,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         ],
         &*meta,
         Default::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

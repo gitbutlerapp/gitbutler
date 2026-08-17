@@ -32,9 +32,15 @@ fn with_target_ref() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     // We have a target_ref but nothing else
     assert!(ws.target_ref.is_some());
@@ -84,6 +90,7 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -115,6 +122,7 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -138,9 +146,15 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     let res = ws.merge_base_with_target_branch(repo.object_hash().null());
     assert!(

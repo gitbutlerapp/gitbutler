@@ -12,9 +12,15 @@ fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
 
     let project_meta = add_workspace_with_target(&mut meta, base_id);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert_eq!(ws.target_base_commit_id(), Some(base_id));
     assert_eq!(ws.target_ref_tip_commit_id(), Some(target_tip_id));
@@ -36,6 +42,7 @@ fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?

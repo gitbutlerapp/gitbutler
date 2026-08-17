@@ -667,6 +667,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         &repo,
         &meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: repo
                 .rev_parse_single("gitbutler/target")
@@ -733,6 +734,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
         &repo,
         &meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: repo
                 .rev_parse_single("gitbutler/target")
@@ -1365,8 +1367,14 @@ mod single_branch_mode {
         subject: &gix::refs::FullNameRef,
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
-        let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            repo,
+            meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
         let editor = Editor::create(&mut ws, meta, repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {
@@ -1461,9 +1469,14 @@ mod single_branch_mode {
         let mut meta = branch_order_meta(&repo)?;
 
         let main_ref = r("refs/heads/main");
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
 
         // Each branch is inserted directly below `main`, so creating them in this order yields the
         // chain [main, empty-top, empty-bottom, base] (tip to base).
@@ -1494,8 +1507,14 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         // `main` is the checked-out entrypoint (the projected tip).
         assert_eq!(ws.ref_name(), Some(main_ref));
 
@@ -1533,8 +1552,14 @@ mod single_branch_mode {
     fn reorder_below_tip_has_no_new_tip() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
 
         let mut db = but_testsupport::in_memory_db();
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
@@ -1568,9 +1593,14 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         // Single-branch (ad-hoc) workspace: `HEAD` is on `main` directly, no `gitbutler/workspace`
         // commit. `empty-top`/`empty-bottom` are empty segments; `base` owns the commits.
         snapbox::assert_data_eq!(
@@ -1631,8 +1661,14 @@ mod single_branch_mode {
         );
 
         // Re-projecting from the reloaded metadata reflects the new order, and no commit was moved.
-        let ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1875,8 +1911,14 @@ mod single_branch_mode {
     fn reorder_empty_branch_onto_commit_owning_base() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
 
         // `base` owns the stack's commits; moving the empty `empty-top` on top of it is still just a
         // metadata reorder and must succeed (previously rejected because the target owns commits).
@@ -1928,8 +1970,14 @@ mod single_branch_mode {
         repo.reference(r("refs/heads/x"), tip, PreviousValue::Any, "test")?;
         repo.reference(r("refs/heads/y"), tip, PreviousValue::Any, "test")?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1976,8 +2024,14 @@ mod single_branch_mode {
         let main_ref = r("refs/heads/main");
         let order_before = meta.branch_stack_order(main_ref)?;
 
-        let mut ws = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?
-            .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let but_workspace::branch::move_branch::Outcome {

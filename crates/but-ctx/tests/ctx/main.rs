@@ -690,8 +690,9 @@ fn workspace_ref_worktrees_enumerate_but_never_resolve_or_seed() -> anyhow::Resu
         "but a worktree on the workspace ref never resolves a head - \
          GitButler manages that ref itself"
     );
+    let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
     assert_eq!(
-        ctx.graph_options(Default::default())?.worktree_tips.len(),
+        ws.graph.worktree_tips.len(),
         0,
         "and so it is never seeded into graph traversal"
     );
@@ -829,16 +830,18 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     }
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    let options = ctx.graph_options(Default::default())?;
-    assert_eq!(
-        options
-            .worktree_tips
-            .iter()
-            .map(|tip| tip.name.to_string())
-            .collect::<Vec<_>>(),
-        ["wt-b"],
-        "graph options preserve the stable name of each active worktree"
-    );
+    {
+        let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
+        assert_eq!(
+            ws.graph
+                .worktree_tips
+                .iter()
+                .map(|tip| tip.name.to_string())
+                .collect::<Vec<_>>(),
+            ["wt-b"],
+            "the graph preserves the stable name of each active worktree"
+        );
+    }
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
         snapbox::str![[r#"

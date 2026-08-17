@@ -25,8 +25,14 @@ use crate::utils::{fixture_writable, standard_options};
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
 
     // The projection bounds stacks at the target commit, so wire it onto the

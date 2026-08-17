@@ -597,6 +597,7 @@ StackDetails {
             &repo,
             &graph_meta,
             crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             but_graph::init::Options {
                 ..standard_options().traversal
             },

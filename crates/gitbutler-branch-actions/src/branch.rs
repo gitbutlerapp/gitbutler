@@ -26,7 +26,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = but_graph::init::Options::limited();
     let mut repo = ctx.repo.get()?.clone();
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
@@ -62,6 +62,22 @@ pub fn list_branches(
 
     let remote_names = repo.remote_names();
     let meta = ctx.meta()?;
+    // The worktree-discovering database borrow must end before the gerrit handle
+    // borrows the database again below.
+    let ws = {
+        let mut db = ctx.db.get_cache_mut()?;
+        but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            ctx.project_meta()?,
+            &mut db,
+            but_graph::init::Options {
+                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                ..traversal.clone()
+            },
+        )?
+        .into_workspace()?
+    };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
         .then(|| ctx.db.get_cache())
@@ -71,11 +87,11 @@ pub fn list_branches(
         None => but_workspace::ref_info::GerritMode::Disabled,
     };
 
-    // This head_info call is intended to match the but-api head_info, such that
+    // This projection is intended to match the but-api head_info, such that
     // the current tauri frontend can look them up consistently.
-    let info = but_workspace::head_info(
+    let info = but_workspace::ref_info::graph_to_ref_info(
+        &ws,
         &repo,
-        &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
             traversal,

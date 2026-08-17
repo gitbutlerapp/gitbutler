@@ -270,6 +270,21 @@ pub struct Graph {
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
     /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
     pub options: init::Options,
+    /// The linked-worktree `HEAD`s discovered when this graph was built, seeded as extra
+    /// reachable traversal tips.
+    ///
+    /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
+    /// every traversal, so [redone traversals](Graph::redo_traversal_with_overlay()) see
+    /// moved refs; the recorded commit id is only a fallback for detached worktrees. A ref
+    /// that no longer resolves is skipped entirely - its stale tip is never resurrected.
+    /// These tips queue after all other initial work and are skipped if another tip
+    /// already seeds their commit.
+    ///
+    /// This is a snapshot: redone traversals reuse it instead of re-discovering, and
+    /// callers previewing worktree changes may replace it before redoing. They are
+    /// ignored by [`Graph::from_head()`] when `HEAD` is unborn, as no traversal
+    /// happens there.
+    pub worktree_tips: Vec<init::WorktreeTip>,
     /// Project-wide metadata used for target ref, target commit, and push remote resolution.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// All remote names that aren't URLs and that were retrieved during the traversal.

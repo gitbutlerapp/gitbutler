@@ -28,7 +28,12 @@ pub fn ref_info(
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
-    but_workspace::ref_info(existing_ref, meta, opts)
+    but_workspace::ref_info(
+        existing_ref,
+        meta,
+        &mut but_testsupport::in_memory_db(),
+        opts,
+    )
 }
 
 #[test]
@@ -4619,6 +4624,7 @@ pub(crate) mod utils {
             &repo,
             &meta,
             project_meta,
+            &mut but_testsupport::in_memory_db(),
             Options {
                 extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
                 ..Options::limited()

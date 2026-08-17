@@ -36,6 +36,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -134,6 +135,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -223,6 +225,7 @@ fn overriding_references() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(

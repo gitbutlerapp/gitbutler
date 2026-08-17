@@ -48,7 +48,13 @@ fn detailed(
             .transpose()?,
         ..Default::default()
     };
-    let graph = Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let mut ws = graph.into_workspace()?;
     let mut db = but_testsupport::in_memory_db();
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
@@ -77,6 +83,7 @@ fn detailed_writable(
         &repo,
         &meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1156,6 +1163,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
         &repo,
         &*meta,
         project_meta,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()

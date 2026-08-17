@@ -134,6 +134,7 @@ pub struct ListedBranch {
 pub fn list(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
+    db: &mut but_db::DbHandle,
     options: Options,
 ) -> anyhow::Result<BranchListing> {
     let remote_names = repo.remote_names();
@@ -185,14 +186,21 @@ pub fn list(
         .and_then(|target_ref| repo.try_find_reference(target_ref.as_ref()).ok().flatten())
         .and_then(|reference| reference.into_fully_peeled_id().ok())
         .map(|id| id.detach());
+    // The extra target marks a commit whose history counts as integrated even
+    // without workspace metadata, so commit counts stop at integrated commits;
+    // the hard limit bounds the traversal for very large repositories.
     let (ws, incomplete) = walk::build_workspace(
         head_id,
         head_ref,
         extra_tips,
         meta,
         options.project_meta.clone(),
-        target_tip_for_traversal,
-        options.hard_limit,
+        db,
+        but_graph::init::Options {
+            extra_target_commit_id: target_tip_for_traversal,
+            hard_limit: options.hard_limit,
+            ..Default::default()
+        },
     )?;
 
     let mut tips: BTreeSet<gix::ObjectId> =

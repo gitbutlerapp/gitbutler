@@ -8,30 +8,6 @@ pub use but_db::worktrees::{WorktreeEntry, WorktreeHead};
 use crate::Context;
 
 impl Context {
-    /// Add active linked-worktree tips to `options` when worktree manipulation is enabled.
-    ///
-    /// Each tip's `HEAD` is resolved freshly via [`Self::worktree_head()`]; worktrees
-    /// with nothing to seed are skipped.
-    ///
-    /// Like [`Self::active_worktrees()`], this must not be called while a database
-    /// handle is borrowed.
-    pub fn graph_options(
-        &self,
-        mut options: but_graph::init::Options,
-    ) -> Result<but_graph::init::Options> {
-        for worktree in self.active_worktrees()? {
-            let Some(head) = self.worktree_head(worktree.name.as_ref())? else {
-                continue;
-            };
-            options.worktree_tips.push(but_graph::init::WorktreeTip {
-                name: worktree.name,
-                ref_name: head.ref_name,
-                id: head.id,
-            });
-        }
-        Ok(options)
-    }
-
     /// Resolve the `HEAD` of the linked worktree named `name` freshly from its
     /// repository, see [`but_db::worktrees::worktree_head()`].
     pub fn worktree_head(&self, name: &BStr) -> Result<Option<WorktreeHead>> {

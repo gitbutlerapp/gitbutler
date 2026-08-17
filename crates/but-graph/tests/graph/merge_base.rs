@@ -15,6 +15,7 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -71,6 +72,7 @@ fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::R
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -143,6 +145,7 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -200,6 +203,7 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
         ],
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -259,6 +263,7 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
         ],
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -312,6 +317,7 @@ fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -344,6 +350,7 @@ fn merge_base_apis_can_resolve_segments_by_first_commit_id() -> anyhow::Result<(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

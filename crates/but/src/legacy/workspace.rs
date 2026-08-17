@@ -56,10 +56,32 @@ fn head_info(
     let object_hash = repo.object_hash();
     let meta = ctx.meta()?;
     let edit_mode_workspace_ref = edit_mode_workspace_ref(&repo)?;
-    let traversal = if edit_mode_workspace_ref.is_some() {
-        but_graph::init::Options::limited()
-    } else {
-        ctx.graph_options(but_graph::init::Options::limited())?
+    // The worktree-discovering database borrow must end before the gerrit handle
+    // borrows the database again below. Only seed worktree tips when querying from
+    // HEAD; during edit mode the workspace ref is queried without them.
+    let ws = {
+        let mut options = but_graph::init::Options::limited();
+        options.worktrees =
+            edit_mode_workspace_ref.is_none() && ctx.settings.feature_flags.worktree_manipulation;
+        let mut db = ctx.db.get_cache_mut()?;
+        let graph = match &edit_mode_workspace_ref {
+            Some(ref_name) => {
+                let mut reference = repo.find_reference(ref_name.as_ref())?;
+                let id = reference.peel_to_id()?;
+                but_graph::Graph::from_commit_traversal(
+                    id,
+                    reference.name().to_owned(),
+                    &meta,
+                    ctx.project_meta()?,
+                    &mut db,
+                    options,
+                )?
+            }
+            None => {
+                but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
+            }
+        };
+        graph.into_workspace()?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -71,17 +93,11 @@ fn head_info(
     };
     let options = ref_info::Options {
         project_meta: ctx.project_meta()?,
-        traversal,
+        traversal: but_graph::init::Options::limited(),
         expensive_commit_info,
         gerrit_mode,
     };
-    let mut info = match edit_mode_workspace_ref {
-        Some(ref_name) => {
-            but_workspace::ref_info(repo.find_reference(ref_name.as_ref())?, &meta, options)
-        }
-        None => but_workspace::head_info(&repo, &meta, options),
-    }?
-    .pruned_to_entrypoint();
+    let mut info = ref_info::graph_to_ref_info(&ws, &repo, options)?.pruned_to_entrypoint();
 
     // Derive each segment's PR association from the forge review cache instead of
     // stored branch metadata, mirroring the desktop's `head_info` command.

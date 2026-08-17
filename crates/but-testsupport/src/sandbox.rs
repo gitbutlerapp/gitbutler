@@ -268,6 +268,7 @@ impl Sandbox {
             &repo,
             &meta,
             self.project_meta(),
+            &mut crate::in_memory_db(),
             but_graph::init::Options::default(),
         )
         .unwrap();

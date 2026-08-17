@@ -19,23 +19,15 @@ use crate::display_identity;
 
 /// Build the workspace graph from `head`, additionally traversing the given
 /// `(tip, ref name)` pairs, and report whether a traversal limit cut it short.
-///
-/// `integrated_tip` marks a commit whose history counts as integrated even without
-/// workspace metadata; `hard_limit` bounds the traversal for very large repositories.
 pub(crate) fn build_workspace(
     head: gix::Id<'_>,
     head_ref: Option<FullName>,
     extra_tips: impl IntoIterator<Item = (gix::ObjectId, FullName)>,
     meta: &impl RefMetadata,
     project_meta: but_core::ref_metadata::ProjectMeta,
-    integrated_tip: Option<gix::ObjectId>,
-    hard_limit: Option<usize>,
+    db: &mut but_db::DbHandle,
+    traversal: but_graph::init::Options,
 ) -> anyhow::Result<(Workspace, bool)> {
-    let traversal = but_graph::init::Options {
-        extra_target_commit_id: integrated_tip,
-        hard_limit,
-        ..Default::default()
-    };
     let graph = Graph::from_commit_traversal_with_extra_tips(
         head,
         head_ref,
@@ -44,6 +36,7 @@ pub(crate) fn build_workspace(
             .map(|(tip, ref_name)| Tip::reachable(tip, Some(ref_name))),
         meta,
         project_meta,
+        db,
         traversal,
     )?;
     let incomplete = graph.hard_limit_hit();

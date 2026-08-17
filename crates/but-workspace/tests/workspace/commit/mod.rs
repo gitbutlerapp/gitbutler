@@ -47,6 +47,7 @@ mod from_new_merge_with_metadata {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -115,6 +116,7 @@ f53c910
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -219,6 +221,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
 
@@ -304,6 +307,7 @@ Outcome {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
 
@@ -517,6 +521,7 @@ Outcome {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
 

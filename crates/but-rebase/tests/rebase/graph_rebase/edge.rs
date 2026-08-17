@@ -16,6 +16,7 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -66,6 +67,7 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -98,6 +100,7 @@ fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -127,6 +130,7 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -172,6 +176,7 @@ fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
@@ -197,6 +202,7 @@ fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Resul
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;

@@ -130,6 +130,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -185,6 +186,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         a2_ref.to_owned(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -649,6 +651,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -712,6 +715,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -767,6 +771,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -910,6 +915,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -981,6 +987,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &repo,
         &vb_version_cannot_have_remotes,
         ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -1569,8 +1576,13 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let mut project_meta = project_meta(&repo)?;
     project_meta.target_ref = None;
     project_meta.target_commit_id = None;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut but_testsupport::in_memory_db(),
+        standard_traversal_options(),
+    )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1781,6 +1793,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1962,6 +1975,7 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2175,6 +2189,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2344,6 +2359,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2447,6 +2463,7 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2510,6 +2527,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
         b_ref,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::default(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2603,6 +2621,7 @@ mod unapply_checked_out {
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -2679,6 +2698,7 @@ mod unapply_checked_out {
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -2810,6 +2830,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut but_testsupport::in_memory_db(),
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -3345,6 +3366,7 @@ Context {
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -3768,6 +3790,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
         [Tip::detached_entrypoint(a2_id)],
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -4219,6 +4242,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         &repo,
         &meta,
         ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -4966,6 +4990,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         Options {
             extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
             ..Options::limited()
@@ -5544,6 +5569,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5647,6 +5673,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5683,6 +5710,7 @@ Outcome {
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5759,6 +5787,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5911,6 +5940,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -6013,8 +6043,13 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6060,8 +6095,13 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        &mut but_testsupport::in_memory_db(),
+        Options::limited(),
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6107,6 +6147,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -6221,7 +6262,7 @@ mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
-            worktree_tips: vec![],
+            worktrees: false,
         }
     }
 

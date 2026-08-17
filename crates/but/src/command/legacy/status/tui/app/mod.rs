@@ -1799,14 +1799,18 @@ impl App {
         }
 
         let head_info = {
-            let traversal = ctx.graph_options(Default::default())?;
             let meta = ctx.meta()?;
+            let mut db = ctx.db.get_cache_mut()?;
             but_workspace::head_info(
                 &*ctx.repo.get()?,
                 &meta,
+                &mut db,
                 but_workspace::ref_info::Options {
                     project_meta: ctx.project_meta()?,
-                    traversal,
+                    traversal: but_graph::init::Options {
+                        worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
             )?

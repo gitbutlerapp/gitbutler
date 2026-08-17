@@ -12,9 +12,15 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
@@ -36,6 +42,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?
@@ -72,9 +79,15 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
         graph_dag(&ws.graph),

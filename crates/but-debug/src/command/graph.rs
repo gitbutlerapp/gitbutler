@@ -70,7 +70,7 @@ pub(crate) fn run(
             })
             .collect(),
         dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
-        worktree_tips: vec![],
+        worktrees: false,
     };
 
     let graph = match graph_args.ref_name.as_deref() {
@@ -78,6 +78,7 @@ pub(crate) fn run(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut setup::debug_db()?,
             opts,
         ),
         Some(ref_name) => {
@@ -88,6 +89,7 @@ pub(crate) fn run(
                 reference.name().to_owned(),
                 &meta,
                 but_core::ref_metadata::ProjectMeta::default(),
+                &mut setup::debug_db()?,
                 opts,
             )
         }

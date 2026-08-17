@@ -247,26 +247,26 @@ mod from_worktree {
         (repo, tmp, std::mem::ManuallyDrop::new(meta))
     }
 
-    /// Build the graph over `repo` with both linked worktrees seeded as tips,
-    /// mirroring what `but-ctx` does with the `worktreeManipulation` flag enabled.
+    /// Build the graph over `repo` with both linked worktrees discovered from `db`,
+    /// mirroring what `but-ctx` does with the `worktreeManipulation` flag enabled;
+    /// adoption is marked as already run so they count as active.
     fn graph_with_worktree_tips(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
+        db: &mut but_db::DbHandle,
     ) -> Result<Graph> {
-        let mut options = but_graph::init::Options::limited();
-        options.worktree_tips = vec![
-            but_graph::init::WorktreeTip {
-                name: "wt".into(),
-                ref_name: Some("refs/heads/feat".try_into()?),
-                id: repo.find_reference("feat")?.peel_to_id()?.detach(),
+        db.worktree_meta_mut().mark_adopted()?;
+        Graph::from_head(
+            repo,
+            meta,
+            Default::default(),
+            db,
+            but_graph::init::Options {
+                worktrees: true,
+                ..but_graph::init::Options::limited()
             },
-            but_graph::init::WorktreeTip {
-                name: "wt-detached".into(),
-                ref_name: None,
-                id: detached_tip(repo)?,
-            },
-        ];
-        Graph::from_head(repo, meta, Default::default(), options)?.validated()
+        )?
+        .validated()
     }
 
     fn detached_tip(repo: &gix::Repository) -> Result<gix::ObjectId> {
@@ -293,9 +293,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
@@ -350,9 +350,9 @@ mod from_worktree {
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
         std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let change = but_core::diff::worktree_changes(&wt_repo)?
@@ -405,9 +405,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
@@ -495,9 +495,9 @@ mod from_worktree {
     #[test]
     fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
@@ -524,9 +524,9 @@ mod from_worktree {
     #[test]
     fn amend_from_an_unknown_worktree_fails_without_moving_refs() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
@@ -560,9 +560,9 @@ mod from_worktree {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
-        let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
         let mut db = but_testsupport::in_memory_db();
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();

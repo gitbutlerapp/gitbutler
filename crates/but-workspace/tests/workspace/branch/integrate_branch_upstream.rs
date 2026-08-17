@@ -218,6 +218,7 @@ fn integration_graph_for_branch(
             ],
             meta,
             Default::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )
     } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
@@ -243,10 +244,17 @@ fn integration_graph_for_branch(
             ],
             meta,
             Default::default(),
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )
     } else {
-        but_graph::Graph::from_head(repo, meta, Default::default(), Options::limited())
+        but_graph::Graph::from_head(
+            repo,
+            meta,
+            Default::default(),
+            &mut but_testsupport::in_memory_db(),
+            Options::limited(),
+        )
     }
 }
 

@@ -538,11 +538,16 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_data_dir(),
     )
     .ok()?;
+    let mut db = ctx.db.get_cache_mut().ok()?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
         ctx.project_meta().ok()?,
-        but_graph::init::Options::limited(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: ctx.settings.feature_flags.worktree_manipulation,
+            ..but_graph::init::Options::limited()
+        },
     )
     .ok()?;
     graph.into_workspace().ok()
