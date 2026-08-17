@@ -32,6 +32,7 @@ bitflags.workspace = true
 boolean-enums.workspace = true
 tracing.workspace = true
 itertools.workspace = true
+smallvec.workspace = true
 
 [dev-dependencies]
 but-graph = { path = ".", features = ["legacy"] }

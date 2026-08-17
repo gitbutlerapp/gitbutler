@@ -42,6 +42,7 @@ pub(crate) enum Downgrade {
 /// pruning/enrichment. Reconciliation turns it into
 /// [`WorkspaceReconciliationInput`] by collecting the same raw stack paths but
 /// keeping only the fields needed to reshape graph segments before projection.
+#[derive(Debug)]
 struct WorkspaceFrame {
     /// Workspace classifier derived from the entrypoint or containing workspace segment.
     kind: WorkspaceKind,
@@ -99,7 +100,7 @@ impl Graph {
         downgrade: Downgrade,
     ) -> anyhow::Result<WorkspaceState> {
         let frame = self.workspace_frame(downgrade)?;
-        let stacks = self.workspace_stacks(&frame)?;
+        let stacks = dbg!(self.workspace_stacks(dbg!(&frame))?);
         let mut target_ref = frame.target_ref;
 
         if let Some(target) = target_ref.as_mut() {

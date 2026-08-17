@@ -572,7 +572,7 @@ pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
         .map(|(rn, md)| (rn.clone(), md.cloned()))
 }
 
-fn extract_local_branch_metadata<T: RefMetadata>(
+pub(crate) fn extract_local_branch_metadata<T: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<Option<SegmentMetadata>> {
