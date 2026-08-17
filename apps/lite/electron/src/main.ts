@@ -17,6 +17,7 @@ import {
 	askpassInit,
 	askpassSubmitPromptResponse,
 	initApplicationNamespace,
+	interactiveLoginShellEnvironment,
 } from "@gitbutler/but-sdk";
 import {
 	app,
@@ -41,6 +42,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
+
+Object.assign(process.env, interactiveLoginShellEnvironment());
 
 const isHeadless = process.env.GITBUTLER_LITE_HEADLESS === "true";
 if (isHeadless && process.platform === "darwin") app.setActivationPolicy("accessory");

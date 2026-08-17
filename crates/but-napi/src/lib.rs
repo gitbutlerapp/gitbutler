@@ -10,6 +10,8 @@
 
 #![deny(clippy::all)]
 
+use std::collections::HashMap;
+
 use anyhow::Context as _;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
@@ -215,6 +217,22 @@ impl From<but_askpass::PromptEvent<but_askpass::Context>> for AskpassPromptEvent
             context: value.context.into(),
         }
     }
+}
+
+/// Return the interactive login shell environment for GUI launches.
+///
+/// Returns an empty map when launched from a terminal or on Windows, where shell startup may block.
+#[napi]
+pub fn interactive_login_shell_environment() -> HashMap<String, String> {
+    if cfg!(windows) || std::env::var_os("TERM").is_some() {
+        return HashMap::new();
+    }
+
+    but_core::cmd::extract_interactive_login_shell_environment()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
+        .collect()
 }
 
 /// Initialize the process-global askpass broker and forward prompt events to JavaScript.
