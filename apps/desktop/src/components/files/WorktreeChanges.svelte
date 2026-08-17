@@ -4,6 +4,7 @@
 	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
 	import WorktreeChangesSelectAll from "$components/files/WorktreeChangesSelectAll.svelte";
 	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { UncommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
@@ -82,6 +83,7 @@
 	);
 	const conflictedPaths = $derived(conflictedPathsQuery?.response ?? []);
 	const fileCount = $derived(changes.current.length + conflictedPaths.length);
+	let conflictMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 
 	let listMode: "list" | "tree" = $state("list");
 
@@ -103,6 +105,9 @@
 </script>
 
 {#snippet fileList()}
+	{#if conflictedPaths.length > 0}
+		<ChangedFilesContextMenu bind:this={conflictMenu} {projectId} {stackId} {selectionId} />
+	{/if}
 	{#each conflictedPaths as filePath (filePath)}
 		<FileListItem
 			{filePath}
@@ -111,6 +116,8 @@
 			conflicted
 			conflictHint="Resolve the conflict, then right-click → Mark as Resolved"
 			clickable={false}
+			oncontextmenu={(e) =>
+				conflictMenu?.open(e, { changes: [], path: filePath, conflicted: true })}
 		/>
 	{/each}
 	<FileListProvider changes={changes.current} {selectionId}>

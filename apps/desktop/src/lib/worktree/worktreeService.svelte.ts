@@ -51,6 +51,10 @@ export class WorktreeService {
 		);
 	}
 
+	get resolveWorktreeConflicts() {
+		return this.backendApi.endpoints.resolveWorktreeConflicts.mutate;
+	}
+
 	treeChangesByPaths(projectId: string, paths: string[]) {
 		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
 		return getChanges.useQueryState(
