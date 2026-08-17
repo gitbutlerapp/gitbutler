@@ -204,6 +204,316 @@ export const wholeHunkSelectionByLine = (query: LineQuery): HunkLineSelection | 
 	};
 };
 
+/** The single changed line under the cursor, rather than its surrounding changed run. */
+export const singleLineSelectionByLine = (query: LineQuery): HunkLineSelection | null => {
+	const selection = contiguousSelectionByLine(query);
+	if (!selection) return null;
+
+	return {
+		hunkHeader: selection.hunkHeader,
+		lineGroups: [{ side: query.side, start: query.line, lines: 1 }],
+	};
+};
+
+type DiffStyle = "split" | "unified";
+
+type DiffLinePoint = {
+	line: number;
+	side: SelectionSide;
+	changed: boolean;
+	hunk: Hunk;
+};
+
+type DiffLineRow = Partial<Record<SelectionSide, DiffLinePoint>>;
+
+type DiffLineIndex = {
+	rows: Array<DiffLineRow>;
+	indexByLine: Record<SelectionSide, Map<number, number>>;
+};
+
+const buildDiffLineIndex = (hunks: Array<Hunk>, diffStyle: DiffStyle): DiffLineIndex => {
+	const rows: Array<DiffLineRow> = [];
+
+	for (const hunk of hunks) {
+		for (const content of hunk.hunkContent) {
+			if (content.type === "context") {
+				for (let offset = 0; offset < content.lines; offset++) {
+					const additions: DiffLinePoint = {
+						line: hunk.additionStart + content.additionLineIndex - hunk.additionLineIndex + offset,
+						side: "additions",
+						changed: false,
+						hunk,
+					};
+					if (diffStyle === "unified") {
+						rows.push({ additions });
+						continue;
+					}
+
+					rows.push({
+						additions,
+						deletions: {
+							line:
+								hunk.deletionStart + content.deletionLineIndex - hunk.deletionLineIndex + offset,
+							side: "deletions",
+							changed: false,
+							hunk,
+						},
+					});
+				}
+				continue;
+			}
+
+			const deletionStart = hunk.deletionStart + content.deletionLineIndex - hunk.deletionLineIndex;
+			const additionStart = hunk.additionStart + content.additionLineIndex - hunk.additionLineIndex;
+			if (diffStyle === "unified") {
+				for (let offset = 0; offset < content.deletions; offset++) {
+					rows.push({
+						deletions: {
+							line: deletionStart + offset,
+							side: "deletions",
+							changed: true,
+							hunk,
+						},
+					});
+				}
+				for (let offset = 0; offset < content.additions; offset++) {
+					rows.push({
+						additions: {
+							line: additionStart + offset,
+							side: "additions",
+							changed: true,
+							hunk,
+						},
+					});
+				}
+				continue;
+			}
+
+			for (let offset = 0; offset < Math.max(content.deletions, content.additions); offset++) {
+				const row: DiffLineRow = {};
+				if (offset < content.deletions) {
+					row.deletions = {
+						line: deletionStart + offset,
+						side: "deletions",
+						changed: true,
+						hunk,
+					};
+				}
+				if (offset < content.additions) {
+					row.additions = {
+						line: additionStart + offset,
+						side: "additions",
+						changed: true,
+						hunk,
+					};
+				}
+				rows.push(row);
+			}
+		}
+	}
+
+	const indexByLine = {
+		deletions: new Map<number, number>(),
+		additions: new Map<number, number>(),
+	};
+	for (const [index, row] of rows.entries()) {
+		if (row.deletions) indexByLine.deletions.set(row.deletions.line, index);
+		if (row.additions) indexByLine.additions.set(row.additions.line, index);
+	}
+
+	return { rows, indexByLine };
+};
+
+const lineIndexesByHunks = new WeakMap<Array<Hunk>, Partial<Record<DiffStyle, DiffLineIndex>>>();
+
+/** Lazily build the visual line index once for each stable Pierre hunk array and diff style. */
+const getDiffLineIndex = (hunks: Array<Hunk>, diffStyle: DiffStyle): DiffLineIndex => {
+	let cached = lineIndexesByHunks.get(hunks);
+	if (!cached) lineIndexesByHunks.set(hunks, (cached = {}));
+	return (cached[diffStyle] ??= buildDiffLineIndex(hunks, diffStyle));
+};
+
+const indexOfPoint = (
+	lineIndex: DiffLineIndex,
+	line: number,
+	side: SelectionSide | undefined,
+): number => lineIndex.indexByLine[side ?? "additions"].get(line) ?? -1;
+
+export const selectedLineRangeContainsPoint = ({
+	hunks,
+	range,
+	diffStyle,
+	line,
+	side,
+}: {
+	hunks: Array<Hunk>;
+	range: SelectedLineRange;
+	diffStyle: DiffStyle;
+	line: number;
+	side: SelectionSide;
+}): boolean => {
+	const lineIndex = getDiffLineIndex(hunks, diffStyle);
+	const start = indexOfPoint(lineIndex, range.start, range.side);
+	const end = indexOfPoint(lineIndex, range.end, range.endSide ?? range.side);
+	const point = indexOfPoint(lineIndex, line, side);
+	if (start === -1 || end === -1 || point === -1) return false;
+
+	return point >= Math.min(start, end) && point <= Math.max(start, end);
+};
+
+const changedPointsForRange = (
+	lineIndex: DiffLineIndex,
+	range: SelectedLineRange,
+): Array<DiffLinePoint> => {
+	const start = indexOfPoint(lineIndex, range.start, range.side);
+	const end = indexOfPoint(lineIndex, range.end, range.endSide ?? range.side);
+	if (start === -1 || end === -1) return [];
+
+	const points: Array<DiffLinePoint> = [];
+	const first = Math.min(start, end);
+	const last = Math.max(start, end);
+	for (let index = first; index <= last; index++) {
+		const row = lineIndex.rows[index];
+		if (row?.deletions?.changed) points.push(row.deletions);
+		if (row?.additions?.changed) points.push(row.additions);
+	}
+	return points;
+};
+
+/** Changed lines covered by Pierre's visual range, compacted into one selection per parsed hunk. */
+export const lineSelectionsForRange = ({
+	hunks,
+	range,
+	diffStyle,
+	granularity = "compact",
+}: {
+	hunks: Array<Hunk>;
+	range: SelectedLineRange;
+	diffStyle: DiffStyle;
+	granularity?: "compact" | "line";
+}): Array<HunkLineSelection> => {
+	const lineIndex = getDiffLineIndex(hunks, diffStyle);
+	const points = changedPointsForRange(lineIndex, range);
+	if (granularity === "line") {
+		return points.map((point) => ({
+			hunkHeader: hunkHeaderFromHunk(point.hunk),
+			lineGroups: [{ side: point.side, start: point.line, lines: 1 }],
+		}));
+	}
+
+	const selections: Array<HunkLineSelection & { hunk: Hunk }> = [];
+	let previousBySide: Partial<Record<SelectionSide, HunkLineSelectionGroup>> = {};
+	for (const point of points) {
+		let selection = selections.at(-1);
+		if (selection?.hunk !== point.hunk) {
+			selection = {
+				hunk: point.hunk,
+				hunkHeader: hunkHeaderFromHunk(point.hunk),
+				lineGroups: [],
+			};
+			selections.push(selection);
+			previousBySide = {};
+		}
+
+		const previous = previousBySide[point.side];
+		if (previous && previous.start + previous.lines === point.line) {
+			previous.lines++;
+		} else {
+			const group = { side: point.side, start: point.line, lines: 1 };
+			selection.lineGroups.push(group);
+			previousBySide[point.side] = group;
+		}
+	}
+
+	return selections.map(({ hunk: _, ...selection }) => selection);
+};
+
+/** The changed run under the selection edge in the requested direction, or the nearest one beyond it. */
+export const hunkSelectionForLineNavigation = <T extends HunkLineSelection>({
+	hunks,
+	selections,
+	range,
+	diffStyle,
+	offset,
+}: {
+	hunks: Array<Hunk>;
+	selections: Array<T>;
+	range: SelectedLineRange;
+	diffStyle: DiffStyle;
+	offset: -1 | 1;
+}): T | null => {
+	const lineIndex = getDiffLineIndex(hunks, diffStyle);
+	const rangeStart = indexOfPoint(lineIndex, range.start, range.side);
+	const rangeEnd = indexOfPoint(lineIndex, range.end, range.endSide ?? range.side);
+	if (rangeStart === -1 || rangeEnd === -1) return null;
+	const active = offset === 1 ? Math.max(rangeStart, rangeEnd) : Math.min(rangeStart, rangeEnd);
+
+	const positioned = selections.flatMap((selection) => {
+		const selectionRange = rangeFromLineGroups(selection.lineGroups);
+		if (!selectionRange) return [];
+
+		const start = indexOfPoint(lineIndex, selectionRange.start, selectionRange.side);
+		const end = indexOfPoint(
+			lineIndex,
+			selectionRange.end,
+			selectionRange.endSide ?? selectionRange.side,
+		);
+		if (start === -1 || end === -1) return [];
+
+		return [{ selection, start: Math.min(start, end), end: Math.max(start, end) }];
+	});
+
+	const containingIndex = positioned.findIndex(
+		({ start, end }) => active >= start && active <= end,
+	);
+	if (containingIndex !== -1) {
+		const containing = positioned[containingIndex];
+		if (!containing) return null;
+		if (offset === -1 && active === containing.start)
+			return positioned[containingIndex - 1]?.selection ?? null;
+		if (offset === 1 && active === containing.end)
+			return positioned[containingIndex + 1]?.selection ?? null;
+		return containing.selection;
+	}
+
+	return offset === 1
+		? (positioned.find(({ start }) => start > active)?.selection ?? null)
+		: (positioned.findLast(({ end }) => end < active)?.selection ?? null);
+};
+
+/** Move the active end of Pierre's range by one rendered row. */
+export const moveSelectedLineRange = ({
+	hunks,
+	range,
+	diffStyle,
+	offset,
+	extend,
+}: {
+	hunks: Array<Hunk>;
+	range: SelectedLineRange;
+	diffStyle: DiffStyle;
+	offset: -1 | 1;
+	extend: boolean;
+}): SelectedLineRange | null => {
+	const lineIndex = getDiffLineIndex(hunks, diffStyle);
+	const activeSide = range.endSide ?? range.side ?? "additions";
+	const current = indexOfPoint(lineIndex, range.end, activeSide);
+	const nextRow = lineIndex.rows[current + offset];
+	if (current === -1 || !nextRow) return null;
+
+	const next = nextRow[activeSide] ?? nextRow.additions ?? nextRow.deletions;
+	if (!next) return null;
+
+	if (!extend) return { start: next.line, side: next.side, end: next.line };
+
+	return {
+		start: range.start,
+		...(range.side !== undefined ? { side: range.side } : {}),
+		end: next.line,
+		...(next.side !== range.side ? { endSide: next.side } : {}),
+	};
+};
+
 export const diffSpecHunkHeadersForLineSelection = (
 	lineSelection: HunkLineSelection,
 	action: "commit" | "discard",

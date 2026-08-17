@@ -13,7 +13,7 @@ import {
 import { diffHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
-import { hunkOperand, type HunkOperand } from "#ui/operands.ts";
+import type { Operand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
@@ -25,7 +25,9 @@ import { Match } from "effect";
 type HunkMenuTarget = {
 	change: TreeChange;
 	lineNumber: number;
-	operand: HunkOperand;
+	sources: Array<Extract<Operand, { _tag: "Hunk" }>>;
+	checkedProbe: Extract<Operand, { _tag: "Hunk" }> | null;
+	usesSelectedLines: boolean;
 };
 
 export const useHunkMenuItems = ({
@@ -52,20 +54,25 @@ export const useHunkMenuItems = ({
 		useDiscardWorktreeChanges();
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 
-	return ({ operand, change, lineNumber }) => {
-		const source = hunkOperand(operand);
-		const canUseHunk = !operand.isResultOfBinaryToTextConversion;
+	return ({ sources, checkedProbe, usesSelectedLines, change, lineNumber }) => {
+		const state = store.getState();
+		const usesCheckedLines =
+			checkedProbe !== null &&
+			projectSlice.selectors.selectOperandChecked(state, projectId, checkedProbe);
+		const cutSources = usesCheckedLines
+			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+			: sources;
+		const canUseHunk = sources.every((source) => !source.isResultOfBinaryToTextConversion);
+		const canCut = cutSources.every(
+			(source) => source._tag !== "Hunk" || !source.isResultOfBinaryToTextConversion,
+		);
 		const cutHunk = () => {
-			const state = store.getState();
-			const sources = projectSlice.selectors.selectOperandChecked(state, projectId, source)
-				? projectSlice.selectors.selectCheckedOperands(state, projectId)
-				: [source];
-			enterKeyboardTransfer({ sources });
+			enterKeyboardTransfer({ sources: cutSources });
 			focusSelectionScope("outline");
 		};
 		const discardDiffSpec = createDiffSpec(
 			change,
-			diffSpecHunkHeadersForLineSelection(operand, "discard"),
+			sources.flatMap((source) => diffSpecHunkHeadersForLineSelection(source, "discard")),
 		);
 
 		const menuItemGroups: Array<Array<NativeMenuItem>> = [
@@ -117,24 +124,28 @@ export const useHunkMenuItems = ({
 					],
 				}),
 			],
-			...(operand.parent.parent._tag !== "Branch"
+			...(sources[0]?.parent.parent._tag !== "Branch"
 				? [
 						[
 							nativeMenuItem({
-								label: "Cut Hunk",
-								enabled: canUseHunk,
+								label: usesCheckedLines
+									? "Cut Checked Lines"
+									: usesSelectedLines
+										? "Cut Selected Lines"
+										: "Cut Hunk",
+								enabled: canCut,
 								onSelect: cutHunk,
 								accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 							}),
 						] satisfies Array<NativeMenuItem>,
 					]
 				: []),
-			...Match.value(operand.parent.parent).pipe(
+			...Match.value(sources[0]?.parent.parent).pipe(
 				Match.withReturnType<Array<Array<NativeMenuItem>>>(),
 				Match.when({ _tag: "Commit" }, ({ commitId }) => [
 					[
 						nativeMenuItem({
-							label: "Uncommit",
+							label: usesSelectedLines ? "Uncommit Selected Lines" : "Uncommit Hunk",
 							enabled: canUseHunk && !isCommitUncommitChangesPending,
 							onSelect: () =>
 								commitUncommitChanges({
@@ -146,7 +157,7 @@ export const useHunkMenuItems = ({
 								}),
 						}),
 						nativeMenuItem({
-							label: "Discard Changes",
+							label: usesSelectedLines ? "Discard Selected Lines" : "Discard Hunk",
 							enabled: canUseHunk && !isCommitDiscardChangesPending,
 							onSelect: () =>
 								commitDiscardChanges({
@@ -161,7 +172,7 @@ export const useHunkMenuItems = ({
 				Match.when({ _tag: "UncommittedChanges" }, () => [
 					[
 						nativeMenuItem({
-							label: "Discard Changes",
+							label: usesSelectedLines ? "Discard Selected Lines" : "Discard Hunk",
 							enabled: canUseHunk && !isDiscardWorktreeChangesPending,
 							onSelect: () =>
 								discardWorktreeChanges({

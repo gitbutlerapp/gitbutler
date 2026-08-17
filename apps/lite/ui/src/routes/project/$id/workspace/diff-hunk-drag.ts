@@ -1,7 +1,13 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { cancelMode } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { hunkOperand, type HunkOperand } from "#ui/operands.ts";
+import {
+	hunkOperand,
+	hunkOperandContainsLine,
+	type FileParent,
+	type HunkOperand,
+	type Operand,
+} from "#ui/operands.ts";
 import { pointerTransferMode } from "#ui/outline/mode.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
@@ -21,8 +27,6 @@ import { DragPreview } from "./OperationSourceC.tsx";
 import { operandsLabel } from "./operandLabel.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
-const HUNK_LINE_SELECTOR =
-	'[data-column-number][data-line-type="change-addition"], [data-column-number][data-line-type="change-deletion"]';
 const HUNK_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
 
 type OnPostRender<T> = NonNullable<CodeViewOptions<T>["onPostRender"]>;
@@ -38,7 +42,9 @@ const hunkLineAtPoint = (
 	input: ElementGetFeedbackArgs["input"],
 ): DiffLineTarget | null => {
 	const element = host.shadowRoot?.elementFromPoint(input.clientX, input.clientY);
-	const lineNumberElement = element?.closest(`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`);
+	const lineNumberElement = element
+		?.closest<HTMLElement>(`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`)
+		?.closest("[data-column-number]");
 	if (!(lineNumberElement instanceof HTMLElement)) return null;
 
 	return diffLineTargetFromElement({ element: lineNumberElement, itemId });
@@ -48,35 +54,29 @@ const syncHunkDragHandles = (host: HTMLElement): void => {
 	const shadowRoot = host.shadowRoot;
 	if (!shadowRoot) return;
 
-	for (const element of shadowRoot.querySelectorAll<HTMLElement>(
-		`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`,
-	)) {
-		if (element.matches(HUNK_LINE_SELECTOR)) continue;
-		element.removeAttribute("draggable");
-		element.removeAttribute(HUNK_DRAG_HANDLE_ATTRIBUTE);
-	}
-
-	for (const element of shadowRoot.querySelectorAll<HTMLElement>(HUNK_LINE_SELECTOR)) {
-		element.setAttribute(HUNK_DRAG_HANDLE_ATTRIBUTE, "");
+	for (const element of shadowRoot.querySelectorAll<HTMLElement>(`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`))
 		element.setAttribute("draggable", "true");
-	}
 };
 
 const cleanHunkDragHandles = (host: HTMLElement): void => {
 	for (const element of host.shadowRoot?.querySelectorAll<HTMLElement>(
 		`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`,
-	) ?? []) {
+	) ?? [])
 		element.removeAttribute("draggable");
-		element.removeAttribute(HUNK_DRAG_HANDLE_ATTRIBUTE);
-	}
 };
 
 export const useDiffHunkDrag = <T>({
 	projectId,
+	fileParent,
 	getHunkOperand,
+	getLineOperand,
+	getSelectedOperands,
 }: {
 	projectId: string;
+	fileParent: FileParent;
 	getHunkOperand: (target: DiffLineTarget) => HunkOperand | null;
+	getLineOperand: (target: DiffLineTarget) => HunkOperand | null;
+	getSelectedOperands: () => Array<Extract<Operand, { _tag: "Hunk" }>>;
 }): OnPostRender<T> => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
@@ -85,6 +85,8 @@ export const useDiffHunkDrag = <T>({
 		projectId,
 		dispatch: store.dispatch,
 		canDrag: () => {
+			if (fileParent._tag === "Branch") return false;
+
 			const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectId);
 			return mode._tag !== "RenameBranch" && mode._tag !== "RewordCommit";
 		},
@@ -93,6 +95,8 @@ export const useDiffHunkDrag = <T>({
 			return headInfo ? getHeadInfoIndex(headInfo) : null;
 		},
 		getHunkOperand,
+		getLineOperand,
+		getSelectedOperands,
 	};
 	const configRef = useRef(config);
 	configRef.current = config;
@@ -124,14 +128,19 @@ export const useDiffHunkDrag = <T>({
 			const target = hunkLineAtPoint(host, registration.itemId, input);
 			if (!target) return null;
 
-			const operand = configRef.current.getHunkOperand(target);
-			if (!operand) return null;
+			const lineOperand = configRef.current.getLineOperand(target);
+			const hunk = configRef.current.getHunkOperand(target);
+			if (!lineOperand || !hunk) return null;
 
-			const source = hunkOperand(operand);
+			const line = hunkOperand(lineOperand);
+			const selected = configRef.current.getSelectedOperands();
 			const state = store.getState();
-			return projectSlice.selectors.selectOperandChecked(state, projectId, source)
-				? projectSlice.selectors.selectCheckedOperands(state, projectId)
-				: [source];
+			if (projectSlice.selectors.selectOperandChecked(state, projectId, line))
+				return projectSlice.selectors.selectCheckedOperands(state, projectId);
+
+			return selected.some((source) => hunkOperandContainsLine(source, line))
+				? selected
+				: [hunkOperand(hunk)];
 		};
 
 		registration.cleanup = draggable({
