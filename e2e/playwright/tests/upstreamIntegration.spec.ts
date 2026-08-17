@@ -121,12 +121,10 @@ test("should show incoming conflicts with uncommitted files in an empty workspac
 	await expect(worktreeConflicts).toContainText("a_file");
 });
 
-test("should check out a new branch when the only stack is integrated", async ({
+test("should handle the update of workspace with integrated branch gracefully", async ({
 	page,
 	gitbutler,
 }) => {
-	const localClone = gitbutler.pathInWorkdir("local-clone");
-
 	await gitbutler.runScript("project-with-remote-branches.sh");
 	await applyUpstream(gitbutler, "branch1");
 	await openWorkspace(page);
@@ -136,12 +134,10 @@ test("should check out a new branch when the only stack is integrated", async ({
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
 	await syncAndIntegrate(page);
 
-	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
+	await waitForTestIdToNotExist(page, "stack");
 });
 
-test("should check out a new branch at the advanced target after integrating all stacks", async ({
+test("should reparent workspace commit to advanced target after integrating all stacks", async ({
 	page,
 	gitbutler,
 }) => {
@@ -158,12 +154,11 @@ test("should check out a new branch at the advanced target after integrating all
 	);
 	await syncAndIntegrate(page);
 
-	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
+	await waitForTestIdToNotExist(page, "stack");
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 });
 
-test("should check out a new branch at the advanced merge target after integrating all stacks", async ({
+test("should reparent workspace commit to advanced merge target after integrating all stacks", async ({
 	page,
 	gitbutler,
 }) => {
@@ -180,9 +175,8 @@ test("should check out a new branch at the advanced merge target after integrati
 	);
 	await syncAndIntegrate(page);
 
-	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
+	await waitForTestIdToNotExist(page, "stack");
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 });
 
 test("should handle the update of workspace with integrated parent branch in stack gracefully", async ({
@@ -246,6 +240,27 @@ test("should keep the remaining stack when only one of two stacks is integrated"
 	await expect(getByTestId(page, "branch-card")).toHaveCount(1);
 	await expect(getByTestId(page, "branch-card")).toContainText("branch2");
 	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
+});
+
+test("should check out a new branch when both applied stacks are integrated", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(2);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
+	await syncAndIntegrate(page);
+
+	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
 });
 
 test("should update an empty workspace when the target ref advances", async ({

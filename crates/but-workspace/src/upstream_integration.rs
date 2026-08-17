@@ -421,7 +421,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty() => {
+            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
                 // A managed workspace must not become empty. Replace its checkout with a fresh
                 // ad-hoc branch at the latest target tip, just like a fully integrated direct
                 // checkout.
@@ -435,6 +435,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     workspace_ref_name,
                     target_ref_commit_selector,
                 )?;
+            }
+            [] if !fully_integrated_workspace_parents.is_empty() => {
+                // A single integrated stack retains the existing empty managed workspace.
+                editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}
         }
