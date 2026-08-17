@@ -10,6 +10,7 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import {
@@ -19,9 +20,22 @@ import {
 } from "#ui/selection-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import {
+	olderTargetCommitsInfiniteQueryOptions,
+	workspaceTargetCommitsQueryOptions,
+} from "#ui/api/queries.ts";
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { type ComponentProps, type FC, type MouseEvent, useId, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+	type ComponentProps,
+	type FC,
+	type MouseEvent,
+	type ReactNode,
+	useRef,
+	useState,
+} from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "./Row.tsx";
 import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
@@ -36,6 +50,26 @@ const pluralRules = new Intl.PluralRules("en");
 
 const useIsSelected = (projectId: string, operand: Operand): boolean =>
 	useIsSelectedInList(projectId, operand, "upstream");
+
+/**
+ * The band naming the section below it.
+ *
+ * Not the outline's `SectionHeaderRow`: that one titles a whole pane and is
+ * sized to it. Three of these divide a single listing, so they are shorter and
+ * quieter — a rule with a name on it rather than a heading over a panel.
+ */
+const UpstreamSectionHeader: FC<{
+	icon: IconName;
+	label: string;
+	/** The key that focuses the list, shown only on the band that heads it. */
+	kbd?: ReactNode;
+}> = ({ icon, label, kbd }) => (
+	<div role="none" className={classes(styles.sectionHeader, kbd !== undefined && styles.withKbd)}>
+		{kbd}
+		<Icon className={styles.sectionHeaderIcon} name={icon} size={14} />
+		<span className={classes("text-12", styles.sectionHeaderLabel)}>{label}</span>
+	</div>
+);
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -55,10 +89,17 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 	</Row>
 );
 
-const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
-	projectId,
-	item,
-}) => {
+const TargetCommitRow: FC<{
+	projectId: string;
+	item: UpstreamCommitItem;
+	/**
+	 * Overrides the rail colour the commit's own position would give it. The
+	 * older section is one unbroken length of target line, so its rows keep the
+	 * target's colour rather than each reporting that the workspace has them —
+	 * which is the whole section's premise, and its heading already says so.
+	 */
+	status?: GraphSegmentStatus;
+}> = ({ projectId, item, status }) => {
 	const { commit, review, inWorkspace } = item;
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
 	const isSelected = useIsSelected(projectId, operand);
@@ -82,7 +123,7 @@ const TargetCommitRow: FC<{ projectId: string; item: UpstreamCommitItem }> = ({
 			isSelected={isSelected}
 			onSelect={() => setCursor("upstream", operand)}
 		>
-			<GraphSegment glyph="commit" status={inWorkspace ? "Integrated" : "Upstream"} />
+			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
 			<div className={styles.label}>
 				<RowLabelContainer>
 					{/* Commits the workspace already has are not dimmed: the row is
@@ -205,9 +246,10 @@ const SegmentExpanderRow: FC<{
 };
 
 /**
- * The prose and the button that act on the whole target section, drawn inside
- * the card against the target rail so they read as belonging to the commits
- * above them rather than to the panel.
+ * The prose and the button that act on the whole target section. Its own band
+ * between the incoming commits and the workspace's branches, off the graph
+ * entirely: what it does is rebase every stack, not something that hangs off a
+ * point on the target line.
  */
 const UpdateBlock: FC<{
 	incomingCount: number;
@@ -219,54 +261,94 @@ const UpdateBlock: FC<{
 	const messageClassName = classes("text-12", "text-body", rowStyles.fadedText);
 
 	return (
-		<div role="none" className={styles.updateBlock}>
-			<GraphSegment glyph="parent" status="Upstream" />
-			<div className={styles.updateBlockBody}>
-				{incomingCount > 0 ? (
-					<p className={messageClassName}>
-						Your workspace is {incomingCount} commit
-						{pluralRules.select(incomingCount) === "one" ? "" : "s"} behind the upstream.
-						<br />
-						Rebase to update all stacks at once.
-					</p>
-				) : hasIntegrated ? (
-					<p className={messageClassName}>
-						Integrated branches can be cleaned up by updating the workspace.
-					</p>
-				) : canUpdate ? (
-					<p className={messageClassName}>
-						Your stacks already contain the latest upstream commits.
-						<br />
-						Update to advance the workspace base.
-					</p>
-				) : (
-					<p className={messageClassName}>Your workspace is up to date.</p>
-				)}
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "gray" })}
-					disabled={!canUpdate}
-					onClick={onUpdateWorkspace}
-				>
-					{isUpdatePending
-						? "Updating…"
-						: incomingCount > 0
-							? "Rebase all stacks"
-							: "Update workspace"}
-				</button>
-			</div>
+		<div role="none" className={styles.block}>
+			{incomingCount > 0 ? (
+				<p className={messageClassName}>
+					Your workspace is {incomingCount} commit
+					{pluralRules.select(incomingCount) === "one" ? "" : "s"} behind the upstream. Rebase to
+					update all stacks at once.
+				</p>
+			) : hasIntegrated ? (
+				<p className={messageClassName}>
+					Integrated branches can be cleaned up by updating the workspace.
+				</p>
+			) : canUpdate ? (
+				<p className={messageClassName}>
+					Your stacks already contain the latest upstream commits. Update to advance the workspace
+					base.
+				</p>
+			) : (
+				<p className={messageClassName}>Your workspace is up to date.</p>
+			)}
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "gray" })}
+				disabled={!canUpdate}
+				onClick={onUpdateWorkspace}
+			>
+				{isUpdatePending
+					? "Updating…"
+					: incomingCount > 0
+						? "Rebase all stacks"
+						: "Update workspace"}
+			</button>
 		</div>
 	);
 };
 
 /**
- * A clipped stub carrying a rail past the last row of its region, so the graph
- * runs out into the space below rather than stopping dead at the content edge.
- * The target's stub bridges the divider; the workspace's supplies the card's
- * floor.
+ * Pages the older section further down the target line. Owns the fetching
+ * rather than taking it from the outline: the outline's result is memoized on
+ * its inputs, and a callback in it would defeat that.
+ *
+ * Renders nothing once the line is exhausted, so the band it draws is also the
+ * answer to whether there is more to see — except when the walk failed, which
+ * is reported instead, since a silently absent band would read as "no more
+ * history" and leave nothing to retry with.
  */
-const RailTail: FC<{ status: GraphSegmentStatus; bridge?: boolean }> = ({ status, bridge }) => (
-	<div aria-hidden className={classes(styles.railTail, bridge && styles.railTailBridge)}>
+const LoadMoreOlder: FC<{ projectId: string }> = ({ projectId }) => {
+	// Shares the base listing the outline already reads; this only takes the
+	// cursor its last commit supplies.
+	const { data: olderFrom = null } = useQuery({
+		...workspaceTargetCommitsQueryOptions(projectId),
+		select: (page) => page.commits.at(-1)?.commit.id ?? null,
+	});
+	const { fetchNextPage, hasNextPage, isFetching, isError } = useInfiniteQuery({
+		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
+		enabled: olderFrom !== null,
+	});
+
+	if (!hasNextPage && !isError) return null;
+
+	return (
+		<div role="none" className={styles.block}>
+			{isError && (
+				<p className={classes("text-12", "text-body", rowStyles.fadedText)}>
+					Unable to load older commits.
+				</p>
+			)}
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "outline" })}
+				disabled={isFetching}
+				onClick={() => void fetchNextPage()}
+			>
+				{isFetching ? <Icon name="spinner" /> : isError ? "Try again" : "Load more"}
+			</button>
+		</div>
+	);
+};
+
+/**
+ * A clipped stub carrying a rail past the first or last row of its region, so
+ * the graph runs out into the section's own padding rather than stopping dead
+ * at a row's edge.
+ */
+const RailEdge: FC<{ status: GraphSegmentStatus; edge: "head" | "tail" }> = ({ status, edge }) => (
+	<div
+		aria-hidden
+		className={classes(styles.railEdge, edge === "head" ? styles.railHead : styles.railTail)}
+	>
 		<GraphSegment glyph="parent" status={status} />
 	</div>
 );
@@ -340,6 +422,7 @@ export const UpstreamList: FC<
 	const {
 		items,
 		incomingItemCount,
+		olderItems,
 		targetLabel,
 		incomingCount,
 		hasIntegrated,
@@ -351,7 +434,6 @@ export const UpstreamList: FC<
 	const selection = useResolvedCursor("upstream", navigationIndex);
 	useCursorWriteBack("upstream", navigationIndex);
 
-	const headingId = useId();
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 
 	useNavigationIndexHotkeys({
@@ -378,23 +460,25 @@ export const UpstreamList: FC<
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
-			<div className={classes(uiStyles.scroller, styles.list)}>
-				<h4 id={headingId} className={styles.srOnly}>
-					Incoming changes{targetLabel !== null && <> from {targetLabel}</>}
-				</h4>
+			{/* One graph across three bands: what is coming in, where the
+			    workspace's branches sit against it, and the history behind them.
+			    The headings divide the listing; the rails carry through it. */}
+			<div
+				tabIndex={0}
+				role="tree"
+				aria-label="Upstream"
+				aria-activedescendant={selection ? treeItemId(selection) : undefined}
+				data-selection-scope={"outline" satisfies SelectionScope}
+				className={classes(uiStyles.scroller, styles.list)}
+				ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
+			>
+				<UpstreamSectionHeader
+					icon="arrow-down"
+					label="Incoming changes"
+					kbd={<SelectionScopeKbd hotkey="1" scope="outline" />}
+				/>
 
-				{/* The whole outline is one card: the target and the workspace's
-				    branches are two regions of a single graph, divided rather than
-				    boxed apart. */}
-				<div
-					tabIndex={0}
-					role="tree"
-					aria-labelledby={headingId}
-					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					data-selection-scope={"outline" satisfies SelectionScope}
-					className={styles.card}
-					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
-				>
+				<div role="none" className={styles.section}>
 					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}
 
 					{isError && (
@@ -417,40 +501,67 @@ export const UpstreamList: FC<
 
 					{targetItems.map((item) => listItem(projectId, item, false))}
 
-					{!isError && !isPending && targetLabel !== null && (
-						<UpdateBlock
-							incomingCount={incomingCount}
-							hasIntegrated={hasIntegrated}
-							canUpdate={canUpdate}
-							isUpdatePending={isUpdatePending}
-							onUpdateWorkspace={onUpdateWorkspace}
-						/>
-					)}
-
-					{targetLabel !== null && <RailTail status="Upstream" bridge />}
-
-					{workspaceItems.length > 0 && <div role="none" className={styles.divider} />}
-
-					{workspaceItems.flatMap((item, index) => {
-						const row = listItem(projectId, item, item === railHead);
-						// Commits only appear here as the body of an expanded run, so
-						// the last one before anything else is where a run closes.
-						const next = workspaceItems[index + 1];
-						return item.type === "commit" && next !== undefined && next.type !== "commit"
-							? [row, <RunTail key={`${item.commit.id}-tail`} />]
-							: [row];
-					})}
-
-					{workspaceItems.length > 0 && (
-						<RailTail status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"} />
-					)}
+					{targetLabel !== null && <RailEdge status="Upstream" edge="tail" />}
 				</div>
 
-				{outline.truncated && (
-					<p className={classes("text-13", rowStyles.fadedText, styles.message)}>
-						Only the most recent target history is shown.
-					</p>
+				{!isError && !isPending && targetLabel !== null && (
+					<UpdateBlock
+						incomingCount={incomingCount}
+						hasIntegrated={hasIntegrated}
+						canUpdate={canUpdate}
+						isUpdatePending={isUpdatePending}
+						onUpdateWorkspace={onUpdateWorkspace}
+					/>
 				)}
+
+				{workspaceItems.length > 0 && (
+					<>
+						<UpstreamSectionHeader icon="workbench" label="Workspace branches" />
+
+						<div role="none" className={styles.section}>
+							{workspaceItems.flatMap((item, index) => {
+								const row = listItem(projectId, item, item === railHead);
+								// Commits only appear here as the body of an expanded run, so
+								// the last one before anything else is where a run closes.
+								const next = workspaceItems[index + 1];
+								return item.type === "commit" && next !== undefined && next.type !== "commit"
+									? [row, <RunTail key={`${item.commit.id}-tail`} />]
+									: [row];
+							})}
+
+							<RailEdge
+								status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"}
+								edge="tail"
+							/>
+						</div>
+					</>
+				)}
+
+				{olderItems.length > 0 && (
+					<>
+						<UpstreamSectionHeader icon="docs" label="Older integrated commits" />
+
+						<div role="none" className={styles.section}>
+							{/* The run opens mid-line rather than at a fork, so a stub
+							    supplies the rail the first row would otherwise start from
+							    nothing. */}
+							<RailEdge status="Upstream" edge="head" />
+
+							{olderItems.map((item) => (
+								<TargetCommitRow
+									key={item.commit.id}
+									projectId={projectId}
+									item={item}
+									status="Upstream"
+								/>
+							))}
+
+							<RailEdge status="Upstream" edge="tail" />
+						</div>
+					</>
+				)}
+
+				<LoadMoreOlder projectId={projectId} />
 			</div>
 		</div>
 	);
