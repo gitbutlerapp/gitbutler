@@ -619,7 +619,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn pull_reparents_workspace_to_target_after_all_stacks_integrate() {
+fn pull_checks_out_canned_branch_after_all_stacks_integrate() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
@@ -644,21 +644,28 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
+┊╭┄ br [a-branch-1] (no commits)
+├╯
+┊
 ┴ 7e5d4e1 (common base) 2000-01-02 add upstream
 
-Hint: run `but branch new` to create a new branch to work on
+Hint: run `but help` for all commands
 
 "#]]);
 
-    assert_eq!(
-        rev_parse(&env, "gitbutler/workspace^"),
-        rev_parse(&env, "origin/main"),
-        "once all stacks are integrated, the workspace should be parented to the advanced target"
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "a-branch-1");
+    assert_eq!(rev_parse(&env, "HEAD"), rev_parse(&env, "origin/main"));
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the empty managed workspace reference should be removed"
     );
     assert_eq!(
         status_stack_count(&env),
-        0,
-        "no stacks should remain applied once both are integrated"
+        1,
+        "the canned branch should become the ad-hoc checkout"
     );
 }
 

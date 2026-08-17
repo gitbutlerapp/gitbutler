@@ -2398,10 +2398,13 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 }
 
 #[test]
-fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) =
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
+    force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let fallback_ref: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
@@ -2452,10 +2455,13 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
 "#]]
     );
 
-    let project_meta = integrate_and_materialize(
+    let mut db = but_testsupport::in_memory_db();
+    let out = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -2468,35 +2474,29 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
-    let workspace = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&workspace).to_string(),
-        snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
-
-"#]]
+    let preview = out.rebase.overlayed_graph()?.into_workspace()?;
+    assert_eq!(
+        preview.ref_name(),
+        Some(fallback_ref.as_ref()),
+        "dry-run overlay should show the canned branch as the checkout"
     );
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* b44fd24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   5f7d45e (origin/main, main) Merging B into base
-|\  
-| * b38b04b add B1
-* |   1f7670a Merging A into base
-|\ \  
-| |/  
-|/|   
-| * 905d6e5 add A1
-|/  
-* 3183e43 M1
-
-"#]]
-        .raw()
+    assert!(
+        repo.try_find_reference(fallback_ref.as_ref())?.is_none(),
+        "dry-run preview should not create the canned branch on disk"
     );
+    drop(preview);
+
+    out.rebase.materialize(Default::default())?;
+
+    assert!(repo.try_find_reference("A")?.is_none());
+    assert!(repo.try_find_reference("B")?.is_none());
+    assert!(
+        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+            .is_none(),
+        "the empty managed workspace reference should be removed"
+    );
+    assert_eq!(repo.find_reference(fallback_ref.as_ref())?.id(), target_tip);
+    assert_eq!(repo.head_name()?, Some(fallback_ref));
 
     Ok(())
 }
@@ -3067,11 +3067,14 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
 }
 
 #[test]
-fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
         "fully-integrated-two-stacks-merge-target-advanced",
     )?;
+    force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let fallback_ref: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
@@ -3087,10 +3090,13 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     )?;
     let mut workspace = graph.into_workspace()?;
 
-    integrate_and_materialize(
+    let mut db = but_testsupport::in_memory_db();
+    let out = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -3102,12 +3108,14 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
             },
         ],
     )?;
+    out.rebase.materialize(Default::default())?;
 
     assert_eq!(
-        workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?.detach(),
-        "orphaned workspace commit should be reparented to the merge-advanced target tip"
+        repo.find_reference(fallback_ref.as_ref())?.id(),
+        target_tip,
+        "canned branch should point at the exact merge target tip"
     );
+    assert_eq!(repo.head_name()?, Some(fallback_ref));
 
     Ok(())
 }

@@ -195,6 +195,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let head_commit = repo.find_commit(head_commit.id)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
+    let workspace_ref_name = workspace.ref_name().map(ToOwned::to_owned);
     let direct_checkout_head_ref_name = if head_is_workspace_commit {
         None
     } else {
@@ -352,7 +353,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
                 && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
             {
-                direct_checkout_replacement_ref = Some(replace_direct_checkout_ref_with_fallback(
+                direct_checkout_replacement_ref = Some(replace_checkout_ref_with_fallback(
                     &mut editor,
                     repo,
                     head_ref_name.as_ref(),
@@ -420,8 +421,23 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
+            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
+                // A managed workspace must not become empty. Replace its checkout with a fresh
+                // ad-hoc branch at the latest target tip, just like a fully integrated direct
+                // checkout.
+                let workspace_ref_name = workspace_ref_name
+                    .as_ref()
+                    .map(|name| name.as_ref())
+                    .context("Managed workspace has no reference")?;
+                replace_checkout_ref_with_fallback(
+                    &mut editor,
+                    repo,
+                    workspace_ref_name,
+                    target_ref_commit_selector,
+                )?;
+            }
             [] if !fully_integrated_workspace_parents.is_empty() => {
-                // Orphaned workspace, reparent onto the target ref.
+                // A single integrated stack retains the existing empty managed workspace.
                 editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}
@@ -1084,19 +1100,17 @@ fn selector_commit_id<M: RefMetadata>(
     })
 }
 
-/// Replace a fully integrated direct-checkout branch with a new canned local branch at the
-/// latest target tip.
+/// Replace a fully integrated checkout reference with a new canned local branch at the latest
+/// target tip.
 ///
-/// In a managed workspace, a fully integrated stack can simply be detached from the workspace
-/// commit and the workspace commit is reparented to the target. A direct checkout has no
-/// workspace commit to keep `HEAD` alive, so deleting the checked-out branch would leave `HEAD`
+/// Deleting the checked-out branch or empty managed workspace reference would leave `HEAD`
 /// pointing at a missing ref. Instead, reuse the checkout reference step for a fresh branch name
 /// and point it at the latest target commit.
 ///
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
 /// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
 /// preserve the existing graph and avoid introducing a cycle.
-fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
+fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     repo: &gix::Repository,
     head_ref_name: &gix::refs::FullNameRef,

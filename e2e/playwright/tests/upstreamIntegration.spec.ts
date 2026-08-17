@@ -27,6 +27,24 @@ async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
 }
 
+async function expectAdHocBranchAtOriginMaster(pathToRepo: string): Promise<string> {
+	await expect
+		.poll(() => git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]), {
+			message: "Expected a regular branch to be checked out",
+			intervals: [100, 200, 500, 1000],
+		})
+		.not.toBe("gitbutler/workspace");
+	await expect
+		.poll(() =>
+			git(pathToRepo, ["for-each-ref", "--format=%(refname)", "refs/heads/gitbutler/workspace"]),
+		)
+		.toBe("");
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", "HEAD"]))
+		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
+	return git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]);
+}
+
 async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
 	await expect
 		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
@@ -224,10 +242,12 @@ test("should keep the remaining stack when only one of two stacks is integrated"
 	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
 });
 
-test("should handle the update of the workspace with two integrated stacks gracefully", async ({
+test("should check out a new branch when both applied stacks are integrated", async ({
 	page,
 	gitbutler,
 }) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
 	await gitbutler.runScript("project-with-stacks.sh");
 	await applyUpstream(gitbutler, "branch1", "branch2");
 	await openWorkspace(page);
@@ -238,8 +258,9 @@ test("should handle the update of the workspace with two integrated stacks grace
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
 	await syncAndIntegrate(page);
 
-	await expect(stack(page)).toHaveCount(0);
-	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
+	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
 });
 
 test("should update an empty workspace when the target ref advances", async ({
