@@ -9,7 +9,7 @@
 // is the caller's job: pairs that are byte-identical between two runs did not
 // change, and only the rest are worth showing a reviewer.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "../test.ts";
@@ -93,10 +93,11 @@ test.describe("screenshots", () => {
 	// waits for the app to load before its one screenshot; the 30s default is not
 	// enough for that.
 	test.describe.configure({ timeout: 180_000 });
+	// The directory is emptied once per run by the configs' globalSetup, not here:
+	// this hook runs again every time Playwright restarts the worker after a
+	// failure, so clearing in it deletes the surfaces already captured. Creating
+	// the directory is still safe to repeat.
 	test.beforeAll(() => {
-		// Start empty: a PNG left by an earlier run would survive a rerun in which
-		// its surface failed, and be compared as though this run had produced it.
-		rmSync(outputDir, { force: true, recursive: true });
 		mkdirSync(outputDir, { recursive: true });
 	});
 
