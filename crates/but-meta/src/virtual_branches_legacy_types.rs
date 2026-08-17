@@ -1,8 +1,5 @@
 //! Legacy types that won't be needed anymore once the toml is removed.
 //!
-//! These are here to break the dependency to `gitbutler-stack`. In there, we have a dupe of these
-//! types with conversions to allow us to keep the structs dumb.
-//!
 //! The types here are the only ones to implement `serde`.
 #![allow(missing_docs)]
 use std::collections::HashMap;
@@ -47,7 +44,6 @@ mod stack {
         #[serde(default = "default_true")]
         pub in_workspace: bool,
         /// Represents the Stack state of pseudo-references ("heads").
-        /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
 
@@ -93,8 +89,7 @@ mod stack {
     }
 
     impl Stack {
-        /// This is the name of the top-most branch, provided by the API for convenience
-        /// Copy of `gitbutler-stack::Stack::derived_name()`.
+        /// This is the name of the top-most branch, provided by the API for convenience.
         pub fn derived_name(&self) -> anyhow::Result<String> {
             self.heads
                 .last()

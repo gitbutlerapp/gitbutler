@@ -78,7 +78,6 @@ but-error.workspace = true
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
 but-action = { workspace = true, optional = true }
-# Still uses `gitbutler-stack`, but otherwise it is non-legacy.
 but-hunk-assignment.workspace = true
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
