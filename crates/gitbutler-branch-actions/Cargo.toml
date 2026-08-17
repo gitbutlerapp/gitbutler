@@ -55,7 +55,6 @@ but-settings.workspace = true
 pretty_assertions = "1.4"
 but-graph.workspace = true
 but-testsupport.workspace = true
-gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
 tempfile.workspace = true
 ctor = "0.6.3"

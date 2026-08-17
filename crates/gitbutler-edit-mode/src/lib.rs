@@ -20,9 +20,11 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
+
+mod branch_trees;
+use branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 
 pub mod commands;
 

@@ -3910,7 +3910,6 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
- "gitbutler-workspace",
  "gix",
  "md5",
  "pretty_assertions",
@@ -3950,7 +3949,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
- "gitbutler-workspace",
  "gix",
  "schemars 1.2.1",
  "serde",
@@ -4209,19 +4207,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
-]
-
-[[package]]
-name = "gitbutler-workspace"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-oxidize",
- "git2",
- "gix",
- "tempfile",
 ]
 
 [[package]]
