@@ -1202,6 +1202,13 @@ export const HORIZ_PARENT: number
 /** Any horizontal link line. */
 export const HORIZONTAL: number
 
+/**
+ * Return the interactive login shell environment for GUI launches.
+ *
+ * Returns an empty map when launched from a terminal or on Windows, where shell startup may block.
+ */
+export declare function interactiveLoginShellEnvironment(): Record<string, string>
+
 /** Any left fork link line. */
 export const LEFT_FORK: number
 
