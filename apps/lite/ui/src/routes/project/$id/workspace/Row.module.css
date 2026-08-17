@@ -305,9 +305,9 @@
 	}
 }
 
-/* Flag consumed by Badge.module.css via `@container style()` so badges can
-   restyle themselves for the selected state without cross-module class
-   references. */
+/* Flag consumed via `@container style()` by the components that sit in a row —
+   badges and graph segments — so they can restyle themselves for the selected
+   state without cross-module class references. */
 [data-selection-focus-styles="true"] [data-selection-scope]:focus .containerSelected {
-	--badge-inverted: true;
+	--selection-inverted: true;
 }

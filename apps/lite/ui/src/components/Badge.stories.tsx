@@ -44,7 +44,7 @@ export const Inverted = meta.story({
 	render: () => (
 		<div
 			style={{
-				["--badge-inverted" as string]: "true",
+				["--selection-inverted" as string]: "true",
 				display: "flex",
 				gap: 8,
 				alignItems: "center",
