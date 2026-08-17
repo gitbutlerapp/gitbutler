@@ -12,14 +12,13 @@ use tokio::{sync::mpsc::unbounded_channel, task};
 use tokio_util::sync::CancellationToken;
 
 mod events;
+mod file_monitor;
+mod watch_plan;
 
-pub use events::Change;
-use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent};
+pub use events::{Change, InternalEvent};
+pub use file_monitor::{FileMonitorHandle, WatchMode, spawn};
 
 mod handler;
-
-/// Re-export for convenience
-pub use gitbutler_filemonitor::WatchMode;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
@@ -74,7 +73,7 @@ pub fn watch_in_background(
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
 
-    let file_monitor = gitbutler_filemonitor::spawn(
+    let file_monitor = spawn(
         project_id.clone(),
         worktree_path.as_ref(),
         events_out.clone(),

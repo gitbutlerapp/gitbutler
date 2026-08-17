@@ -355,7 +355,7 @@ jobs:
       - name: test vendored
         run: |
           set -x
-          (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
+          (cd crates/gitbutler-watcher/vendor/debouncer && cargo test)
       - name: Assert test hermeticity
         run: |
           if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then

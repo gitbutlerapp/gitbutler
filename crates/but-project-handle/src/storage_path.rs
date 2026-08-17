@@ -114,7 +114,7 @@ pub const DEFAULT_STORAGE_DIR_NAME: &str = "gitbutler";
 /// Git-dir-relative path of the refresh sentinel, `gitbutler/REFRESH`.
 ///
 /// Single source of truth shared by the writer (`write_refresh_sentinel`) and
-/// the watcher (`gitbutler_filemonitor`).
+/// the watcher (`gitbutler_watcher`).
 pub const REFRESH_SENTINEL_PATH: &str = "gitbutler/REFRESH";
 
 /// Identity written into the refresh sentinel so a process can skip the write

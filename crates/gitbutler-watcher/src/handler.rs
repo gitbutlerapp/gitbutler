@@ -8,14 +8,14 @@ use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_filemonitor::{
-    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
-};
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::ByteSlice as _;
 use tracing::instrument;
 
-use crate::Change;
+use crate::{
+    Change, InternalEvent,
+    file_monitor::{FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, REMOTE_REFS_DIR},
+};
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)

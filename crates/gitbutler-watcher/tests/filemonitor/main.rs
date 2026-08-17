@@ -6,7 +6,7 @@ mod spawn {
     };
 
     use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
-    use gitbutler_filemonitor::{InternalEvent, WatchMode};
+    use gitbutler_watcher::{InternalEvent, WatchMode};
     use tokio::sync::mpsc;
 
     async fn expect_matching_event(
@@ -41,7 +41,7 @@ mod spawn {
 
         let (tx, mut rx) = mpsc::unbounded_channel();
         let monitor =
-            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
+            gitbutler_watcher::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
 
         std::fs::create_dir(workdir.join("dir"))?;
         monitor.flush()?;
@@ -118,7 +118,7 @@ mod spawn {
 }
 
 mod watch_mode {
-    use gitbutler_filemonitor::WatchMode;
+    use gitbutler_watcher::WatchMode;
 
     #[test]
     fn from_env_or_settings() {

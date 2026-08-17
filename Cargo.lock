@@ -3960,22 +3960,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-filemonitor"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "backoff",
- "but-project-handle",
- "but-testsupport",
- "gitbutler-notify-debouncer",
- "gix",
- "notify",
- "snapbox",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
@@ -4206,6 +4190,7 @@ name = "gitbutler-watcher"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "backoff",
  "but-core",
  "but-ctx",
  "but-db",
@@ -4214,10 +4199,13 @@ dependencies = [
  "but-hunk-dependency",
  "but-project-handle",
  "but-settings",
- "gitbutler-filemonitor",
+ "but-testsupport",
+ "gitbutler-notify-debouncer",
  "gitbutler-operating-modes",
  "gix",
+ "notify",
  "serde-error",
+ "snapbox",
  "tokio",
  "tokio-util",
  "tracing",
