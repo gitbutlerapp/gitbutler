@@ -456,7 +456,13 @@ const lineTop = (file: MinimapFile, side: ChangeSide, line: number): number | nu
 };
 
 /** The range the diff currently has selected, in file line numbers. */
-export type MinimapSelection = { itemId: string; side: ChangeSide; start: number; end: number };
+export type MinimapSelection = {
+	itemId: string;
+	side: ChangeSide;
+	start: number;
+	endSide: ChangeSide;
+	end: number;
+};
 
 export type MinimapOverlays = {
 	/** Comment positions, in scroll-content pixels. */
@@ -500,17 +506,27 @@ export const getMinimapOverlays = ({
 
 		if (selection?.itemId !== file.itemId) continue;
 
-		// A hunk that only removes lines carries no addition to number the range
-		// against, and the other way round, so fall through to whichever side has it.
-		const other = selection.side === "additions" ? "deletions" : "additions";
-		const locate = (line: number): number | null =>
-			place(selection.side, line) ?? place(other, line);
+		// A hunk that only changes one side has no line on the other to number the
+		// endpoint against, so fall through to whichever side has it.
+		const locate = (side: ChangeSide, line: number): number | null => {
+			const other = side === "additions" ? "deletions" : "additions";
+			return place(side, line) ?? place(other, line);
+		};
+		const endpoints = [
+			{ side: selection.side, line: selection.start },
+			{ side: selection.endSide, line: selection.end },
+		];
+		const starts = endpoints.flatMap(({ side, line }) => locate(side, line) ?? []);
+		if (starts.length === 0) continue;
 
-		const start = locate(selection.start);
-		// The band should stop where the line after the range starts; a selection
-		// running to the end of a hunk has no such line to ask for.
-		const end = locate(selection.end + 1) ?? locate(selection.end);
-		if (start !== null) band = { top: start, height: Math.max((end ?? start) - start, 0) };
+		const ends = endpoints.flatMap(({ side, line }) => {
+			const start = locate(side, line);
+			if (start === null) return [];
+			return locate(side, line + 1) ?? start;
+		});
+		const top = Math.min(...starts);
+		const bottom = Math.max(...ends);
+		band = { top, height: Math.max(bottom - top, 0) };
 	}
 
 	return { pins, band };

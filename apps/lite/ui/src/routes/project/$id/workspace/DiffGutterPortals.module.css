@@ -2,7 +2,8 @@
 	margin: 0;
 	opacity: var(--gitbutler-diff-gutter-checkbox-opacity, 0);
 
-	&:checked,
+	&[data-checked],
+	&[data-indeterminate],
 	&:focus {
 		opacity: 1;
 	}

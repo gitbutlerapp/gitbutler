@@ -324,7 +324,7 @@ export const operationHotkeys = {
 export const diffHotkeys = {
 	checkHunk: {
 		hotkey: "Space",
-		meta: { group: "Diff", name: "Check hunk" },
+		meta: { group: "Diff", name: "Check selected lines" },
 	},
 	toggleFoldFile: {
 		hotkey: "Z",

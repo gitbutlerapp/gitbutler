@@ -156,6 +156,7 @@ export const useNavigationIndexHotkeys = <T>({
 	operationSourcesForItem,
 	onEdgeSpill,
 	getKey,
+	directionalNavigation = true,
 }: {
 	navigationIndex: NavigationIndex<T>;
 	group: CommandGroup;
@@ -172,6 +173,8 @@ export const useNavigationIndexHotkeys = <T>({
 	 */
 	onEdgeSpill?: (offset: -1 | 1) => void;
 	getKey: (item: T) => string;
+	/** Disable arrow and Vim directional keys when a surface owns finer-grained navigation. */
+	directionalNavigation?: boolean;
 }) => {
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
@@ -241,6 +244,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectPreviousItem,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -249,6 +253,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectPreviousItem,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -257,6 +262,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectNextItem,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -265,6 +271,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectNextItem,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -273,6 +280,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectPreviousSection,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -281,6 +289,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectPreviousSection,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -289,6 +298,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectNextSection,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},
@@ -297,6 +307,7 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: selectNextSection,
 			options: {
 				conflictBehavior: "allow",
+				enabled: directionalNavigation,
 				target: ref,
 			},
 		},

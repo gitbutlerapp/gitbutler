@@ -42,6 +42,7 @@ import {
 	weakCommitIdentityKey,
 	weakFileParentIdentityKey,
 } from "#ui/operands.ts";
+import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -101,6 +102,7 @@ import {
 	useAutofocusSelectionScope,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
+import { buildIndexByKey, getAdjacent } from "#ui/workspace/navigation-index.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
@@ -124,7 +126,17 @@ import {
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
-import { contiguousSelectionByLine, wholeHunkSelectionByLine } from "#ui/hunk.ts";
+import {
+	contiguousSelectionByLine,
+	hunkSelectionForLineNavigation,
+	lineSelectionsForRange,
+	moveSelectedLineRange,
+	rangeFromLineGroups,
+	selectedLineRangeContainsPoint,
+	singleLineSelectionByLine,
+	type HunkLineSelection,
+	wholeHunkSelectionByLine,
+} from "#ui/hunk.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -141,7 +153,7 @@ import {
 } from "./diff-line-context-menu.ts";
 import { diffGutterUnsafeCSS, useDiffGutterCheckboxes } from "./diff-gutter.ts";
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
-import type { DiffLineTarget } from "./diff-line-target.ts";
+import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
@@ -164,8 +176,12 @@ import {
 	withoutFoldedHunks,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
-import { getMinimapFiles, measureWrapColumns, type MinimapSelection } from "./diff-minimap.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import {
+	getMinimapFiles,
+	measureWrapColumns,
+	type MinimapFile,
+	type MinimapSelection,
+} from "./diff-minimap.ts";
 import {
 	type ReviewedFileVersions,
 	reviewedFilesQueryOptions,
@@ -271,6 +287,53 @@ const withAnnotations = (
 	}),
 });
 
+const navigationHunkForSelectedLines = ({
+	selection,
+	fileParent,
+	fileByItemId,
+	hunkByKey,
+}: {
+	selection: CodeViewLineSelection | null;
+	fileParent: FileParent;
+	fileByItemId: DiffView["fileByItemId"];
+	hunkByKey: DiffView["hunkByKey"];
+}): HunkOperand | null => {
+	if (!selection) return null;
+	const file = fileByItemId.get(selection.id);
+	if (file?.patch?.type !== "Patch") return null;
+
+	const hunks = file.item.fileDiff.hunks;
+	const side = selection.range.endSide ?? selection.range.side ?? "additions";
+	const query = { hunks, line: selection.range.end, side };
+	const wholeHunkSelection = wholeHunkSelectionByLine(query);
+	const firstChangedLine = wholeHunkSelection?.lineGroups[0];
+	const cursorSelection =
+		contiguousSelectionByLine(query) ??
+		(firstChangedLine
+			? contiguousSelectionByLine({
+					hunks,
+					line: firstChangedLine.start,
+					side: firstChangedLine.side,
+				})
+			: null);
+	if (!cursorSelection) return null;
+
+	const operand: HunkOperand = {
+		parent: { parent: fileParent, path: file.change.path },
+		...cursorSelection,
+		isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+	};
+	return hunkByKey.get(hunkOperandIdentityKey(operand))?.operand ?? null;
+};
+
+const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection): boolean =>
+	a.id === b.id &&
+	a.range.start === b.range.start &&
+	(a.range.side ?? "additions") === (b.range.side ?? "additions") &&
+	a.range.end === b.range.end &&
+	(a.range.endSide ?? a.range.side ?? "additions") ===
+		(b.range.endSide ?? b.range.side ?? "additions");
+
 const DiffContents: FC<{
 	activeFileItemId: string | null;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
@@ -288,6 +351,7 @@ const DiffContents: FC<{
 	setFilesReviewed: (input: SetFilesReviewedInput) => void;
 	viewerRef: RefObject<CodeViewHandle<Annotation> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	minimapFiles: Array<MinimapFile> | null;
 	canUncommit: boolean;
 	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
@@ -307,6 +371,7 @@ const DiffContents: FC<{
 	setFilesReviewed,
 	viewerRef,
 	didScrollToViaFileRef,
+	minimapFiles,
 	canUncommit,
 	uncommit,
 }) => {
@@ -329,6 +394,8 @@ const DiffContents: FC<{
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const store = useAppStore();
+	const lineCheckRangeAnchor = useRef<string>(null);
+	const lineCheckRangeEnd = useRef<string>(null);
 	const hunkCheckRangeAnchor = useRef<string>(null);
 	const hunkCheckRangeEnd = useRef<string>(null);
 
@@ -361,9 +428,53 @@ const DiffContents: FC<{
 	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
-	const selectedRange = diffSelection
+	const diffSelectionKey = diffSelection === null ? null : hunkOperandIdentityKey(diffSelection);
+	const cursorSelectedHunk = diffSelection
 		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
+	const cursorSelectedRange: CodeViewLineSelection | null = cursorSelectedHunk
+		? {
+				id: cursorSelectedHunk.id,
+				range: {
+					start: cursorSelectedHunk.range.start,
+					side: cursorSelectedHunk.range.side,
+					end: cursorSelectedHunk.range.start,
+				},
+			}
+		: null;
+	const [selectedLinesState, setSelectedLinesState] = useState<{
+		cursorKey: string | null;
+		selection: CodeViewLineSelection | null;
+	}>({ cursorKey: diffSelectionKey, selection: cursorSelectedRange });
+	// Cursor moves originating outside the diff replace the local line range. Mouse and arrow moves
+	// write both together, so arbitrary ranges survive while their containing hunk remains current.
+	const selectedLines =
+		selectedLinesState.cursorKey === diffSelectionKey
+			? selectedLinesState.selection
+			: cursorSelectedRange;
+	const minimapSelection = useMemo((): MinimapSelection | null => {
+		if (!selectedLines) return null;
+
+		const { start, end, side, endSide } = selectedLines.range;
+		return {
+			itemId: selectedLines.id,
+			side: side ?? "additions",
+			start,
+			endSide: endSide ?? side ?? "additions",
+			end,
+		};
+	}, [selectedLines]);
+	const selectedLinesHunk = useMemo(
+		() =>
+			navigationHunkForSelectedLines({
+				selection: selectedLines,
+				fileParent,
+				fileByItemId,
+				hunkByKey,
+			}),
+		[selectedLines, fileByItemId, fileParent, hunkByKey],
+	);
+	const effectiveDiffStyle = diffStyle ?? defaultSettings.diffStyle;
 	// A primitive, null while the selection sits on a visible hunk, so the item
 	// list and header closures below only pick up new identities when a folded
 	// file gains or loses the selection — not on every j/k move.
@@ -389,22 +500,62 @@ const DiffContents: FC<{
 	const selectDiff = (selection: HunkOperand) => {
 		setCursor("diff", selection);
 
-		const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
-		if (!selectedRange) return;
+		const nextSelectedLines = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
+		if (!nextSelectedLines) return;
+		setSelectedLinesState({
+			cursorKey: hunkOperandIdentityKey(selection),
+			selection: nextSelectedLines,
+		});
 
 		viewerRef.current?.scrollTo({
 			type: "range",
-			id: selectedRange.id,
-			range: selectedRange.range,
+			id: nextSelectedLines.id,
+			range: nextSelectedLines.range,
 			align: "nearest",
 		});
+	};
+	const moveSelectedHunk = (offset: -1 | 1): void => {
+		let selection = diffSelection;
+		if (selectedLines) {
+			const file = fileByItemId.get(selectedLines.id);
+			if (file?.patch?.type === "Patch") {
+				const fileHunks = file.hunks.map(({ operand }) => operand);
+				const lineHunk = hunkSelectionForLineNavigation({
+					hunks: file.item.fileDiff.hunks,
+					selections: fileHunks,
+					range: selectedLines.range,
+					diffStyle: effectiveDiffStyle,
+					offset,
+				});
+				selection = lineHunk ?? fileHunks.at(offset === 1 ? -1 : 0) ?? null;
+
+				if (lineHunk) {
+					const hunkLines = hunkByKey.get(hunkOperandIdentityKey(lineHunk))?.selectedLines;
+					if (hunkLines && !lineSelectionsEqual(selectedLines, hunkLines)) {
+						selectDiff(lineHunk);
+						return;
+					}
+				}
+			}
+		}
+
+		const next =
+			selection === null
+				? visibleNavigationIndex.items.at(offset === 1 ? 0 : -1)
+				: getAdjacent({
+						navigationIndex: visibleNavigationIndex,
+						selection,
+						offset,
+						getKey: hunkOperandIdentityKey,
+					});
+		if (next) selectDiff(next);
 	};
 
 	useNavigationIndexHotkeys({
 		navigationIndex: visibleNavigationIndex,
 		group: "Diff",
 		select: selectDiff,
-		selection: diffSelection,
+		selection: selectedLinesHunk ?? diffSelection,
 		selectSectionPredicate: (hunk) => {
 			const k = hunkOperandIdentityKey(hunk);
 			return hunkOperandIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).operand) === k;
@@ -412,29 +563,169 @@ const DiffContents: FC<{
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
 		operationSourcesForItem: (hunk) => {
-			const source = hunkOperand(hunk);
+			const selectedSources = operandsForSelectedLines(selectedLines, "compact");
+			const sources = selectedSources.length > 0 ? selectedSources : [hunkOperand(hunk)];
+			const checkedSources =
+				selectedSources.length > 0 ? operandsForSelectedLines(selectedLines, "line") : sources;
 			const state = store.getState();
-			return projectSlice.selectors.selectOperandChecked(state, projectId, source)
+			return checkedSources.every((source) =>
+				projectSlice.selectors.selectOperandChecked(state, projectId, source),
+			)
 				? projectSlice.selectors.selectCheckedOperands(state, projectId)
-				: [source];
+				: sources;
 		},
+		directionalNavigation: false,
 	});
 
-	function toggleSelectedHunkChecked(event: KeyboardEvent): void {
-		if (diffSelection === null || event.composedPath().some(isInteractiveElement)) return;
+	const moveSelectedLines = (offset: -1 | 1, extend: boolean): void => {
+		if (!selectedLines) return;
+		const file = fileByItemId.get(selectedLines.id);
+		if (!file || file.patch?.type !== "Patch") return;
+
+		const range = moveSelectedLineRange({
+			hunks: file.item.fileDiff.hunks,
+			range: selectedLines.range,
+			diffStyle: effectiveDiffStyle,
+			offset,
+			extend,
+		});
+		if (!range) return;
+
+		const selection = { id: selectedLines.id, range };
+		applySelectedLines(selection);
+		viewerRef.current?.scrollTo({
+			type: "range",
+			id: selection.id,
+			range,
+			align: "nearest",
+		});
+	};
+
+	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
+		if (event.composedPath().some(isInteractiveElement)) return;
+		const operands = operandsForSelectedLines(selectedLines, "line");
+		if (operands.length === 0) return;
 
 		event.preventDefault();
 		event.stopPropagation();
-		checkHunk({ operand: diffSelection, shiftKey: event.shiftKey });
+		const state = store.getState();
+		const checked = !operands.every((operand) =>
+			projectSlice.selectors.selectOperandChecked(state, projectId, operand),
+		);
+		dispatch(projectSlice.actions.checkOperands({ projectId, operands, checked }));
 	}
 
 	useHotkeys([
 		{
-			hotkey: diffHotkeys.checkHunk.hotkey,
-			callback: toggleSelectedHunkChecked,
+			hotkey: "ArrowUp",
+			callback: () => moveSelectedLines(-1, false),
 			options: {
 				conflictBehavior: "allow",
-				enabled: diffSelection !== null && canCheckHunks,
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "K",
+			callback: () => moveSelectedLines(-1, false),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "ArrowDown",
+			callback: () => moveSelectedLines(1, false),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "J",
+			callback: () => moveSelectedLines(1, false),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Shift+ArrowUp",
+			callback: () => moveSelectedLines(-1, true),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Shift+K",
+			callback: () => moveSelectedLines(-1, true),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Shift+ArrowDown",
+			callback: () => moveSelectedLines(1, true),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Shift+J",
+			callback: () => moveSelectedLines(1, true),
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null,
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Alt+ArrowUp",
+			callback: () => moveSelectedHunk(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Alt+K",
+			callback: () => moveSelectedHunk(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Alt+ArrowDown",
+			callback: () => moveSelectedHunk(1),
+			options: {
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: "Alt+J",
+			callback: () => moveSelectedHunk(1),
+			options: {
+				conflictBehavior: "allow",
+				target: selectionScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.checkHunk.hotkey,
+			callback: toggleSelectedLinesChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLines !== null && canCheckHunks,
 				preventDefault: false,
 				stopPropagation: false,
 				target: selectionScopeRef,
@@ -443,10 +734,10 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "Shift+Space",
-			callback: toggleSelectedHunkChecked,
+			callback: toggleSelectedLinesChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: diffSelection !== null && canCheckHunks,
+				enabled: selectedLines !== null && canCheckHunks,
 				preventDefault: false,
 				stopPropagation: false,
 				target: selectionScopeRef,
@@ -497,7 +788,7 @@ const DiffContents: FC<{
 					projectId,
 					programId: settings.editor.id,
 					path: diffSelectionHunk.file.change.path,
-					lineNr: selectedRange?.range.start ?? null,
+					lineNr: selectedLines?.range.start ?? null,
 				}),
 			options: {
 				enabled: !!diffSelectionHunk && !!settings?.editor,
@@ -528,36 +819,114 @@ const DiffContents: FC<{
 		onViewerFileSelection(file.operand.path);
 	};
 
-	// We currently only support selecting contiguous blocks.
-	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return setCursor("diff", null);
+	function operandForLineSelection(
+		itemId: string,
+		selection: HunkLineSelection | null,
+	): HunkOperand | null {
+		if (!selection) return null;
+		const file = fileByItemId.get(itemId);
+		if (file?.patch?.type !== "Patch") return null;
 
-		const file = fileByItemId.get(sel.id);
-		if (!file) throw new Error("Could not get file by item ID");
-		if (file.patch?.type !== "Patch") throw new Error("File has no patch");
-
-		const side = sel.range.endSide ?? sel.range.side;
-		if (side === undefined) return;
-
-		const selection = contiguousSelectionByLine({
-			hunks: file.item.fileDiff.hunks,
-			// The end range is more reliable in shift+click with preexisting selection scenarios.
-			line: sel.range.end,
-			side,
-		});
-		if (!selection) return;
-
-		setCursor("diff", {
-			parent: {
-				parent: fileParent,
-				path: file.change.path,
-			},
+		return {
+			parent: { parent: fileParent, path: file.change.path },
 			...selection,
 			isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+		};
+	}
+
+	function operandsForSelectedLines(
+		selection: CodeViewLineSelection | null,
+		granularity: "compact" | "line",
+	): Array<Extract<Operand, { _tag: "Hunk" }>> {
+		if (!selection) return [];
+		const file = fileByItemId.get(selection.id);
+		if (file?.patch?.type !== "Patch") return [];
+		const isResultOfBinaryToTextConversion = file.patch.subject.isResultOfBinaryToTextConversion;
+
+		return lineSelectionsForRange({
+			hunks: file.item.fileDiff.hunks,
+			range: selection.range,
+			diffStyle: effectiveDiffStyle,
+			granularity,
+		}).map((lineSelection) =>
+			hunkOperand({
+				parent: { parent: fileParent, path: file.change.path },
+				...lineSelection,
+				isResultOfBinaryToTextConversion,
+			}),
+		);
+	}
+
+	function applySelectedLines(selection: CodeViewLineSelection | null): void {
+		if (!selection) {
+			setSelectedLinesState({ cursorKey: null, selection: null });
+			return setCursor("diff", null);
+		}
+
+		const navigationHunk = navigationHunkForSelectedLines({
+			selection,
+			fileParent,
+			fileByItemId,
+			hunkByKey,
 		});
+		if (!navigationHunk) {
+			setSelectedLinesState({ cursorKey: diffSelectionKey, selection });
+			return;
+		}
+		setSelectedLinesState({
+			cursorKey: hunkOperandIdentityKey(navigationHunk),
+			selection,
+		});
+		setCursor("diff", navigationHunk);
+	}
+
+	const handleLinesSelected = (selection: CodeViewLineSelection | null): void => {
+		applySelectedLines(selection);
+	};
+
+	const getLineOperandAtLine = ({
+		itemId,
+		lineNumber,
+		side,
+	}: DiffLineTarget): HunkOperand | null => {
+		const file = fileByItemId.get(itemId);
+		if (file?.patch?.type !== "Patch") return null;
+
+		return operandForLineSelection(
+			itemId,
+			singleLineSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
+		);
 	};
 
 	const getHunkOperandAtLine = ({
+		itemId,
+		lineNumber,
+		side,
+	}: DiffLineTarget): HunkOperand | null => {
+		const file = fileByItemId.get(itemId);
+		if (file?.patch?.type !== "Patch") return null;
+
+		return operandForLineSelection(
+			itemId,
+			wholeHunkSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
+		);
+	};
+
+	const getContiguousHunkOperandAtLine = ({
+		itemId,
+		lineNumber,
+		side,
+	}: DiffLineTarget): HunkOperand | null => {
+		const file = fileByItemId.get(itemId);
+		if (file?.patch?.type !== "Patch") return null;
+
+		return operandForLineSelection(
+			itemId,
+			contiguousSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
+		);
+	};
+
+	const getContextMenuOperandAtLine = ({
 		itemId,
 		lineNumber,
 		side,
@@ -565,83 +934,199 @@ const DiffContents: FC<{
 	}: DiffLineTarget): HunkOperand | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
-
 		const query = { hunks: file.item.fileDiff.hunks, line: lineNumber, side };
-		const selection =
-			lineType === "context" ? wholeHunkSelectionByLine(query) : contiguousSelectionByLine(query);
-		if (!selection) return null;
 
-		return {
-			parent: {
-				parent: fileParent,
-				path: file.change.path,
-			},
-			...selection,
-			isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
-		};
+		return operandForLineSelection(
+			itemId,
+			lineType === "context" ? wholeHunkSelectionByLine(query) : contiguousSelectionByLine(query),
+		);
 	};
 
-	const hunkRangeResolver = navigationIndexRange<HunkOperand, string>({
-		navigationIndex: visibleNavigationIndex,
-		getKey: (key) => key,
-		filterMap: hunkOperandIdentityKey,
-	});
-	const getCheckedHunkRange = checkedRange(hunkRangeResolver);
-
-	function checkHunk({ operand, shiftKey }: { operand: HunkOperand; shiftKey: boolean }): void {
-		const checkedHunks = projectSlice.selectors
-			.selectCheckedOperands(store.getState(), projectId)
-			.filter((operand) => operand._tag === "Hunk");
-		const checkedHunksByKey = new Map(
-			checkedHunks.map((operand) => [hunkOperandIdentityKey(operand), operand]),
+	const checkedHunkKeys = (): Set<string> =>
+		new Set(
+			projectSlice.selectors
+				.selectCheckedOperands(store.getState(), projectId)
+				.flatMap((operand) => (operand._tag === "Hunk" ? [hunkOperandIdentityKey(operand)] : [])),
 		);
-		const previous = new Set(checkedHunksByKey.keys());
-		const nextHunkRange = getCheckedHunkRange({
-			checked: previous,
-			rangeAnchor: hunkCheckRangeAnchor.current,
-			rangeEnd: hunkCheckRangeEnd.current,
-		})({
-			item: hunkOperandIdentityKey(operand),
-			shiftKey,
-		});
 
-		hunkCheckRangeAnchor.current = nextHunkRange.rangeAnchor;
-		hunkCheckRangeEnd.current = nextHunkRange.rangeEnd;
+	const applyCheckedOperandGroups = ({
+		previous,
+		next,
+		operandsByKey,
+	}: {
+		previous: Set<string>;
+		next: Set<string>;
+		operandsByKey: Map<string, Array<Extract<Operand, { _tag: "Hunk" }>>>;
+	}): void => {
+		const operandsForKeys = (keys: Set<string>) =>
+			Array.from(keys).flatMap((key) => operandsByKey.get(key) ?? []);
 
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(nextHunkRange.checked.difference(previous)).flatMap((key) => {
-					const hunk = hunkByKey.get(key);
-					return hunk ? [hunkOperand(hunk.operand)] : [];
-				}),
+				operands: operandsForKeys(next.difference(previous)),
 				checked: true,
 			}),
 		);
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: Array.from(previous.difference(nextHunkRange.checked)).flatMap((key) => {
-					const hunk = checkedHunksByKey.get(key);
-					return hunk ? [hunk] : [];
-				}),
+				operands: operandsForKeys(previous.difference(next)),
 				checked: false,
 			}),
 		);
+	};
+
+	const checkedRangeFor = ({
+		orderedOperands,
+		checked,
+		rangeAnchor,
+		rangeEnd,
+		target,
+		shiftKey,
+	}: {
+		orderedOperands: Array<HunkOperand>;
+		checked: Set<string>;
+		rangeAnchor: string | null;
+		rangeEnd: string | null;
+		target: HunkOperand;
+		shiftKey: boolean;
+	}) => {
+		const navigationIndex = {
+			items: orderedOperands,
+			indexByKey: buildIndexByKey(orderedOperands, hunkOperandIdentityKey),
+		};
+		const resolveRange = navigationIndexRange({
+			navigationIndex,
+			getKey: (key: string) => key,
+			filterMap: (operand: HunkOperand) => hunkOperandIdentityKey(operand),
+		});
+
+		return checkedRange(resolveRange)({ checked, rangeAnchor, rangeEnd })({
+			item: hunkOperandIdentityKey(target),
+			shiftKey,
+		});
+	};
+
+	const visibleHunkGroups = () =>
+		visibleNavigationIndex.items.flatMap((operand) => {
+			const selection = hunkByKey.get(hunkOperandIdentityKey(operand))?.selectedLines;
+			const lineOperands = selection ? operandsForSelectedLines(selection, "line") : [];
+			return lineOperands.length > 0 ? [{ operand, lineOperands }] : [];
+		});
+
+	// Checkbox Shift-click extends persistent checked ranges. Shift-clicking the surrounding gutter
+	// remains Pierre's active line-range gesture, unlike the whole-row shortcut on file/commit rows.
+	function checkLine(operand: HunkOperand, shiftKey: boolean): void {
+		const key = hunkOperandIdentityKey(operand);
+		const previous = shiftKey && lineCheckRangeAnchor.current !== null ? checkedHunkKeys() : null;
+		if (previous && previous.size > 0) {
+			const groups = visibleHunkGroups();
+			const orderedOperands = groups.flatMap(({ lineOperands }) => lineOperands);
+			const operandsByKey = new Map(
+				orderedOperands.map((lineOperand) => [hunkOperandIdentityKey(lineOperand), [lineOperand]]),
+			);
+			const nextRange = checkedRangeFor({
+				orderedOperands,
+				checked: previous,
+				rangeAnchor: lineCheckRangeAnchor.current,
+				rangeEnd: lineCheckRangeEnd.current,
+				target: operand,
+				shiftKey,
+			});
+
+			lineCheckRangeAnchor.current = nextRange.rangeAnchor;
+			lineCheckRangeEnd.current = nextRange.rangeEnd;
+			return applyCheckedOperandGroups({
+				previous,
+				next: nextRange.checked,
+				operandsByKey,
+			});
+		}
+
+		const source = hunkOperand(operand);
+		const checked = !projectSlice.selectors.selectOperandChecked(
+			store.getState(),
+			projectId,
+			source,
+		);
+		lineCheckRangeAnchor.current = key;
+		lineCheckRangeEnd.current = key;
+		dispatch(projectSlice.actions.checkOperand({ projectId, operand: source, checked }));
+	}
+
+	function checkHunkLines(
+		operand: HunkOperand,
+		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		shiftKey: boolean,
+	): void {
+		const key = hunkOperandIdentityKey(operand);
+		if (!shiftKey || hunkCheckRangeAnchor.current === null) {
+			const state = store.getState();
+			const checked = !lineOperands.every((lineOperand) =>
+				projectSlice.selectors.selectOperandChecked(state, projectId, lineOperand),
+			);
+			hunkCheckRangeAnchor.current = key;
+			hunkCheckRangeEnd.current = key;
+			dispatch(projectSlice.actions.checkOperands({ projectId, operands: lineOperands, checked }));
+			return;
+		}
+
+		const groups = visibleHunkGroups();
+		const operandsByKey = new Map(
+			groups.map(({ operand, lineOperands }) => [hunkOperandIdentityKey(operand), lineOperands]),
+		);
+		const state = store.getState();
+		const previous = new Set(
+			groups.flatMap(({ operand, lineOperands }) =>
+				lineOperands.every((lineOperand) =>
+					projectSlice.selectors.selectOperandChecked(state, projectId, lineOperand),
+				)
+					? [hunkOperandIdentityKey(operand)]
+					: [],
+			),
+		);
+		const nextRange = checkedRangeFor({
+			orderedOperands: groups.map(({ operand }) => operand),
+			checked: previous,
+			rangeAnchor: hunkCheckRangeAnchor.current,
+			rangeEnd: hunkCheckRangeEnd.current,
+			target: operand,
+			shiftKey,
+		});
+
+		hunkCheckRangeAnchor.current = nextRange.rangeAnchor;
+		hunkCheckRangeEnd.current = nextRange.rangeEnd;
+		applyCheckedOperandGroups({ previous, next: nextRange.checked, operandsByKey });
 	}
 
 	const handleLineContextMenu = ({ event, ...target }: DiffLineContextMenuTarget): void => {
 		const file = fileByItemId.get(target.itemId);
 		if (!file) return;
-		const operand = getHunkOperandAtLine(target);
+		const operand = getContextMenuOperandAtLine(target);
 		if (!operand) return;
+		const lineOperand = getLineOperandAtLine(target);
+		const checkedProbe = lineOperand ? hunkOperand(lineOperand) : null;
+		const selectedOperands = operandsForSelectedLines(selectedLines, "compact");
+		const usesSelectedLines =
+			selectedLines?.id === target.itemId &&
+			selectedOperands.length > 0 &&
+			selectedLineRangeContainsPoint({
+				hunks: file.item.fileDiff.hunks,
+				range: selectedLines.range,
+				diffStyle: effectiveDiffStyle,
+				line: target.lineNumber,
+				side: target.side,
+			});
 
 		void showNativeContextMenu(
 			event,
 			hunkMenuItems({
 				change: file.change,
 				lineNumber: target.lineNumber,
-				operand,
+				sources: usesSelectedLines ? selectedOperands : [hunkOperand(operand)],
+				checkedProbe,
+				usesSelectedLines,
 			}),
 		);
 	};
@@ -653,10 +1138,20 @@ const DiffContents: FC<{
 
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
+		fileParent,
 		getHunkOperand: getHunkOperandAtLine,
+		getLineOperand: getLineOperandAtLine,
+		getSelectedOperands: () => operandsForSelectedLines(selectedLines, "compact"),
 	});
 	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
-		useDiffGutterCheckboxes(handleHunkPostRender, getHunkOperandAtLine, projectId, checkHunk);
+		useDiffGutterCheckboxes(
+			handleHunkPostRender,
+			getLineOperandAtLine,
+			getContiguousHunkOperandAtLine,
+			projectId,
+			checkLine,
+			checkHunkLines,
+		);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
 		// Folding hides the selected hunk's lines; hand the selection to the
@@ -667,7 +1162,7 @@ const DiffContents: FC<{
 		const storedFile = stored && hunkByKey.get(hunkOperandIdentityKey(stored))?.file;
 		if (storedFile?.item.id !== itemId) return;
 
-		setCursor("diff", assert(storedFile.hunks[0]).operand);
+		selectDiff(assert(storedFile.hunks[0]).operand);
 		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "nearest" });
 	};
 
@@ -823,16 +1318,30 @@ const DiffContents: FC<{
 				onScroll={selectFileAtViewportTop}
 				className={styles.diffContents}
 				items={displayItems}
-				selectedLines={selectedRange}
+				selectedLines={selectedLines}
 				onSelectedLinesChange={handleLinesSelected}
 				options={{
-					diffStyle: diffStyle ?? defaultSettings.diffStyle,
+					diffStyle: effectiveDiffStyle,
 					disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
 					lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
 					overflow: diffOverflow ?? defaultSettings.diffOverflow,
 					themeType: settings?.theme ?? defaultSettings.theme,
 					stickyHeaders: true,
 					enableLineSelection: true,
+					onLineNumberClick: ({ event, numberElement }, context) => {
+						if (event.detail !== 2) return;
+						const target = diffLineTargetFromElement({
+							element: numberElement,
+							itemId: context.item.id,
+						});
+						if (!target) return;
+						const operand = getHunkOperandAtLine(target);
+						if (!operand) return;
+						const range = rangeFromLineGroups(operand.lineGroups);
+						if (!range) return;
+
+						applySelectedLines({ id: target.itemId, range });
+					},
 					// Manually wire these up instead of using renderGutterUtility to separate annotations from
 					// selections.
 					onLineEnter: ({ numberElement }) => {
@@ -879,6 +1388,18 @@ const DiffContents: FC<{
             cursor: default;
           }
 
+          [data-column-number][data-selected-line]:is(
+            [data-line-type="context"],
+            [data-line-type="context-expanded"]
+          ) {
+            --diffs-bg-selection-number-override: color-mix(
+              var(--fill-gray-bg) var(--opacity-bg-selected-blur),
+              transparent
+            );
+
+            color: var(--text-1);
+          }
+
           ${diffGutterUnsafeCSS}
         `,
 				}}
@@ -886,10 +1407,21 @@ const DiffContents: FC<{
 					"--diffs-font-family": settings?.diffFontFamily ?? defaultSettings.diffFontFamily,
 					"--diffs-font-size": `${settings?.diffFontSize ?? defaultSettings.diffFontSize}px`,
 					"--diffs-tab-size": `${settings?.diffTabSize ?? defaultSettings.diffTabSize}`,
+					"--gitbutler-diff-gutter-can-drag": String(fileParent._tag !== "Branch"),
 				}}
 			/>
 
 			{diffGutterPortals}
+
+			{minimapFiles && (
+				<DiffMinimap
+					viewerRef={viewerRef}
+					files={minimapFiles}
+					diffStyle={effectiveDiffStyle}
+					annotationsByPath={annotationsByPath}
+					selection={minimapSelection}
+				/>
+			)}
 		</>
 	);
 };
@@ -1373,24 +1905,6 @@ const Diff: FC<{
 		});
 	};
 
-	// The diff panel resolves this selection for the viewer; the ruler wants it in
-	// file line numbers, which is what the hunk's own range already holds.
-	const diffSelection = useResolvedCursor("diff", diffViewSansAnno.navigationIndex);
-	const minimapSelection = useMemo((): MinimapSelection | null => {
-		if (!diffSelection) return null;
-
-		const key = hunkOperandIdentityKey(diffSelection);
-		const selected = diffViewSansAnno.hunkByKey.get(key)?.selectedLines;
-		if (!selected) return null;
-
-		return {
-			itemId: selected.id,
-			side: selected.range.side ?? "additions",
-			start: selected.range.start,
-			end: selected.range.end,
-		};
-	}, [diffSelection, diffViewSansAnno]);
-
 	const activateRow = (selection: string) => {
 		onPassiveFileSelection(selection);
 
@@ -1668,6 +2182,10 @@ const Diff: FC<{
 							data-selection-scope={"diff" satisfies SelectionScope}
 							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 							tabIndex={0}
+							onPointerDown={(event) => {
+								// Mouse selection and dragging should hand subsequent line keys to the diff.
+								if (event.button === 0) event.currentTarget.focus({ focusVisible: false });
+							}}
 							className={styles.diffContentsContainer}
 							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
 						>
@@ -1690,17 +2208,8 @@ const Diff: FC<{
 								selectionScopeRef={selectionScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}
+								minimapFiles={minimapShown ? minimapFiles : null}
 							/>
-
-							{minimapShown && (
-								<DiffMinimap
-									viewerRef={viewerRef}
-									files={minimapFiles}
-									diffStyle={diffStyle}
-									annotationsByPath={annotationsByPath}
-									selection={minimapSelection}
-								/>
-							)}
 						</div>
 					</div>
 				</Panel>

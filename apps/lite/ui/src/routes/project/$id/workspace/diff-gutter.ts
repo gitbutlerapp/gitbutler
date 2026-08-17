@@ -1,6 +1,15 @@
 import type { CodeViewOptions } from "@pierre/diffs";
 import { createElement, type ReactElement, useLayoutEffect, useRef } from "react";
-import { hunkOperand, operandIdentityKey, type HunkOperand } from "#ui/operands.ts";
+import {
+	hunkOperand,
+	hunkOperandContainsLine,
+	operandIdentityKey,
+	type HunkOperand,
+	type Operand,
+} from "#ui/operands.ts";
+import { getOperationSources } from "#ui/outline/mode.ts";
+import { projectSlice } from "#ui/projects/state.ts";
+import { useAppStore } from "#ui/store.ts";
 import {
 	DiffGutterPortals,
 	type GutterCheckboxGroup,
@@ -10,12 +19,16 @@ import {
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
 const GUTTER_SLOT_ATTRIBUTE = "data-gitbutler-diff-gutter-slot";
+const GUTTER_SLOT_KIND_ATTRIBUTE = "data-gitbutler-diff-gutter-slot-kind";
+const GUTTER_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
 const GUTTER_GROUP_ATTRIBUTE = "data-gitbutler-diff-gutter-group";
 const GUTTER_HOVERED_ATTRIBUTE = "data-gitbutler-diff-gutter-hovered";
+const OPERATION_SOURCE_ATTRIBUTE = "data-gitbutler-operation-source";
 
 export const diffGutterUnsafeCSS = `
 	:host {
-		--gitbutler-diff-gutter-width: 1lh;
+		--gitbutler-diff-gutter-control-width: 1lh;
+		--gitbutler-diff-gutter-width: calc(3 * var(--gitbutler-diff-gutter-control-width));
 	}
 
 	[data-column-number] {
@@ -25,19 +38,54 @@ export const diffGutterUnsafeCSS = `
 	slot[${GUTTER_SLOT_ATTRIBUTE}] {
 		position: absolute;
 		inset-block: 0;
-		inset-inline-start: 0;
-		width: var(--gitbutler-diff-gutter-width);
+		width: var(--gitbutler-diff-gutter-control-width);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
-	slot[${GUTTER_HOVERED_ATTRIBUTE}] {
+	slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="hunk"] {
+		inset-inline-start: var(--gitbutler-diff-gutter-control-width);
+	}
+
+	slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"] {
+		inset-inline-start: calc(2 * var(--gitbutler-diff-gutter-control-width));
+	}
+
+	[${GUTTER_DRAG_HANDLE_ATTRIBUTE}] {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-start: 0;
+		width: var(--gitbutler-diff-gutter-control-width);
+		display: if(style(--gitbutler-diff-gutter-can-drag: true): flex; else: none);
+		align-items: center;
+		justify-content: center;
+		opacity: var(--gitbutler-diff-gutter-drag-opacity, 0);
+	}
+
+	[${GUTTER_DRAG_HANDLE_ATTRIBUTE}]::before {
+		content: "";
+		width: 8px;
+		height: 12px;
+		background: radial-gradient(circle, currentColor 1px, transparent 1.5px) 0 0 / 4px 4px;
+	}
+
+	slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="hunk"][${GUTTER_HOVERED_ATTRIBUTE}],
+	[data-column-number]:hover > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"] {
 		--gitbutler-diff-gutter-checkbox-opacity: 1;
+	}
+
+	[data-column-number]:hover > [${GUTTER_DRAG_HANDLE_ATTRIBUTE}] {
+		--gitbutler-diff-gutter-drag-opacity: 1;
 	}
 
 	[data-indicators="bars"] [data-column-number]::before {
 		inset-inline-start: var(--gitbutler-diff-gutter-width);
+	}
+
+	[${OPERATION_SOURCE_ATTRIBUTE}] {
+		outline: 2px dashed var(--border-1);
+		outline-offset: -2px;
 	}
 `;
 
@@ -45,25 +93,48 @@ type OnPostRender<T> = NonNullable<CodeViewOptions<T>["onPostRender"]>;
 
 type InternalGutterStore<T> = GutterStore & {
 	onPostRender: OnPostRender<T>;
+	syncOperationSources: () => void;
 	cleanUp: () => void;
 };
 
 type GetHunkOperand = (target: DiffLineTarget) => HunkOperand | null;
 
-const removeGutterSlots = (host: HTMLElement): void => {
-	for (const slot of host.shadowRoot?.querySelectorAll(`[${GUTTER_SLOT_ATTRIBUTE}]`) ?? [])
-		slot.remove();
+const removeGutterControls = (host: HTMLElement): void => {
+	for (const control of host.shadowRoot?.querySelectorAll(
+		`[${GUTTER_SLOT_ATTRIBUTE}], [${GUTTER_DRAG_HANDLE_ATTRIBUTE}]`,
+	) ?? [])
+		control.remove();
+};
+
+const clearOperationSources = (host: HTMLElement): void => {
+	for (const line of host.shadowRoot?.querySelectorAll<HTMLElement>(
+		`[${OPERATION_SOURCE_ATTRIBUTE}]`,
+	) ?? [])
+		line.removeAttribute(OPERATION_SOURCE_ATTRIBUTE);
+};
+
+const isOperationSourceLine = (sources: Array<Operand> | null, line: HunkOperand): boolean =>
+	sources?.some((source) => source._tag === "Hunk" && hunkOperandContainsLine(source, line)) ??
+	false;
+
+const keepDragHandlePointerDownOutOfLineSelection = (event: PointerEvent): void => {
+	// Pierre treats every descendant of a number cell as a line-selection target. The grip still
+	// needs its native dragstart to bubble to the registered host, but its initiating press does not.
+	event.stopPropagation();
 };
 
 const createGutterStore = <T>(
 	getOnPostRender: () => OnPostRender<T>,
-	getHunkOperand: () => GetHunkOperand,
+	getLineOperand: () => GetHunkOperand,
+	getParentOperand: () => GetHunkOperand,
+	getOperationSourceOperands: () => Array<Operand> | null,
 ): InternalGutterStore<T> => {
 	const listeners = new Set<() => void>();
 	const targets = new Map<HTMLElement, GutterTarget>();
 	const hoveredGroupKeys = new Map<HTMLElement, string>();
-	const slotsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLSlotElement>>>();
+	const controlsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLElement>>>();
 	const removeHoverListenersByHost = new Map<HTMLElement, () => void>();
+	const itemIdsByHost = new Map<HTMLElement, string>();
 	let nextKey = 0;
 	let notificationQueued = false;
 	let snapshot: ReadonlyArray<GutterTarget> = [];
@@ -83,11 +154,11 @@ const createGutterStore = <T>(
 		const previousGroupKey = hoveredGroupKeys.get(host);
 		if (previousGroupKey === groupKey) return;
 
-		const slotsByGroup = slotsByGroupByHost.get(host);
-		for (const slot of slotsByGroup?.get(previousGroupKey ?? "") ?? [])
-			slot.removeAttribute(GUTTER_HOVERED_ATTRIBUTE);
-		for (const slot of slotsByGroup?.get(groupKey ?? "") ?? [])
-			slot.setAttribute(GUTTER_HOVERED_ATTRIBUTE, "");
+		const controlsByGroup = controlsByGroupByHost.get(host);
+		for (const control of controlsByGroup?.get(previousGroupKey ?? "") ?? [])
+			control.removeAttribute(GUTTER_HOVERED_ATTRIBUTE);
+		for (const control of controlsByGroup?.get(groupKey ?? "") ?? [])
+			control.setAttribute(GUTTER_HOVERED_ATTRIBUTE, "");
 
 		if (groupKey === undefined) hoveredGroupKeys.delete(host);
 		else hoveredGroupKeys.set(host, groupKey);
@@ -110,8 +181,8 @@ const createGutterStore = <T>(
 	const ensureHoverListeners = (host: HTMLElement, shadowRoot: ShadowRoot): void => {
 		if (removeHoverListenersByHost.has(host)) return;
 
-		// CSS can see the hovered number cell, but cannot match its dynamic hunk key to sibling slots.
-		// Delegate once per diff host, then let CSS reveal every slot in the resolved hunk group.
+		// CSS can see the hovered number cell, but cannot match its dynamic hunk key to the parent
+		// checkbox at the top of the group. The line checkbox and drag handle stay local to :hover.
 		const handlePointerOver = (event: Event) =>
 			setHoveredGroup(host, gutterGroupKeyFromEvent(event));
 		const handlePointerLeave = () => setHoveredGroup(host, undefined);
@@ -127,8 +198,10 @@ const createGutterStore = <T>(
 		removeHoverListenersByHost.get(host)?.();
 		removeHoverListenersByHost.delete(host);
 		hoveredGroupKeys.delete(host);
-		slotsByGroupByHost.delete(host);
-		removeGutterSlots(host);
+		controlsByGroupByHost.delete(host);
+		itemIdsByHost.delete(host);
+		removeGutterControls(host);
+		clearOperationSources(host);
 		if (!targets.delete(host)) return;
 		publish();
 	};
@@ -143,72 +216,127 @@ const createGutterStore = <T>(
 		const existing = targets.get(host);
 		const key = existing?.key ?? nextKey++;
 		const groupsByKey = new Map<string, GutterCheckboxGroup>();
-		const slotsByGroup = new Map<string, Array<HTMLSlotElement>>();
-		const usedSlots = new Set<HTMLSlotElement>();
+		const controlsByGroup = new Map<string, Array<HTMLElement>>();
+		const usedControls = new Set<HTMLElement>();
+		const operationSources = getOperationSourceOperands();
+		itemIdsByHost.set(host, itemId);
 		ensureHoverListeners(host, shadowRoot);
 
 		for (const [index, cell] of cells.entries()) {
 			const target = diffLineTargetFromElement({ element: cell, itemId });
 			if (target?.lineType !== "change") continue;
 
-			const operand = getHunkOperand()(target);
-			if (!operand || operand.parent.parent._tag === "Branch") continue;
+			const lineOperand = getLineOperand()(target);
+			const parentOperand = getParentOperand()(target);
+			if (!lineOperand || !parentOperand) continue;
 
-			const checkedOperand = hunkOperand(operand);
-			const operandKey = operandIdentityKey(checkedOperand);
-			const slotName = `gitbutler-diff-gutter-${key}-${index}`;
-			const group = groupsByKey.get(operandKey);
+			const checkedLineOperand = hunkOperand(lineOperand);
+			const checkedParentOperand = hunkOperand(parentOperand);
+			const lineIndex = cell.getAttribute("data-line-index");
+			const lineType = cell.getAttribute("data-line-type");
+			const codeLine =
+				lineIndex !== null && lineType !== null
+					? shadowRoot.querySelector<HTMLElement>(
+							`[data-line][data-line-index="${CSS.escape(lineIndex)}"][data-line-type="${CSS.escape(lineType)}"]`,
+						)
+					: null;
+			codeLine?.toggleAttribute(
+				OPERATION_SOURCE_ATTRIBUTE,
+				isOperationSourceLine(operationSources, checkedLineOperand),
+			);
+			const groupKey = operandIdentityKey(checkedParentOperand);
+			const lineSlotName = `gitbutler-diff-gutter-line-${key}-${index}`;
+			const group = groupsByKey.get(groupKey);
 			if (group) {
-				group.slotNames.push(slotName);
+				group.lines.push({ operand: checkedLineOperand, slotName: lineSlotName });
 			} else {
-				groupsByKey.set(operandKey, {
-					key: operandKey,
-					operand: checkedOperand,
-					slotNames: [slotName],
+				const parentSlotName = `gitbutler-diff-gutter-hunk-${key}-${index}`;
+				groupsByKey.set(groupKey, {
+					key: groupKey,
+					parentOperand: checkedParentOperand,
+					parentSlotName,
+					lines: [{ operand: checkedLineOperand, slotName: lineSlotName }],
 				});
+
+				let parentSlot = cell.querySelector<HTMLSlotElement>(
+					`:scope > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="hunk"]`,
+				);
+				if (!parentSlot) {
+					parentSlot = document.createElement("slot");
+					parentSlot.setAttribute(GUTTER_SLOT_ATTRIBUTE, "");
+					parentSlot.setAttribute(GUTTER_SLOT_KIND_ATTRIBUTE, "hunk");
+					cell.prepend(parentSlot);
+				}
+				parentSlot.name = parentSlotName;
+				parentSlot.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
+				parentSlot.toggleAttribute(
+					GUTTER_HOVERED_ATTRIBUTE,
+					hoveredGroupKeys.get(host) === groupKey,
+				);
+				const groupControls = controlsByGroup.get(groupKey);
+				if (groupControls) groupControls.push(parentSlot);
+				else controlsByGroup.set(groupKey, [parentSlot]);
+				usedControls.add(parentSlot);
 			}
 
-			const firstChild = cell.firstElementChild;
-			let slot =
-				firstChild instanceof HTMLSlotElement && firstChild.hasAttribute(GUTTER_SLOT_ATTRIBUTE)
-					? firstChild
-					: null;
+			let slot = cell.querySelector<HTMLSlotElement>(
+				`:scope > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"]`,
+			);
 			if (!slot) {
 				slot = document.createElement("slot");
 				slot.setAttribute(GUTTER_SLOT_ATTRIBUTE, "");
+				slot.setAttribute(GUTTER_SLOT_KIND_ATTRIBUTE, "line");
 				cell.prepend(slot);
 			}
-			slot.name = slotName;
-			slot.setAttribute(GUTTER_GROUP_ATTRIBUTE, operandKey);
-			slot.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, hoveredGroupKeys.get(host) === operandKey);
-			const groupSlots = slotsByGroup.get(operandKey);
-			if (groupSlots) groupSlots.push(slot);
-			else slotsByGroup.set(operandKey, [slot]);
-			usedSlots.add(slot);
+			slot.name = lineSlotName;
+			slot.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
+			usedControls.add(slot);
+
+			let dragHandle = cell.querySelector<HTMLElement>(
+				`:scope > [${GUTTER_DRAG_HANDLE_ATTRIBUTE}]`,
+			);
+			if (!dragHandle) {
+				dragHandle = document.createElement("span");
+				dragHandle.setAttribute(GUTTER_DRAG_HANDLE_ATTRIBUTE, "");
+				dragHandle.setAttribute("aria-hidden", "true");
+				dragHandle.addEventListener("pointerdown", keepDragHandlePointerDownOutOfLineSelection);
+				cell.prepend(dragHandle);
+			}
+			dragHandle.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
+			usedControls.add(dragHandle);
 		}
-		slotsByGroupByHost.set(host, slotsByGroup);
+		controlsByGroupByHost.set(host, controlsByGroup);
 		const hoveredGroupKey = hoveredGroupKeys.get(host);
-		if (hoveredGroupKey !== undefined && !slotsByGroup.has(hoveredGroupKey))
+		if (hoveredGroupKey !== undefined && !controlsByGroup.has(hoveredGroupKey))
 			setHoveredGroup(host, undefined);
 
-		for (const slot of shadowRoot.querySelectorAll<HTMLSlotElement>(
-			`slot[${GUTTER_SLOT_ATTRIBUTE}]`,
+		for (const control of shadowRoot.querySelectorAll<HTMLElement>(
+			`slot[${GUTTER_SLOT_ATTRIBUTE}], [${GUTTER_DRAG_HANDLE_ATTRIBUTE}]`,
 		))
-			if (!usedSlots.has(slot)) slot.remove();
+			if (!usedControls.has(control)) control.remove();
 
 		const groups = Array.from(groupsByKey.values());
 		if (groups.length === 0) return removeTarget(host);
 
 		if (
 			existing?.groups.length === groups.length &&
-			existing.groups.every(
-				(group, index) =>
-					group.key === groups[index]?.key &&
-					group.slotNames.length === groups[index].slotNames.length &&
-					group.slotNames.every(
-						(slotName, slotIndex) => slotName === groups[index]?.slotNames[slotIndex],
-					),
-			)
+			existing.groups.every((group, index) => {
+				const next = groups[index];
+				return (
+					next !== undefined &&
+					group.key === next.key &&
+					group.parentSlotName === next.parentSlotName &&
+					group.lines.length === next.lines.length &&
+					group.lines.every((line, lineIndex) => {
+						const nextLine = next.lines[lineIndex];
+						return (
+							nextLine !== undefined &&
+							line.slotName === nextLine.slotName &&
+							operandIdentityKey(line.operand) === operandIdentityKey(nextLine.operand)
+						);
+					})
+				);
+			})
 		)
 			return;
 
@@ -219,10 +347,13 @@ const createGutterStore = <T>(
 	return {
 		getSnapshot: () => snapshot,
 		onPostRender: (host, instance, phase, context) => {
-			// CodeView exposes this callback as file/diff overloads; forward the exact invocation.
-			Reflect.apply(getOnPostRender(), undefined, [host, instance, phase, context]);
 			if (phase === "unmount" || context.type !== "diff") removeTarget(host);
 			else syncTarget(host, context.item.id);
+			// CodeView exposes this callback as file/diff overloads; forward the exact invocation.
+			Reflect.apply(getOnPostRender(), undefined, [host, instance, phase, context]);
+		},
+		syncOperationSources: () => {
+			for (const [host, itemId] of itemIdsByHost) syncTarget(host, itemId);
 		},
 		subscribe: (listener) => {
 			listeners.add(listener);
@@ -231,11 +362,13 @@ const createGutterStore = <T>(
 		cleanUp: () => {
 			for (const host of targets.keys()) {
 				removeHoverListenersByHost.get(host)?.();
-				removeGutterSlots(host);
+				removeGutterControls(host);
+				clearOperationSources(host);
 			}
 			removeHoverListenersByHost.clear();
 			hoveredGroupKeys.clear();
-			slotsByGroupByHost.clear();
+			controlsByGroupByHost.clear();
+			itemIdsByHost.clear();
 			targets.clear();
 			snapshot = [];
 		},
@@ -244,29 +377,68 @@ const createGutterStore = <T>(
 
 export const useDiffGutterCheckboxes = <T>(
 	onPostRender: OnPostRender<T>,
-	getHunkOperand: GetHunkOperand,
+	getLineOperand: GetHunkOperand,
+	getParentOperand: GetHunkOperand,
 	projectId: string,
-	onCheck: (event: { operand: HunkOperand; shiftKey: boolean }) => void,
+	onCheckLine: (operand: HunkOperand, shiftKey: boolean) => void,
+	onCheckHunk: (
+		operand: HunkOperand,
+		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		shiftKey: boolean,
+	) => void,
 ): {
 	onPostRender: OnPostRender<T>;
 	portals: ReactElement;
 } => {
 	const onPostRenderRef = useRef(onPostRender);
 	onPostRenderRef.current = onPostRender;
-	const getHunkOperandRef = useRef(getHunkOperand);
-	getHunkOperandRef.current = getHunkOperand;
+	const getLineOperandRef = useRef(getLineOperand);
+	getLineOperandRef.current = getLineOperand;
+	const getParentOperandRef = useRef(getParentOperand);
+	getParentOperandRef.current = getParentOperand;
+	const appStore = useAppStore();
+	const projectIdRef = useRef(projectId);
+	projectIdRef.current = projectId;
 
 	const storeRef = useRef<InternalGutterStore<T>>(null);
 	storeRef.current ??= createGutterStore(
 		() => onPostRenderRef.current,
-		() => getHunkOperandRef.current,
+		() => getLineOperandRef.current,
+		() => getParentOperandRef.current,
+		() =>
+			getOperationSources(
+				projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectIdRef.current),
+			),
 	);
 	const store = storeRef.current;
 
+	useLayoutEffect(() => {
+		let previousMode = projectSlice.selectors.selectOutlineModeState(
+			appStore.getState(),
+			projectId,
+		);
+		let previousSources = getOperationSources(previousMode);
+		return appStore.subscribe(() => {
+			const mode = projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectId);
+			if (mode === previousMode) return;
+
+			previousMode = mode;
+			const sources = getOperationSources(mode);
+			if (sources === previousSources) return;
+
+			previousSources = sources;
+			store.syncOperationSources();
+		});
+	}, [appStore, projectId, store]);
 	useLayoutEffect(() => () => store.cleanUp(), [store]);
 
 	return {
 		onPostRender: store.onPostRender,
-		portals: createElement(DiffGutterPortals, { projectId, store, onCheck }),
+		portals: createElement(DiffGutterPortals, {
+			projectId,
+			store,
+			onCheckLine,
+			onCheckHunk,
+		}),
 	};
 };

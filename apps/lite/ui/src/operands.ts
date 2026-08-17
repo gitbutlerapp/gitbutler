@@ -131,6 +131,22 @@ export const weakFileIdentityKey = (operand: FileOperand) =>
 const hunkIdentityKey = (operand: HunkOperand) =>
 	`hunk:${JSON.stringify(operand.hunkHeader)}:${JSON.stringify(operand.lineGroups)}:${operand.isResultOfBinaryToTextConversion} <- ${fileIdentityKey(operand.parent)}`;
 
+export const hunkOperandContainsLine = (source: HunkOperand, line: HunkOperand): boolean =>
+	fileIdentityKey(source.parent) === fileIdentityKey(line.parent) &&
+	source.isResultOfBinaryToTextConversion === line.isResultOfBinaryToTextConversion &&
+	source.hunkHeader.oldStart === line.hunkHeader.oldStart &&
+	source.hunkHeader.oldLines === line.hunkHeader.oldLines &&
+	source.hunkHeader.newStart === line.hunkHeader.newStart &&
+	source.hunkHeader.newLines === line.hunkHeader.newLines &&
+	line.lineGroups.every((lineGroup) =>
+		source.lineGroups.some(
+			(sourceGroup) =>
+				sourceGroup.side === lineGroup.side &&
+				sourceGroup.start <= lineGroup.start &&
+				sourceGroup.start + sourceGroup.lines >= lineGroup.start + lineGroup.lines,
+		),
+	);
+
 export const operandIdentityKey = (operand: Operand): string => {
 	switch (operand._tag) {
 		case "UncommittedChanges":
