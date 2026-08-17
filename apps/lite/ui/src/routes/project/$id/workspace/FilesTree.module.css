@@ -83,13 +83,15 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* Opaque, so a checked box covers the mark it shares a cell with. */
+/* Opaque, so a checked box covers the mark it shares a cell with. Appears when
+   the pointer is over that cell, not the whole row, so the row stays quiet
+   while browsing. */
 .leadingCheckbox {
 	opacity: 0;
 
 	&[data-checked],
 	&[data-indeterminate],
-	.row:hover &,
+	.leading:hover &,
 	&:focus {
 		opacity: 1;
 	}
