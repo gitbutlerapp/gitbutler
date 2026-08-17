@@ -71,7 +71,6 @@ import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
-import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
@@ -408,6 +407,7 @@ const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSeg
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
+	stack: Stack;
 	refName: BranchReference;
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
@@ -419,6 +419,7 @@ const BranchSegment: FC<{
 }> = ({
 	projectId,
 	segment,
+	stack,
 	refName,
 	canTearOffBranch,
 	canRemoveBranch,
@@ -448,6 +449,7 @@ const BranchSegment: FC<{
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
 				commitCount={segment.commits.length}
+				stack={stack}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
@@ -627,7 +629,6 @@ const StackC: FC<{
 			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
 			role="group"
 			aria-label="Stack"
-			header={<StackRow projectId={projectId} stack={stack} />}
 		>
 			{stack.segments.map((segment, index) => {
 				const downstackPushStatus = assert(downstackPushStatuses[index]);
@@ -645,6 +646,7 @@ const StackC: FC<{
 								<BranchSegment
 									projectId={projectId}
 									segment={segment}
+									stack={stack}
 									refName={segment.refName}
 									canTearOffBranch={canTearOffBranch}
 									canRemoveBranch={canRemoveBranchReference(stack, index)}

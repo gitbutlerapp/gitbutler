@@ -87,4 +87,12 @@
 	row-gap: 10px;
 	flex-direction: column;
 	padding-bottom: var(--panel-padding-block);
+
+	/* Each card carries its own floor, but here they stand in a band of panel
+	   background rather than flush against each other, so every card after the
+	   first needs a lid to close the band. The first is already closed by the
+	   panel header above it. */
+	& > * + * {
+		border-block-start: 1px solid var(--border-section);
+	}
 }
