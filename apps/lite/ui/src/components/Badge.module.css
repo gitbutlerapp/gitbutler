@@ -8,10 +8,10 @@
 	border-radius: 10px;
 	--badge-bg-opacity: 20%;
 
-	/* Selected rows set --badge-inverted; flipping to the opposite color scheme
-	   makes every light-dark() token inside the badge resolve to its inverted
-	   value, matching the row's inverted selection background. */
-	@container style(--badge-inverted: true) {
+	/* Selected rows set --selection-inverted; flipping to the opposite color
+	   scheme makes every light-dark() token inside the badge resolve to its
+	   inverted value, matching the row's inverted selection background. */
+	@container style(--selection-inverted: true) {
 		--badge-bg-opacity: 40%;
 		color-scheme: dark;
 
