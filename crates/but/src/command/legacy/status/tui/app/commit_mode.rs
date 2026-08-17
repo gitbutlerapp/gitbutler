@@ -355,7 +355,7 @@ impl App {
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
 
-        commit_with(ctx, terminal_guard, messages, mode, commit_op, false)?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -386,6 +386,7 @@ impl App {
             CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
                 commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
                     branch_name: None,
+                    stack_on_head: commit::StackOnHead::InferFromOperatingMode,
                 })
             }
             CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {
@@ -401,14 +402,7 @@ impl App {
             | CliId::Stack { .. } => return Ok(()),
         };
 
-        commit_with(
-            ctx,
-            terminal_guard,
-            messages,
-            mode,
-            commit_op,
-            commit::should_stack_on_head(&self.operating_mode),
-        )?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -462,7 +456,6 @@ fn commit_with<T>(
     messages: &mut Vec<Message>,
     mode: &CommitMode,
     commit_op: commit::CommitOperation,
-    stack_on_head: bool,
 ) -> anyhow::Result<()>
 where
     T: TerminalGuard,
@@ -516,7 +509,6 @@ where
         &mut meta,
         guard.write_permission(),
         commit_op,
-        stack_on_head,
         commit_selection,
         reword_op,
     )?;

@@ -255,7 +255,10 @@ pub fn run(
         DryRun::No,
         |mut tx| {
             let (new_commits, branch_name_target) = match commit_op {
-                CommitOperation::CommitToNewBranch(CommitToNewBranchOperation { branch_name }) => {
+                CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+                    branch_name,
+                    stack_on_head,
+                }) => {
                     let branch_name = if let Some(branch_name) = branch_name {
                         branch_name
                     } else {

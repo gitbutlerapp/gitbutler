@@ -124,9 +124,6 @@ pub fn commit(
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
-    let operating_mode =
-        but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
-            .operating_mode;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -137,7 +134,6 @@ pub fn commit(
         &mut meta,
         guard.write_permission(),
         commit_op,
-        should_stack_on_head(&operating_mode),
         commit_selection,
         reword_op,
     )?)
@@ -229,6 +225,7 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+
         route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
             |err| match err {
                 RouteCommitOperationError::NoStackToCommitTo => {
@@ -276,12 +273,18 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
-    stack_on_head: bool,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
-    let checkout_after_create =
-        stack_on_head && matches!(commit_op, CommitOperation::CommitToNewBranch(_));
+    let operating_mode = gitbutler_operating_modes::operating_mode(ctx, perm.read_permission())?;
+
+    let stack_on_head = match &commit_op {
+        CommitOperation::CommitToNewBranch(op) => {
+            op.stack_on_head.should_stack_on_head(&operating_mode)
+        }
+        CommitOperation::CommitAt(..) => false,
+    };
+
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -318,7 +321,12 @@ pub fn run(
                     rejected_specs,
                 },
                 branch_name,
-            ) = commit_op.execute(&mut tx, changes, stack_on_head)?;
+            ) = match commit_op {
+                CommitOperation::CommitToNewBranch(op) => {
+                    op.execute(&mut tx, changes, &operating_mode)?
+                }
+                CommitOperation::CommitAt(op) => op.execute(&mut tx, changes)?,
+            };
 
             if !rejected_specs.is_empty() {
                 return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -334,7 +342,7 @@ pub fn run(
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
-    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &branch_name {
+    if stack_on_head && let Some(BranchNameTarget::New(branch_name)) = &branch_name {
         but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
     }
 
@@ -429,12 +437,16 @@ pub fn route_commit_operation(
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
+                        stack_on_head: StackOnHead::InferFromOperatingMode,
                     },
                 ))
             }
         }
         CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
-            CommitToNewBranchOperation { branch_name: None },
+            CommitToNewBranchOperation {
+                branch_name: None,
+                stack_on_head: StackOnHead::InferFromOperatingMode,
+            },
         )),
         CommitOperationTargetIsh::Default => {
             // Branches that have landed upstream are not sensible default targets;
@@ -452,7 +464,10 @@ pub fn route_commit_operation(
 
             match &stacks[..] {
                 [] => Ok(CommitOperation::CommitToNewBranch(
-                    CommitToNewBranchOperation { branch_name: None },
+                    CommitToNewBranchOperation {
+                        branch_name: None,
+                        stack_on_head: StackOnHead::InferFromOperatingMode,
+                    },
                 )),
                 [stack] => {
                     let ref_info = stack
@@ -508,20 +523,16 @@ pub fn route_commit_operation(
                             }))
                         }
                         PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
-                            CommitToNewBranchOperation { branch_name: None },
+                            CommitToNewBranchOperation {
+                                branch_name: None,
+                                stack_on_head: StackOnHead::InferFromOperatingMode,
+                            },
                         )),
                     }
                 }
             }
         }
     }
-}
-
-pub(crate) fn should_stack_on_head(operating_mode: &OperatingMode) -> bool {
-    matches!(
-        operating_mode,
-        OperatingMode::OutsideWorkspace(metadata) if metadata.branch_name.is_some()
-    )
 }
 
 #[derive(Debug)]
@@ -614,22 +625,60 @@ impl CommitOperation {
             },
         }
     }
-
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        changes: Vec<DiffSpec>,
-        stack_on_head: bool,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, stack_on_head),
-            CommitOperation::CommitAt(op) => op.execute(tx, changes),
-        }
-    }
 }
 
 pub struct CommitToNewBranchOperation {
     pub branch_name: Option<FullName>,
+    pub stack_on_head: StackOnHead,
+}
+
+/// Controls whether a newly created branch is stacked on the branch at `HEAD`.
+#[derive(Copy, Clone)]
+pub enum StackOnHead {
+    /// Always stack the new branch on the currently checked-out local branch.
+    #[expect(dead_code)]
+    Yes,
+    /// Create the new branch without stacking it on the currently checked-out branch.
+    #[expect(dead_code)]
+    No,
+    /// Stack only when outside the workspace with a local branch checked out.
+    InferFromOperatingMode,
+}
+
+impl StackOnHead {
+    fn should_stack_on_head(self, operating_mode: &OperatingMode) -> bool {
+        match self {
+            StackOnHead::Yes => true,
+            StackOnHead::No => false,
+            StackOnHead::InferFromOperatingMode => {
+                matches!(
+                    operating_mode,
+                    OperatingMode::OutsideWorkspace(metadata) if metadata.branch_name.is_some()
+                )
+            }
+        }
+    }
+
+    fn to_anchor(
+        self,
+        repo: &gix::Repository,
+        operating_mode: &OperatingMode,
+    ) -> anyhow::Result<Option<Anchor<'static>>> {
+        if self.should_stack_on_head(operating_mode) {
+            let head_name = repo
+                .head()?
+                .referent_name()
+                .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+                .context("single-branch commit requires HEAD to be a local branch")?
+                .to_owned();
+            Ok(Some(Anchor::AtReference {
+                ref_name: Cow::Owned(head_name),
+                position: but_workspace::branch::create_reference::Position::Above,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 impl CommitToNewBranchOperation {
@@ -637,9 +686,9 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-        stack_on_head: bool,
+        operating_mode: &OperatingMode,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let branch_name = self.create_reference(tx, stack_on_head)?;
+        let branch_name = self.create_reference(tx, operating_mode)?;
 
         let commit_create_result = tx.create_commit(
             RelativeTo::Reference(branch_name.clone()),
@@ -655,12 +704,15 @@ impl CommitToNewBranchOperation {
         ))
     }
 
-    pub(crate) fn create_reference(
+    fn create_reference(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        stack_on_head: bool,
+        operating_mode: &OperatingMode,
     ) -> anyhow::Result<FullName> {
-        let Self { branch_name } = self;
+        let Self {
+            branch_name,
+            stack_on_head,
+        } = self;
 
         let branch_name = if let Some(branch_name) = branch_name {
             branch_name
@@ -668,21 +720,8 @@ impl CommitToNewBranchOperation {
             but_core::branch::unique_canned_refname(tx.repo())?
         };
 
-        let anchor = stack_on_head
-            .then(|| -> anyhow::Result<_> {
-                let head_name = tx
-                    .repo()
-                    .head()?
-                    .referent_name()
-                    .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-                    .context("single-branch commit requires HEAD to be a local branch")?
-                    .to_owned();
-                Ok(Anchor::AtReference {
-                    ref_name: Cow::Owned(head_name),
-                    position: but_workspace::branch::create_reference::Position::Above,
-                })
-            })
-            .transpose()?;
+        let anchor = stack_on_head.to_anchor(tx.repo(), operating_mode)?;
+
         tx.create_reference(
             branch_name.as_ref(),
             anchor,
