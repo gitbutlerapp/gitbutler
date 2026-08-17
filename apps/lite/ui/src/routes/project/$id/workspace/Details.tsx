@@ -927,6 +927,10 @@ const DiffContents: FC<{
 	}
 
 	const handleLinesSelected = (selection: CodeViewLineSelection | null): void => {
+		// Keep the active line selected when it is clicked again: Lite treats line selection as a
+		// persistent operation target, not a toggle. Still clear it when its item leaves the view.
+		if (selection === null && selectedLines !== null && fileByItemId.has(selectedLines.id)) return;
+
 		applySelectedLines(selection);
 	};
 
@@ -2198,10 +2202,6 @@ const Diff: FC<{
 							data-selection-scope={"diff" satisfies SelectionScope}
 							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 							tabIndex={0}
-							onPointerDown={(event) => {
-								// Mouse selection and dragging should hand subsequent line keys to the diff.
-								if (event.button === 0) event.currentTarget.focus({ focusVisible: false });
-							}}
 							className={styles.diffContentsContainer}
 							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
 						>
