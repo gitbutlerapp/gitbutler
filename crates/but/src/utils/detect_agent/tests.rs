@@ -317,6 +317,8 @@ fn ai_agent_accepts_known_aliases() {
         ("warp-oz", Agent::Warp),
         ("open-hands", Agent::OpenHands),
         ("open-claw", Agent::OpenClaw),
+        ("dsh", Agent::DeepSeekHarness),
+        ("deepseek", Agent::DeepSeekHarness),
     ];
 
     for (name, agent) in cases {
@@ -511,6 +513,7 @@ fn detect_new_invocation_specific_markers() {
         ("GROK_AGENT", "1", Agent::GrokBuild),
         ("OZ_HARNESS", "oz", Agent::Warp),
         ("OPENCLAW_SHELL", "exec", Agent::OpenClaw),
+        ("DSH_SHELL", "1", Agent::DeepSeekHarness),
         ("GOOSE_TERMINAL", "1", Agent::Goose),
     ];
 
@@ -552,6 +555,7 @@ fn reject_non_agent_runtime_values() {
         ("GROK_AGENT", "true"),
         ("OPENCLAW_SHELL", "tui-local"),
         ("OPENCLAW_SHELL", "acp-client"),
+        ("DSH_SHELL", "true"),
         ("GOOSE_TERMINAL", "true"),
     ] {
         assert_eq!(
@@ -573,6 +577,11 @@ fn nested_agent_marker_wins_over_outer_runtime_markers() {
             detect_with(env_from(&[(var, value), ("CLAUDE_CODE", "1")])),
             Some(Agent::ClaudeCode),
             "Claude should win over inherited {var}",
+        );
+        assert_eq!(
+            detect_with(env_from(&[(var, value), ("DSH_SHELL", "1")])),
+            Some(Agent::DeepSeekHarness),
+            "DeepSeek Harness should win over inherited {var}",
         );
     }
 }
@@ -676,6 +685,7 @@ fn agent_name_roundtrip() {
         Agent::Warp,
         Agent::OpenHands,
         Agent::OpenClaw,
+        Agent::DeepSeekHarness,
         Agent::Unknown,
     ];
     for agent in agents {
@@ -719,6 +729,7 @@ fn agent_name_roundtrip() {
             | Agent::Warp
             | Agent::OpenHands
             | Agent::OpenClaw
+            | Agent::DeepSeekHarness
             | Agent::Unknown => {}
         }
         let lookup = env_from(&[("AI_AGENT", agent.as_str())]);

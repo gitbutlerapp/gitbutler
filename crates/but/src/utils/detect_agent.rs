@@ -55,6 +55,7 @@ environment_variables! {
     CODEBUDDY_PROJECT_DIR = "CODEBUDDY_PROJECT_DIR",
     GROK_AGENT = "GROK_AGENT",
     OPENCLAW_SHELL = "OPENCLAW_SHELL",
+    DSH_SHELL = "DSH_SHELL",
     PS1 = "PS1",
     PROMPT_COMMAND = "PROMPT_COMMAND",
     OZ_HARNESS = "OZ_HARNESS",
@@ -102,6 +103,7 @@ pub enum Agent {
     Warp,
     OpenHands,
     OpenClaw,
+    DeepSeekHarness,
     Unknown,
 }
 
@@ -145,6 +147,7 @@ impl Agent {
             Self::Warp => "warp",
             Self::OpenHands => "openhands",
             Self::OpenClaw => "openclaw",
+            Self::DeepSeekHarness => "deepseek-harness",
             Self::Unknown => "unknown",
         }
     }
@@ -303,6 +306,11 @@ pub fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     if is_value(GOOSE_TERMINAL, "1") {
         return Some(Agent::Goose);
     }
+    // DeepSeek Harness (`dsh`) sets `DSH_SHELL=1` on every shell-tool child and
+    // strips inherited `DSH_*` first, so the marker cannot leak across harnesses.
+    if is_value(DSH_SHELL, "1") {
+        return Some(Agent::DeepSeekHarness);
+    }
     // These runtime markers are inherited by nested agents, so a nested agent's
     // own marker above must win over the outer command runner.
     if contains(AWS_EXECUTION_ENV, "AmazonQ-For-CLI") {
@@ -425,6 +433,7 @@ fn match_agent_name(val: &str) -> Option<Agent> {
         "warp" | "warp-oz" => Agent::Warp,
         "openhands" | "open-hands" => Agent::OpenHands,
         "openclaw" | "open-claw" => Agent::OpenClaw,
+        "dsh" | "deepseek" | "deepseek-harness" => Agent::DeepSeekHarness,
         _ => return None,
     })
 }
