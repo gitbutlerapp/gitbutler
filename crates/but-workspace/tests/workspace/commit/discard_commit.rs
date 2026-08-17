@@ -10,7 +10,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -28,7 +28,6 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let three = repo.rev_parse_single("three")?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
@@ -74,7 +73,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
 
 #[test]
 fn discard_tip_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -117,7 +116,6 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [c.detach()])?;
 
@@ -159,7 +157,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -203,7 +201,6 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [b.detach()])?;
 
@@ -257,7 +254,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn can_discard_conflicted_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -272,7 +269,6 @@ fn can_discard_conflicted_commit() -> Result<()> {
     let conflicted = repo.rev_parse_single("conflicted")?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
@@ -292,7 +288,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
 #[test]
 fn discard_multiple_commits_in_single_rebase() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -310,7 +306,6 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let three = repo.rev_parse_single("three")?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
@@ -354,7 +349,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
 
 #[test]
 fn discard_both_commits_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -383,7 +378,6 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let main = repo.rev_parse_single("main")?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;

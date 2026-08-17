@@ -24,7 +24,7 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -47,7 +47,7 @@ mod from_new_merge_with_metadata {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -116,7 +116,7 @@ f53c910
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -200,7 +200,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 
     #[test]
     fn anonymous_tip_after_removed_parent_slot() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -221,7 +221,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             Options::limited(),
         )?;
 
@@ -271,7 +271,7 @@ Outcome {
 
     #[test]
     fn with_multi_line_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-multi-line-merge-conflict", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -307,7 +307,7 @@ Outcome {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             Options::limited(),
         )?;
 
@@ -403,7 +403,7 @@ Outcome {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description) =
+        let (_tmp, mut graph, repo, mut meta, _description, _db) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -497,7 +497,7 @@ Outcome {
 
     #[test]
     fn with_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta) =
+        let (repo, mut meta, mut db) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -521,7 +521,7 @@ Outcome {
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             Options::limited(),
         )?;
 

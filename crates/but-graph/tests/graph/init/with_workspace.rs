@@ -25,7 +25,7 @@ use crate::support::graph_dag;
 
 #[test]
 fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -50,7 +50,7 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -110,7 +110,8 @@ Commit(59a427f, ⌂|🏘|1)
 
 #[test]
 fn workspace_with_only_local_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -129,7 +130,7 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -164,7 +165,7 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
 
 #[test]
 fn reproduce_11483() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11483")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -186,7 +187,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -214,7 +215,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -238,7 +239,8 @@ fn reproduce_11483() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
     snapbox::assert_data_eq!(
@@ -258,7 +260,7 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -300,7 +302,7 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 #[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11459")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -329,7 +331,7 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -354,7 +356,7 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack_ambiguous() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -375,7 +377,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -438,7 +440,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -501,7 +503,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -565,7 +567,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -628,7 +630,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
         tag_ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -687,7 +689,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack_ws_insertions() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -722,7 +724,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -795,7 +797,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -857,7 +859,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -918,7 +920,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
 
@@ -948,7 +950,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -968,7 +970,7 @@ fn single_stack() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1021,7 +1023,7 @@ fn single_stack() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1066,7 +1068,7 @@ fn single_stack() -> anyhow::Result<()> {
 
 #[test]
 fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1088,7 +1090,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1139,7 +1141,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1164,7 +1166,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1186,7 +1188,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
 
 #[test]
 fn minimal_merge_no_refs() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
+    let (repo, meta, mut db) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1212,7 +1214,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1259,7 +1261,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
 fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     // Validate that the graph is truly having segments whenever there is an incoming connection.
     // This is required to not need special edge-weights.
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/graph-splitting")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/graph-splitting")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1283,7 +1285,7 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
         name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1328,7 +1330,7 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
 
 #[test]
 fn minimal_merge() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dual-merge")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1354,7 +1356,7 @@ fn minimal_merge() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1425,7 +1427,7 @@ fn minimal_merge() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1481,7 +1483,7 @@ fn minimal_merge() -> anyhow::Result<()> {
 
 #[test]
 fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dual-merge")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1508,7 +1510,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
         name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1579,7 +1581,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
 
 #[test]
 fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1596,7 +1598,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         extra_target_options.clone(),
     )?
     .validated()?;
@@ -1649,7 +1651,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         extra_target_options.clone(),
     )?
     .validated()?;
@@ -1684,7 +1686,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         extra_target_options,
     )?
     .validated()?;
@@ -1718,7 +1720,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
 
 #[test]
 fn just_init_with_branches() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
     // All is fair game, and we use it to validate 'empty parent branch handling after new children took the commit'.
     snapbox::assert_data_eq!(
@@ -1735,7 +1737,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1781,7 +1783,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1829,7 +1831,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1873,7 +1875,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -1936,7 +1938,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ws_ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         but_graph::init::Options {
             dangerously_skip_postprocessing_for_debugging: true,
             ..standard_options()
@@ -1981,7 +1983,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
 #[test]
 fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2005,7 +2007,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2048,7 +2050,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2107,7 +2109,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         head_tips,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2127,7 +2129,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         explicit_tips.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2163,7 +2165,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 
 #[test]
 fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     let target_id = id_by_rev(&repo, "main").detach();
     let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
@@ -2173,7 +2175,7 @@ fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Resu
         &repo,
         &*meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2184,7 +2186,7 @@ fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Resu
         &repo,
         &*meta,
         project_meta,
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_extra_target_commit_id(target_id),
     )?
     .validated()?;
@@ -2205,7 +2207,7 @@ fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Resu
 
 #[test]
 fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
@@ -2214,7 +2216,7 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2226,7 +2228,7 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2247,7 +2249,7 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
 
 #[test]
 fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     add_workspace(&mut meta);
     let stack_id =
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["missing"]);
@@ -2256,7 +2258,7 @@ fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?
@@ -2283,7 +2285,7 @@ fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::R
 
 #[test]
 fn just_init_with_archived_branches() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2301,7 +2303,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
         ws_ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2383,7 +2385,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 
 #[test]
 fn two_stacks_many_refs() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/one-stacks-many-refs")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/one-stacks-many-refs")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2400,7 +2402,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2454,7 +2456,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2510,7 +2512,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2563,7 +2565,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2615,7 +2617,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 
 #[test]
 fn just_init_with_branches_complex() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
 
     // A combination of dependent and independent stacks.
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B"]);
@@ -2629,7 +2631,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2678,7 +2680,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2728,7 +2730,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
 
 #[test]
 fn proper_remote_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/proper-remote-ahead")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/proper-remote-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2748,7 +2750,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2783,7 +2785,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
         Some(ref_name),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -2821,7 +2823,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
 
 #[test]
 fn deduced_remote_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2846,7 +2848,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -2896,7 +2898,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -2943,13 +2945,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     // When the push-remote is configured, it overrides the remote we use for listing, even if a fetch remote is available.
     let mut pm = default_project_meta();
     pm.push_remote = Some("push-remote".into());
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        pm,
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?;
+    let graph = Graph::from_head(&repo, &*meta, pm, &mut db, standard_options())?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2994,7 +2990,8 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
 
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3016,7 +3013,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3060,7 +3057,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3177,7 +3174,8 @@ Statistics {
 
 #[test]
 fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-ahead-and-on-stack-tip")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/local-target-ahead-and-on-stack-tip")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3193,7 +3191,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3229,7 +3227,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3251,7 +3249,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3271,7 +3269,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
 
 #[test]
 fn disambiguate_by_remote() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3300,7 +3298,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3366,7 +3364,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3423,7 +3421,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
 
 #[test]
 fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/two-segments-one-integrated-without-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3464,7 +3462,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3529,7 +3527,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3577,7 +3575,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3629,7 +3627,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3683,7 +3681,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3732,7 +3730,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "gitbutler/workspace"),
     )?
     .validated()?;
@@ -3790,7 +3788,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "B"),
     )?
     .validated()?;
@@ -3849,7 +3847,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
 #[test]
 fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3886,7 +3884,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -3941,7 +3939,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -3972,7 +3970,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4029,7 +4027,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -4058,7 +4056,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4083,7 +4081,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         None,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4103,7 +4101,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
-    let (mut repo, _) = read_only_in_memory_scenario("ws/main-with-remote-and-workspace-ref")?;
+    let (mut repo, _, mut db) =
+        read_only_in_memory_scenario("ws/main-with-remote-and-workspace-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4140,7 +4139,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
         &repo,
         &meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4204,7 +4203,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/two-segments-one-integrated-without-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -4240,7 +4239,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -4270,7 +4269,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -4316,7 +4315,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 #[test]
 fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
 -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     snapbox::assert_data_eq!(
@@ -4334,7 +4333,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4385,7 +4384,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4427,7 +4426,8 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
 
 #[test]
 fn on_top_of_target_with_history() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4447,7 +4447,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4492,7 +4492,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4543,7 +4543,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -4577,7 +4577,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
 
 #[test]
 fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/gitlab-case")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/gitlab-case")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4631,7 +4631,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         main_ref_name.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4714,7 +4714,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         main_ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4789,7 +4789,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -4852,7 +4852,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
 
 #[test]
 fn remote_far_in_ancestry() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-far-in-ancestry")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-far-in-ancestry")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4884,7 +4884,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4941,7 +4941,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
 
 #[test]
 fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/gitlab-case2")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/gitlab-case2")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4990,7 +4990,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5078,7 +5078,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5215,7 +5215,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
 #[test]
 fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5252,7 +5252,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -5329,7 +5329,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5356,7 +5356,8 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
 
 #[test]
 fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -5388,7 +5389,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5464,7 +5465,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
         Some(ref_name),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5507,7 +5508,8 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
 
 #[test]
 fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
     add_workspace(&mut meta);
 
     // `main` tracks the target `origin/main`. Remote-tracking discovery at `main` must
@@ -5517,7 +5519,7 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5538,7 +5540,7 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
 
 #[test]
 fn dependent_branch_insertion() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     snapbox::assert_data_eq!(
@@ -5566,7 +5568,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5617,7 +5619,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5664,7 +5666,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5686,7 +5688,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5706,7 +5708,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
 
 #[test]
 fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5731,7 +5733,7 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5782,7 +5784,7 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
 
 #[test]
 fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
     )?;
     snapbox::assert_data_eq!(
@@ -5808,7 +5810,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5854,7 +5856,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -5893,7 +5895,8 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
 
 #[test]
 fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
 
     add_stack(&mut meta, 0, "A", StackState::InWorkspace);
     let stack_b_id = add_stack(&mut meta, 1, "B", StackState::InWorkspace);
@@ -5903,7 +5906,7 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?
@@ -5943,7 +5946,7 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
 
 #[test]
 fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/two-dependent-branches-with-interesting-remote-setup")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5968,7 +5971,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -6016,7 +6019,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6036,7 +6039,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-merge-one-local",
     )?;
     // Each of the stacked branches has a remote, and the local branch was merged into main.
@@ -6063,7 +6066,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -6111,7 +6114,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "A"),
     )?
     .validated()?;
@@ -6132,7 +6135,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
 
 #[test]
 fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/stacked-bottom-remote-still-points-at-now-split-top")?;
     // origin/bottom still points at T (the previously combined push), but the
     // local stack is now split so that bottom holds only B and top holds T on
@@ -6155,7 +6158,7 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6178,7 +6181,7 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
 #[test]
 fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -> anyhow::Result<()>
 {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote-ambiguous",
     )?;
     // Each of the stacked branches has a remote, the remote branch was merged into main,
@@ -6205,7 +6208,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6267,7 +6270,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote",
     )?;
     // Each of the stacked branches has a remote, the remote branch was merged into main,
@@ -6298,7 +6301,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6348,7 +6351,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
 
 #[test]
 fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6365,7 +6368,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6404,7 +6407,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6443,7 +6446,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
 
 #[test]
 fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6462,7 +6465,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6507,7 +6510,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6549,7 +6552,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6591,7 +6594,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6619,7 +6622,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         a_ref,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6644,7 +6647,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
 
 #[test]
 fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous-with-remotes")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6662,7 +6665,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6705,7 +6708,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         a_ref.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6747,7 +6750,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         b_ref,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6772,7 +6775,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
         a_ref.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6819,7 +6822,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
 
 #[test]
 fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-with-ws-commit")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-with-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6839,7 +6842,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6880,7 +6883,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6920,7 +6923,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/ws-commit-pushed-to-target")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/ws-commit-pushed-to-target")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6936,7 +6939,7 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -6965,7 +6968,7 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
 
 #[test]
 fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/no-ws-no-target-commit-with-managed-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6982,7 +6985,7 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7019,7 +7022,7 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
 
 #[test]
 fn no_workspace_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/multiple-dependent-branches-per-stack-without-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7050,7 +7053,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7112,7 +7115,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7157,7 +7160,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/two-dependent-branches-first-rebased-and-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7177,7 +7180,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7217,7 +7220,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
 
 #[test]
 fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/special-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7234,7 +7237,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7271,7 +7274,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
 #[test]
 fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches-edgecase")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/special-branches-edgecase")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7294,7 +7297,7 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
         &*meta,
         project_meta,
         // standard_options_with_extra_target(&repo, "gitbutler/target"),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7344,7 +7347,7 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
 
 #[test]
 fn branch_ahead_of_workspace() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7398,7 +7401,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7463,7 +7466,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, ":/init"),
     )?
     .validated()?;
@@ -7565,7 +7568,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
     )?;
     snapbox::assert_data_eq!(
@@ -7592,7 +7595,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         ref_name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7630,7 +7633,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7669,7 +7672,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7708,7 +7711,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 
 #[test]
 fn advanced_workspace_ref() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-workspace-ref")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/advanced-workspace-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7738,7 +7741,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7795,7 +7798,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -7850,7 +7853,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
 
 #[test]
 fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/advanced-workspace-ref-and-single-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7877,7 +7880,7 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7929,7 +7932,7 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
 
 #[test]
 fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta) = named_read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
         "special-conditions",
         "shallow-workspace-boundary-below-lower-bound",
     )?;
@@ -7951,7 +7954,7 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -7988,7 +7991,7 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta) = named_read_only_in_memory_scenario(
+    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
         "special-conditions",
         "shallow-workspace-boundary-in-workspace",
     )?;
@@ -7998,7 +8001,7 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8027,7 +8030,7 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8052,7 +8055,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8096,7 +8099,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8140,7 +8143,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, ":/M3"),
     )?
     .validated()?;
@@ -8187,7 +8190,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8209,7 +8212,7 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8255,7 +8258,7 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn dependent_branch_on_base() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/dependent-branch-on-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dependent-branch-on-base")?;
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![[r#"
 *-.   a0385a8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\ \  
@@ -8304,7 +8307,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8417,7 +8420,8 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-and-integrated-tracking")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/remote-and-integrated-tracking")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8443,7 +8447,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -8463,7 +8467,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/remote-and-integrated-tracking-linear")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -8484,7 +8488,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -8504,7 +8508,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/remote-and-integrated-tracking-extra-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -8531,7 +8535,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
@@ -8552,7 +8556,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
 
 #[test]
 fn unapplied_branch_on_base() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8567,7 +8571,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8600,7 +8604,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8621,7 +8625,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8641,7 +8645,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
 #[test]
 fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch()
 -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/target-shared-with-unapplied-and-origin-head")?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 1, "survivor", StackState::InWorkspace, &[]);
@@ -8663,7 +8667,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8759,7 +8763,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
 
 #[test]
 fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead-checkout")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead-checkout")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8777,7 +8781,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8795,7 +8799,6 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 
     // Discovering it adds the branch outside the workspace, leaving workspace,
     // target, and remote computations undisturbed.
-    let mut db = but_testsupport::in_memory_db();
     // Adoption already ran, so the fixture worktree counts as active.
     db.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
@@ -8835,7 +8838,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8854,7 +8857,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         ws_ref.clone(),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8871,7 +8874,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         )),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8902,7 +8905,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::reachable(head_id.detach(), Some(ws_ref.clone()))),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8919,7 +8922,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::reachable(main_id.detach(), Some(main_ref))),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -8935,7 +8938,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         Some(Tip::detached_entrypoint(wt_feature_id)),
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )
     .unwrap_err();
@@ -8948,7 +8951,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
 
 #[test]
 fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8963,7 +8966,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9001,7 +9004,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9037,7 +9040,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9058,7 +9061,8 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9074,7 +9078,7 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9112,7 +9116,7 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn ambiguous_worktrees() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9136,7 +9140,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9192,7 +9196,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         &linked_repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9243,7 +9247,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 #[test]
 fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_target()
 -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/duplicate-workspace-connection-no-target")?;
     // Note that HEAD isn't actually pointing at origin/main, but twice at main
     snapbox::assert_data_eq!(
@@ -9263,7 +9267,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9336,7 +9340,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
 
 #[test]
 fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/duplicate-workspace-connection")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/duplicate-workspace-connection")?;
     // Note that HEAD isn't actually pointing at origin/main, but twice at main
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -9357,7 +9362,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9434,7 +9439,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?;
     snapbox::assert_data_eq!(
@@ -9455,7 +9460,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?;
     snapbox::assert_data_eq!(
@@ -9482,7 +9487,7 @@ mod edit_commit {
 
     #[test]
     fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
-        let (repo, mut meta) = read_only_in_memory_scenario("ws/edit-commit/simple")?;
+        let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/edit-commit/simple")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -9499,7 +9504,7 @@ mod edit_commit {
             &repo,
             &*meta,
             default_project_meta(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             standard_options(),
         )?
         .validated()?;
@@ -9539,7 +9544,7 @@ mod edit_commit {
             ref_name,
             &*meta,
             default_project_meta(),
-            &mut but_testsupport::in_memory_db(),
+            &mut db,
             standard_options(),
         )?
         .validated()?;
@@ -9582,7 +9587,7 @@ mod edit_commit {
 /// - The local stack branches off from an earlier point in history (nightly/0.5.1754)
 #[test]
 fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![[r#"
 * 4d53bb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 4eaff93 (reimplement-insert-blank-commit, reconstructed-insert-blank-commit-branch, local-stack) composability improvements
@@ -9622,7 +9627,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9652,7 +9657,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9675,7 +9680,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
 
 #[test]
 fn reproduce_12146() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-12146")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9697,7 +9702,7 @@ fn reproduce_12146() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9746,7 +9751,7 @@ fn reproduce_12146() -> anyhow::Result<()> {
 /// pruned at or below the target.
 #[test]
 fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9771,7 +9776,7 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9797,7 +9802,7 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
 /// commits (including those below the merge-from-main) remain visible.
 #[test]
 fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9819,7 +9824,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9868,7 +9873,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
 /// can detect them. Once the target advances past them, they are pruned.
 #[test]
 fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-above-target")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/integrated-above-target")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9890,14 +9895,8 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, init_id);
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?
-    .validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
     // With the target at "init", A and B are above the target and should be
     // kept even though they are marked integrated.
     snapbox::assert_data_eq!(
@@ -9922,7 +9921,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
         &repo,
         &*meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -9940,7 +9939,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
         &repo,
         &*meta,
         project_meta,
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options().with_hard_limit(usize::MAX),
     )?
     .validated()?;
@@ -9958,7 +9957,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
 /// disabled integrated-commit pruning entirely.
 #[test]
 fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/integrated-below-target-upstream-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -9988,14 +9987,8 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
     // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
     // integrated and at or below the target, so they are pruned from both stacks
     // even though origin/main has advanced past the target.
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?
-    .validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -10018,7 +10011,7 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
 /// the trunk below the fork (`c1`, `init`) is pruned, leaving X's own commits.
 #[test]
 fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10044,14 +10037,8 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?
-    .validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -10073,7 +10060,8 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
 /// coincides with the workspace commit.
 #[test]
 fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/entrypoint-on-workspace-commit")?;
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/entrypoint-on-workspace-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10090,7 +10078,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -10130,7 +10118,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
         name,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -10169,7 +10157,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
 /// correctly (previously protected by front-pruning workaround).
 #[test]
 fn remote_only_stack_top() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-only-stack-top")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-only-stack-top")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10186,7 +10174,7 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -10223,7 +10211,7 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
 /// in a stack is handled correctly (previously protected by tail-pruning workaround).
 #[test]
 fn remote_trailing_local_stack() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-trailing-local-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-trailing-local-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10242,7 +10230,7 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -10276,7 +10264,7 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
 /// handles a stack that starts with a remote-only segment.
 #[test]
 fn remote_ref_as_stack_top() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-ref-as-stack-top")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-ref-as-stack-top")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10296,7 +10284,7 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
         &repo,
         &*meta,
         default_project_meta(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;

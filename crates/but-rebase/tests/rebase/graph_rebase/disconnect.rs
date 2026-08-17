@@ -12,7 +12,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -30,12 +30,11 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -88,7 +87,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -106,12 +105,11 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -167,7 +165,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -189,12 +187,11 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -260,7 +257,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -286,12 +283,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -396,7 +392,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -422,12 +418,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -539,7 +534,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
 }
 #[test]
 fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -565,12 +560,11 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -702,7 +696,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
 
 #[test]
 fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
@@ -710,12 +704,11 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -786,7 +779,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 #[test]
 fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
@@ -794,12 +787,11 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -870,7 +862,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 #[test]
 fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
@@ -878,12 +870,11 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge = repo.rev_parse_single("M")?.detach();

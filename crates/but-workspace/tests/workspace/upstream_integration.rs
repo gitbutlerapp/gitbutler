@@ -28,7 +28,7 @@ fn target_project_meta(target_ref: &str, target_commit_id: gix::ObjectId) -> Res
 
 #[test]
 fn diamond_partially_historically_integrated_rebase() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
@@ -38,7 +38,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -72,7 +72,6 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -119,7 +118,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 
 #[test]
 fn diamond_partially_historically_integrated_merge() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
@@ -129,7 +128,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -162,7 +161,6 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -208,7 +206,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 
 #[test]
 fn diamond_partially_content_integrated_rebase() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
@@ -218,7 +216,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -265,7 +263,6 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -304,7 +301,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 
 #[test]
 fn diamond_partially_content_integrated_merge() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
@@ -314,7 +311,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -345,7 +342,6 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -389,7 +385,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 
 #[test]
 fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -407,7 +403,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -440,7 +436,6 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -481,7 +476,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
 #[test]
 fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let integrated_bottom_commit = repo.rev_parse_single("B")?.detach();
@@ -501,7 +496,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -509,8 +504,6 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -544,7 +537,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
 
 #[test]
 fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -562,7 +555,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -595,7 +588,6 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -648,7 +640,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
 #[test]
 fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("remote-diverged-with-workspace-conflicting")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -658,7 +650,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -679,7 +671,6 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -750,7 +741,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 
 #[test]
 fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -761,7 +752,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -801,6 +792,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -817,7 +809,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -847,7 +839,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
 
 #[test]
 fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -857,7 +849,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -890,6 +882,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -901,7 +894,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -927,7 +920,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
 
 #[test]
 fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -937,7 +930,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -974,6 +967,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -985,7 +979,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -1013,7 +1007,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 
 #[test]
 fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("squash-merged-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -1023,7 +1017,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1063,6 +1057,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
@@ -1074,7 +1069,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -1104,7 +1099,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
 
 #[test]
 fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("squash-merged-branch-below-stacked-work")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -1114,7 +1109,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1157,6 +1152,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
@@ -1168,7 +1164,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -1203,7 +1199,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
 
 #[test]
 fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("squash-merged-bottom-below-canceling-segments")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -1213,7 +1209,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1260,6 +1256,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
@@ -1271,7 +1268,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -1310,7 +1307,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
 #[test]
 fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_commit() -> Result<()>
 {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-integrated-branch-with-stale-target-parent",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -1321,7 +1318,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1333,6 +1330,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -1354,7 +1352,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
 
 #[test]
 fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-integrated-branch-with-empty-sibling-at-stale-target",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -1366,7 +1364,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1378,6 +1376,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -1410,7 +1409,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
 
 #[test]
 fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -1420,7 +1419,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1428,7 +1427,6 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     )?;
 
     let mut workspace = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1455,13 +1453,8 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         repo.try_find_reference("A")?.is_some(),
         "local branch should remain when update selector is not a stack bottom"
     );
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1481,7 +1474,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
 #[test]
 fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_target() -> Result<()>
 {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-integrated-single-branch-target-advanced-through-merge",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -1492,7 +1485,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1534,6 +1527,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -1545,7 +1539,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -1577,7 +1571,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 
 #[test]
 fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     force_prefixless_canned_branch_name(&mut repo)?;
     git(&repo).args(["checkout", "A"]).run();
@@ -1598,7 +1592,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1606,8 +1600,6 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1659,7 +1651,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
 
 #[test]
 fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
     force_prefixless_canned_branch_name(&mut repo)?;
     remove_managed_workspace_ref(&repo)?;
@@ -1683,7 +1675,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1700,7 +1692,6 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
     );
 
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1729,7 +1720,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
 
 #[test]
 fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
     remove_managed_workspace_ref(&repo)?;
     repo.config_snapshot_mut()
@@ -1745,7 +1736,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1753,7 +1744,6 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -1788,7 +1778,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
 
 #[test]
 fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
     force_prefixless_canned_branch_name(&mut repo)?;
     remove_managed_workspace_ref(&repo)?;
@@ -1806,7 +1796,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1814,7 +1804,6 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -1848,7 +1837,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
 
 #[test]
 fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-integrated-branch-direct-checkout")?;
     remove_managed_workspace_ref(&repo)?;
     repo.config_snapshot_mut()
@@ -1869,7 +1858,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1877,7 +1866,6 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -1912,9 +1900,10 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
 
 #[test]
 fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
-        "fully-integrated-single-branch-target-advanced-through-merge",
-    )?;
+    let (_tmp, mut repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description(
+            "fully-integrated-single-branch-target-advanced-through-merge",
+        )?;
     force_prefixless_canned_branch_name(&mut repo)?;
     git(&repo).args(["checkout", "A"]).run();
     remove_managed_workspace_ref(&repo)?;
@@ -1945,7 +1934,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1953,8 +1942,6 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1997,7 +1984,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
 
 #[test]
 fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()> {
-    let (_tmp, repo, meta, _description) =
+    let (_tmp, repo, meta, _description, mut db) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2017,14 +2004,14 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
+    integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
 
     assert_eq!(
         repo.rev_parse_single("gitbutler/workspace^")?.detach(),
@@ -2037,7 +2024,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
 
 #[test]
 fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Result<()> {
-    let (_tmp, repo, meta, _description) =
+    let (_tmp, repo, meta, _description, mut db) =
         named_writable_scenario_with_description("empty-workspace-target-advanced-through-merge")?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
@@ -2057,14 +2044,14 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
+    integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
 
     assert_eq!(
         workspace_first_parent(&repo)?,
@@ -2078,7 +2065,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
 #[test]
 fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_remains()
 -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "workspace-target-parent-and-stack-target-advanced",
     )?;
     let target_sha = repo.rev_parse_single("target-sha")?.detach();
@@ -2090,7 +2077,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2130,6 +2117,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -2140,7 +2128,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -2182,7 +2170,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 
 #[test]
 fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -> Result<()> {
-    let (tmp, repo, mut meta, _description) =
+    let (tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2192,7 +2180,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2201,7 +2189,6 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -2234,7 +2221,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
 
 #[test]
 fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Result<()> {
-    let (tmp, repo, mut meta, _description) =
+    let (tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2244,7 +2231,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2255,8 +2242,6 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     git(&repo).args(["add", "shared.txt"]).run();
     std::fs::write(tmp.path().join("shared.txt"), "base\n")?;
-
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -2281,7 +2266,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
 
 #[test]
 fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("partially-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -2292,7 +2277,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2335,6 +2320,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -2351,7 +2337,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -2388,7 +2374,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
 
 #[test]
 fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -2399,7 +2385,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2442,6 +2428,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -2458,7 +2445,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -2489,7 +2476,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 
 #[test]
 fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) =
+    let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
     force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
@@ -2503,7 +2490,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2596,7 +2583,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
 
 #[test]
 fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
@@ -2607,7 +2594,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2619,6 +2606,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![
             BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
@@ -2636,7 +2624,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -2672,7 +2660,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
 
 #[test]
 fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-content-integrated-single-branch-target-advanced",
     )?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
@@ -2683,7 +2671,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2695,6 +2683,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
@@ -2712,7 +2701,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
 
 #[test]
 fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "content-integrated-stack-with-remaining-stack-target-advanced",
     )?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
@@ -2724,7 +2713,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2736,6 +2725,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -2753,7 +2743,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
 
 #[test]
 fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -2764,7 +2754,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2776,6 +2766,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -2798,7 +2789,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
 
 #[test]
 fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-empty-stack-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2808,7 +2799,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2820,6 +2811,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Reference(gix::refs::FullName::try_from("refs/heads/B")?),
@@ -2837,7 +2829,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
 
 #[test]
 fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2847,7 +2839,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2882,8 +2874,6 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     );
 
     let topic_bottom_commit = repo.rev_parse_single("topic")?.object()?.id;
-
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -2904,13 +2894,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         "workspace metadata should no longer expose the integrated empty branch"
     );
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2941,7 +2926,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
 
 #[test]
 fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("non-empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -2951,7 +2936,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2992,6 +2977,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(topic_base),
@@ -3009,13 +2995,8 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
             .trim_end(),
         "add local",
     );
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3049,7 +3030,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
 
 #[test]
 fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("merged-branch-below-empty-branch")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
@@ -3059,7 +3040,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3095,7 +3076,6 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     );
 
     let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -3125,13 +3105,8 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         "workspace metadata should retain only the unmerged empty top branch"
     );
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3162,7 +3137,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
 
 #[test]
 fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "merged-branch-below-empty-branch-direct-checkout",
     )?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
@@ -3179,14 +3154,13 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_tip),
             ..Options::limited()
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -3220,7 +3194,7 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
 
 #[test]
 fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
@@ -3230,7 +3204,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3242,6 +3216,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
@@ -3264,9 +3239,10 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
 
 #[test]
 fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
-        "fully-integrated-two-stacks-merge-target-advanced",
-    )?;
+    let (_tmp, mut repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description(
+            "fully-integrated-two-stacks-merge-target-advanced",
+        )?;
     force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
@@ -3279,7 +3255,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3321,7 +3297,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
 
 #[test]
 fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
@@ -3338,7 +3314,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3346,8 +3322,6 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -3381,7 +3355,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
 
 #[test]
 fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "review-hint-squash-integrated-two-commit-stack-with-sibling",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -3394,7 +3368,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3435,8 +3409,6 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     );
 
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -3455,13 +3427,8 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     )?;
     out.rebase.materialize(Default::default())?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3504,7 +3471,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
 
 #[test]
 fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("review-hint-squash-integrated-direct-checkout")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
@@ -3521,7 +3488,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3553,8 +3520,6 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     );
 
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -3572,13 +3537,8 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         false,
     )?;
     out.rebase.materialize(Default::default())?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut but_testsupport::in_memory_db(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3615,7 +3575,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 #[test]
 fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_workspace() -> Result<()>
 {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "review-hint-squash-integrated-prefix-with-extra-commit-workspace",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -3627,7 +3587,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3666,6 +3626,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         &mut workspace,
         &mut meta,
         &repo,
+        &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
             selector: RelativeTo::Commit(repo.rev_parse_single("A^^")?.detach()),
@@ -3680,7 +3641,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         &repo,
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -3711,7 +3672,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
 #[test]
 fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_checkout() -> Result<()>
 {
-    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "review-hint-squash-integrated-prefix-with-extra-commit-direct-checkout",
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -3729,7 +3690,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3764,7 +3725,6 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     );
 
     let current_project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         project_meta: updated_project_meta,
@@ -3798,7 +3758,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         ],
         &meta,
         updated_project_meta,
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options::limited(),
     )?;
     let workspace = graph.into_workspace()?;
@@ -3827,7 +3787,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 
 #[test]
 fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
@@ -3855,7 +3815,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         ],
         &meta,
         project_meta.clone(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3863,8 +3823,6 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
-
-    let mut db = but_testsupport::in_memory_db();
     let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
@@ -3907,22 +3865,15 @@ fn integrate_and_materialize<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
+    db: &mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
 ) -> Result<ProjectMeta> {
     let current_project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
         project_meta,
-    } = integrate_upstream(
-        workspace,
-        meta,
-        current_project_meta,
-        repo,
-        &mut db,
-        updates,
-    )?;
+    } = integrate_upstream(workspace, meta, current_project_meta, repo, db, updates)?;
     let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
@@ -3949,11 +3900,11 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
+    db: &mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<ProjectMeta> {
     let current_project_meta = workspace.graph.project_meta.clone();
-    let mut db = but_testsupport::in_memory_db();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
@@ -3963,7 +3914,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         meta,
         current_project_meta,
         repo,
-        &mut db,
+        db,
         updates,
         review_hints,
         false,

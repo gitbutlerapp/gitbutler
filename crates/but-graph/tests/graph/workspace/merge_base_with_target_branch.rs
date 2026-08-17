@@ -10,7 +10,7 @@ use crate::init::utils::{
 
 #[test]
 fn with_target_ref() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -32,15 +32,9 @@ fn with_target_ref() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(),
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     // We have a target_ref but nothing else
     assert!(ws.target_ref.is_some());
@@ -63,7 +57,7 @@ fn with_target_ref() -> anyhow::Result<()> {
 /// Alternatively, the app might have a setting for it.
 #[test]
 fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -90,7 +84,7 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -115,14 +109,14 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut but_testsupport::in_memory_db(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
@@ -143,18 +137,12 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(),
-        &mut but_testsupport::in_memory_db(),
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     let res = ws.merge_base_with_target_branch(repo.object_hash().null());
     assert!(
