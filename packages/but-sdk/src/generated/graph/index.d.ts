@@ -3328,6 +3328,11 @@ export type RefInfo = {
   isManagedCommit: boolean;
   /** The workspace represents what `HEAD` is pointing to. */
   isEntrypoint: boolean;
+  /**
+   * The active linked worktrees along with the commits they own, or empty if the
+   * traversal wasn't seeded with worktree tips (the `worktreeManipulation` flag is off).
+   */
+  worktrees: Array<Worktree>;
 };
 
 /** A change that was rejected during commit creation, with the reason for rejection. */
@@ -4093,6 +4098,35 @@ export type WorkspaceState = {
    * checkout.
    */
   checkoutConflictOccurred: boolean;
+};
+
+/** A non-archived linked worktree along with the commits it owns exclusively. */
+export type Worktree = {
+  /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
+  name: string;
+  /** The branch the worktree has checked out, or `None` for a detached `HEAD`. */
+  refName: BranchReference | null;
+  /** The commit the worktree `HEAD` peels to. */
+  head: string;
+  /**
+   * What [`Self::commits`] are resting on, or `None` if the traversal ran out of graph
+   * before reaching the workspace or the target (unrelated history, or a limit was hit).
+   */
+  base: WorktreeBase | null;
+  /**
+   * The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base,
+   * along the first parent.
+   */
+  commits: Array<Commit>;
+};
+
+/** What a linked worktree's own commits are resting on. */
+export type WorktreeBase = {
+  type: "InWorkspace";
+  subject: string;
+} | {
+  type: "Outside";
+  subject: string;
 };
 
 /** Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments. */

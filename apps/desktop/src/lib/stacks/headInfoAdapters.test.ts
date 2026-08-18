@@ -75,6 +75,7 @@ function refInfo(stacks: RefInfo["stacks"]): RefInfo {
 		isManagedRef: true,
 		isManagedCommit: true,
 		isEntrypoint: true,
+		worktrees: [],
 	};
 }
 

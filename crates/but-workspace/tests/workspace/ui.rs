@@ -352,7 +352,8 @@ TreeChanges {
   },
   "isManagedRef": true,
   "isManagedCommit": true,
-  "isEntrypoint": true
+  "isEntrypoint": true,
+  "worktrees": []
 }
 "#]].raw());
 
@@ -540,7 +541,8 @@ TreeChanges {
   },
   "isManagedRef": true,
   "isManagedCommit": true,
-  "isEntrypoint": false
+  "isEntrypoint": false,
+  "worktrees": []
 }
 "#]].raw());
 
@@ -631,7 +633,8 @@ TreeChanges {
   },
   "isManagedRef": true,
   "isManagedCommit": true,
-  "isEntrypoint": false
+  "isEntrypoint": false,
+  "worktrees": []
 }
 "#]]
             .raw()

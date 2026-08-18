@@ -587,6 +587,7 @@ pub fn graph_to_ref_info(
         is_managed_commit,
         ancestor_workspace_commit,
         is_entrypoint,
+        worktrees: crate::worktrees::worktree_infos(workspace, repo),
     };
 
     if let Some(info) = &info.ancestor_workspace_commit {
@@ -848,7 +849,10 @@ impl crate::ref_info::Segment {
 
 impl LocalCommit {
     // Note that commit-relationships here don't see remotes.
-    fn try_from_stack_commit(c: &StackCommit, repo: &gix::Repository) -> anyhow::Result<Self> {
+    pub(crate) fn try_from_stack_commit(
+        c: &StackCommit,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Self> {
         let StackCommit {
             id,
             parent_ids: _,
