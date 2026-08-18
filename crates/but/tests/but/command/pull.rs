@@ -1062,7 +1062,7 @@ To undo this operation:
 ├╯
 ┊
 ┴ 7f73771 (common base) 2000-01-02 upstream change
-⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
 

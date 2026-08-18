@@ -186,7 +186,7 @@ A wrong resolution is reverted with `but undo`.
 
 ### Conflicts in uncommitted files
 
-`but status` marks uncommitted files with unresolved merge conflicts `{conflicted}`; they are excluded from committable changes and outside `but resolve` mode. Choose the desired contents or delete the file, then `but resolve <path>...` to mark it resolved with that state; it then shows as an ordinary uncommitted change.
+`but status` marks uncommitted files with unresolved merge conflicts `{conflicted}`; they are excluded from committable changes and outside `but resolve` mode. Edit the file to the wanted contents (or delete it), then `but resolve <path>...` to mark it resolved with that state; it then shows as an ordinary uncommitted change.
 
 ## Git-to-But Map
 

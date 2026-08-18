@@ -752,7 +752,7 @@ fn print_conflicted_files_warning(
     }
     let t = crate::theme::get();
     output.warning(Vec::from([Span::styled(
-        "⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.",
+        "⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.",
         t.attention,
     )]))?;
     Ok(())
