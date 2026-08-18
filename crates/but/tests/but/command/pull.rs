@@ -140,7 +140,7 @@ fn single_branch_pull_prunes_an_integrated_lower_branch() {
     let env = single_branch_integration_scenario();
     env.but("branch new C").assert().success();
     commit_file(&env, "C");
-    env.but("branch new A").assert().success();
+    env.but("branch new A --above C").assert().success();
     commit_file(&env, "A");
     let old_head = rev_parse(&env, "A");
     let old_lower = rev_parse(&env, "C");
@@ -232,7 +232,7 @@ fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
     let env = single_branch_integration_scenario();
     env.but("branch new bottom").assert().success();
     commit_file(&env, "bottom");
-    env.but("branch new top").assert().success();
+    env.but("branch new top --above bottom").assert().success();
     let old_tip = rev_parse(&env, "top");
     merge_into_upstream(&env, "bottom", false);
 

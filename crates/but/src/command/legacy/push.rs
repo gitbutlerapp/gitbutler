@@ -7,8 +7,8 @@ use gitbutler_git::PushResult;
 use serde::Serialize;
 
 use crate::{
-    CliId, CliResultExt as _, IdMap,
-    args::{push, push::Command},
+    CliId, CliResult, IdMap,
+    args::push::{self, Command},
     command::legacy::workspace_target,
     theme::{self, Paint},
     utils::{
@@ -47,7 +47,7 @@ pub async fn handle(
     args: push::Command,
     ctx: &mut Context,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     // Check gerrit mode early
     let gerrit_mode = {
         let repo = ctx.repo.get()?;
@@ -56,7 +56,7 @@ pub async fn handle(
 
     // If dry-run, show what would be pushed
     if args.dry_run {
-        return handle_dry_run(ctx, &args.branch_id, out);
+        return Ok(handle_dry_run(ctx, &args.branch_id, out)?);
     }
 
     let id_map = {
@@ -95,9 +95,7 @@ pub async fn handle(
         let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
         for name in names {
             let full_name = gix::refs::FullName::try_from(format!("refs/heads/{name}"))?;
-            merged
-                .ensure_branch_not_merged(full_name.as_ref())
-                .into_internal_error()?;
+            merged.ensure_branch_not_merged(full_name.as_ref())?;
         }
     }
 

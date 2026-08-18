@@ -186,7 +186,7 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
     env.but("commit --empty -b middle -m 'middle base'")
         .assert()
         .success();
-    env.but("branch new top").assert().success();
+    env.but("branch new top --above middle").assert().success();
     env.but("commit --empty -b top -m 'top base'")
         .assert()
         .success();

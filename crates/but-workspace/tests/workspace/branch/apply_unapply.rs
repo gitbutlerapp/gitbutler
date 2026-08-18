@@ -6226,6 +6226,7 @@ fn apply_options() -> but_workspace::branch::apply::Options {
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
         order: None,
         new_stack_id: Some(stack_id_for_name),
+        allow_applying_already_applied_branch_when_outside_workspace: false,
     }
 }
 

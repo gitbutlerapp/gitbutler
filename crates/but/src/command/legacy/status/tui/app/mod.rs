@@ -22,7 +22,10 @@ use crate::{
         legacy::{
             branch::{
                 self,
-                new::{NewOperation, NewStackedBranchTarget},
+                new::{
+                    NewOperation, NewStackedBranchOperation, NewStackedBranchTarget,
+                    NewUnstackedBranchOperation,
+                },
             },
             commit::{
                 self, CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitSelection,
@@ -1573,13 +1576,13 @@ impl App {
                     ctx,
                     &mut meta,
                     guard.write_permission(),
-                    NewOperation::NewStackedBranch {
+                    NewOperation::NewStackedBranch(NewStackedBranchOperation {
                         name: None,
                         target: NewStackedBranchTarget::Branch(
                             Category::LocalBranch.to_full_name(&*branch.name)?,
                         ),
                         side: Side::Above,
-                    },
+                    }),
                 )?;
 
                 outcome.name.shorten().to_string()
@@ -1594,7 +1597,7 @@ impl App {
                     ctx,
                     &mut meta,
                     guard.write_permission(),
-                    NewOperation::NewUnstackedBranch { name: None },
+                    NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation { name: None }),
                 )?;
 
                 outcome.name.shorten().to_string()

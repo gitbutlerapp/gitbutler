@@ -175,8 +175,8 @@ fn with_json_output() {
 }
 
 #[test]
-fn create_new_branch_in_single_branch_mode() {
-    let env = Sandbox::open_with_default_settings("one-fork");
+fn in_single_branch_mode_creating_stacked_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
 
     env.but("status")
         .assert()
@@ -185,11 +185,10 @@ fn create_new_branch_in_single_branch_mode() {
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
-┊●   nmy M (no changes)
+┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -214,12 +213,9 @@ Created branch 'middle'
 ╭┄ zz [uncommitted] (no changes)
 ┊
 ┊╭┄ mi [middle] (no commits)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -244,12 +240,9 @@ Created branch 'bottom' below branch 'middle'
 ┊╭┄ mi [middle] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -276,12 +269,9 @@ Created branch 'top' above branch 'middle'
 ┊├┄ mi [middle] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -310,42 +300,27 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊├┄ mi [middle] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
 "#]]);
 
-    let repo = env.open_repo();
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> top, origin/main, origin/HEAD, middle, main, gitbutler/target, bottom, between-middle-and-top) M
+* e31e6ca add init
 
-    // ensure the branches exist for real
-    for branch_name in ["top", "between-middle-and-top", "middle", "bottom"] {
-        let reference_name = format!("refs/heads/{branch_name}");
-        assert!(
-            repo.try_find_reference(reference_name.as_str())
-                .unwrap()
-                .is_some(),
-            "single-branch creation writes the branch reference"
-        );
-    }
-
-    // ensure we didn't create the workspace ref
-    assert!(
-        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)
-            .unwrap()
-            .is_none(),
-        "single-branch creation does not create a managed workspace reference"
+"#]]
     );
 }
 
 #[test]
-fn create_new_branches_with_commits_in_single_branch_mode() {
-    let env = Sandbox::open_with_default_settings("one-fork");
+fn in_single_branch_mode_create_new_branches_with_commits() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
 
     env.but("status")
         .assert()
@@ -354,11 +329,10 @@ fn create_new_branches_with_commits_in_single_branch_mode() {
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
-┊●   nmy M (no changes)
+┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -385,12 +359,9 @@ Created branch 'middle'
 ┊
 ┊╭┄ mi [middle]
 ┊●   1 on middle (no changes)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -420,22 +391,52 @@ Created branch 'top' above branch 'middle'
 ┊│
 ┊├┄ mi [middle]
 ┊●   1#1 on middle (no changes)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
 "#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 278079d (HEAD -> top) on top
+* 8e3d31a (middle) on middle
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 
     env.but("branch new bottom --below middle")
         .assert()
         .success()
         .stdout_eq(str![[r#"
 Created branch 'bottom' below branch 'middle'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   1#0 on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   1#1 on middle (no changes)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
 
 "#]]);
 
@@ -458,12 +459,9 @@ Created branch 'bottom' below branch 'middle'
 ┊│
 ┊├┄ bo [bottom]
 ┊●   1#2 on bottom (no changes)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -499,16 +497,26 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊│
 ┊├┄ bo [bottom]
 ┊●   1#3 on bottom (no changes)
-┊│
-┊├┄ ma [main]
-┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
 "#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* a54744f (HEAD -> top) on top
+* 8406d60 (between-middle-and-top) on between-middle-and-top
+* 5614135 (middle) on middle
+* 9133168 (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }
 
 #[test]
@@ -1087,4 +1095,355 @@ Hint: run `but branch new` to create a new branch to work on
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn in_single_branch_mode_creating_new_independent_branch_takes_you_to_workspace_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    // at first we're not on a workspace
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> main, origin/main, origin/HEAD) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // creating a new branch just puts us on that branch
+    env.but("branch new one")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created branch 'one'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> one, origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // creating a second branch puts us into a workspace with both branches applied
+    env.but("branch new two")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created branch 'two'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ad759d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ tw [two] (no commits)
+├╯
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // switching to a branch removes the workspace and checks out the branch
+    env.but("switch one").assert().success();
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ad759d (gitbutler/workspace) GitButler Workspace Commit
+|/
+* b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // creating a new branch puts us back on a workspace with the previous and new branches applied
+    env.but("branch new three")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created branch 'three'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 9e991f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ th [three] (no commits)
+├╯
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn in_single_branch_mode_switching_to_stacked_branches_works() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new bottom").assert().success();
+
+    env.but("branch new middle --above bottom")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle] (no commits)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> middle, origin/main, origin/HEAD, main, gitbutler/target, bottom) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("switch bottom").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> bottom, origin/main, origin/HEAD, middle, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("branch new new-branch").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch] (no commits)
+├╯
+┊
+┊╭┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 10e74ab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn in_single_branch_mode_switching_to_stacked_branches_with_commits_works() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new bottom").assert().success();
+
+    env.but("commit -m 'on bottom' -b bottom")
+        .assert()
+        .success();
+
+    env.but("branch new middle --above bottom")
+        .assert()
+        .success();
+
+    env.but("commit -m 'on middle' -b middle")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle]
+┊●   1#0 on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   1#1 on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 5614135 (HEAD -> middle) on middle
+* 9133168 (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("switch bottom").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom]
+┊●   1 on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 5614135 (middle) on middle
+* 9133168 (HEAD -> bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("branch new new-branch").assert().success();
+
+    env.but("commit -m 'on new-branch' -b new-branch")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   1#0 on new-branch (no changes)
+├╯
+┊
+┊╭┄ bo [bottom]
+┊●   1#1 on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   ca16105 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | f6cc4a5 (new-branch) on new-branch
+| | * 5614135 (middle) on middle
+| |/  
+| * 9133168 (bottom) on bottom
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }

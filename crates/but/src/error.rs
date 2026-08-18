@@ -172,7 +172,14 @@ impl CliError {
 
     pub fn into_internal(self) -> anyhow::Error {
         match self {
-            Self::BadInput(..) | Self::ExternalCommandNotFound(..) | Self::CommandRejection => {
+            Self::BadInput(mut err) => {
+                // the hints are unlikely to be useful for internal errors so lets just discard
+                // them
+                err.hint = None;
+
+                anyhow::anyhow!("{err}")
+            }
+            Self::ExternalCommandNotFound(..) | Self::CommandRejection => {
                 anyhow::anyhow!("{self}")
             }
             Self::Internal(error) => error,

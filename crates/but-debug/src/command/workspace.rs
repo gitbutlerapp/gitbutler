@@ -34,6 +34,7 @@ pub(crate) fn apply(
             workspace_reference_naming: WorkspaceReferenceNaming::Default,
             order: None,
             new_stack_id: None,
+            ..Default::default()
         },
     )?;
 
