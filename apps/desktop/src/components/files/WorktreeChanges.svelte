@@ -4,6 +4,7 @@
 	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
 	import WorktreeChangesSelectAll from "$components/files/WorktreeChangesSelectAll.svelte";
 	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { UncommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
@@ -13,9 +14,10 @@
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, TestId } from "@gitbutler/ui";
+	import { Badge, FileListItem, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { untrack, type Snippet } from "svelte";
@@ -74,6 +76,15 @@
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
+	// Conflicted files can't be assigned, so they only show in the unassigned lane.
+	const worktreeService = inject(WORKTREE_SERVICE);
+	const conflictedPathsQuery = $derived(
+		mode === "unassigned" ? worktreeService.conflictedPaths(projectId) : undefined,
+	);
+	const conflictedPaths = $derived(conflictedPathsQuery?.response ?? []);
+	const fileCount = $derived(changes.current.length + conflictedPaths.length);
+	let conflictMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
+
 	let listMode: "list" | "tree" = $state("list");
 
 	let scrollTopIsVisible = $state(true);
@@ -94,6 +105,21 @@
 </script>
 
 {#snippet fileList()}
+	{#if conflictedPaths.length > 0}
+		<ChangedFilesContextMenu bind:this={conflictMenu} {projectId} {stackId} {selectionId} />
+	{/if}
+	{#each conflictedPaths as filePath (filePath)}
+		<FileListItem
+			{filePath}
+			listMode="list"
+			pathFirst={uiState.global.pathFirst.current}
+			conflicted
+			conflictHint="Resolve the conflict, then right-click → Mark as Resolved"
+			clickable={false}
+			oncontextmenu={(e) =>
+				conflictMenu?.open(e, { changes: [], path: filePath, conflicted: true })}
+		/>
+	{/each}
 	<FileListProvider changes={changes.current} {selectionId}>
 		<FileListItems
 			{projectId}
@@ -143,16 +169,16 @@
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>
-						<Badge>{changes.current.length}</Badge>
+						<Badge>{fileCount}</Badge>
 					</div>
 				</div>
-				{#if changes.current.length > 0}
+				{#if fileCount > 0}
 					<FileListViewToggle bind:mode={listMode} {persistId} />
 				{/if}
 			</div>
 		{/if}
 
-		{#if changes.current.length > 0}
+		{#if fileCount > 0}
 			<ScrollableContainer
 				{onscrollexists}
 				onscrollTop={(visible) => {

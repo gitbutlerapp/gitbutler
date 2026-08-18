@@ -347,3 +347,95 @@ If you want to keep the changes you have made, consider finishing the resolution
 
     assert_eq!(current_branch_name(&env), "gitbutler/workspace");
 }
+
+/// A sandbox with real checkout-produced conflicts on `commit.txt` and `second.txt`
+/// (`UU`) and an unrelated uncommitted change to `other.txt`.
+fn sandbox_with_conflicted_uncommitted_files() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("commit.txt", "first\n");
+    env.file("second.txt", "first\n");
+    env.but("commit -b A -m first").assert().success();
+    env.file("commit.txt", "second\n");
+    env.file("second.txt", "second\n");
+    env.but("commit -b A -m second").assert().success();
+    let commit_id = env.invoke_git("rev-parse refs/heads/A");
+    env.file("commit.txt", "would conflict\n");
+    env.file("second.txt", "would conflict\n");
+    env.but(format!("discard {commit_id}")).assert().success();
+    env.file("other.txt", "unrelated\n");
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged").lines().count(),
+        6,
+        "both files carry base/ours/theirs stages"
+    );
+    env
+}
+
+#[test]
+fn resolve_marks_several_conflicted_files_resolved_including_deleted() {
+    let env = sandbox_with_conflicted_uncommitted_files();
+    env.remove_file("commit.txt");
+
+    env.but("resolve commit.txt second.txt --json")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "resolved_files": [
+    "commit.txt",
+    "second.txt"
+  ]
+}
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged"),
+        "",
+        "no unmerged entries are left"
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted]
+┊   ts D commit.txt
+┊   xw A other.txt
+┊   or M second.txt
+┊
+┊╭┄ g0 [A]
+┊●   1 first
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn resolve_refuses_mixed_and_ai_targets_for_conflicted_files() {
+    let env = sandbox_with_conflicted_uncommitted_files();
+
+    env.but("resolve commit.txt other.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to handle conflict resolution. 'other.txt' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`).
+
+"#]]);
+    env.but("resolve commit.txt --ai")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to handle conflict resolution. Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged").lines().count(),
+        6,
+        "nothing was resolved"
+    );
+}

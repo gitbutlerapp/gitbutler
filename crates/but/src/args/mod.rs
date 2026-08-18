@@ -403,10 +403,12 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_comment")]
     _Comment(comment::Platform),
 
-    /// Resolve conflicts in a commit.
+    /// Resolve conflicts in a commit or in uncommitted files.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
     /// use this command to enter resolution mode, resolve the conflicts, and finalize.
+    /// Uncommitted files marked `{conflicted}` by `but status` are resolved with
+    /// `but resolve <path>...` once they hold the desired content (or were deleted).
     ///
     /// ## Workflow
     ///
@@ -427,8 +429,10 @@ pub enum Subcommands {
         /// Subcommand to run (defaults to entering resolution mode)
         #[clap(subcommand)]
         cmd: Option<resolve::Subcommands>,
-        /// Commit ID to enter resolution mode for (when no subcommand is provided)
-        commit: Option<String>,
+        /// A commit to enter resolution mode for, or one or more conflicted uncommitted
+        /// files (as listed by `but status`) to mark as resolved with their current
+        /// worktree content (when no subcommand is provided)
+        targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///
         /// With a commit ID this resolves only that commit; without one it

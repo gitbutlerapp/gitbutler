@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::WorkspaceState;
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
@@ -249,6 +249,34 @@ pub fn set_push_remote(ctx: &mut but_ctx::Context, push_remote: String) -> anyho
     }
     ctx.invalidate_workspace_cache()?;
     drop(guard);
+    Ok(())
+}
+
+/// Mark the conflicted uncommitted files at the worktree-relative `paths` as resolved,
+/// taking the current worktree content (or the file's absence) as the resolution.
+///
+/// For lower-level details, see [`but_workspace::resolve_worktree_conflicts()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn resolve_worktree_conflicts(
+    ctx: &mut but_ctx::Context,
+    paths: Vec<BString>,
+) -> anyhow::Result<()> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::ResolveConflicts),
+        perm.read_permission(),
+        DryRun::No,
+    );
+    but_workspace::resolve_worktree_conflicts(&*ctx.repo.get()?, paths)?;
+    if let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm).ok();
+    }
     Ok(())
 }
 

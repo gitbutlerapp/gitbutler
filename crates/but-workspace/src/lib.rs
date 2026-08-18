@@ -69,7 +69,7 @@ pub use upstream_integration::{
     integrate_upstream, integrate_upstream_with_hints,
 };
 mod worktree;
-pub use worktree::worktree_conflicts_for_rebase;
+pub use worktree::{resolve_worktree_conflicts, worktree_conflicts_for_rebase};
 
 pub mod worktrees;
 

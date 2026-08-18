@@ -14,6 +14,7 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenu,
@@ -60,6 +61,15 @@
 		return "path" in item && typeof item.path === "string";
 	}
 
+	/** An uncommitted file with an unresolved index conflict; it has a path but no change yet. */
+	type ConflictedFileItem = ChangedFolderItem & {
+		conflicted: true;
+	};
+
+	function isConflictedFileItem(item: ChangedFilesItem): item is ConflictedFileItem {
+		return "conflicted" in item && item.conflicted === true;
+	}
+
 	const {
 		trigger,
 		leftClickTrigger,
@@ -72,6 +82,7 @@
 		onclose,
 	}: Props = $props();
 	const stackService = inject(STACK_SERVICE);
+	const worktreeService = inject(WORKTREE_SERVICE);
 	const uiState = inject(UI_STATE);
 	const defaultCodeEditor = uiState.global.defaultCodeEditor;
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -123,7 +134,10 @@
 		return null;
 	}
 
-	export function open(e: MouseEvent | HTMLElement, newItem: ChangedFilesItem) {
+	export function open(
+		e: MouseEvent | HTMLElement,
+		newItem: ChangedFilesItem | ChangedFolderItem | ConflictedFileItem,
+	) {
 		menuTarget = e;
 		menuItem = newItem;
 		menuOpen = true;
@@ -168,6 +182,18 @@
 		}}
 	>
 		{#if isChangedFilesItem(item)}
+			{#if isConflictedFileItem(item)}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Mark as Resolved"
+						icon="tick"
+						onclick={() => {
+							menuOpen = false;
+							worktreeService.resolveWorktreeConflicts({ projectId, paths: [item.path] });
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 			{#if item.changes.length > 0 && !editMode}
 				<ContextMenuSection>
 					{@const changes = item.changes}
@@ -249,7 +275,10 @@
 			{/if}
 
 			<ContextMenuSection>
-				{#if !isChangedFolderItem(item)}
+				{#if !isChangedFolderItem(item) || isConflictedFileItem(item)}
+					{@const pathsToOpen = isConflictedFileItem(item)
+						? [item.path]
+						: item.changes.map((change) => change.path)}
 					<ContextMenuItem
 						label="Open in {defaultCodeEditor.current.displayName}"
 						icon="open-in-ide"
@@ -260,10 +289,10 @@
 								const project = await projectService.fetchProject(projectId);
 								const projectPath = project?.path;
 								if (projectPath) {
-									for (let change of item.changes) {
+									for (const relativePath of pathsToOpen) {
 										const path = getEditorUri({
 											schemeId: defaultCodeEditor.current.schemeIdentifer,
-											path: [vscodePath(projectPath), change.path],
+											path: [vscodePath(projectPath), relativePath],
 										});
 										urlService.openExternalUrl(path);
 									}

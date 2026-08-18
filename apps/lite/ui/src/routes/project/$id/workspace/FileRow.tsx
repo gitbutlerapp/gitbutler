@@ -73,6 +73,11 @@ export const FileRow: FC<
 		uncommit,
 	});
 
+	// An uncommitted conflict is a state to get out of, so the row says how.
+	const rowTooltip =
+		item._tag === "Conflict" && fileParent._tag === "UncommittedChanges"
+			? `${relativePath} — Resolve the conflict, then right-click → Mark as Resolved`
+			: relativePath;
 	const lastSepIdx = relativePath.lastIndexOf("/");
 	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
@@ -223,7 +228,7 @@ export const FileRow: FC<
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{relativePath}</Tooltip.Popup>
+					<Tooltip.Popup render={<TooltipPopup />}>{rowTooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>

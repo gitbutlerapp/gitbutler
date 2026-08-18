@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result};
+use bstr::{BString, ByteSlice};
 use but_core::{Commit, RefMetadata, RepositoryExt};
 use but_rebase::graph_rebase::SuccessfulRebase;
 use gix::merge::tree::TreatAsUnresolved;
@@ -101,4 +102,79 @@ fn dirty_worktree_trees(
         }
     }
     Ok(trees)
+}
+
+/// Mark the conflicted uncommitted files at `rela_paths` as resolved.
+///
+/// A conflicted uncommitted file is one that has index entries at stages 1/2/3,
+/// as written by a checkout that was allowed to conflict with uncommitted changes
+/// (see `but_core::worktree::checkout`). Resolving it is what `git add -- <path>`
+/// (or `git rm` for a deleted file) does: the conflict stages are replaced by a
+/// stage-0 entry holding the current worktree content, or removed entirely if the
+/// file no longer exists.
+///
+/// The worktree content is taken as-is, so leftover conflict markers are not checked.
+/// Paths that are not conflicted are an error.
+pub fn resolve_worktree_conflicts(
+    repo: &gix::Repository,
+    rela_paths: impl IntoIterator<Item = BString>,
+) -> Result<()> {
+    use crate::commit_engine::index::{delete_entry_by_path_bounded_stages, upsert_index_entry};
+    use gix::index::entry::{Flags, Stage};
+
+    let rela_paths: BTreeSet<_> = rela_paths.into_iter().collect();
+    let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+    let (mut pipeline, index_for_filter) = repo.filter_pipeline(None)?;
+    let mut path_check = gix::status::plumbing::SymlinkCheck::new(
+        repo.workdir().context("non-bare repository")?.into(),
+    );
+    let mut num_sorted_entries = index.entries().len();
+
+    for rela_path in &rela_paths {
+        let rela_path = rela_path.as_bstr();
+        let entries_before = num_sorted_entries;
+        delete_entry_by_path_bounded_stages(
+            &mut index,
+            rela_path,
+            &mut num_sorted_entries,
+            &[Stage::Base, Stage::Ours, Stage::Theirs],
+        );
+        if entries_before == num_sorted_entries {
+            anyhow::bail!("'{rela_path}' has no unresolved conflict");
+        }
+        // Stat before hashing so a write in between is caught by the stat mismatch.
+        let md = match gix::index::fs::Metadata::from_path_no_follow(
+            &path_check.verified_path_allow_nonexisting(rela_path)?,
+        ) {
+            Ok(md) => md,
+            Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
+                delete_entry_by_path_bounded_stages(
+                    &mut index,
+                    rela_path,
+                    &mut num_sorted_entries,
+                    &[Stage::Unconflicted],
+                );
+                continue;
+            }
+            Err(err) => return Err(err.into()),
+        };
+        let (id, kind, _) = pipeline
+            .worktree_file_to_object(rela_path, &index_for_filter)?
+            .with_context(|| format!("'{rela_path}' is not a file, symlink or submodule"))?;
+        upsert_index_entry(
+            &mut index,
+            rela_path,
+            Some(&md),
+            id,
+            kind.into(),
+            Flags::empty(),
+            &mut num_sorted_entries,
+        )?;
+    }
+
+    index.remove_tree();
+    index.remove_resolve_undo();
+    index.sort_entries();
+    index.write(Default::default())?;
+    Ok(())
 }

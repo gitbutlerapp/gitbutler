@@ -347,6 +347,11 @@ export const FilesTree: FC<
 	const fileCheckRangeAnchor = useRef<string>(null);
 	const fileCheckRangeEnd = useRef<string>(null);
 	const rowByPath = new Map(rows.map((row) => [row.path, row]));
+	// Conflicts have no change to commit or discard yet, so they never get checked.
+	const conflictPaths = new Set(
+		rows.flatMap((row) => (row._tag === "File" && row.item._tag === "Conflict" ? [row.path] : [])),
+	);
+	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
 	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
 	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
@@ -360,9 +365,10 @@ export const FilesTree: FC<
 		checkedOperandKeys.has(operandIdentityKey(fileOperand({ parent: fileParent, path })));
 
 	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
-		const checkedCount = filePaths.filter((path) => isFileChecked(path)).length;
+		const paths = filePaths.filter(checkable);
+		const checkedCount = paths.filter((path) => isFileChecked(path)).length;
 		if (checkedCount === 0) return "unchecked";
-		return checkedCount === filePaths.length ? "checked" : "indeterminate";
+		return checkedCount === paths.length ? "checked" : "indeterminate";
 	};
 
 	const rangeResolver = navigationIndexRange<string, string>({
@@ -393,20 +399,21 @@ export const FilesTree: FC<
 		previous: Set<string>;
 		next: Set<string>;
 	}): void => {
+		const nextCheckable = new Set([...next].filter(checkable));
 		const operands = (paths: Set<string>) =>
 			Array.from(paths, (path) => fileOperand({ parent: fileParent, path }));
 
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: operands(next.difference(previous)),
+				operands: operands(nextCheckable.difference(previous)),
 				checked: true,
 			}),
 		);
 		dispatch(
 			projectSlice.actions.checkOperands({
 				projectId,
-				operands: operands(previous.difference(next)),
+				operands: operands(previous.difference(nextCheckable)),
 				checked: false,
 			}),
 		);
@@ -566,7 +573,7 @@ export const FilesTree: FC<
 												isSelected={isSelected}
 												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}
 												onSelect={() => onRowSelection(row.path)}
-												canCheck={canCheck}
+												canCheck={canCheck && item._tag === "Change"}
 												checkFile={checkFile}
 												projectId={projectId}
 												fileParent={fileParent}

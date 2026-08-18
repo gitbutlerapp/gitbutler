@@ -104,6 +104,14 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
 		}),
+		resolveWorktreeConflicts: build.mutation<void, { projectId: string; paths: string[] }>({
+			extraOptions: {
+				command: "resolve_worktree_conflicts",
+				actionName: "Mark as Resolved",
+			},
+			query: (args) => args,
+			invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
+		}),
 
 		// ── File Search ─────────────────────────────────────────────
 		findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({

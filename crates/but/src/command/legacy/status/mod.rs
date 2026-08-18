@@ -735,7 +735,7 @@ fn print_conflicted_files_warning(
     }
     let t = crate::theme::get();
     output.warning(Vec::from([Span::styled(
-        "⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.",
+        "⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.",
         t.attention,
     )]))?;
     Ok(())

@@ -381,7 +381,7 @@ Branching and Committing:
   commit       Create a commit
   branch       Commands for managing branches
   discard      Discard branches, commits, or changes
-  resolve      Resolve conflicts in a commit
+  resolve      Resolve conflicts in a commit or in uncommitted files
   unapply      Unapply a branch
   apply        Apply a branch
   clean        Remove empty branches from the workspace

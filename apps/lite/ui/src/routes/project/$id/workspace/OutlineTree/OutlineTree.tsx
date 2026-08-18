@@ -75,8 +75,7 @@ import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
-import { getChangesFileRowItems, pathMatchesFilter, type FileRowItem } from "../file-row.ts";
-import { buildFileTreeRows, type FileDisplayMode, type FileTreeRow } from "../file-tree.ts";
+import { buildUncommittedFileRows } from "../file-row.ts";
 import { useFileDisplayMode } from "../useFileDisplayMode.ts";
 import {
 	canRemoveBranchReference,
@@ -240,30 +239,6 @@ const OperandC: FC<
 		props,
 	});
 };
-
-/**
- * Laid out from the same source and settings as the navigation index the page
- * builds, so the rows and the keys that move between them stay in step. Kept
- * out of the component so the compiler memoises it on those inputs.
- */
-const buildUncommittedFileRows = ({
-	worktreeChanges,
-	filter,
-	mode,
-	collapsedDirectories,
-}: {
-	worktreeChanges: WorktreeChanges | undefined;
-	filter: string | null;
-	mode: FileDisplayMode;
-	collapsedDirectories: Record<string, true>;
-}): Array<FileTreeRow<FileRowItem>> =>
-	buildFileTreeRows({
-		items: (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter((item) =>
-			pathMatchesFilter(item.path, filter),
-		),
-		mode,
-		collapsedDirectories,
-	});
 
 const UncommittedChanges: FC<{
 	navigationIndex: NavigationIndex<string>;

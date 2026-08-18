@@ -1,4 +1,5 @@
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
+import { buildFileTreeRows, type FileDisplayMode, type FileTreeRow } from "./file-tree.ts";
 import type { TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
 
 type ChangeFileRowItem = {
@@ -32,7 +33,12 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 
-	return worktreeChanges.changes.map((change) => {
+	// Conflicted files are kept out of `changes` until resolved.
+	const conflicts = worktreeChanges.ignoredChanges.flatMap((change) =>
+		change.status === "Conflict" ? [conflictFileRowItem({ path: change.path })] : [],
+	);
+
+	const changes = worktreeChanges.changes.map((change) => {
 		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 		const dependencyCommitIds = hunkDependencyDiffs
 			? getDependencyCommitIds({ hunkDependencyDiffs })
@@ -44,7 +50,32 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 			path: change.path,
 		});
 	});
+
+	return [...conflicts, ...changes];
 };
+
+/**
+ * The rows of the uncommitted files list. The page's navigation index and the
+ * outline's list are both built from this, so they always agree on which rows exist.
+ */
+export const buildUncommittedFileRows = ({
+	worktreeChanges,
+	filter,
+	mode,
+	collapsedDirectories,
+}: {
+	worktreeChanges: WorktreeChanges | undefined;
+	filter: string | null;
+	mode: FileDisplayMode;
+	collapsedDirectories: Record<string, true>;
+}): Array<FileTreeRow<FileRowItem>> =>
+	buildFileTreeRows({
+		items: (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter((item) =>
+			pathMatchesFilter(item.path, filter),
+		),
+		mode,
+		collapsedDirectories,
+	});
 
 /**
  * Case-insensitive substring match over the whole path, so a directory narrows

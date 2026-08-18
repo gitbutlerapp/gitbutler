@@ -39,6 +39,22 @@ export class WorktreeService {
 		);
 	}
 
+	/** Paths of uncommitted files with an unresolved index conflict (absent from `changes`). */
+	conflictedPaths(projectId: string) {
+		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
+		return getChanges.useQueryState(
+			{ projectId },
+			{
+				transform: (res) =>
+					res.ignoredChanges.filter((c) => c.status === "Conflict").map((c) => c.path),
+			},
+		);
+	}
+
+	get resolveWorktreeConflicts() {
+		return this.backendApi.endpoints.resolveWorktreeConflicts.mutate;
+	}
+
 	treeChangesByPaths(projectId: string, paths: string[]) {
 		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
 		return getChanges.useQueryState(

@@ -341,6 +341,14 @@ Enter resolution mode for a conflicted commit.
 but resolve <commit-id>
 ```
 
+### `but resolve <path>...`
+
+Mark uncommitted files that `but status` lists as `{conflicted}` resolved with their current worktree content (or as deleted). They then show as ordinary uncommitted changes.
+
+```bash
+but resolve src/lib.rs
+```
+
 ### `but resolve status`
 
 Show remaining conflicted files.

@@ -1286,7 +1286,7 @@ printf '100644 %s 1\tconflicted.txt\n100644 %s 2\tconflicted.txt\n100644 %s 3\tc
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
-⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.
+⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
 
 Hint: run `but help` for all commands
 
@@ -1313,10 +1313,16 @@ Hint: run `but help` for all commands
         "the commit contains only the unrelated file, not the conflicted one"
     );
 
-    // Git already owns index conflict resolution; once marked resolved, the file
-    // becomes an ordinary committable change and the warning disappears.
+    // Once marked resolved, the file becomes an ordinary committable change and
+    // the warning disappears.
     env.file("conflicted.txt", "resolved\n");
-    env.invoke_git("add -- conflicted.txt");
+    env.but("resolve conflicted.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+✓ Marked as resolved: conflicted.txt
+
+"#]]);
     assert_eq!(
         status_json(&env)["conflictedFiles"],
         serde_json::Value::Null,
