@@ -1106,12 +1106,12 @@ export declare function workspaceIntegrateUpstream(projectId: string, updates: A
  * commits, allowing clients to page through target history older than the
  * workspace's fork point.
  *
- * Each commit is enriched with the cached merged review (PR/MR) it landed,
- * when the forge cache recorded that commit as the review's integration
- * commit. This covers merge, squash, and rebase integrations to the extent
- * the forge reports them; it reads only the local cache and performs no
- * network requests or diffs, and enrichment failures degrade to unannotated
- * commits.
+ * Each commit is enriched with the merged review (PR/MR) it landed, when
+ * the forge cache recorded that commit as the review's integration commit
+ * or, failing that, when the commit's own message names it (see
+ * [`but_forge::merged_review_from_message`]). Enrichment reads only local
+ * state and performs no network requests or diffs, and its failures degrade
+ * to unannotated commits.
  */
 export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
 export declare class WatcherHandle {
@@ -3719,17 +3719,20 @@ export type Target = {
   isCurrent: boolean;
 };
 
-/** JSON transport type for a commit on the target branch's first-parent line. */
+/**
+ * A commit on the target branch's first-parent line, its relation to the
+ * workspace, and the merged review it landed, if known.
+ */
 export type TargetCommit = {
   /** The commit itself. */
   commit: UpstreamCommit;
-  /** The merged review this commit integrated, if the forge cache knows it. */
+  /** The merged review this commit integrated, if known. */
   review: TargetCommitReview | null;
   /** Whether the commit is already reachable from the workspace. */
   inWorkspace: boolean;
 };
 
-/** A bounded page from the target branch's first-parent history. */
+/** One bounded page of target commits and the state needed to continue it. */
 export type TargetCommitPage = {
   /** The commits in this page, newest first. */
   commits: Array<TargetCommit>;
@@ -3738,12 +3741,12 @@ export type TargetCommitPage = {
 };
 
 /**
- * JSON transport type for the cached merged review attached to a
- * target commit.
+ * The merged review a target commit landed.
  *
  * Only what the target-commit listing displays; the full review is
- * available from the per-review APIs. `sourceBranch` is included so
- * clients can match workspace branches to the commit that landed them.
+ * available from the per-review APIs. The source branch lets clients match
+ * workspace branches to the commit that landed them; it is empty when
+ * unknown.
  */
 export type TargetCommitReview = {
   /** The number identifying the review within its repository, e.g. `123`. */

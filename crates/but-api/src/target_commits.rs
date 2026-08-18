@@ -4,8 +4,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::json::HexHash;
 use crate::workspace::target_branch_name;
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_forge::ForgeReview;
+use serde::Serialize;
 use tracing::{instrument, warn};
 
 /// The target-commit listing stops after this many commits so degenerate
@@ -32,13 +34,13 @@ const TARGET_COMMITS_PAGE_SIZE: usize = 50;
 /// commits, allowing clients to page through target history older than the
 /// workspace's fork point.
 ///
-/// Each commit is enriched with the cached merged review (PR/MR) it landed,
-/// when the forge cache recorded that commit as the review's integration
-/// commit. This covers merge, squash, and rebase integrations to the extent
-/// the forge reports them; it reads only the local cache and performs no
-/// network requests or diffs, and enrichment failures degrade to unannotated
-/// commits.
-#[but_api(napi, json::TargetCommitPage, provides = [TargetCommits])]
+/// Each commit is enriched with the merged review (PR/MR) it landed, when
+/// the forge cache recorded that commit as the review's integration commit
+/// or, failing that, when the commit's own message names it (see
+/// [`but_forge::merged_review_from_message`]). Enrichment reads only local
+/// state and performs no network requests or diffs, and its failures degrade
+/// to unannotated commits.
+#[but_api(napi, provides = [TargetCommits])]
 #[instrument(err(Debug))]
 pub fn workspace_target_commits(
     ctx: &but_ctx::Context,
@@ -77,17 +79,14 @@ pub fn workspace_target_commits(
 
     let incoming: HashSet<_> = ws.incoming_target_commit_ids()?.into_iter().collect();
     let project_meta = ctx.project_meta()?;
-    let mut reviews_by_integration_sha =
-        match merged_reviews_by_integration_sha(&ws, &project_meta, &db) {
-            Ok(reviews) => reviews,
-            Err(err) => {
-                warn!(
-                    ?err,
-                    "failed to read cached forge reviews; listing target commits without them"
-                );
-                HashMap::new()
-            }
-        };
+    // Review enrichment is best-effort: either source failing leaves the
+    // commits unannotated rather than failing the listing.
+    let mut reviews_by_integration_sha = merged_reviews_by_integration_sha(&ws, &project_meta, &db)
+        .inspect_err(|err| warn!(?err, "failed to read cached forge reviews"))
+        .unwrap_or_default();
+    let forge_info = target_forge_info(&project_meta, &repo)
+        .inspect_err(|err| warn!(?err, "failed to determine the target's forge"))
+        .unwrap_or_default();
 
     let natural_end = match (paging, cursor) {
         (false, Some(tip)) => natural_end_of_line(&repo, &ws, tip)?,
@@ -108,9 +107,13 @@ pub fn workspace_target_commits(
             .parent_ids()
             .next()
             .map(|parent_id| parent_id.detach());
+        let commit: but_workspace::ui::UpstreamCommit = commit.try_into()?;
+        let review = reviews_by_integration_sha
+            .remove(&id)
+            .or_else(|| TargetCommitReview::from_message(&commit, forge_info.as_ref()?));
         commits.push(TargetCommit {
-            commit: commit.try_into()?,
-            review: reviews_by_integration_sha.remove(&id),
+            commit,
+            review,
             in_workspace,
         });
         if !paging
@@ -184,7 +187,9 @@ fn natural_end_of_line(
 }
 
 /// One bounded page of target commits and the state needed to continue it.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
 pub struct TargetCommitPage {
     /// The commits in this page, newest first.
     pub commits: Vec<TargetCommit>,
@@ -192,16 +197,98 @@ pub struct TargetCommitPage {
     pub has_more: bool,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetCommitPage);
+
 /// A commit on the target branch's first-parent line, its relation to the
-/// workspace, and the cached merged review it landed, if known.
-#[derive(Debug)]
+/// workspace, and the merged review it landed, if known.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
 pub struct TargetCommit {
     /// The commit itself.
     pub commit: but_workspace::ui::UpstreamCommit,
-    /// The merged review this commit integrated, according to the forge cache.
-    pub review: Option<ForgeReview>,
+    /// The merged review this commit integrated, if known.
+    pub review: Option<TargetCommitReview>,
     /// Whether the commit is already reachable from the workspace.
     pub in_workspace: bool,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetCommit);
+
+/// The merged review a target commit landed.
+///
+/// Only what the target-commit listing displays; the full review is
+/// available from the per-review APIs. The source branch lets clients match
+/// workspace branches to the commit that landed them; it is empty when
+/// unknown.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TargetCommitReview {
+    /// The number identifying the review within its repository, e.g. `123`.
+    pub number: i64,
+    /// The title of the review.
+    pub title: String,
+    /// The URL to view the review in a web browser.
+    pub html_url: String,
+    /// The forge's symbol for this review type, e.g. `#` for GitHub pull
+    /// requests and `!` for GitLab merge requests. Precedes `number` when
+    /// displayed.
+    pub unit_symbol: String,
+    /// The short name of the branch the review proposed, e.g. `feature-branch`.
+    pub source_branch: String,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetCommitReview);
+
+impl From<ForgeReview> for TargetCommitReview {
+    fn from(value: ForgeReview) -> Self {
+        Self {
+            number: value.number,
+            title: value.title,
+            html_url: value.html_url,
+            unit_symbol: value.unit_symbol,
+            source_branch: value.source_branch,
+        }
+    }
+}
+
+impl TargetCommitReview {
+    /// The review the commit's own message says it merged, for commits the
+    /// forge cache has no record of; see [`but_forge::merged_review_from_message`].
+    fn from_message(
+        commit: &but_workspace::ui::UpstreamCommit,
+        forge_info: &but_forge::ForgeInfo,
+    ) -> Option<Self> {
+        let message = commit.message.to_str().ok()?;
+        let review = but_forge::merged_review_from_message(&forge_info.name, message)?;
+        Some(Self {
+            number: review.number,
+            title: review.title.to_owned(),
+            html_url: format!(
+                "{}{}{}",
+                forge_info.base_url, forge_info.pr_url_path, review.number
+            ),
+            unit_symbol: forge_info.unit.symbol.clone(),
+            source_branch: review.source_branch.unwrap_or_default().to_owned(),
+        })
+    }
+}
+
+/// The forge the target remote points at, when known.
+fn target_forge_info(
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    repo: &gix::Repository,
+) -> anyhow::Result<Option<but_forge::ForgeInfo>> {
+    let remote_url = project_meta.remote_url_with_fallback(repo)?;
+    // Accounts only refine custom hosts; the forge itself is known without them.
+    let accounts = but_forge::get_all_forge_accounts()
+        .inspect_err(|err| warn!(?err, "failed to load forge accounts"))
+        .unwrap_or_default();
+    Ok(but_forge::forge_info(&remote_url, &accounts))
 }
 
 /// Merged reviews targeting the workspace's target branch, keyed by the target
@@ -213,7 +300,7 @@ fn merged_reviews_by_integration_sha(
     ws: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
-) -> anyhow::Result<HashMap<gix::ObjectId, ForgeReview>> {
+) -> anyhow::Result<HashMap<gix::ObjectId, TargetCommitReview>> {
     let Some(target_branch_name) =
         target_branch_name(&ws.graph.symbolic_remote_names, project_meta)
     else {
@@ -227,102 +314,9 @@ fn merged_reviews_by_integration_sha(
         }
         for sha in &review.integration_commit_shas {
             if let Ok(id) = gix::ObjectId::from_hex(sha.as_bytes()) {
-                reviews_by_sha.insert(id, review.clone());
+                reviews_by_sha.insert(id, review.clone().into());
             }
         }
     }
     Ok(reviews_by_sha)
-}
-
-/// JSON transport types for the target-commit listing.
-pub mod json {
-    use serde::Serialize;
-
-    /// JSON transport type for the cached merged review attached to a
-    /// target commit.
-    ///
-    /// Only what the target-commit listing displays; the full review is
-    /// available from the per-review APIs. `sourceBranch` is included so
-    /// clients can match workspace branches to the commit that landed them.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
-    pub struct TargetCommitReview {
-        /// The number identifying the review within its repository, e.g. `123`.
-        pub number: i64,
-        /// The title of the review.
-        pub title: String,
-        /// The URL to view the review in a web browser.
-        pub html_url: String,
-        /// The forge's symbol for this review type, e.g. `#` for GitHub pull
-        /// requests and `!` for GitLab merge requests. Precedes `number` when
-        /// displayed.
-        pub unit_symbol: String,
-        /// The short name of the branch the review proposed, e.g. `feature-branch`.
-        pub source_branch: String,
-    }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(TargetCommitReview);
-
-    impl From<but_forge::ForgeReview> for TargetCommitReview {
-        fn from(value: but_forge::ForgeReview) -> Self {
-            Self {
-                number: value.number,
-                title: value.title,
-                html_url: value.html_url,
-                unit_symbol: value.unit_symbol,
-                source_branch: value.source_branch,
-            }
-        }
-    }
-
-    /// JSON transport type for a commit on the target branch's first-parent line.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
-    pub struct TargetCommit {
-        /// The commit itself.
-        pub commit: but_workspace::ui::UpstreamCommit,
-        /// The merged review this commit integrated, if the forge cache knows it.
-        pub review: Option<TargetCommitReview>,
-        /// Whether the commit is already reachable from the workspace.
-        pub in_workspace: bool,
-    }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(TargetCommit);
-
-    impl From<super::TargetCommit> for TargetCommit {
-        fn from(value: super::TargetCommit) -> Self {
-            Self {
-                commit: value.commit,
-                review: value.review.map(Into::into),
-                in_workspace: value.in_workspace,
-            }
-        }
-    }
-
-    /// A bounded page from the target branch's first-parent history.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
-    pub struct TargetCommitPage {
-        /// The commits in this page, newest first.
-        pub commits: Vec<TargetCommit>,
-        /// Whether the relative walk was clipped before its natural bound.
-        pub has_more: bool,
-    }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(TargetCommitPage);
-
-    impl From<super::TargetCommitPage> for TargetCommitPage {
-        fn from(value: super::TargetCommitPage) -> Self {
-            Self {
-                commits: value.commits.into_iter().map(Into::into).collect(),
-                has_more: value.has_more,
-            }
-        }
-    }
 }

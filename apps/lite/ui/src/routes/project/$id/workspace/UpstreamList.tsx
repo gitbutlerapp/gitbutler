@@ -75,7 +75,9 @@ const TargetCommitRow: FC<{
 	const { commit, review, inWorkspace } = item;
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
 	const isSelected = useIsSelected(projectId, operand);
-	const title = commitTitle(commit.message);
+	// A commit that landed a review is shown as that review: its title says
+	// what changed, where "Merge pull request #N from …" only says that it did.
+	const title = review?.title ?? commitTitle(commit.message);
 	const [now] = useState(() => Date.now());
 
 	const authorName = commit.author.name;
