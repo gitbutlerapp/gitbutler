@@ -3,7 +3,7 @@
 	"private": true,
 	"repository": "https://github.com/gitbutlerapp/gitbutler.git",
 	"engines": {
-		"node": ">=20.11"
+		"node": ">=22.12.0"
 	},
 	"type": "module",
 	"packageManager": "pnpm@10.20.0",
