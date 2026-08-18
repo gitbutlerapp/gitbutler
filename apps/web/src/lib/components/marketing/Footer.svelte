@@ -29,7 +29,7 @@
 							</svg>
 
 							<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
-								MacOS ({jsonLinks.downloads.appleSilicon.label})
+								macOS ({jsonLinks.downloads.appleSilicon.label})
 							</a>
 						</div>
 

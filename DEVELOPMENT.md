@@ -246,7 +246,7 @@ Often the behaviour depends on the current context: the repository being display
 To do that, _launch the application from a terminal_ as shown in the paragraph above this one, or right below, but with `graphviz` installed.
 The `dot` program should be available in `PATH` so it can run from the terminal.
 
-Doing so can look like this on MacOS, for example:
+Doing so can look like this on macOS, for example:
 
 ###### For the stable build
 
