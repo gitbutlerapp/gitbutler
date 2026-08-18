@@ -10,6 +10,7 @@ use crate::GitLabProjectId;
 const GITLAB_API_BASE_URL: &str = "https://gitlab.com/api/v4";
 const GITLAB_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_PIPELINE_JOB_PAGES: usize = 25;
+const MAX_MERGE_REQUEST_PAGES: usize = 25;
 
 /// An HTTP error with a status code, returned when the API responds with a non-success status.
 ///
@@ -139,18 +140,49 @@ impl GitLabClient {
     pub async fn list_open_mrs(&self, project_id: GitLabProjectId) -> Result<Vec<MergeRequest>> {
         let url = format!("{}/projects/{}/merge_requests", self.base_url, project_id);
 
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("state", "opened"), ("order_by", "created_at")])
-            .send()
-            .await?;
+        let query_arguments = [
+            ("state", "opened"),
+            ("order_by", "created_at"),
+            ("per_page", "100"),
+        ];
+
+        let response = self.client.get(&url).query(&query_arguments).send().await?;
 
         if !response.status().is_success() {
             bail!("Failed to list open merge requests: {}", response.status());
         }
 
-        let mrs: Vec<GitLabMergeRequest> = response.json().await?;
+        let mut next_page = next_page_from_headers(response.headers());
+        let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
+
+        let mut seen_pages = HashSet::new();
+        let mut pages_iterated = 0;
+
+        while let Some(page) = next_page.take() {
+            if pages_iterated >= MAX_MERGE_REQUEST_PAGES || !seen_pages.insert(page.clone()) {
+                bail!(
+                    "Stopped listing GitLab merge requests for project {project_id} after unsafe pagination state"
+                );
+            }
+            pages_iterated += 1;
+
+            let response = self
+                .client
+                .get(&url)
+                .query(&query_arguments)
+                .query(&[("page", &page)])
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                bail!("Failed to list open merge requests: {}", response.status());
+            }
+
+            next_page = next_page_from_headers(response.headers());
+            let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            mrs.append(&mut page_mrs);
+        }
+
         Ok(mrs.into_iter().map(Into::into).collect())
     }
 
@@ -181,7 +213,46 @@ impl GitLabClient {
             );
         }
 
-        let mrs: Vec<GitLabMergeRequest> = response.json().await?;
+        let mut next_page = next_page_from_headers(response.headers());
+        let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
+
+        let mut seen_pages = HashSet::new();
+        let mut pages_iterated = 0;
+
+        while let Some(page) = next_page.take() {
+            if pages_iterated >= MAX_MERGE_REQUEST_PAGES || !seen_pages.insert(page.clone()) {
+                bail!(
+                    "Stopped listing GitLab merge requests for target branch after unsafe pagination state"
+                );
+            }
+            pages_iterated += 1;
+
+            let response = self
+                .client
+                .get(&url)
+                .query(&[
+                    ("state", "all"),
+                    ("target_branch", target_branch),
+                    ("order_by", "updated_at"),
+                    ("sort", "desc"),
+                    ("per_page", "100"),
+                    ("page", &page),
+                ])
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                bail!(
+                    "Failed to list merge requests for target branch: {}",
+                    response.status()
+                );
+            }
+
+            next_page = next_page_from_headers(response.headers());
+            let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            mrs.append(&mut page_mrs);
+        }
+
         Ok(mrs.into_iter().map(Into::into).collect())
     }
 
@@ -209,7 +280,39 @@ impl GitLabClient {
             );
         }
 
-        let mrs: Vec<GitLabMergeRequest> = response.json().await?;
+        let mut next_page = next_page_from_headers(response.headers());
+        let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
+
+        let mut seen_pages = HashSet::new();
+        let mut pages_iterated = 0;
+
+        while let Some(page) = next_page.take() {
+            if pages_iterated >= MAX_MERGE_REQUEST_PAGES || !seen_pages.insert(page.clone()) {
+                bail!(
+                    "Stopped listing GitLab merge requests for commit {commit_sha} after unsafe pagination state"
+                );
+            }
+            pages_iterated += 1;
+
+            let response = self
+                .client
+                .get(&url)
+                .query(&[("per_page", "100"), ("page", &page)])
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                bail!(
+                    "Failed to list merge requests for commit: {}",
+                    response.status()
+                );
+            }
+
+            next_page = next_page_from_headers(response.headers());
+            let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            mrs.append(&mut page_mrs);
+        }
+
         Ok(mrs.into_iter().map(Into::into).collect())
     }
 
