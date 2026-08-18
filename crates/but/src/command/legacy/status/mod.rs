@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
@@ -452,7 +452,24 @@ fn build_status_context<'a>(
                 expensive_commit_info: true,
                 ..Default::default()
             },
-        )?;
+        )?
+        .pruned_to_entrypoint();
+        let mut stacks = ws.stacks.clone();
+        if !head_info.is_entrypoint {
+            // Status reads commit details from pruned ref-info, but builds CLI IDs from graph
+            // stacks, so both views must contain the same segments when HEAD is inside a stack.
+            let visible_segment_ids: HashSet<_> = head_info
+                .stacks
+                .iter()
+                .flat_map(|stack| stack.segments.iter().map(|segment| segment.id))
+                .collect();
+            stacks.retain_mut(|stack| {
+                stack
+                    .segments
+                    .retain(|segment| visible_segment_ids.contains(&segment.id));
+                !stack.segments.is_empty()
+            });
+        }
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
@@ -483,7 +500,7 @@ fn build_status_context<'a>(
             push_statuses_by_segment_id,
             local_commits_by_id,
             remote_commits_by_id,
-            ws.stacks.clone(),
+            stacks,
             resolved_target,
             commit_id_to_change_id,
         )
