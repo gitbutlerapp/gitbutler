@@ -1487,7 +1487,10 @@ impl Details {
             let parent_hunk = synthetic_parent_hunk(
                 &sections_for_file_cli_ids.head.id,
                 0,
-                sections_for_file_cli_ids.flat_map(|hunk| hunk.hunks.clone()),
+                sections_for_file_cli_ids
+                    .clone()
+                    .flat_map(|hunk| hunk.hunks.clone()),
+                sections_for_file_cli_ids.head.source.clone(),
             );
             if all_sections_marked {
                 marks.insert_mark(parent_hunk)?;
@@ -2039,6 +2042,7 @@ mod tests {
                 },
             }),
             is_entire_file: false,
+            source: crate::ChangeSourceId::Head,
         })
     }
 

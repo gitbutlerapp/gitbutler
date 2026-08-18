@@ -529,15 +529,18 @@ fn build_status_context<'a>(
         .collect();
     conflicted_paths.sort();
 
-    let uncommitted_hunks = {
+    // Worktree state needs the database, so it is read before the repo handle below.
+    let worktree_names = crate::utils::change_source::active_worktree_sources(ctx)?;
+    let sources = {
         let repo = ctx.repo.get()?;
-        but_core::hunks_from_changes(
+        crate::utils::change_source::changes_by_source(
             &repo,
-            worktree_changes.worktree_changes.changes.clone(),
             ctx.settings.context_lines,
-        )
+            worktree_names,
+            worktree_changes.worktree_changes.changes.clone(),
+        )?
     };
-    let id_map = IdMap::new(stacks, uncommitted_hunks, commit_id_to_change_id)?;
+    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id)?;
 
     let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later
