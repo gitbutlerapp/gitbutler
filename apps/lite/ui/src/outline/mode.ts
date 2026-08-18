@@ -1,13 +1,5 @@
 import { Match } from "effect";
-import {
-	type BranchOperand,
-	branchOperand,
-	type CommitOperand,
-	commitOperand,
-	operandEquals,
-	type Operand,
-	uncommittedChangesOperand,
-} from "#ui/operands.ts";
+import { operandEquals, type Operand, uncommittedChangesOperand } from "#ui/operands.ts";
 import type { Placement } from "#ui/operations/operation.ts";
 import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
@@ -104,14 +96,13 @@ export const transferOutlineMode = (mode: TransferMode): OutlineMode => ({
 	value: mode,
 });
 
-type RewordCommitOutlineMode = { operand: CommitOperand };
+export type InlineEditOperand = Extract<Operand, { _tag: "Branch" | "Commit" }>;
 
-type RenameBranchOutlineMode = { operand: BranchOperand };
+export type InlineEditMode = { operand: InlineEditOperand };
 
 export type OutlineMode =
 	| { _tag: "Default" }
-	| ({ _tag: "RewordCommit" } & RewordCommitOutlineMode)
-	| ({ _tag: "RenameBranch" } & RenameBranchOutlineMode)
+	| ({ _tag: "InlineEdit" } & InlineEditMode)
 	| ({ _tag: "Absorb" } & AbsorbMode)
 	| { _tag: "Transfer"; value: TransferMode };
 
@@ -119,13 +110,8 @@ export const defaultOutlineMode: OutlineMode = {
 	_tag: "Default",
 };
 
-export const rewordCommitOutlineMode = ({ operand }: RewordCommitOutlineMode): OutlineMode => ({
-	_tag: "RewordCommit",
-	operand,
-});
-
-export const renameBranchOutlineMode = ({ operand }: RenameBranchOutlineMode): OutlineMode => ({
-	_tag: "RenameBranch",
+export const inlineEditOutlineMode = ({ operand }: InlineEditMode): OutlineMode => ({
+	_tag: "InlineEdit",
 	operand,
 });
 
@@ -141,8 +127,7 @@ export const isValidOutlineModeForSelection = ({
 			Default: () => true,
 			Absorb: () => true,
 			Transfer: () => true,
-			RewordCommit: (mode) => operandEquals(selection, commitOperand(mode.operand)),
-			RenameBranch: (mode) => operandEquals(selection, branchOperand(mode.operand)),
+			InlineEdit: (mode) => operandEquals(selection, mode.operand),
 		}),
 	);
 
@@ -152,7 +137,6 @@ export const getOperationSources = (mode: OutlineMode): Array<Operand> | null =>
 			Default: () => null,
 			Absorb: (x) => x.sources,
 			Transfer: (x) => x.value.sources,
-			RenameBranch: () => null,
-			RewordCommit: () => null,
+			InlineEdit: () => null,
 		}),
 	);

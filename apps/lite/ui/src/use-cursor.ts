@@ -10,9 +10,8 @@ import {
 	type UrlListName,
 	type UrlQueryParams,
 } from "#ui/cursor-url.ts";
-import { isValidOutlineModeForSelection } from "#ui/outline/mode.ts";
-import { branchOperand, commitOperand } from "#ui/operands.ts";
-import type { BranchOperand, CommitOperand, Operand } from "#ui/operands.ts";
+import { isValidOutlineModeForSelection, type InlineEditOperand } from "#ui/outline/mode.ts";
+import type { Operand } from "#ui/operands.ts";
 import type { OutlineTab, WorkspaceList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
@@ -320,14 +319,9 @@ export const cancelMode = (): void => {
 	if (restore) restoreWorkspaceCursors(restore);
 };
 
-export const startRewordCommit = (commit: CommitOperand): void => {
-	setCursor("stacks", commitOperand(commit));
-	store.dispatch(projectSlice.actions.startRewordCommit({ projectId: projectIdOf(), commit }));
-};
-
-export const startRenameBranch = (branch: BranchOperand): void => {
-	setCursor("stacks", branchOperand(branch));
-	store.dispatch(projectSlice.actions.startRenameBranch({ projectId: projectIdOf(), branch }));
+export const startInlineEdit = (operand: InlineEditOperand): void => {
+	setCursor("stacks", operand);
+	store.dispatch(projectSlice.actions.startInlineEdit({ projectId: projectIdOf(), operand }));
 };
 
 /* ------------------------------------------------------- rewrite handling */

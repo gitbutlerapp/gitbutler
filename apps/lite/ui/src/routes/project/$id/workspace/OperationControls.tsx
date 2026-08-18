@@ -402,8 +402,7 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 					}),
 					Match.orElse(() => null),
 				),
-			RenameBranch: () => null,
-			RewordCommit: () => null,
+			InlineEdit: () => null,
 		}),
 	);
 };

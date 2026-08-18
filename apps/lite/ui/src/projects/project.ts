@@ -18,11 +18,11 @@ import type { Placement } from "#ui/operations/operation.ts";
 import {
 	absorbOutlineMode,
 	defaultOutlineMode,
+	inlineEditOutlineMode,
 	keyboardTransferMode,
 	pointerTransferMode,
-	renameBranchOutlineMode,
-	rewordCommitOutlineMode,
 	transferOutlineMode,
+	type InlineEditMode,
 	type OutlineMode,
 	type TransferMode,
 } from "#ui/outline/mode.ts";
@@ -155,11 +155,8 @@ export const projectReducers = {
 	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
 		upstreamReducers.toggleSegment(state.upstream, { segmentId });
 	},
-	startRewordCommit: (state: ProjectState, { commit }: { commit: CommitOperand }) => {
-		state.workspace.mode = rewordCommitOutlineMode({ operand: commit });
-	},
-	startRenameBranch: (state: ProjectState, { branch }: { branch: BranchOperand }) => {
-		state.workspace.mode = renameBranchOutlineMode({ operand: branch });
+	startInlineEdit: (state: ProjectState, mode: InlineEditMode) => {
+		state.workspace.mode = inlineEditOutlineMode(mode);
 	},
 	updateRewrittenBranchReferences: (
 		state: ProjectState,
@@ -177,10 +174,11 @@ export const projectReducers = {
 		}
 
 		if (
-			workspaceState.mode._tag === "RenameBranch" &&
-			operandEquals(branchOperand(workspaceState.mode.operand), oldBranchOperand)
+			workspaceState.mode._tag === "InlineEdit" &&
+			workspaceState.mode.operand._tag === "Branch" &&
+			operandEquals(workspaceState.mode.operand, oldBranchOperand)
 		)
-			workspaceState.mode = renameBranchOutlineMode({ operand: newBranch });
+			workspaceState.mode = inlineEditOutlineMode({ operand: branchOperand(newBranch) });
 
 		const oldFileParent = branchFileParent(oldBranch);
 		const newFileParent = branchFileParent(newBranch);
@@ -363,11 +361,17 @@ export const projectReducers = {
 			workspaceState.checkedOperands[operandIdentityKey(newOperand)] = newOperand;
 		}
 
-		if (workspaceState.mode._tag === "RewordCommit") {
+		if (
+			workspaceState.mode._tag === "InlineEdit" &&
+			workspaceState.mode.operand._tag === "Commit"
+		) {
 			const newId = replacedCommits[workspaceState.mode.operand.commitId];
 			if (newId !== undefined) {
-				workspaceState.mode = rewordCommitOutlineMode({
-					operand: { commitId: newId, changeId: workspaceState.mode.operand.changeId },
+				workspaceState.mode = inlineEditOutlineMode({
+					operand: commitOperand({
+						commitId: newId,
+						changeId: workspaceState.mode.operand.changeId,
+					}),
 				});
 			}
 		}

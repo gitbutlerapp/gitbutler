@@ -292,8 +292,7 @@ const buildOutlineNavigationIndex = ({
 							(source) => operandEquals(operand, source) || operandContains(operand, source),
 						) || hasAnyOperation(activeMode.sources, operand),
 				),
-			RenameBranch: (x) => [branchOperand(x.operand)],
-			RewordCommit: (x) => [commitOperand(x.operand)],
+			InlineEdit: (x) => [x.operand],
 		}),
 	);
 

@@ -1,5 +1,5 @@
 import rowStyles from "../Row.module.css";
-import { enterKeyboardTransfer, setCursor, startRewordCommit } from "#ui/use-cursor.ts";
+import { enterKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
 	useCommitDiscard,
@@ -91,10 +91,7 @@ export const CommitRow: FC<
 	);
 	const isRewording = useAppSelector((state) => {
 		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RewordCommit" &&
-			operandEquals(operand, commitOperand(outlineMode.operand))
-		);
+		return outlineMode._tag === "InlineEdit" && operandEquals(operand, outlineMode.operand);
 	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
@@ -212,7 +209,7 @@ export const CommitRow: FC<
 	};
 
 	const startEditing = () => {
-		startRewordCommit(commitOperandV);
+		startInlineEdit(operand);
 	};
 
 	const endEditing = () => {

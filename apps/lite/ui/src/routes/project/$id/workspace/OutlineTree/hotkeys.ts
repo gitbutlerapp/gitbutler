@@ -8,12 +8,7 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
-import {
-	setCursor,
-	startRenameBranch,
-	startRewordCommit,
-	useResolvedCursor,
-} from "#ui/use-cursor.ts";
+import { setCursor, startInlineEdit, useResolvedCursor } from "#ui/use-cursor.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -469,7 +464,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.rewordCommit.hotkey,
 						callback: () => {
-							startRewordCommit(selection);
+							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -481,7 +476,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: "F2",
 						callback: () => {
-							startRewordCommit(selection);
+							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -494,7 +489,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.renameBranch.hotkey,
 						callback: () => {
-							startRenameBranch(selection);
+							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -506,7 +501,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: "F2",
 						callback: () => {
-							startRenameBranch(selection);
+							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",

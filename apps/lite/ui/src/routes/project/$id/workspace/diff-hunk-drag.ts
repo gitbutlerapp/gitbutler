@@ -88,7 +88,7 @@ export const useDiffHunkDrag = <T>({
 			if (fileParent._tag === "Branch") return false;
 
 			const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectId);
-			return mode._tag !== "RenameBranch" && mode._tag !== "RewordCommit";
+			return mode._tag !== "InlineEdit";
 		},
 		getHeadInfoIndex: () => {
 			const headInfo = queryClient.getQueryData(headInfoQueryOptions(projectId).queryKey);
