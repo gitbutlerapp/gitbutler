@@ -302,15 +302,15 @@ impl TryFrom<EngineCommitMoveResult> for CommitMoveResult {
         })
     }
 }
-/// JSON transport type for discarding a commit.
+/// JSON transport type for discarding one or more commits.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CommitDiscardResult {
-    /// The commit that was discarded as a result of this operation.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
-    pub discarded_commit: HexHash,
-    /// Workspace state after discarding the commit.
+    /// The commits that were discarded as a result of this operation.
+    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+    pub discarded_commits: Vec<HexHash>,
+    /// Workspace state after discarding the commits.
     pub workspace: crate::json::WorkspaceState,
 }
 
@@ -322,12 +322,12 @@ impl TryFrom<EngineCommitDiscardResult> for CommitDiscardResult {
 
     fn try_from(value: EngineCommitDiscardResult) -> Result<Self, Self::Error> {
         let EngineCommitDiscardResult {
-            discarded_commit,
+            discarded_commits,
             workspace,
         } = value;
 
         Ok(Self {
-            discarded_commit: discarded_commit.into(),
+            discarded_commits: discarded_commits.into_iter().map(Into::into).collect(),
             workspace: workspace.try_into()?,
         })
     }

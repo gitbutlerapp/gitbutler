@@ -39,7 +39,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import type { RefObject } from "react";
 import { toggleFoldedSegment } from "./fold.ts";
-import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
+import { selectAfterDiscardedCommits } from "./selectAfterDiscardedCommit.ts";
 import {
 	canRemoveBranchReference,
 	downstackPushStatusDisabled,
@@ -278,17 +278,24 @@ export const useOutlineTreeHotkeys = ({
 
 	const deleteSelectedCommit = () => {
 		if (!selection || selection._tag !== "Commit") return;
+		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
+			store.getState(),
+			projectId,
+		);
+		const subjectCommitIds =
+			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
 
-		const selectionAfterDiscard = selectAfterDiscardedCommit({
+		const selectionAfterDiscard = selectAfterDiscardedCommits({
 			navigationIndex,
 			commit: { commitId: selection.commitId, changeId: selection.changeId },
+			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,
 		});
 
 		commitDiscard(
 			{
 				projectId,
-				subjectCommitId: selection.commitId,
+				subjectCommitIds: Array.from(subjectCommitIds),
 				dryRun: false,
 			},
 			{

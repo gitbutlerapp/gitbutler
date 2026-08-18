@@ -8,23 +8,33 @@ import {
 } from "#ui/operands.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
-export const selectAfterDiscardedCommit = ({
+export const selectAfterDiscardedCommits = ({
 	navigationIndex,
 	commit,
+	discardedCommitIds,
 	headInfoIndex,
 }: {
 	navigationIndex: NavigationIndex<Operand>;
 	commit: CommitOperand;
+	discardedCommitIds: ReadonlySet<string>;
 	headInfoIndex: HeadInfoIndex | undefined;
 }): Operand | null => {
+	if (!discardedCommitIds.has(commit.commitId)) return commitOperand(commit);
+
 	const commitIndex = navigationIndex.indexByKey.get(operandIdentityKey(commitOperand(commit)));
 	if (commitIndex === undefined) return null;
 
-	const nextCommit = navigationIndex.items[commitIndex + 1];
-	if (nextCommit?._tag === "Commit") return nextCommit;
+	for (let index = commitIndex + 1; ; index++) {
+		const nextCommit = navigationIndex.items[index];
+		if (nextCommit?._tag !== "Commit") break;
+		if (!discardedCommitIds.has(nextCommit.commitId)) return nextCommit;
+	}
 
-	const prevCommit = navigationIndex.items[commitIndex - 1];
-	if (prevCommit?._tag === "Commit") return prevCommit;
+	for (let index = commitIndex - 1; ; index--) {
+		const prevCommit = navigationIndex.items[index];
+		if (prevCommit?._tag !== "Commit") break;
+		if (!discardedCommitIds.has(prevCommit.commitId)) return prevCommit;
+	}
 
 	const commitCtx = headInfoIndex?.commitContextByCommitId(commit.commitId);
 	if (!commitCtx?.segment.refName) return null;

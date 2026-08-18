@@ -93,11 +93,11 @@ pub struct CommitInsertBlankResult {
     pub workspace: WorkspaceState,
 }
 
-/// Outcome of discarding a commit.
+/// Outcome of discarding one or more commits.
 pub struct CommitDiscardResult {
-    /// The ID of the commit discarded.
-    pub discarded_commit: gix::ObjectId,
-    /// Workspace state after discarding the commit.
+    /// The IDs of the commits discarded.
+    pub discarded_commits: Vec<gix::ObjectId>,
+    /// Workspace state after discarding the commits.
     pub workspace: WorkspaceState,
 }
 
