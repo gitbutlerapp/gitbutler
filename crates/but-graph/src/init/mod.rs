@@ -1481,7 +1481,7 @@ fn initial_tips_from_tips(
     })
 }
 
-/// Append caller-provided linked-worktree `HEAD` tips as plain reachable seeds.
+/// Append the discovered linked-worktree `HEAD` tips as plain reachable seeds.
 ///
 /// They come last so they never claim a commit that other initial work seeds first -
 /// in workspace and ad-hoc priority modes alike - and they don't participate in any

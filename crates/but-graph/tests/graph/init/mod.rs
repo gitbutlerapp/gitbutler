@@ -2553,7 +2553,7 @@ fn graph_with_branch_orders(
     for order in orders {
         overlay = overlay.with_branch_stack_order_override(order.iter().copied().map(ref_name));
     }
-    // The callers' fixtures are shared and read-only, so the database stands alone.
+    // These tests never exercise worktree discovery, so the database stands alone.
     Graph::from_commit_traversal(
         tip.attach(repo),
         Some(entrypoint_ref),

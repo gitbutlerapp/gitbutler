@@ -49,18 +49,4 @@ impl Context {
         })?;
         Ok(())
     }
-
-    /// List all non-archived linked worktrees; every returned entry has
-    /// `archived == false`.
-    ///
-    /// This is [`Self::worktrees_with_state()`] filtered down to active worktrees,
-    /// including its adoption side-effect, flag gating, and linked-worktree error;
-    /// the same caveats apply.
-    pub fn active_worktrees(&self) -> Result<Vec<WorktreeEntry>> {
-        Ok(self
-            .worktrees_with_state()?
-            .into_iter()
-            .filter(|wt| !wt.archived)
-            .collect())
-    }
 }

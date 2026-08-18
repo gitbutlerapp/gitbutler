@@ -773,6 +773,8 @@ impl Context {
         Ok((self.repo.get()?, ws, self.db.get_cache()?))
     }
 
+    /// Must not be called while a database handle is borrowed: graph construction takes
+    /// one unconditionally, whether or not worktree discovery is enabled.
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
@@ -808,6 +810,9 @@ impl Context {
     /// re-project the current repository state and update the cache so subsequent callers see the
     /// mutation. Use this only when legacy code needs a one-off view of a non-HEAD workspace ref
     /// and deliberately must not replace the cached current workspace.
+    ///
+    /// Must not be called while a database handle is borrowed: graph construction takes
+    /// one unconditionally, whether or not worktree discovery is enabled.
     pub fn workspace_from_ref_uncached(
         &self,
         ref_name: &gix::refs::FullNameRef,

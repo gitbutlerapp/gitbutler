@@ -192,7 +192,7 @@ fn integration_graph_for_branch(
     target_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &InMemoryRefMetadata,
 ) -> Result<but_graph::Graph> {
-    // The callers' fixtures are shared and read-only, so the database stands alone.
+    // These tests never exercise worktree discovery, so the database stands alone.
     let mut db = but_testsupport::in_memory_db();
     if let Some(target_ref_name) = target_ref_name {
         let head = repo.head()?;

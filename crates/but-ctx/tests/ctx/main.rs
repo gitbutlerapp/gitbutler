@@ -406,7 +406,11 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
          git -C ../wt-c commit --allow-empty -m C1",
         &*ctx.repo.get()?,
     );
-    let active = ctx.active_worktrees()?;
+    let active: Vec<_> = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .filter(|wt| !wt.archived)
+        .collect();
     assert_eq!(
         active
             .iter()
@@ -465,8 +469,9 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
 
 fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
     Ok(ctx
-        .active_worktrees()?
+        .worktrees_with_state()?
         .into_iter()
+        .filter(|wt| !wt.archived)
         .map(|wt| wt.name.to_string())
         .collect())
 }

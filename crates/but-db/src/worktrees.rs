@@ -12,6 +12,14 @@ use gix::bstr::{BStr, BString};
 
 use crate::DbHandle;
 
+/// Whether `ref_name` is a workspace ref, kept in sync with
+/// `but_core::is_workspace_ref_name()` by hand: depending on but-core here would
+/// pull libgit2 into every crate that reaches but-db, for two string comparisons.
+fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
+    let name = ref_name.as_bstr();
+    name == "refs/heads/gitbutler/workspace" || name == "refs/heads/gitbutler/integration"
+}
+
 /// A linked worktree whose checkout exists on disk, with its archived state.
 ///
 /// This is identity only - anything `HEAD`-derived is resolved freshly by
@@ -64,10 +72,7 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
         }
     };
     let ref_name = head.referent_name().map(ToOwned::to_owned);
-    if ref_name
-        .as_ref()
-        .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
-    {
+    if ref_name.as_ref().is_some_and(is_workspace_ref) {
         return Ok(None);
     }
     match head.peel_to_commit() {

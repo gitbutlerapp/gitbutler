@@ -1218,7 +1218,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
- "but-core",
  "but-utils",
  "chrono",
  "gix",
