@@ -8,6 +8,8 @@ mod ci;
 mod db;
 pub use db::list_cached_forge_reviews;
 mod forge_info;
+mod merge_message;
+pub use merge_message::{MergedReviewFromMessage, merged_review_from_message};
 mod repo;
 mod review;
 pub use association::{pr_numbers_by_head, preferred_review, review_for_head_ref, reviews_by_head};

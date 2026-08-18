@@ -27,7 +27,7 @@ import {
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, type MouseEvent, useRef, useState } from "react";
+import { type ComponentProps, type FC, useRef, useState } from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter, SectionHeaderRow } from "./Row.tsx";
 import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
@@ -75,16 +75,12 @@ const TargetCommitRow: FC<{
 	const { commit, review, inWorkspace } = item;
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
 	const isSelected = useIsSelected(projectId, operand);
-	const title = commitTitle(commit.message);
+	// A commit that landed a review is shown as that review: its title says
+	// what changed, where "Merge pull request #N from …" only says that it did.
+	const title = review?.title ?? commitTitle(commit.message);
 	const [now] = useState(() => Date.now());
 
 	const authorName = commit.author.name;
-
-	const openReviewInBrowser = async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt.preventDefault();
-
-		if (review) await window.lite.openInWebBrowser(review.htmlUrl);
-	};
 
 	return (
 		<Row
@@ -119,16 +115,14 @@ const TargetCommitRow: FC<{
 					</span>
 
 					{review !== null && (
-						<a
-							href={review.htmlUrl}
+						<span
 							title={review.title}
-							onClick={(evt) => void openReviewInBrowser(evt)}
 							className={classes(rowStyles.fadedText, styles.labelMetaItem)}
 						>
 							<Icon name="pr" />
 							{review.unitSymbol}
 							{review.number}
-						</a>
+						</span>
 					)}
 				</RowLabelFooter>
 			</div>
@@ -278,19 +272,23 @@ const UpdateBlock: FC<{
  * is reported instead, since a silently absent band would read as "no more
  * history" and leave nothing to retry with.
  */
-const LoadMoreOlder: FC<{ projectId: string }> = ({ projectId }) => {
+/**
+ * Asks for the next page of older history. The pages query is disabled, so
+ * this button is the only thing that ever fetches it: the first press opens
+ * the section, later ones extend it.
+ */
+const LoadMoreOlder: FC<{ projectId: string; hasOlder: boolean }> = ({ projectId, hasOlder }) => {
 	// Shares the base listing the outline already reads; this only takes the
 	// cursor its last commit supplies.
 	const { data: olderFrom = null } = useQuery({
 		...workspaceTargetCommitsQueryOptions(projectId),
 		select: (page) => page.commits.at(-1)?.commit.id ?? null,
 	});
-	const { fetchNextPage, hasNextPage, isFetching, isError } = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
-		enabled: olderFrom !== null,
-	});
+	const { fetchNextPage, isFetching, isError } = useInfiniteQuery(
+		olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
+	);
 
-	if (!hasNextPage && !isError) return null;
+	if (olderFrom === null || (!hasOlder && !isError)) return null;
 
 	return (
 		<div role="none" className={styles.block}>
@@ -398,6 +396,7 @@ export const UpstreamList: FC<
 		items,
 		incomingItemCount,
 		olderItems,
+		hasOlder,
 		targetLabel,
 		incomingCount,
 		hasIntegrated,
@@ -547,7 +546,7 @@ export const UpstreamList: FC<
 					</div>
 				)}
 
-				<LoadMoreOlder projectId={projectId} />
+				<LoadMoreOlder projectId={projectId} hasOlder={hasOlder} />
 			</div>
 		</div>
 	);

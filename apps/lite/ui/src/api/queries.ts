@@ -157,14 +157,8 @@ export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	});
 
 /**
- * Enough older history to show the section has depth without it crowding out
- * the bands above it on arriving at the tab.
- */
-const olderTargetCommitsFirstPageSize = 10;
-
-/**
- * What each "load more" adds. Larger than the first page: asking for more is
- * deliberate, so it should cover ground rather than need pressing repeatedly.
+ * What each "load older commits" adds. Asking is deliberate, so a page should
+ * cover ground rather than need pressing repeatedly.
  */
 const olderTargetCommitsPageSize = 25;
 
@@ -173,6 +167,10 @@ const olderTargetCommitsPageSize = 25;
  * commit-id cursor. `from` is exclusive: the backend starts at that commit's
  * first parent, so passing the base listing's last commit continues the line
  * without repeating it.
+ *
+ * Fetched only on demand: consumers keep it disabled and call `fetchNextPage`
+ * when the user asks, so nothing below the workspace's fork points loads
+ * unbidden.
  *
  * Keyed under the base listing's own root, so whatever invalidates the target
  * line — a fetch, a workspace update — reaches the pages hanging off it too.
@@ -184,10 +182,9 @@ export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: 
 			window.lite.workspaceTargetCommits({
 				projectId,
 				from: pageParam,
-				// The first page is the one nobody asked for, and it is the only
-				// fetch whose cursor is still the one the walk started from.
-				limit: pageParam === from ? olderTargetCommitsFirstPageSize : olderTargetCommitsPageSize,
+				limit: olderTargetCommitsPageSize,
 			}),
+		enabled: false,
 		initialPageParam: from,
 		getNextPageParam: (lastPage) =>
 			lastPage.hasMore ? lastPage.commits.at(-1)?.commit.id : undefined,

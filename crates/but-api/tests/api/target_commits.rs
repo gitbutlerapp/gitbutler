@@ -71,6 +71,82 @@ fn reports_clipping_and_accepts_a_zero_limit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Without a forge cache entry, a GitHub merge-button commit still names the
+/// pull request it landed, read from its own message.
+#[test]
+fn github_merge_commit_names_its_pull_request_from_the_message() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args([
+            "config",
+            "remote.origin.url",
+            "git@github.com:owner/repo.git",
+        ])
+        .run();
+    write_file(tmp.path(), "file.txt", "three\n")?;
+    git_at_dir(tmp.path())
+        .args([
+            "commit",
+            "-am",
+            "Merge pull request #42 from owner/topic\n\nAdd the third line\n",
+        ])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path()).args(["switch", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["switch", "-c", "gitbutler/workspace"])
+        .run();
+    git_at_dir(tmp.path())
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            "GitButler Workspace Commit",
+        ])
+        .run();
+    drop(repo);
+
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+
+    let page = but_api::target_commits::workspace_target_commits(&ctx, None, None)?;
+    let reviews: Vec<_> = page
+        .commits
+        .iter()
+        .map(|commit| {
+            commit.review.as_ref().map(|review| {
+                (
+                    review.number,
+                    review.title.as_str(),
+                    review.html_url.as_str(),
+                    review.unit_symbol.as_str(),
+                    review.source_branch.as_str(),
+                )
+            })
+        })
+        .collect();
+    assert_eq!(
+        reviews,
+        [
+            Some((
+                42,
+                "Add the third line",
+                "https://github.com/owner/repo/pull/42",
+                "#",
+                "topic"
+            )),
+            None,
+            None,
+        ],
+        "only the merge commit names a review; plain commits stay unannotated"
+    );
+    Ok(())
+}
+
 /// A still-applied stack landed upstream through a merge commit: the workspace
 /// lower bound becomes the stack tip, which sits on the merge's *second*
 /// parent and is never met by the first-parent walk. The stack's base bounds

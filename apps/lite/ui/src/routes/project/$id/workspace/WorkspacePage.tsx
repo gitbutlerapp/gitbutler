@@ -73,7 +73,7 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
-import { useUpstreamOutline } from "./useUpstreamOutline.ts";
+import { upstreamCommitReview, useUpstreamOutline } from "./useUpstreamOutline.ts";
 import type { OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
@@ -582,6 +582,12 @@ const WorkspacePage: FC = () => {
 	// selection came from. Only the workspace page has two lists, so only its arm
 	// asks which one drives. Memoised because `useDeferredValue` compares by
 	// identity, so a freshly built element every render would defer every render.
+	// Looked up outside the memo so the details only rebuild when the review
+	// itself changes, not on every outline rerun.
+	const upstreamReview =
+		upstreamSelection?._tag === "Commit"
+			? upstreamCommitReview(upstreamOutline, upstreamSelection.commitId)
+			: null;
 	const details = useMemo(() => {
 		const viewProps = { onActiveFileSelection, viewerRef, didScrollToViaFileRef };
 
@@ -602,7 +608,7 @@ const WorkspacePage: FC = () => {
 				),
 			),
 			Match.when("upstream", () => (
-				<UpstreamDetails selection={upstreamSelection} {...viewProps} />
+				<UpstreamDetails selection={upstreamSelection} review={upstreamReview} {...viewProps} />
 			)),
 			Match.when("branches", () => (
 				<BranchesDetails selection={branchesSelection} {...viewProps} />
@@ -615,6 +621,7 @@ const WorkspacePage: FC = () => {
 		outlineSelection,
 		outlineTab,
 		uncommittedFilesSelection,
+		upstreamReview,
 		upstreamSelection,
 		workspaceList,
 	]);

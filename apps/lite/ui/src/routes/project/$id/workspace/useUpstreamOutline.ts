@@ -8,7 +8,7 @@ import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import type { RefInfo, TargetCommit } from "@gitbutler/but-sdk";
+import type { RefInfo, TargetCommit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
 // Stable empties for the inactive-tab result, so consumers' identities do not
@@ -79,6 +79,8 @@ export type UpstreamOutline = {
 	 * it stays out of the interleaved listing above.
 	 */
 	olderItems: Array<UpstreamCommitItem>;
+	/** Whether older history remains to be asked for below what is shown. */
+	hasOlder: boolean;
 	/** The target's display label, like `origin/main`, or `null` without a target. */
 	targetLabel: string | null;
 	/**
@@ -97,6 +99,17 @@ export type UpstreamOutline = {
 	 */
 	isPending: boolean;
 	isError: boolean;
+};
+
+/** The review the listing attaches to a commit, wherever the commit sits in it. */
+export const upstreamCommitReview = (
+	outline: UpstreamOutline,
+	commitId: string,
+): TargetCommitReview | null => {
+	const item = [...outline.items, ...outline.olderItems].find(
+		(item) => item.type === "commit" && item.commit.id === commitId,
+	);
+	return item?.type === "commit" ? item.review : null;
 };
 
 type WorkspaceStackBranches = {
@@ -274,10 +287,11 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 		enabled: active,
 		select: (page) => page.commits.at(-1)?.commit.id ?? null,
 	});
-	const { data: olderPages } = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
-		enabled: active && olderFrom !== null,
-	});
+	// Disabled by its options: pages arrive only once "load older commits"
+	// asked for them, so before that the section stays closed.
+	const { data: olderPages } = useInfiniteQuery(
+		olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
+	);
 	// The whole derivation lives in `combine` so its result keeps a stable
 	// identity: react-query caches it on the query results and the `combine`
 	// reference — which itself only changes when a captured input like the
@@ -310,6 +324,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 					items: noItems,
 					incomingItemCount: 0,
 					olderItems: noCommits,
+					hasOlder: false,
 					targetLabel,
 					incomingCount,
 					hasIntegrated: false,
@@ -329,11 +344,17 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			// The paged history continues below the base listing's last commit, so
 			// the run trailing the deepest fork point heads the section those pages
 			// fill out. Leaving it off would open a hole the rail draws across.
+			// The whole section, run included, waits for the first page to be asked
+			// for: on arriving at the tab nothing below the fork points is shown.
 			const olderPageItems = olderPages?.pages.flatMap((page) => page.commits).map(asItem) ?? [];
 			const olderItems =
-				trailingRun.length === 0 && olderPageItems.length === 0
+				olderPages === undefined || (trailingRun.length === 0 && olderPageItems.length === 0)
 					? noCommits
 					: [...trailingRun, ...olderPageItems];
+			const hasOlder =
+				olderPages === undefined
+					? trailingRun.length > 0 || (targetPage?.hasMore ?? false)
+					: (olderPages.pages.at(-1)?.hasMore ?? false);
 
 			// Commit rows are selectable wherever they appear, older ones
 			// included, so the index runs on into the older section and arrow
@@ -363,6 +384,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 				items,
 				incomingItemCount,
 				olderItems,
+				hasOlder,
 				targetLabel,
 				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),

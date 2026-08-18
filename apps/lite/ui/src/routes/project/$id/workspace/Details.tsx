@@ -15,6 +15,7 @@ import {
 	commitConflictsQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	forgeInfoOptions,
+	getReviewQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
@@ -22,7 +23,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import type { ForgeReview } from "@gitbutler/but-sdk";
+import type { ForgeReview, TargetCommitReview } from "@gitbutler/but-sdk";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
@@ -2306,10 +2307,12 @@ const CommitDetailsSkeleton: FC = () => {
 
 const CommitDetails: FC<{
 	selection: Extract<Operand, { _tag: "Commit" }>;
+	/** The merged review the commit landed, when known: adds a Pull Request tab. */
+	review?: TargetCommitReview | null;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ selection, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
+}> = ({ selection, review, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
@@ -2368,8 +2371,15 @@ const CommitDetails: FC<{
 		setCursor("files", selection);
 	};
 
+	// The tab is per selection: selecting another commit remounts this
+	// component, and a landed review is read, not worked on, so nothing needs
+	// to remember the choice.
+	const [tab, setTab] = useState<BranchTab>("diff");
+	const ref = useRef<HTMLDivElement>(null);
+	useBranchTabHotkeys({ branchTab: tab, setBranchTab: setTab, target: ref, enabled: !!review });
+
 	return (
-		<div className={styles.container}>
+		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
 					{detailsFullWindow && <TopLeftControls />}
@@ -2452,24 +2462,51 @@ const CommitDetails: FC<{
 						copyValue={commitDetails.commit.id}
 					/>
 				</div>
+
+				{review && (
+					<div className={classes(styles.tabsRow, tab === "pr" && styles.tabsRowPrCap)}>
+						<BranchTabToggle branchTab={tab} setBranchTab={setTab} />
+					</div>
+				)}
 			</div>
 
-			<Diff
-				changes={changes}
-				filesVisible={filesVisible}
-				filesItems={filesItems}
-				conflicts={conflicts?.files}
-				manualConflicts={conflicts?.manual}
-				conflictsStale={conflictsStale}
-				onPassiveFileSelection={selectFile}
-				selection={selection}
-				projectId={projectId}
-				onActiveFileSelection={onActiveFileSelection}
-				viewerRef={viewerRef}
-				didScrollToViaFileRef={didScrollToViaFileRef}
-			/>
+			{review && tab === "pr" ? (
+				<div className={styles.prTab}>
+					<LandedReviewView projectId={projectId} reviewId={review.number} />
+				</div>
+			) : (
+				<Diff
+					changes={changes}
+					filesVisible={filesVisible}
+					filesItems={filesItems}
+					conflicts={conflicts?.files}
+					manualConflicts={conflicts?.manual}
+					conflictsStale={conflictsStale}
+					onPassiveFileSelection={selectFile}
+					selection={selection}
+					projectId={projectId}
+					onActiveFileSelection={onActiveFileSelection}
+					viewerRef={viewerRef}
+					didScrollToViaFileRef={didScrollToViaFileRef}
+				/>
+			)}
 		</div>
 	);
+};
+
+/**
+ * A review a target commit landed, fetched by number: the listing only knows
+ * the number, title and link, while the view needs the whole review.
+ */
+const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ projectId, reviewId }) => {
+	const { data: review, isError } = useQuery(getReviewQueryOptions({ projectId, reviewId }));
+	if (isError) {
+		return (
+			<div className={classes(styles.loadingTab, "text-13")}>Could not load the pull request.</div>
+		);
+	}
+	if (!review) return <div className={classes(styles.loadingTab, "text-13")}>Loading…</div>;
+	return <ReviewView projectId={projectId} sourceBranch={review.sourceBranch} review={review} />;
 };
 
 /** A branch's own changes, whatever the branch's standing. */
@@ -2955,9 +2992,15 @@ type OutlineDetailsProps = { selection: Operand | null } & DetailsViewProps;
 const commitDetails = (
 	commit: Extract<Operand, { _tag: "Commit" }>,
 	viewProps: DetailsViewProps,
+	review?: TargetCommitReview | null,
 ): ReactNode => (
 	<Suspense fallback={<CommitDetailsSkeleton />}>
-		<CommitDetails key={weakCommitIdentityKey(commit)} selection={commit} {...viewProps} />
+		<CommitDetails
+			key={weakCommitIdentityKey(commit)}
+			selection={commit}
+			review={review}
+			{...viewProps}
+		/>
 	</Suspense>
 );
 
@@ -2978,14 +3021,27 @@ export const WorkspaceDetails: FC<OutlineDetailsProps> = ({ selection, ...viewPr
  * The details pane for the upstream tab. Only commits are selectable there;
  * its branch rows carry no operand.
  */
-export const UpstreamDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
-	selection &&
-	Match.value(selection).pipe(
-		Match.tags({
-			Commit: (commit) => commitDetails(commit, viewProps),
-		}),
-		Match.orElse(() => null),
+export const UpstreamDetails: FC<OutlineDetailsProps & { review: TargetCommitReview | null }> = ({
+	selection,
+	review,
+	...viewProps
+}) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	// The Pull Request tab fetches the review from the forge, so it is only
+	// offered on a forge that serves them.
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const landedReview = forgeInfo?.capabilities.prService ? review : null;
+
+	return (
+		selection &&
+		Match.value(selection).pipe(
+			Match.tags({
+				Commit: (commit) => commitDetails(commit, viewProps, landedReview),
+			}),
+			Match.orElse(() => null),
+		)
 	);
+};
 
 /**
  * The details pane for the branches tab, which lists what the workspace does
