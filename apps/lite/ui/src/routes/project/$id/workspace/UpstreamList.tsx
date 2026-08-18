@@ -27,7 +27,7 @@ import {
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, type MouseEvent, useRef, useState } from "react";
+import { type ComponentProps, type FC, useRef, useState } from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter, SectionHeaderRow } from "./Row.tsx";
 import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
@@ -82,12 +82,6 @@ const TargetCommitRow: FC<{
 
 	const authorName = commit.author.name;
 
-	const openReviewInBrowser = async (evt: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt.preventDefault();
-
-		if (review) await window.lite.openInWebBrowser(review.htmlUrl);
-	};
-
 	return (
 		<Row
 			id={treeItemId(operand)}
@@ -121,16 +115,14 @@ const TargetCommitRow: FC<{
 					</span>
 
 					{review !== null && (
-						<a
-							href={review.htmlUrl}
+						<span
 							title={review.title}
-							onClick={(evt) => void openReviewInBrowser(evt)}
 							className={classes(rowStyles.fadedText, styles.labelMetaItem)}
 						>
 							<Icon name="pr" />
 							{review.unitSymbol}
 							{review.number}
-						</a>
+						</span>
 					)}
 				</RowLabelFooter>
 			</div>

@@ -8,7 +8,7 @@ import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import type { RefInfo, TargetCommit } from "@gitbutler/but-sdk";
+import type { RefInfo, TargetCommit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
 // Stable empties for the inactive-tab result, so consumers' identities do not
@@ -97,6 +97,17 @@ export type UpstreamOutline = {
 	 */
 	isPending: boolean;
 	isError: boolean;
+};
+
+/** The review the listing attaches to a commit, wherever the commit sits in it. */
+export const upstreamCommitReview = (
+	outline: UpstreamOutline,
+	commitId: string,
+): TargetCommitReview | null => {
+	const item = [...outline.items, ...outline.olderItems].find(
+		(item) => item.type === "commit" && item.commit.id === commitId,
+	);
+	return item?.type === "commit" ? item.review : null;
 };
 
 type WorkspaceStackBranches = {
