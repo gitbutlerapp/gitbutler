@@ -385,6 +385,13 @@ impl Props {
     }
 
     fn insert_internal_error_details(&mut self, error: &anyhow::Error, command: CommandName) {
+        #[cfg(feature = "legacy")]
+        if error.is::<crate::utils::rejection::ExplainedRejection>() {
+            self.insert("error", "Command rejection");
+            self.insert("errorKind", "commandRejection");
+            return;
+        }
+
         self.insert("error", "Internal error");
         self.insert("errorKind", "internal");
         if captures_detailed_error_message(command) {
@@ -474,7 +481,7 @@ fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
 fn captures_detailed_error_message(command: CommandName) -> bool {
     matches!(
         command,
-        CommandName::Uncommit | CommandName::Amend | CommandName::Squash
+        CommandName::Commit | CommandName::Uncommit | CommandName::Amend | CommandName::Squash
     )
 }
 
@@ -963,7 +970,7 @@ mod tests {
         );
 
         let props =
-            Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Commit);
+            Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Status);
 
         assert_eq!(props.values["error"], "Internal error");
         assert_eq!(props.values["errorKind"], "internal");
@@ -971,6 +978,40 @@ mod tests {
         assert!(!props.values.contains_key("errorRoot"));
         assert!(!props.as_json_string().contains("private-branch-name"));
         assert!(!props.as_json_string().contains("private-path"));
+    }
+
+    #[test]
+    fn commit_internal_error_details_are_captured() {
+        let result = Err::<(), _>(CliError::Internal(
+            anyhow::anyhow!("stale id. If you just performed a Git operation, refresh")
+                .context("Failed to commit."),
+        ));
+
+        let props =
+            Props::from_cli_error_result(std::time::Instant::now(), &result, CommandName::Commit);
+
+        assert_eq!(props.values["errorMessage"], "Failed to commit.: stale id.");
+        assert_eq!(props.values["errorRoot"], "stale id.");
+    }
+
+    #[cfg(feature = "legacy")]
+    #[test]
+    fn explained_commit_rejections_omit_private_details() {
+        let result = Err::<(), _>(CliError::Internal(anyhow::Error::new(
+            crate::utils::rejection::ExplainedRejection(
+                "Cannot commit private/path on private-branch".to_string(),
+            ),
+        )));
+
+        let props =
+            Props::from_cli_error_result(std::time::Instant::now(), &result, CommandName::Commit);
+
+        assert_eq!(props.values["error"], "Command rejection");
+        assert_eq!(props.values["errorKind"], "commandRejection");
+        assert!(!props.values.contains_key("errorMessage"));
+        assert!(!props.values.contains_key("errorRoot"));
+        assert!(!props.as_json_string().contains("private/path"));
+        assert!(!props.as_json_string().contains("private-branch"));
     }
 
     #[test]

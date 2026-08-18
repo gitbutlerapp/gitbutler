@@ -50,6 +50,18 @@ impl std::fmt::Display for RejectedChanges {
 
 impl std::error::Error for RejectedChanges {}
 
+/// A rejected operation with its user-facing explanation attached.
+#[derive(Debug)]
+pub(crate) struct ExplainedRejection(pub(crate) String);
+
+impl std::fmt::Display for ExplainedRejection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ExplainedRejection {}
+
 /// What the aborted operation was targeting; determines the recovery hint.
 pub enum Target {
     /// A commit already in the workspace (amend, `commit --above/--below`).
@@ -85,7 +97,7 @@ pub fn explain_after_rollback(
         Ok(loaded) => loaded,
         Err(load_err) => {
             tracing::warn!(?load_err, "Failed to load workspace to explain rejections");
-            return anyhow::anyhow!("Cannot {verb}: {rejected}");
+            return anyhow::Error::new(ExplainedRejection(format!("Cannot {verb}: {rejected}")));
         }
     };
     let (repo, ws) = (&repo, &ws);
@@ -104,7 +116,7 @@ pub fn explain_after_rollback(
     let mut message = format!("Cannot {verb}: {rejected}:\n");
     // Writing to a String cannot fail.
     let _ = write_report(&mut message, &changes, &target, target_branch.as_deref());
-    anyhow::anyhow!(message.trim_end().to_string())
+    anyhow::Error::new(ExplainedRejection(message.trim_end().to_string()))
 }
 
 /// A single rejected change, enriched with the workspace dependencies that
