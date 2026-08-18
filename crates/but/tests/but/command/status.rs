@@ -1316,7 +1316,7 @@ printf '100644 %s 1\tconflicted.txt\n100644 %s 2\tconflicted.txt\n100644 %s 3\tc
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
-⚠ Uncommitted file conflicts: choose the desired file state, then run `but resolve <path>...`.
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
 
