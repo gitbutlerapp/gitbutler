@@ -27,6 +27,7 @@ import {
 	QueryErrorResetBoundary,
 	useQueries,
 	useQuery,
+	useQueryErrorResetBoundary,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -639,6 +640,10 @@ const WorkspacePage: FC = () => {
 		panelIds,
 	});
 
+	/* A suspense query keeps throwing its cached error until the query cache is
+	   reset, so a pane that fails on one cannot recover without this. */
+	const { reset: resetQueryErrors } = useQueryErrorResetBoundary();
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
@@ -663,7 +668,7 @@ const WorkspacePage: FC = () => {
 					>
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
-						<ErrorBoundary>
+						<ErrorBoundary onReset={resetQueryErrors}>
 							<Outline
 								projectId={projectId}
 								project={selectedProject}
@@ -687,7 +692,9 @@ const WorkspacePage: FC = () => {
 					{/* Keyed on the deferred view itself, not on the URL: the deferred
 					    value still holds the old view for a beat after navigating, so a
 					    URL key would clear the error onto the element that just threw. */}
-					<ErrorBoundary resetKeys={[deferredDetails]}>{deferredDetails}</ErrorBoundary>
+					<ErrorBoundary resetKeys={[deferredDetails]} onReset={resetQueryErrors}>
+						{deferredDetails}
+					</ErrorBoundary>
 				</Panel>
 			</Group>
 

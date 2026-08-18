@@ -47,14 +47,6 @@ export class ErrorBoundary extends Component<Props, State> {
 		return { error: asError(error) };
 	}
 
-	// Derived during render rather than in componentDidUpdate, which would cost a
-	// second render pass to clear.
-	static getDerivedStateFromProps(props: Props, state: State): State | null {
-		const resetKeys = props.resetKeys ?? [];
-		if (!keysChanged(state.resetKeys, resetKeys)) return null;
-		return { error: null, resetKeys };
-	}
-
 	componentDidCatch(error: unknown): void {
 		// The fallback shows only the message, and swallowing the rest once cost
 		// a session two wrong bisections.
@@ -62,7 +54,17 @@ export class ErrorBoundary extends Component<Props, State> {
 		console.error(error);
 	}
 
-	handleRetry(): void {
+	componentDidUpdate(previous: Props): void {
+		if (!this.state.error) return;
+		if (!keysChanged(previous.resetKeys ?? [], this.props.resetKeys ?? [])) return;
+		// Deliberately a commit-phase reset, not `getDerivedStateFromProps`:
+		// `onReset` has to run before the children render again. A suspense query
+		// holds its error until the query cache is reset, so clearing during
+		// render puts the children straight back into the same throw.
+		this.reset();
+	}
+
+	reset(): void {
 		this.props.onReset?.();
 		this.setState({ error: null, resetKeys: this.props.resetKeys ?? [] });
 	}
@@ -74,11 +76,7 @@ export class ErrorBoundary extends Component<Props, State> {
 			<div className={styles.error}>
 				<h1 className={styles.errorTitle}>Something went wrong.</h1>
 				<div className={styles.errorActions}>
-					<button
-						type="button"
-						className={getButtonClassName({})}
-						onClick={() => this.handleRetry()}
-					>
+					<button type="button" className={getButtonClassName({})} onClick={() => this.reset()}>
 						Retry
 					</button>
 				</div>
