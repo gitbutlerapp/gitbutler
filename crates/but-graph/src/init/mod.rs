@@ -484,22 +484,17 @@ pub struct Options {
     ///
     /// This should only be used in case post-processing fails and one wants to preview the version before that.
     pub dangerously_skip_postprocessing_for_debugging: bool,
-    /// Extra reachable tips resolved by the caller from linked-worktree `HEAD`s.
+    /// Discover active linked worktrees and seed their `HEAD`s as extra
+    /// [traversal tips](Graph::worktree_tips).
     ///
-    /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
-    /// every traversal so redone traversals see moved refs; the recorded commit id is only
-    /// a fallback for detached worktrees. A ref that no longer resolves is skipped
-    /// entirely - its stale tip is never resurrected.
-    /// These tips queue after all other initial work and are skipped if another tip
-    /// already seeds their commit.
-    ///
-    /// Like all traversal options, they are ignored by [`Graph::from_head()`] when
-    /// `HEAD` is unborn, as no traversal happens there.
-    pub worktree_tips: Vec<WorktreeTip>,
+    /// Discovery may run the one-time worktree adoption and thus write to the
+    /// database, so this is typically set from the `worktreeManipulation`
+    /// feature flag, which must have no side effects while disabled.
+    pub worktrees: bool,
 }
 
-/// A linked-worktree `HEAD` to include as an extra traversal tip, see
-/// [`Options::worktree_tips`].
+/// A linked-worktree `HEAD` seeded as an extra traversal tip, see
+/// [`Graph::worktree_tips`].
 #[derive(Debug, Clone)]
 pub struct WorktreeTip {
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
@@ -573,6 +568,39 @@ impl Options {
     }
 }
 
+/// Discover the active linked worktrees of `repo` and resolve each `HEAD` freshly
+/// into a traversal tip; with [collection disabled](Options::worktrees) there is
+/// nothing to discover.
+///
+/// This is where graph construction reads the world: it runs the one-time worktree
+/// adoption of [`but_db::worktrees::worktrees_with_state()`], so it may write to `db`.
+/// Worktrees with nothing to seed - vanished, unborn, or on the workspace ref - are
+/// skipped.
+fn discover_worktree_tips(
+    repo: &gix::Repository,
+    db: &mut but_db::DbHandle,
+    collect: bool,
+) -> anyhow::Result<Vec<WorktreeTip>> {
+    if !collect {
+        return Ok(Vec::new());
+    }
+    let mut tips = Vec::new();
+    for worktree in but_db::worktrees::worktrees_with_state(repo, db)? {
+        if worktree.archived {
+            continue;
+        }
+        let Some(head) = but_db::worktrees::worktree_head(repo, worktree.name.as_ref())? else {
+            continue;
+        };
+        tips.push(WorktreeTip {
+            name: worktree.name,
+            ref_name: head.ref_name,
+            id: head.id,
+        });
+    }
+    Ok(tips)
+}
+
 /// Lifecycle
 impl Graph {
     /// Read the `HEAD` of `repo` and represent whatever is visible as a graph.
@@ -582,8 +610,10 @@ impl Graph {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
+        db: &mut but_db::DbHandle,
         options: Options,
     ) -> anyhow::Result<Self> {
+        let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
         let head = repo.head()?;
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
@@ -626,7 +656,15 @@ impl Graph {
             }
         };
 
-        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, project_meta, options)?;
+        let mut graph = Self::from_commit_traversal_inner(
+            tip,
+            maybe_name,
+            None::<Tip>,
+            meta,
+            project_meta,
+            worktree_tips,
+            options,
+        )?;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
@@ -637,6 +675,9 @@ impl Graph {
     /// `ref_name` is assumed to point to `tip` if given.
     ///
     /// `meta` is used to learn more about the encountered references, and `options` is used for additional configuration.
+    /// `db` backs the [discovery of active linked worktrees](Options::worktrees), whose `HEAD`s are
+    /// seeded as [extra traversal tips](Graph::worktree_tips) - discovery may run the one-time
+    /// worktree adoption and thus write to the database.
     ///
     /// ### Features
     ///
@@ -704,6 +745,7 @@ impl Graph {
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
+        db: &mut but_db::DbHandle,
         options: Options,
     ) -> anyhow::Result<Self> {
         Self::from_commit_traversal_with_extra_tips(
@@ -712,6 +754,7 @@ impl Graph {
             None::<Tip>,
             meta,
             project_meta,
+            db,
             options,
         )
     }
@@ -737,6 +780,30 @@ impl Graph {
         extra_tips: impl IntoIterator<Item = Tip>,
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
+        db: &mut but_db::DbHandle,
+        options: Options,
+    ) -> anyhow::Result<Self> {
+        let worktree_tips = discover_worktree_tips(tip.repo, db, options.worktrees)?;
+        Self::from_commit_traversal_inner(
+            tip,
+            ref_name,
+            extra_tips,
+            meta,
+            project_meta,
+            worktree_tips,
+            options,
+        )
+    }
+
+    /// The shared body of the `from_commit_traversal*` constructors, with worktree
+    /// tips already discovered or otherwise provided by the caller.
+    fn from_commit_traversal_inner(
+        tip: gix::Id<'_>,
+        ref_name: impl Into<Option<gix::refs::FullName>>,
+        extra_tips: impl IntoIterator<Item = Tip>,
+        meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
+        worktree_tips: Vec<WorktreeTip>,
         options: Options,
     ) -> anyhow::Result<Self> {
         let repo = tip.repo;
@@ -790,6 +857,7 @@ impl Graph {
             &overlay_meta,
             project_meta,
             options,
+            worktree_tips,
             ref_name,
         )
     }
@@ -812,9 +880,11 @@ impl Graph {
         tips: impl IntoIterator<Item = Tip>,
         meta: &impl RefMetadata,
         project_meta: ProjectMeta,
+        db: &mut but_db::DbHandle,
         options: Options,
     ) -> anyhow::Result<Self> {
         let tips: Vec<_> = tips.into_iter().collect();
+        let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         Graph::traverse_tips_with_overlay(
             &overlay_repo,
@@ -822,6 +892,7 @@ impl Graph {
             &overlay_meta,
             project_meta,
             options,
+            worktree_tips,
             None,
         )
     }
@@ -838,6 +909,7 @@ impl Graph {
         meta: &OverlayMetadata<'_, T>,
         project_meta: ProjectMeta,
         options: Options,
+        worktree_tips: Vec<WorktreeTip>,
         entrypoint_ref_override: Option<gix::refs::FullName>,
     ) -> anyhow::Result<Self> {
         let entrypoint = validate_explicit_tips(repo, &tips, entrypoint_ref_override.as_ref())?;
@@ -859,6 +931,7 @@ impl Graph {
             options: options.clone(),
             entrypoint_ref: ref_name.clone(),
             project_meta,
+            worktree_tips: worktree_tips.clone(),
             ..Graph::default()
         };
         let Options {
@@ -868,7 +941,7 @@ impl Graph {
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
-            worktree_tips,
+            worktrees: _,
         } = options;
         let max_limit = Limit::new(limit);
         if ref_name
@@ -1201,6 +1274,7 @@ impl Graph {
             &meta,
             self.project_meta.clone(),
             self.options.clone(),
+            self.worktree_tips.clone(),
             ref_name,
         )
     }
@@ -1407,7 +1481,7 @@ fn initial_tips_from_tips(
     })
 }
 
-/// Append caller-provided linked-worktree `HEAD` tips as plain reachable seeds.
+/// Append the discovered linked-worktree `HEAD` tips as plain reachable seeds.
 ///
 /// They come last so they never claim a commit that other initial work seeds first -
 /// in workspace and ad-hoc priority modes alike - and they don't participate in any

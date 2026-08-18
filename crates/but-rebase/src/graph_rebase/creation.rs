@@ -63,7 +63,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         // TODO(CTO): Look into traversing "in workspace" segments that are not
         // reachable from the entrypoint TODO(CTO): Look into stopping at the
         // common base
-        let worktree_tips = workspace.graph.options.worktree_tips.clone();
+        let worktree_tips = workspace.graph.worktree_tips.clone();
         let entrypoint = workspace.graph.entrypoint()?;
 
         let mut mutable_entrypoints = vec![entrypoint.segment.id];

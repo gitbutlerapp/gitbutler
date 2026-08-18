@@ -15,3 +15,9 @@ pub(crate) fn repo_from_args(args: &Args) -> Result<gix::Repository> {
 pub(crate) fn repo_from_path(path: &Path) -> Result<gix::Repository> {
     Ok(gix::discover(path)?)
 }
+
+/// A throwaway database handle: debug commands inspect arbitrary repositories
+/// without a project database, and worktree discovery stays off.
+pub(crate) fn debug_db() -> Result<but_db::DbHandle> {
+    but_db::DbHandle::new_at_path(":memory:")
+}

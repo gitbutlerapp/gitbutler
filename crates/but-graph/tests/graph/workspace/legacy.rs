@@ -6,13 +6,13 @@ use crate::init::utils::{
 
 #[test]
 fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     let base_id = repo.rev_parse_single(":/M2")?.detach();
     let target_tip_id = repo.rev_parse_single("origin/main")?.detach();
 
     let project_meta = add_workspace_with_target(&mut meta, base_id);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
         .validated()?
         .into_workspace()?;
 
@@ -28,7 +28,7 @@ fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
 
 #[test]
 fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
 
@@ -36,6 +36,7 @@ fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?

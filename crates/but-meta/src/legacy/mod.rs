@@ -249,6 +249,9 @@ impl Snapshot {
             reference.name().to_owned(),
             &*sideeffect_free_meta,
             project_meta,
+            // A throwaway handle: this side-effect free view must not touch the
+            // project database, and worktree discovery stays off.
+            &mut but_db::DbHandle::new_at_path(":memory:")?,
             but_graph::init::Options::limited(),
         )?;
         graph.into_workspace()

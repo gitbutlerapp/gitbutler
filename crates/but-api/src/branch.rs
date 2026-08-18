@@ -1698,9 +1698,11 @@ pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
     let _guard = ctx.shared_worktree_access();
     let listing = {
         let repo = ctx.repo.get()?;
+        let mut db = ctx.db.get_cache_mut()?;
         but_branches::list(
             &repo,
             &meta,
+            &mut db,
             but_branches::Options {
                 project_meta,
                 hard_limit: None,
@@ -2026,9 +2028,12 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
         let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized
-            .workspace
-            .refresh_from_head(repo, &*materialized.meta, project_meta)?;
+        materialized.workspace.refresh_from_head(
+            repo,
+            &*materialized.meta,
+            project_meta,
+            &mut *materialized.db,
+        )?;
     }
     if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;

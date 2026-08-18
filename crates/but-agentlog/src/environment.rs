@@ -422,6 +422,9 @@ fn workspace_snapshot_with_meta(
     let mut info = but_workspace::head_info(
         repo,
         meta,
+        // A throwaway handle: observations are read-only and must not create or
+        // migrate the project database, and worktree discovery stays off.
+        &mut but_db::DbHandle::new_at_path(":memory:")?,
         but_workspace::ref_info::Options {
             expensive_commit_info: false,
             project_meta: but_core::ref_metadata::ProjectMeta::resolve(repo)?,

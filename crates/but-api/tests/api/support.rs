@@ -146,21 +146,26 @@ pub fn workspace_graph(ctx: &but_ctx::Context) -> anyhow::Result<String> {
 
 #[cfg(not(feature = "graph-workspace"))]
 pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::RefInfo> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
     let project_meta = ctx.project_meta()?;
     let meta = ctx.meta()?;
     let repo = ctx.repo.get()?;
+    let mut db = ctx.db.get_cache_mut()?;
     let mut info = but_workspace::head_info(
         &repo,
         &meta,
+        &mut db,
         but_workspace::ref_info::Options {
             project_meta,
-            traversal,
+            traversal: but_graph::init::Options {
+                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                ..but_graph::init::Options::limited()
+            },
             expensive_commit_info: true,
             ..Default::default()
         },
     )?
     .pruned_to_entrypoint();
+    drop(db);
     let db = ctx.db.get_cache()?;
     let prs_by_head = but_forge::pr_numbers_by_head(&db)?;
     info.apply_forge_review_associations(&repo, &prs_by_head);

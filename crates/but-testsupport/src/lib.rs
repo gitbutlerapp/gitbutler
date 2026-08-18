@@ -107,9 +107,22 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     Ok(repo)
 }
 
-/// An empty in-memory project database, for editor-backed operations under test.
+/// An empty in-memory database standing in for the repository's own project database.
+///
+/// Only for repositories from *shared read-only* fixtures: writing a real database
+/// into the shared extraction would leak state across tests and runs. Fixtures the
+/// test owns should use [`project_db()`] instead.
 pub fn in_memory_db() -> but_db::DbHandle {
     but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
+}
+
+/// The project database of `repo`, at the same location GitButler itself stores it.
+///
+/// Only for writable fixtures, whose storage lives and dies with the fixture's
+/// temporary directory; shared read-only fixtures use [`in_memory_db()`].
+pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
+    use but_core::RepositoryExt as _;
+    but_db::DbHandle::new_in_directory(repo.gitbutler_storage_path()?)
 }
 
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.

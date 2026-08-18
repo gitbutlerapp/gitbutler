@@ -25,8 +25,10 @@ pub use queries::legacy::HeadStatus;
 /// Lifecycle
 impl Workspace {
     /// Redo the graph traversal with the same settings as before, but use the latest
-    /// data from `repo`, `meta` and `project_meta` to do it.
+    /// data from `repo`, `meta`, `project_meta` and `db` to do it.
     /// This is useful to make this instance represent changes to `repo` or `meta`.
+    /// Worktree tips are [discovered](crate::init::Options::worktrees) afresh from
+    /// `db` rather than reusing the previous traversal's, as they may have changed.
     ///
     /// Pass a freshly read `project_meta` to pick up target changes as well, or
     /// `self.graph.project_meta.clone()` to deliberately keep the current one,
@@ -42,8 +44,9 @@ impl Workspace {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
         project_meta: but_core::ref_metadata::ProjectMeta,
+        db: &mut but_db::DbHandle,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone())?;
+        let graph = Graph::from_head(repo, meta, project_meta, db, self.graph.options.clone())?;
         *self = graph.into_workspace()?;
         Ok(())
     }

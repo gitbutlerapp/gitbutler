@@ -67,6 +67,7 @@ mod transaction;
 pub mod cache;
 /// Migration helpers for applying and configuring database schema updates.
 pub mod migration;
+pub mod worktrees;
 
 #[rustfmt::skip]
 pub use table::{

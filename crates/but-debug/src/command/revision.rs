@@ -214,6 +214,7 @@ fn graph_for_revisions(
         tips,
         meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut setup::debug_db()?,
         options,
     )
 }

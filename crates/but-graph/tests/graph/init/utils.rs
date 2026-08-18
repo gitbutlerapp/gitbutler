@@ -10,6 +10,7 @@ pub fn read_only_in_memory_scenario(
 ) -> anyhow::Result<(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    but_db::DbHandle,
 )> {
     named_read_only_in_memory_scenario("scenarios", name)
 }
@@ -20,10 +21,13 @@ pub fn named_read_only_in_memory_scenario(
 ) -> anyhow::Result<(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    but_db::DbHandle,
 )> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
     let meta = in_memory_meta(repo.path().join(".git"))?;
-    Ok((repo, meta))
+    // The fixture is shared and read-only, so its database cannot live on disk.
+    let db = but_testsupport::in_memory_db();
+    Ok((repo, meta, db))
 }
 
 pub fn in_memory_meta(
@@ -139,7 +143,7 @@ pub fn standard_options() -> but_graph::init::Options {
         hard_limit: None,
         extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
-        worktree_tips: vec![],
+        worktrees: false,
     }
 }
 

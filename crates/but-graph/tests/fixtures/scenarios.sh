@@ -88,6 +88,10 @@ git init worktree-ahead
   (cd ../worktree-ahead-feature
     commit W
   )
+  git worktree add --detach ../worktree-ahead-detached
+  (cd ../worktree-ahead-detached
+    commit D
+  )
 )
 
 # A single root that splits up into 4 branches and merges again
@@ -1339,6 +1343,18 @@ EOF
       commit W
     git checkout main
     create_workspace_commit_once main
+  )
+
+  # Like worktree-ahead, but wt-feature is checked out in a real linked worktree.
+  git init worktree-ahead-checkout
+  (cd worktree-ahead-checkout
+    commit init
+    setup_target_to_match_main
+    git checkout -b wt-feature
+      commit W
+    git checkout main
+    create_workspace_commit_once main
+    git worktree add ../worktree-ahead-checkout-feature wt-feature
   )
 
   git init target-shared-with-unapplied-and-origin-head

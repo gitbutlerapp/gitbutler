@@ -9,7 +9,7 @@ use crate::support::graph_dag;
 
 #[test]
 fn drop_and_add_regular_refs() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -36,6 +36,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -107,7 +108,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
 
 #[test]
 fn drop_head_ref() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -134,6 +135,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -196,7 +198,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
 
 #[test]
 fn overriding_references() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -223,6 +225,7 @@ fn overriding_references() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?;
     snapbox::assert_data_eq!(

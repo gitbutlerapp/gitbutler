@@ -16,7 +16,8 @@ mod stacks {
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
     -> anyhow::Result<()> {
-        let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
+        let (repo, mut meta, mut db) =
+            read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
 
         add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
         add_stack(&mut meta, 2, "C-on-A", StackState::Inactive);
@@ -49,7 +50,7 @@ mod stacks {
             .raw()
         );
         // It's notable that the segment A is shared between both stacks.
-        let actual = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
+        let actual = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"
@@ -103,7 +104,7 @@ mod stacks {
 "#]]
         );
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+        let actual = stacks_v3(&repo, &meta, &mut db, StacksFilter::InWorkspace, None)?;
         // It lists both still as both are reachable from a workspace commit, so clearly in the workspace.
         snapbox::assert_data_eq!(
             actual.to_debug(),
@@ -161,6 +162,7 @@ mod stacks {
         let actual = stacks_v3(
             &repo,
             &meta,
+            &mut db,
             StacksFilter::InWorkspace,
             Some("refs/heads/A".try_into()?),
         )?;
@@ -190,7 +192,7 @@ mod stacks {
 "#]]
         );
 
-        let details = stack_details_v3(actual[0].id, &repo, &meta)?;
+        let details = stack_details_v3(actual[0].id, &repo, &meta, &mut db)?;
         // This still returns the whole stack,
         // as it relies on checking the actual HEAD reference to know what's checked out and what to
         // filter.
@@ -258,7 +260,7 @@ StackDetails {
 "#]]
         );
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
+        let actual = stacks_v3(&repo, &meta, &mut db, StacksFilter::Unapplied, None)?;
         // nothing reachable
         snapbox::assert_data_eq!(
             actual.to_debug(),
@@ -270,7 +272,7 @@ StackDetails {
 
         add_stack(&mut meta, 5, "main", StackState::Inactive);
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
+        let actual = stacks_v3(&repo, &meta, &mut db, StacksFilter::Unapplied, None)?;
         // Still nothing reachable
         snapbox::assert_data_eq!(
             actual.to_debug(),
@@ -317,7 +319,7 @@ mod stack_details {
 
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {
-        let (repo, mut meta) = read_only_in_memory_scenario(
+        let (repo, mut meta, mut db) = read_only_in_memory_scenario(
             "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
         )?;
         snapbox::assert_data_eq!(
@@ -337,7 +339,7 @@ mod stack_details {
             StackState::InWorkspace,
             &["advanced-lane"],
         );
-        let actual = stack_details_v3(stack_id.into(), &repo, &meta)?;
+        let actual = stack_details_v3(stack_id.into(), &repo, &meta, &mut db)?;
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"
@@ -401,7 +403,8 @@ StackDetails {
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
     -> anyhow::Result<()> {
-        let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
+        let (repo, mut meta, mut db) =
+            read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -421,7 +424,7 @@ StackDetails {
 
         let b_stack_id = add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
         let c_stack_id = add_stack(&mut meta, 2, "C-on-A", StackState::InWorkspace);
-        let actual = stack_details_v3(Some(b_stack_id), &repo, &meta)?;
+        let actual = stack_details_v3(Some(b_stack_id), &repo, &meta, &mut db)?;
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"
@@ -486,7 +489,7 @@ StackDetails {
 "#]]
         );
 
-        let actual = stack_details_v3(Some(c_stack_id), &repo, &meta)?;
+        let actual = stack_details_v3(Some(c_stack_id), &repo, &meta, &mut db)?;
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"
@@ -555,7 +558,7 @@ StackDetails {
 
     #[test]
     fn multi_segment_stack_uses_advanced_tip_ref_to_find_full_stack() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+        let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
         let stack_id = add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
         invoke_bash(
@@ -597,6 +600,7 @@ StackDetails {
             &repo,
             &graph_meta,
             crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?,
+            &mut db,
             but_graph::init::Options {
                 ..standard_options().traversal
             },
@@ -707,7 +711,7 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main
         // sibling link back to `refs/heads/B`. That lets `head_info()` keep the original branch name
         // and surface the advanced `B-outside` commit via `commits_outside` even though it is not
         // part of the managed workspace commit history itself.
-        let info = head_info(&repo, &meta, standard_options())?;
+        let info = head_info(&repo, &meta, &mut db, standard_options())?;
         snapbox::assert_data_eq!(
             info.to_debug(),
             snapbox::str![[r#"
@@ -808,7 +812,7 @@ RefInfo {
         // the top segment instead of being re-anchored from `refs/heads/B`.
         // Legacy `StackDetails` still has no dedicated `commits_outside` field and continues to
         // discard those commits entirely, so `B-outside` is intentionally omitted here.
-        let actual = stack_details_v3(Some(stack_id), &repo, &meta)?;
+        let actual = stack_details_v3(Some(stack_id), &repo, &meta, &mut db)?;
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"

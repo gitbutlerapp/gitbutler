@@ -13,7 +13,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -30,12 +30,12 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Replacing b with none will cause c to conflict
@@ -92,7 +92,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -109,12 +109,12 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Replacing b with none will cause c to conflict
@@ -148,7 +148,7 @@ Err(
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -165,12 +165,12 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict

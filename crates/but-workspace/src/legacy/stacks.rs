@@ -142,6 +142,7 @@ pub fn stacks_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
+    db: &mut but_db::DbHandle,
     traversal: but_graph::init::Options,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
@@ -206,8 +207,8 @@ pub fn stacks_v3(
         ..Default::default()
     };
     let info = match ref_name_override {
-        None => head_info(repo, meta, options),
-        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options),
+        None => head_info(repo, meta, db, options),
+        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, db, options),
     }?;
     let stack_ids_by_ref_name = stack_ids_by_ref_name(meta)?;
 
@@ -271,6 +272,7 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
     project_meta: &ProjectMeta,
+    mut db: &mut but_db::DbHandle,
     traversal: but_graph::init::Options,
 ) -> anyhow::Result<ui::StackDetails> {
     // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
@@ -300,7 +302,7 @@ pub fn stack_details_v3(
             // would otherwise be returned. The problem is that then the workspace might not be correct, but there isn't
             // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
             ref_info_options.traversal.hard_limit = Some(500);
-            let mut info = head_info(repo, meta, ref_info_options)?;
+            let mut info = head_info(repo, meta, &mut *db, ref_info_options)?;
             if info.is_entrypoint {
                 if info.stacks.len() != 1 {
                     bail!(
@@ -319,7 +321,12 @@ pub fn stack_details_v3(
         }
         Some(stack_id) => {
             if let Some(stack) = stack_by_id(
-                head_info(repo, meta, new_ref_info_options(project_meta, &traversal))?,
+                head_info(
+                    repo,
+                    meta,
+                    &mut *db,
+                    new_ref_info_options(project_meta, &traversal),
+                )?,
                 stack_id,
             ) {
                 stack
@@ -337,6 +344,7 @@ pub fn stack_details_v3(
                 let ref_info = ref_info(
                     existing_ref,
                     meta,
+                    &mut *db,
                     new_ref_info_options(project_meta, &traversal),
                 )?;
                 stack_by_id(ref_info, stack_id).with_context(|| {

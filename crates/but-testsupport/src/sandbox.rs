@@ -268,6 +268,7 @@ impl Sandbox {
             &repo,
             &meta,
             self.project_meta(),
+            &mut crate::project_db(&repo).expect("sandbox project database always opens"),
             but_graph::init::Options::default(),
         )
         .unwrap();

@@ -20,7 +20,7 @@ mod commit {
 
         #[test]
         fn fail_if_nothing_can_be_written() -> anyhow::Result<()> {
-            let (mut repo, _) = fixture("four-commits")?;
+            let (mut repo, _, _db) = fixture("four-commits")?;
             {
                 let mut config = repo.config_snapshot_mut();
                 config.set_raw_value("user.name", "name")?;
@@ -42,7 +42,7 @@ mod commit {
 
         #[test]
         fn keep_comments_and_customizations() -> anyhow::Result<()> {
-            let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
+            let (repo, _tmp, _meta, _db) = fixture_writable("four-commits")?;
             let local_config_path = repo.path().join("config");
             std::fs::write(
                 &local_config_path,
@@ -166,7 +166,7 @@ RebaseOutput {
 
 #[test]
 fn amended_commit() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -253,7 +253,7 @@ RebaseOutput {
 
 #[test]
 fn reorder_merge_in_reverse() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("merge-in-the-middle")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "with-inner-merge")?,
         snapbox::str![[r#"
@@ -345,7 +345,7 @@ RebaseOutput {
 
 #[test]
 fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -591,7 +591,7 @@ fa799da
 #[test]
 fn reversible_conflicts() -> anyhow::Result<()> {
     // If conflicts are created one way, putting them back the other way auto-resolves them.
-    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("three-branches-merged")?;
 
     let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
@@ -802,6 +802,7 @@ pub mod utils {
     ) -> anyhow::Result<(
         gix::Repository,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        but_db::DbHandle,
     )> {
         let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
         let meta = VirtualBranchesTomlMetadata::from_path(
@@ -809,7 +810,9 @@ pub mod utils {
                 .join(".git")
                 .join("should-never-be-written.toml"),
         )?;
-        Ok((repo, std::mem::ManuallyDrop::new(meta)))
+        // The fixture is shared and read-only, so its database cannot live on disk.
+        let db = but_testsupport::in_memory_db();
+        Ok((repo, std::mem::ManuallyDrop::new(meta), db))
     }
 
     /// Returns a fixture that may be written to.
@@ -819,6 +822,7 @@ pub mod utils {
         gix::Repository,
         tempfile::TempDir,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        but_db::DbHandle,
     )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
         let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
@@ -827,7 +831,8 @@ pub mod utils {
                 .join(".git")
                 .join("should-never-be-written.toml"),
         )?;
-        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
+        let db = but_testsupport::project_db(&repo)?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta), db))
     }
 
     /// Returns a fixture that may be written to.
@@ -837,6 +842,7 @@ pub mod utils {
         gix::Repository,
         tempfile::TempDir,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        but_db::DbHandle,
     )> {
         let (repo, tmp) = but_testsupport::writable_scenario_with_ssh_key(fixture_name);
         let meta = VirtualBranchesTomlMetadata::from_path(
@@ -844,7 +850,8 @@ pub mod utils {
                 .join(".git")
                 .join("should-never-be-written.toml"),
         )?;
-        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
+        let db = but_testsupport::project_db(&repo)?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta), db))
     }
 
     #[derive(Debug)]
@@ -861,7 +868,7 @@ pub mod utils {
 
     /// The commits in the fixture repo, starting from the oldest
     pub fn four_commits() -> Result<(gix::Repository, Commits)> {
-        let (repo, _) = fixture("four-commits")?;
+        let (repo, _, _db) = fixture("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
@@ -882,7 +889,7 @@ pub mod utils {
     }
 
     pub fn four_commits_writable() -> Result<(gix::Repository, Commits, tempfile::TempDir)> {
-        let (repo, tmp, _meta) = fixture_writable("four-commits")?;
+        let (repo, tmp, _meta, _db) = fixture_writable("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
@@ -938,7 +945,7 @@ pub mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
-            worktree_tips: vec![],
+            worktrees: false,
         }
     }
 

@@ -133,6 +133,8 @@ pub const WORKSPACE_REF_NAME: &str = "refs/heads/gitbutler/workspace";
 /// check for the presence of workspace ref-metadata.
 ///
 /// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
+///
+/// `but_db::worktrees` keeps a hand-copy of this to stay off but-core; change both.
 pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name.as_bstr() == WORKSPACE_REF_NAME
         || ref_name.as_bstr() == "refs/heads/gitbutler/integration"

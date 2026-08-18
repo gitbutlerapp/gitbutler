@@ -22,7 +22,7 @@ fn visualize_tree(id: gix::Id<'_>) -> String {
 
 #[test]
 fn move_changes_same_commit_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -36,7 +36,6 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 
     let commit_id = repo.rev_parse_single("three")?.detach();
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     // Moving changes from a commit to itself should be a no-op
@@ -62,7 +61,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 
 #[test]
 fn move_file_from_head_to_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -105,7 +104,6 @@ aac5238
 
     // Move three.txt from commit three to commit two
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -177,7 +175,7 @@ e0495e9
 
 #[test]
 fn move_file_from_parent_to_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -194,7 +192,6 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
     // Move two.txt from commit two up to commit three
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -264,7 +261,7 @@ e0495e9
 
 #[test]
 fn move_file_between_non_adjacent_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -281,7 +278,6 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
     // Move three.txt from commit three to commit one (skipping two)
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -368,7 +364,7 @@ e0495e9
 
 #[test]
 fn error_when_changes_not_found_in_source() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
@@ -376,7 +372,6 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
 
     // Try to move a file that doesn't exist in source commit
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let result = move_changes_between_commits(
         editor,

@@ -23,10 +23,16 @@ use crate::utils::{fixture_writable, standard_options};
 /// resolved against the repo) and render its [`Editor::graph_workspace`]
 /// projection. All borrows stay local so callers just snapshot the string.
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
-    let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
+    let (repo, _tmp, mut meta, mut db) = fixture_writable(fixture)?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
 
     // The projection bounds stacks at the target commit, so wire it onto the
@@ -37,7 +43,6 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
             .transpose()?,
         ..Default::default()
     };
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     editor.graph_workspace_ascii()
@@ -47,7 +52,7 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
 /// so the single stack reaches all the way down to `base`.
 #[test]
 fn single_stack_no_target() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-signed")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-signed")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -116,7 +121,7 @@ fn single_stack_with_target() -> Result<()> {
 /// de-duplication merges them into a single stack.
 #[test]
 fn overlapping_stacks_merge_into_one() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-with-empty-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -161,7 +166,7 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
 /// so they collapse into a single stack.
 #[test]
 fn three_stacks_same_base_collapse() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-with-three-empty-stacks")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-with-three-empty-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -200,7 +205,7 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 /// alone does not separate stacks that branch off a common ref.
 #[test]
 fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-two-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -272,7 +277,7 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
 /// and nothing above the workspace; everything from HEAD lands in one stack.
 #[test]
 fn pegged_no_target() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("four-commits")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -332,7 +337,7 @@ fn pegged_with_target() -> Result<()> {
 /// separate, even without a target.
 #[test]
 fn disjoint_stacks_stay_separate() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-disjoint-stacks")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-disjoint-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -409,7 +414,7 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
 /// HEAD lands in `above_workspace` and there are no stacks.
 #[test]
 fn workspace_branch_without_managed_commit() -> Result<()> {
-    let (repo, _tmp, _meta) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-without-managed-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"

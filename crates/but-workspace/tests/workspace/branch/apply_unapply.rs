@@ -50,7 +50,7 @@ fn assert_worktree_files(repo: &gix::Repository, present: &[&str], absent: &[&st
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-ws-advanced",
             |_meta| {},
@@ -114,7 +114,7 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-with-3-commits")?;
     // fixture starts with a single local main branch
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -130,6 +130,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -164,7 +165,7 @@ fn unapply_tip_of_ad_hoc_branch_is_an_error() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta) = named_writable_scenario("single-stack-two-segments")?;
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-stack-two-segments")?;
     // fixture starts with a single local main branch
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -185,6 +186,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
         a2_ref.to_owned(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -277,7 +279,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
 #[test]
 fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
             |meta| {
@@ -519,7 +521,7 @@ mod workspace_disposition {
 
     #[test]
     fn prevent_unnecessary_workspace_reference_checks_out_last_real_stack() -> anyhow::Result<()> {
-        let (_tmp, graph, repo, mut meta, _description) =
+        let (_tmp, graph, repo, mut meta, _description, _db) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-ws-commit-two-stacks",
                 |meta| {
@@ -639,7 +641,7 @@ Outcome {
 
     #[test]
     fn allow_workspace_reference_deletion() -> anyhow::Result<()> {
-        let (_tmp, _, repo, mut meta, _description) =
+        let (_tmp, _, repo, mut meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
                 |_meta| {},
@@ -649,6 +651,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -702,7 +705,7 @@ Outcome {
 
     #[test]
     fn compatibility_mode_deletes_workspace_reference_when_possible() -> anyhow::Result<()> {
-        let (_tmp, _, repo, mut meta, _description) =
+        let (_tmp, _, repo, mut meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
                 |_meta| {},
@@ -712,6 +715,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -757,7 +761,7 @@ Outcome {
 
     #[test]
     fn unapply_workspace_ref_requires_disposition_that_allows_switching() -> anyhow::Result<()> {
-        let (_tmp, _, repo, mut meta, _description) =
+        let (_tmp, _, repo, mut meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "no-ws-ref-no-ws-commit-two-branches",
                 |_meta| {},
@@ -767,6 +771,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -819,7 +824,7 @@ Outcome {
 
     #[test]
     fn keep_workspace_commit_with_last_stack_removed() -> anyhow::Result<()> {
-        let (_tmp, graph, repo, mut meta, _description) =
+        let (_tmp, graph, repo, mut meta, _description, _db) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-ws-commit-one-stack",
                 |meta| {
@@ -892,7 +897,7 @@ Outcome {
         VirtualBranchesTomlMetadata,
         but_graph::Workspace,
     )> {
-        let (tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+        let (tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
         let base_id = repo
             .find_reference("refs/heads/main")?
             .peel_to_id()?
@@ -910,6 +915,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -955,7 +961,7 @@ Outcome {
 
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, _graph, mut repo, vb_version_cannot_have_remotes, _description) =
+    let (_tmp, _graph, mut repo, vb_version_cannot_have_remotes, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "main-with-advanced-remote",
             |_meta| {},
@@ -981,6 +987,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &repo,
         &vb_version_cannot_have_remotes,
         ref_metadata::ProjectMeta::default(),
+        &mut db,
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -1083,7 +1090,7 @@ Outcome {
 #[test]
 fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref()
 -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
             |_meta| {},
@@ -1169,7 +1176,7 @@ Outcome {
 
 #[test]
 fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "advanced-stack-and-unnamed-stack-in-workspace",
             |meta| {
@@ -1251,7 +1258,7 @@ Outcome {
 
 #[test]
 fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
             |_meta| {},
@@ -1388,7 +1395,7 @@ Outcome {
 
 #[test]
 fn unapply_natural_stack_with_partial_workspace_metadata() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-stacks",
             |meta| {
@@ -1463,7 +1470,7 @@ Workspace {
 
 #[test]
 fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack-files",
             |_meta| {},
@@ -1560,7 +1567,7 @@ Workspace {
 #[test]
 fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_target_branch()
 -> anyhow::Result<()> {
-    let (_tmp, _, repo, mut meta, _description) =
+    let (_tmp, _, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-no-ws-commit-two-branches",
             |_meta| {},
@@ -1569,8 +1576,13 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let mut project_meta = project_meta(&repo)?;
     project_meta.target_ref = None;
     project_meta.target_commit_id = None;
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        standard_traversal_options(),
+    )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1771,7 +1783,7 @@ Outcome {
 #[test]
 fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target()
 -> anyhow::Result<()> {
-    let (_tmp, _, repo, mut meta, _description) =
+    let (_tmp, _, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-no-ws-commit-two-branches",
             |_meta| {},
@@ -1781,6 +1793,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         standard_traversal_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1948,7 +1961,7 @@ Outcome {
 fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result<()> {
     // A managed workspace exists with `outside` marked in-workspace. The user then `git switch`es
     // onto `feature`, a branch outside the workspace, leaving the metadata stale.
-    let (_tmp, _graph, repo, mut meta, _description) =
+    let (_tmp, _graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "advanced-stack-and-unnamed-stack-in-workspace",
             |meta| {
@@ -1962,6 +1975,7 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2005,7 +2019,7 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
 
 #[test]
 fn apply_in_managed_workspace_drops_stack_whose_ref_disappeared() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "managed-workspace-with-missing-applied-branch",
             |meta| {
@@ -2098,7 +2112,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
     // A managed workspace has two live stacks, then HEAD is moved to one of its branches. Applying
     // a third branch from that enclosed AdHoc checkout rebuilds the workspace around the checked-out
     // branch and the newly applied branch.
-    let (_tmp, _graph, repo, mut meta, _description) =
+    let (_tmp, _graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-file-stacks",
             |meta| {
@@ -2175,6 +2189,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2268,7 +2283,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
     // A managed workspace has two live stacks, then HEAD is moved to a third branch. Applying one
     // of the previously applied branches rebuilds the workspace around the checked-out branch and
     // the branch being applied.
-    let (_tmp, _graph, repo, mut meta, _description) =
+    let (_tmp, _graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-file-stacks",
             |meta| {
@@ -2344,6 +2359,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2428,7 +2444,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
 #[test]
 fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stacks()
 -> anyhow::Result<()> {
-    let (_tmp, _graph, repo, mut meta, _description) =
+    let (_tmp, _graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-three-file-stacks",
             |meta| {
@@ -2447,6 +2463,7 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2482,7 +2499,7 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
 
 #[test]
 fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> anyhow::Result<()> {
-    let (_tmp, ws_graph, repo, mut meta, _description) =
+    let (_tmp, ws_graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
             |_meta| {},
@@ -2510,6 +2527,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
         b_ref,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         but_graph::init::Options::default(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2580,7 +2598,7 @@ mod unapply_checked_out {
     );
 
     fn virtual_stack_tip_checked_out() -> anyhow::Result<Scenario> {
-        let (tmp, _graph, repo, meta, _description) =
+        let (tmp, _graph, repo, meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-no-ws-commit-one-stack-one-branch",
                 |meta| {
@@ -2603,6 +2621,7 @@ mod unapply_checked_out {
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -2624,7 +2643,7 @@ mod unapply_checked_out {
     }
 
     fn real_stack_tip_checked_out() -> anyhow::Result<Scenario> {
-        let (tmp, graph, repo, mut meta, _description) =
+        let (tmp, graph, repo, mut meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "detached-with-multiple-branches",
                 |_meta| {},
@@ -2679,6 +2698,7 @@ mod unapply_checked_out {
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -2797,7 +2817,7 @@ Outcome {
 
     #[test]
     fn virtual_stack_tip_with_indirect_entrypoint() -> anyhow::Result<()> {
-        let (_tmp, _graph, repo, mut meta, _description) =
+        let (_tmp, _graph, repo, mut meta, _description, mut db) =
             named_writable_scenario_with_description_and_graph(
                 "ws-ref-no-ws-commit-one-stack-one-branch",
                 |meta| {
@@ -2810,6 +2830,7 @@ Outcome {
             &repo,
             &meta,
             project_meta(&repo)?,
+            &mut db,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -3018,7 +3039,7 @@ Outcome {
 
 #[test]
 fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
-    let (_tmp, mut graph, repo, mut meta, _description) =
+    let (_tmp, mut graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -3242,7 +3263,7 @@ Outcome {
 
 #[test]
 fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> {
-    let (_tmp, mut graph, repo, mut meta, _description) =
+    let (_tmp, mut graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -3345,6 +3366,7 @@ Context {
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -3364,7 +3386,7 @@ Context {
 
 #[test]
 fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "B", StackState::InWorkspace, &["A"]);
         })?;
@@ -3402,7 +3424,7 @@ fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result
 
 #[test]
 fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "single-stack-two-segments",
             |_meta| {},
@@ -3691,7 +3713,7 @@ Outcome {
 
 #[test]
 fn unapply_existing_branch_outside_detached_ad_hoc_workspace_is_noop() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
             |_meta| {},
@@ -3745,7 +3767,7 @@ Outcome {
 
 #[test]
 fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result<()> {
-    let (_tmp, _, repo, mut meta, _description) =
+    let (_tmp, _, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "single-stack-two-segments",
             |_meta| {},
@@ -3768,6 +3790,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
         [Tip::detached_entrypoint(a2_id)],
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -3799,7 +3822,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
 
 #[test]
 fn detached_head_journey() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
             |_meta| {},
@@ -4068,7 +4091,7 @@ Outcome {
 
 #[test]
 fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "detached-with-multiple-branches",
             |_meta| {},
@@ -4198,7 +4221,7 @@ Outcome {
 
 #[test]
 fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Result<()> {
-    let (_tmp, _, repo, mut meta, _description) =
+    let (_tmp, _, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
     // the fixture starts on a conflicted main commit
     snapbox::assert_data_eq!(
@@ -4219,6 +4242,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         &repo,
         &meta,
         ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -4271,7 +4295,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
 
 #[test]
 fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
             |meta| {
@@ -4408,7 +4432,7 @@ Outcome {
 
 #[test]
 fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "no-ws-ref-stack-and-dependent-branch",
             |_meta| {},
@@ -4928,7 +4952,7 @@ Outcome {
 
 #[test]
 fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
-    let (_tmp, _graph, repo, mut meta, _description) =
+    let (_tmp, _graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "various-heads-for-multi-line-merge-conflict",
             |_meta| {},
@@ -4966,6 +4990,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         Options {
             extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
             ..Options::limited()
@@ -5282,7 +5307,7 @@ Workspace {
 #[test]
 fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() -> anyhow::Result<()>
 {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "one-fork-with-conflicting-sibling",
             |_meta| {},
@@ -5375,7 +5400,7 @@ Outcome {
 #[test]
 fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
 -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, _db) =
         named_writable_scenario_with_description_and_graph(
             "various-heads-for-multi-line-merge-conflict-on-main",
             |_meta| {},
@@ -5487,7 +5512,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
 
 #[test]
 fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
             |meta| {
@@ -5544,6 +5569,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5647,6 +5673,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5683,6 +5710,7 @@ Outcome {
         &repo,
         &meta,
         project_meta(&repo)?,
+        &mut db,
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5759,6 +5787,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5851,7 +5880,7 @@ Outcome {
 
 #[test]
 fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-stacks",
             |meta| {
@@ -5911,6 +5940,7 @@ Outcome {
         b_ref.clone(),
         &meta,
         project_meta(&repo)?,
+        &mut db,
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -6003,7 +6033,7 @@ Outcome {
 
 #[test]
 fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6013,8 +6043,13 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::limited(),
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6050,7 +6085,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_nonexisting_branch() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6060,8 +6095,13 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::limited(),
+    )?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -6097,7 +6137,7 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 
 #[test]
 fn unborn_apply_needs_base() -> anyhow::Result<()> {
-    let (repo, mut meta) =
+    let (repo, mut meta, mut db) =
         named_read_only_in_memory_scenario("unborn-empty-detached-remote", "unborn")?;
     // Depending on the Git version it produces`* 3183e43 (orphan/main, orphan/HEAD) M1` on CI,
     // so a comment is used as reference.
@@ -6107,6 +6147,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -6221,7 +6262,7 @@ mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
-            worktree_tips: vec![],
+            worktrees: false,
         }
     }
 

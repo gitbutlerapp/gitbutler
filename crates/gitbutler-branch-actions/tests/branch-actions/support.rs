@@ -45,12 +45,16 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
     let stacks = {
         let meta = ctx.legacy_meta().unwrap();
+        let mut db = ctx.db.get_cache_mut().unwrap();
         but_workspace::legacy::stacks_v3(
             &repo,
             &meta,
             &ctx.project_meta().unwrap(),
-            ctx.graph_options(but_graph::init::Options::limited())
-                .unwrap(),
+            &mut db,
+            but_graph::init::Options {
+                worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                ..but_graph::init::Options::limited()
+            },
             StacksFilter::default(),
             None,
         )
@@ -63,13 +67,17 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
             let stack_id = stack.id?;
             let details = {
                 let meta = ctx.legacy_meta().unwrap();
+                let mut db = ctx.db.get_cache_mut().unwrap();
                 but_workspace::legacy::stack_details_v3(
                     stack_id.into(),
                     &repo,
                     &meta,
                     &ctx.project_meta().unwrap(),
-                    ctx.graph_options(but_graph::init::Options::limited())
-                        .unwrap(),
+                    &mut db,
+                    but_graph::init::Options {
+                        worktrees: ctx.settings.feature_flags.worktree_manipulation,
+                        ..but_graph::init::Options::limited()
+                    },
                 )
             }
             .unwrap();

@@ -414,28 +414,34 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
 /// based on data in `repo` and `meta`. Use `options` to further configure the call.
 ///
+/// `db` lets graph construction discover and seed linked-worktree tips, see
+/// [`Graph::from_commit_traversal()`].
+///
 /// For details, see [`ref_info()`].
 pub fn head_info(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    head_info_and_workspace(repo, meta, opts).map(|a| a.0)
+    head_info_and_workspace(repo, meta, db, opts).map(|a| a.0)
 }
 
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
 /// based on data in `repo` and `meta`. Use `options` to further configure the call.
 ///
-/// For details, see [`ref_info()`].
+/// For details, see [`ref_info()`] and [`head_info()`].
 pub fn head_info_and_workspace(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
     let graph = Graph::from_head(
         repo,
         meta,
         opts.project_meta.clone(),
+        db,
         opts.traversal.clone(),
     )?;
     let ws = graph.into_workspace()?;
@@ -454,6 +460,7 @@ pub fn head_info_and_workspace(
 pub fn ref_info(
     mut existing_ref: gix::Reference<'_>,
     meta: &impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
@@ -463,6 +470,7 @@ pub fn ref_info(
         existing_ref.inner.name,
         meta,
         opts.project_meta.clone(),
+        db,
         opts.traversal.clone(),
     )?;
     graph_to_ref_info(&graph.into_workspace()?, repo, opts)

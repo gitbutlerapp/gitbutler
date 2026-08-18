@@ -15,7 +15,7 @@ const FIXTURE: &str = "sha256-merge-in-the-middle";
 
 #[test]
 fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -42,11 +42,11 @@ Sha256
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
@@ -114,7 +114,7 @@ Sha256
 
 #[test]
 fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -141,11 +141,11 @@ Sha256
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
@@ -212,7 +212,7 @@ Sha256
 
 #[test]
 fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -239,11 +239,11 @@ Sha256
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();

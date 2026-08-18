@@ -11,7 +11,7 @@ mod changes_in_branch {
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
-        let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
+        let (repo, meta, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -24,8 +24,13 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph =
-            but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            project_meta(&repo)?,
+            &mut db,
+            Options::limited(),
+        )?;
         let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
@@ -170,6 +175,7 @@ TreeChanges {
         let mut ref_info: ui::RefInfo = but_workspace::head_info(
             &repo,
             &*meta,
+            &mut db,
             but_workspace::ref_info::Options {
                 project_meta: project_meta(&repo)?,
                 ..Default::default()

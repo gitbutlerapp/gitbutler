@@ -773,14 +773,25 @@ impl Context {
         Ok((self.repo.get()?, ws, self.db.get_cache()?))
     }
 
+    /// Must not be called while a database handle is borrowed: graph construction takes
+    /// one unconditionally, whether or not worktree discovery is enabled.
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
-        let options = self.graph_options(but_graph::init::Options::limited())?;
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options)?;
+        let mut db = self.db.get_cache_mut()?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            self.project_meta()?,
+            &mut db,
+            but_graph::init::Options {
+                worktrees: self.settings.feature_flags.worktree_manipulation,
+                ..but_graph::init::Options::limited()
+            },
+        )?;
         graph.into_workspace()
     }
 
@@ -799,12 +810,14 @@ impl Context {
     /// re-project the current repository state and update the cache so subsequent callers see the
     /// mutation. Use this only when legacy code needs a one-off view of a non-HEAD workspace ref
     /// and deliberately must not replace the cached current workspace.
+    ///
+    /// Must not be called while a database handle is borrowed: graph construction takes
+    /// one unconditionally, whether or not worktree discovery is enabled.
     pub fn workspace_from_ref_uncached(
         &self,
         ref_name: &gix::refs::FullNameRef,
         _perm: &RepoShared,
     ) -> anyhow::Result<but_graph::Workspace> {
-        let options = self.graph_options(but_graph::init::Options::limited())?;
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
             self.project_data_dir().join("virtual_branches.toml"),
@@ -812,12 +825,17 @@ impl Context {
         )?;
         let mut reference = repo.find_reference(ref_name)?;
         let tip = reference.peel_to_id()?;
+        let mut db = self.db.get_cache_mut()?;
         let graph = but_graph::Graph::from_commit_traversal(
             tip,
             reference.name().to_owned(),
             &meta,
             self.project_meta()?,
-            options,
+            &mut db,
+            but_graph::init::Options {
+                worktrees: self.settings.feature_flags.worktree_manipulation,
+                ..but_graph::init::Options::limited()
+            },
         )?;
         graph.into_workspace()
     }

@@ -49,6 +49,7 @@ fn head_info(
     but_workspace::head_info_and_workspace(
         repo,
         meta,
+        &mut but_testsupport::project_db(repo)?,
         Options {
             project_meta: project_meta(repo)?,
             expensive_commit_info: true,

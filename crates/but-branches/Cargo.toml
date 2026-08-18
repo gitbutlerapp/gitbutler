@@ -13,6 +13,7 @@ doctest = false
 [dependencies]
 but-core.workspace = true
 but-graph.workspace = true
+but-db.workspace = true
 
 anyhow.workspace = true
 bstr.workspace = true

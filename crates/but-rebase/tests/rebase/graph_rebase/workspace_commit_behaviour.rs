@@ -13,7 +13,7 @@ use crate::{
 
 #[test]
 fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("workspace-signed")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -32,12 +32,12 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
@@ -96,7 +96,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
 
 #[test]
 fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("workspace-signed")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -115,11 +115,11 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
@@ -206,7 +206,7 @@ c
 
 #[test]
 fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -224,12 +224,12 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let id = repo.rev_parse_single("HEAD")?;
@@ -284,7 +284,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 
 #[test]
 fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
-    let (repo, _tmpdir, mut meta) =
+    let (repo, _tmpdir, mut meta, mut db) =
         fixture_writable_with_signing("workspace-with-wc-content-signed")?;
 
     snapbox::assert_data_eq!(
@@ -303,12 +303,12 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
@@ -334,7 +334,7 @@ Err(
 
 #[test]
 fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-empty-stack")?;
 
     add_stack_with_segments(
         &mut meta,
@@ -403,12 +403,12 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut db = but_testsupport::in_memory_db();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // The rebase should succeed even though the workspace commit has a
