@@ -131,7 +131,9 @@ Ok(
                 id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
@@ -142,7 +144,7 @@ Ok(
                         commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
-                        base: "None",
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -220,7 +222,9 @@ Ok(
                 id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
@@ -231,7 +235,7 @@ Ok(
                         commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
-                        base: "None",
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -300,7 +304,9 @@ Ok(
                 id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
@@ -311,7 +317,7 @@ Ok(
                         commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
-                        base: "None",
+                        base: "fafd9d0",
                     },
                 ],
             },

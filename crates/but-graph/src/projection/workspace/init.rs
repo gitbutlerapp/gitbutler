@@ -122,6 +122,12 @@ impl Graph {
         ws.mark_remote_reachability(self)?;
         ws.add_commits_on_remote(self);
         ws.truncate_single_stack_to_match_base();
+        // Pruning and truncation may have moved or emptied a stack's bottom; each stack now
+        // rests on the parent of its bottom-most remaining commit, or on the commit its tip
+        // points to when nothing remains.
+        for stack in &mut ws.stacks {
+            stack.recompute_last_segment_base(&self.inner);
+        }
         Ok(ws)
     }
 
@@ -1182,10 +1188,6 @@ impl WorkspaceState {
             // mode keeps the branch shell, but prunes integrated target/base commits from it.
             prune_integrated_stack_segments(stack, &prune_segments, keep_if_fully_integrated);
             remove_empty_branches(stack, metadata, &keep_empty_segment_ids);
-            if upstream_advanced_past_target {
-                // Pruning moved the stack's bottom; refresh its base to the new fork point.
-                stack.recompute_last_segment_base(&graph.inner);
-            }
         }
         self.stacks.retain(|stack| !stack.segments.is_empty());
     }

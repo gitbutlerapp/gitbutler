@@ -335,7 +335,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
-└── ≡:0:main[🌳] <> origin/main →:1: {1}
+└── ≡:0:main[🌳] <> origin/main →:1: on 71a64f3 {1}
     └── :0:main[🌳] <> origin/main →:1:
 
 "#]]
@@ -503,7 +503,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:1:⇣1 {1}
+└── ≡:0:main[🌳] <> origin/main →:1:⇣1 on 971953d {1}
     └── :0:main[🌳] <> origin/main →:1:⇣1
         └── 🟣085535d
 
@@ -557,7 +557,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:1:⇣1 {1}
+└── ≡:0:main[🌳] <> origin/main →:1:⇣1 on 971953d {1}
     └── :0:main[🌳] <> origin/main →:1:⇣1
         └── 🟣085535d
 
@@ -1172,7 +1172,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-└── ≡:0:B[🌳] <> origin/B →:1:⇣1 on e255adc {1}
+└── ≡:0:B[🌳] <> origin/B →:1:⇣1 on 312f819 {1}
     └── :0:B[🌳] <> origin/B →:1:⇣1
         └── 🟣682be32
 
@@ -2331,6 +2331,59 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
         └── ·960152d ►main[🌳], ►other-bottom, ►other-top
 
 "#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_branch_at_target_tip_rests_on_the_target_tip() -> anyhow::Result<()> {
+    let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let repo = gix::ThreadSafeRepository::init_opts(
+        tmp.path(),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        but_testsupport::open_repo_config()?,
+    )?
+    .to_thread_local();
+    let m1 = commit(&repo, "M1")?;
+    create_branches(&repo, m1, ["refs/heads/feature"])?;
+    repo.edit_reference(gix::refs::transaction::RefEdit {
+        change: gix::refs::transaction::Change::Update {
+            log: gix::refs::transaction::LogChange::default(),
+            expected: gix::refs::transaction::PreviousValue::Any,
+            new: gix::refs::Target::Symbolic(ref_name("refs/heads/feature")),
+        },
+        name: ref_name("HEAD"),
+        deref: false,
+    })?;
+    let f1 = commit_with_parent(&repo, "F1", m1)?;
+    // The checked-out branch and the target both point at F1, while the target's local
+    // tracking branch `main` stayed behind at M1.
+    create_branches(&repo, f1, ["refs/remotes/origin/main"])?;
+    let meta = in_memory_meta(tmp.path())?;
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(ref_name("refs/remotes/origin/main")),
+        ..Default::default()
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    // The branch is inline with the target, so it has no commits of its own and rests
+    // on the target tip — not on the stale local `main` further down.
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:0:feature[🌳] <> ✓refs/remotes/origin/main on d1b2aed
+└── ≡:0:feature[🌳] on d1b2aed {1}
+    └── :0:feature[🌳]
+
+"#]]
+    );
+    assert_eq!(
+        ws.stacks[0].base(),
+        Some(f1),
+        "an empty branch at the target tip rests on the commit it points to"
     );
     Ok(())
 }

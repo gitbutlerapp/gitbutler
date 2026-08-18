@@ -36,7 +36,7 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:[..]:feature[🌳] <> ✓refs/remotes/origin/trunk⇣1 on d03b217
-└── ≡:[..]:feature[🌳] on 3183e43 {1}
+└── ≡:[..]:feature[🌳] on d03b217 {1}
     └── :[..]:feature[🌳]
 
 "#]]

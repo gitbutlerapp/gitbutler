@@ -3518,7 +3518,9 @@ RefInfo {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
-            base: None,
+            base: Some(
+                Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+            ),
             segments: [
                 ref_info::ui::Segment {
                     id: NodeIndex([..]),
@@ -3529,7 +3531,7 @@ RefInfo {
                     commits_outside: None,
                     metadata: Branch,
                     push_status: CompletelyUnpushed,
-                    base: "None",
+                    base: "32791d2",
                 },
             ],
         },
@@ -4362,7 +4364,9 @@ RefInfo {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
-            base: None,
+            base: Some(
+                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+            ),
             segments: [
                 ref_info::ui::Segment {
                     id: NodeIndex(0),
@@ -4373,7 +4377,7 @@ RefInfo {
                     commits_outside: None,
                     metadata: Branch,
                     push_status: CompletelyUnpushed,
-                    base: "None",
+                    base: "c166d42",
                 },
             ],
         },
