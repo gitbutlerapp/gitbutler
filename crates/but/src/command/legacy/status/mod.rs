@@ -726,15 +726,11 @@ fn print_update_notice(
 ) -> anyhow::Result<()> {
     let cache = ctx.app_cache.get_cache()?;
     if let Ok(Some(update)) = but_update::available_update(&cache) {
-        output.update_notice(
-            update
-                .display_cli(
-                    status_ctx.flags.verbose,
-                    status_ctx.should_truncate_for_terminal,
-                )
-                .into_iter()
-                .collect(),
-        )?;
+        output.update_notice(display_available_update(
+            &update,
+            status_ctx.flags.verbose,
+            status_ctx.is_agent_invocation,
+        ))?;
         output.connector(Vec::from([Span::raw("")]))?;
     }
 
@@ -2174,46 +2170,46 @@ impl CliDisplay for CiChecks {
     }
 }
 
-impl CliDisplay for but_update::AvailableUpdate {
-    fn display_cli(
-        &self,
-        verbose: bool,
-        _should_truncate_for_terminal: bool,
-    ) -> impl IntoIterator<Item = Span<'static>> {
-        let t = crate::theme::get();
-        let upgrade_hint = {
-            #[cfg(feature = "packaged-but-distribution")]
-            {
-                "upgrade with your package manager"
-            }
-            #[cfg(not(feature = "packaged-but-distribution"))]
-            {
-                "upgrade with `but update install`"
-            }
-        };
+fn display_available_update(
+    update: &but_update::AvailableUpdate,
+    verbose: bool,
+    is_agent_invocation: bool,
+) -> Vec<Span<'static>> {
+    let t = crate::theme::get();
+    let mut spans = Vec::from([
+        Span::raw("Update available: "),
+        Span::styled(update.current_version.to_string(), t.hint),
+        Span::raw(" → "),
+        Span::styled(update.available_version.to_string(), t.attention),
+    ]);
 
-        let mut spans = Vec::from([
-            Span::raw("Update available: "),
-            Span::styled(self.current_version.to_string(), t.hint),
-            Span::raw(" → "),
-            Span::styled(self.available_version.to_string(), t.attention),
-        ]);
+    if is_agent_invocation {
+        #[cfg(feature = "packaged-but-distribution")]
+        let hint = "If appropriate, you can update GitButler with the package manager now. Otherwise, ask the user whether they'd like you to update it for them.";
+        #[cfg(not(feature = "packaged-but-distribution"))]
+        let hint = "If available, you can run `but update install` now. Otherwise, ask the user whether they'd like you to update it for them.";
 
-        if verbose {
-            if let Some(url) = &self.url {
-                spans.push(Span::raw(" "));
-                spans.push(Span::styled(url.to_string(), t.link));
-            }
-        } else {
-            spans.push(Span::raw(" "));
-            spans.push(Span::styled(
-                format!("({upgrade_hint} or `but update suppress` to dismiss)"),
-                t.hint,
-            ));
-        }
+        spans.push(Span::raw(". "));
+        spans.push(Span::styled(hint, t.hint));
+    } else if !verbose {
+        #[cfg(feature = "packaged-but-distribution")]
+        let upgrade_hint = "upgrade with your package manager";
+        #[cfg(not(feature = "packaged-but-distribution"))]
+        let upgrade_hint = "upgrade with `but update install`";
 
-        spans
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(
+            format!("({upgrade_hint} or `but update suppress` to dismiss)"),
+            t.hint,
+        ));
     }
+
+    if verbose && let Some(url) = &update.url {
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(url.to_string(), t.link));
+    }
+
+    spans
 }
 
 fn compute_branch_merge_statuses(
@@ -2232,8 +2228,62 @@ fn compute_branch_merge_statuses(
 mod tests {
     use crate::command::legacy::status::TuiLaunchOptions;
 
-    use super::{StatusRenderMode, truncate_when_needed, truncation_policy};
+    use super::{
+        StatusRenderMode, display_available_update, truncate_when_needed, truncation_policy,
+    };
     use crate::args::OutputFormat;
+
+    fn available_update_text(is_agent_invocation: bool) -> String {
+        display_available_update(
+            &but_update::AvailableUpdate {
+                current_version: "0.22.0".to_string(),
+                available_version: "0.23.0".to_string(),
+                release_notes: None,
+                url: None,
+            },
+            false,
+            is_agent_invocation,
+        )
+        .into_iter()
+        .map(|span| span.content)
+        .collect()
+    }
+
+    #[cfg(not(feature = "packaged-but-distribution"))]
+    #[test]
+    fn available_update_invites_agent_to_install_or_ask_user() {
+        assert_eq!(
+            available_update_text(true),
+            "Update available: 0.22.0 → 0.23.0. If available, you can run `but update install` now. Otherwise, ask the user whether they'd like you to update it for them."
+        );
+    }
+
+    #[cfg(not(feature = "packaged-but-distribution"))]
+    #[test]
+    fn available_update_keeps_existing_human_instructions() {
+        assert_eq!(
+            available_update_text(false),
+            "Update available: 0.22.0 → 0.23.0 (upgrade with `but update install` or `but update suppress` to dismiss)"
+        );
+    }
+
+    #[cfg(feature = "packaged-but-distribution")]
+    #[test]
+    fn available_update_invites_agent_to_use_package_manager_or_ask_user() {
+        assert_eq!(
+            available_update_text(true),
+            "Update available: 0.22.0 → 0.23.0. If appropriate, you can update GitButler with the package manager now. Otherwise, ask the user whether they'd like you to update it for them."
+        );
+    }
+
+    #[cfg(feature = "packaged-but-distribution")]
+    #[test]
+    fn available_update_keeps_existing_packaged_human_instructions() {
+        assert_eq!(
+            available_update_text(false),
+            "Update available: 0.22.0 → 0.23.0 (upgrade with your package manager or `but update suppress` to dismiss)"
+        );
+    }
 
     #[test]
     fn truncate_when_needed_truncates_text_when_policy_requests_it() {
