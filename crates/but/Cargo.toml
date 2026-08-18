@@ -94,7 +94,7 @@ gitbutler-git = { workspace = true, optional = true }
 gitbutler-watcher = { workspace = true, optional = true }
 
 schemars.workspace = true
-posthog-rs = { git = "https://github.com/gitbutlerapp/posthog-rs", rev = "664c9245f79aaedcdd025b9f3c141b62bb866b8e" }
+posthog-rs = { version = "0.23.3", default-features = false, features = ["async-client"] }
 serde.workspace = true
 shell-words.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }

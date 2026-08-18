@@ -613,8 +613,10 @@ impl Event {
 
 /// Capture an event *only* if `app_settings.telemetry.app_metrics_enabled` is `true`.
 pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
-    if let Some(client) = posthog_client(app_settings.clone()) {
-        do_capture(&client.await, event, app_settings).await.ok();
+    if let Some(client) = posthog_client(app_settings).await {
+        do_capture(&client, event, app_settings).await.ok();
+        // Explicit shutdown so dropping the client doesn't block the executor thread.
+        client.shutdown().await;
     }
 }
 
@@ -637,7 +639,8 @@ async fn do_capture(
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
-    client.capture(posthog_event).await
+    // The CLI exits right after this, so send inline instead of via the background queue.
+    client.capture_immediate(posthog_event).await.map(|_| ())
 }
 
 fn machine() -> String {
@@ -652,19 +655,18 @@ fn machine() -> String {
 }
 
 /// Creates a PostHog client if metrics are enabled and the API key is set.
-fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = posthog_rs::Client>> {
-    if app_settings.telemetry.app_metrics_enabled
-        && let Some(api_key) = option_env!("POSTHOG_API_KEY")
-    {
-        let options = posthog_rs::ClientOptionsBuilder::default()
-            .api_key(api_key.to_string())
-            .host("https://eu.i.posthog.com".to_string())
-            .build()
-            .ok()?;
-        Some(posthog_rs::client(options))
-    } else {
-        None
+async fn posthog_client(app_settings: &AppSettings) -> Option<Client> {
+    if !app_settings.telemetry.app_metrics_enabled {
+        return None;
     }
+    let api_key = option_env!("POSTHOG_API_KEY")?;
+    let options = posthog_rs::ClientOptionsBuilder::default()
+        .api_key(api_key.to_string())
+        .host("https://eu.i.posthog.com".to_string())
+        .is_server(false)
+        .build()
+        .ok()?;
+    Some(posthog_rs::client(options).await)
 }
 
 impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
