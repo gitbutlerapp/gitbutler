@@ -340,6 +340,7 @@ impl App {
             | ResolvedCliIdArg::CommittedFile(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::PathPrefix { .. }
+            | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::Stack { .. } => None,
         });
         let initial_committed_file = matches!(
@@ -1143,6 +1144,7 @@ impl App {
                                             | CliId::Branch(..)
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
+                                            | CliId::Worktree { .. }
                                             | CliId::Uncommitted { .. } => None,
                                         }
                                     }
@@ -1187,6 +1189,7 @@ impl App {
                         | CliId::CommittedFile { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
+                        | CliId::Worktree { .. }
                         | CliId::Stack { .. } => {
                             messages.push(Message::Reload(
                                 None,
@@ -1597,7 +1600,10 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
-            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+            CliId::PathPrefix { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
+            | CliId::Stack { .. } => {
                 return Ok(());
             }
         };
@@ -1647,7 +1653,10 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+            CliId::PathPrefix { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
+            | CliId::Stack { .. } => {
                 return Ok(());
             }
         };
@@ -1686,6 +1695,7 @@ impl App {
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
                     | CliId::Uncommitted { .. }
+                    | CliId::Worktree { .. }
                     | CliId::Stack { .. } => Ok(None),
                 }
             }

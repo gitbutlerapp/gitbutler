@@ -363,7 +363,8 @@ impl Details {
                     },
                 )
             }
-            CliId::Stack { .. } => {
+            // A worktree header has no detail view of its own yet; its files do.
+            CliId::Worktree { .. } | CliId::Stack { .. } => {
                 self.reset_line_reader();
                 self.clear_lines();
                 self.reset_scroll();
@@ -1240,6 +1241,7 @@ impl Details {
             | CliId::CommittedFile { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => false,
         }
     }

@@ -997,6 +997,67 @@ fn same_path_in_several_sources_gets_distinct_ids() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A linked worktree gets its own CLI ID, resolves by name, and scopes a
+/// filename to its own checkout the way `zz` does for the main worktree.
+#[test]
+fn worktree_container_id() -> anyhow::Result<()> {
+    let id_map = IdMap::new(
+        Vec::new(),
+        vec![
+            source_changes(ChangeSourceId::Head, vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
+            // A worktree without changes still gets an ID, so it can be listed.
+            source_changes(ChangeSourceId::Worktree("wt-b".into()), Vec::new()),
+        ],
+        gix::hashtable::HashMap::default(),
+    )?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    let by_name = id_map.parse("wt-a", Box::new(changed_paths_fn))?;
+    snapbox::assert_data_eq!(
+        by_name.to_debug(),
+        snapbox::str![[r#"
+[
+    Worktree {
+        id: "y",
+        name: "wt-a",
+    },
+]
+
+"#]]
+    );
+
+    // The short ID resolves to the same worktree.
+    let by_id = id_map.parse(&by_name[0].to_short_string(), Box::new(changed_paths_fn))?;
+    assert_eq!(by_id, by_name, "name and short ID name the same worktree");
+
+    // `<worktree>:<path>` disambiguates a path that is dirty in several checkouts.
+    let scoped = id_map.parse("wt-a:file", Box::new(changed_paths_fn))?;
+    assert_eq!(scoped.len(), 1, "scoped to one checkout");
+    let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
+        bail!("expected an uncommitted file, got {scoped:?}");
+    };
+    assert_eq!(scoped.source, ChangeSourceId::Worktree("wt-a".into()));
+
+    // The container expands to every file in that checkout, which is what
+    // `but commit <worktree>` commits.
+    let expanded = id_map.uncommitted_files_in(&ChangeSourceId::Worktree("wt-a".into()));
+    assert_eq!(expanded.len(), 1);
+    assert_eq!(expanded[0].hunks.first().hunk.path, "file");
+    assert!(
+        id_map
+            .uncommitted_files_in(&ChangeSourceId::Worktree("wt-b".into()))
+            .is_empty(),
+        "a clean worktree expands to nothing"
+    );
+
+    Ok(())
+}
+
 /// `zz` names the main worktree, so `zz:<path>` must not reach into a linked
 /// worktree that happens to have the same path dirty.
 #[test]
@@ -3183,6 +3244,7 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
+                worktrees: _,
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
                                     parent_id: Option<gix::ObjectId>|
@@ -3222,6 +3284,7 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
+                worktrees,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
             writeln!(f, "workspace_and_remote_commits_count: {}", &commits_count)?;
@@ -3238,6 +3301,14 @@ mod util {
                 f,
                 "uncommitted_hunks",
                 uncommitted_hunks.keys().sorted().cloned(),
+            )?;
+            id_list_if_not_empty(
+                f,
+                "worktrees",
+                worktrees
+                    .values()
+                    .map(|worktree| format!("{} {}", worktree.short_id, worktree.name))
+                    .sorted(),
             )?;
             id_list_if_not_empty(
                 f,

@@ -1,4 +1,6 @@
+use bstr::{BStr, BString};
 use but_core::ref_metadata::StackId;
+use itertools::Itertools as _;
 use nonempty::NonEmpty;
 
 use crate::{
@@ -7,6 +9,7 @@ use crate::{
     bad_input,
     id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     theme,
+    utils::change_source::ChangeSourceId,
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -94,6 +97,7 @@ impl CliIdArg {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
+            CliId::Worktree { name, .. } => ResolvedCliIdArg::Worktree(name),
             CliId::Stack { id, stack_id } => ResolvedCliIdArg::Stack { id, stack_id },
         }))
     }
@@ -215,6 +219,11 @@ impl CliIdArg {
                     })
                     .collect(),
             )),
+            // A worktree names its whole uncommitted area, so it expands to every
+            // file in it - the same thing as naming each of them by ID.
+            CliId::Worktree { name, .. } => Ok(Some(
+                id_map.uncommitted_files_in(&ChangeSourceId::Worktree(name)),
+            )),
             _ => Ok(None),
         }
     }
@@ -242,10 +251,29 @@ impl CliIdArg {
                 0 => return Ok(None),
                 1 => uncommitted.pop().expect("exactly one item"),
                 _ => {
+                    // When the matches are one path dirty in several checkouts,
+                    // lengthening the ID cannot fix it - name the checkouts instead.
+                    let sources: Vec<String> = uncommitted
+                        .iter()
+                        .filter_map(|id| id.as_uncommitted_hunk_or_file())
+                        .map(|uncommitted| uncommitted.source.selector().to_string())
+                        .unique()
+                        .collect();
+                    let hint = if sources.len() == uncommitted.len() {
+                        format!(
+                            "'{self}' is uncommitted in several checkouts; scope it as {}",
+                            sources
+                                .iter()
+                                .map(|source| format!("`{source}:{self}`"))
+                                .join(" or ")
+                        )
+                    } else {
+                        "Use a longer ID to disambiguate".to_string()
+                    };
                     return Err(bad_input(format!(
                         "Ambiguous uncommitted change '{self}', matches multiple items"
                     ))
-                    .hint("Use a longer ID to disambiguate")
+                    .hint(hint)
                     .into());
                 }
             }
@@ -279,6 +307,7 @@ impl CliIdArg {
             CliId::PathPrefix { .. } => "a path",
             CliId::CommittedFile { .. } => "a committed file",
             CliId::Uncommitted { .. } => "uncommitted changes",
+            CliId::Worktree { .. } => "a worktree",
             CliId::Stack { .. } => "a stack",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
@@ -338,6 +367,7 @@ fn try_resolve_cli_id(
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::Uncommitted { .. }
+                | CliId::Worktree { .. }
                 | CliId::Stack { .. } => {}
             }
         }
@@ -417,6 +447,8 @@ pub enum ResolvedCliIdArg {
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
     Uncommitted,
+    /// A linked worktree, named by its stable name.
+    Worktree(BString),
     PathPrefix {
         id: String,
         hunks: NonEmpty<IdAndHunk>,
@@ -461,6 +493,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::Branch { .. } => "a branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
+            ResolvedCliIdArg::Worktree(..) => "a worktree",
             ResolvedCliIdArg::Stack { .. } => "a stack",
         }
     }
@@ -480,6 +513,7 @@ impl ResolvedCliIdArg {
                 ResolvedCliIdArgRef::PathPrefix { id, hunks }
             }
             ResolvedCliIdArg::Uncommitted => ResolvedCliIdArgRef::Uncommitted,
+            ResolvedCliIdArg::Worktree(name) => ResolvedCliIdArgRef::Worktree(name.as_ref()),
             ResolvedCliIdArg::Stack { id, stack_id } => ResolvedCliIdArgRef::Stack {
                 id,
                 stack_id: *stack_id,
@@ -493,6 +527,11 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(lhs) => {
                 if let CliId::Commit { commit: rhs, .. } = other {
+                    return lhs == rhs;
+                }
+            }
+            ResolvedCliIdArg::Worktree(lhs) => {
+                if let CliId::Worktree { name: rhs, .. } = other {
                     return lhs == rhs;
                 }
             }
@@ -557,6 +596,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix { .. } => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
+            ResolvedCliIdArg::Worktree(name) => write!(f, "worktree {name}"),
             ResolvedCliIdArg::Stack { .. } => f.write_str("stack"),
         }
     }
@@ -575,6 +615,7 @@ pub enum ResolvedCliIdArgRef<'a> {
         hunks: &'a NonEmpty<IdAndHunk>,
     },
     Uncommitted,
+    Worktree(&'a BStr),
     Stack {
         id: &'a str,
         stack_id: StackId,

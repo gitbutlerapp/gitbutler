@@ -1329,6 +1329,7 @@ mod tests {
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
+                    | CliId::Worktree { .. }
                     | CliId::Stack { .. } => None,
                 },
                 DetailsLine::Text { .. }

@@ -696,7 +696,7 @@ impl App {
                     | Mode::Stack(..) => {}
                 }
             }
-            CliId::PathPrefix { .. } | CliId::Stack { .. } => {}
+            CliId::PathPrefix { .. } | CliId::Stack { .. } | CliId::Worktree { .. } => {}
         }
 
         if self.marks_ref().is_empty() {

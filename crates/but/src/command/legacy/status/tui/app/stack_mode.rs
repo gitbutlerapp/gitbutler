@@ -110,6 +110,7 @@ impl ReorderStackSource {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
+            | CliId::Worktree { .. }
             | CliId::Uncommitted { .. } => false,
         }
     }
@@ -241,6 +242,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
         | CliId::Uncommitted { .. }
+        | CliId::Worktree { .. }
         | CliId::Stack { .. } => false,
     };
 
@@ -257,6 +259,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
+                    | CliId::Worktree { .. }
                     | CliId::Stack { .. } => None,
                 },
                 StatusOutputLineData::UpdateNotice
@@ -279,9 +282,10 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         }
         CliId::Branch(branch) => branch.stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
-        CliId::UncommittedHunkOrFile(..) | CliId::PathPrefix { .. } | CliId::Uncommitted { .. } => {
-            None
-        }
+        CliId::UncommittedHunkOrFile(..)
+        | CliId::PathPrefix { .. }
+        | CliId::Worktree { .. }
+        | CliId::Uncommitted { .. } => None,
     }
 }
 
@@ -446,6 +450,7 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 

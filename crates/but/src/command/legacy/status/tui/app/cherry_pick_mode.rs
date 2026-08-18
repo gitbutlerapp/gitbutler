@@ -158,6 +158,7 @@ impl App {
                         | CliId::CommittedFile { .. }
                         | CliId::Branch(..)
                         | CliId::Uncommitted { .. }
+                        | CliId::Worktree { .. }
                         | CliId::Stack { .. } => return,
                     };
 
@@ -228,6 +229,7 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => Ok(None),
         })
     }
@@ -256,6 +258,7 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. }
             | CliId::Stack { .. } => Ok(None),
         })
     }

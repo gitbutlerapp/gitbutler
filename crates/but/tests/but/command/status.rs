@@ -1504,3 +1504,103 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+/// Each linked worktree's uncommitted area is listed under its own heading, and
+/// every ID printed resolves.
+#[test]
+fn worktree_uncommitted_headings() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    // The first read with the flag on archives every worktree already on disk, so the ones
+    // under test have to be created after it.
+    env.but("status").assert().success();
+
+    // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q -b wt-dirty "{wt}/wt-dirty" A
+        (cd "{wt}/wt-dirty" && echo dirty >note.txt)
+        git worktree add -q -b wt-clean "{wt}/wt-clean" B
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+╭┄ k [worktree wt-dirty]
+┊   qt A note.txt
+┊
+╭┄ n [worktree wt-clean] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // The IDs printed above have to be usable, or the headings are decoration.
+    env.but("diff qt").assert().success().stdout_eq(
+        snapbox::str![[r#"
+─────────────╮
+qt:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+        .raw(),
+    );
+    // The worktree ID names that checkout's whole uncommitted area, and a filename
+    // scoped by worktree name reaches into that checkout only.
+    env.but("diff k").assert().success().stdout_eq(
+        snapbox::str![[r#"
+─────────────╮
+qt:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+        .raw(),
+    );
+    env.but("diff wt-dirty:note.txt")
+        .assert()
+        .success()
+        .stdout_eq(
+            snapbox::str![[r#"
+─────────────╮
+qt:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+            .raw(),
+        );
+}
+
+/// Turn on the experimental `worktreeManipulation` feature flag, which has no CLI toggle.
+fn enable_worktree_manipulation(env: &Sandbox) {
+    let path = env.app_data_dir().join("gitbutler/settings.json");
+    let mut settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("settings were written"))
+            .expect("settings are valid JSON");
+    settings["featureFlags"]["worktreeManipulation"] = true.into();
+    std::fs::write(&path, settings.to_string()).expect("settings are writable");
+}
