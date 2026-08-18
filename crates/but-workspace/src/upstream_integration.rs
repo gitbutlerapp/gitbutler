@@ -150,6 +150,9 @@ struct Stack {
 ///   and those that are. These edges get replaced with edges to `target.ref`
 /// - We replace all steps marked as `content_integrated` that are not
 ///   `historically_integrated` with `None` steps.
+///
+/// This variant uses no review hints and never swaps an emptied managed workspace for a canned
+/// branch; see [`integrate_upstream_with_hints()`] for both.
 pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
@@ -158,11 +161,16 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[])
+    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[], false)
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
 /// anchors to classify additional integrated history.
+///
+/// With `single_branch_mode`, a managed workspace whose applied stacks were all integrated is
+/// replaced by a checked-out canned branch at the target tip. Otherwise the emptied managed
+/// workspace stays checked out, reparented onto the target.
+#[allow(clippy::too_many_arguments)]
 pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
@@ -171,6 +179,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
+    single_branch_mode: bool,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -421,10 +430,13 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
-                // A managed workspace must not become empty. Replace its checkout with a fresh
-                // ad-hoc branch at the latest target tip, just like a fully integrated direct
-                // checkout.
+            [] if !fully_integrated_workspace_parents.is_empty()
+                && stacks.len() > 1
+                && single_branch_mode =>
+            {
+                // In single-branch mode a managed workspace must not become empty. Replace its
+                // checkout with a uniquely named canned branch at the latest target tip, just
+                // like a fully integrated direct checkout.
                 let workspace_ref_name = workspace_ref_name
                     .as_ref()
                     .map(|name| name.as_ref())
@@ -437,7 +449,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 )?;
             }
             [] if !fully_integrated_workspace_parents.is_empty() => {
-                // A single integrated stack retains the existing empty managed workspace.
+                // Otherwise the existing empty managed workspace is retained.
                 editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}

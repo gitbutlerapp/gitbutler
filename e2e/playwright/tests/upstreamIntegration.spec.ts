@@ -27,24 +27,6 @@ async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
 }
 
-async function expectAdHocBranchAtOriginMaster(pathToRepo: string): Promise<string> {
-	await expect
-		.poll(() => git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]), {
-			message: "Expected a regular branch to be checked out",
-			intervals: [100, 200, 500, 1000],
-		})
-		.not.toBe("gitbutler/workspace");
-	await expect
-		.poll(() =>
-			git(pathToRepo, ["for-each-ref", "--format=%(refname)", "refs/heads/gitbutler/workspace"]),
-		)
-		.toBe("");
-	await expect
-		.poll(() => git(pathToRepo, ["rev-parse", "HEAD"]))
-		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
-	return git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]);
-}
-
 async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
 	await expect
 		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
@@ -242,7 +224,7 @@ test("should keep the remaining stack when only one of two stacks is integrated"
 	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
 });
 
-test("should check out a new branch when both applied stacks are integrated", async ({
+test("should keep the empty workspace when both applied stacks are integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -258,9 +240,9 @@ test("should check out a new branch when both applied stacks are integrated", as
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
 	await syncAndIntegrate(page);
 
-	const replacementBranch = await expectAdHocBranchAtOriginMaster(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
+	await expect(stack(page)).toHaveCount(0);
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("gitbutler/workspace");
 });
 
 test("should update an empty workspace when the target ref advances", async ({
