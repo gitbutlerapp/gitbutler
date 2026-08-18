@@ -1,5 +1,5 @@
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
-import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope, type FocusScope } from "#ui/focus-scopes.ts";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { ComponentProps, RefObject } from "react";
 import type { ListFilterRow } from "./ListFilterRow.tsx";
@@ -53,7 +53,7 @@ export const useListFilter = ({
 	inputId: string;
 	/** What is being filtered, plural and lowercase — "files", "branches". */
 	subject: string;
-	scope: SelectionScope;
+	scope: FocusScope;
 	/** Identifies the list's resolved selection; `null` when it has none. */
 	selectionKey: string | null;
 	/** Identifies the first row of the filtered list, where up leaves for the input again. */
@@ -79,7 +79,7 @@ export const useListFilter = ({
 		setFilter(null);
 		// Hand focus back to the list the filter was narrowing, rather than
 		// dropping it on the body when the input unmounts.
-		focusSelectionScope(scope);
+		focusScope(scope);
 	};
 
 	const enterList = () => {
@@ -88,7 +88,7 @@ export const useListFilter = ({
 		// Selecting it stores that resolution, keeping the row highlight and the
 		// details pane in step.
 		onEnterList();
-		focusSelectionScope(scope);
+		focusScope(scope);
 	};
 
 	useHotkey(changesFileHotkeys.filter.hotkey, open, {

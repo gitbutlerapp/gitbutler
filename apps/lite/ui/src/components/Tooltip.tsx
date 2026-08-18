@@ -1,7 +1,7 @@
 import { classes } from "#ui/components/classes.ts";
 import styles from "./Tooltip.module.css";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { isFocusWithinSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
+import { isFocusWithinScope, type FocusScope } from "#ui/focus-scopes.ts";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
 import { useState, type ComponentProps, type FC } from "react";
 
@@ -16,12 +16,10 @@ export const TooltipPopup: FC<
 		 * as the popup mounts (it opens on hover, which doesn't move focus), so no
 		 * subscription re-renders rows on pane switches.
 		 */
-		kbdScope?: SelectionScope;
+		kbdScope?: FocusScope;
 	}
 > = ({ children, kbd, kbdScope, ...props }) => {
-	const [kbdApplies] = useState(
-		() => kbdScope === undefined || isFocusWithinSelectionScope(kbdScope),
-	);
+	const [kbdApplies] = useState(() => kbdScope === undefined || isFocusWithinScope(kbdScope));
 	const showKbd = kbd != null && kbdApplies;
 
 	return (

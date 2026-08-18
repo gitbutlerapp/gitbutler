@@ -125,10 +125,10 @@ export const workspaceHotkeys = {
 			name: "Update workspace (rebases all stacks)",
 		},
 	},
-	focusHorizontalSelectionScopeLeft: {
+	focusHorizontalScopeLeft: {
 		hotkey: "ArrowLeft",
 	},
-	focusHorizontalSelectionScopeRight: {
+	focusHorizontalScopeRight: {
 		hotkey: "ArrowRight",
 	},
 	openInTerminal: {

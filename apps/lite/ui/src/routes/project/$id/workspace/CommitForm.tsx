@@ -24,7 +24,7 @@ import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
@@ -386,7 +386,7 @@ export const CommitForm: FC<{
 			persistDraftMessage({ projectId, message: commitTextareaRef.current?.value ?? "" });
 			setIsExpanded(false);
 			setOpen(false);
-			focusSelectionScope("uncommitted-files");
+			focusScope("uncommitted-files");
 		},
 		{
 			conflictBehavior: "allow",
@@ -578,7 +578,7 @@ export const CommitForm: FC<{
 								});
 								setIsExpanded(false);
 								setOpen(false);
-								focusSelectionScope("uncommitted-files");
+								focusScope("uncommitted-files");
 							}}
 							render={
 								<Button

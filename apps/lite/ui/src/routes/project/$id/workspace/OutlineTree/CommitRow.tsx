@@ -31,7 +31,7 @@ import {
 } from "#ui/native-menu.ts";
 import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
 import { Toast, Toolbar, Tooltip } from "@base-ui/react";
@@ -191,7 +191,7 @@ export const CommitRow: FC<
 			: [operand];
 
 		enterKeyboardTransfer({ sources, kind: "move" });
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const copyCommit = () => {
@@ -202,7 +202,7 @@ export const CommitRow: FC<
 		if (!sources.every((source) => source._tag === "Commit")) return;
 
 		enterKeyboardTransfer({ sources, kind: "copy", placement: "above" });
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const uncommitCommit = () => {
@@ -226,7 +226,7 @@ export const CommitRow: FC<
 	const endEditing = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
 		setCursor("stacks", operand);
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();

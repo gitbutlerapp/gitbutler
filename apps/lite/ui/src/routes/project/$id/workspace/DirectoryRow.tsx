@@ -3,7 +3,7 @@ import { classes } from "#ui/components/classes.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import type { SelectionScope } from "#ui/selection-scopes.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Tooltip } from "@base-ui/react";
 import type { ComponentProps, FC } from "react";
@@ -28,7 +28,7 @@ export const DirectoryRow: FC<
 		canCheck: boolean;
 		checkedState: DirectoryCheckedState;
 		checkDirectory: (evt: { path: string; checked: boolean }) => void;
-		selectionScope: SelectionScope;
+		focusScope: FocusScope;
 	} & ComponentProps<typeof Row>
 > = ({
 	projectId,
@@ -41,7 +41,7 @@ export const DirectoryRow: FC<
 	canCheck,
 	checkedState,
 	checkDirectory,
-	selectionScope,
+	focusScope,
 	...restProps
 }) => {
 	const isDefaultMode = useAppSelector(
@@ -67,7 +67,7 @@ export const DirectoryRow: FC<
 								render={
 									<TooltipPopup
 										kbd={changesFileHotkeys.toggleFoldDirectory.hotkey}
-										kbdScope={selectionScope}
+										kbdScope={focusScope}
 									/>
 								}
 							>

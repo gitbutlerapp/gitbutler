@@ -1,7 +1,7 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
 import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	nativeMenuItem,
@@ -17,7 +17,7 @@ import {
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";
@@ -74,7 +74,7 @@ export const UncommittedChangesRow: FC<{
 
 	const cutChanges = () => {
 		enterKeyboardTransfer({ sources: [operand], kind: "move" });
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const discardChanges = () => {
@@ -107,7 +107,7 @@ export const UncommittedChangesRow: FC<{
 	return (
 		<SectionHeaderRow
 			label="Uncommitted"
-			childrenBefore={<SelectionScopeKbd hotkey="1" scope="uncommitted-files" />}
+			childrenBefore={<FocusScopeKbd hotkey="1" scope="uncommitted-files" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

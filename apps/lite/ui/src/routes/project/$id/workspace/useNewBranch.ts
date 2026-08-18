@@ -2,7 +2,7 @@ import { useBranchCheckoutNew, useBranchCreate } from "#ui/api/mutations.ts";
 import { toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
 import { branchOperand } from "#ui/operands.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -49,7 +49,7 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 					// renaming, which is the first thing a canned name wants.
 					setPage("workspace");
 					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
-					focusSelectionScope("outline");
+					focusScope("outline");
 				},
 			},
 		);

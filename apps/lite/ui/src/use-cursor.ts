@@ -172,11 +172,11 @@ export const useCanShowFiles = (): boolean =>
 		select: (params: UrlQueryParams) => !drivenByUncommitted(params),
 	});
 
-export const outlineSelectionScopeOf = (): "outline" | "uncommitted-files" =>
+export const outlineFocusScopeOf = (): "outline" | "uncommitted-files" =>
 	drivenByUncommitted(currentParams()) ? "uncommitted-files" : "outline";
 
 /** The focus scope of the outline panel's driving list. */
-export const useOutlineSelectionScope = (): "outline" | "uncommitted-files" =>
+export const useOutlineFocusScope = (): "outline" | "uncommitted-files" =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams) =>

@@ -9,37 +9,35 @@ import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 
-export type SelectionScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
-const allSelectionScopes: Set<string> = new Set([
+export type FocusScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
+const allFocusScopes: Set<string> = new Set([
 	"details",
 	"uncommitted-files",
 	"outline",
 	"files",
 	"diff",
 	"pr",
-] satisfies Array<SelectionScope>);
+] satisfies Array<FocusScope>);
 
 // Supports arbitrarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
 // left to right.
-const selectionScopeChildren: Partial<Record<SelectionScope, Set<SelectionScope>>> = {
+const focusScopeChildren: Partial<Record<FocusScope, Set<FocusScope>>> = {
 	details: new Set(["diff", "pr", "files"]),
 };
 
-const isSelectionScope = (id: string): id is SelectionScope => allSelectionScopes.has(id);
+const isFocusScope = (id: string): id is FocusScope => allFocusScopes.has(id);
 
-export const getFocusedSelectionScope = (activeElement: Element | null): SelectionScope | null => {
+export const getFocusedScope = (activeElement: Element | null): FocusScope | null => {
 	// closest() so focus on a control inside a pane (a row button, the diff
 	// scroller) still reports that pane's scope.
-	const selectionScope = activeElement
-		?.closest("[data-selection-scope]")
-		?.getAttribute("data-selection-scope");
-	if (selectionScope == undefined) return null;
-	return isSelectionScope(selectionScope) ? selectionScope : null;
+	const focusScope = activeElement?.closest("[data-focus-scope]")?.getAttribute("data-focus-scope");
+	if (focusScope == undefined) return null;
+	return isFocusScope(focusScope) ? focusScope : null;
 };
 
 /** Whether keyboard focus currently sits inside the given selection scope. */
-export const isFocusWithinSelectionScope = (scope: SelectionScope): boolean =>
-	document.activeElement?.closest(`[data-selection-scope="${scope}"]`) != null;
+export const isFocusWithinScope = (scope: FocusScope): boolean =>
+	document.activeElement?.closest(`[data-focus-scope="${scope}"]`) != null;
 
 /**
  * Whether bare-arrow pane navigation may act for the current focus. Widgets
@@ -54,15 +52,15 @@ const paneNavigationAllowed = (): boolean => {
 	if (activeElement === null || activeElement === document.body) return true;
 	if (activeElement.closest('[role="toolbar"]') !== null) return false;
 
-	const scope = getFocusedSelectionScope(activeElement);
+	const scope = getFocusedScope(activeElement);
 	return scope !== null && scope !== "details";
 };
 
-const findFocusTarget = (parent: ParentNode, scope: SelectionScope): HTMLElement | null => {
-	const root = parent.querySelector<HTMLElement>(`[data-selection-scope="${scope}"]`);
+const findFocusTarget = (parent: ParentNode, scope: FocusScope): HTMLElement | null => {
+	const root = parent.querySelector<HTMLElement>(`[data-focus-scope="${scope}"]`);
 	if (!root) return null;
 
-	const children = selectionScopeChildren[scope];
+	const children = focusScopeChildren[scope];
 	if (children) {
 		for (const childScope of children) {
 			const target = findFocusTarget(root, childScope);
@@ -73,50 +71,48 @@ const findFocusTarget = (parent: ParentNode, scope: SelectionScope): HTMLElement
 	return root;
 };
 
-export const focusSelectionScope = (scope: SelectionScope) => {
+export const focusScope = (scope: FocusScope) => {
 	findFocusTarget(document, scope)?.focus({ focusVisible: false });
 };
 
-export const focusHorizontalSelectionScope = ({
+export const focusHorizontalScope = ({
 	filesVisible,
 	offset,
-	outlineSelectionScope,
+	outlineFocusScope,
 	outlineVisible,
 }: {
 	filesVisible: boolean;
 	offset: -1 | 1;
-	outlineSelectionScope: Extract<SelectionScope, "uncommitted-files" | "outline"> | null;
+	outlineFocusScope: Extract<FocusScope, "uncommitted-files" | "outline"> | null;
 	outlineVisible: boolean;
 }) => {
 	if (!paneNavigationAllowed()) return;
 
-	const currentSelectionScope = getFocusedSelectionScope(document.activeElement);
-	const currentOutlineSelectionScope =
-		currentSelectionScope === "uncommitted-files" || currentSelectionScope === "outline"
-			? currentSelectionScope
-			: outlineSelectionScope;
+	const currentFocusScope = getFocusedScope(document.activeElement);
+	const currentOutlineFocusScope =
+		currentFocusScope === "uncommitted-files" || currentFocusScope === "outline"
+			? currentFocusScope
+			: outlineFocusScope;
 
 	// "details" resolves to whichever of its child scopes is mounted (diff or
 	// pr tab), so the rightmost slot works on both tabs.
-	const orderedSelectionScopes: Array<SelectionScope> = [
-		...(outlineVisible ? [currentOutlineSelectionScope ?? "outline"] : []),
-		...(filesVisible ? (["files"] satisfies Array<SelectionScope>) : []),
+	const orderedFocusScopes: Array<FocusScope> = [
+		...(outlineVisible ? [currentOutlineFocusScope ?? "outline"] : []),
+		...(filesVisible ? (["files"] satisfies Array<FocusScope>) : []),
 		"details",
 	];
 	const positionScope =
-		currentSelectionScope === "diff" || currentSelectionScope === "pr"
-			? "details"
-			: currentSelectionScope;
+		currentFocusScope === "diff" || currentFocusScope === "pr" ? "details" : currentFocusScope;
 
-	if (positionScope === null || !orderedSelectionScopes.includes(positionScope)) {
-		const nextSelectionScope: SelectionScope | undefined =
-			offset === 1 ? orderedSelectionScopes.at(0) : orderedSelectionScopes.at(-1);
+	if (positionScope === null || !orderedFocusScopes.includes(positionScope)) {
+		const nextFocusScope: FocusScope | undefined =
+			offset === 1 ? orderedFocusScopes.at(0) : orderedFocusScopes.at(-1);
 
-		if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
+		if (nextFocusScope !== undefined) focusScope(nextFocusScope);
 	} else {
-		const nextIndex = orderedSelectionScopes.indexOf(positionScope) + offset;
-		const nextSelectionScope = nextIndex < 0 ? undefined : orderedSelectionScopes.at(nextIndex);
-		if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
+		const nextIndex = orderedFocusScopes.indexOf(positionScope) + offset;
+		const nextFocusScope = nextIndex < 0 ? undefined : orderedFocusScopes.at(nextIndex);
+		if (nextFocusScope !== undefined) focusScope(nextFocusScope);
 	}
 };
 
@@ -127,7 +123,7 @@ export const focusHorizontalSelectionScope = ({
  * as it hides and reveals a subtree, and focusing on a reveal would switch the details pane away
  * from whatever the user had selected before hiding it.
  */
-export const useAutofocusSelectionScope = (enabled = true) => {
+export const useAutofocusScope = (enabled = true) => {
 	const attached = useRef(false);
 
 	return (el: HTMLElement | null) => {
@@ -385,7 +381,7 @@ export const useNavigationIndexHotkeys = <T>({
 			placement,
 		});
 
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	useHotkeys([
