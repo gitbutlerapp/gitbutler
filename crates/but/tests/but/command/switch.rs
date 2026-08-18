@@ -85,6 +85,57 @@ Switched to branch 'A'
     assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn switching_to_lower_branch_only_shows_it_in_single_branch_mode() {
+    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-two-dependent-branches",
+    );
+    env.setup_single_stack_metadata_at_target(&["B", "A"], "origin/main");
+
+    // The managed workspace shows the complete stack before switching.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
+    // Switching to A should hide B above it from single-branch status.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
 #[test]
 fn switches_back_to_workspace() {
     let env = switch_env();

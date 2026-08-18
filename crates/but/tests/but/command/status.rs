@@ -58,6 +58,36 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
 }
 
 #[test]
+fn single_branch_status_hides_branches_above_head() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_single_stack_metadata_at_target(&["C", "B", "A"], "origin/main");
+    env.invoke_git("checkout B");
+
+    // Single-branch status includes checked-out B and A below it, but not C above it.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn worktrees() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
     snapbox::assert_data_eq!(
