@@ -3,6 +3,14 @@
 		/* The focus state is displayed on the item row instead. */
 		outline: none;
 	}
+
+	/* The uncommitted panel is never taller than its content: the panel layout
+	   only says how tall the user would like it, flexbox caps it at what there
+	   is to show and hands the rest to the stacks. `!important` overrides the
+	   inline `max-height: 100%` the panel element ships with. */
+	> :has(> .uncommittedChangesOuterPanel) {
+		max-height: max-content !important;
+	}
 }
 
 .uncommittedChangesOuterPanel {
