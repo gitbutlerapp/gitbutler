@@ -58,12 +58,12 @@ Stacks:     m0, n0          (auto-generated, 2–3 chars)
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
-**Stability:** File/hunk IDs copied from the current output generally remain usable across ordinary commits, so you can reference several in a row, including across chained `but commit` calls. If an ID stops resolving, re-read the diff and continue. Commit IDs are change-ID prefixes when the commit has a change ID and sha prefixes otherwise. Change-ID refs survive history edits (`amend`, `squash`, `move`, `uncommit`, `reword`); sha refs and `#N`-suffixed refs do not — a stale sha can silently resolve to the wrong commit. History edits may run in sequence off one status read when every ref involved is a change-ID ref; otherwise run them one at a time with `--status-after` to get the next ref.
+**Stability:** Branch short IDs identify branches only within the workspace snapshot that produced them; branch names remain stable across unrelated workspace mutations. File/hunk IDs copied from the current output generally remain usable across ordinary commits, so you can reference several in a row, including across chained `but commit` calls. If an ID stops resolving, re-read the diff and continue. Commit IDs are change-ID prefixes when the commit has a change ID and sha prefixes otherwise. Change-ID refs survive history edits (`amend`, `squash`, `move`, `uncommit`, `reword`); sha refs and `#N`-suffixed refs do not — a stale sha can silently resolve to the wrong commit. History edits may run in sequence off one status read when every ref involved is a change-ID ref; otherwise run them one at a time with `--status-after` to get the next ref.
 
 **Usage:** Pass these IDs as arguments to commands:
 
 ```bash
-but commit -b <branch-id> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
+but commit -b <branch-name> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
 but amend -t <commit-id> <file-or-hunk-id> <file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
 ```
@@ -132,13 +132,13 @@ is a flag. `zz` is a special ID meaning "the uncommitted area".
 | Sources          | Target (`-t`) | Operation                         | Example                       |
 | ---------------- | ------------- | --------------------------------- | ----------------------------- |
 | Commit(s)        | Commit        | Squash commits together           | `but squash mm -t nn -m "…"`  |
-| Branch           | Commit        | Squash a branch into a commit     | `but squash bu -t nn -m "…"`  |
-| Commit(s)        | Branch        | Squash into the branch's newest   | `but squash mm -t bu -m "…"`  |
-| Branch           | *(none)*      | Squash the branch into one commit | `but squash bu -m "…"`        |
+| Branch           | Commit        | Squash a branch into a commit     | `but squash <branch-name> -t nn -m "…"` |
+| Commit(s)        | Branch        | Squash into the branch's newest   | `but squash mm -t <branch-name> -m "…"` |
+| Branch           | *(none)*      | Squash the branch into one commit | `but squash <branch-name> -m "…"`       |
 | Uncommitted file | Commit        | Amend the change into a commit    | `but squash a1 -t nn`         |
 | `zz`             | Commit        | Amend everything into a commit    | `but squash zz -t nn`         |
 | Commit           | `zz`          | Uncommit the commit               | `but squash mm -t zz`         |
-| Branch           | `zz`          | Uncommit and remove the branch    | `but squash bu -t zz`         |
+| Branch           | `zz`          | Uncommit and remove the branch    | `but squash <branch-name> -t zz`         |
 | Committed file   | Commit        | Move the file to another commit   | `but squash nn:a -t mm`       |
 
 **Message flags:** commits or branches compose a NEW message unless the target is `zz`, so without
@@ -257,7 +257,7 @@ Branches can be in two states:
 
 ```bash
 but apply <branch-name>    # Make branch active
-but unapply <id>           # Make branch inactive
+but unapply <branch-name>  # Make branch inactive
 ```
 
 **Use cases:**
