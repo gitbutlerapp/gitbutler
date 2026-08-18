@@ -35,7 +35,7 @@ Shows:
 - Commits on each stack
 - CLI IDs to use in other commands
 
-The first token on each line is that line's ID. Commit lines lead with the commit's change ID (stable across history edits); commits without a change ID lead with a sha prefix, which goes stale after history edits. Verbose output appends an informational `(sha …)` after the timestamp — do not pass the sha to commands.
+The first token on each line is that line's ID. A `<branch-selector>` is a full branch name or short ID from the current workspace snapshot. Short IDs may be reassigned as that context changes; branch names remain stable across unrelated workspace mutations. Agents should use full branch names for branch-targeting mutations. Commit lines lead with the commit's change ID (stable across history edits); commits without a change ID lead with a sha prefix, which goes stale after history edits. Verbose output appends an informational `(sha …)` after the timestamp — do not pass the sha to commands.
 
 ### `but show <id>`
 
@@ -125,23 +125,23 @@ but apply feature-branch  # Activate branch in workspace
 
 Default human output reports whether the branch was applied, was already active, or conflicted. Conflicts are reported as non-zero CLI errors.
 
-### `but unapply <id>`
+### `but unapply <selector>`
 
 Deactivate a branch from the workspace.
 
 ```bash
-but unapply <id>         # Deactivate branch from workspace
+but unapply <selector> # Deactivate branch from workspace
 ```
 
-The identifier can be a CLI ID pointing to a stack or branch, or a branch name. If a branch is specified, the entire stack containing that branch will be unapplied.
+The command also accepts a current CLI ID pointing to a stack or branch, but agents should use the full branch name. The entire stack containing that branch will be unapplied.
 
-### `but branch delete <id>`
+### `but branch delete <branch-selector>`
 
 Delete a branch.
 
 ```bash
-but branch delete <id>
-but branch -d <id>      # Short form
+but branch delete <branch-selector>
+but branch -d <branch-selector>      # Short form
 ```
 
 ### `but branch show <id>`
@@ -427,12 +427,12 @@ Do not use raw `git pull` or `git rebase`.
 Create and manage pull requests.
 
 ```bash
-but pr new <branch-id> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
-but pr new <branch-id> -F pr_message.txt    # Use file: first line is title, rest is description
-but pr new <branch-id> -t     # Use default content (commit message), skip prompts
-but pr new <branch-id> --draft  # Create as draft
-but pr new <branch-id> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
-but pr new <branch-id> -s     # Skip force-push protection checks
+but pr new <branch-selector> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
+but pr new <branch-selector> -F pr_message.txt    # Use file: first line is title, rest is description
+but pr new <branch-selector> -t     # Use default content (commit message), skip prompts
+but pr new <branch-selector> --draft  # Create as draft
+but pr new <branch-selector> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
+but pr new <branch-selector> -s     # Skip force-push protection checks
 but pr --draft                # Top-level draft flag
 but pr auto-merge <selector>  # Enable auto-merge
 but pr set-draft <selector>   # Mark review as draft
@@ -448,7 +448,7 @@ Selectors for `auto-merge`, `set-draft`, and `set-ready` can be branch names, br
 
 Agents must use `--message (-m)`, `--file (-F)`, or `--default (-t)` to avoid editor prompts. The `-t` flag uses the commit message as title/description for single-commit branches; for multi-commit branches it falls back to the branch name as the title.
 
-**Stacked branches:** Use `but pr` for stacked PRs. It creates reviews against the right bases and updates GitButler stack footers in PR descriptions. Creating stacked PRs with `gh pr create` or another forge tool loses that stack-aware behavior. To publish a whole stack, run `but pr new <top-branch-id> -t`; custom messages (`-m` or `-F`) only apply to the selected branch, while dependent branches use default messages (commit title/description).
+**Stacked branches:** Use `but pr` for stacked PRs. It creates reviews against the right bases and updates GitButler stack footers in PR descriptions. Creating stacked PRs with `gh pr create` or another forge tool loses that stack-aware behavior. To publish a whole stack, run `but pr new <top-branch-name> -t`; custom messages (`-m` or `-F`) only apply to the selected branch, while dependent branches use default messages (commit title/description).
 
 When the selected branch sits on dependencies that already have PRs, the summary lists those as "PR already exists for ..." and ends with the newly created review. The already-exists lines are normal stack reporting, not a failure to create the selected branch's PR.
 
@@ -468,8 +468,8 @@ copy on the push remote (only when fully contained in the landed target), report
 `Deleted <remote>/<branch> (landed)`.
 
 ```bash
-but land <branch-id> --yes                  # Land onto the target (--yes required non-interactively)
-but land <branch-id> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but land <branch-selector> --yes                  # Land onto the target (--yes required non-interactively)
+but land <branch-selector> --no-ff --yes          # Force a merge commit instead of fast-forwarding
 but land <top-branch> --whole-stack --yes   # Land an entire stack by naming its top segment
 ```
 
