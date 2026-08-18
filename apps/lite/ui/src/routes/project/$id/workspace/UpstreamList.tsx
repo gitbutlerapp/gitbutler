@@ -272,19 +272,23 @@ const UpdateBlock: FC<{
  * is reported instead, since a silently absent band would read as "no more
  * history" and leave nothing to retry with.
  */
-const LoadMoreOlder: FC<{ projectId: string }> = ({ projectId }) => {
+/**
+ * Asks for the next page of older history. The pages query is disabled, so
+ * this button is the only thing that ever fetches it: the first press opens
+ * the section, later ones extend it.
+ */
+const LoadMoreOlder: FC<{ projectId: string; hasOlder: boolean }> = ({ projectId, hasOlder }) => {
 	// Shares the base listing the outline already reads; this only takes the
 	// cursor its last commit supplies.
 	const { data: olderFrom = null } = useQuery({
 		...workspaceTargetCommitsQueryOptions(projectId),
 		select: (page) => page.commits.at(-1)?.commit.id ?? null,
 	});
-	const { fetchNextPage, hasNextPage, isFetching, isError } = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
-		enabled: olderFrom !== null,
-	});
+	const { fetchNextPage, isFetching, isError } = useInfiniteQuery(
+		olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom ?? ""),
+	);
 
-	if (!hasNextPage && !isError) return null;
+	if (olderFrom === null || (!hasOlder && !isError)) return null;
 
 	return (
 		<div role="none" className={styles.block}>
@@ -392,6 +396,7 @@ export const UpstreamList: FC<
 		items,
 		incomingItemCount,
 		olderItems,
+		hasOlder,
 		targetLabel,
 		incomingCount,
 		hasIntegrated,
@@ -541,7 +546,7 @@ export const UpstreamList: FC<
 					</div>
 				)}
 
-				<LoadMoreOlder projectId={projectId} />
+				<LoadMoreOlder projectId={projectId} hasOlder={hasOlder} />
 			</div>
 		</div>
 	);
