@@ -155,7 +155,7 @@ impl GitLabClient {
         let mut next_page = next_page_from_headers(response.headers());
         let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
 
-        let mut seen_pages = HashSet::new();
+        let mut seen_pages = HashSet::from(["1".to_string()]);
         let mut pages_iterated = 0;
 
         while let Some(page) = next_page.take() {
@@ -180,6 +180,9 @@ impl GitLabClient {
 
             next_page = next_page_from_headers(response.headers());
             let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            if page_mrs.is_empty() {
+                break;
+            }
             mrs.append(&mut page_mrs);
         }
 
@@ -216,7 +219,7 @@ impl GitLabClient {
         let mut next_page = next_page_from_headers(response.headers());
         let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
 
-        let mut seen_pages = HashSet::new();
+        let mut seen_pages = HashSet::from(["1".to_string()]);
         let mut pages_iterated = 0;
 
         while let Some(page) = next_page.take() {
@@ -250,6 +253,9 @@ impl GitLabClient {
 
             next_page = next_page_from_headers(response.headers());
             let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            if page_mrs.is_empty() {
+                break;
+            }
             mrs.append(&mut page_mrs);
         }
 
@@ -283,7 +289,7 @@ impl GitLabClient {
         let mut next_page = next_page_from_headers(response.headers());
         let mut mrs: Vec<GitLabMergeRequest> = response.json().await?;
 
-        let mut seen_pages = HashSet::new();
+        let mut seen_pages = HashSet::from(["1".to_string()]);
         let mut pages_iterated = 0;
 
         while let Some(page) = next_page.take() {
@@ -310,6 +316,9 @@ impl GitLabClient {
 
             next_page = next_page_from_headers(response.headers());
             let mut page_mrs: Vec<GitLabMergeRequest> = response.json().await?;
+            if page_mrs.is_empty() {
+                break;
+            }
             mrs.append(&mut page_mrs);
         }
 
