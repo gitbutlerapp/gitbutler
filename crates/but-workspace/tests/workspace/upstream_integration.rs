@@ -1706,6 +1706,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
             head_commit_at_merge: repo.rev_parse_single("topic")?.detach(),
             source_branch: "topic".into(),
         }],
+        false,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -1765,6 +1766,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
             head_commit_at_merge: review_head,
             source_branch: "pushed-topic".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -1826,6 +1828,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
             head_commit_at_merge: target_tip,
             source_branch: "pushed-topic".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -2456,7 +2459,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
     );
 
     let mut db = but_testsupport::in_memory_db();
-    let out = integrate_upstream(
+    let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -2472,6 +2475,8 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
                 selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
             },
         ],
+        &[],
+        true,
     )?;
 
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
@@ -2497,6 +2502,76 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
     );
     assert_eq!(repo.find_reference(fallback_ref.as_ref())?.id(), target_tip);
     assert_eq!(repo.head_name()?, Some(fallback_ref));
+
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-two-stacks")?;
+    let target_sha = repo.rev_parse_single("main~2")?.detach();
+
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    let project_meta = integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+            },
+        ],
+    )?;
+
+    let meta = empty_managed_workspace_metadata(&meta)?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    // Without single-branch mode the emptied managed workspace stays checked out at the target.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* b44fd24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   5f7d45e (origin/main, main) Merging B into base
+|\  
+| * b38b04b add B1
+* |   1f7670a Merging A into base
+|\ \  
+| |/  
+|/|   
+| * 905d6e5 add A1
+|/  
+* 3183e43 M1
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -3091,7 +3166,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
     let mut workspace = graph.into_workspace()?;
 
     let mut db = but_testsupport::in_memory_db();
-    let out = integrate_upstream(
+    let out = integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -3107,6 +3182,8 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
                 selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
             },
         ],
+        &[],
+        true,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3162,6 +3239,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3249,6 +3327,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3359,6 +3438,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
     let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
@@ -3559,6 +3639,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        false,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -3652,6 +3733,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        false,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3738,6 +3820,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         &mut db,
         updates,
         review_hints,
+        false,
     )?;
     let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()

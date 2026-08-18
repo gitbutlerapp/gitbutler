@@ -670,6 +670,38 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn pull_keeps_empty_workspace_after_all_stacks_integrate_outside_single_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+
+    env.but("pull").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┴ 7e5d4e1 (common base) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "gitbutler/workspace",
+        "outside single-branch mode the managed workspace stays checked out"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^"),
+        rev_parse(&env, "origin/main"),
+        "the emptied workspace is reparented onto the advanced target"
+    );
+    assert_eq!(status_stack_count(&env), 0);
+}
+
+#[test]
 fn pull_reparents_empty_workspace_when_target_advances() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata_at_target(&[], "origin/main");

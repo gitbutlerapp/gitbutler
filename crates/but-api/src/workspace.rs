@@ -532,6 +532,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
+    let single_branch_mode = ctx.settings.feature_flags.single_branch;
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
@@ -557,6 +558,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             &mut db,
             updates,
             &review_hints,
+            single_branch_mode,
         )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
