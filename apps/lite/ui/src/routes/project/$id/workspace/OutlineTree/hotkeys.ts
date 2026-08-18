@@ -8,7 +8,12 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
-import { setCursor, startInlineEdit, useResolvedCursor } from "#ui/use-cursor.ts";
+import {
+	enterKeyboardTransfer,
+	setCursor,
+	startInlineEdit,
+	useResolvedCursor,
+} from "#ui/use-cursor.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -17,7 +22,7 @@ import { outlineHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { prForgeUrl } from "#ui/pr.ts";
@@ -422,6 +427,13 @@ export const useOutlineTreeHotkeys = ({
 	const canCheckCommits = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckCommits(state, projectId),
 	);
+	const operationSourcesForItem = (operand: Operand): Array<Operand> => {
+		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+			store.getState(),
+			projectId,
+		);
+		return checkedOperands.length > 0 ? checkedOperands : [operand];
+	};
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -431,13 +443,7 @@ export const useOutlineTreeHotkeys = ({
 		selection,
 		onEdgeSpill,
 		getKey: operandIdentityKey,
-		operationSourcesForItem: (operand) => {
-			const checkedOperands = projectSlice.selectors.selectCheckedOperands(
-				store.getState(),
-				projectId,
-			);
-			return checkedOperands.length > 0 ? checkedOperands : [operand];
-		},
+		operationSourcesForItem,
 		selectSectionPredicate: (operand) => operand._tag === "Branch",
 	});
 
@@ -455,6 +461,29 @@ export const useOutlineTreeHotkeys = ({
 			callback: focusCommitMessageInput,
 			options: {
 				conflictBehavior: "allow",
+			},
+		},
+		{
+			hotkey: outlineHotkeys.copy.hotkey,
+			callback: () => {
+				if (selection === null) return;
+
+				const sources = operationSourcesForItem(selection);
+				if (!sources.every((source) => source._tag === "Commit")) return;
+
+				enterKeyboardTransfer({
+					sources,
+					kind: "copy",
+					placement: "above",
+				});
+				focusSelectionScope("outline");
+			},
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				ignoreInputs: true,
+				target: ref,
+				meta: outlineHotkeys.copy.meta,
 			},
 		},
 		...Match.value(selection).pipe(

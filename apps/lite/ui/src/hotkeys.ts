@@ -150,6 +150,10 @@ export const workspaceHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const branchesHotkeys = {
+	copy: {
+		hotkey: "Mod+C",
+		meta: { group: "Outline", name: "Copy" },
+	},
 	deleteBranchRef: {
 		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
 		meta: { group: "Branch", name: "Delete branch reference" },
@@ -157,6 +161,10 @@ export const branchesHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const outlineHotkeys = {
+	copy: {
+		hotkey: "Mod+C",
+		meta: { group: "Outline", name: "Copy" },
+	},
 	checkCommit: {
 		hotkey: "Space",
 		meta: { group: "Commit", name: "Check commit" },
@@ -309,6 +317,12 @@ export const operationHotkeys = {
 	},
 	confirmTransfer: {
 		hotkey: "Mod+V",
+	},
+	selectCopy: {
+		hotkey: "C",
+	},
+	selectMove: {
+		hotkey: "M",
 	},
 	selectAbove: {
 		hotkey: "A",

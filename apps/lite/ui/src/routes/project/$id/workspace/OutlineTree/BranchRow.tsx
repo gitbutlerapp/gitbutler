@@ -249,7 +249,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
-		enterKeyboardTransfer({ sources: [operand] });
+		enterKeyboardTransfer({ sources: [operand], kind: "move" });
 		focusSelectionScope("outline");
 	};
 

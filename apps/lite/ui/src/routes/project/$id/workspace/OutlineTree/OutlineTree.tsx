@@ -22,7 +22,7 @@ import {
 	commitIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferTarget } from "#ui/outline/mode.ts";
+import { getTransferKind, getTransferTarget } from "#ui/outline/mode.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	OperationTarget as OperationTarget_,
@@ -169,6 +169,7 @@ const OperationTarget: FC<
 							sources: mode.sources,
 							target: operand,
 							placement: mode.placement,
+							kind: getTransferKind(mode),
 						})?.label,
 					};
 				},
@@ -686,6 +687,7 @@ const Stacks: FC<{
 						sources: mode.sources,
 						target,
 						placement: mode.placement,
+						kind: getTransferKind(mode),
 					})?.operation;
 				},
 			}),

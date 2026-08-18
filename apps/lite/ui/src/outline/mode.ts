@@ -1,6 +1,6 @@
 import { Match } from "effect";
 import { operandEquals, type Operand, uncommittedChangesOperand } from "#ui/operands.ts";
-import type { Placement } from "#ui/operations/operation.ts";
+import type { Placement, TransferKind } from "#ui/operations/operation.ts";
 import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 
@@ -20,6 +20,7 @@ export type AbsorbMode = {
  */
 export type KeyboardTransferMode = {
 	sources: Array<Operand>;
+	kind: TransferKind;
 	placement: Placement;
 	restoreSelection: WorkspaceCursorSnapshot;
 };
@@ -43,11 +44,13 @@ export type TransferMode =
 
 export const keyboardTransferMode = ({
 	sources,
+	kind,
 	placement,
 	restoreSelection,
 }: KeyboardTransferMode): TransferMode => ({
 	_tag: "Keyboard",
 	sources,
+	kind,
 	placement,
 	restoreSelection,
 });
@@ -62,6 +65,9 @@ export const pointerTransferMode = ({
 	target,
 	placement,
 });
+
+export const getTransferKind = (mode: TransferMode): TransferKind =>
+	mode._tag === "Keyboard" ? mode.kind : "move";
 
 export const getTransferTarget = (
 	mode: TransferMode,

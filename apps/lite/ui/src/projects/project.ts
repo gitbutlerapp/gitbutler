@@ -14,7 +14,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import type { Placement } from "#ui/operations/operation.ts";
+import type { Placement, TransferKind } from "#ui/operations/operation.ts";
 import {
 	absorbOutlineMode,
 	defaultOutlineMode,
@@ -202,16 +202,23 @@ export const projectReducers = {
 		state: ProjectState,
 		{
 			sources,
+			kind,
 			placement,
 			restoreSelection,
 		}: {
 			sources: Array<Operand>;
+			kind: TransferKind;
 			placement?: Placement;
 			restoreSelection: WorkspaceCursorSnapshot;
 		},
 	) => {
 		state.workspace.mode = transferOutlineMode(
-			keyboardTransferMode({ sources, placement: placement ?? "into", restoreSelection }),
+			keyboardTransferMode({
+				sources,
+				kind,
+				placement: placement ?? "into",
+				restoreSelection,
+			}),
 		);
 	},
 	enterAbsorbMode: (
@@ -256,10 +263,31 @@ export const projectReducers = {
 		const workspaceState = state.workspace;
 		Match.value(workspaceState.mode).pipe(
 			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) => {
+				if (mode.placement === placement) return;
+
 				workspaceState.mode = transferOutlineMode(
 					keyboardTransferMode({
 						sources: mode.sources,
+						kind: mode.kind,
 						placement,
+						restoreSelection: mode.restoreSelection,
+					}),
+				);
+			}),
+			Match.orElse(() => {}),
+		);
+	},
+	updateTransferKind: (state: ProjectState, { kind }: { kind: TransferKind }) => {
+		const workspaceState = state.workspace;
+		Match.value(workspaceState.mode).pipe(
+			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) => {
+				if (mode.kind === kind) return;
+
+				workspaceState.mode = transferOutlineMode(
+					keyboardTransferMode({
+						sources: mode.sources,
+						kind,
+						placement: mode.placement,
 						restoreSelection: mode.restoreSelection,
 					}),
 				);

@@ -38,6 +38,8 @@ export type ListName = keyof ListItem;
  * back verbatim, no resolution needed.
  */
 export type WorkspaceCursorSnapshot = {
+	page?: "upstream" | "branches";
+	list?: "uncommitted";
 	stacks?: string;
 	uncommitted?: string;
 	files?: string;

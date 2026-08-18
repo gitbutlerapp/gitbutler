@@ -190,7 +190,18 @@ export const CommitRow: FC<
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [operand];
 
-		enterKeyboardTransfer({ sources });
+		enterKeyboardTransfer({ sources, kind: "move" });
+		focusSelectionScope("outline");
+	};
+
+	const copyCommit = () => {
+		const state = store.getState();
+		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+			: [operand];
+		if (!sources.every((source) => source._tag === "Commit")) return;
+
+		enterKeyboardTransfer({ sources, kind: "copy", placement: "above" });
 		focusSelectionScope("outline");
 	};
 
@@ -269,6 +280,11 @@ export const CommitRow: FC<
 			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
 			enabled: isDefaultMode && canAmendCommit,
 			onSelect: amendCommit,
+		}),
+		nativeMenuItem({
+			label: "Copy Commit",
+			onSelect: copyCommit,
+			accelerator: toElectronAccelerator(outlineHotkeys.copy.hotkey),
 		}),
 		nativeMenuItem({
 			label: "Cut Commit",

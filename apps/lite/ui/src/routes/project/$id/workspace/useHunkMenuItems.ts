@@ -68,7 +68,7 @@ export const useHunkMenuItems = ({
 			(source) => source._tag !== "Hunk" || !source.isResultOfBinaryToTextConversion,
 		);
 		const cutHunk = () => {
-			enterKeyboardTransfer({ sources: cutSources });
+			enterKeyboardTransfer({ sources: cutSources, kind: "move" });
 			focusSelectionScope("outline");
 		};
 		const discardDiffSpec = createDiffSpec(

@@ -1,9 +1,12 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
+import { projectSlice } from "#ui/projects/state.ts";
+import { useAppSelector } from "#ui/store.ts";
 import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
 import type { Operand } from "#ui/operands.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 
 export type SelectionScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
@@ -176,6 +179,13 @@ export const useNavigationIndexHotkeys = <T>({
 	/** Disable arrow and Vim directional keys when a surface owns finer-grained navigation. */
 	directionalNavigation?: boolean;
 }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const operationHotkeysEnabled = useAppSelector(
+		(state) =>
+			operationSourcesForItem === undefined ||
+			projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	);
+
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
 			selection === null
@@ -369,7 +379,11 @@ export const useNavigationIndexHotkeys = <T>({
 	const enterTransferModeForSelection = (placement: Placement) => {
 		if (selection === null || operationSourcesForItem === undefined) return;
 
-		enterKeyboardTransfer({ sources: operationSourcesForItem(selection), placement });
+		enterKeyboardTransfer({
+			sources: operationSourcesForItem(selection),
+			kind: "move",
+			placement,
+		});
 
 		focusSelectionScope("outline");
 	};
@@ -380,7 +394,8 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: () => enterTransferModeForSelection("above"),
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && operationSourcesForItem !== undefined,
+				enabled:
+					operationHotkeysEnabled && selection !== null && operationSourcesForItem !== undefined,
 				target: ref,
 				meta: { group, name: "Move" },
 			},
@@ -390,7 +405,8 @@ export const useNavigationIndexHotkeys = <T>({
 			callback: () => enterTransferModeForSelection("into"),
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && operationSourcesForItem !== undefined,
+				enabled:
+					operationHotkeysEnabled && selection !== null && operationSourcesForItem !== undefined,
 				target: ref,
 				ignoreInputs: true,
 				meta: { group, name: "Cut" },
