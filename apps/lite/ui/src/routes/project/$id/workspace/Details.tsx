@@ -2806,9 +2806,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
 					<div className={styles.prTab}>
-						{!forgeInfo?.capabilities.prService ||
-						targetBranch === undefined ||
-						branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
+						{!forgeInfo?.capabilities.prService ? (
 							<PullRequestForm
 								key={branchName}
 								body={null}
@@ -2827,8 +2825,11 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 							>
 								{({ data }) => {
 									const review = data.reviewsBySourceBranch.get(branchName);
+									const canSubmit =
+										targetBranch !== undefined &&
+										branchCtx?.segment.pushStatus !== "completelyUnpushed";
 
-									return !review ? (
+									return !review || !canSubmit ? (
 										<PullRequestForm
 											key={branchName}
 											body={null}
@@ -2836,7 +2837,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 											reviewId={null}
 											sourceBranch={branchName}
 											title={null}
-											canSubmit
+											canSubmit={canSubmit}
 										/>
 									) : (
 										<ReviewView
