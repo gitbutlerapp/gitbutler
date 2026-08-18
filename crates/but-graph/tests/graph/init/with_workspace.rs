@@ -1645,7 +1645,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main
-└── ≡:0:main[🌳] <> origin/main →:2: {1}
+└── ≡:0:main[🌳] <> origin/main →:2: on fafd9d0 {1}
     └── :0:main[🌳] <> origin/main →:2:
 
 "#]]
@@ -2628,7 +2628,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main <> ✓refs/remotes/origin/main⇣2
-└── ≡:0:main <> origin/main →:2:⇣2 {1}
+└── ≡:0:main <> origin/main →:2:⇣2 on 998eae6 {1}
     └── :0:main <> origin/main →:2:⇣2
         ├── 🟣ca7baa7 (✓)
         └── 🟣7ea1468 (✓)
@@ -3427,7 +3427,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:A <> ✓refs/remotes/origin/main⇣3
-└── ≡:0:A on 4b3e5a8 {1}
+└── ≡:0:A on 79bbb29 {1}
     └── :0:A
 
 "#]]
@@ -3473,7 +3473,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:A <> ✓refs/remotes/origin/main⇣6
-└── ≡:0:A {1}
+└── ≡:0:A on 79bbb29 {1}
     └── :0:A
 
 "#]]
@@ -3760,7 +3760,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:A <> ✓refs/remotes/origin/main⇣3
-└── ≡:0:A on 4b3e5a8 {1}
+└── ≡:0:A on 79bbb29 {1}
     └── :0:A
 
 "#]]
@@ -3810,7 +3810,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main <> ✓refs/remotes/origin/main⇣3
-└── ≡:0:main <> origin/main →:2:⇣3 {1}
+└── ≡:0:main <> origin/main →:2:⇣3 on 4b3e5a8 {1}
     └── :0:main <> origin/main →:2:⇣3
         ├── 🟣d0df794 (✓)
         ├── 🟣09c6e08 (✓)
@@ -3829,7 +3829,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:DETACHED <> ✓refs/remotes/origin/main⇣3
-└── ≡:0:anon: {1}
+└── ≡:0:anon: on 34d0715 {1}
     └── :0:anon:
 
 "#]]
@@ -4391,7 +4391,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main <> ✓refs/remotes/origin/main⇣11
-└── ≡:0:main <> origin/main →:2:⇣11 {1}
+└── ≡:0:main <> origin/main →:2:⇣11 on 2438292 {1}
     └── :0:main <> origin/main →:2:⇣11
         ├── 🟣232ed06 (✓)
         ├── 🟣abcfd9a (✓)
@@ -4467,7 +4467,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main <> ✓refs/remotes/origin/main⇣11
-└── ≡:0:main <> origin/main →:2:⇣11 {1}
+└── ≡:0:main <> origin/main →:2:⇣11 on 2438292 {1}
     └── :0:main <> origin/main →:2:⇣11
         ├── 🟣232ed06 (✓)
         ├── 🟣abcfd9a (✓)
@@ -4742,7 +4742,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main <> ✓refs/remotes/origin/main⇣17
-└── ≡:0:main <> origin/main →:2:⇣17 {1}
+└── ≡:0:main <> origin/main →:2:⇣17 on bce0c5e {1}
     └── :0:main <> origin/main →:2:⇣17
         ├── 🟣024f837 (✓) ►long-workspace-to-target
         ├── 🟣64a8284 (✓)
@@ -6965,7 +6965,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on fafd9d0
-├── ≡:6:B on fafd9d0
+├── ≡:6:B on 91bc3fc
 │   └── :6:B
 │       └── ·2f8f06d (🏘️)
 ├── ≡:7:C on fafd9d0
@@ -7608,7 +7608,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 ├── ≡📙:3:A on bce0c5e {0}
 │   └── 📙:3:A
 │       └── ·6fdab32 (🏘️)
-└── ≡📙:4:B on bce0c5e {1}
+└── ≡📙:4:B on f52fcec {1}
     └── 📙:4:B
         └── ·78b1b59 (🏘️)
 
@@ -9126,7 +9126,7 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on f5f42e0
-└── ≡📙:3:local-stack {0}
+└── ≡📙:3:local-stack on fafd9d0 {0}
     └── 📙:3:local-stack
         ├── ·66ea651 (🏘️)
         ├── ·e5a88a7 (🏘️)
@@ -9190,7 +9190,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on ef56fab
-└── ≡📙:3:my-branch {0}
+└── ≡📙:3:my-branch on fafd9d0 {0}
     └── 📙:3:my-branch
         ├── ·cd76046 (🏘️)
         ├── ·f8ff9a3 (🏘️)

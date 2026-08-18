@@ -2295,7 +2295,7 @@ fn errors() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:A <> ✓! on 89cc2d3
-└── ≡:0:A {1}
+└── ≡:0:A on 89cc2d3 {1}
     └── :0:A
 
 "#]]
