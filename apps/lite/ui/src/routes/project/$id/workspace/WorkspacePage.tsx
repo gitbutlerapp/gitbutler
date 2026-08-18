@@ -61,14 +61,14 @@ import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { Outline } from "./Outline.tsx";
-import { getOperations } from "#ui/operations/operation.ts";
+import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesOutline } from "./useBranchesOutline.ts";
 import { upstreamCommitReview, useUpstreamOutline } from "./useUpstreamOutline.ts";
-import type { OutlineMode } from "#ui/outline/mode.ts";
+import { getTransferKind, type OutlineMode } from "#ui/outline/mode.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
@@ -238,8 +238,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const hasAnyOperation = (sources: Array<Operand>, target: Operand) => {
-	const operations = getOperations(sources, target);
+const hasAnyOperation = (sources: Array<Operand>, target: Operand, kind: TransferKind) => {
+	const operations = getOperations(sources, target, kind);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
@@ -290,10 +290,9 @@ const buildOutlineNavigationIndex = ({
 					(operand) =>
 						activeMode.sources.some(
 							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) || hasAnyOperation(activeMode.sources, operand),
+						) || hasAnyOperation(activeMode.sources, operand, getTransferKind(activeMode)),
 				),
-			RenameBranch: (x) => [branchOperand(x.operand)],
-			RewordCommit: (x) => [commitOperand(x.operand)],
+			InlineEdit: (x) => [x.operand],
 		}),
 	);
 

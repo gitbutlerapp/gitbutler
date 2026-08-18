@@ -10,9 +10,8 @@ import {
 	type UrlListName,
 	type UrlQueryParams,
 } from "#ui/cursor-url.ts";
-import { isValidOutlineModeForSelection } from "#ui/outline/mode.ts";
-import { branchOperand, commitOperand } from "#ui/operands.ts";
-import type { BranchOperand, CommitOperand, Operand } from "#ui/operands.ts";
+import { isValidOutlineModeForSelection, type InlineEditOperand } from "#ui/outline/mode.ts";
+import type { Operand } from "#ui/operands.ts";
 import type { OutlineTab, WorkspaceList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
@@ -23,6 +22,7 @@ import {
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
+import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 
@@ -255,6 +255,8 @@ export const setWorkspaceList = (list: WorkspaceList): void => {
 const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	const params = currentParams();
 	return {
+		page: params.page,
+		list: params.list,
 		stacks: params.stacks,
 		uncommitted: params.uncommitted,
 		files: params.files,
@@ -265,6 +267,8 @@ const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
 	navigateParams((prev) => ({
 		...prev,
+		page: snapshot.page,
+		list: snapshot.list,
 		stacks: snapshot.stacks,
 		uncommitted: snapshot.uncommitted,
 		files: snapshot.files,
@@ -274,17 +278,24 @@ const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
 
 export const enterKeyboardTransfer = ({
 	sources,
+	kind,
 	placement,
 }: {
 	sources: Array<Operand>;
+	kind: TransferKind;
 	placement?: "above" | "below" | "into";
 }): void => {
+	const restoreSelection = snapshotWorkspaceCursors();
+	if (restoreSelection.page !== undefined)
+		navigateParams((prev) => ({ ...prev, page: undefined, list: undefined }));
+
 	store.dispatch(
 		projectSlice.actions.enterKeyboardTransferMode({
 			projectId: projectIdOf(),
 			sources,
+			kind,
 			placement,
-			restoreSelection: snapshotWorkspaceCursors(),
+			restoreSelection,
 		}),
 	);
 };
@@ -320,14 +331,9 @@ export const cancelMode = (): void => {
 	if (restore) restoreWorkspaceCursors(restore);
 };
 
-export const startRewordCommit = (commit: CommitOperand): void => {
-	setCursor("stacks", commitOperand(commit));
-	store.dispatch(projectSlice.actions.startRewordCommit({ projectId: projectIdOf(), commit }));
-};
-
-export const startRenameBranch = (branch: BranchOperand): void => {
-	setCursor("stacks", branchOperand(branch));
-	store.dispatch(projectSlice.actions.startRenameBranch({ projectId: projectIdOf(), branch }));
+export const startInlineEdit = (operand: InlineEditOperand): void => {
+	setCursor("stacks", operand);
+	store.dispatch(projectSlice.actions.startInlineEdit({ projectId: projectIdOf(), operand }));
 };
 
 /* ------------------------------------------------------- rewrite handling */

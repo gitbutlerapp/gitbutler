@@ -73,7 +73,7 @@ export const UncommittedChangesRow: FC<{
 	};
 
 	const cutChanges = () => {
-		enterKeyboardTransfer({ sources: [operand] });
+		enterKeyboardTransfer({ sources: [operand], kind: "move" });
 		focusSelectionScope("outline");
 	};
 

@@ -3,7 +3,7 @@ import {
 	currentParams,
 	enterKeyboardTransfer,
 	setCursor,
-	startRenameBranch,
+	startInlineEdit,
 } from "#ui/use-cursor.ts";
 import { commitParamRef } from "#ui/cursor-url.ts";
 import {
@@ -186,10 +186,7 @@ export const BranchRow: FC<
 	);
 	const isRenaming = useAppSelector((state) => {
 		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RenameBranch" &&
-			operandEquals(operand, branchOperand(outlineMode.operand))
-		);
+		return outlineMode._tag === "InlineEdit" && operandEquals(operand, outlineMode.operand);
 	});
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
 		refName.displayName,
@@ -200,7 +197,7 @@ export const BranchRow: FC<
 	const { mutateAsync: branchRename } = useBranchRename();
 
 	const startEditing = () => {
-		startRenameBranch(branchOperandV);
+		startInlineEdit(operand);
 	};
 
 	const endEditing = () => {
@@ -252,7 +249,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
-		enterKeyboardTransfer({ sources: [operand] });
+		enterKeyboardTransfer({ sources: [operand], kind: "move" });
 		focusSelectionScope("outline");
 	};
 

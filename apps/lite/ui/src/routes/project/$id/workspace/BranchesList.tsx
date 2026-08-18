@@ -63,7 +63,12 @@ import {
 import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
 import type { BranchesOutline } from "./useBranchesOutline.ts";
-import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
+import {
+	enterKeyboardTransfer,
+	setCursor,
+	useCursorWriteBack,
+	useResolvedCursor,
+} from "#ui/use-cursor.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import type { NewBranchActions } from "./useNewBranch.ts";
 import styles from "./BranchesList.module.css";
@@ -99,8 +104,18 @@ const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, comm
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(projectId, operand);
 	const title = commitTitle(commit.message);
+	const copyCommit = () =>
+		enterKeyboardTransfer({ sources: [operand], kind: "copy", placement: "above" });
+	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Copy Commit",
+			accelerator: toElectronAccelerator(branchesHotkeys.copy.hotkey),
+			onSelect: copyCommit,
+		}),
+	];
 
 	return (
+		// oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- This page was vibecoded and needs an accessibility pass.
 		<Row
 			id={treeItemId(operand)}
 			role="treeitem"
@@ -108,6 +123,7 @@ const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, comm
 			aria-selected={isSelected}
 			isSelected={isSelected}
 			onSelect={() => setCursor("branches", operand)}
+			onContextMenu={(event) => void showNativeContextMenu(event, menuItems)}
 		>
 			<GraphSegment
 				glyph="commit"
@@ -335,6 +351,9 @@ export const BranchesList: FC<
 	const search = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchSearch(state, projectId),
 	);
+	const isDefaultMode = useAppSelector(
+		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const selection = useResolvedCursor("branches", navigationIndex);
 	useCursorWriteBack("branches", navigationIndex);
@@ -357,6 +376,21 @@ export const BranchesList: FC<
 		ref: hotkeysRef,
 		getKey: operandIdentityKey,
 	});
+
+	useHotkey(
+		branchesHotkeys.copy.hotkey,
+		() => {
+			if (selection?._tag !== "Commit") return;
+			enterKeyboardTransfer({ sources: [selection], kind: "copy", placement: "above" });
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: isDefaultMode && selection?._tag === "Commit",
+			ignoreInputs: true,
+			meta: branchesHotkeys.copy.meta,
+			target: hotkeysRef,
+		},
+	);
 
 	useHotkey(
 		branchesHotkeys.deleteBranchRef.hotkey,

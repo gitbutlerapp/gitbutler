@@ -14,6 +14,7 @@ import {
 	useExecuteOperation,
 	type Placement,
 	type OperationsByPlacement,
+	type TransferKind,
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { operandLabel, operandsLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
@@ -229,6 +230,7 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setPlacement("above"),
 			options: {
 				conflictBehavior: "allow",
+				enabled: !!operations.above,
 			},
 		},
 		{
@@ -236,6 +238,7 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setPlacement("into"),
 			options: {
 				conflictBehavior: "allow",
+				enabled: !!operations.into,
 			},
 		},
 		{
@@ -243,6 +246,7 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setPlacement("below"),
 			options: {
 				conflictBehavior: "allow",
+				enabled: !!operations.below,
 			},
 		},
 	]);
@@ -256,7 +260,7 @@ const TransferTypeToggleGroup: FC<{
 
 	return (
 		<ToggleGroup
-			aria-label="Operation type"
+			aria-label="Placement"
 			value={[placement]}
 			onValueChange={onValueChange}
 			className={styles.toggleGroupRow}
@@ -265,7 +269,11 @@ const TransferTypeToggleGroup: FC<{
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
-			<Toggle className={styles.toggleGroupRowToggle} value={"above" satisfies Placement}>
+			<Toggle
+				className={styles.toggleGroupRowToggle}
+				value={"above" satisfies Placement}
+				disabled={!operations.above}
+			>
 				{operations.above && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.above.label}</div>
 				)}
@@ -274,7 +282,11 @@ const TransferTypeToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"into" satisfies Placement}>
+			<Toggle
+				className={styles.toggleGroupRowToggle}
+				value={"into" satisfies Placement}
+				disabled={!operations.into}
+			>
 				{operations.into && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.into.label}</div>
 				)}
@@ -283,12 +295,74 @@ const TransferTypeToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"below" satisfies Placement}>
+			<Toggle
+				className={styles.toggleGroupRowToggle}
+				value={"below" satisfies Placement}
+				disabled={!operations.below}
+			>
 				{operations.below && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.below.label}</div>
 				)}
 				<div className="text-semibold">
 					Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} />
+				</div>
+			</Toggle>
+		</ToggleGroup>
+	);
+};
+
+const TransferKindToggleGroup: FC<{
+	canCopy: boolean;
+	kind: TransferKind;
+	projectId: string;
+}> = ({ canCopy, kind, projectId }) => {
+	const dispatch = useAppDispatch();
+
+	const setKind = (kind: TransferKind) =>
+		dispatch(projectSlice.actions.updateTransferKind({ projectId, kind }));
+
+	useHotkeys([
+		{
+			hotkey: operationHotkeys.selectMove.hotkey,
+			callback: () => setKind("move"),
+			options: { conflictBehavior: "allow" },
+		},
+		{
+			hotkey: operationHotkeys.selectCopy.hotkey,
+			callback: () => setKind("copy"),
+			options: { conflictBehavior: "allow", enabled: canCopy },
+		},
+	]);
+
+	const onValueChange = (value: Array<string>) => {
+		if (value.length === 0) return;
+		setKind(value[0] as TransferKind);
+	};
+
+	return (
+		<ToggleGroup
+			aria-label="Transfer kind"
+			value={[kind]}
+			onValueChange={onValueChange}
+			className={styles.toggleGroupRow}
+			onMouseDown={(evt) => {
+				// Prevent stealing focus from the tree.
+				if (!evt.defaultPrevented) evt.preventDefault();
+			}}
+		>
+			<Toggle className={styles.toggleGroupRowToggle} value={"move" satisfies TransferKind}>
+				<div className="text-semibold">
+					Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} />
+				</div>
+			</Toggle>
+
+			<Toggle
+				className={styles.toggleGroupRowToggle}
+				value={"copy" satisfies TransferKind}
+				disabled={!canCopy}
+			>
+				<div className="text-semibold">
+					Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} />
 				</div>
 			</Toggle>
 		</ToggleGroup>
@@ -310,8 +384,10 @@ const TransferKeyboardOperationControls: FC<{
 	const target = getTransferTarget(keyboardTransferMode(mode), selection, workspaceList);
 	if (!target) return null;
 
-	const operations = getOperations(mode.sources, target);
+	const operations = getOperations(mode.sources, target, mode.kind);
 	const operation = operations[mode.placement];
+	const canCopy =
+		mode.sources.length > 0 && mode.sources.every((source) => source._tag === "Commit");
 
 	const run = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
@@ -327,6 +403,7 @@ const TransferKeyboardOperationControls: FC<{
 
 	return (
 		<Container>
+			<TransferKindToggleGroup canCopy={canCopy} kind={mode.kind} projectId={projectId} />
 			<TransferTypeToggleGroup
 				projectId={projectId}
 				operations={operations}
@@ -402,8 +479,7 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 					}),
 					Match.orElse(() => null),
 				),
-			RenameBranch: () => null,
-			RewordCommit: () => null,
+			InlineEdit: () => null,
 		}),
 	);
 };

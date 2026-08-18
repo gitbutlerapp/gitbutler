@@ -66,9 +66,7 @@ export const OperationSourceC: FC<
 				},
 			});
 		});
-	const canDrag = useEffectEvent(
-		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
-	);
+	const canDrag = useEffectEvent(() => outlineMode._tag !== "InlineEdit");
 	const onDragStart = useEffectEvent(() => {
 		dispatch(
 			projectSlice.actions.enterTransferMode({

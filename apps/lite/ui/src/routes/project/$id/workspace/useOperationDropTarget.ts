@@ -53,7 +53,7 @@ export const useOperationDropTarget = ({
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { into, above, below } = getOperations(dragData.sources, target);
+		const { into, above, below } = getOperations(dragData.sources, target, "move");
 		return attachInstruction(
 			{},
 			{
@@ -117,6 +117,7 @@ export const useOperationDropTarget = ({
 								sources: dragData.sources,
 								target,
 								placement,
+								kind: "move",
 							})
 						: null;
 

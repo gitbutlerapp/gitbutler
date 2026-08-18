@@ -79,7 +79,7 @@ export const useFileMenuItems = ({
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [source];
 
-		enterKeyboardTransfer({ sources });
+		enterKeyboardTransfer({ sources, kind: "move" });
 		focusSelectionScope("outline");
 	};
 

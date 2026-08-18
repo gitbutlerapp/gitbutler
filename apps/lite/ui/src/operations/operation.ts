@@ -30,6 +30,12 @@ import { syncCoreCaches } from "#ui/api/mutations.ts";
 type Operation =
 	| { _tag: "AmendCommit"; sources: Array<Operand>; commitId: string }
 	| {
+			_tag: "CherryPick";
+			sourceCommitIds: Array<string>;
+			relativeTo: RelativeTo;
+			side: InsertSide;
+	  }
+	| {
 			_tag: "CreateCommit";
 			sources: Array<Operand>;
 			relativeTo: RelativeTo;
@@ -95,6 +101,14 @@ const executeOperation = async ({
 					dryRun,
 				});
 			},
+			CherryPick: (operation) =>
+				window.lite.commitCherryPick({
+					projectId,
+					sourceCommitIds: operation.sourceCommitIds,
+					relativeTo: operation.relativeTo,
+					side: operation.side,
+					dryRun,
+				}),
 			MoveCommitFile: async (operation) => {
 				const changes = await resolveChanges(operation.sources);
 				if (!changes) return null;
@@ -515,6 +529,7 @@ const moveOperation = ({
 };
 
 export type Placement = "into" | "above" | "below";
+export type TransferKind = "move" | "copy";
 
 const isOperationSourceEnabled = (source: Operand): boolean =>
 	Match.value(source).pipe(
@@ -524,27 +539,91 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 
 export type OperationsByPlacement = Record<Placement, LabelledOperation | null>;
 
-export const getOperations = (sources: Array<Operand>, target: Operand): OperationsByPlacement => {
-	if (
-		sources.length === 0 ||
-		sources.some((source) => operandEquals(source, target)) ||
-		!sources.every(isOperationSourceEnabled)
-	) {
+const cherryPickOperation = ({
+	sources,
+	target,
+	placement,
+}: {
+	sources: Array<Operand>;
+	target: Operand;
+	placement: Placement;
+}): LabelledOperation | null => {
+	if (sources.length === 0 || !sources.every((source) => source._tag === "Commit")) return null;
+
+	const destination = Match.value({ target, placement }).pipe(
+		Match.when({ target: { _tag: "Commit" } }, ({ target, placement }) =>
+			placement === "into"
+				? null
+				: {
+						relativeTo: {
+							type: "commit",
+							subject: target.commitId,
+						} satisfies RelativeTo,
+						side: placement,
+					},
+		),
+		Match.when({ target: { _tag: "Branch" }, placement: "into" }, ({ target }) => ({
+			relativeTo: {
+				type: "referenceBytes",
+				subject: target.branchRef,
+			} satisfies RelativeTo,
+			side: "below" as const,
+		})),
+		Match.orElse(() => null),
+	);
+	if (!destination) return null;
+
+	return {
+		operation: {
+			_tag: "CherryPick",
+			sourceCommitIds: sources.map((source) => source.commitId),
+			relativeTo: destination.relativeTo,
+			side: destination.side,
+		},
+		label: Match.value(placement).pipe(
+			Match.when("above", () => "Cherry-pick above"),
+			Match.when("below", () => "Cherry-pick below"),
+			Match.when("into", () => "Cherry-pick here"),
+			Match.exhaustive,
+		),
+	};
+};
+
+export const getOperations = (
+	sources: Array<Operand>,
+	target: Operand,
+	kind: TransferKind,
+): OperationsByPlacement => {
+	if (sources.length === 0 || !sources.every(isOperationSourceEnabled)) {
 		return {
 			into: null,
 			above: null,
 			below: null,
 		};
 	}
-	return {
-		into: intoOperation({ sources, target }),
-		above: moveOperation({ sources, target, side: "above" }),
-		below: moveOperation({ sources, target, side: "below" }),
-	};
+
+	switch (kind) {
+		case "copy":
+			return {
+				into: cherryPickOperation({ sources, target, placement: "into" }),
+				above: cherryPickOperation({ sources, target, placement: "above" }),
+				below: cherryPickOperation({ sources, target, placement: "below" }),
+			};
+		case "move":
+			if (sources.some((source) => operandEquals(source, target)))
+				return { into: null, above: null, below: null };
+
+			return {
+				into: intoOperation({ sources, target }),
+				above: moveOperation({ sources, target, side: "above" }),
+				below: moveOperation({ sources, target, side: "below" }),
+			};
+	}
 };
 
 export const getOperation = (x: {
 	sources: Array<Operand>;
 	target: Operand;
 	placement: Placement;
-}): LabelledOperation | null => getOperations(x.sources, x.target)[x.placement];
+	kind: TransferKind;
+}): LabelledOperation | null => getOperations(x.sources, x.target, x.kind)[x.placement];
