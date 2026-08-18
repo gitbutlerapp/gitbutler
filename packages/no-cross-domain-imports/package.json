@@ -9,7 +9,7 @@
 		"eslint": ">=9.0.0"
 	},
 	"devDependencies": {
-		"eslint": "^9.0.0",
+		"eslint": "^9.39.5",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},

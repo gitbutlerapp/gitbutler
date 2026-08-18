@@ -10,15 +10,15 @@
 	"dependencies": {
 		"@gitbutler/but-sdk": "workspace:*",
 		"@gitbutler/design-core": "3.9.1",
-		"@hono/node-server": "2.0.10",
-		"@modelcontextprotocol/ext-apps": "1.7.4",
+		"@hono/node-server": "2.1.0",
+		"@modelcontextprotocol/ext-apps": "1.7.5",
 		"@modelcontextprotocol/sdk": "1.30.0",
-		"react": "^19.2.4",
-		"react-dom": "^19.2.4"
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
 	},
 	"devDependencies": {
-		"@types/react": "^19.2.14",
-		"@types/react-dom": "^19.2.3",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4",
 		"@vitejs/plugin-react": "^5.2.0",
 		"typescript": "catalog:",
 		"vite": "catalog:",
