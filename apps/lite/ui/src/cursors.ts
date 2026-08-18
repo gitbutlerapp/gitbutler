@@ -33,7 +33,7 @@ export type ListItem = {
 export type ListName = keyof ListItem;
 
 /**
- * The workspace page's cursors, snapshotted by modes that restore on cancel.
+ * The workspace page's cursors, snapshotted by pending operations that restore on cancel.
  * URL cursors are held in their encoded form: restoration writes the params
  * back verbatim, no resolution needed.
  */

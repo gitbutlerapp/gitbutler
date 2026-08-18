@@ -1,5 +1,5 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { cancelMode } from "#ui/use-cursor.ts";
+import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	hunkOperand,
@@ -8,7 +8,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { pointerTransferMode } from "#ui/outline/mode.ts";
+import { pointerTransfer } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
 import {
@@ -87,8 +87,8 @@ export const useDiffHunkDrag = <T>({
 		canDrag: () => {
 			if (fileParent._tag === "Branch") return false;
 
-			const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectId);
-			return mode._tag !== "InlineEdit";
+			const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectId);
+			return pending._tag !== "InlineEdit";
 		},
 		getHeadInfoIndex: () => {
 			const headInfo = queryClient.getQueryData(headInfoQueryOptions(projectId).queryKey);
@@ -174,9 +174,9 @@ export const useDiffHunkDrag = <T>({
 				if (!sources) return;
 
 				config.dispatch(
-					projectSlice.actions.enterTransferMode({
+					projectSlice.actions.startTransfer({
 						projectId: config.projectId,
-						mode: pointerTransferMode({
+						transfer: pointerTransfer({
 							sources,
 							target: null,
 							placement: null,
@@ -187,7 +187,7 @@ export const useDiffHunkDrag = <T>({
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				cancelMode();
+				cancelPendingOperation();
 			},
 		});
 

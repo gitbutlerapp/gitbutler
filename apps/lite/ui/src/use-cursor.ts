@@ -10,9 +10,12 @@ import {
 	type UrlListName,
 	type UrlQueryParams,
 } from "#ui/cursor-url.ts";
-import { isValidOutlineModeForSelection, type InlineEditOperand } from "#ui/outline/mode.ts";
+import {
+	isValidPendingOperationForSelection,
+	type InlineEditOperand,
+} from "#ui/operations/pending-operation.ts";
 import type { Operand } from "#ui/operands.ts";
-import type { OutlineTab, WorkspaceList } from "#ui/projects/project.ts";
+import type { PageId, WorkspaceList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
@@ -141,14 +144,14 @@ export const useCursorMatches = <L extends UrlListName>(list: L, item: ListItem[
 		select: (params: UrlQueryParams) => params[list] === encodeCursorParam(list, item),
 	});
 
-/** The outline page shown, `workspace` unless the URL says otherwise. */
-export const usePage = (): OutlineTab =>
+/** The sidebar page shown, `workspace` unless the URL says otherwise. */
+export const usePage = (): PageId =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams) => params.page ?? "workspace",
 	});
 
-const pageOf = (): OutlineTab => currentParams().page ?? "workspace";
+const pageOf = (): PageId => currentParams().page ?? "workspace";
 
 /** The workspace page's driving list, `stacks` unless the URL says otherwise. */
 export const useWorkspaceList = (): WorkspaceList =>
@@ -172,15 +175,15 @@ export const useCanShowFiles = (): boolean =>
 		select: (params: UrlQueryParams) => !drivenByUncommitted(params),
 	});
 
-export const outlineFocusScopeOf = (): "outline" | "uncommitted-files" =>
-	drivenByUncommitted(currentParams()) ? "uncommitted-files" : "outline";
+export const sidebarFocusScopeOf = (): "sidebar" | "uncommitted-files" =>
+	drivenByUncommitted(currentParams()) ? "uncommitted-files" : "sidebar";
 
-/** The focus scope of the outline panel's driving list. */
-export const useOutlineFocusScope = (): "outline" | "uncommitted-files" =>
+/** The focus scope of the sidebar's driving list. */
+export const useSidebarFocusScope = (): "sidebar" | "uncommitted-files" =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams) =>
-			drivenByUncommitted(params) ? ("uncommitted-files" as const) : ("outline" as const),
+			drivenByUncommitted(params) ? ("uncommitted-files" as const) : ("sidebar" as const),
 	});
 
 /* ----------------------------------------------------------------- writes */
@@ -200,13 +203,16 @@ const setDiffCursor = (selection: ListItem["diff"] | null): void => {
 	store.dispatch(projectSlice.actions.selectDiffCursor({ projectId: projectIdOf(), selection }));
 };
 
-/** A stacks selection dissolves an outline mode it invalidates, as before. */
-const dissolveInvalidMode = (selection: Operand | null): void => {
-	const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectIdOf());
-	if (mode._tag === "Default") return;
+/** A stacks selection dissolves a pending operation it invalidates, as before. */
+const dissolveInvalidOperation = (selection: Operand | null): void => {
+	const pendingOperation = projectSlice.selectors.selectPendingOperation(
+		store.getState(),
+		projectIdOf(),
+	);
+	if (pendingOperation._tag === "None") return;
 
-	if (!selection || !isValidOutlineModeForSelection({ mode, selection }))
-		store.dispatch(projectSlice.actions.exitMode({ projectId: projectIdOf() }));
+	if (!selection || !isValidPendingOperationForSelection({ pendingOperation, selection }))
+		store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
 };
 
 /** Move a list's cursor. */
@@ -231,16 +237,16 @@ export const setCursor = <L extends ListName>(list: L, item: ListItem[L] | null)
 
 	if (list === "stacks") {
 		setDiffCursor(null);
-		dissolveInvalidMode(item as Operand | null);
+		dissolveInvalidOperation(item as Operand | null);
 	}
 };
 
-/** Switch the outline page. Changing pages dissolves any outline mode. */
-export const setPage = (page: OutlineTab): void => {
+/** Switch the sidebar page. Changing pages dissolves any pending operation. */
+export const setPage = (page: PageId): void => {
 	if (pageOf() === page) return;
 
 	navigateParams((prev) => ({ ...prev, page: page === "workspace" ? undefined : page }));
-	store.dispatch(projectSlice.actions.exitMode({ projectId: projectIdOf() }));
+	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
 };
 
 /** Name the workspace list that drives the details pane. */
@@ -250,7 +256,7 @@ export const setWorkspaceList = (list: WorkspaceList): void => {
 	navigateParams((prev) => ({ ...prev, list: list === "stacks" ? undefined : list }));
 };
 
-/* ------------------------------------------------- modes with restoration */
+/* -------------------------- pending operations with restoration */
 
 const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	const params = currentParams();
@@ -276,7 +282,7 @@ const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
 	setDiffCursor(snapshot.diff);
 };
 
-export const enterKeyboardTransfer = ({
+export const startKeyboardTransfer = ({
 	sources,
 	kind,
 	placement,
@@ -290,7 +296,7 @@ export const enterKeyboardTransfer = ({
 		navigateParams((prev) => ({ ...prev, page: undefined, list: undefined }));
 
 	store.dispatch(
-		projectSlice.actions.enterKeyboardTransferMode({
+		projectSlice.actions.startKeyboardTransfer({
 			projectId: projectIdOf(),
 			sources,
 			kind,
@@ -300,7 +306,7 @@ export const enterKeyboardTransfer = ({
 	);
 };
 
-export const enterAbsorb = ({
+export const startAbsorb = ({
 	sources,
 	sourceTarget,
 }: {
@@ -308,7 +314,7 @@ export const enterAbsorb = ({
 	sourceTarget: AbsorptionTarget;
 }): void => {
 	store.dispatch(
-		projectSlice.actions.enterAbsorbMode({
+		projectSlice.actions.startAbsorb({
 			projectId: projectIdOf(),
 			sources,
 			sourceTarget,
@@ -317,17 +323,17 @@ export const enterAbsorb = ({
 	);
 };
 
-/** Leave the mode and put every cursor back where the mode found it. */
-export const cancelMode = (): void => {
-	const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectIdOf());
+/** Cancel the pending operation and put every cursor back where it found them. */
+export const cancelPendingOperation = (): void => {
+	const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectIdOf());
 	const restore =
-		mode._tag === "Absorb"
-			? mode.restoreSelection
-			: mode._tag === "Transfer" && mode.value._tag === "Keyboard"
-				? mode.value.restoreSelection
+		pending._tag === "Absorb"
+			? pending.restoreSelection
+			: pending._tag === "Transfer" && pending.value._tag === "Keyboard"
+				? pending.value.restoreSelection
 				: null;
 
-	store.dispatch(projectSlice.actions.exitMode({ projectId: projectIdOf() }));
+	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
 	if (restore) restoreWorkspaceCursors(restore);
 };
 

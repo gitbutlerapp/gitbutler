@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import { enterAbsorb } from "#ui/use-cursor.ts";
+import { startAbsorb } from "#ui/use-cursor.ts";
 import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
@@ -69,8 +69,8 @@ const useFilesTreeHotkeys = ({
 	selectedChange: TreeChange | null;
 	toggleDirectoryCollapsed: (path: string) => void;
 }) => {
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const mode = useFileDisplayMode();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -102,7 +102,7 @@ const useFilesTreeHotkeys = ({
 						?.changes.filter((change) => checkedPaths.has(change.path));
 		if (checkedPaths.size > 0 && !checkedChanges) return;
 
-		enterAbsorb({
+		startAbsorb({
 			sources: (checkedPaths.size > 0
 				? Array.from(checkedPaths, (path) =>
 						fileOperand({ parent: uncommittedChangesFileParent, path }),
@@ -121,7 +121,7 @@ const useFilesTreeHotkeys = ({
 				},
 			},
 		});
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	const toggleSelectedRowChecked = (event: KeyboardEvent) => {
@@ -181,7 +181,7 @@ const useFilesTreeHotkeys = ({
 			callback: absorbSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedChangesFile !== null && isDefaultMode,
+				enabled: selectedChangesFile !== null && noOperationPending,
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -191,7 +191,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
+				enabled: selection !== null && noOperationPending && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -203,7 +203,7 @@ const useFilesTreeHotkeys = ({
 			callback: discardSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: isDefaultMode && canDiscardSelectedFile,
+				enabled: noOperationPending && canDiscardSelectedFile,
 				target: ref,
 				meta: changesFileHotkeys.discard.meta,
 			},
@@ -213,7 +213,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
+				enabled: selection !== null && noOperationPending && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -244,7 +244,10 @@ const useFilesTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					isDefaultMode && selectedChange !== null && fileParent._tag === "Commit" && canUncommit,
+					noOperationPending &&
+					selectedChange !== null &&
+					fileParent._tag === "Commit" &&
+					canUncommit,
 				target: ref,
 				meta: changesFileHotkeys.uncommit.meta,
 			},
@@ -254,7 +257,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleFoldSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				// Folding is a view operation, so it stays available in every outline
+				// Folding is a view operation, so it stays available in every workspace
 				// mode. Flat list mode has no directory rows, nothing to fold.
 				enabled: mode === "tree" && selectedRow !== undefined,
 				target: ref,

@@ -1,6 +1,6 @@
 import { type Operand, operandEquals } from "#ui/operands.ts";
-import { cancelMode } from "#ui/use-cursor.ts";
-import { getOperationSources, pointerTransferMode } from "#ui/outline/mode.ts";
+import { cancelPendingOperation } from "#ui/use-cursor.ts";
+import { getOperationSources, pointerTransfer } from "#ui/operations/pending-operation.ts";
 import styles from "./OperationSourceC.module.css";
 import { operandsLabel } from "./operandLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -35,8 +35,8 @@ export const OperationSourceC: FC<
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
+	const pendingOperation = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
 	// We don't necessarily wrap in an array here in order to preserve reference identity.
 	const dragSource = useAppSelector((state) => {
@@ -66,12 +66,12 @@ export const OperationSourceC: FC<
 				},
 			});
 		});
-	const canDrag = useEffectEvent(() => outlineMode._tag !== "InlineEdit");
+	const canDrag = useEffectEvent(() => pendingOperation._tag !== "InlineEdit");
 	const onDragStart = useEffectEvent(() => {
 		dispatch(
-			projectSlice.actions.enterTransferMode({
+			projectSlice.actions.startTransfer({
 				projectId,
-				mode: pointerTransferMode({
+				transfer: pointerTransfer({
 					sources: dragSources,
 					target: null,
 					placement: null,
@@ -95,12 +95,12 @@ export const OperationSourceC: FC<
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				cancelMode();
+				cancelPendingOperation();
 			},
 		});
 	}, [dispatch, projectId]);
 
-	const operationSources = getOperationSources(outlineMode);
+	const operationSources = getOperationSources(pendingOperation);
 	const isActiveSource = operationSources
 		? operationSources.some((operationSource) => operandEquals(operationSource, source))
 		: false;

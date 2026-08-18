@@ -1,6 +1,6 @@
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { ListItem, ListName } from "#ui/cursors.ts";
-import type { OutlineTab } from "#ui/projects/project.ts";
+import type { PageId } from "#ui/projects/project.ts";
 import type { Operand } from "#ui/operands.ts";
 
 /**
@@ -13,7 +13,7 @@ import type { Operand } from "#ui/operands.ts";
  * groups, which no legible string carries, so it stays in the store.
  */
 export type UrlQueryParams = {
-	page?: Exclude<OutlineTab, "workspace">;
+	page?: Exclude<PageId, "workspace">;
 	list?: "uncommitted";
 	stacks?: string;
 	uncommitted?: string;

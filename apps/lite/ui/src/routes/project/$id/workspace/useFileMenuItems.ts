@@ -3,7 +3,7 @@ import {
 	useOpenInProgram,
 	useResolveWorktreeConflicts,
 } from "#ui/api/mutations.ts";
-import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
@@ -79,8 +79,8 @@ export const useFileMenuItems = ({
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [source];
 
-		enterKeyboardTransfer({ sources, kind: "move" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources, kind: "move" });
+		focusScope("sidebar");
 	};
 
 	const menuItemGroups: Array<Array<NativeMenuItem>> = [
@@ -192,7 +192,7 @@ export const useFileMenuItems = ({
 											?.changes.filter((change) => checkedPaths.has(change.path));
 							if (checkedPaths.size > 0 && !checkedChanges) return;
 
-							enterAbsorb({
+							startAbsorb({
 								sources: (checkedPaths.size > 0
 									? Array.from(checkedPaths, (path) =>
 											fileOperand({ parent: operand.parent, path }),
@@ -206,7 +206,7 @@ export const useFileMenuItems = ({
 									},
 								},
 							});
-							focusScope("outline");
+							focusScope("sidebar");
 						};
 
 						return [

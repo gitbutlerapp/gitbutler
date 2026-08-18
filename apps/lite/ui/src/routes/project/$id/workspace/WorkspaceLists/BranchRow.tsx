@@ -1,7 +1,7 @@
 import rowStyles from "../Row.module.css";
 import {
 	currentParams,
-	enterKeyboardTransfer,
+	startKeyboardTransfer,
 	setCursor,
 	startInlineEdit,
 } from "#ui/use-cursor.ts";
@@ -37,7 +37,7 @@ import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegme
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { outlineHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { sidebarHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -181,12 +181,14 @@ export const BranchRow: FC<
 	const isFolded = useAppSelector((state) =>
 		projectSlice.selectors.selectSegmentFolded(state, projectId, branchRef),
 	);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const isRenaming = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return outlineMode._tag === "InlineEdit" && operandEquals(operand, outlineMode.operand);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return (
+			pendingOperation._tag === "InlineEdit" && operandEquals(operand, pendingOperation.operand)
+		);
 	});
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
 		refName.displayName,
@@ -201,9 +203,9 @@ export const BranchRow: FC<
 	};
 
 	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 		setCursor("stacks", operand);
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -249,8 +251,8 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
-		enterKeyboardTransfer({ sources: [operand], kind: "move" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources: [operand], kind: "move" });
+		focusScope("sidebar");
 	};
 
 	const insertBlankCommit = (side: "above" | "below") => {
@@ -353,21 +355,21 @@ export const BranchRow: FC<
 		nativeMenuItem({
 			label: isFolded ? "Unfold Commits" : "Fold Commits",
 			enabled: commitCount > 0,
-			accelerator: toElectronAccelerator(outlineHotkeys.toggleFoldBranch.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.toggleFoldBranch.hotkey),
 			onSelect: toggleFolded,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: pushMenuLabel,
 			enabled: !workspaceBranchAndAncestorsPushDisabled,
-			accelerator: toElectronAccelerator(outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Rename Branch",
 			enabled: !isRenamePending,
-			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
 		}),
 		nativeMenuItem({
@@ -383,7 +385,7 @@ export const BranchRow: FC<
 		nativeMenuItem({
 			label: "Open Pull Request In Browser",
 			enabled: mforgeUrl != null,
-			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "below"),
@@ -393,7 +395,7 @@ export const BranchRow: FC<
 			submenu: [
 				nativeMenuItem({
 					label: "Above",
-					accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
+					accelerator: toElectronAccelerator(sidebarHotkeys.createDependentBranchAbove.hotkey),
 					onSelect: () => createDependentBranch("above"),
 				}),
 				nativeMenuItem({
@@ -411,7 +413,7 @@ export const BranchRow: FC<
 		nativeMenuItem({
 			label: "Delete Branch Reference",
 			enabled: canRemoveBranch && !isBranchRemovePending,
-			accelerator: toElectronAccelerator(outlineHotkeys.deleteBranchRef.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
 			onSelect: () =>
 				branchRemove({
 					projectId,
@@ -454,7 +456,7 @@ export const BranchRow: FC<
 						<Tooltip.Positioner sideOffset={4}>
 							<Tooltip.Popup
 								render={
-									<TooltipPopup kbd={outlineHotkeys.toggleFoldBranch.hotkey} kbdScope="outline" />
+									<TooltipPopup kbd={sidebarHotkeys.toggleFoldBranch.hotkey} kbdScope="sidebar" />
 								}
 							>
 								{foldLabel}
@@ -590,8 +592,8 @@ export const BranchRow: FC<
 												<Tooltip.Popup
 													render={
 														<TooltipPopup
-															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-															kbdScope="outline"
+															kbd={sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+															kbdScope="sidebar"
 														/>
 													}
 												>
@@ -606,7 +608,7 @@ export const BranchRow: FC<
 				</RowLabelGroup>
 			)}
 
-			{isDefaultMode && (
+			{noOperationPending && (
 				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
 					<Toolbar.Button
 						aria-label="Branch menu"

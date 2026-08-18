@@ -16,16 +16,16 @@ import {
 } from "#ui/operands.ts";
 import type { Placement, TransferKind } from "#ui/operations/operation.ts";
 import {
-	absorbOutlineMode,
-	defaultOutlineMode,
-	inlineEditOutlineMode,
-	keyboardTransferMode,
-	pointerTransferMode,
-	transferOutlineMode,
-	type InlineEditMode,
-	type OutlineMode,
-	type TransferMode,
-} from "#ui/outline/mode.ts";
+	pendingAbsorb,
+	noPendingOperation,
+	pendingInlineEdit,
+	keyboardTransfer,
+	pointerTransfer,
+	pendingTransfer,
+	type PendingInlineEdit,
+	type PendingOperation,
+	type PendingTransfer,
+} from "#ui/operations/pending-operation.ts";
 import {
 	cursorKey,
 	remapDiffCursor,
@@ -78,7 +78,7 @@ type WorkspaceState = {
 	 */
 	foldedSegments: Record<string, true>;
 	highlightedCommitIds: Array<string>;
-	mode: OutlineMode;
+	pendingOperation: PendingOperation;
 	selectedBranchTabs: Record<string, BranchTab>;
 	/**
 	 * The diff cursor. Its five siblings live in the URL (use-cursor.ts); this
@@ -91,7 +91,7 @@ type WorkspaceState = {
 	 * filter is not the same as a closed one: it keeps the input in place and the
 	 * list unnarrowed.
 	 *
-	 * The outline's uncommitted list and the details pane's file list filter
+	 * The sidebar's uncommitted list and the details pane's file list filter
 	 * independently, and can both be open at once.
 	 */
 	uncommittedFilesFilter: string | null;
@@ -113,7 +113,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	checkedConflicts: {},
 	foldedSegments: {},
 	highlightedCommitIds: [],
-	mode: defaultOutlineMode,
+	pendingOperation: noPendingOperation,
 	selectedBranchTabs: {},
 	diffCursor: null,
 	uncommittedFilesFilter: null,
@@ -122,7 +122,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	filesCollapsedDirectories: {},
 });
 
-export type OutlineTab = "workspace" | "upstream" | "branches";
+export type PageId = "workspace" | "upstream" | "branches";
 
 const defaultBranchTab: BranchTab = "diff";
 
@@ -155,8 +155,8 @@ export const projectReducers = {
 	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
 		upstreamReducers.toggleSegment(state.upstream, { segmentId });
 	},
-	startInlineEdit: (state: ProjectState, mode: InlineEditMode) => {
-		state.workspace.mode = inlineEditOutlineMode(mode);
+	startInlineEdit: (state: ProjectState, edit: PendingInlineEdit) => {
+		state.workspace.pendingOperation = pendingInlineEdit(edit);
 	},
 	updateRewrittenBranchReferences: (
 		state: ProjectState,
@@ -174,11 +174,11 @@ export const projectReducers = {
 		}
 
 		if (
-			workspaceState.mode._tag === "InlineEdit" &&
-			workspaceState.mode.operand._tag === "Branch" &&
-			operandEquals(workspaceState.mode.operand, oldBranchOperand)
+			workspaceState.pendingOperation._tag === "InlineEdit" &&
+			workspaceState.pendingOperation.operand._tag === "Branch" &&
+			operandEquals(workspaceState.pendingOperation.operand, oldBranchOperand)
 		)
-			workspaceState.mode = inlineEditOutlineMode({ operand: branchOperand(newBranch) });
+			workspaceState.pendingOperation = pendingInlineEdit({ operand: branchOperand(newBranch) });
 
 		const oldFileParent = branchFileParent(oldBranch);
 		const newFileParent = branchFileParent(newBranch);
@@ -195,10 +195,10 @@ export const projectReducers = {
 			workspaceState.checkedOperands[operandIdentityKey(newOperand)] = newOperand;
 		}
 	},
-	enterTransferMode: (state: ProjectState, { mode }: { mode: TransferMode }) => {
-		state.workspace.mode = transferOutlineMode(mode);
+	startTransfer: (state: ProjectState, { transfer }: { transfer: PendingTransfer }) => {
+		state.workspace.pendingOperation = pendingTransfer(transfer);
 	},
-	enterKeyboardTransferMode: (
+	startKeyboardTransfer: (
 		state: ProjectState,
 		{
 			sources,
@@ -212,8 +212,8 @@ export const projectReducers = {
 			restoreSelection: WorkspaceCursorSnapshot;
 		},
 	) => {
-		state.workspace.mode = transferOutlineMode(
-			keyboardTransferMode({
+		state.workspace.pendingOperation = pendingTransfer(
+			keyboardTransfer({
 				sources,
 				kind,
 				placement: placement ?? "into",
@@ -221,7 +221,7 @@ export const projectReducers = {
 			}),
 		);
 	},
-	enterAbsorbMode: (
+	startAbsorb: (
 		state: ProjectState,
 		{
 			sources,
@@ -233,24 +233,24 @@ export const projectReducers = {
 			restoreSelection: WorkspaceCursorSnapshot;
 		},
 	) => {
-		state.workspace.mode = absorbOutlineMode({ sources, restoreSelection, sourceTarget });
+		state.workspace.pendingOperation = pendingAbsorb({ sources, restoreSelection, sourceTarget });
 	},
 	updatePointerTransfer: (
 		state: ProjectState,
 		{ target, placement }: { target: Operand | null; placement: Placement | null },
 	) => {
 		const workspaceState = state.workspace;
-		Match.value(workspaceState.mode).pipe(
-			Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, ({ value: mode }) => {
+		Match.value(workspaceState.pendingOperation).pipe(
+			Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, ({ value: transfer }) => {
 				const sameTarget =
 					target === null
-						? mode.target === null
-						: mode.target !== null && operandEquals(mode.target, target);
-				if (sameTarget && mode.placement === placement) return;
+						? transfer.target === null
+						: transfer.target !== null && operandEquals(transfer.target, target);
+				if (sameTarget && transfer.placement === placement) return;
 
-				workspaceState.mode = transferOutlineMode(
-					pointerTransferMode({
-						sources: mode.sources,
+				workspaceState.pendingOperation = pendingTransfer(
+					pointerTransfer({
+						sources: transfer.sources,
 						target,
 						placement,
 					}),
@@ -261,16 +261,16 @@ export const projectReducers = {
 	},
 	updateTransferPlacement: (state: ProjectState, { placement }: { placement: Placement }) => {
 		const workspaceState = state.workspace;
-		Match.value(workspaceState.mode).pipe(
-			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) => {
-				if (mode.placement === placement) return;
+		Match.value(workspaceState.pendingOperation).pipe(
+			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: transfer }) => {
+				if (transfer.placement === placement) return;
 
-				workspaceState.mode = transferOutlineMode(
-					keyboardTransferMode({
-						sources: mode.sources,
-						kind: mode.kind,
+				workspaceState.pendingOperation = pendingTransfer(
+					keyboardTransfer({
+						sources: transfer.sources,
+						kind: transfer.kind,
 						placement,
-						restoreSelection: mode.restoreSelection,
+						restoreSelection: transfer.restoreSelection,
 					}),
 				);
 			}),
@@ -279,24 +279,24 @@ export const projectReducers = {
 	},
 	updateTransferKind: (state: ProjectState, { kind }: { kind: TransferKind }) => {
 		const workspaceState = state.workspace;
-		Match.value(workspaceState.mode).pipe(
-			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) => {
-				if (mode.kind === kind) return;
+		Match.value(workspaceState.pendingOperation).pipe(
+			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: transfer }) => {
+				if (transfer.kind === kind) return;
 
-				workspaceState.mode = transferOutlineMode(
-					keyboardTransferMode({
-						sources: mode.sources,
+				workspaceState.pendingOperation = pendingTransfer(
+					keyboardTransfer({
+						sources: transfer.sources,
 						kind,
-						placement: mode.placement,
-						restoreSelection: mode.restoreSelection,
+						placement: transfer.placement,
+						restoreSelection: transfer.restoreSelection,
 					}),
 				);
 			}),
 			Match.orElse(() => {}),
 		);
 	},
-	exitMode: (state: ProjectState) => {
-		state.workspace.mode = defaultOutlineMode;
+	clearPendingOperation: (state: ProjectState) => {
+		state.workspace.pendingOperation = noPendingOperation;
 	},
 	setHighlightedCommitIds: (
 		state: ProjectState,
@@ -390,15 +390,15 @@ export const projectReducers = {
 		}
 
 		if (
-			workspaceState.mode._tag === "InlineEdit" &&
-			workspaceState.mode.operand._tag === "Commit"
+			workspaceState.pendingOperation._tag === "InlineEdit" &&
+			workspaceState.pendingOperation.operand._tag === "Commit"
 		) {
-			const newId = replacedCommits[workspaceState.mode.operand.commitId];
+			const newId = replacedCommits[workspaceState.pendingOperation.operand.commitId];
 			if (newId !== undefined) {
-				workspaceState.mode = inlineEditOutlineMode({
+				workspaceState.pendingOperation = pendingInlineEdit({
 					operand: commitOperand({
 						commitId: newId,
-						changeId: workspaceState.mode.operand.changeId,
+						changeId: workspaceState.pendingOperation.operand.changeId,
 					}),
 				});
 			}
@@ -583,7 +583,7 @@ export const projectSelectors = {
 	selectIsConflictChecked: (state: ProjectState, conflict: CheckedConflict): boolean =>
 		conflictCheckKey(conflict) in state.workspace.checkedConflicts,
 	selectCheckedConflicts: selectCheckedConflictsFor,
-	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
+	selectPendingOperation: (state: ProjectState) => state.workspace.pendingOperation,
 	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
 	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
 		state.workspace.foldedSegments[branchRef] === true,

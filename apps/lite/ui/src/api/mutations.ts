@@ -1087,7 +1087,7 @@ export const useBranchRename = () => {
 				newBranch: response.newRef.displayName,
 			});
 
-			dispatch(projectSlice.actions.exitMode({ projectId: input.projectId }));
+			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
 		meta: { failureTitle: "Failed to rename branch" },
 	});

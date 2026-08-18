@@ -7,7 +7,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { getOperationSources } from "#ui/outline/mode.ts";
+import { getOperationSources } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
 import {
@@ -457,19 +457,19 @@ export const useDiffGutterCheckboxes = <T>(
 		() => getParentOperandRef.current,
 		() =>
 			getOperationSources(
-				projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectIdRef.current),
+				projectSlice.selectors.selectPendingOperation(appStore.getState(), projectIdRef.current),
 			),
 	);
 	const store = storeRef.current;
 
 	useLayoutEffect(() => {
-		let previousMode = projectSlice.selectors.selectOutlineModeState(
+		let previousMode = projectSlice.selectors.selectPendingOperation(
 			appStore.getState(),
 			projectId,
 		);
 		let previousSources = getOperationSources(previousMode);
 		return appStore.subscribe(() => {
-			const mode = projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectId);
+			const mode = projectSlice.selectors.selectPendingOperation(appStore.getState(), projectId);
 			if (mode === previousMode) return;
 
 			previousMode = mode;

@@ -18,7 +18,7 @@ import {
 	commitMessageGenerationButtonState,
 } from "#ui/commit-message-generation.ts";
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
-import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { changesHotkeys, sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -115,7 +115,7 @@ export const CommitForm: FC<{
 	 * Whether the workspace holds no branch to commit onto. Committing is still
 	 * allowed — the branch is created on submit — so this is deliberately kept
 	 * apart from `commitTarget`, whose items carry an `Operand` that drives the
-	 * outline selection and which a branch that doesn't exist yet cannot have.
+	 * sidebar selection and which a branch that doesn't exist yet cannot have.
 	 */
 	hasNoBranches: boolean;
 	startCommitButtonId: string;
@@ -154,8 +154,8 @@ export const CommitForm: FC<{
 		...projectAiSettingsQueryOptions(projectId),
 		select: (settings) => settings.enabled,
 	});
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const { data: headInfoIndex } = useQuery({
@@ -207,12 +207,12 @@ export const CommitForm: FC<{
 	};
 
 	const canCommitOrAmendBase =
-		isDefaultMode && commitTarget !== null && !isCommitOrAmendPending && !isGenerating;
+		noOperationPending && commitTarget !== null && !isCommitOrAmendPending && !isGenerating;
 	// Without branches there is no target to pick, but the commit creates one, so
 	// it must not be blocked. Amending still needs a commit that already exists.
 	const canCommit =
 		canCommitOrAmendBase ||
-		(isDefaultMode && hasNoBranches && !isCommitOrAmendPending && !isGenerating);
+		(noOperationPending && hasNoBranches && !isCommitOrAmendPending && !isGenerating);
 	const amendTargetCommitId =
 		commitTarget && headInfoIndex
 			? resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo })
@@ -350,7 +350,7 @@ export const CommitForm: FC<{
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
-				enabled: isDefaultMode && !isCommitOrAmendPending && !hasNoBranches,
+				enabled: noOperationPending && !isCommitOrAmendPending && !hasNoBranches,
 			},
 		},
 		{
@@ -405,7 +405,7 @@ export const CommitForm: FC<{
 					open={open}
 					onOpenChange={setOpen}
 					onValueChange={selectBranch}
-					disabled={!isDefaultMode || isCommitOrAmendPending || hasNoBranches}
+					disabled={!noOperationPending || isCommitOrAmendPending || hasNoBranches}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
@@ -461,10 +461,10 @@ export const CommitForm: FC<{
 						id={startCommitButtonId}
 						onClick={() => setIsExpanded(true)}
 						focusableWhenDisabled
-						disabled={!isDefaultMode}
+						disabled={!noOperationPending}
 					>
 						Start commit
-						<Kbd hotkey={outlineHotkeys.composeCommitMessage.hotkey} variant="button" />
+						<Kbd hotkey={sidebarHotkeys.composeCommitMessage.hotkey} variant="button" />
 					</Button>
 					<div aria-hidden className={styles.dropdownButtonSeparator} />
 					<Button
@@ -507,7 +507,7 @@ export const CommitForm: FC<{
 					el?.setSelectionRange(el.value.length, el.value.length);
 				}}
 				aria-label={commitTextareaLabel}
-				disabled={!isDefaultMode}
+				disabled={!noOperationPending}
 				readOnly={isCommitOrAmendPending || isGenerating}
 				placeholder={commitTextareaLabel}
 				defaultValue={draftMessage ?? ""}
@@ -521,7 +521,7 @@ export const CommitForm: FC<{
 					open={open}
 					onOpenChange={setOpen}
 					onValueChange={selectBranch}
-					disabled={!isDefaultMode || isCommitOrAmendPending || isGenerating || hasNoBranches}
+					disabled={!noOperationPending || isCommitOrAmendPending || isGenerating || hasNoBranches}
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger

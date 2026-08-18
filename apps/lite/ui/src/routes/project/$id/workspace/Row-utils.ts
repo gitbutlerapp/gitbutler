@@ -6,7 +6,7 @@ import { Match } from "effect";
 import styles from "./Row.module.css";
 
 export const treeItemId = (operand: Operand): string =>
-	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
+	`sidebar-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
 /**
  * Whether the tab's stored selection is this operand. Rows subscribe to this

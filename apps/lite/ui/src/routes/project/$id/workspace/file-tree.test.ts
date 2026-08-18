@@ -59,13 +59,13 @@ describe("buildFileTreeRows", () => {
 	});
 
 	test("sorts names naturally, case only breaking ties", () => {
-		const rows = tree(["v9.ts", "Outline.tsx", "v10.ts", "Beta.ts", "lineStats.ts", "alpha.ts"]);
+		const rows = tree(["v9.ts", "Sidebar.tsx", "v10.ts", "Beta.ts", "lineStats.ts", "alpha.ts"]);
 
 		expect(layout(rows)).toEqual([
 			"alpha.ts",
 			"Beta.ts",
 			"lineStats.ts",
-			"Outline.tsx",
+			"Sidebar.tsx",
 			"v9.ts",
 			"v10.ts",
 		]);

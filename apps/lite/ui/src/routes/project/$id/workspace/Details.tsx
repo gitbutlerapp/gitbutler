@@ -1,5 +1,5 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { enterAbsorb, setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
+import { startAbsorb, setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
@@ -60,7 +60,7 @@ import {
 	PullRequestDescription,
 	PullRequestForm,
 	PullRequestPrimaryAction,
-} from "#ui/routes/project/$id/workspace/PullRequestTab.tsx";
+} from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
@@ -428,8 +428,8 @@ const DiffContents: FC<{
 	const canCheckHunks = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
 	);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
@@ -740,7 +740,7 @@ const DiffContents: FC<{
 				});
 				if (!hunk) return;
 
-				enterAbsorb({
+				startAbsorb({
 					sources: [hunkOperand(hunk)],
 					sourceTarget: {
 						type: "hunks",
@@ -755,12 +755,12 @@ const DiffContents: FC<{
 					},
 				});
 
-				focusScope("outline");
+				focusScope("sidebar");
 			},
 			options: {
 				enabled:
 					fileParent._tag === "UncommittedChanges" &&
-					isDefaultMode &&
+					noOperationPending &&
 					!!diffSelectionHunk &&
 					!diffSelectionHunk.operand.isResultOfBinaryToTextConversion,
 				conflictBehavior: "allow",
@@ -1791,7 +1791,7 @@ const Diff: FC<{
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
-	// panel — in the outline's "Uncommitted" row. Surface them in the toolbar below whenever
+	// panel — in the sidebar's "Uncommitted" row. Surface them in the toolbar below whenever
 	// whichever of those owns them is hidden, so they never disappear entirely.
 	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
 
@@ -1819,7 +1819,7 @@ const Diff: FC<{
 	const filesSelection = useResolvedCursor("files", filesNavigationIndex);
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
-	// the outline selection, even with the helpers inlined, hence manual memoisation.
+	// the sidebar selection, even with the helpers inlined, hence manual memoisation.
 	const fileParent = useMemo(
 		() =>
 			Match.value(selection).pipe(
@@ -2981,12 +2981,12 @@ const FileDetails: FC<{
 };
 
 /**
- * One details component per outline page, as the outline has one list per
+ * One details component per sidebar page, as the sidebar has one list per
  * page: the component tree, not a tag on the selection, carries where a
  * selection came from. Each dispatches over the operands its own page can
  * select, so a branch is applied or unapplied by which page shows it.
  */
-type OutlineDetailsProps = { selection: Operand | null } & DetailsViewProps;
+type SidebarDetailsProps = { selection: Operand | null } & DetailsViewProps;
 
 /** A commit selection is shown the same way whichever page selected it. */
 const commitDetails = (
@@ -3005,7 +3005,7 @@ const commitDetails = (
 );
 
 /** The details pane for the workspace tab: branches here are applied. */
-export const WorkspaceDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
+export const WorkspaceDetails: FC<SidebarDetailsProps> = ({ selection, ...viewProps }) =>
 	selection &&
 	Match.value(selection).pipe(
 		Match.tags({
@@ -3021,7 +3021,7 @@ export const WorkspaceDetails: FC<OutlineDetailsProps> = ({ selection, ...viewPr
  * The details pane for the upstream tab. Only commits are selectable there;
  * its branch rows carry no operand.
  */
-export const UpstreamDetails: FC<OutlineDetailsProps & { review: TargetCommitReview | null }> = ({
+export const UpstreamDetails: FC<SidebarDetailsProps & { review: TargetCommitReview | null }> = ({
 	selection,
 	review,
 	...viewProps
@@ -3047,7 +3047,7 @@ export const UpstreamDetails: FC<OutlineDetailsProps & { review: TargetCommitRev
  * The details pane for the branches tab, which lists what the workspace does
  * not hold: its branches are unapplied.
  */
-export const BranchesDetails: FC<OutlineDetailsProps> = ({ selection, ...viewProps }) =>
+export const BranchesDetails: FC<SidebarDetailsProps> = ({ selection, ...viewProps }) =>
 	selection &&
 	Match.value(selection).pipe(
 		Match.tags({

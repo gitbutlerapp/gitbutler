@@ -58,9 +58,9 @@ import {
 } from "./Row-utils.ts";
 import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
-import type { BranchesOutline } from "./useBranchesOutline.ts";
+import type { BranchesListData } from "./useBranchesList.ts";
 import {
-	enterKeyboardTransfer,
+	startKeyboardTransfer,
 	setCursor,
 	useCursorWriteBack,
 	useResolvedCursor,
@@ -101,7 +101,7 @@ const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, comm
 	const isSelected = useIsSelected(projectId, operand);
 	const title = commitTitle(commit.message);
 	const copyCommit = () =>
-		enterKeyboardTransfer({ sources: [operand], kind: "copy", placement: "above" });
+		startKeyboardTransfer({ sources: [operand], kind: "copy", placement: "above" });
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Copy Commit",
@@ -168,7 +168,7 @@ const BranchItem: FC<{
 	const isSelected = useIsSelected(projectId, operand);
 	const [now] = useState(() => Date.now());
 
-	// Same topology as the workspace outline: nothing above the branch means the
+	// Same topology as the applied list: nothing above the branch means the
 	// rail turns in from the right, otherwise it joins the branch above it. This
 	// describes where the branch sits in the stack, so it does not change with
 	// fold state.
@@ -329,26 +329,26 @@ const BranchItem: FC<{
 export const BranchesList: FC<
 	{
 		projectId: string;
-		outline: BranchesOutline;
+		list: BranchesListData;
 		/**
-		 * Owned by the outline and shared with its stacks header, so both `+`
+		 * Owned by the sidebar and shared with its unapplied header, so both `+`
 		 * buttons offer the same menu and see the same create in flight.
 		 */
 		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
-> = ({ projectId, outline, newBranch, ...restProps }) => {
+> = ({ projectId, list, newBranch, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
-	const { stacks, navigationIndex, isPending, isError } = outline;
+	const { unapplied, navigationIndex, isPending, isError } = list;
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);
 	const search = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchSearch(state, projectId),
 	);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const selection = useResolvedCursor("branches", navigationIndex);
@@ -365,7 +365,7 @@ export const BranchesList: FC<
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		group: "Outline",
+		group: "Sidebar",
 		select: (newItem) => setCursor("branches", newItem),
 		selection,
 		selectSectionPredicate: (operand) => operand._tag === "Branch",
@@ -377,11 +377,11 @@ export const BranchesList: FC<
 		branchesHotkeys.copy.hotkey,
 		() => {
 			if (selection?._tag !== "Commit") return;
-			enterKeyboardTransfer({ sources: [selection], kind: "copy", placement: "above" });
+			startKeyboardTransfer({ sources: [selection], kind: "copy", placement: "above" });
 		},
 		{
 			conflictBehavior: "allow",
-			enabled: isDefaultMode && selection?._tag === "Commit",
+			enabled: noOperationPending && selection?._tag === "Commit",
 			ignoreInputs: true,
 			meta: branchesHotkeys.copy.meta,
 			target: hotkeysRef,
@@ -400,13 +400,13 @@ export const BranchesList: FC<
 		},
 	);
 
-	const firstBranch = stacks[0]?.branches[0];
+	const firstBranch = unapplied[0]?.branches[0];
 	const branchFilter = useListFilter({
 		filter: search,
 		setFilter: (search) => dispatch(projectSlice.actions.setBranchSearch({ projectId, search })),
 		inputId: "branches-filter-input",
 		subject: "branches",
-		scope: "outline",
+		scope: "sidebar",
 		selectionKey: selection === null ? null : operandIdentityKey(selection),
 		firstKey:
 			firstBranch === undefined
@@ -440,7 +440,7 @@ export const BranchesList: FC<
 				<SectionHeaderRow
 					className={styles.header}
 					label="Recent branches"
-					childrenBefore={<FocusScopeKbd hotkey="1" scope="outline" />}
+					childrenBefore={<FocusScopeKbd hotkey="1" scope="sidebar" />}
 					actions={
 						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Group className={styles.headerGroup}>
@@ -480,7 +480,7 @@ export const BranchesList: FC<
 			)}
 
 			<div className={classes(uiStyles.scroller, styles.list)}>
-				{stacks.length === 0 && (
+				{unapplied.length === 0 && (
 					<p className={classes("text-13", styles.msg)}>
 						{isPending
 							? "Loading branches…"
@@ -497,11 +497,11 @@ export const BranchesList: FC<
 					role="tree"
 					aria-label="Branches"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					data-focus-scope={"outline" satisfies FocusScope}
+					data-focus-scope={"sidebar" satisfies FocusScope}
 					className={styles.tree}
 					ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
 				>
-					{stacks.map((stack) => (
+					{unapplied.map((stack) => (
 						<StackCard
 							key={assert(stack.branches[0]).refName.full}
 							// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.

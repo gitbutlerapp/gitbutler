@@ -4,7 +4,7 @@ import {
 	type Placement,
 	useExecuteOperation,
 } from "#ui/operations/operation.ts";
-import { cancelMode } from "#ui/use-cursor.ts";
+import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import type { Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -122,11 +122,11 @@ export const useOperationDropTarget = ({
 						: null;
 
 				if (!operation) {
-					cancelMode();
+					cancelPendingOperation();
 					return;
 				}
 
-				dispatch(projectSlice.actions.exitMode({ projectId }));
+				dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 				executeOperation(operation.operation);
 			},
 		});

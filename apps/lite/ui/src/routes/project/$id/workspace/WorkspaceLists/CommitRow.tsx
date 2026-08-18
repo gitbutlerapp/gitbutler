@@ -1,5 +1,5 @@
 import rowStyles from "../Row.module.css";
-import { enterKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
+import { startKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
 	useCommitDiscard,
@@ -18,7 +18,7 @@ import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/c
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
 	changesHotkeys,
-	outlineHotkeys,
+	sidebarHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
@@ -39,7 +39,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ComponentProps, type FC, use, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
+import { NavigationIndexContext } from "../SidebarNavigationIndexContext.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
@@ -86,12 +86,14 @@ export const CommitRow: FC<
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const isRewording = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return outlineMode._tag === "InlineEdit" && operandEquals(operand, outlineMode.operand);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return (
+			pendingOperation._tag === "InlineEdit" && operandEquals(operand, pendingOperation.operand)
+		);
 	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
@@ -190,8 +192,8 @@ export const CommitRow: FC<
 			? projectSlice.selectors.selectCheckedOperands(state, projectId)
 			: [operand];
 
-		enterKeyboardTransfer({ sources, kind: "move" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources, kind: "move" });
+		focusScope("sidebar");
 	};
 
 	const copyCommit = () => {
@@ -201,8 +203,8 @@ export const CommitRow: FC<
 			: [operand];
 		if (!sources.every((source) => source._tag === "Commit")) return;
 
-		enterKeyboardTransfer({ sources, kind: "copy", placement: "above" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources, kind: "copy", placement: "above" });
+		focusScope("sidebar");
 	};
 
 	const uncommitCommit = () => {
@@ -224,9 +226,9 @@ export const CommitRow: FC<
 	};
 
 	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 		setCursor("stacks", operand);
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -272,19 +274,19 @@ export const CommitRow: FC<
 			label: "Reword Commit",
 			enabled: !isCommitMessagePending,
 			// Advertising a hotkey defined elsewhere.
-			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.rewordCommit.hotkey),
 			onSelect: startEditing,
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
 			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
-			enabled: isDefaultMode && canAmendCommit,
+			enabled: noOperationPending && canAmendCommit,
 			onSelect: amendCommit,
 		}),
 		nativeMenuItem({
 			label: "Copy Commit",
 			onSelect: copyCommit,
-			accelerator: toElectronAccelerator(outlineHotkeys.copy.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.copy.hotkey),
 		}),
 		nativeMenuItem({
 			label: "Cut Commit",
@@ -318,7 +320,7 @@ export const CommitRow: FC<
 		nativeMenuItem({
 			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
 			enabled: mforgeUrl != null,
-			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.openCommitInBrowser.hotkey),
 			onSelect: openCommitInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
@@ -328,7 +330,7 @@ export const CommitRow: FC<
 			submenu: [
 				nativeMenuItem({
 					label: "Above",
-					accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
+					accelerator: toElectronAccelerator(sidebarHotkeys.createDependentBranchAbove.hotkey),
 					onSelect: () => createDependentBranch("above"),
 				}),
 				nativeMenuItem({
@@ -341,13 +343,13 @@ export const CommitRow: FC<
 		nativeMenuItem({
 			label: "Delete Commit",
 			enabled: !isCommitDiscardPending,
-			accelerator: toElectronAccelerator(outlineHotkeys.deleteCommit.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.deleteCommit.hotkey),
 			onSelect: deleteCommit,
 		}),
 		nativeMenuItem({
 			label: "Uncommit",
 			enabled: !isCommitUncommitPending,
-			accelerator: toElectronAccelerator(outlineHotkeys.uncommitCommit.hotkey),
+			accelerator: toElectronAccelerator(sidebarHotkeys.uncommitCommit.hotkey),
 			onSelect: uncommitCommit,
 		}),
 	];
@@ -359,7 +361,7 @@ export const CommitRow: FC<
 			isChecked={isChecked}
 			isHighlighted={isHighlighted}
 			onShiftSelect={
-				isDefaultMode && canCheck
+				noOperationPending && canCheck
 					? () => checkCommit({ commitId: commit.id, shiftKey: true })
 					: undefined
 			}
@@ -379,7 +381,7 @@ export const CommitRow: FC<
 					disableHoverablePopup
 				>
 					<RowCheckbox
-						disabled={!isDefaultMode || !canCheck}
+						disabled={!noOperationPending || !canCheck}
 						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.checkbox}
@@ -395,9 +397,9 @@ export const CommitRow: FC<
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
 							<Tooltip.Popup
-								render={<TooltipPopup kbd={outlineHotkeys.checkCommit.hotkey} kbdScope="outline" />}
+								render={<TooltipPopup kbd={sidebarHotkeys.checkCommit.hotkey} kbdScope="sidebar" />}
 							>
-								{outlineHotkeys.checkCommit.meta.name}
+								{sidebarHotkeys.checkCommit.meta.name}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
 					</Tooltip.Portal>
@@ -436,7 +438,7 @@ export const CommitRow: FC<
 				</RowLabelContainer>
 			)}
 
-			{isDefaultMode && (
+			{noOperationPending && (
 				<Toolbar.Root aria-label="Commit actions" render={<RowToolbar />}>
 					<Toolbar.Button
 						aria-label="Commit menu"

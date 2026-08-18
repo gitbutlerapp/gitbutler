@@ -69,7 +69,7 @@ const goToTab = async (
 	appWindow: Page,
 	tab: "workspace" | "upstream" | "branches",
 ): Promise<void> => {
-	// The outline page lives in the query string, so this is a real navigation.
+	// The sidebar page lives in the query string, so this is a real navigation.
 	await appWindow.evaluate((page) => {
 		window.location.search = page === "workspace" ? "" : `?page=${page}`;
 	}, tab);
@@ -105,7 +105,7 @@ test.describe("screenshots", () => {
 
 		test("workspace sidebar", async ({ appWindow }) => {
 			await openProject(appWindow);
-			await shoot(appWindow, "workspace-sidebar", "#outline-panel");
+			await shoot(appWindow, "workspace-sidebar", "#sidebar-panel");
 		});
 
 		test("diff pane", async ({ appWindow }) => {
@@ -120,13 +120,13 @@ test.describe("screenshots", () => {
 		test("branches tab", async ({ appWindow }) => {
 			await openProject(appWindow);
 			await goToTab(appWindow, "branches");
-			await shoot(appWindow, "branches-tab", "#outline-panel");
+			await shoot(appWindow, "branches-tab", "#sidebar-panel");
 		});
 
 		test("upstream tab", async ({ appWindow }) => {
 			await openProject(appWindow);
 			await goToTab(appWindow, "upstream");
-			await shoot(appWindow, "upstream-tab", "#outline-panel");
+			await shoot(appWindow, "upstream-tab", "#sidebar-panel");
 		});
 
 		test("project picker", async ({ appWindow }) => {
@@ -157,7 +157,7 @@ test.describe("screenshots", () => {
 		test("uncommitted file rows", async ({ appWindow, testEnvironment }) => {
 			await openProject(appWindow);
 			await dirty(appWindow, testEnvironment.workdir);
-			await shoot(appWindow, "uncommitted", "#outline-panel");
+			await shoot(appWindow, "uncommitted", "#sidebar-panel");
 		});
 
 		test("commit form", async ({ appWindow, testEnvironment }) => {
@@ -166,7 +166,7 @@ test.describe("screenshots", () => {
 			// Expanding the form is in-app state, not a navigation, so this surface
 			// depends on a click producing a frame the way the dialogs do.
 			await appWindow.getByRole("button", { name: /start commit/i }).click();
-			await shoot(appWindow, "commit-form", "#outline-panel");
+			await shoot(appWindow, "commit-form", "#sidebar-panel");
 		});
 	});
 

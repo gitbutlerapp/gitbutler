@@ -5,10 +5,10 @@ import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 
 /**
- * Presents a computed absorption plan for preview and confirmation. The plan cannot be edited in
- * this mode.
+ * A computed absorption plan held for preview and confirmation. The plan cannot be edited while
+ * pending.
  */
-export type AbsorbMode = {
+export type PendingAbsorb = {
 	sources: Array<Operand>;
 	/** The same sources in a richer representation needed by the SDK to compute the plan. */
 	sourceTarget: AbsorptionTarget;
@@ -18,7 +18,7 @@ export type AbsorbMode = {
 /**
  * Derives the operation target from the current workspace selection.
  */
-export type KeyboardTransferMode = {
+export type KeyboardTransfer = {
 	sources: Array<Operand>;
 	kind: TransferKind;
 	placement: Placement;
@@ -28,7 +28,7 @@ export type KeyboardTransferMode = {
 /**
  * Stores the target and placement selected through drag-and-drop.
  */
-type PointerTransferMode = {
+type PointerTransfer = {
 	sources: Array<Operand>;
 	target: Operand | null;
 	placement: Placement | null;
@@ -38,16 +38,16 @@ type PointerTransferMode = {
  * Interactive source transfer. Its sources, target, and placement determine the concrete operation,
  * such as move, squash, amend, or uncommit.
  */
-export type TransferMode =
-	| ({ _tag: "Keyboard" } & KeyboardTransferMode)
-	| ({ _tag: "Pointer" } & PointerTransferMode);
+export type PendingTransfer =
+	| ({ _tag: "Keyboard" } & KeyboardTransfer)
+	| ({ _tag: "Pointer" } & PointerTransfer);
 
-export const keyboardTransferMode = ({
+export const keyboardTransfer = ({
 	sources,
 	kind,
 	placement,
 	restoreSelection,
-}: KeyboardTransferMode): TransferMode => ({
+}: KeyboardTransfer): PendingTransfer => ({
 	_tag: "Keyboard",
 	sources,
 	kind,
@@ -55,92 +55,92 @@ export const keyboardTransferMode = ({
 	restoreSelection,
 });
 
-export const pointerTransferMode = ({
+export const pointerTransfer = ({
 	sources,
 	target,
 	placement,
-}: PointerTransferMode): TransferMode => ({
+}: PointerTransfer): PendingTransfer => ({
 	_tag: "Pointer",
 	sources,
 	target,
 	placement,
 });
 
-export const getTransferKind = (mode: TransferMode): TransferKind =>
-	mode._tag === "Keyboard" ? mode.kind : "move";
+export const getTransferKind = (transfer: PendingTransfer): TransferKind =>
+	transfer._tag === "Keyboard" ? transfer.kind : "move";
 
 export const getTransferTarget = (
-	mode: TransferMode,
-	outlineSelection: Operand | null,
+	transfer: PendingTransfer,
+	appliedSelection: Operand | null,
 	workspaceList: "stacks" | "uncommitted",
 ): Operand | null =>
-	Match.value(mode).pipe(
+	Match.value(transfer).pipe(
 		Match.tagsExhaustive({
-			Pointer: (mode) => mode.target,
+			Pointer: (transfer) => transfer.target,
 			Keyboard: () =>
 				Match.value(workspaceList).pipe(
 					Match.when("uncommitted", () => uncommittedChangesOperand),
-					Match.when("stacks", () => outlineSelection),
+					Match.when("stacks", () => appliedSelection),
 					Match.exhaustive,
 				),
 		}),
 	);
 
-export const absorbOutlineMode = ({
+export const pendingAbsorb = ({
 	sources,
 	restoreSelection,
 	sourceTarget,
-}: AbsorbMode): OutlineMode => ({
+}: PendingAbsorb): PendingOperation => ({
 	_tag: "Absorb",
 	sources,
 	restoreSelection,
 	sourceTarget,
 });
 
-export const transferOutlineMode = (mode: TransferMode): OutlineMode => ({
+export const pendingTransfer = (transfer: PendingTransfer): PendingOperation => ({
 	_tag: "Transfer",
-	value: mode,
+	value: transfer,
 });
 
 export type InlineEditOperand = Extract<Operand, { _tag: "Branch" | "Commit" }>;
 
-export type InlineEditMode = { operand: InlineEditOperand };
+export type PendingInlineEdit = { operand: InlineEditOperand };
 
-export type OutlineMode =
-	| { _tag: "Default" }
-	| ({ _tag: "InlineEdit" } & InlineEditMode)
-	| ({ _tag: "Absorb" } & AbsorbMode)
-	| { _tag: "Transfer"; value: TransferMode };
+export type PendingOperation =
+	| { _tag: "None" }
+	| ({ _tag: "InlineEdit" } & PendingInlineEdit)
+	| ({ _tag: "Absorb" } & PendingAbsorb)
+	| { _tag: "Transfer"; value: PendingTransfer };
 
-export const defaultOutlineMode: OutlineMode = {
-	_tag: "Default",
+export const noPendingOperation: PendingOperation = {
+	_tag: "None",
 };
 
-export const inlineEditOutlineMode = ({ operand }: InlineEditMode): OutlineMode => ({
+export const pendingInlineEdit = ({ operand }: PendingInlineEdit): PendingOperation => ({
 	_tag: "InlineEdit",
 	operand,
 });
 
-export const isValidOutlineModeForSelection = ({
-	mode,
+export const isValidPendingOperationForSelection = ({
+	pendingOperation,
 	selection,
 }: {
-	mode: OutlineMode;
+	pendingOperation: PendingOperation;
 	selection: Operand;
 }): boolean =>
-	Match.value(mode).pipe(
+	Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () => true,
+			None: () => true,
 			Absorb: () => true,
 			Transfer: () => true,
-			InlineEdit: (mode) => operandEquals(selection, mode.operand),
+			InlineEdit: (pending) => operandEquals(selection, pending.operand),
 		}),
 	);
 
-export const getOperationSources = (mode: OutlineMode): Array<Operand> | null =>
-	Match.value(mode).pipe(
+export const getOperationSources = (pendingOperation: PendingOperation): Array<Operand> | null =>
+	Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () => null,
+			None: () => null,
 			Absorb: (x) => x.sources,
 			Transfer: (x) => x.value.sources,
 			InlineEdit: () => null,

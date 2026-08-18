@@ -1,7 +1,7 @@
 import { useUnapplyStack, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import { outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -16,8 +16,8 @@ import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
  */
 export const useStackMenuItems = (projectId: string, stack: Stack): Array<NativeMenuItem> => {
 	const dispatch = useAppDispatch();
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const branchCount = stack.segments.filter((segment) => segment.refName !== null).length;
@@ -62,8 +62,8 @@ export const useStackMenuItems = (projectId: string, stack: Stack): Array<Native
 		}),
 		nativeMenuItem({
 			label: "Update Stack (Rebases)",
-			enabled: isDefaultMode && !!rebaseUpdate,
-			accelerator: toElectronAccelerator(outlineHotkeys.updateStack.hotkey),
+			enabled: noOperationPending && !!rebaseUpdate,
+			accelerator: toElectronAccelerator(sidebarHotkeys.updateStack.hotkey),
 			onSelect: () => {
 				if (rebaseUpdate) {
 					workspaceIntegrateUpstream({
@@ -76,7 +76,7 @@ export const useStackMenuItems = (projectId: string, stack: Stack): Array<Native
 		}),
 		nativeMenuItem({
 			label: "Unapply Whole Stack",
-			enabled: isDefaultMode && !isUnapplyStackPending,
+			enabled: noOperationPending && !isUnapplyStackPending,
 			onSelect: () => {
 				// In the future we should have an unapply API that doesn't require an ID.
 				if (stack.id === null) throw new Error("Require stack ID in order to unapply");

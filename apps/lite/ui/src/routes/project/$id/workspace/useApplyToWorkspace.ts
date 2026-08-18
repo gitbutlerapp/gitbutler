@@ -4,7 +4,7 @@ import { encodeBytes } from "#ui/api/bytes.ts";
 import { branchOperand } from "#ui/operands.ts";
 
 /**
- * Apply a branch and follow it into the workspace: on success the outline
+ * Apply a branch and follow it into the workspace: on success the sidebar
  * switches to the workspace tab with the applied branch selected, so the
  * details pane stays on the branch the user was looking at.
  */

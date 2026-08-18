@@ -7,15 +7,15 @@ import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
 export const buildCommitTargetComboboxItems = ({
 	headInfo,
 	headInfoIndex,
-	outlineSelection,
+	appliedSelection,
 }: {
 	headInfo: RefInfo | undefined;
 	headInfoIndex: HeadInfoIndex | undefined;
-	outlineSelection: Operand | null;
+	appliedSelection: Operand | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
-		outlineSelection?._tag === "Commit"
-			? headInfoIndex?.commitContextByCommitId(outlineSelection.commitId)?.commit
+		appliedSelection?._tag === "Commit"
+			? headInfoIndex?.commitContextByCommitId(appliedSelection.commitId)?.commit
 			: null;
 
 	return [
@@ -53,9 +53,9 @@ export const buildCommitTargetComboboxItems = ({
 
 export const selectCommitTargetComboboxItem = ({
 	items,
-	outlineSelection,
+	appliedSelection,
 }: {
 	items: Array<CommitTargetComboboxItem>;
-	outlineSelection: Operand | null;
+	appliedSelection: Operand | null;
 }): CommitTargetComboboxItem | null =>
-	(outlineSelection && items.find((item) => operandEquals(item.operand, outlineSelection))) ?? null;
+	(appliedSelection && items.find((item) => operandEquals(item.operand, appliedSelection))) ?? null;

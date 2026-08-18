@@ -1,5 +1,5 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { cancelMode, useResolvedCursor, useWorkspaceList } from "#ui/use-cursor.ts";
+import { cancelPendingOperation, useResolvedCursor, useWorkspaceList } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -27,11 +27,11 @@ import { Match } from "effect";
 import type { FC, ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import {
-	type AbsorbMode,
+	type PendingAbsorb,
 	getTransferTarget,
-	type KeyboardTransferMode,
-	keyboardTransferMode,
-} from "#ui/outline/mode.ts";
+	type KeyboardTransfer,
+	keyboardTransfer,
+} from "#ui/operations/pending-operation.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
@@ -174,25 +174,25 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 const AbsorbOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
-	mode: AbsorbMode;
-}> = ({ headInfoIndex, projectId, mode }) => {
+	pending: PendingAbsorb;
+}> = ({ headInfoIndex, projectId, pending }) => {
 	const dispatch = useAppDispatch();
 	const {
 		data: absorptionPlan,
 		isError: isAbsorptionPlanError,
 		isPending: isAbsorptionPlanPending,
-	} = useQuery(absorptionPlanQueryOptions({ projectId, target: mode.sourceTarget }));
+	} = useQuery(absorptionPlanQueryOptions({ projectId, target: pending.sourceTarget }));
 	const canAbsorb = !isAbsorptionPlanPending && !!absorptionPlan && absorptionPlan.length > 0;
 	const { mutate: absorb } = useAbsorb({ projectId });
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 
 		absorb(absorptionPlan);
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelPendingOperation();
 	};
 
 	return (
@@ -204,7 +204,7 @@ const AbsorbOperationControls: FC<{
 					<Label>Failed to load absorb plan</Label>
 				) : (
 					<Label>
-						Absorb {operandsLabel({ headInfoIndex, operands: mode.sources })} into{" "}
+						Absorb {operandsLabel({ headInfoIndex, operands: pending.sources })} into{" "}
 						{absorptionPlan.length} commits
 					</Label>
 				)}
@@ -372,25 +372,25 @@ const TransferKindToggleGroup: FC<{
 const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
-	mode: KeyboardTransferMode;
-	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
+	transfer: KeyboardTransfer;
+	sidebarNavigationIndex: NavigationIndex<Operand>;
+}> = ({ headInfoIndex, projectId, transfer, sidebarNavigationIndex }) => {
 	const workspaceList = useWorkspaceList();
-	const selection = useResolvedCursor("stacks", outlineNavigationIndex);
+	const selection = useResolvedCursor("stacks", sidebarNavigationIndex);
 
 	const dispatch = useAppDispatch();
 	const { mutate: executeOperation } = useExecuteOperation();
 
-	const target = getTransferTarget(keyboardTransferMode(mode), selection, workspaceList);
+	const target = getTransferTarget(keyboardTransfer(transfer), selection, workspaceList);
 	if (!target) return null;
 
-	const operations = getOperations(mode.sources, target, mode.kind);
-	const operation = operations[mode.placement];
+	const operations = getOperations(transfer.sources, target, transfer.kind);
+	const operation = operations[transfer.placement];
 	const canCopy =
-		mode.sources.length > 0 && mode.sources.every((source) => source._tag === "Commit");
+		transfer.sources.length > 0 && transfer.sources.every((source) => source._tag === "Commit");
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 
 		if (!operation) return;
 
@@ -398,21 +398,21 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelPendingOperation();
 	};
 
 	return (
 		<Container>
-			<TransferKindToggleGroup canCopy={canCopy} kind={mode.kind} projectId={projectId} />
+			<TransferKindToggleGroup canCopy={canCopy} kind={transfer.kind} projectId={projectId} />
 			<TransferTypeToggleGroup
 				projectId={projectId}
 				operations={operations}
-				placement={mode.placement}
+				placement={transfer.placement}
 			/>
 			<Separator />
 			<ControlsRow>
 				<Label>
-					<div>Source: {operandsLabel({ headInfoIndex, operands: mode.sources })}</div>
+					<div>Source: {operandsLabel({ headInfoIndex, operands: transfer.sources })}</div>
 					<div>Target: {operandLabel({ headInfoIndex, operand: target })}</div>
 				</Label>
 				<Controls
@@ -432,12 +432,12 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = ({
-	outlineNavigationIndex,
+export const OperationControls: FC<{ sidebarNavigationIndex: NavigationIndex<Operand> }> = ({
+	sidebarNavigationIndex,
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
+	const pendingOperation = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -447,33 +447,33 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 		projectSlice.selectors.selectCheckedOperandCount(state, projectId),
 	);
 
-	return Match.value(outlineMode).pipe(
+	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () =>
+			None: () =>
 				checkedOperandCount > 0 && (
 					<CheckedOperandOperationControls
 						checkedOperandCount={checkedOperandCount}
 						projectId={projectId}
 					/>
 				),
-			Absorb: (mode) =>
+			Absorb: (pending) =>
 				headInfoIndex && (
 					<AbsorbOperationControls
 						headInfoIndex={headInfoIndex}
 						projectId={projectId}
-						mode={mode}
+						pending={pending}
 					/>
 				),
-			Transfer: ({ value: mode }) =>
-				Match.value(mode).pipe(
+			Transfer: ({ value: transfer }) =>
+				Match.value(transfer).pipe(
 					Match.tags({
-						Keyboard: (mode) =>
+						Keyboard: (transfer) =>
 							headInfoIndex && (
 								<TransferKeyboardOperationControls
 									headInfoIndex={headInfoIndex}
 									projectId={projectId}
-									mode={mode}
-									outlineNavigationIndex={outlineNavigationIndex}
+									transfer={transfer}
+									sidebarNavigationIndex={sidebarNavigationIndex}
 								/>
 							),
 					}),

@@ -8,9 +8,9 @@ import type { AppDispatch } from "#ui/store.ts";
  * Fold or unfold a branch segment. Every fold surface (chevron click, context
  * menu, z hotkey) goes through here so the policy cannot diverge.
  *
- * With `select`, the branch row also takes the outline selection. Callers pass
+ * With `select`, the branch row also takes the sidebar selection. Callers pass
  * it when the fold hides the selected commit (it would otherwise fall out of
- * the navigation index, making selection jump to the top of the outline);
+ * the navigation index, making selection jump to the top of the sidebar);
  * unfolds and folds of unrelated segments leave the selection alone.
  */
 export const toggleFoldedSegment = (

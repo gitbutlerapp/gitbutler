@@ -27,16 +27,16 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
 import { type FC, useRef, useState } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
+import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
-import type { BranchesOutline } from "#ui/routes/project/$id/workspace/useBranchesOutline.ts";
+import type { BranchesListData } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
-import type { UpstreamOutline } from "#ui/routes/project/$id/workspace/useUpstreamOutline.ts";
+import type { UpstreamListData } from "#ui/routes/project/$id/workspace/useUpstreamList.ts";
 import { assert } from "#ui/assert.ts";
 import { Badge } from "#ui/components/Badge.tsx";
-import type { OutlineTab } from "#ui/projects/project.ts";
-import styles from "./Outline.module.css";
+import type { PageId } from "#ui/projects/project.ts";
+import styles from "./Sidebar.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import { useNewBranch } from "#ui/routes/project/$id/workspace/useNewBranch.ts";
 import { showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -101,19 +101,17 @@ const FetchFromRemotesButton: FC<{
 };
 
 /** The tabs in the order they are shown, for cycling with `[` and `]`. */
-const outlineTabOrder: Array<OutlineTab> = ["workspace", "upstream", "branches"];
+const pageOrder: Array<PageId> = ["workspace", "upstream", "branches"];
 
-const adjacentOutlineTab = (tab: OutlineTab, offset: -1 | 1): OutlineTab => {
-	const index = outlineTabOrder.indexOf(tab);
-	return assert(
-		outlineTabOrder[(index + offset + outlineTabOrder.length) % outlineTabOrder.length],
-	);
+const adjacentPage = (tab: PageId, offset: -1 | 1): PageId => {
+	const index = pageOrder.indexOf(tab);
+	return assert(pageOrder[(index + offset + pageOrder.length) % pageOrder.length]);
 };
 
-export const Outline: FC<{
+export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
-	branchesOutline: BranchesOutline;
-	upstreamOutline: UpstreamOutline;
+	branchesList: BranchesListData;
+	upstreamList: UpstreamListData;
 	navigationIndex: NavigationIndex<Operand>;
 	uncommittedFilesNavigationIndex: NavigationIndex<string>;
 	onActiveFileSelection: (selection: string) => void;
@@ -121,8 +119,8 @@ export const Outline: FC<{
 	projectId: string;
 }> = ({
 	absorptionTargetCommitIds,
-	branchesOutline,
-	upstreamOutline,
+	branchesList,
+	upstreamList,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	onActiveFileSelection,
@@ -131,12 +129,12 @@ export const Outline: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
-	const outlineTab = usePage();
+	const page = usePage();
 
-	const selectOutlineTab = (value: Array<OutlineTab>) => {
+	const selectPage = (value: Array<PageId>) => {
 		const head = value[0];
 		if (head === undefined) return;
 
@@ -194,14 +192,16 @@ export const Outline: FC<{
 	// while it trails the target ref. Counting upstream commits misses the case
 	// where a lane already contains them.
 	const canUpdateWorkspace =
-		isDefaultMode && headInfo?.target?.isCurrent === false && !isWorkspaceIntegrateUpstreamPending;
-	const canFetchFromRemotes = isDefaultMode && !isWorkspaceFetchFromRemotesPending;
+		noOperationPending &&
+		headInfo?.target?.isCurrent === false &&
+		!isWorkspaceIntegrateUpstreamPending;
+	const canFetchFromRemotes = noOperationPending && !isWorkspaceFetchFromRemotesPending;
 
 	const canCreateBranch = newBranch.enabled;
 
-	const canApplyBranch = isDefaultMode;
+	const canApplyBranch = noOperationPending;
 
-	const canOpenSettings = isDefaultMode;
+	const canOpenSettings = noOperationPending;
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -227,7 +227,7 @@ export const Outline: FC<{
 		},
 		// Bound beside its unshifted twin rather than on the branches tab that
 		// first offered it: both `+` buttons now put it on their menu, so the
-		// accelerator they show has to work wherever the outline is.
+		// accelerator they show has to work wherever the sidebar is.
 		{
 			hotkey: workspaceHotkeys.createBranchAndSwitch.hotkey,
 			callback: newBranch.createAndSwitch,
@@ -258,7 +258,7 @@ export const Outline: FC<{
 		{
 			hotkey: "[",
 			callback: () => {
-				setPage(adjacentOutlineTab(outlineTab, -1));
+				setPage(adjacentPage(page, -1));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -268,7 +268,7 @@ export const Outline: FC<{
 		{
 			hotkey: "]",
 			callback: () => {
-				setPage(adjacentOutlineTab(outlineTab, 1));
+				setPage(adjacentPage(page, 1));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -342,13 +342,13 @@ export const Outline: FC<{
 
 				<ToggleGroup
 					render={<ToggleGroupStyles />}
-					aria-label="Navigation"
-					value={[outlineTab]}
-					onValueChange={selectOutlineTab}
+					aria-label="Pages"
+					value={[page]}
+					onValueChange={selectPage}
 				>
 					<Toggle
 						render={<ToggleStyles />}
-						value={"workspace" satisfies OutlineTab}
+						value={"workspace" satisfies PageId}
 						aria-label="Workspace"
 					>
 						<Icon name="workbench" />
@@ -356,18 +356,18 @@ export const Outline: FC<{
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}
-						value={"upstream" satisfies OutlineTab}
+						value={"upstream" satisfies PageId}
 						aria-label="Upstream"
 					>
 						<Icon name="inbox" />
 						<span className={styles.tabLabel}>Upstream</span>
-						{upstreamOutline.incomingCount > 0 && (
-							<Badge variant="fillGray">{upstreamOutline.incomingCount}</Badge>
+						{upstreamList.incomingCount > 0 && (
+							<Badge variant="fillGray">{upstreamList.incomingCount}</Badge>
 						)}
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}
-						value={"branches" satisfies OutlineTab}
+						value={"branches" satisfies PageId}
 						aria-label="Branches"
 					>
 						<Icon name="branch" />
@@ -376,25 +376,25 @@ export const Outline: FC<{
 				</ToggleGroup>
 			</div>
 
-			{outlineTab === "branches" ? (
+			{page === "branches" ? (
 				<BranchesList
-					className={styles.outlineTree}
+					className={styles.page}
 					projectId={projectId}
-					outline={branchesOutline}
+					list={branchesList}
 					newBranch={newBranch}
 				/>
-			) : outlineTab === "upstream" ? (
+			) : page === "upstream" ? (
 				<UpstreamList
-					className={styles.outlineTree}
+					className={styles.page}
 					projectId={projectId}
-					outline={upstreamOutline}
+					list={upstreamList}
 					canUpdateWorkspace={canUpdateWorkspace}
 					isUpdatePending={isWorkspaceIntegrateUpstreamPending}
 					onUpdateWorkspace={updateWorkspace}
 				/>
 			) : (
-				<OutlineTree
-					className={styles.outlineTree}
+				<WorkspaceLists
+					className={styles.page}
 					navigationIndex={navigationIndex}
 					uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}

@@ -3,8 +3,8 @@ import type { ComponentProps, FC } from "react";
 import styles from "./StackCard.module.css";
 
 /**
- * The card a stack is drawn in, shared by the workspace outline and the
- * branches tab: a full-width container holding the stack's branches, divided
+ * The card a stack is drawn in, shared by the workspace and branches pages:
+ * a full-width container holding the stack's branches, divided
  * from the next card by its own floor.
  *
  * The card itself is the ARIA group the tree items live in: callers pass its

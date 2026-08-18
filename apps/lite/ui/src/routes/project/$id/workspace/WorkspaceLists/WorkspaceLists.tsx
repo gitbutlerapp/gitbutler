@@ -22,14 +22,14 @@ import {
 	commitIdentityKey,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferKind, getTransferTarget } from "#ui/outline/mode.ts";
+import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	OperationTarget as OperationTarget_,
 	type OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOperationDropTarget.ts";
-import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
+import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/SidebarNavigationIndexContext.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -58,7 +58,7 @@ import {
 	useRef,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
-import styles from "./OutlineTree.module.css";
+import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
@@ -71,7 +71,7 @@ import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
-import { useOutlineTreeHotkeys } from "./hotkeys.ts";
+import { useWorkspaceListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
@@ -141,9 +141,9 @@ const OperationTarget: FC<
 	const selection = useResolvedCursor("stacks", navigationIndex);
 	const workspaceList = useWorkspaceList();
 	const activeOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
-		return Match.value(outlineMode).pipe(
+		return Match.value(pendingOperation).pipe(
 			Match.tags({
 				Absorb: (): ActiveOperation | null => {
 					const isActive =
@@ -536,7 +536,7 @@ const SegmentContent: FC<{
  * It dims with the rows it joins, so it has to ask about the same operand the
  * row above it stands for: the last commit while the segment is unfolded, and
  * the branch itself once it is folded, because folding takes the commits out of
- * the navigation index (see `buildOutlineNavigationIndex`). Asking after a
+ * the navigation index (see `buildSidebarNavigationIndex`). Asking after a
  * folded commit would always miss, dimming the connector to half the weight of
  * the rail on either side of it and breaking the line between branches.
  */
@@ -667,9 +667,9 @@ const Stacks: FC<{
 	const selection = useResolvedCursor("stacks", navigationIndex);
 	const workspaceList = useWorkspaceList();
 	const dryRunOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
-		return Match.value(outlineMode).pipe(
+		return Match.value(pendingOperation).pipe(
 			Match.tags({
 				Transfer: ({ value: mode }) => {
 					if (mode.placement === null) return;
@@ -697,7 +697,7 @@ const Stacks: FC<{
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
-	useOutlineTreeHotkeys({
+	useWorkspaceListsHotkeys({
 		navigationIndex,
 		projectId,
 		ref: hotkeysRef,
@@ -713,7 +713,7 @@ const Stacks: FC<{
 				role="tree"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(styles.tree, styles.stacks)}
-				data-focus-scope={"outline" satisfies FocusScope}
+				data-focus-scope={"sidebar" satisfies FocusScope}
 				data-preview-source={workspaceList === "stacks"}
 				onFocus={() => setWorkspaceList("stacks")}
 				ref={useMergedRefs(hotkeysRef, useAutofocusScope(workspaceList === "stacks"))}
@@ -733,7 +733,7 @@ const Stacks: FC<{
 	);
 };
 
-export const OutlineTree: FC<
+export const WorkspaceLists: FC<
 	{
 		projectId: string;
 		navigationIndex: NavigationIndex<Operand>;
@@ -755,15 +755,15 @@ export const OutlineTree: FC<
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
-	const outlineSelection = useResolvedCursor("stacks", navigationIndex);
+	const appliedSelection = useResolvedCursor("stacks", navigationIndex);
 	const commitTargetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
-		outlineSelection,
+		appliedSelection,
 	});
 	const commitTarget = selectCommitTargetComboboxItem({
 		items: commitTargetComboboxItems,
-		outlineSelection,
+		appliedSelection,
 	});
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the draft-branch affordance on every open.
@@ -844,8 +844,8 @@ export const OutlineTree: FC<
 		);
 	};
 
-	const layoutId = `project=${projectId}:outline-tree`;
-	const outlineLayout = useDefaultLayout({
+	const layoutId = `project=${projectId}:sidebar-tree`;
+	const sidebarLayout = useDefaultLayout({
 		id: layoutId,
 		panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
 	});
@@ -859,7 +859,7 @@ export const OutlineTree: FC<
 		const item = navigationIndex.items.at(0);
 		if (item === undefined) return;
 		setCursor("stacks", item);
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
 		if (offset !== -1) return;
@@ -877,8 +877,8 @@ export const OutlineTree: FC<
 					id={layoutId}
 					orientation="vertical"
 					className={classes(props.className, styles.tree)}
-					defaultLayout={outlineLayout.defaultLayout}
-					onLayoutChanged={outlineLayout.onLayoutChanged}
+					defaultLayout={sidebarLayout.defaultLayout}
+					onLayoutChanged={sidebarLayout.onLayoutChanged}
 				>
 					<Panel
 						id={"uncommitted-changes-panel" satisfies PanelId}
@@ -921,7 +921,7 @@ export const OutlineTree: FC<
 					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
 						<SectionHeaderRow
 							label="Stacks and branches"
-							childrenBefore={<FocusScopeKbd hotkey="2" scope="outline" />}
+							childrenBefore={<FocusScopeKbd hotkey="2" scope="sidebar" />}
 							className={styles.stacksHeader}
 							actions={stacksHeaderActions}
 						/>

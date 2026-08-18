@@ -1,4 +1,4 @@
-import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
+import { NavigationIndexContext } from "../SidebarNavigationIndexContext.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { Row } from "../Row.tsx";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";

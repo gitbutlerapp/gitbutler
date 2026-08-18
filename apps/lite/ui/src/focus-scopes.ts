@@ -1,7 +1,7 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
 import type { Operand } from "#ui/operands.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -9,11 +9,11 @@ import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 
-export type FocusScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
+export type FocusScope = "details" | "uncommitted-files" | "sidebar" | "files" | "diff" | "pr";
 const allFocusScopes: Set<string> = new Set([
 	"details",
 	"uncommitted-files",
-	"outline",
+	"sidebar",
 	"files",
 	"diff",
 	"pr",
@@ -78,26 +78,26 @@ export const focusScope = (scope: FocusScope) => {
 export const focusHorizontalScope = ({
 	filesVisible,
 	offset,
-	outlineFocusScope,
-	outlineVisible,
+	sidebarFocusScope,
+	sidebarVisible,
 }: {
 	filesVisible: boolean;
 	offset: -1 | 1;
-	outlineFocusScope: Extract<FocusScope, "uncommitted-files" | "outline"> | null;
-	outlineVisible: boolean;
+	sidebarFocusScope: Extract<FocusScope, "uncommitted-files" | "sidebar"> | null;
+	sidebarVisible: boolean;
 }) => {
 	if (!paneNavigationAllowed()) return;
 
 	const currentFocusScope = getFocusedScope(document.activeElement);
-	const currentOutlineFocusScope =
-		currentFocusScope === "uncommitted-files" || currentFocusScope === "outline"
+	const currentSidebarFocusScope =
+		currentFocusScope === "uncommitted-files" || currentFocusScope === "sidebar"
 			? currentFocusScope
-			: outlineFocusScope;
+			: sidebarFocusScope;
 
 	// "details" resolves to whichever of its child scopes is mounted (diff or
 	// pr tab), so the rightmost slot works on both tabs.
 	const orderedFocusScopes: Array<FocusScope> = [
-		...(outlineVisible ? [currentOutlineFocusScope ?? "outline"] : []),
+		...(sidebarVisible ? [currentSidebarFocusScope ?? "sidebar"] : []),
 		...(filesVisible ? (["files"] satisfies Array<FocusScope>) : []),
 		"details",
 	];
@@ -179,7 +179,7 @@ export const useNavigationIndexHotkeys = <T>({
 	const operationHotkeysEnabled = useAppSelector(
 		(state) =>
 			operationSourcesForItem === undefined ||
-			projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+			projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const moveSelection = (offset: -1 | 1) => {
@@ -372,22 +372,22 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 	]);
 
-	const enterTransferModeForSelection = (placement: Placement) => {
+	const startTransferForSelection = (placement: Placement) => {
 		if (selection === null || operationSourcesForItem === undefined) return;
 
-		enterKeyboardTransfer({
+		startKeyboardTransfer({
 			sources: operationSourcesForItem(selection),
 			kind: "move",
 			placement,
 		});
 
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	useHotkeys([
 		{
 			hotkey: selectionOperationHotkeys.move.hotkey,
-			callback: () => enterTransferModeForSelection("above"),
+			callback: () => startTransferForSelection("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
@@ -398,7 +398,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.cut.hotkey,
-			callback: () => enterTransferModeForSelection("into"),
+			callback: () => startTransferForSelection("into"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:

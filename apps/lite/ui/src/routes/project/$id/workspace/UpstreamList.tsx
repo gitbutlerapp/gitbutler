@@ -30,8 +30,8 @@ import type {
 	UpstreamBranchItem,
 	UpstreamCommitItem,
 	UpstreamListItem,
-	UpstreamOutline,
-} from "./useUpstreamOutline.ts";
+	UpstreamListData,
+} from "./useUpstreamList.ts";
 import styles from "./UpstreamList.module.css";
 
 const pluralRules = new Intl.PluralRules("en");
@@ -260,7 +260,7 @@ const UpdateBlock: FC<{
 
 /**
  * Pages the older section further down the target line. Owns the fetching
- * rather than taking it from the outline: the outline's result is memoized on
+ * rather than taking it from the list: the list's result is memoized on
  * its inputs, and a callback in it would defeat that.
  *
  * Renders nothing once the line is exhausted, so the band it draws is also the
@@ -274,7 +274,7 @@ const UpdateBlock: FC<{
  * the section, later ones extend it.
  */
 const LoadMoreOlder: FC<{ projectId: string; hasOlder: boolean }> = ({ projectId, hasOlder }) => {
-	// Shares the base listing the outline already reads; this only takes the
+	// Shares the base listing the sidebar already reads; this only takes the
 	// cursor its last commit supplies.
 	const { data: olderFrom = null } = useQuery({
 		...workspaceTargetCommitsQueryOptions(projectId),
@@ -373,19 +373,12 @@ const listItem = (
 export const UpstreamList: FC<
 	{
 		projectId: string;
-		outline: UpstreamOutline;
+		list: UpstreamListData;
 		canUpdateWorkspace: boolean;
 		isUpdatePending: boolean;
 		onUpdateWorkspace: () => void;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	outline,
-	canUpdateWorkspace,
-	isUpdatePending,
-	onUpdateWorkspace,
-	...restProps
-}) => {
+> = ({ projectId, list, canUpdateWorkspace, isUpdatePending, onUpdateWorkspace, ...restProps }) => {
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
 	// navigation index that resolves selection are the same object.
 	const {
@@ -399,7 +392,7 @@ export const UpstreamList: FC<
 		navigationIndex,
 		isPending,
 		isError,
-	} = outline;
+	} = list;
 
 	const selection = useResolvedCursor("upstream", navigationIndex);
 	useCursorWriteBack("upstream", navigationIndex);
@@ -408,7 +401,7 @@ export const UpstreamList: FC<
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		group: "Outline",
+		group: "Sidebar",
 		select: (newItem) => setCursor("upstream", newItem),
 		selection,
 		ref: hotkeysRef,
@@ -438,7 +431,7 @@ export const UpstreamList: FC<
 			<SectionHeaderRow
 				className={styles.header}
 				label="Incoming changes"
-				childrenBefore={<FocusScopeKbd hotkey="1" scope="outline" />}
+				childrenBefore={<FocusScopeKbd hotkey="1" scope="sidebar" />}
 			/>
 
 			{/* One graph across three regions: what is coming in, where the
@@ -451,7 +444,7 @@ export const UpstreamList: FC<
 				role="tree"
 				aria-label="Upstream"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
-				data-focus-scope={"outline" satisfies FocusScope}
+				data-focus-scope={"sidebar" satisfies FocusScope}
 				className={classes(uiStyles.scroller, styles.list)}
 				ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
 			>

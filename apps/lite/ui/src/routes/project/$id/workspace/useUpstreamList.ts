@@ -12,13 +12,13 @@ import type { RefInfo, TargetCommit, TargetCommitReview } from "@gitbutler/but-s
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
 // Stable empties for the inactive-tab result, so consumers' identities do not
-// churn while the tab is hidden.
+// churn while the page is hidden.
 const noItems: Array<UpstreamListItem> = [];
 const noCommits: Array<UpstreamCommitItem> = [];
 const emptyNavigationIndex: NavigationIndex<Operand> = { items: [], indexByKey: new Map() };
 
 /**
- * Commit items are cached per target commit, so outline rebuilds (expansion
+ * Commit items are cached per target commit, so list rebuilds (expansion
  * toggles, freshly loaded pages) hand unaffected rows the same item objects
  * and only genuinely new rows render. The query data objects keying the cache
  * stay identical until their query refetches, which is exactly when a row's
@@ -65,7 +65,7 @@ export type UpstreamListItem =
 	 */
 	| { type: "expander"; segmentId: string; count: number; expanded: boolean };
 
-export type UpstreamOutline = {
+export type UpstreamListData = {
 	items: Array<UpstreamListItem>;
 	/**
 	 * How many leading items are incoming commits. The list draws its divider
@@ -87,14 +87,14 @@ export type UpstreamOutline = {
 	 * How many listed commits an update would bring in. Counted from the
 	 * first-parent rows once the listing is loaded so the label always agrees
 	 * with them; before that, the graph's all-commits count approximates it
-	 * for the tab badge.
+	 * for the page badge.
 	 */
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
 	hasIntegrated: boolean;
 	navigationIndex: NavigationIndex<Operand>;
 	/**
-	 * The target-commits query's state, so the tab can tell a genuinely empty
+	 * The target-commits query's state, so the page can tell a genuinely empty
 	 * result apart from one that has not arrived or failed.
 	 */
 	isPending: boolean;
@@ -103,10 +103,10 @@ export type UpstreamOutline = {
 
 /** The review the listing attaches to a commit, wherever the commit sits in it. */
 export const upstreamCommitReview = (
-	outline: UpstreamOutline,
+	list: UpstreamListData,
 	commitId: string,
 ): TargetCommitReview | null => {
-	const item = [...outline.items, ...outline.olderItems].find(
+	const item = [...list.items, ...list.olderItems].find(
 		(item) => item.type === "commit" && item.commit.id === commitId,
 	);
 	return item?.type === "commit" ? item.review : null;
@@ -217,7 +217,7 @@ const buildItems = (
 
 	const items: Array<UpstreamListItem> = [];
 
-	// Commits already in the workspace are not shown outright — the tab is
+	// Commits already in the workspace are not shown outright — the page is
 	// about what's upstream — but each run of them *between* fork points
 	// becomes an expandable shared-history segment. Whatever is left in the gap
 	// when the walk ends trails the deepest fork point, and goes to the older
@@ -273,7 +273,7 @@ const buildItems = (
  * index. Both the list rendering and the selection resolution in the
  * workspace page consume it, so the two cannot drift apart.
  */
-export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
+export const useUpstreamList = (projectId: string): UpstreamListData => {
 	const active = usePage() === "upstream";
 	const expandedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectExpandedUpstreamSegments(state, projectId),
@@ -302,7 +302,7 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			{ ...workspaceTargetCommitsQueryOptions(projectId), enabled: active },
 			{ ...headInfoQueryOptions(projectId), enabled: active },
 		],
-		combine: ([targetResult, headInfoResult]): UpstreamOutline => {
+		combine: ([targetResult, headInfoResult]): UpstreamListData => {
 			const targetPage = targetResult.data;
 			const targetCommits = targetPage?.commits ?? [];
 			const headInfo = headInfoResult.data;
@@ -316,8 +316,8 @@ export const useUpstreamOutline = (projectId: string): UpstreamOutline => {
 			const isPending = targetResult.isPending || headInfoResult.isPending;
 			const isError = targetResult.isError || headInfoResult.isError;
 
-			// While another tab is shown, only the tab badge consumes this
-			// outline, but headInfo refetches on every workspace mutation —
+			// While another page is shown, only the page badge consumes this
+			// list, but headInfo refetches on every workspace mutation —
 			// skip the item and navigation-index derivation nobody would see.
 			if (!active) {
 				return {

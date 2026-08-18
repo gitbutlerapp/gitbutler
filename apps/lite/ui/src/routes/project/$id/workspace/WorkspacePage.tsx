@@ -63,20 +63,20 @@ import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
-import { Outline } from "./Outline.tsx";
+import { Sidebar } from "./Sidebar.tsx";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
-import { useBranchesOutline } from "./useBranchesOutline.ts";
-import { upstreamCommitReview, useUpstreamOutline } from "./useUpstreamOutline.ts";
-import { getTransferKind, type OutlineMode } from "#ui/outline/mode.ts";
+import { useBranchesList } from "./useBranchesList.ts";
+import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
+import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
 	useCanShowFiles,
-	useOutlineFocusScope,
+	useSidebarFocusScope,
 	usePage,
 	useResolvedCursor,
 	useWorkspaceList,
@@ -85,7 +85,7 @@ import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
-type PanelId = "outline-panel" | "details-panel";
+type PanelId = "sidebar-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
@@ -97,13 +97,13 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
 	const focusedFocusScope = getFocusedScope(activeElement);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
-	const outlineVisible = !detailsFullWindow;
-	const outlineFocusScope = useOutlineFocusScope();
+	const sidebarVisible = !detailsFullWindow;
+	const sidebarFocusScope = useSidebarFocusScope();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const outlineTab = usePage();
+	const page = usePage();
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -114,8 +114,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		focusHorizontalScope({
 			filesVisible,
 			offset,
-			outlineFocusScope,
-			outlineVisible,
+			sidebarFocusScope,
+			sidebarVisible,
 		});
 	};
 	const focusPaneLeft = () => {
@@ -130,7 +130,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.redo.hotkey,
 			callback: () => restoreSnapshot("redo"),
 			options: {
-				enabled: isDefaultMode && !isRestoreSnapshotPending,
+				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.redo.meta,
 				ignoreInputs: true,
 			},
@@ -139,7 +139,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.undo.hotkey,
 			callback: () => restoreSnapshot("undo"),
 			options: {
-				enabled: isDefaultMode && !isRestoreSnapshotPending,
+				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.undo.meta,
 				ignoreInputs: true,
 			},
@@ -158,7 +158,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
 				if (focusedFocusScope === "files" && filesVisible)
-					focusScope(outlineVisible ? "outline" : "diff");
+					focusScope(sidebarVisible ? "sidebar" : "diff");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
 			},
@@ -172,39 +172,39 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: "0",
 			callback: () => focusScope("details"),
 		},
-		...Match.value(outlineTab).pipe(
+		...Match.value(page).pipe(
 			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.when("workspace", () => [
 				{
 					hotkey: "1",
 					callback: () => focusScope("uncommitted-files"),
 					options: {
-						enabled: outlineVisible,
+						enabled: sidebarVisible,
 					},
 				},
 				{
 					hotkey: "2",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: sidebarVisible,
 					},
 				},
 			]),
 			Match.when("branches", () => [
 				{
 					hotkey: "1",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: sidebarVisible,
 					},
 				},
 			]),
 			Match.when("upstream", () => [
 				{
 					hotkey: "1",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: sidebarVisible,
 					},
 				},
 			]),
@@ -246,21 +246,21 @@ const hasAnyOperation = (sources: Array<Operand>, target: Operand, kind: Transfe
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
-const buildOutlineNavigationIndex = ({
+const buildSidebarNavigationIndex = ({
 	headInfo,
-	outlineMode,
+	pendingOperation,
 	absorptionTargetCommitIds,
 	foldedSegments,
 }: {
 	headInfo: RefInfo | undefined;
-	outlineMode: OutlineMode;
+	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
 }): NavigationIndex<Operand> => {
 	const allItems = (): Array<Operand> =>
 		headInfo?.stacks.toReversed().flatMap((stack) =>
 			stack.segments.flatMap((segment): Array<Operand> => {
-				// Matches what OutlineTree renders: a folded segment shows a stub
+				// Matches what WorkspaceLists renders: a folded segment shows a stub
 				// in place of its commits, so they are not navigable.
 				const folded =
 					segment.refName !== null &&
@@ -277,24 +277,40 @@ const buildOutlineNavigationIndex = ({
 			}),
 		) ?? [];
 
-	const filteredItems = Match.value(outlineMode).pipe(
+	/**
+	 * The action-compatibility filter: while a target-seeking operation collects
+	 * its second input, only its sources and the compatible targets stay
+	 * navigable — invalid destinations are unlisted, never validated.
+	 */
+	const compatibleItems = ({
+		sources,
+		isCompatibleTarget,
+	}: {
+		sources: Array<Operand>;
+		isCompatibleTarget: (operand: Operand) => boolean;
+	}): Array<Operand> =>
+		allItems().filter(
+			(operand) =>
+				sources.some(
+					(source) => operandEquals(operand, source) || operandContains(operand, source),
+				) || isCompatibleTarget(operand),
+		);
+
+	const filteredItems = Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () => allItems(),
-			Absorb: (activeMode) =>
-				allItems().filter(
-					(operand) =>
-						activeMode.sources.some(
-							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) ||
-						(operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId)),
-				),
-			Transfer: ({ value: activeMode }) =>
-				allItems().filter(
-					(operand) =>
-						activeMode.sources.some(
-							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) || hasAnyOperation(activeMode.sources, operand, getTransferKind(activeMode)),
-				),
+			None: () => allItems(),
+			Absorb: (operation) =>
+				compatibleItems({
+					sources: operation.sources,
+					isCompatibleTarget: (operand) =>
+						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId),
+				}),
+			Transfer: ({ value: operation }) =>
+				compatibleItems({
+					sources: operation.sources,
+					isCompatibleTarget: (operand) =>
+						hasAnyOperation(operation.sources, operand, getTransferKind(operation)),
+				}),
 			InlineEdit: (x) => [x.operand],
 		}),
 	);
@@ -405,15 +421,15 @@ const WorkspacePage: FC = () => {
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
+	const pendingOperation = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
 
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
 		setCursor("stacks", branchOperand(branch));
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	const setBranchPickerOpen = (open: boolean) => {
@@ -453,7 +469,7 @@ const WorkspacePage: FC = () => {
 	const toggleDetailsFullWindow = () => {
 		if (
 			!detailsFullWindow &&
-			getFocusedScope(document.activeElement) === ("outline" satisfies FocusScope)
+			getFocusedScope(document.activeElement) === ("sidebar" satisfies FocusScope)
 		)
 			requestAnimationFrame(() => focusScope("diff"));
 
@@ -462,11 +478,11 @@ const WorkspacePage: FC = () => {
 
 	useHotkeys([
 		{
-			hotkey: workspaceHotkeys.toggleOutline.hotkey,
+			hotkey: workspaceHotkeys.toggleSidebar.hotkey,
 			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleOutline.meta,
+				meta: workspaceHotkeys.toggleSidebar.meta,
 			},
 		},
 		{
@@ -483,7 +499,7 @@ const WorkspacePage: FC = () => {
 		},
 	]);
 
-	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+	const absorptionPlanTarget = Match.value(pendingOperation).pipe(
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
@@ -500,20 +516,20 @@ const WorkspacePage: FC = () => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const outlineNavigationIndex = buildOutlineNavigationIndex({
+	const sidebarNavigationIndex = buildSidebarNavigationIndex({
 		headInfo,
-		outlineMode,
+		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
 	});
 
-	const outlineTab = usePage();
-	const branchesOutline = useBranchesOutline(projectId);
-	const upstreamOutline = useUpstreamOutline(projectId);
+	const page = usePage();
+	const branchesList = useBranchesList(projectId);
+	const upstreamList = useUpstreamList(projectId);
 
-	const outlineSelection = useResolvedCursor("stacks", outlineNavigationIndex);
-	const branchesSelection = useResolvedCursor("branches", branchesOutline.navigationIndex);
-	const upstreamSelection = useResolvedCursor("upstream", upstreamOutline.navigationIndex);
+	const appliedSelection = useResolvedCursor("stacks", sidebarNavigationIndex);
+	const branchesSelection = useResolvedCursor("branches", branchesList.navigationIndex);
+	const upstreamSelection = useResolvedCursor("upstream", upstreamList.navigationIndex);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -572,25 +588,25 @@ const WorkspacePage: FC = () => {
 	);
 
 	const workspaceList = useWorkspaceList();
-	// The pane's content is one component per page, as the outline has one list
-	// per tab — the component tree, not a tag on the selection, carries where a
+	// The pane's content is one component per page, as the sidebar has one list
+	// per page — the component tree, not a tag on the selection, carries where a
 	// selection came from. Only the workspace page has two lists, so only its arm
 	// asks which one drives. Memoised because `useDeferredValue` compares by
 	// identity, so a freshly built element every render would defer every render.
 	// Looked up outside the memo so the details only rebuild when the review
-	// itself changes, not on every outline rerun.
+	// itself changes, not on every list rerun.
 	const upstreamReview =
 		upstreamSelection?._tag === "Commit"
-			? upstreamCommitReview(upstreamOutline, upstreamSelection.commitId)
+			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
 			: null;
 	const details = useMemo(() => {
 		const viewProps = { onActiveFileSelection, viewerRef, didScrollToViaFileRef };
 
-		return Match.value(outlineTab).pipe(
+		return Match.value(page).pipe(
 			Match.when("workspace", () =>
 				Match.value(workspaceList).pipe(
 					Match.when("stacks", () => (
-						<WorkspaceDetails selection={outlineSelection} {...viewProps} />
+						<WorkspaceDetails selection={appliedSelection} {...viewProps} />
 					)),
 					Match.when(
 						"uncommitted",
@@ -613,8 +629,8 @@ const WorkspacePage: FC = () => {
 	}, [
 		branchesSelection,
 		onActiveFileSelection,
-		outlineSelection,
-		outlineTab,
+		appliedSelection,
+		page,
 		uncommittedFilesSelection,
 		upstreamReview,
 		upstreamSelection,
@@ -652,7 +668,7 @@ const WorkspacePage: FC = () => {
 	const layoutId = `project=${projectId}:workspace`;
 	const panelIds: Array<PanelId> = detailsFullWindow
 		? ["details-panel"]
-		: ["outline-panel", "details-panel"];
+		: ["sidebar-panel", "details-panel"];
 	const workspaceLayout = useDefaultLayout({
 		id: layoutId,
 		panelIds,
@@ -669,12 +685,12 @@ const WorkspacePage: FC = () => {
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 				data-selection-focus-styles={
-					!(outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer")
+					!(pendingOperation._tag === "Transfer" && pendingOperation.value._tag === "Pointer")
 				}
 			>
 				<Activity mode={detailsFullWindow ? "hidden" : "visible"}>
 					<Panel
-						id={"outline-panel" satisfies PanelId}
+						id={"sidebar-panel" satisfies PanelId}
 						className={styles.panel}
 						minSize={260}
 						defaultSize={420}
@@ -683,12 +699,12 @@ const WorkspacePage: FC = () => {
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
 						<ErrorBoundary>
-							<Outline
+							<Sidebar
 								projectId={projectId}
 								project={selectedProject}
-								branchesOutline={branchesOutline}
-								upstreamOutline={upstreamOutline}
-								navigationIndex={outlineNavigationIndex}
+								branchesList={branchesList}
+								upstreamList={upstreamList}
+								navigationIndex={sidebarNavigationIndex}
 								uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
 								absorptionTargetCommitIds={absorptionTargetCommitIds}
 								onActiveFileSelection={onActiveUncommittedFileSelection}
@@ -710,7 +726,7 @@ const WorkspacePage: FC = () => {
 				</Panel>
 			</Group>
 
-			<OperationControls outlineNavigationIndex={outlineNavigationIndex} />
+			<OperationControls sidebarNavigationIndex={sidebarNavigationIndex} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

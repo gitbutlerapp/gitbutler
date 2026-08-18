@@ -4,7 +4,7 @@ import {
 	useDiscardWorktreeChanges,
 	useOpenInProgram,
 } from "#ui/api/mutations.ts";
-import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
@@ -68,8 +68,8 @@ export const useHunkMenuItems = ({
 			(source) => source._tag !== "Hunk" || !source.isResultOfBinaryToTextConversion,
 		);
 		const cutHunk = () => {
-			enterKeyboardTransfer({ sources: cutSources, kind: "move" });
-			focusScope("outline");
+			startKeyboardTransfer({ sources: cutSources, kind: "move" });
+			focusScope("sidebar");
 		};
 		const discardDiffSpec = createDiffSpec(
 			change,
@@ -176,7 +176,7 @@ export const useHunkMenuItems = ({
 							label: "Absorb Hunk",
 							enabled: !hunk.isResultOfBinaryToTextConversion,
 							onSelect: () => {
-								enterAbsorb({
+								startAbsorb({
 									sources: [hunkOperand(hunk)],
 									sourceTarget: {
 										type: "hunks",
@@ -186,7 +186,7 @@ export const useHunkMenuItems = ({
 									},
 								});
 
-								focusScope("outline");
+								focusScope("sidebar");
 							},
 							accelerator: toElectronAccelerator(diffHotkeys.absorb.hotkey),
 						}),

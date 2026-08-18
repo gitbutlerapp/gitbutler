@@ -28,7 +28,7 @@ export const ListFilterRow: FC<{
 		interactive={false}
 		className={classes(rowStyles.sectionHeader, styles.filterRow)}
 		onKeyDown={(event) => {
-			// Escape closes the filter rather than reaching the outline's cancel
+			// Escape closes the filter rather than reaching the sidebar's cancel
 			// shortcut, which has nothing to cancel while the input holds focus.
 			if (event.key === "Escape") {
 				event.preventDefault();

@@ -16,32 +16,32 @@ import type { ListedStack } from "@gitbutler/but-sdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 
-export type BranchesOutline = {
-	stacks: Array<ListedStack>;
+export type BranchesListData = {
+	unapplied: Array<ListedStack>;
 	navigationIndex: NavigationIndex<Operand>;
 	/**
-	 * The listing query's state, so the tab can tell a genuinely empty result
+	 * The listing query's state, so the page can tell a genuinely empty result
 	 * apart from one that has not arrived or failed.
 	 */
 	isPending: boolean;
 	isError: boolean;
 };
 
-type OutlineContent = Pick<BranchesOutline, "stacks" | "navigationIndex">;
+type BranchesListContent = Pick<BranchesListData, "unapplied" | "navigationIndex">;
 
-const emptyContent: OutlineContent = {
-	stacks: [],
+const emptyContent: BranchesListContent = {
+	unapplied: [],
 	navigationIndex: { items: [], indexByKey: new Map() },
 };
 
 /**
- * The branches tab's visible stacks and the matching navigation index.
+ * The branches page's visible unapplied stacks and the matching navigation index.
  *
- * This is the single source of truth for what the tab shows: both the list
+ * This is the single source of truth for what the page shows: both the list
  * rendering and the selection resolution in the workspace page consume it, so
  * filtering and fold state cannot drift between the two.
  */
-export const useBranchesOutline = (projectId: string): BranchesOutline => {
+export const useBranchesList = (projectId: string): BranchesListData => {
 	const active = usePage() === "branches";
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
@@ -86,9 +86,9 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 	} = useQuery({
 		...branchListQueryOptions(projectId),
 		enabled: active,
-		select: (listedStacks): OutlineContent => {
-			const stacks = searchStacks(unappliedStacks(listedStacks, filters), search);
-			const items = stacks.flatMap((stack) =>
+		select: (listedStacks): BranchesListContent => {
+			const unapplied = searchStacks(unappliedStacks(listedStacks, filters), search);
+			const items = unapplied.flatMap((stack) =>
 				stack.branches.flatMap(
 					(branch): Array<Operand> => [
 						branchOperand({ branchRef: encodeBytes(branch.refName.full) }),
@@ -103,7 +103,7 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 			);
 
 			return {
-				stacks,
+				unapplied,
 				navigationIndex: { items, indexByKey: buildIndexByKey(items, operandIdentityKey) },
 			};
 		},
