@@ -1,4 +1,4 @@
-# Container for running E2E tests on MacOS
+# Container for running E2E tests on macOS
 #
 # 1. docker build --tag gitbutler/e2e:latest
 # 2. docker run --name e2e-agent --detach -p 2222:22 -v $GITBUTLER_REPO:/root/gitbutler \

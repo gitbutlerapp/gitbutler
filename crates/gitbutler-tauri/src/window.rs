@@ -304,7 +304,7 @@ pub fn create(
             // Note that these lights get reset when the Window label is changed!
             // See https://github.com/tauri-apps/tauri/issues/13044 .
             // TODO: stop doing this entirely and work with the defaults, my preference,
-            //       create a build script that makes it clear which MacOS version we are using
+            //       create a build script that makes it clear which macOS version we are using
             //       to conditionally compile the right value.
             let y_offset_for_small_dots_in_pre_tahoe = 25.0;
             window.setup_traffic_lights_inset(LogicalPosition::new(

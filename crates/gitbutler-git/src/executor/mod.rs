@@ -95,7 +95,7 @@ pub unsafe trait GitExecutor {
     ///
     /// ## Unix
     ///
-    /// On Unix-like systems (including MacOS), this is a unix
+    /// On Unix-like systems (including macOS), this is a unix
     /// domain socket. The path of the socket is returned as
     /// a handle type that is format-able as a string which is
     /// passed to the askpass utility as `GITBUTLER_ASKPASS_SOCKET`.
