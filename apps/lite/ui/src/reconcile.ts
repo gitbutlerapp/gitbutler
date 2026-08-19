@@ -52,7 +52,7 @@ export const useStateReconciler = (): void => {
 			if (refName === null) return;
 
 			const refBytes = encodeBytes(refName);
-			if (headInfoIndex.branchContextByRefBytes(refBytes)) return;
+			if (headInfoIndex.isApplied(refBytes)) return;
 
 			const prev = prevHeadInfoIndex.branchContextByRefBytes(refBytes);
 			if (!prev) return;
@@ -163,7 +163,7 @@ export const useStateReconciler = (): void => {
 	const reconcileCheckedBranchFiles = useEffectEvent(
 		(headInfoIndex: HeadInfoIndex, checkedBranchFilesByBranchName: Map<string, Set<string>>) => {
 			const invalidated = checkedBranchFiles.flatMap((file) =>
-				!headInfoIndex.branchContextByRefBytes(file.parent.branchRef) ||
+				!headInfoIndex.isApplied(file.parent.branchRef) ||
 				checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
 					false
 					? file.address

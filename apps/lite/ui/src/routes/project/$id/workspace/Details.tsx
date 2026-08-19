@@ -2987,14 +2987,6 @@ const FileDetails: FC<{
 	);
 };
 
-/**
- * One details component per sidebar page, as the sidebar has one list per
- * page: the component tree, not a tag on the selection, carries where a
- * selection came from. Each dispatches over the addresses its own page can
- * select, so a branch is applied or unapplied by which page shows it.
- */
-type SidebarDetailsProps = { selection: Address | null } & DetailsViewProps;
-
 /** A commit selection is shown the same way whichever page selected it. */
 const commitDetails = (
 	commit: Extract<Address, { _tag: "Commit" }>,
@@ -3011,60 +3003,40 @@ const commitDetails = (
 	</Suspense>
 );
 
-/** The details pane for the workspace tab: branches here are applied. */
-export const WorkspaceDetails: FC<SidebarDetailsProps> = ({ selection, ...viewProps }) =>
-	selection &&
-	Match.value(selection).pipe(
-		Match.tags({
-			Branch: (branch) => (
-				<AppliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
-			),
-			Commit: (commit) => commitDetails(commit, viewProps),
-		}),
-		Match.orElse(() => null),
-	);
-
 /**
- * The details pane for the upstream tab. Only commits are selectable there;
- * its branch rows carry no address.
+ * The one details pane for every address-carrying selection. It dispatches on
+ * the selection itself: a branch is applied or unapplied by what the
+ * workspace holds (`headInfo`), not by which page selected it — the address
+ * says what the value is; the data says how it stands. A commit is shown the
+ * same way whichever page selected it.
  */
-export const UpstreamDetails: FC<SidebarDetailsProps & { review: TargetCommitReview | null }> = ({
-	selection,
-	review,
-	...viewProps
-}) => {
+export const Details: FC<
+	{ selection: Address | null; review: TargetCommitReview | null } & DetailsViewProps
+> = ({ selection, review, ...viewProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	// The Pull Request tab fetches the review from the forge, so it is only
 	// offered on a forge that serves them.
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const landedReview = forgeInfo?.capabilities.prService ? review : null;
 
-	return (
-		selection &&
-		Match.value(selection).pipe(
-			Match.tags({
-				Commit: (commit) => commitDetails(commit, viewProps, landedReview),
-			}),
-			Match.orElse(() => null),
-		)
-	);
-};
+	// No selection exists before the lists render, and the lists derive from
+	// headInfo — by the time anything is selectable, it has loaded.
+	if (!selection || !headInfo) return null;
 
-/**
- * The details pane for the branches tab, which lists what the workspace does
- * not hold: its branches are unapplied.
- */
-export const BranchesDetails: FC<SidebarDetailsProps> = ({ selection, ...viewProps }) =>
-	selection &&
-	Match.value(selection).pipe(
+	return Match.value(selection).pipe(
 		Match.tags({
-			Branch: (branch) => (
-				<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
-			),
-			Commit: (commit) => commitDetails(commit, viewProps),
+			Branch: (branch) =>
+				getHeadInfoIndex(headInfo).isApplied(branch.branchRef) ? (
+					<AppliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
+				) : (
+					<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
+				),
+			Commit: (commit) => commitDetails(commit, viewProps, landedReview),
 		}),
 		Match.orElse(() => null),
 	);
+};
 
 /** The details pane for the uncommitted-files scope. */
 export const UncommittedFilesDetails: FC<{ path: string } & DetailsViewProps> = (p) => (

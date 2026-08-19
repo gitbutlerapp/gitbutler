@@ -17,6 +17,8 @@ type CommitIndex = {
 };
 
 export type HeadInfoIndex = {
+	/** Whether the workspace holds a branch at this ref — appliedness. */
+	isApplied: (ref: Array<number>) => boolean;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
 	commitContextByCommitId: (
 		commitId: string,
@@ -70,6 +72,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	}
 
 	return {
+		isApplied: (ref: Array<number>) => branchContextByRef.has(branchRefKey(ref)),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
 		commitContextByCommitId: (commitId: string) => commitContextByCommitId.get(commitId),
 		commitContextsByChangeId: (changeId: string) => commitContextsByChangeId.get(changeId),

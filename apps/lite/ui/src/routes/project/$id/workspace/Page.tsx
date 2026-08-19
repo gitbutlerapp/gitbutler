@@ -55,13 +55,7 @@ import {
 	type Address,
 	uncommittedChangesFileParent,
 } from "#ui/addresses.ts";
-import {
-	BranchesDetails,
-	type DiffViewerHandle,
-	UncommittedFilesDetails,
-	UpstreamDetails,
-	WorkspaceDetails,
-} from "./Details.tsx";
+import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
@@ -592,13 +586,12 @@ const PageBody: FC = () => {
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
 	const activeList = useActiveList();
-	// The pane's content is one component per page, as the sidebar has one list
-	// per page — the component tree, not a tag on the selection, carries where a
-	// selection came from. Only the workspace page has two lists, so only its arm
-	// asks which one drives. Memoised because `useDeferredValue` compares by
-	// identity, so a freshly built element every render would defer every render.
-	// Looked up outside the memo so the details only rebuild when the review
-	// itself changes, not on every list rerun.
+	// The page picks only which list's cursor drives the pane; one Details
+	// component then dispatches on the selection itself. The uncommitted arm is
+	// the genuine fork — its cursor is a path, not an address. Memoised because
+	// `useDeferredValue` compares by identity, so a freshly built element every
+	// render would defer every render. Looked up outside the memo so the details
+	// only rebuild when the review itself changes, not on every list rerun.
 	const upstreamReview =
 		upstreamSelection?._tag === "Commit"
 			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
@@ -610,7 +603,7 @@ const PageBody: FC = () => {
 			Match.when("workspace", () =>
 				Match.value(activeList).pipe(
 					Match.when("applied", () => (
-						<WorkspaceDetails selection={appliedSelection} {...viewProps} />
+						<Details selection={appliedSelection} review={null} {...viewProps} />
 					)),
 					Match.when(
 						"uncommitted",
@@ -623,10 +616,10 @@ const PageBody: FC = () => {
 				),
 			),
 			Match.when("upstream", () => (
-				<UpstreamDetails selection={upstreamSelection} review={upstreamReview} {...viewProps} />
+				<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
 			)),
 			Match.when("branches", () => (
-				<BranchesDetails selection={branchesSelection} {...viewProps} />
+				<Details selection={branchesSelection} review={null} {...viewProps} />
 			)),
 			Match.exhaustive,
 		);
