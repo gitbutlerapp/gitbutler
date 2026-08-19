@@ -423,8 +423,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 3.12.3
-        version: 3.12.3
+        specifier: 3.12.4
+        version: 3.12.4
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -2057,8 +2057,8 @@ packages:
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
 
-  '@gitbutler/design-core@3.12.3':
-    resolution: {integrity: sha512-oMvWcr/Fq6gjR0/rxt/rl/+V427KqBB53paFA586dg/LE57LwFdKMAAWXZ0jLPZlG0gLdhOOavFKMENGd/Jbag==}
+  '@gitbutler/design-core@3.12.4':
+    resolution: {integrity: sha512-eboUWo+N/6iGRkpZvTjCN1MwQC6SGEEMmgU0e4DkZAh+vNO1UJleFMk793yKf2GcGVxvIxulopZBw2EnXNLtww==}
 
   '@gitbutler/design-core@3.9.1':
     resolution: {integrity: sha512-kLkZ1+pqeqpBntBOSV53kYVCmY/ZFemjxsWc78GTGLgn1Op8p7bWCNxCUSU822MKLJrzmjUg99MpqdHpXGcNAQ==}
@@ -11365,7 +11365,7 @@ snapshots:
 
   '@gitbutler/design-core@2.2.2': {}
 
-  '@gitbutler/design-core@3.12.3': {}
+  '@gitbutler/design-core@3.12.4': {}
 
   '@gitbutler/design-core@3.9.1': {}
 
