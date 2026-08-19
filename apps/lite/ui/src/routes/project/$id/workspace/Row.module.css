@@ -62,23 +62,6 @@
 .containerHighlighted {
 	background-color: color-mix(var(--fill-pop-bg) 20%, transparent);
 	color: var(--text-1);
-
-	@media (prefers-reduced-motion: no-preference) {
-		animation: wiggle 0.35s ease-in-out infinite;
-	}
-}
-
-@keyframes wiggle {
-	0%,
-	100% {
-		translate: 0;
-	}
-	25% {
-		translate: -1px;
-	}
-	75% {
-		translate: 1px;
-	}
 }
 
 .toolbar {
