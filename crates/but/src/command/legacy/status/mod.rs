@@ -457,6 +457,7 @@ fn build_status_context<'a>(
         stacks,
         resolved_target,
         commit_id_to_change_id,
+        worktrees,
     ) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
@@ -490,6 +491,16 @@ fn build_status_context<'a>(
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
         let mut commit_id_to_change_id =
             gix::hashtable::HashMap::<gix::ObjectId, ChangeId>::default();
+        // Commits owned by a linked worktree share the change-ID namespace with workspace
+        // commits, so they feed the same map - or the same change ID could print with a
+        // different disambiguation length here than everywhere else.
+        let worktrees = head_info.worktrees;
+        for worktree in &worktrees {
+            for local_commit in &worktree.commits {
+                commit_id_to_change_id
+                    .insert(local_commit.id, local_commit.change_id().into_owned());
+            }
+        }
         for stack in head_info.stacks {
             for segment in stack.segments {
                 let Segment {
@@ -518,6 +529,7 @@ fn build_status_context<'a>(
             stacks,
             resolved_target,
             commit_id_to_change_id,
+            worktrees,
         )
     };
 
@@ -560,7 +572,12 @@ fn build_status_context<'a>(
         .iter()
         .map(|source| (source.source.clone(), source.changes.clone()))
         .collect();
-    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id)?;
+    let id_map = IdMap::new(
+        stacks,
+        sources,
+        commit_id_to_change_id,
+        crate::id::worktree_commits_by_name(&worktrees),
+    )?;
 
     let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later

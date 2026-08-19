@@ -2790,3 +2790,48 @@ Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }
+
+/// A commit owned by a linked worktree is a squash source like any workspace commit:
+/// squashing it into a workspace commit folds its changes in there, and the worktree's
+/// branch and checkout move onto the combined result.
+#[test]
+fn squash_a_worktree_commit_into_a_workspace_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("squash 580bef0 --target tpm --message 'add A and W'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Squashed nsn into tpm
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c773930 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 53e4c58 (wt-feature, A) add A and W
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    // The worktree sits on the squashed commit with its file still checked out and clean.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* c773930 (gitbutler/workspace) GitButler Workspace Commit
+* 53e4c58 (HEAD -> wt-feature, A) add A and W
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    assert!(
+        wt_dir.join("wt-file.txt").exists(),
+        "the squashed-in change stays checked out in the worktree"
+    );
+}

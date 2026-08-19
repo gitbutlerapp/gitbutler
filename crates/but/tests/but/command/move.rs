@@ -2869,3 +2869,71 @@ Hint: `--branch` can only move branches onto existing branches
 
 "#]]);
 }
+
+/// A commit owned by a linked worktree is a move source like any workspace commit: moving it
+/// onto another stack's branch takes it out of the worktree's history, and the worktree's
+/// checkout follows so the moved change does not linger there.
+#[test]
+fn move_a_commit_out_of_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 580bef0 (wt-feature) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
+
+    env.but("move 580bef0 -b B")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved nsn to the tip of branch 'B'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   7ca2b42 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (wt-feature, A) add A
+* | f379d52 (B) add W
+* | d3e2ba3 add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    // The worktree kept only its base history, and its checkout dropped the moved file.
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "the moved commit's file left the worktree checkout"
+    );
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   7ca2b42 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (HEAD -> wt-feature, A) add A
+* | f379d52 (B) add W
+* | d3e2ba3 add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}

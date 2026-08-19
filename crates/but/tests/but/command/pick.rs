@@ -290,3 +290,39 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+/// A commit owned by a linked worktree can be cherry-picked onto another stack's branch by
+/// its ID: the pick is a copy, so the worktree's history and checkout stay untouched.
+#[test]
+fn pick_a_worktree_commit_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("pick 580bef0 -b B")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Picked 580bef0 onto branch 'B' to create 1
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   ec01cb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | 9d6ca72 (B) add W
+* | d3e2ba3 add B
+| | * 580bef0 (wt-feature) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
