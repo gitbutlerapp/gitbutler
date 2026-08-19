@@ -20,52 +20,6 @@
 	}
 }
 
-/* Too narrow for the project name, keep only the folder mark. */
-@container (max-width: 275px) {
-	.workspaceNameLabel {
-		display: none;
-	}
-}
-
-.workspaceControls {
-	display: flex;
-	column-gap: 12px;
-	align-items: center;
-}
-
-.workspaceControlsLeft {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-	gap: 4px;
-}
-
-.workspaceControlsActions {
-	display: flex;
-	align-items: center;
-	margin-inline-start: auto;
-	gap: 2px;
-}
-
-.workspaceName {
-	--button-gap: 8px;
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-
-/* The folder mark is not square, so opt out of the button's icon sizing. */
-.workspaceNameFolder.workspaceNameFolder {
-	width: 17px;
-	height: 14px;
-}
-
-.workspaceNameLabel {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .page {
 	border-top: 1px solid var(--border-section);
 }
