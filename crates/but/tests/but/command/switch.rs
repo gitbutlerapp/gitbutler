@@ -136,6 +136,56 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn switching_to_reordered_empty_branch_preserves_lower_branches() {
+    use but_core::{RefMetadata as _, ref_metadata::WorkspaceStackBranch};
+    use std::ops::DerefMut as _;
+
+    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    for branch in ["A", "B", "C", "D"] {
+        env.invoke_git(&format!("branch {branch} main"));
+    }
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+
+    // Match the managed-workspace order after adding C and D above A, then moving D below A.
+    {
+        let ctx = env.context();
+        let mut meta = ctx.meta().unwrap();
+        let workspace_ref: &gix::refs::FullNameRef =
+            but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut workspace = meta.workspace(workspace_ref).unwrap();
+        workspace.deref_mut().stacks[0].branches = ["C", "A", "D"]
+            .map(|name| WorkspaceStackBranch {
+                ref_name: format!("refs/heads/{name}").try_into().unwrap(),
+                archived: false,
+            })
+            .into();
+        meta.set_workspace(&workspace).unwrap();
+    }
+
+    env.but("switch A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to branch 'A'
+
+"#]]);
+    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
+
+    let status = status_json(&env);
+    let stacks = status["stacks"].as_array().unwrap();
+    assert_eq!(stacks.len(), 1);
+    let branch_names = stacks[0]["branches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|branch| branch["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(branch_names, ["A", "D"]);
+}
+
 #[test]
 fn switches_back_to_workspace() {
     let env = switch_env();

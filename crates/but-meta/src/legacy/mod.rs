@@ -760,7 +760,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 }
 
 /// Ref metadata backed by legacy TOML for historical workspace metadata and by
-/// the project database for ad-hoc branch order metadata.
+/// the project database for branch order shared with ad-hoc projections.
 pub struct BranchOrderMetadata {
     legacy: VirtualBranchesTomlMetadata,
     db: Option<but_db::DbHandle>,
@@ -814,7 +814,18 @@ impl RefMetadata for BranchOrderMetadata {
     }
 
     fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
-        self.legacy.set_workspace(value)
+        self.legacy.set_workspace(value)?;
+        if !self.read_only {
+            for stack in &value.stacks {
+                let order = stack
+                    .branches
+                    .iter()
+                    .map(|branch| branch.ref_name.clone())
+                    .collect::<Vec<_>>();
+                self.set_branch_stack_order(&order)?;
+            }
+        }
+        Ok(())
     }
 
     fn set_branch(&mut self, value: &Self::Handle<Branch>) -> anyhow::Result<()> {
