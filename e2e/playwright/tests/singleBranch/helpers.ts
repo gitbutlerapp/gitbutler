@@ -1,5 +1,5 @@
 import { openWorkspace } from "../../src/setup.ts";
-import { clickByTestId, getByTestId, waitForTestId } from "../../src/util.ts";
+import { clickByTestId, getByTestId, stack, waitForTestId } from "../../src/util.ts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { GitButler } from "../../src/setup.ts";
 
@@ -36,8 +36,17 @@ export function branchHeader(page: Page, branchName: string): Locator {
 	return page.locator(`[data-testid="branch-header"][data-testid-branch-header="${branchName}"]`);
 }
 
-export async function createDependentBranch(page: Page, branchName: string): Promise<void> {
-	await clickByTestId(page, "branch-header-add-dependent-branch-button");
+export async function createDependentBranch(
+	page: Page,
+	branchName: string,
+	stackBranch?: string,
+): Promise<void> {
+	const addButton = stackBranch
+		? stack(page)
+				.filter({ has: branchHeader(page, stackBranch) })
+				.getByTestId("branch-header-add-dependent-branch-button")
+		: getByTestId(page, "branch-header-add-dependent-branch-button");
+	await addButton.click();
 	const modal = await waitForTestId(page, "branch-header-add-dependent-branch-modal");
 	await modal.locator("input").fill(branchName);
 	await clickByTestId(page, "branch-header-add-dependent-branch-modal-action-button");

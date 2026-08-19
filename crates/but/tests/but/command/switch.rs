@@ -136,6 +136,68 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn switching_to_reordered_empty_branch_preserves_lower_branches() {
+    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.but("branch new A").assert().success();
+    env.but("branch new B").assert().success();
+    env.but("branch new D --above A").assert().success();
+    env.but("branch new C --above D").assert().success();
+    env.but("move A --above D").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] (no commits)
+├╯
+┊
+┊╭┄ h0 [C] (no commits)
+┊│
+┊├┄ i0 [A] (no commits)
+┊│
+┊├┄ j0 [D] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to branch 'A'
+
+"#]]);
+    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] (no commits)
+┊│
+┊├┄ h0 [D] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
 #[test]
 fn switches_back_to_workspace() {
     let env = switch_env();

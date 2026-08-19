@@ -9,7 +9,7 @@ use but_core::{
     },
 };
 use but_meta::{
-    VirtualBranchesTomlMetadata,
+    BranchOrderMetadata, VirtualBranchesTomlMetadata,
     virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch},
 };
 use but_testsupport::{
@@ -76,6 +76,55 @@ fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
         std::fs::read_to_string(&writable_toml_path)?,
         original,
         "read-only metadata is projection input and must not reconcile or persist on drop"
+    );
+    Ok(())
+}
+
+#[test]
+fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    let mut store =
+        BranchOrderMetadata::from_paths(tmp.path().join("virtual-branches.toml"), tmp.path())?;
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut workspace = store.workspace(workspace_name.as_ref())?;
+    let refs = ["C", "A", "D", "B"]
+        .map(|name| format!("refs/heads/{name}").try_into())
+        .into_iter()
+        .collect::<Result<Vec<gix::refs::FullName>, _>>()?;
+    workspace.stacks = vec![
+        WorkspaceStack {
+            id: StackId::from_number_for_testing(1),
+            workspacecommit_relation: Merged,
+            branches: refs[..3]
+                .iter()
+                .cloned()
+                .map(|ref_name| WorkspaceStackBranch {
+                    ref_name,
+                    archived: false,
+                })
+                .collect(),
+        },
+        WorkspaceStack {
+            id: StackId::from_number_for_testing(2),
+            workspacecommit_relation: Merged,
+            branches: vec![WorkspaceStackBranch {
+                ref_name: refs[3].clone(),
+                archived: false,
+            }],
+        },
+    ];
+
+    store.set_workspace(&workspace)?;
+
+    assert_eq!(
+        store.branch_stack_order(refs[1].as_ref())?,
+        Some(refs[..3].to_vec()),
+        "managed stack order should be reusable after checking out its middle branch"
+    );
+    assert_eq!(
+        store.branch_stack_order(refs[3].as_ref())?,
+        Some(vec![refs[3].clone()]),
+        "independent stacks should remain independent"
     );
     Ok(())
 }
