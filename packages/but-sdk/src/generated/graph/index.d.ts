@@ -530,6 +530,18 @@ export declare function forgetGitlabAccount(account: GitlabAccountIdentifier): P
  */
 export declare function getBbUser(account: BitbucketAccountIdentifier): Promise<BitbucketAuthenticatedUserSensitive | null>
 
+/**
+ * Retrieves file content directly from a Git blob object by its blob ID.
+ *
+ * This function is used for displaying image diff previews when the file
+ * isn't available in the current workspace or a specific commit (e.g., for
+ * deleted files or when comparing against a previous state).
+ *
+ * # Arguments
+ * * `blob_id` - Git blob object ID as a hexadecimal string
+ */
+export declare function getBlobFile(projectId: string, relativePath: string, blobId: string): Promise<FileInfo>
+
 export declare function getGbConfig(projectId: string): Promise<GitConfigSettings>
 
 /**
@@ -618,6 +630,8 @@ export declare function getUserProfileLocal(): Promise<UserProfile | null>
  * mutate the cached [`WorkspaceState`] returned by mutation APIs.
  */
 export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
+
+export declare function getWorkspaceFile(projectId: string, relativePath: string): Promise<FileInfo>
 
 export declare function gitTestFetch(projectId: string, remoteName: string, action: string | null): Promise<void>
 
@@ -2293,6 +2307,18 @@ export type Fetch = {
 /** Update request for [`crate::app_settings::Fetch`]. */
 export type FetchUpdate = {
   autoFetchIntervalMinutes?: number | null;
+};
+
+/** File contents and metadata suitable for display in a frontend. */
+export type FileInfo = {
+  /** File content, base64 encoded when `mime_type` is present. */
+  content: string | null;
+  /** The basename derived from the relative path. */
+  fileName: string;
+  /** The decoded content size in bytes. */
+  size: number | null;
+  /** The inferred MIME type for binary displayable content. */
+  mimeType: string | null;
 };
 
 export type ForgeCapabilities = {
