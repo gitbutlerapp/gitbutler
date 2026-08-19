@@ -278,4 +278,29 @@ mod util {
             env.projects_root(),
         );
     }
+
+    /// Add a linked worktree named `name` on a new branch of the same name at
+    /// `start_point`, with a commit of its own adding `wt-file.txt` and a clean
+    /// checkout, then return the worktree's directory.
+    ///
+    /// The same archiving caveat as [`add_dirty_worktree`] applies: create the
+    /// worktree only after a flag-on command has run.
+    pub fn add_worktree_with_commit(
+        env: &Sandbox,
+        name: &str,
+        start_point: &str,
+    ) -> std::path::PathBuf {
+        let wt = env.app_data_dir().join("worktrees");
+        but_testsupport::invoke_bash_at_dir(
+            &format!(
+                r#"
+        git worktree add -q -b {name} "{wt}/{name}" {start_point}
+        (cd "{wt}/{name}" && echo change >wt-file.txt && git add wt-file.txt && git commit -q -m "add W")
+        "#,
+                wt = wt.display()
+            ),
+            env.projects_root(),
+        );
+        wt.join(name)
+    }
 }
