@@ -597,6 +597,9 @@ importers:
       marked:
         specifier: 'catalog:'
         version: 15.0.12
+      posthog-js:
+        specifier: 1.417.1
+        version: 1.417.1
       svelte-exmarkdown:
         specifier: ^5.0.2
         version: 5.0.2(svelte@5.54.0)
