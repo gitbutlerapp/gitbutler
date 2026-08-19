@@ -12,6 +12,7 @@
 		"noEmit": true,
 		"verbatimModuleSyntax": true,
 		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
 		"types": ["vite/client"]

@@ -183,6 +183,19 @@
 	}
 }
 
+.dadJoke {
+	display: flex;
+	flex-direction: column;
+	max-width: 80ch;
+	margin-inline: auto;
+	padding-inline: 16px;
+	padding-block: 32px;
+	gap: 4px;
+	color: var(--text-2);
+	font-size: 12px;
+	text-align: center;
+}
+
 .avatar {
 	width: 16px;
 	height: 16px;
