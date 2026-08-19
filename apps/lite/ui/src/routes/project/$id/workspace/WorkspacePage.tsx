@@ -527,7 +527,7 @@ const WorkspacePage: FC = () => {
 	const upstreamList = useUpstreamList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedNavigationIndex);
-	const branchesSelection = useSelection("branches", branchesList.navigationIndex);
+	const branchesSelection = useSelection("unapplied", branchesList.navigationIndex);
 	const upstreamSelection = useSelection("upstream", upstreamList.navigationIndex);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));

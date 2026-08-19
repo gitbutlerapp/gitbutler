@@ -24,7 +24,7 @@ import {
 export type CursorItem = {
 	applied: Operand;
 	uncommitted: string;
-	branches: Operand;
+	unapplied: Operand;
 	upstream: Operand;
 	files: string;
 	diff: HunkOperand;
@@ -51,7 +51,7 @@ const pathKey = (path: string): string => path;
 /** One identity key per list; resolution and no-op guards share it. */
 export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } = {
 	applied: operandIdentityKey,
-	branches: operandIdentityKey,
+	unapplied: operandIdentityKey,
 	upstream: operandIdentityKey,
 	uncommitted: pathKey,
 	files: pathKey,

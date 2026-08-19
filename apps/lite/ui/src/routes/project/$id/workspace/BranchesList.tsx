@@ -84,7 +84,7 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 const branchGraphStatus = (branch: ListedBranch): GraphSegmentStatus =>
 	branch.remoteRefs.length > 0 ? "LocalAndRemote" : "LocalOnly";
 
-const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "branches");
+const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "unapplied");
 
 const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }) => (
 	<Row interactive={false} role="treeitem" aria-label={label}>
@@ -117,7 +117,7 @@ const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() => setCursor("branches", operand)}
+			onSelect={() => setCursor("unapplied", operand)}
 			onContextMenu={(event) => void showNativeContextMenu(event, menuItems)}
 		>
 			<GraphSegment
@@ -229,7 +229,7 @@ const BranchItem: FC<{
 		>
 			<Row
 				isSelected={isSelected}
-				onSelect={() => setCursor("branches", operand)}
+				onSelect={() => setCursor("unapplied", operand)}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
@@ -348,8 +348,8 @@ export const BranchesList: FC<
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
-	const selection = useSelection("branches", navigationIndex);
-	useCursorWriteBack("branches", navigationIndex);
+	const selection = useSelection("unapplied", navigationIndex);
+	useCursorWriteBack("unapplied", navigationIndex);
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const hotkeysRef = useRef<HTMLDivElement>(null);
@@ -363,7 +363,7 @@ export const BranchesList: FC<
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		group: "Sidebar",
-		select: (newItem) => setCursor("branches", newItem),
+		select: (newItem) => setCursor("unapplied", newItem),
 		selection,
 		selectSectionPredicate: (operand) => operand._tag === "Branch",
 		ref: hotkeysRef,
@@ -410,7 +410,7 @@ export const BranchesList: FC<
 				? undefined
 				: operandIdentityKey(branchOperand({ branchRef: encodeBytes(firstBranch.refName.full) })),
 		onEnterList: () => {
-			if (selection !== null) setCursor("branches", selection);
+			if (selection !== null) setCursor("unapplied", selection);
 		},
 		panelRef,
 		listRef: hotkeysRef,

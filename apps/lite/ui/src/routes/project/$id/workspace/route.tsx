@@ -21,7 +21,7 @@ export const Route = createRoute({
 			active: active === "uncommitted" ? active : undefined,
 			applied: str(params.applied),
 			uncommitted: str(params.uncommitted),
-			branches: str(params.branches),
+			unapplied: str(params.unapplied),
 			upstream: str(params.upstream),
 			files: str(params.files),
 		};

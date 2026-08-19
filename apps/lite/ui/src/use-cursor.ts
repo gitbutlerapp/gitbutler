@@ -345,7 +345,7 @@ export const startInlineEdit = (operand: InlineEditOperand): void => {
 
 /* ------------------------------------------------------- rewrite handling */
 
-const operandParams = ["applied", "branches", "upstream"] as const;
+const operandParams = ["applied", "unapplied", "upstream"] as const;
 
 /**
  * Rewrite `commit:` params after a commit rewrite. `change:` params need no
