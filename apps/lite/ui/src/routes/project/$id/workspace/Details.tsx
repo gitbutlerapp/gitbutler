@@ -9,6 +9,7 @@ import {
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
 import {
+	blobFileQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
@@ -21,6 +22,7 @@ import {
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
 	treeChangeDiffsQueryOptions,
+	workspaceFileQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { ForgeReview, TargetCommitReview } from "@gitbutler/but-sdk";
@@ -77,12 +79,14 @@ import {
 	type CodeViewLineSelection,
 	type CodeViewOptions,
 	type DiffLineAnnotation,
+	type FileContents,
 	isDiffAnnotation,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle, useStableCallback } from "@pierre/diffs/react";
 import {
 	keepPreviousData,
 	useQuery,
+	useQueryClient,
 	useSuspenseQueries,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -386,7 +390,7 @@ const DiffContents: FC<{
 	onViewerFileSelection,
 	fileParent,
 	projectId,
-	diffView: { items, addressSpace, hunkByKey, fileByItemId },
+	diffView: { items, addressSpace, hunkByKey, fileByItemId, fileByPath },
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -420,6 +424,7 @@ const DiffContents: FC<{
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const store = useAppStore();
+	const queryClient = useQueryClient();
 	const lineCheckRangeAnchor = useRef<string>(null);
 	const lineCheckRangeEnd = useRef<string>(null);
 	const hunkCheckRangeAnchor = useRef<string>(null);
@@ -1325,6 +1330,62 @@ const DiffContents: FC<{
 						: item,
 				);
 
+	const loadDiffFiles: NonNullable<CodeViewOptions<Annotation>["loadDiffFiles"]> =
+		useStableCallback(async (fileDiff) => {
+			const file = fileByPath.get(fileDiff.name);
+			if (file?.patch?.type !== "Patch") throw new Error("Cannot expand non-patch diff");
+			if (file.patch.subject.isResultOfBinaryToTextConversion)
+				throw new Error("Cannot expand text-converted diff");
+
+			const { version } = file.item;
+			if (version === undefined) throw new Error("Diff view item missing version");
+
+			const { change } = file;
+			if (change.status.type !== "Modification" && change.status.type !== "Rename")
+				throw new Error(`Cannot load full files for ${fileDiff.name}`);
+
+			const loadBlobFile = async (path: string, blobId: string): Promise<FileContents> => {
+				const res = await queryClient.fetchQuery(
+					blobFileQueryOptions({ projectId, relativePath: path, blobId }),
+				);
+				if (res.content === null || res.mimeType !== null)
+					throw new Error("Could not load file contents from blob");
+
+				return { name: path, contents: res.content, cacheKey: blobId };
+			};
+
+			const loadWorkspaceFile = async (path: string): Promise<FileContents> => {
+				const res = await queryClient.fetchQuery(
+					workspaceFileQueryOptions({ projectId, relativePath: path, version }),
+				);
+				if (res.content === null || res.mimeType !== null)
+					throw new Error("Could not load file contents from workspace");
+
+				return {
+					name: path,
+					contents: res.content,
+					cacheKey: `workspace:${path}:${version}`,
+				};
+			};
+
+			// Don't await yet, retain prospective parallelisation.
+			const asyncNewFile =
+				fileParent._tag === "UncommittedChanges"
+					? loadWorkspaceFile(change.path)
+					: loadBlobFile(change.path, change.status.subject.state.id);
+
+			if (fileDiff.type === "rename-pure") return { oldFile: null, newFile: await asyncNewFile };
+
+			const [oldFile, newFile] = await Promise.all([
+				loadBlobFile(
+					change.status.type === "Rename" ? change.status.subject.previousPath : change.path,
+					change.status.subject.previousState.id,
+				),
+				asyncNewFile,
+			]);
+			return { oldFile, newFile };
+		});
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
@@ -1411,6 +1472,7 @@ const DiffContents: FC<{
 				onSelectedLinesChange={handleLinesSelected}
 				options={{
 					diffStyle: effectiveDiffStyle,
+					loadDiffFiles,
 					disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
 					lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
 					overflow: diffOverflow ?? defaultSettings.diffOverflow,
