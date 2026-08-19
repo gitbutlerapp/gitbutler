@@ -4,6 +4,7 @@ export declare const apiParamNames: {
 	readonly absorb: readonly ["projectId", "absorptionPlan"];
 	readonly absorptionPlan: readonly ["projectId", "target"];
 	readonly addCommentReaction: readonly ["projectId", "commentId", "kind"];
+	readonly addProject: readonly ["path"];
 	readonly addReviewLabels: readonly ["projectId", "reviewId", "labels"];
 	readonly addReviewReaction: readonly ["projectId", "reviewId", "kind"];
 	readonly apply: readonly ["projectId", "existingBranch"];

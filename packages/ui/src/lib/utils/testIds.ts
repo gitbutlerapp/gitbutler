@@ -184,6 +184,13 @@ export enum TestId {
 	DiscardFileChangesConfirmationModal_Discard = "discard-file-changes-confirmation-modal-discard",
 }
 
+export enum LiteTestId {
+	OnboardingPage = "lite-onboarding-page",
+	OnboardingAddLocalProjectButton = "lite-onboarding-add-local-project-button",
+	ProjectPickerButton = "lite-project-picker-button",
+	ProjectPickerAddLocalProjectButton = "lite-project-picker-add-local-project-button",
+}
+
 export enum ElementId {
 	NewBranchNameInput = "new-branch-name-input",
 	SnapshotDescriptionInput = "snapshot-description-input",

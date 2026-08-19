@@ -36,6 +36,7 @@ export declare const apiProvides: {
 
 export declare const apiInvalidates: {
 	readonly addCommentReaction: readonly ["CommentReactions", "ReviewComments"];
+	readonly addProject: readonly ["Projects"];
 	readonly addReviewLabels: readonly ["Reviews"];
 	readonly addReviewReaction: readonly ["ReviewReactions"];
 	readonly createReviewComment: readonly ["ReviewComments"];

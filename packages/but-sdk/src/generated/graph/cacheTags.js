@@ -34,6 +34,7 @@ export const apiProvides = {
 
 export const apiInvalidates = {
 	addCommentReaction: ["CommentReactions", "ReviewComments"],
+	addProject: ["Projects"],
 	addReviewLabels: ["Reviews"],
 	addReviewReaction: ["ReviewReactions"],
 	createReviewComment: ["ReviewComments"],

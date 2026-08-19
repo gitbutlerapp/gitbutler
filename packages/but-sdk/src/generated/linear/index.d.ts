@@ -21,6 +21,12 @@ export declare function absorptionPlan(projectId: string, target: AbsorptionTarg
 /** Add the caller's reaction to one comment. */
 export declare function addCommentReaction(projectId: string, commentId: number, kind: string): Promise<ForgeReviewReaction>
 
+/**
+ * Adds an existing git repository as a GitButler project.
+ * `path` is the Git repository to remember as project.
+ */
+export declare function addProject(path: string): Promise<AddProjectOutcome>
+
 /** Add labels to a review; returns the resulting label set. */
 export declare function addReviewLabels(projectId: string, reviewId: number, labels: Array<string>): Promise<Array<ForgeReviewLabel>>
 
@@ -1328,6 +1334,32 @@ export type AbsorptionTarget = {
   };
 } | {
   type: "all";
+};
+
+/** Result of adding a local repository as a project. */
+export type AddProjectOutcome = {
+  type: "added";
+  subject: ProjectForFrontend;
+} | {
+  type: "alreadyExists";
+  subject: ProjectForFrontend;
+} | {
+  type: "pathNotFound";
+} | {
+  type: "notADirectory";
+} | {
+  type: "bareRepository";
+} | {
+  type: "nonMainWorktree";
+} | {
+  type: "noWorkdir";
+} | {
+  type: "noDotGitDirectory";
+} | {
+  type: "reftableRefFormatUnsupported";
+} | {
+  type: "notAGitRepository";
+  subject: string;
 };
 
 /** JSON transport type for the outcome of an AI conflict resolution. */

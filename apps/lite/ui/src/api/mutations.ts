@@ -621,6 +621,12 @@ export const useDeleteProject = () =>
 		meta: { failureTitle: "Failed to remove project" },
 	});
 
+export const useAddProject = () =>
+	useMutation({
+		mutationFn: window.lite.addProject,
+		meta: { failureTitle: "Failed to add project" },
+	});
+
 export const useUpdateProjectSettings = () =>
 	useMutation({
 		mutationFn: window.lite.updateProjectSettings,

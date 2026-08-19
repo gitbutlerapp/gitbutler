@@ -23,6 +23,7 @@ import {
 	app,
 	BrowserWindow,
 	clipboard,
+	dialog,
 	ipcMain,
 	Menu,
 	nativeTheme,
@@ -304,6 +305,10 @@ const ipcHandlerOverrides = {
 			throw new Error(`URL ${url} with unsupported protocol ${protocol}`);
 
 		return shell.openExternal(url);
+	},
+	pickDirectory: async () => {
+		const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+		return canceled ? null : (filePaths[0] ?? null);
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
