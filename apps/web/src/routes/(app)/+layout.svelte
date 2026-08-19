@@ -133,7 +133,7 @@
 	provide(NOTIFICATION_SETTINGS_SERVICE, notificationSettingsService);
 	provide(EXTERNAL_LINK_SERVICE, {
 		open: (href) => {
-			location.href = href;
+			window.open(href, "_blank", "noopener,noreferrer");
 		},
 	} satisfies ExternalLinkService);
 
