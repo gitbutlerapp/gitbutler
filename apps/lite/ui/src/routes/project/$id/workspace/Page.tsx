@@ -1,3 +1,11 @@
+/**
+ * The workspace route's page — the app's hub, and the place to start
+ * reading. Everything above (main → App → routes.tsx) is bootstrap,
+ * providers and window chrome; everything interesting hangs from here:
+ * this file derives every list's address space and data, then renders
+ * the pages — each a list — beside Details, and wires the app-level
+ * hotkeys and operation controls.
+ */
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -58,7 +66,7 @@ import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import styles from "./WorkspacePage.module.css";
+import styles from "./Page.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
@@ -374,7 +382,7 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
-const WorkspacePage: FC = () => {
+const PageBody: FC = () => {
 	useReconcileState();
 
 	const dispatch = useAppDispatch();
@@ -758,7 +766,7 @@ const WorkspacePage: FC = () => {
 	);
 };
 
-export const Route: FC = () => {
+export const Page: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -769,7 +777,7 @@ export const Route: FC = () => {
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
 				<ErrorBoundary onReset={reset}>
-					<WorkspacePage />
+					<PageBody />
 				</ErrorBoundary>
 			)}
 		</QueryErrorResetBoundary>
