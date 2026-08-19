@@ -8,7 +8,7 @@ use nonempty::NonEmpty;
 use ratatui::{backend::Backend, prelude::Span};
 
 use crate::{
-    CliId,
+    CliError, CliId,
     command::legacy::{
         commit,
         reword2::CommitMessageSource,
@@ -28,7 +28,7 @@ use crate::{
     },
     id::UncommittedHunkOrFile,
     tui::TerminalGuard,
-    utils::targeting,
+    utils::{change_source::UncommittedSelection, targeting},
 };
 
 use super::{SquashMarks, SquashSource, mark::MarksRef};
@@ -486,11 +486,15 @@ where
     );
 
     let commit_selection = match &**source {
-        CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(hunks.clone())),
+        // Marks can span checkouts, so this is where that gets rejected.
+        CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
+            UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
+        )),
         CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
-        CommitSource::UncommittedHunk(hunk) => {
-            commit::CommitSelection::Changes(Box::new(NonEmpty::new(hunk.clone())))
-        }
+        CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
+            UncommittedSelection::new(NonEmpty::new(hunk.clone()))
+                .map_err(CliError::into_internal)?,
+        )),
     };
 
     let mut guard = ctx.exclusive_worktree_access();

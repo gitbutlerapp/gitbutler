@@ -1,4 +1,6 @@
-use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
+use super::util::{
+    enable_worktree_manipulation, enter_edit_mode_with_conflicted_commit, status_json,
+};
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
@@ -1593,14 +1595,4 @@ qt:a note.txt│
 "#]]
             .raw(),
         );
-}
-
-/// Turn on the experimental `worktreeManipulation` feature flag, which has no CLI toggle.
-fn enable_worktree_manipulation(env: &Sandbox) {
-    let path = env.app_data_dir().join("gitbutler/settings.json");
-    let mut settings: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).expect("settings were written"))
-            .expect("settings are valid JSON");
-    settings["featureFlags"]["worktreeManipulation"] = true.into();
-    std::fs::write(&path, settings.to_string()).expect("settings are writable");
 }
