@@ -31,8 +31,8 @@ import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { LiteTestId } from "#ui/testIds.ts";
 import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
-import { LiteTestId } from "@gitbutler/ui/utils/testIds";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,

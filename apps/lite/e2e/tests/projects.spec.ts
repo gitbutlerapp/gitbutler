@@ -1,5 +1,5 @@
 import path from "node:path";
-import { LiteTestId } from "@gitbutler/ui/utils/testIds";
+import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 
 test.use({ scenario: "project-with-additional-repository.sh" });
