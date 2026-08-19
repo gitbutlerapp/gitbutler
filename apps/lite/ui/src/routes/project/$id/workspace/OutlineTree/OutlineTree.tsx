@@ -323,6 +323,7 @@ const UncommittedChanges: FC<{
 			>
 				<FilesTree
 					canUncommit={false}
+					data-preview-source={workspaceList === "uncommitted"}
 					selectionScope="uncommitted-files"
 					onFocus={() => setWorkspaceList("uncommitted")}
 					emptyLabel={
@@ -720,6 +721,7 @@ const Stacks: FC<{
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(styles.tree, styles.stacks)}
 				data-selection-scope={"outline" satisfies SelectionScope}
+				data-preview-source={workspaceList === "stacks"}
 				onFocus={() => setWorkspaceList("stacks")}
 				ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope(workspaceList === "stacks"))}
 			>
