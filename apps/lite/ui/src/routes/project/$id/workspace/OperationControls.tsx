@@ -22,7 +22,6 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import type { FC, ReactNode } from "react";
 import styles from "./OperationControls.module.css";
@@ -379,7 +378,7 @@ const TransferKeyboardOperationControls: FC<{
 	const selection = useSelection("applied", appliedAddressSpace);
 
 	const dispatch = useAppDispatch();
-	const { mutate: executeOperation } = useExecuteOperation();
+	const { mutate: executeOperation } = useExecuteOperation(projectId);
 
 	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
 	if (!target) return null;
@@ -432,10 +431,10 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ appliedAddressSpace: AddressSpace<Address> }> = ({
-	appliedAddressSpace,
-}) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+export const OperationControls: FC<{
+	projectId: string;
+	appliedAddressSpace: AddressSpace<Address>;
+}> = ({ projectId, appliedAddressSpace }) => {
 	const pendingOperation = useAppSelector((state) =>
 		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);

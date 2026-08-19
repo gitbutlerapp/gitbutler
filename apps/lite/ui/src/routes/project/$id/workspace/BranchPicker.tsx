@@ -3,7 +3,6 @@ import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import type { BranchAddress } from "#ui/addresses.ts";
 import type { Segment, Stack } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
 import type { FC } from "react";
 
 type BranchPickerOption = {
@@ -13,6 +12,7 @@ type BranchPickerOption = {
 };
 
 type Props = {
+	projectId: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSelectBranch: (branch: BranchAddress) => void;
@@ -39,8 +39,7 @@ const stackToBranchPickerOptions = (stack: Stack): Array<BranchPickerOption> =>
 		return option ? [option] : [];
 	});
 
-export const BranchPicker: FC<Props> = ({ open, onOpenChange, onSelectBranch }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+export const BranchPicker: FC<Props> = ({ projectId, open, onOpenChange, onSelectBranch }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selectBranch = (option: BranchPickerOption) => {
 		onOpenChange(false);

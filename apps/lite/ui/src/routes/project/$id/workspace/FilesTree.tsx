@@ -267,6 +267,7 @@ const useFilesTreeHotkeys = ({
 	]);
 
 	useAddressSpaceHotkeys({
+		projectId,
 		addressSpace,
 		group: "File",
 		select: onRowSelection,

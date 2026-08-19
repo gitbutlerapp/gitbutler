@@ -46,7 +46,7 @@ export const useOperationDropTarget = ({
 	projectId: string;
 }) => {
 	const dispatch = useAppDispatch();
-	const { mutate: executeOperation } = useExecuteOperation();
+	const { mutate: executeOperation } = useExecuteOperation(projectId);
 	const dropRef = useRef<HTMLElement>(null);
 
 	const getData = useEffectEvent(({ input, element, source }: GetDataArgs) => {
