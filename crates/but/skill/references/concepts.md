@@ -75,7 +75,10 @@ active linked worktree gets its own ID, listed as a `[worktree <name>]` heading 
 with that checkout's uncommitted files below it. The worktree ID names its whole uncommitted area
 the way `zz` names the main worktree's, and `<worktree-name>:<path>` scopes a filename to that
 checkout — `zz:<path>` keeps meaning the main worktree. A filename dirty in several checkouts at
-once is ambiguous; the error suggests the scoped forms.
+once is ambiguous; the error suggests the scoped forms. A worktree file or heading ID works as a
+`but commit` change and a `but amend` source: the change lands on the target commit or branch,
+which does not have to be the worktree's own, and leaves that worktree's uncommitted area. One
+operation reads from one checkout at a time — a selection mixing checkouts is refused.
 
 ## Parallel vs Stacked Branches
 
