@@ -1,4 +1,6 @@
-use super::util::{find_branch, status_json_with_files};
+use super::util::{
+    add_dirty_worktree, enable_worktree_manipulation, find_branch, status_json_with_files,
+};
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
@@ -2669,6 +2671,151 @@ error: unexpected argument '-c' found
 Usage: but commit [OPTIONS] [CHANGES]...
 
 For more information, try '--help'.
+
+"#]]);
+}
+
+/// A worktree file's ID commits that change onto a workspace branch: it lands
+/// as a commit there and leaves the worktree's uncommitted area, whose checkout
+/// is updated so the change does not reappear.
+#[test]
+fn commit_a_file_from_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+╭┄ m [worktree wt-feature]
+┊   nl A note.txt
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit nl -b A -m 'note from worktree'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'A'
+
+"#]]);
+
+    // The change moved: committed on A, gone from the worktree's area.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+╭┄ m [worktree wt-feature] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 note from worktree
+┊│     1:u A note.txt
+┊│
+┊├┄ wt [wt-feature 📁 [..]worktrees/wt-feature]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// The worktree's own ID names its whole uncommitted area, so committing it
+/// works like a bare `but commit` for that checkout.
+#[test]
+fn commit_a_worktrees_whole_uncommitted_area() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("commit m -b B -m 'everything from the worktree'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'B'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+╭┄ m [worktree wt-feature] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   1 everything from the worktree
+┊│     1:u A note.txt
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// Changes dirty in different checkouts cannot go into one commit: they are
+/// read from and cancelled out of different repositories.
+#[test]
+fn commit_refuses_changes_from_several_checkouts() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in the main worktree\n");
+
+    env.but("commit main.txt wt-feature:note.txt -b A -m 'mixed'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use changes from the uncommitted area and worktree wt-feature together
+
+Hint: An operation can only take changes from one checkout at a time
 
 "#]]);
 }
