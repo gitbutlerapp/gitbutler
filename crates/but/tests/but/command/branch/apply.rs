@@ -8,6 +8,69 @@ use crate::utils::{CommandExt, Sandbox};
 
 use utils::create_local_branch_with_commit;
 
+#[cfg(feature = "legacy")]
+#[test]
+fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.but("branch new A").assert().success();
+    env.but("branch new B --above A").assert().success();
+    env.but("branch new C --above B").assert().success();
+    env.but("branch new D").assert().success();
+    env.but("switch C").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] (no commits)
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("apply D").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace"
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [D] (no commits)
+├╯
+┊
+┊╭┄ h0 [C] (no commits)
+┊│
+┊├┄ i0 [B] (no commits)
+┊│
+┊├┄ j0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
 #[cfg(not(feature = "legacy"))]
 #[test]
 fn single_branch() {

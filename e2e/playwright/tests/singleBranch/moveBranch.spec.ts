@@ -1,4 +1,5 @@
 import {
+	applyBranchFromBranchesView,
 	branchHeader,
 	createDependentBranch,
 	expectCurrentBranchChip,
@@ -64,6 +65,35 @@ test("keeps managed branch order after checking out a middle branch", async ({
 	await assertSymbolicHead("A", localClone);
 	await expect(stack(page)).toHaveCount(1);
 	await expectBranchHeaderOrder(page, ["A", "D"]);
+});
+
+test("keeps the ad-hoc stack when applying an independent empty branch", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openSingleBranchWorkspace(page);
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await createNewBranch(page, "A");
+	await expect(stack(page)).toHaveCount(1);
+	await createDependentBranch(page, "B", "A");
+	await expectBranchHeaderOrder(page, ["B", "A"], "A");
+	await createDependentBranch(page, "C", "A");
+	await expectBranchHeaderOrder(page, ["C", "B", "A"], "A");
+	await createNewBranch(page, "D");
+	await expect(stack(page)).toHaveCount(2);
+
+	execFileSync("git", ["checkout", "C"], { cwd: localClone });
+	await assertSymbolicHead("C", localClone);
+	await expect(stack(page)).toHaveCount(1);
+	await expectBranchHeaderOrder(page, ["C", "B", "A"]);
+
+	await applyBranchFromBranchesView(page, "D");
+	await assertSymbolicHead("gitbutler/workspace", localClone);
+	await expect(stack(page)).toHaveCount(2);
+	await expectBranchHeaderOrder(page, ["C", "B", "A"], "A");
+	await expectBranchHeaderOrder(page, ["D"], "D");
 });
 
 test("can reorder empty branches by dragging within the single-branch stack", async ({
