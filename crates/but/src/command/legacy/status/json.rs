@@ -36,10 +36,42 @@ pub(crate) struct WorkspaceStatus {
     conflicted_files: Vec<String>,
     /// The stacks that are applied in the current workspace
     stacks: Vec<Stack>,
+    /// The active linked worktrees, omitted unless the `worktreeManipulation` flag is on
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    worktrees: Vec<Worktree>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
     merge_base: Commit,
     /// Information about how ahead the target upstream branch is compared to the merge base
     upstream_state: UpstreamState,
+}
+
+/// A linked worktree with the commits it owns exclusively.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Worktree {
+    /// The CLI ID naming this worktree's uncommitted area, like `zz` names the main worktree's
+    cli_id: String,
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
+    name: String,
+    /// The branch checked out in the worktree, or `null` for a detached `HEAD`
+    reference: Option<String>,
+    /// The commit the worktree's own commits rest on
+    base: Option<WorktreeBase>,
+    /// The worktree's uncommitted changes
+    uncommitted_changes: Vec<FileChange>,
+    /// The commits owned by this worktree alone, newest first
+    commits: Vec<Commit>,
+}
+
+/// What a linked worktree's commits rest on, and whether that is inside the workspace.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorktreeBase {
+    /// The commit the worktree branches off
+    commit_id: String,
+    /// Whether that commit belongs to one of the workspace stacks, as opposed to being at or
+    /// below the target
+    in_workspace: bool,
 }
 
 /// Represents the state of the upstream branch compared to the merge base
@@ -62,6 +94,7 @@ impl WorkspaceStatus {
         uncommitted_changes: Vec<FileChange>,
         conflicted_files: Vec<String>,
         stacks: Vec<Stack>,
+        worktrees: Vec<Worktree>,
         merge_base: Commit,
         upstream_state: UpstreamState,
     ) -> Self {
@@ -69,6 +102,7 @@ impl WorkspaceStatus {
             uncommitted_changes,
             conflicted_files,
             stacks,
+            worktrees,
             merge_base,
             upstream_state,
         }
@@ -579,6 +613,69 @@ fn convert_branch_to_json(
     )
 }
 
+/// Convert the active linked worktrees, empty unless the `worktreeManipulation` flag is on.
+fn build_worktrees_json(
+    status_ctx: &StatusContext,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<Worktree>> {
+    let mut out = Vec::new();
+    for worktree in &status_ctx.worktrees {
+        let Some(with_id) = status_ctx
+            .id_map
+            .worktrees
+            .values()
+            .find(|candidate| candidate.name == worktree.name)
+        else {
+            // Without IDs nothing here could be passed back to another command.
+            continue;
+        };
+        let source = with_id.source();
+        let files =
+            super::uncommitted_file::UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
+        let commits = with_id
+            .commits
+            .iter()
+            .map(|commit| {
+                // The same ID rule as for stack commits, so a worktree commit is named
+                // consistently across the JSON.
+                let cli_id = commit
+                    .change_id
+                    .as_ref()
+                    .map(|change_id| change_id.padded_short_id())
+                    .unwrap_or_else(|| commit.short_id.clone());
+                Commit::from_local_commit(
+                    repo,
+                    cli_id,
+                    commit.clone(),
+                    &status_ctx.local_commits_by_id,
+                    status_ctx.flags.show_files,
+                )
+            })
+            .collect::<anyhow::Result<_>>()?;
+        out.push(Worktree {
+            cli_id: with_id.short_id.clone(),
+            name: worktree.name.to_string(),
+            reference: worktree
+                .ref_name
+                .as_ref()
+                .map(|name| name.as_bstr().to_string()),
+            base: worktree.base.map(|base| WorktreeBase {
+                commit_id: base.commit_id().to_string(),
+                in_workspace: matches!(
+                    base,
+                    but_workspace::worktrees::WorktreeBase::InWorkspace(_)
+                ),
+            }),
+            uncommitted_changes: convert_uncommitted_files(
+                &files,
+                status_ctx.changes_in_source(&source),
+            ),
+            commits,
+        });
+    }
+    Ok(out)
+}
+
 /// Build the complete WorkspaceStatus JSON structure.
 pub(super) fn build_workspace_status_json(
     status_ctx: &StatusContext,
@@ -611,6 +708,8 @@ pub(super) fn build_workspace_status_json(
             json_stacks.push(stack);
         }
     }
+
+    let json_worktrees = build_worktrees_json(status_ctx, repo)?;
 
     // Create a Commit object for the merge base.
     let base_commit = repo.find_commit(status_ctx.common_merge_base_data.commit_id)?;
@@ -722,6 +821,7 @@ pub(super) fn build_workspace_status_json(
         json_uncommitted_changes,
         status_ctx.conflicted_paths.clone(),
         json_stacks,
+        json_worktrees,
         merge_base_commit,
         upstream_state_json,
     ))

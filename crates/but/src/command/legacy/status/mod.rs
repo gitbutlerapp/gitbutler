@@ -241,6 +241,9 @@ struct StatusContext<'a> {
     /// The changed files of every checkout with CLI IDs, main worktree first.
     /// Only needed for the tree status letters, which hunks do not carry.
     changes_by_source: Vec<(ChangeSourceId, Vec<ui::TreeChange>)>,
+    /// The active linked worktrees with the commits they own, empty unless the
+    /// `worktreeManipulation` flag is on.
+    worktrees: Vec<but_workspace::worktrees::WorktreeInfo>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
@@ -491,14 +494,15 @@ fn build_status_context<'a>(
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
         let mut commit_id_to_change_id =
             gix::hashtable::HashMap::<gix::ObjectId, ChangeId>::default();
-        // Commits owned by a linked worktree share the change-ID namespace with workspace
-        // commits, so they feed the same map - or the same change ID could print with a
+        // Commits owned by a linked worktree print like workspace commits, so they need the
+        // same content and change-ID lookups - or the same change ID could print with a
         // different disambiguation length here than everywhere else.
         let worktrees = head_info.worktrees;
         for worktree in &worktrees {
             for local_commit in &worktree.commits {
                 commit_id_to_change_id
                     .insert(local_commit.id, local_commit.change_id().into_owned());
+                local_commits_by_id.insert(local_commit.id, local_commit.clone());
             }
         }
         for stack in head_info.stacks {
@@ -713,6 +717,7 @@ fn build_status_context<'a>(
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
         changes_by_source,
+        worktrees,
         conflicted_paths,
         common_merge_base_data,
         target_tip_id,
@@ -1202,12 +1207,45 @@ fn print_worktree_status(
                 // Stack-assigned files are always the main worktree's.
                 &status_ctx.worktree_changes,
                 false,
+                0,
                 output,
             )?;
         }
 
         has_merged_upstream_branch |=
             print_group(ctx, status_ctx, stack_with_id, files, i == 0, output)?;
+    }
+
+    // Worktrees that rest below the workspace, or on a commit no lane printed, have no lane to
+    // nest into, so they stand on their own below the stacks. Commits owned by other worktrees
+    // count as printed: a worktree resting on one nests recursively inside that lane instead.
+    let commits_in_lanes: gix::hashtable::HashSet<gix::ObjectId> = status_ctx
+        .stack_details
+        .iter()
+        .filter_map(|(_, (stack_with_id, _))| stack_with_id.as_ref())
+        .flat_map(|stack| stack.segments.iter())
+        .flat_map(|segment| segment.workspace_commits.iter().map(|c| c.commit_id()))
+        .chain(
+            status_ctx
+                .worktrees
+                .iter()
+                // A worktree the ID map skips prints no lane, so nothing can nest into it.
+                .filter(|wt| {
+                    status_ctx
+                        .id_map
+                        .worktrees
+                        .values()
+                        .any(|candidate| candidate.name == wt.name)
+                })
+                .flat_map(|wt| wt.commits.iter().map(|c| c.id)),
+        )
+        .collect();
+    for worktree in status_ctx.worktrees.iter().filter(|wt| {
+        wt.base
+            .is_none_or(|base| !commits_in_lanes.contains(&base.commit_id()))
+    }) {
+        // Every stack already ends with a blank lane line, so the separator goes below.
+        print_worktree_lane(ctx, status_ctx, worktree, 0, LaneSeparator::Below, output)?;
     }
 
     Ok(has_merged_upstream_branch)
@@ -1251,6 +1289,132 @@ fn ci_map(
     Ok(ci_map)
 }
 
+/// Where a worktree lane draws its blank separator line: nested lanes above the heading,
+/// standalone lanes below the closing connector, where the caller's next section expects one.
+/// The lane draws it itself so a lane skipped for lack of IDs leaves no stray separator.
+#[derive(PartialEq, Eq)]
+enum LaneSeparator {
+    Above,
+    Below,
+}
+
+/// Print each linked worktree resting on `base` as a lane nested `depth` levels deep.
+///
+/// Nothing is printed when no worktree branches off `base`, which is the common case and the
+/// only case at all unless the `worktreeManipulation` flag is on.
+fn print_worktree_lanes_on(
+    ctx: &Context,
+    status_ctx: &StatusContext<'_>,
+    base: gix::ObjectId,
+    depth: usize,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    for worktree in status_ctx
+        .worktrees
+        .iter()
+        .filter(|wt| wt.base.map(|base| base.commit_id()) == Some(base))
+    {
+        print_worktree_lane(
+            ctx,
+            status_ctx,
+            worktree,
+            depth,
+            LaneSeparator::Above,
+            output,
+        )?;
+    }
+    Ok(())
+}
+
+/// Print one linked worktree as its own lane: heading, uncommitted changes, its commits, and
+/// the connector merging back into the lane it branched from.
+fn print_worktree_lane(
+    ctx: &Context,
+    status_ctx: &StatusContext<'_>,
+    worktree: &but_workspace::worktrees::WorktreeInfo,
+    depth: usize,
+    separator: LaneSeparator,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    let Some(with_id) = status_ctx
+        .id_map
+        .worktrees
+        .values()
+        .find(|candidate| candidate.name == worktree.name)
+    else {
+        // Only worktrees the ID map knows can be addressed, so printing one without IDs would
+        // show selectors that no other command resolves.
+        return Ok(());
+    };
+
+    if separator == LaneSeparator::Above {
+        output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
+    }
+    let source = with_id.source();
+    let files = UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
+    print_uncommitted_group(
+        &repo,
+        status_ctx,
+        CliId::Worktree {
+            id: with_id.short_id.clone(),
+            name: with_id.name.clone(),
+        },
+        &worktree.ref_name.as_ref().map_or_else(
+            || worktree.name.to_string(),
+            |name| name.shorten().to_string(),
+        ),
+        ("{", "}"),
+        &files,
+        status_ctx.changes_in_source(&source),
+        // Conflicted paths are read from the main worktree only.
+        &[],
+        depth + 1,
+        output,
+    )?;
+
+    for commit in &with_id.commits {
+        // Worktrees stack on each other too; base assignment follows tip order, so the
+        // resting-on relation cannot cycle and this recursion terminates.
+        print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+        let inner = status_ctx
+            .local_commits_by_id
+            .get(&commit.commit_id())
+            .context("BUG: head_info does not contain a worktree commit that the ID map has")?;
+        print_commit(
+            &repo,
+            status_ctx,
+            None,
+            commit.short_id.clone(),
+            commit.change_id.as_ref(),
+            &inner.inner,
+            CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
+            // A worktree's own commits are never pushed as part of the workspace.
+            CommitClassification::LocalOnly,
+            None,
+            depth,
+            output,
+        )?;
+    }
+    output.connector(in_lane(depth, [Span::raw("├╯")]))?;
+    if separator == LaneSeparator::Below {
+        output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
+    }
+    Ok(())
+}
+
+/// The extra `┊` lanes drawn to the left of a line, one per enclosing linked-worktree lane.
+///
+/// `0` is the main lane, which is what everything outside a worktree lane draws in.
+fn lane(depth: usize) -> Vec<Span<'static>> {
+    std::iter::repeat_n(Span::raw("┊"), depth).collect()
+}
+
+/// Prepend [`lane()`] of `depth` to a line's own prefix.
+fn in_lane(depth: usize, prefix: impl IntoIterator<Item = Span<'static>>) -> Vec<Span<'static>> {
+    lane(depth).into_iter().chain(prefix).collect()
+}
+
 #[expect(clippy::too_many_arguments)]
 fn print_files(
     repo: &gix::Repository,
@@ -1260,6 +1424,7 @@ fn print_files(
     files: &[UncommittedFileWithId],
     changes: &[ui::TreeChange],
     unstaged: bool,
+    depth: usize,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
@@ -1343,12 +1508,12 @@ fn print_files(
 
         if unstaged {
             output.uncommitted_file(
-                Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+                in_lane(depth, [Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
                 file_line,
                 file_cli_id,
             )?;
         } else {
-            output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
+            output.staged_file(in_lane(depth, [Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }
     }
 
@@ -1557,6 +1722,7 @@ fn print_group(
                     CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
                     None,
+                    0,
                     output,
                 )?;
             }
@@ -1564,6 +1730,9 @@ fn print_group(
                 output.connector(Vec::from([Span::raw("┊-")]))?;
             }
             for commit in segment.workspace_commits.iter() {
+                // Commits are listed newest first, so a worktree branching off this commit
+                // opens its lane just above it and closes back onto it.
+                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), 1, output)?;
                 let inner = status_ctx
                     .local_commits_by_id
                     .get(&commit.commit_id())
@@ -1590,43 +1759,26 @@ fn print_group(
                     // seems to be populated in handle_gerrit in
                     // crates/but-api/src/legacy/workspace.rs
                     None,
+                    0,
                     output,
                 )?;
             }
         }
     } else {
-        // The main worktree first, then one heading per linked worktree, so every
-        // uncommitted ID the user can pass to a command is shown under the checkout
-        // it lives in.
+        // Linked worktrees are drawn as lanes off the commit they rest on, so only the main
+        // worktree's uncommitted area belongs here.
         print_uncommitted_group(
             &repo,
             status_ctx,
             status_ctx.id_map.uncommitted().clone(),
             "uncommitted",
+            ("[", "]"),
             files,
             &status_ctx.worktree_changes,
             &status_ctx.conflicted_paths,
+            0,
             output,
         )?;
-        for worktree in status_ctx.id_map.worktrees.values() {
-            output.between_stacks(Vec::from([Span::raw("┊")]))?;
-            let source = worktree.source();
-            let files = UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
-            print_uncommitted_group(
-                &repo,
-                status_ctx,
-                CliId::Worktree {
-                    id: worktree.short_id.clone(),
-                    name: worktree.name.clone(),
-                },
-                &format!("worktree {}", worktree.name),
-                &files,
-                status_ctx.changes_in_source(&source),
-                // Conflicted paths are read from the main worktree only.
-                &[],
-                output,
-            )?;
-        }
     }
     if !first {
         output.connector(Vec::from([Span::raw("├╯")]))?;
@@ -1638,37 +1790,42 @@ fn print_group(
 /// Print one uncommitted-changes heading and the files below it.
 ///
 /// `changes` supplies the tree status letters and must come from the same
-/// checkout as `files`, or every file renders without one.
+/// checkout as `files`, or every file renders without one. `decoration` brackets the label:
+/// `[]` for the main worktree's area, `{}` for a linked worktree's.
 #[expect(clippy::too_many_arguments)]
 fn print_uncommitted_group(
     repo: &gix::Repository,
     status_ctx: &StatusContext<'_>,
     cli_id: CliId,
     label: &str,
+    decoration: (&str, &str),
     files: &[UncommittedFileWithId],
     changes: &[ui::TreeChange],
     conflicted_paths: &[String],
+    depth: usize,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
     let line = UncommittedLineContent {
         id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
-        decoration_start: Vec::from([Span::raw(" [")]),
+        decoration_start: Vec::from([Span::raw(format!(" {}", decoration.0))]),
         label: Vec::from([Span::styled(label.to_owned(), t.info)]),
-        decoration_end: Vec::from([Span::raw("]")]),
+        decoration_end: Vec::from([Span::raw(decoration.1.to_owned())]),
         suffix: if files.is_empty() && conflicted_paths.is_empty() {
             Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
         } else {
             Vec::new()
         },
     };
-    output.unstaged_changes(Vec::from([Span::raw("╭┄ ")]), line, cli_id)?;
+    output.unstaged_changes(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
     if !files.is_empty() {
-        print_files(repo, status_ctx, None, None, files, changes, true, output)?;
+        print_files(
+            repo, status_ctx, None, None, files, changes, true, depth, output,
+        )?;
     }
     for path in conflicted_paths {
         output.no_assignments_unstaged(
-            Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+            in_lane(depth, [Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
             Vec::from([
                 Span::raw(" "),
                 Span::raw(path.clone()),
@@ -1765,6 +1922,7 @@ fn print_commit(
     commit_changes: CommitChanges,
     classification: CommitClassification,
     review_url: Option<String>,
+    depth: usize,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
@@ -1813,7 +1971,7 @@ fn print_commit(
 
     if status_ctx.flags.verbose {
         output.commit(
-            Vec::from([Span::raw("┊"), dot, Span::raw(" ")]),
+            in_lane(depth, [Span::raw("┊"), dot, Span::raw(" ")]),
             CommitLineContent {
                 sha: details_line.sha,
                 change_id: details_line.change_id,
@@ -1850,13 +2008,13 @@ fn print_commit(
         );
         let line = Vec::from([message]);
         if is_empty_message {
-            output.empty_commit_message(Vec::from([Span::raw("┊│     ")]), line)?;
+            output.empty_commit_message(in_lane(depth, [Span::raw("┊│     ")]), line)?;
         } else {
-            output.commit_message(Vec::from([Span::raw("┊│     ")]), line)?;
+            output.commit_message(in_lane(depth, [Span::raw("┊│     ")]), line)?;
         }
     } else {
         output.commit(
-            Vec::from([Span::raw("┊"), dot, Span::raw("   ")]),
+            in_lane(depth, [Span::raw("┊"), dot, Span::raw("   ")]),
             CommitLineContent {
                 sha: details_line.sha,
                 change_id: details_line.change_id,
@@ -1904,7 +2062,7 @@ fn print_commit(
                     let display_id = displayed_file_id(padded_file_id_prefix.as_deref(), short_id);
                     let (status, path) = tree_change_display_cli(inner);
                     output.file(
-                        Vec::from([Span::raw("┊"), Span::raw("│"), Span::raw("     ")]),
+                        in_lane(depth, [Span::raw("┊"), Span::raw("│"), Span::raw("     ")]),
                         FileLineContent {
                             id: Vec::from([
                                 Span::styled(display_id.clone(), t.cli_id),
@@ -1923,7 +2081,7 @@ fn print_commit(
                 for change in tree_changes {
                     let (status, path) = tree_change_display_cli(change);
                     output.file(
-                        Vec::from([Span::raw("┊│     ")]),
+                        in_lane(depth, [Span::raw("┊│     ")]),
                         FileLineContent {
                             id: Vec::new(),
                             status: Vec::from([status]),

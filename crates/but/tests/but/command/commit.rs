@@ -2693,10 +2693,11 @@ fn commit_a_file_from_a_linked_worktree() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ m [worktree wt-feature]
-┊   nl A note.txt
-┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-feature}
+┊┊┊   nl A note.txt
+┊├╯
 ┊●   tpm add A
 ├╯
 ┊
@@ -2727,13 +2728,14 @@ Created commit 1 on branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ m [worktree wt-feature] (no changes)
-┊
 ┊╭┄ g0 [A]
 ┊●   1 note from worktree
 ┊│     1:u A note.txt
 ┊│
 ┊├┄ wt [wt-feature 📁 [..]worktrees/wt-feature]
+┊┊
+┊┊╭┄ m {wt-feature} (no changes)
+┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -2776,9 +2778,10 @@ Created commit 1 on branch 'B'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ m [worktree wt-feature] (no changes)
-┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-feature} (no changes)
+┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯

@@ -1507,10 +1507,10 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
-/// Each linked worktree's uncommitted area is listed under its own heading, and
-/// every ID printed resolves.
+/// A linked worktree resting on a workspace commit is drawn as a lane off that commit, one
+/// resting below the workspace stands on its own, and every ID printed resolves.
 #[test]
-fn worktree_uncommitted_headings() {
+fn worktree_lanes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
@@ -1524,9 +1524,11 @@ fn worktree_uncommitted_headings() {
     but_testsupport::invoke_bash_at_dir(
         &format!(
             r#"
-        git worktree add -q -b wt-dirty "{wt}/wt-dirty" A
-        (cd "{wt}/wt-dirty" && echo dirty >note.txt)
-        git worktree add -q -b wt-clean "{wt}/wt-clean" B
+        git worktree add -q -b wt-inside "{wt}/wt-inside" A
+        (cd "{wt}/wt-inside" && git commit -q --allow-empty -m "worktree work" && echo dirty >note.txt)
+        git worktree add -q --detach "{wt}/wt-at" B
+        git worktree add -q -b wt-outside "{wt}/wt-outside" main
+        (cd "{wt}/wt-outside" && git commit -q --allow-empty -m "off the target")
         "#,
             wt = wt.display()
         ),
@@ -1540,12 +1542,215 @@ fn worktree_uncommitted_headings() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ k [worktree wt-dirty]
-┊   qt A note.txt
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ po {wt-inside}
+┊┊┊   wx A note.txt
+┊┊●   pwn worktree work (no changes)
+┊├╯
+┊●   tpm add A
+├╯
 ┊
-╭┄ n [worktree wt-clean] (no changes)
+┊╭┄ h0 [B]
+┊┊
+┊┊╭┄ zn {wt-at} (no changes)
+┊├╯
+┊●   lrm add B
+├╯
+┊
+┊╭┄ o {wt-outside} (no changes)
+┊●   zum off the target (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // The IDs printed above have to be usable, or the lanes are decoration.
+    env.but("show pwn").assert().success().stdout_eq(
+        snapbox::str![[r#"
+Commit:    fb0cf2a5252830e6d4697a7c19cd86dd36e323c5
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+worktree work
+
+
+"#]]
+        .raw(),
+    );
+    env.but("show zum").assert().success().stdout_eq(
+        snapbox::str![[r#"
+Commit:    ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+off the target
+
+
+"#]]
+        .raw(),
+    );
+    env.but("diff wx").assert().success().stdout_eq(
+        snapbox::str![[r#"
+─────────────╮
+wx:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+        .raw(),
+    );
+    // The worktree ID names that checkout's whole uncommitted area, and a filename
+    // scoped by worktree name reaches into that checkout only.
+    env.but("diff po").assert().success().stdout_eq(
+        snapbox::str![[r#"
+─────────────╮
+wx:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+        .raw(),
+    );
+    env.but("diff wt-inside:note.txt")
+        .assert()
+        .success()
+        .stdout_eq(
+            snapbox::str![[r#"
+─────────────╮
+wx:a note.txt│
+─────────────╯
+     1│+dirty
+
+"#]]
+            .raw(),
+        );
+
+    // The JSON view lists the same worktrees, each base telling whether it is inside the
+    // workspace, so scripted callers see what the lanes show.
+    snapbox::assert_data_eq!(
+        serde_json::to_string_pretty(&status_json(&env)["worktrees"]).unwrap(),
+        snapbox::str![[r#"
+[
+  {
+    "cliId": "zn",
+    "name": "wt-at",
+    "reference": null,
+    "base": {
+      "commitId": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
+      "inWorkspace": true
+    },
+    "uncommittedChanges": [],
+    "commits": []
+  },
+  {
+    "cliId": "po",
+    "name": "wt-inside",
+    "reference": "refs/heads/wt-inside",
+    "base": {
+      "commitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
+      "inWorkspace": true
+    },
+    "uncommittedChanges": [
+      {
+        "cliId": "wx",
+        "filePath": "note.txt",
+        "changeType": "added"
+      }
+    ],
+    "commits": [
+      {
+        "cliId": "pwn",
+        "changeId": "pwnvnstnootyowqrwlulqtxotsznyvpv",
+        "commitId": "fb0cf2a5252830e6d4697a7c19cd86dd36e323c5",
+        "createdAt": "2000-01-01T00:00:00+00:00",
+        "message": "worktree work\n",
+        "authorName": "author",
+        "authorEmail": "author@example.com",
+        "conflicted": false,
+        "reviewId": null,
+        "changes": null
+      }
+    ]
+  },
+  {
+    "cliId": "o",
+    "name": "wt-outside",
+    "reference": "refs/heads/wt-outside",
+    "base": {
+      "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+      "inWorkspace": false
+    },
+    "uncommittedChanges": [],
+    "commits": [
+      {
+        "cliId": "zum",
+        "changeId": "zumtutknquukwkzpsmpkxwynvqmnklrm",
+        "commitId": "ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0",
+        "createdAt": "2000-01-01T00:00:00+00:00",
+        "message": "off the target\n",
+        "authorName": "author",
+        "authorEmail": "author@example.com",
+        "conflicted": false,
+        "reviewId": null,
+        "changes": null
+      }
+    ]
+  }
+]
+"#]]
+        .raw(),
+    );
+}
+
+/// A worktree resting on another worktree's commit nests recursively inside that worktree's
+/// lane instead of standing on its own, and the nested commit's printed ID resolves.
+#[test]
+fn stacked_worktree_lanes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    // The first read with the flag on archives every worktree already on disk, so the ones
+    // under test have to be created after it.
+    env.but("status").assert().success();
+
+    // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q -b wt-first "{wt}/wt-first" A
+        (cd "{wt}/wt-first" && git commit -q --allow-empty -m "first work")
+        git worktree add -q -b wt-second "{wt}/wt-second" wt-first
+        (cd "{wt}/wt-second" && git commit -q --allow-empty -m "second work")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-first} (no changes)
+┊┊┊
+┊┊┊╭┄ p {wt-second} (no changes)
+┊┊┊●   zzk second work (no changes)
+┊┊├╯
+┊┊●   tlr first work (no changes)
+┊├╯
 ┊●   tpm add A
 ├╯
 ┊
@@ -1559,40 +1764,55 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    // The IDs printed above have to be usable, or the headings are decoration.
-    env.but("diff qt").assert().success().stdout_eq(
-        snapbox::str![[r#"
-─────────────╮
-qt:a note.txt│
-─────────────╯
-     1│+dirty
-
-"#]]
-        .raw(),
-    );
-    // The worktree ID names that checkout's whole uncommitted area, and a filename
-    // scoped by worktree name reaches into that checkout only.
-    env.but("diff k").assert().success().stdout_eq(
-        snapbox::str![[r#"
-─────────────╮
-qt:a note.txt│
-─────────────╯
-     1│+dirty
-
-"#]]
-        .raw(),
-    );
-    env.but("diff wt-dirty:note.txt")
+    // The nested lane's IDs have to be usable, or the nesting is decoration.
+    env.but("show zzk")
         .assert()
         .success()
-        .stdout_eq(
-            snapbox::str![[r#"
-─────────────╮
-qt:a note.txt│
-─────────────╯
-     1│+dirty
+        .stdout_eq(snapbox::str![[r#"
+Commit:    c617b8c44fb52ffd8ea574f49a4d940d76757f00
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
 
-"#]]
-            .raw(),
-        );
+second work
+
+
+"#]]);
+}
+
+/// `but status` refuses to run from inside a linked worktree. This gate is what keeps the
+/// lane rendering sound: IDs are minted from the main checkout only, so a status that ran
+/// here would list worktrees without IDs and have to skip their lanes. Whoever lifts this
+/// restriction must revisit how [`worktree_lanes`] get their IDs.
+#[test]
+fn status_from_inside_a_linked_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    // The first read with the flag on archives every worktree already on disk, so the ones
+    // under test have to be created after it.
+    env.but("status").assert().success();
+
+    // Checked out into the per-test temp dir, as the scenario directory is reused across runs.
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q -b wt-inside "{wt}/wt-inside" A
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("status")
+        .current_dir(wt.join("wt-inside"))
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: non-main worktrees are not supported
+
+"#]]);
 }
