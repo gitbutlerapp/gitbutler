@@ -24,8 +24,8 @@ import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { focusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
-import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -34,13 +34,13 @@ import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
 const useFilesTreeHotkeys = ({
 	checkRow,
-	navigationIndex,
+	addressSpace,
 	onRowSelection,
 	onEdgeSpill,
 	projectId,
@@ -55,7 +55,7 @@ const useFilesTreeHotkeys = ({
 	toggleDirectoryCollapsed,
 }: {
 	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
-	navigationIndex: NavigationIndex<string>;
+	addressSpace: AddressSpace<string>;
 	onRowSelection: (selection: string) => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
 	projectId: string;
@@ -266,8 +266,8 @@ const useFilesTreeHotkeys = ({
 		},
 	]);
 
-	useNavigationIndexHotkeys({
-		navigationIndex,
+	useAddressSpaceHotkeys({
+		addressSpace,
 		group: "File",
 		select: onRowSelection,
 		selection,
@@ -295,9 +295,9 @@ export const FilesTree: FC<
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
 		onRowSelection: (selection: string) => void;
-		/** See {@link useNavigationIndexHotkeys}'s option of the same name. */
+		/** See {@link useAddressSpaceHotkeys}'s option of the same name. */
 		onEdgeSpill?: (offset: -1 | 1) => void;
-		navigationIndex: NavigationIndex<string>;
+		addressSpace: AddressSpace<string>;
 		fileParent: FileParent;
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
 		focusScope: FocusScope;
@@ -313,7 +313,7 @@ export const FilesTree: FC<
 	onRowSelection,
 	onEdgeSpill,
 	projectId,
-	navigationIndex,
+	addressSpace,
 	fileParent,
 	focusScope,
 	emptyLabel = "No changes.",
@@ -370,8 +370,8 @@ export const FilesTree: FC<
 		return checkedCount === paths.length ? "checked" : "indeterminate";
 	};
 
-	const rangeResolver = navigationIndexRange<string, string>({
-		navigationIndex,
+	const rangeResolver = addressSpaceRange<string, string>({
+		addressSpace,
 		getKey: (path) => path,
 		// Range-checking runs over files; a directory caught in the middle of a
 		// range is passed over rather than checked as a path of its own.
@@ -465,7 +465,7 @@ export const FilesTree: FC<
 
 	useFilesTreeHotkeys({
 		checkRow,
-		navigationIndex,
+		addressSpace,
 		onRowSelection,
 		onEdgeSpill,
 		projectId,
@@ -568,7 +568,7 @@ export const FilesTree: FC<
 												item={item}
 												depth={row.depth}
 												pathDisplay={pathDisplay}
-												inert={!navigationIndexIncludes(navigationIndex, row.path, (path) => path)}
+												inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
 												isSelected={isSelected}
 												isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
 												onSelect={() => onRowSelection(row.path)}

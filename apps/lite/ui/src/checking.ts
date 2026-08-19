@@ -2,17 +2,17 @@
  * @file Generalised logic for consistent shift+clicking across groups of checkboxes.
  */
 
-import type { NavigationIndex } from "./workspace/navigation-index.ts";
+import type { AddressSpace } from "./workspace/address-space.ts";
 
 type RangeResolver<T> = (range: { anchor: T; target: T }) => Set<T> | null;
 
-export const navigationIndexRange =
+export const addressSpaceRange =
 	<T, K>({
-		navigationIndex: navidx,
+		addressSpace: navidx,
 		getKey,
 		filterMap,
 	}: {
-		navigationIndex: NavigationIndex<T>;
+		addressSpace: AddressSpace<T>;
 		getKey: (id: K) => string;
 		filterMap: (item: T) => K | null;
 	}): RangeResolver<K> =>
@@ -44,7 +44,7 @@ type CheckEvent<T> = { item: T; shiftKey: boolean };
 
 /**
  * Resolve a checking range given a generic resolver, previous state, and an event. This function
- * strictly compares the generic type. See also {@link navigationIndexRange}.
+ * strictly compares the generic type. See also {@link addressSpaceRange}.
  */
 export const checkedRange =
 	<T>(resolveRange: RangeResolver<T>) =>

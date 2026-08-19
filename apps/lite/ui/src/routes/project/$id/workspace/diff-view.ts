@@ -13,7 +13,7 @@ import {
 	type HunkAddress,
 	weakFileIdentityKey,
 } from "#ui/addresses.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	processFile,
@@ -71,7 +71,7 @@ type DiffViewHunk = {
 };
 
 export type DiffView = {
-	navigationIndex: NavigationIndex<HunkAddress>;
+	addressSpace: AddressSpace<HunkAddress>;
 	items: Array<CodeViewDiffItem<Annotation>>;
 	fileByItemId: Map<string, DiffViewFile>;
 	fileByPath: Map<string, DiffViewFile>;
@@ -169,7 +169,7 @@ export const getDiffFileNavigation = ({
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
-	const navigationIndex: NavigationIndex<HunkAddress> = {
+	const addressSpace: AddressSpace<HunkAddress> = {
 		items: [],
 		indexByKey: new Map(),
 	};
@@ -215,8 +215,8 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 					};
 					const hunkKey = hunkAddressIdentityKey(hunkAddress);
 
-					const len = navigationIndex.items.push(hunkAddress);
-					navigationIndex.indexByKey.set(hunkKey, len - 1);
+					const len = addressSpace.items.push(hunkAddress);
+					addressSpace.indexByKey.set(hunkKey, len - 1);
 
 					const diffViewHunk: DiffViewHunk = {
 						address: hunkAddress,
@@ -238,24 +238,24 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 		fileByItemId,
 		fileByPath,
 		hunkByKey,
-		navigationIndex,
+		addressSpace,
 	};
 };
 
 /**
- * The navigation index with folded files' hunks removed — except each folded
+ * The address space with folded files' hunks removed — except each folded
  * file's first hunk, which stands in for the file the way a folded branch
  * keeps its branch row. j/k then stop once per folded file instead of walking
  * its hidden hunks, and z can unfold from the keyboard.
  */
 export const withoutFoldedHunks = (
-	navigationIndex: NavigationIndex<HunkAddress>,
+	addressSpace: AddressSpace<HunkAddress>,
 	hunkByKey: DiffView["hunkByKey"],
 	collapsedItems: Set<string>,
-): NavigationIndex<HunkAddress> => {
-	if (collapsedItems.size === 0) return navigationIndex;
+): AddressSpace<HunkAddress> => {
+	if (collapsedItems.size === 0) return addressSpace;
 
-	const items = navigationIndex.items.filter((hunk) => {
+	const items = addressSpace.items.filter((hunk) => {
 		const key = hunkAddressIdentityKey(hunk);
 		const file = hunkByKey.get(key)?.file;
 		return (

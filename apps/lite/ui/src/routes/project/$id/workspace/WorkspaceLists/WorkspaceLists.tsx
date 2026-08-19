@@ -29,10 +29,10 @@ import {
 	type OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOperationDropTarget.ts";
-import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/SidebarNavigationIndexContext.ts";
+import { AddressSpaceContext } from "#ui/routes/project/$id/workspace/AddressSpaceContext.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
@@ -82,7 +82,7 @@ import {
 	downstackPushStatusesFromSegments,
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
@@ -110,8 +110,8 @@ const TreeItem: FC<
 		address: Address;
 	} & useRender.ComponentProps<"div">
 > = ({ address, render, ...props }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("applied", navigationIndex, address);
+	const addressSpace = assert(use(AddressSpaceContext));
+	const isSelected = useIsCursorAt("applied", addressSpace, address);
 
 	return useRender({
 		render,
@@ -135,10 +135,10 @@ const OperationTarget: FC<
 	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
 
 	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
-	const selection = useSelection("applied", navigationIndex);
+	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
 	const activeOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
@@ -213,7 +213,7 @@ const AddressC: FC<
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, address, outline, render, ...props }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	return useRender({
 		render: (
@@ -223,7 +223,7 @@ const AddressC: FC<
 				outline={outline}
 				render={
 					<OperationTarget
-						enabled={navigationIndexIncludes(navigationIndex, address, addressIdentityKey)}
+						enabled={addressSpaceIncludes(addressSpace, address, addressIdentityKey)}
 						projectId={projectId}
 						address={address}
 						outline={outline}
@@ -238,7 +238,7 @@ const AddressC: FC<
 };
 
 const UncommittedChanges: FC<{
-	navigationIndex: NavigationIndex<string>;
+	addressSpace: AddressSpace<string>;
 	commitTarget: CommitTargetComboboxItem | null;
 	projectId: string;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
@@ -249,7 +249,7 @@ const UncommittedChanges: FC<{
 	onEdgeSpill: (offset: -1 | 1) => void;
 	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
-	navigationIndex,
+	addressSpace,
 	commitTarget,
 	projectId,
 	targetComboboxItems,
@@ -276,7 +276,7 @@ const UncommittedChanges: FC<{
 		collapsedDirectories,
 	});
 
-	const fileSelection = useSelection("uncommitted", navigationIndex);
+	const fileSelection = useSelection("uncommitted", addressSpace);
 	const activeList = useActiveList();
 
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -335,7 +335,7 @@ const UncommittedChanges: FC<{
 							projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({ projectId, path }),
 						)
 					}
-					navigationIndex={navigationIndex}
+					addressSpace={addressSpace}
 					onRowSelection={onActiveFileSelection}
 					onEdgeSpill={onEdgeSpill}
 					projectId={projectId}
@@ -439,11 +439,11 @@ const BranchSegment: FC<{
 const EmptySegmentContent: FC<{
 	segment: Segment;
 }> = ({ segment }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	const refName = assert(segment.refName);
-	const inert = !navigationIndexIncludes(
-		navigationIndex,
+	const inert = !addressSpaceIncludes(
+		addressSpace,
 		branchAddress({ branchRef: refName.fullNameBytes }),
 		addressIdentityKey,
 	);
@@ -536,7 +536,7 @@ const SegmentContent: FC<{
  * It dims with the rows it joins, so it has to ask about the same address the
  * row above it stands for: the last commit while the segment is unfolded, and
  * the branch itself once it is folded, because folding takes the commits out of
- * the navigation index (see `buildAppliedNavigationIndex`). Asking after a
+ * the address space (see `buildAppliedAddressSpace`). Asking after a
  * folded commit would always miss, dimming the connector to half the weight of
  * the rail on either side of it and breaking the line between branches.
  */
@@ -544,7 +544,7 @@ const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
 }> = ({ projectId, segment }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	// A plain boolean, so this re-renders only when this segment's own fold
 	// state changes rather than on every fold anywhere.
@@ -568,7 +568,7 @@ const SegmentRailConnector: FC<{
 		<Row
 			interactive={false}
 			className={stackCardStyles.railConnector}
-			inert={!navigationIndexIncludes(navigationIndex, standsFor, addressIdentityKey)}
+			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
 			<GraphSegment
 				glyph="parent"
@@ -662,9 +662,9 @@ const Stacks: FC<{
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
 }> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useSelection("applied", navigationIndex);
+	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
 	const dryRunOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
@@ -698,7 +698,7 @@ const Stacks: FC<{
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	useActiveListsHotkeys({
-		navigationIndex,
+		addressSpace,
 		projectId,
 		ref: hotkeysRef,
 		checkCommit,
@@ -736,16 +736,16 @@ const Stacks: FC<{
 export const WorkspaceLists: FC<
 	{
 		projectId: string;
-		navigationIndex: NavigationIndex<Address>;
-		uncommittedNavigationIndex: NavigationIndex<string>;
+		addressSpace: AddressSpace<Address>;
+		uncommittedAddressSpace: AddressSpace<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
-	navigationIndex,
-	uncommittedNavigationIndex,
+	addressSpace,
+	uncommittedAddressSpace,
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
@@ -755,7 +755,7 @@ export const WorkspaceLists: FC<
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
-	const appliedSelection = useSelection("applied", navigationIndex);
+	const appliedSelection = useSelection("applied", addressSpace);
 	const commitTargetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
@@ -796,8 +796,8 @@ export const WorkspaceLists: FC<
 	const commitCheckRangeAnchor = useRef<string>(null);
 	const commitCheckRangeEnd = useRef<string>(null);
 
-	const rangeResolver = navigationIndexRange<Address, string>({
-		navigationIndex,
+	const rangeResolver = addressSpaceRange<Address, string>({
+		addressSpace,
 		getKey: (commitId) => commitIdentityKey({ commitId }),
 		filterMap: (item) => (item._tag === "Commit" ? item.commitId : null),
 	});
@@ -856,21 +856,21 @@ export const WorkspaceLists: FC<
 	// focus where it is. Mod+Alt+arrow pane toggling stays selection-neutral.
 	const spillIntoStacks = (offset: -1 | 1) => {
 		if (offset !== 1) return;
-		const item = navigationIndex.items.at(0);
+		const item = addressSpace.items.at(0);
 		if (item === undefined) return;
 		setCursor("applied", item);
 		focusScope("sidebar");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
 		if (offset !== -1) return;
-		const path = uncommittedNavigationIndex.items.at(-1);
+		const path = uncommittedAddressSpace.items.at(-1);
 		if (path === undefined) return;
 		onActiveFileSelection(path);
 		focusScope("uncommitted-files");
 	};
 
 	return (
-		<NavigationIndexContext value={navigationIndex}>
+		<AddressSpaceContext value={addressSpace}>
 			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
 				<Group
 					{...props}
@@ -899,7 +899,7 @@ export const WorkspaceLists: FC<
 									outline="inside"
 									render={
 										<UncommittedChanges
-											navigationIndex={uncommittedNavigationIndex}
+											addressSpace={uncommittedAddressSpace}
 											commitTarget={commitTarget}
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}
@@ -938,6 +938,6 @@ export const WorkspaceLists: FC<
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>
-		</NavigationIndexContext>
+		</AddressSpaceContext>
 	);
 };

@@ -11,14 +11,14 @@ import {
 import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { ListedStack } from "@gitbutler/but-sdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 
 export type BranchesListData = {
 	unapplied: Array<ListedStack>;
-	navigationIndex: NavigationIndex<Address>;
+	addressSpace: AddressSpace<Address>;
 	/**
 	 * The listing query's state, so the page can tell a genuinely empty result
 	 * apart from one that has not arrived or failed.
@@ -27,15 +27,15 @@ export type BranchesListData = {
 	isError: boolean;
 };
 
-type BranchesListContent = Pick<BranchesListData, "unapplied" | "navigationIndex">;
+type BranchesListContent = Pick<BranchesListData, "unapplied" | "addressSpace">;
 
 const emptyContent: BranchesListContent = {
 	unapplied: [],
-	navigationIndex: { items: [], indexByKey: new Map() },
+	addressSpace: { items: [], indexByKey: new Map() },
 };
 
 /**
- * The branches page's visible unapplied stacks and the matching navigation index.
+ * The branches page's visible unapplied stacks and the matching address space.
  *
  * This is the single source of truth for what the page shows: both the list
  * rendering and the selection resolution in the workspace page consume it, so
@@ -77,7 +77,7 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 	// reference, and React Compiler memoizes this inline closure by its captured
 	// inputs — so the closure, and thus the cached result, only changes when an
 	// input like `search` or `showEmpty` does. Deriving in render instead would
-	// rebuild the navigation index every pass and re-render every row that reads
+	// rebuild the address space every pass and re-render every row that reads
 	// it through context.
 	const {
 		data: content = emptyContent,
@@ -104,7 +104,7 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 
 			return {
 				unapplied,
-				navigationIndex: { items, indexByKey: buildIndexByKey(items, addressIdentityKey) },
+				addressSpace: { items, indexByKey: buildIndexByKey(items, addressIdentityKey) },
 			};
 		},
 	});

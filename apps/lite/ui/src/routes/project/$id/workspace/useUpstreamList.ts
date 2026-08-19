@@ -7,7 +7,7 @@ import { usePage } from "#ui/use-cursor.ts";
 import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { RefInfo, TargetCommit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
@@ -15,7 +15,7 @@ import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 // churn while the page is hidden.
 const noItems: Array<UpstreamListItem> = [];
 const noCommits: Array<UpstreamCommitItem> = [];
-const emptyNavigationIndex: NavigationIndex<Address> = { items: [], indexByKey: new Map() };
+const emptyAddressSpace: AddressSpace<Address> = { items: [], indexByKey: new Map() };
 
 /**
  * Commit items are cached per target commit, so list rebuilds (expansion
@@ -92,7 +92,7 @@ export type UpstreamListData = {
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
 	hasIntegrated: boolean;
-	navigationIndex: NavigationIndex<Address>;
+	addressSpace: AddressSpace<Address>;
 	/**
 	 * The target-commits query's state, so the page can tell a genuinely empty
 	 * result apart from one that has not arrived or failed.
@@ -295,7 +295,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 	// The whole derivation lives in `combine` so its result keeps a stable
 	// identity: react-query caches it on the query results and the `combine`
 	// reference — which itself only changes when a captured input like the
-	// expansion map does — so the items and navigation index are not rebuilt
+	// expansion map does — so the items and address space are not rebuilt
 	// on unrelated renders.
 	return useQueries({
 		queries: [
@@ -318,7 +318,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 
 			// While another page is shown, only the page badge consumes this
 			// list, but headInfo refetches on every workspace mutation —
-			// skip the item and navigation-index derivation nobody would see.
+			// skip the item and address-space derivation nobody would see.
 			if (!active) {
 				return {
 					items: noItems,
@@ -328,7 +328,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 					targetLabel,
 					incomingCount,
 					hasIntegrated: false,
-					navigationIndex: emptyNavigationIndex,
+					addressSpace: emptyAddressSpace,
 					isPending,
 					isError,
 				};
@@ -371,7 +371,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 							}),
 						];
 					// Branch rows carry only their name and are not selectable, so
-					// they stay out of the navigation index.
+					// they stay out of the address space.
 					case "branch":
 					case "expander":
 						return [];
@@ -388,7 +388,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 				targetLabel,
 				incomingCount,
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),
-				navigationIndex: {
+				addressSpace: {
 					items: navigationItems,
 					indexByKey: buildIndexByKey(navigationItems, addressIdentityKey),
 				},

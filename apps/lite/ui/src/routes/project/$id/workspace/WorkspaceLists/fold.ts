@@ -10,7 +10,7 @@ import type { AppDispatch } from "#ui/store.ts";
  *
  * With `select`, the branch row also takes the sidebar selection. Callers pass
  * it when the fold hides the selected commit (it would otherwise fall out of
- * the navigation index, making selection jump to the top of the sidebar);
+ * the address space, making selection jump to the top of the sidebar);
  * unfolds and folds of unrelated segments leave the selection alone.
  */
 export const toggleFoldedSegment = (

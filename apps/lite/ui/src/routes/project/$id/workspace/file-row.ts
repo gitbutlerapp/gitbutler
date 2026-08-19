@@ -55,7 +55,7 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 };
 
 /**
- * The rows of the uncommitted files list. The page's navigation index and the
+ * The rows of the uncommitted files list. The page's address space and the
  * sidebar's list are both built from this, so they always agree on which rows exist.
  */
 export const buildUncommittedFileRows = ({

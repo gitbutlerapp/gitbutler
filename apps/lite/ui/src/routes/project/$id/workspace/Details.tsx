@@ -43,7 +43,7 @@ import {
 	weakCommitIdentityKey,
 	weakFileParentIdentityKey,
 } from "#ui/addresses.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -107,9 +107,9 @@ import {
 	focusScope,
 	type FocusScope,
 	useAutofocusScope,
-	useNavigationIndexHotkeys,
+	useAddressSpaceHotkeys,
 } from "#ui/focus-scopes.ts";
-import { buildIndexByKey, getAdjacent } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
@@ -125,7 +125,7 @@ import {
 } from "./file-row.ts";
 import {
 	buildFileTreeRows,
-	fileTreeNavigationIndex,
+	fileTreeAddressSpace,
 	selectedFilePath,
 	type FileDisplayMode,
 	type FileTreeRow,
@@ -367,7 +367,7 @@ const DiffContents: FC<{
 	onViewerFileSelection,
 	fileParent,
 	projectId,
-	diffView: { items, navigationIndex, hunkByKey, fileByItemId },
+	diffView: { items, addressSpace, hunkByKey, fileByItemId },
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -424,9 +424,9 @@ const DiffContents: FC<{
 			return reviewedLatestVersion ? item.id : [];
 		}),
 	);
-	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
+	const visibleAddressSpace = withoutFoldedHunks(addressSpace, hunkByKey, collapsedItems);
 
-	const diffSelection = useSelection("diff", visibleNavigationIndex);
+	const diffSelection = useSelection("diff", visibleAddressSpace);
 	const hasStoredDiffSelection = useAppSelector(
 		(state) => projectSlice.selectors.selectDiffCursor(state, projectId) !== null,
 	);
@@ -551,9 +551,9 @@ const DiffContents: FC<{
 
 		const next =
 			selection === null
-				? visibleNavigationIndex.items.at(offset === 1 ? 0 : -1)
+				? visibleAddressSpace.items.at(offset === 1 ? 0 : -1)
 				: getAdjacent({
-						navigationIndex: visibleNavigationIndex,
+						addressSpace: visibleAddressSpace,
 						selection,
 						offset,
 						getKey: hunkAddressIdentityKey,
@@ -561,8 +561,8 @@ const DiffContents: FC<{
 		if (next) selectDiff(next);
 	};
 
-	useNavigationIndexHotkeys({
-		navigationIndex: visibleNavigationIndex,
+	useAddressSpaceHotkeys({
+		addressSpace: visibleAddressSpace,
 		group: "Diff",
 		select: selectDiff,
 		selection: selectedLinesHunk ?? diffSelection,
@@ -1068,12 +1068,12 @@ const DiffContents: FC<{
 		target: HunkAddress;
 		shiftKey: boolean;
 	}) => {
-		const navigationIndex = {
+		const addressSpace = {
 			items: orderedAddresses,
 			indexByKey: buildIndexByKey(orderedAddresses, hunkAddressIdentityKey),
 		};
-		const resolveRange = navigationIndexRange({
-			navigationIndex,
+		const resolveRange = addressSpaceRange({
+			addressSpace,
 			getKey: (key: string) => key,
 			filterMap: (address: HunkAddress) => hunkAddressIdentityKey(address),
 		});
@@ -1085,7 +1085,7 @@ const DiffContents: FC<{
 	};
 
 	const visibleHunkGroups = () =>
-		visibleNavigationIndex.items.flatMap((address) => {
+		visibleAddressSpace.items.flatMap((address) => {
 			const selection = hunkByKey.get(hunkAddressIdentityKey(address))?.selectedLines;
 			const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : [];
 			return lineAddresses.length > 0 ? [{ address, lineAddresses }] : [];
@@ -1710,7 +1710,7 @@ const DiffStyleToggleGroup: FC<
 
 /**
  * Kept whole and out of the component so the compiler can memoise the layout on
- * its inputs; derived in render, the rows — and the navigation index built from
+ * its inputs; derived in render, the rows — and the address space built from
  * them — take a fresh identity every time anything else about the pane changes.
  *
  * The filter narrows the file list only; the diff itself keeps every file, so
@@ -1811,7 +1811,7 @@ const Diff: FC<{
 	);
 	// As with `fileParent` below, the compiler leaves this derivation outside its
 	// memo blocks here, and the rows carry the identity the file list and its
-	// navigation index are keyed on — so it is memoised by hand.
+	// address space are keyed on — so it is memoised by hand.
 	const filesRows = useMemo(
 		() =>
 			buildFilesRows({
@@ -1822,8 +1822,8 @@ const Diff: FC<{
 			}),
 		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories],
 	);
-	const filesNavigationIndex = useMemo(() => fileTreeNavigationIndex(filesRows), [filesRows]);
-	const filesSelection = useSelection("files", filesNavigationIndex);
+	const filesAddressSpace = useMemo(() => fileTreeAddressSpace(filesRows), [filesRows]);
+	const filesSelection = useSelection("files", filesAddressSpace);
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
 	// the sidebar selection, even with the helpers inlined, hence manual memoisation.
@@ -2125,7 +2125,7 @@ const Diff: FC<{
 											)
 										}
 										selection={filesSelection}
-										navigationIndex={filesNavigationIndex}
+										addressSpace={filesAddressSpace}
 										fileParent={fileParent}
 										canUncommit={!isCommitUncommitChangesPending}
 										uncommit={uncommit}

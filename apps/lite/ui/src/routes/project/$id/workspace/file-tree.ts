@@ -3,12 +3,12 @@
  *
  * Rows come out flat and in render order, one array for both display modes:
  * the list is the tree with every path kept whole at depth zero. Flat keeps
- * rendering a single `map`, and lets the navigation index stay a list of paths
+ * rendering a single `map`, and lets the address space stay a list of paths
  * — a directory path and a file path can never collide, so one string still
  * identifies any row.
  */
 
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 
 export type FileDisplayMode = "list" | "tree";
@@ -138,9 +138,7 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	return collectRows({ directory: root, prefix: "", depth: 0, collapsedDirectories }).rows;
 };
 
-export const fileTreeNavigationIndex = <T>(
-	rows: Array<FileTreeRow<T>>,
-): NavigationIndex<string> => {
+export const fileTreeAddressSpace = <T>(rows: Array<FileTreeRow<T>>): AddressSpace<string> => {
 	const items = rows.map((row) => row.path);
 	return { items, indexByKey: buildIndexByKey(items, (path) => path) };
 };

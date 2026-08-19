@@ -1,4 +1,4 @@
-export type NavigationIndex<T> = {
+export type AddressSpace<T> = {
 	items: Array<T>;
 	indexByKey: Map<string, number>;
 };
@@ -13,33 +13,33 @@ export const buildIndexByKey = <T>(
 };
 
 export const getAdjacent = <T>({
-	navigationIndex,
+	addressSpace,
 	selection,
 	offset,
 	getKey,
 }: {
-	navigationIndex: NavigationIndex<T>;
+	addressSpace: AddressSpace<T>;
 	selection: T;
 	offset: -1 | 1;
 	getKey: (item: T) => string;
 }): T | null => {
-	const selectionIndex = navigationIndex.indexByKey.get(getKey(selection));
+	const selectionIndex = addressSpace.indexByKey.get(getKey(selection));
 	if (selectionIndex === undefined) return null;
 
-	return navigationIndex.items[selectionIndex + offset] ?? null;
+	return addressSpace.items[selectionIndex + offset] ?? null;
 };
 
-export const navigationIndexIncludes = <T>(
-	navigationIndex: NavigationIndex<T>,
+export const addressSpaceIncludes = <T>(
+	addressSpace: AddressSpace<T>,
 	item: T,
 	getKey: (item: T) => string,
-): boolean => navigationIndex.indexByKey.has(getKey(item));
+): boolean => addressSpace.indexByKey.has(getKey(item));
 
-export const resolveNavigationIndexSelection = <T>(
-	navigationIndex: NavigationIndex<T>,
+export const resolveAddressSpaceSelection = <T>(
+	addressSpace: AddressSpace<T>,
 	selection: T | null,
 	getKey: (item: T) => string,
 ): T | null =>
-	selection !== null && navigationIndexIncludes(navigationIndex, selection, getKey)
+	selection !== null && addressSpaceIncludes(addressSpace, selection, getKey)
 		? selection
-		: (navigationIndex.items[0] ?? null);
+		: (addressSpace.items[0] ?? null);

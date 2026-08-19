@@ -18,7 +18,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { formatRelativeTime } from "#ui/time.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import { Button, Toast, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { LiteTestId } from "@gitbutler/ui/utils/testIds";
@@ -112,8 +112,8 @@ export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	branchesList: BranchesListData;
 	upstreamList: UpstreamListData;
-	navigationIndex: NavigationIndex<Address>;
-	uncommittedNavigationIndex: NavigationIndex<string>;
+	addressSpace: AddressSpace<Address>;
+	uncommittedAddressSpace: AddressSpace<string>;
 	onActiveFileSelection: (selection: string) => void;
 	project: ProjectForFrontend;
 	projectId: string;
@@ -121,8 +121,8 @@ export const Sidebar: FC<{
 	absorptionTargetCommitIds,
 	branchesList,
 	upstreamList,
-	navigationIndex,
-	uncommittedNavigationIndex,
+	addressSpace,
+	uncommittedAddressSpace,
 	onActiveFileSelection,
 	project,
 	projectId,
@@ -395,8 +395,8 @@ export const Sidebar: FC<{
 			) : (
 				<WorkspaceLists
 					className={styles.page}
-					navigationIndex={navigationIndex}
-					uncommittedNavigationIndex={uncommittedNavigationIndex}
+					addressSpace={addressSpace}
+					uncommittedAddressSpace={uncommittedAddressSpace}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}

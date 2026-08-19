@@ -39,7 +39,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ComponentProps, type FC, use, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { NavigationIndexContext } from "../SidebarNavigationIndexContext.ts";
+import { AddressSpaceContext } from "../AddressSpaceContext.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
@@ -85,7 +85,7 @@ export const CommitRow: FC<
 
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -154,7 +154,7 @@ export const CommitRow: FC<
 			? projectSlice.selectors.selectCheckedCommitIds(state, projectId)
 			: new Set([commit.id]);
 		const selectionAfterDiscard = selectAfterDiscardedCommits({
-			navigationIndex,
+			addressSpace,
 			commit: commitAddressV,
 			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,

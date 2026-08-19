@@ -32,7 +32,7 @@ import {
 	type KeyboardTransfer,
 	keyboardTransfer,
 } from "#ui/operations/pending-operation.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -373,10 +373,10 @@ const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
 	transfer: KeyboardTransfer;
-	appliedNavigationIndex: NavigationIndex<Address>;
-}> = ({ headInfoIndex, projectId, transfer, appliedNavigationIndex }) => {
+	appliedAddressSpace: AddressSpace<Address>;
+}> = ({ headInfoIndex, projectId, transfer, appliedAddressSpace }) => {
 	const activeList = useActiveList();
-	const selection = useSelection("applied", appliedNavigationIndex);
+	const selection = useSelection("applied", appliedAddressSpace);
 
 	const dispatch = useAppDispatch();
 	const { mutate: executeOperation } = useExecuteOperation();
@@ -432,8 +432,8 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Address> }> = ({
-	appliedNavigationIndex,
+export const OperationControls: FC<{ appliedAddressSpace: AddressSpace<Address> }> = ({
+	appliedAddressSpace,
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const pendingOperation = useAppSelector((state) =>
@@ -473,7 +473,7 @@ export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Add
 									headInfoIndex={headInfoIndex}
 									projectId={projectId}
 									transfer={transfer}
-									appliedNavigationIndex={appliedNavigationIndex}
+									appliedAddressSpace={appliedAddressSpace}
 								/>
 							),
 					}),

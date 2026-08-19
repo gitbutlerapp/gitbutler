@@ -56,7 +56,7 @@ import {
 } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
-import { fileTreeNavigationIndex, selectedFilePath } from "./file-tree.ts";
+import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
@@ -65,7 +65,7 @@ import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
@@ -245,7 +245,7 @@ const hasAnyOperation = (sources: Array<Address>, target: Address, kind: Transfe
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
-const buildAppliedNavigationIndex = ({
+const buildAppliedAddressSpace = ({
 	headInfo,
 	pendingOperation,
 	absorptionTargetCommitIds,
@@ -255,7 +255,7 @@ const buildAppliedNavigationIndex = ({
 	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
-}): NavigationIndex<Address> => {
+}): AddressSpace<Address> => {
 	const allItems = (): Array<Address> =>
 		headInfo?.stacks.toReversed().flatMap((stack) =>
 			stack.segments.flatMap((segment): Array<Address> => {
@@ -515,7 +515,7 @@ const WorkspacePage: FC = () => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const appliedNavigationIndex = buildAppliedNavigationIndex({
+	const appliedAddressSpace = buildAppliedAddressSpace({
 		headInfo,
 		pendingOperation,
 		absorptionTargetCommitIds,
@@ -526,9 +526,9 @@ const WorkspacePage: FC = () => {
 	const branchesList = useBranchesList(projectId);
 	const upstreamList = useUpstreamList(projectId);
 
-	const appliedSelection = useSelection("applied", appliedNavigationIndex);
-	const branchesSelection = useSelection("unapplied", branchesList.navigationIndex);
-	const upstreamSelection = useSelection("upstream", upstreamList.navigationIndex);
+	const appliedSelection = useSelection("applied", appliedAddressSpace);
+	const branchesSelection = useSelection("unapplied", branchesList.addressSpace);
+	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -546,7 +546,7 @@ const WorkspacePage: FC = () => {
 	});
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
-	const uncommittedNavigationIndex = fileTreeNavigationIndex(uncommittedFileRows);
+	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
 	const uncommittedTreeChangeDiffs = useQueries({
 		queries:
 			worktreeChanges?.changes.map((change) =>
@@ -563,7 +563,7 @@ const WorkspacePage: FC = () => {
 		// A directory row stands for the first file below it, so activating a
 		// folder still gives the details pane somewhere to go.
 		const path = selectedFilePath(uncommittedFileRows, selection);
-		// Indexed against the worktree changes rather than the navigation index,
+		// Indexed against the worktree changes rather than the address space,
 		// which the file filter can narrow out from under them.
 		const index = worktreeChanges?.changes.findIndex((change) => change.path === path) ?? -1;
 		const change = index === -1 ? undefined : worktreeChanges?.changes[index];
@@ -581,7 +581,7 @@ const WorkspacePage: FC = () => {
 		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
 	};
 
-	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedNavigationIndex);
+	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
 	const activeList = useActiveList();
 	// The pane's content is one component per page, as the sidebar has one list
@@ -700,8 +700,8 @@ const WorkspacePage: FC = () => {
 								project={selectedProject}
 								branchesList={branchesList}
 								upstreamList={upstreamList}
-								navigationIndex={appliedNavigationIndex}
-								uncommittedNavigationIndex={uncommittedNavigationIndex}
+								addressSpace={appliedAddressSpace}
+								uncommittedAddressSpace={uncommittedAddressSpace}
 								absorptionTargetCommitIds={absorptionTargetCommitIds}
 								onActiveFileSelection={onActiveUncommittedFileSelection}
 							/>
@@ -722,7 +722,7 @@ const WorkspacePage: FC = () => {
 				</Panel>
 			</Group>
 
-			<OperationControls appliedNavigationIndex={appliedNavigationIndex} />
+			<OperationControls appliedAddressSpace={appliedAddressSpace} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

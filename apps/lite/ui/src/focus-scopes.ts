@@ -4,7 +4,7 @@ import { useAppSelector } from "#ui/store.ts";
 import { startKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
 import type { Address } from "#ui/addresses.ts";
-import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
@@ -145,8 +145,8 @@ export const useAutofocusScope = (enabled = true) => {
 	};
 };
 
-export const useNavigationIndexHotkeys = <T>({
-	navigationIndex,
+export const useAddressSpaceHotkeys = <T>({
+	addressSpace,
 	group,
 	select,
 	selection,
@@ -157,7 +157,7 @@ export const useNavigationIndexHotkeys = <T>({
 	getKey,
 	directionalNavigation = true,
 }: {
-	navigationIndex: NavigationIndex<T>;
+	addressSpace: AddressSpace<T>;
 	group: CommandGroup;
 	select: (newItem: T) => void;
 	selection: T | null;
@@ -185,8 +185,8 @@ export const useNavigationIndexHotkeys = <T>({
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
 			selection === null
-				? navigationIndex.items.at(offset === 1 ? 0 : -1)
-				: getAdjacent({ navigationIndex, selection, offset, getKey });
+				? addressSpace.items.at(offset === 1 ? 0 : -1)
+				: getAdjacent({ addressSpace, selection, offset, getKey });
 		if (newItem === null || newItem === undefined) {
 			onEdgeSpill?.(offset);
 			return;
@@ -205,15 +205,15 @@ export const useNavigationIndexHotkeys = <T>({
 	const moveToMatchingItem = (offset: -1 | 1, predicate: (item: T) => boolean) => {
 		if (selection === null) return;
 
-		const selectionIndex = navigationIndex.indexByKey.get(getKey(selection));
+		const selectionIndex = addressSpace.indexByKey.get(getKey(selection));
 		if (selectionIndex === undefined) return;
 
-		const currentItem = navigationIndex.items[selectionIndex];
+		const currentItem = addressSpace.items[selectionIndex];
 		const startsOnMatch = currentItem !== undefined && predicate(currentItem);
 		let itemIndex = selectionIndex + (offset === -1 && !startsOnMatch ? 0 : offset);
 
-		while (itemIndex >= 0 && itemIndex < navigationIndex.items.length) {
-			const item = navigationIndex.items[itemIndex];
+		while (itemIndex >= 0 && itemIndex < addressSpace.items.length) {
+			const item = addressSpace.items[itemIndex];
 			if (item !== undefined && predicate(item)) {
 				select(item);
 				return;
@@ -233,13 +233,13 @@ export const useNavigationIndexHotkeys = <T>({
 	};
 
 	const selectFirstItem = () => {
-		const newItem = navigationIndex.items[0];
+		const newItem = addressSpace.items[0];
 		if (newItem === undefined) return;
 		select(newItem);
 	};
 
 	const selectLastItem = () => {
-		const newItem = navigationIndex.items.at(-1);
+		const newItem = addressSpace.items.at(-1);
 		if (newItem === undefined) return;
 		select(newItem);
 	};

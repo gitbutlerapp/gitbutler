@@ -12,7 +12,7 @@ import {
 import { Icon } from "#ui/components/Icon.tsx";
 import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
@@ -378,7 +378,7 @@ export const UpstreamList: FC<
 	} & ComponentProps<"div">
 > = ({ projectId, list, canUpdateWorkspace, isUpdatePending, onUpdateWorkspace, ...restProps }) => {
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
-	// navigation index that resolves selection are the same object.
+	// address space that resolves selection are the same object.
 	const {
 		items,
 		incomingItemCount,
@@ -387,18 +387,18 @@ export const UpstreamList: FC<
 		targetLabel,
 		incomingCount,
 		hasIntegrated,
-		navigationIndex,
+		addressSpace,
 		isPending,
 		isError,
 	} = list;
 
-	const selection = useSelection("upstream", navigationIndex);
-	useCursorWriteBack("upstream", navigationIndex);
+	const selection = useSelection("upstream", addressSpace);
+	useCursorWriteBack("upstream", addressSpace);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 
-	useNavigationIndexHotkeys({
-		navigationIndex,
+	useAddressSpaceHotkeys({
+		addressSpace,
 		group: "Sidebar",
 		select: (newItem) => setCursor("upstream", newItem),
 		selection,

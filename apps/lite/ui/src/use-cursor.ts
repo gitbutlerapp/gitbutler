@@ -20,10 +20,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
 import { store, useAppSelector } from "#ui/store.ts";
-import {
-	resolveNavigationIndexSelection,
-	type NavigationIndex,
-} from "#ui/workspace/navigation-index.ts";
+import { resolveAddressSpaceSelection, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
@@ -71,16 +68,16 @@ const encodedIndexes = new WeakMap<object, Map<string, unknown>>();
 
 const encodedIndex = <L extends UrlCursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]>,
 ): Map<string, CursorItem[L]> => {
-	let byParam = encodedIndexes.get(navigationIndex);
+	let byParam = encodedIndexes.get(addressSpace);
 	if (!byParam) {
 		byParam = new Map();
-		for (const item of navigationIndex.items) {
+		for (const item of addressSpace.items) {
 			const encoded = encodeCursorParam(list, item);
 			if (encoded !== null && !byParam.has(encoded)) byParam.set(encoded, item);
 		}
-		encodedIndexes.set(navigationIndex, byParam);
+		encodedIndexes.set(addressSpace, byParam);
 	}
 	return byParam as Map<string, CursorItem[L]>;
 };
@@ -88,16 +85,16 @@ const encodedIndex = <L extends UrlCursorName>(
 const resolveCursorParam = <L extends UrlCursorName>(
 	list: L,
 	param: string | undefined,
-	navigationIndex: NavigationIndex<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]>,
 ): CursorItem[L] | null =>
-	(param === undefined ? undefined : encodedIndex(list, navigationIndex).get(param)) ??
-	navigationIndex.items[0] ??
+	(param === undefined ? undefined : encodedIndex(list, addressSpace).get(param)) ??
+	addressSpace.items[0] ??
 	null;
 
 /** The cursor resolved against what the list currently shows. */
 export const useSelection = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]>,
 ): CursorItem[L] | null => {
 	// Both stores are subscribed unconditionally so hook order never depends
 	// on the list; every call site passes a literal list name anyway.
@@ -112,9 +109,9 @@ export const useSelection = <L extends CursorName>(
 
 	return (
 		isUrlCursor(list)
-			? resolveCursorParam(list, param, navigationIndex as never)
-			: resolveNavigationIndexSelection(
-					navigationIndex as NavigationIndex<CursorItem["diff"]>,
+			? resolveCursorParam(list, param, addressSpace as never)
+			: resolveAddressSpaceSelection(
+					addressSpace as AddressSpace<CursorItem["diff"]>,
 					storedDiff,
 					cursorKey.diff,
 				)
@@ -127,10 +124,10 @@ export const useSelection = <L extends CursorName>(
  */
 export const useIsCursorAt = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]>,
 	item: CursorItem[L],
 ): boolean => {
-	const resolved = useSelection(list, navigationIndex);
+	const resolved = useSelection(list, addressSpace);
 	return resolved !== null && cursorKey[list](resolved) === cursorKey[list](item);
 };
 
@@ -385,9 +382,9 @@ export const remapSearchBranch = (oldRef: string, newRef: string): void => {
  */
 export const useCursorWriteBack = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]>,
 ): void => {
-	const resolved = useSelection(list, navigationIndex);
+	const resolved = useSelection(list, addressSpace);
 	const storedParam = useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams) =>

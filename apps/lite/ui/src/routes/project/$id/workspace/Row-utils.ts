@@ -10,7 +10,7 @@ export const treeItemId = (address: Address): string =>
 
 /**
  * Whether the stored cursor rests on this address. Rows subscribe to this
- * plain boolean instead of consuming the navigation index, so index rebuilds
+ * plain boolean instead of consuming the address space, so index rebuilds
  * (fold, filter, data refresh) do not re-render every row. The list keeps the
  * stored cursor aligned with the resolved selection via
  * `useCursorWriteBack`.

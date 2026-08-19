@@ -17,9 +17,9 @@ import { sidebarHotkeys } from "#ui/hotkeys.ts";
 import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { focusScope, useNavigationIndexHotkeys } from "#ui/focus-scopes.ts";
+import { focusScope, useAddressSpaceHotkeys } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import type {
@@ -65,14 +65,14 @@ const pushContextForSegment = ({
 };
 
 export const useActiveListsHotkeys = ({
-	navigationIndex,
+	addressSpace,
 	projectId,
 	ref,
 	checkCommit,
 	focusCommitMessageInput,
 	onEdgeSpill,
 }: {
-	navigationIndex: NavigationIndex<Address>;
+	addressSpace: AddressSpace<Address>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -85,7 +85,7 @@ export const useActiveListsHotkeys = ({
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const store = useAppStore();
-	const selection = useSelection("applied", navigationIndex);
+	const selection = useSelection("applied", addressSpace);
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -232,7 +232,7 @@ export const useActiveListsHotkeys = ({
 		if (!selection || selection._tag !== "Commit") return;
 
 		const source = commitAddress(selection);
-		const selectionIdx = navigationIndex.indexByKey.get(addressIdentityKey(source));
+		const selectionIdx = addressSpace.indexByKey.get(addressIdentityKey(source));
 		if (selectionIdx === undefined) return;
 
 		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
@@ -246,7 +246,7 @@ export const useActiveListsHotkeys = ({
 		let nextItem: Address | undefined;
 		do {
 			nextItemIndex += offset;
-			nextItem = navigationIndex.items[nextItemIndex];
+			nextItem = addressSpace.items[nextItemIndex];
 		} while (nextItem?._tag === "Commit" && subjectCommitIds.has(nextItem.commitId));
 		if (!nextItem) return;
 
@@ -281,7 +281,7 @@ export const useActiveListsHotkeys = ({
 			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
 
 		const selectionAfterDiscard = selectAfterDiscardedCommits({
-			navigationIndex,
+			addressSpace,
 			commit: { commitId: selection.commitId, changeId: selection.changeId },
 			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,
@@ -430,9 +430,9 @@ export const useActiveListsHotkeys = ({
 		return checkedAddresses.length > 0 ? checkedAddresses : [address];
 	};
 
-	useNavigationIndexHotkeys({
+	useAddressSpaceHotkeys({
 		ref,
-		navigationIndex,
+		addressSpace,
 		group: "Sidebar",
 		select: (newItem) => setCursor("applied", newItem),
 		selection,

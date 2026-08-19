@@ -28,7 +28,7 @@ import {
 } from "#ui/native-menu.ts";
 import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
@@ -336,8 +336,8 @@ export const BranchesList: FC<
 > = ({ projectId, list, newBranch, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
-	// navigation index that resolves selection are the same object.
-	const { unapplied, navigationIndex, isPending, isError } = list;
+	// address space that resolves selection are the same object.
+	const { unapplied, addressSpace, isPending, isError } = list;
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);
@@ -348,8 +348,8 @@ export const BranchesList: FC<
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
-	const selection = useSelection("unapplied", navigationIndex);
-	useCursorWriteBack("unapplied", navigationIndex);
+	const selection = useSelection("unapplied", addressSpace);
+	useCursorWriteBack("unapplied", addressSpace);
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const hotkeysRef = useRef<HTMLDivElement>(null);
@@ -360,8 +360,8 @@ export const BranchesList: FC<
 		branchRemove({ projectId, refName: branchRef });
 	};
 
-	useNavigationIndexHotkeys({
-		navigationIndex,
+	useAddressSpaceHotkeys({
+		addressSpace,
 		group: "Sidebar",
 		select: (newItem) => setCursor("unapplied", newItem),
 		selection,
