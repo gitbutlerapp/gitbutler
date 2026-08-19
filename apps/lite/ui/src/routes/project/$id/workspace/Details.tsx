@@ -112,7 +112,11 @@ import {
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
-import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
+import {
+	getLineStats,
+	patchLineStats,
+	type LineStats,
+} from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
@@ -1342,6 +1346,7 @@ const DiffContents: FC<{
 							hasDiff={item.fileDiff.hunks.length !== 0}
 							collapsed={item.collapsed ?? false}
 							reviewState={reviewState}
+							lineStats={patchLineStats(file.patch)}
 							selected={item.id === selectedFoldedFileId}
 							setCollapsed={handleSetCollapsed(item.id)}
 							setReviewed={handleSetReviewed(item.id, file.change.path, version)}
@@ -1469,6 +1474,8 @@ type DiffFileHeaderProps = {
 	hasDiff: boolean;
 	collapsed: boolean;
 	reviewState: "reviewed" | "changed" | null;
+	/** The change's counted deltas, or `null` when there is no patch to count. */
+	lineStats: LineStats | null;
 	/** Whether the folded file's stand-in hunk holds the diff selection. */
 	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
@@ -1552,10 +1559,16 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{reviewLabel}
 				</button>
 				<ChangeTypeBadge type={p.item.fileDiff.type} />
-				<span>
-					<span className={styles.fileDiffAdded}>+{p.item.fileDiff.additionLines.length}</span>{" "}
-					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
-				</span>
+				{p.lineStats && (p.lineStats.linesAdded > 0 || p.lineStats.linesRemoved > 0) && (
+					<span>
+						{p.lineStats.linesAdded > 0 && (
+							<span className={styles.fileDiffAdded}>+{p.lineStats.linesAdded}</span>
+						)}{" "}
+						{p.lineStats.linesRemoved > 0 && (
+							<span className={styles.fileDiffDeleted}>-{p.lineStats.linesRemoved}</span>
+						)}
+					</span>
+				)}
 
 				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
 					<Toolbar.Button
