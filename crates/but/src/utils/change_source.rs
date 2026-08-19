@@ -81,12 +81,21 @@ pub fn active_worktree_sources(ctx: &Context) -> anyhow::Result<Vec<BString>> {
     if in_linked_worktree {
         return Ok(Vec::new());
     }
-    Ok(ctx
-        .worktrees_with_state()?
-        .into_iter()
-        .filter(|worktree| !worktree.archived)
-        .map(|worktree| worktree.name)
-        .collect())
+    let mut names = Vec::new();
+    for worktree in ctx.worktrees_with_state()? {
+        if worktree.archived {
+            continue;
+        }
+        // A worktree without a usable `HEAD` (unborn, vanished, or checking out
+        // the workspace ref) cannot be diffed, and operations refuse it - minting
+        // an ID for it would either fail every command or print IDs that nothing
+        // accepts.
+        if ctx.worktree_head(worktree.name.as_ref())?.is_none() {
+            continue;
+        }
+        names.push(worktree.name);
+    }
+    Ok(names)
 }
 
 /// The uncommitted changes of every checkout that gets CLI IDs: the main worktree

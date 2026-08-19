@@ -72,6 +72,12 @@ impl<'a> DiffSpecBuilder<'a> {
         &mut self,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
+        // The builder reads the main worktree, so specs built from another
+        // checkout's hunks would silently address the wrong files. Operations
+        // learn to open the source's own repository separately.
+        if let Some(name) = uncommitted.source.worktree_name() {
+            anyhow::bail!("Cannot operate on uncommitted changes in worktree {name} yet");
+        }
         let hunks = uncommitted.hunks.iter().cloned();
         self.push_hunks(hunks.map(|id_and_hunk| id_and_hunk.hunk))
     }

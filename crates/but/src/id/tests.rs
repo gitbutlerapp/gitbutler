@@ -1041,13 +1041,21 @@ fn worktree_container_id() -> anyhow::Result<()> {
     let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
         bail!("expected an uncommitted file, got {scoped:?}");
     };
-    assert_eq!(scoped.source, ChangeSourceId::Worktree("wt-a".into()));
+    assert_eq!(
+        scoped.source,
+        ChangeSourceId::Worktree("wt-a".into()),
+        "the scoped match comes from the named checkout"
+    );
 
     // The container expands to every file in that checkout, which is what
     // `but commit <worktree>` commits.
     let expanded = id_map.uncommitted_files_in(&ChangeSourceId::Worktree("wt-a".into()));
-    assert_eq!(expanded.len(), 1);
-    assert_eq!(expanded[0].hunks.first().hunk.path, "file");
+    assert_eq!(expanded.len(), 1, "only the one dirty file lives in wt-a");
+    assert_eq!(
+        expanded[0].hunks.first().hunk.path,
+        "file",
+        "expansion yields that checkout's own file"
+    );
     assert!(
         id_map
             .uncommitted_files_in(&ChangeSourceId::Worktree("wt-b".into()))
@@ -1081,7 +1089,11 @@ fn zz_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
     let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
         bail!("expected an uncommitted file, got {scoped:?}");
     };
-    assert_eq!(scoped.source, ChangeSourceId::Head);
+    assert_eq!(
+        scoped.source,
+        ChangeSourceId::Head,
+        "`zz` scoping keeps the main worktree's copy"
+    );
 
     // A bare filename is deliberately unscoped, so it reports both and the
     // caller turns that into an ambiguity error.

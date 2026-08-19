@@ -243,9 +243,11 @@ impl CliIdArg {
         let target = if target_ids.peek().is_none() {
             target
         } else {
+            // A worktree names an uncommitted area, so it competes here: dropping
+            // it would let a file of the same name silently shadow the worktree.
             let mut uncommitted = std::iter::once(target)
                 .chain(target_ids)
-                .filter(|id| matches!(id, CliId::UncommittedHunkOrFile(_)))
+                .filter(|id| matches!(id, CliId::UncommittedHunkOrFile(_) | CliId::Worktree { .. }))
                 .collect::<Vec<_>>();
             match uncommitted.len() {
                 0 => return Ok(None),
@@ -253,18 +255,30 @@ impl CliIdArg {
                 _ => {
                     // When the matches are one path dirty in several checkouts,
                     // lengthening the ID cannot fix it - name the checkouts instead.
-                    let sources: Vec<String> = uncommitted
+                    // Prefix matches on distinct paths do not qualify: their scoped
+                    // forms would not resolve, as scoping matches by filename.
+                    let files: Vec<_> = uncommitted
                         .iter()
                         .filter_map(|id| id.as_uncommitted_hunk_or_file())
+                        .collect();
+                    let sources: Vec<String> = files
+                        .iter()
                         .map(|uncommitted| uncommitted.source.selector().to_string())
                         .unique()
                         .collect();
-                    let hint = if sources.len() == uncommitted.len() {
+                    let same_path_once_per_checkout = files.len() == uncommitted.len()
+                        && sources.len() == uncommitted.len()
+                        && files
+                            .iter()
+                            .map(|uncommitted| &uncommitted.hunks.first().hunk.path)
+                            .all_equal();
+                    let hint = if same_path_once_per_checkout {
+                        let path = &files[0].hunks.first().hunk.path;
                         format!(
                             "'{self}' is uncommitted in several checkouts; scope it as {}",
                             sources
                                 .iter()
-                                .map(|source| format!("`{source}:{self}`"))
+                                .map(|source| format!("`{source}:{path}`"))
                                 .join(" or ")
                         )
                     } else {

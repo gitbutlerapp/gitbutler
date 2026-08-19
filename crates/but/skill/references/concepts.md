@@ -70,6 +70,13 @@ but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
 
+**Linked worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
+active linked worktree gets its own ID, listed as a `[worktree <name>]` heading in `but status`
+with that checkout's uncommitted files below it. The worktree ID names its whole uncommitted area
+the way `zz` names the main worktree's, and `<worktree-name>:<path>` scopes a filename to that
+checkout — `zz:<path>` keeps meaning the main worktree. A filename dirty in several checkouts at
+once is ambiguous; the error suggests the scoped forms.
+
 ## Parallel vs Stacked Branches
 
 ### Parallel Branches (Independent Work)
