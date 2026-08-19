@@ -45,6 +45,7 @@ test("keeps managed branch order after checking out a middle branch", async ({
 	const localClone = gitbutler.pathInWorkdir("local-clone");
 
 	await createNewBranch(page, "A");
+	await expect(stack(page)).toHaveCount(1);
 	await createNewBranch(page, "B");
 	await expect(stack(page)).toHaveCount(2);
 
