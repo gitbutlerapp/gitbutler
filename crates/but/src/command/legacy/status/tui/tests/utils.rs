@@ -24,6 +24,9 @@ pub struct TestTuiOptions {
     pub run_options: TuiRunOptions,
     pub show_file_browser: bool,
     pub launch_options: TuiLaunchOptions,
+    /// Turn on the experimental `worktreeManipulation` flag and make the fixture's linked
+    /// worktrees active, so they take part in the status the TUI is built from.
+    pub worktree_manipulation: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -34,6 +37,7 @@ impl Default for TestTuiOptions {
             run_options: Default::default(),
             show_file_browser: false,
             launch_options: Default::default(),
+            worktree_manipulation: false,
         }
     }
 }
@@ -42,17 +46,35 @@ pub fn test_status_tui(env: Sandbox) -> TestTui<App> {
     test_status_tui_with_options(env, TestTuiOptions::default())
 }
 
-pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
+pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -> TestTui<App> {
     let TestTuiOptions {
         width,
         height,
         run_options,
         show_file_browser,
         launch_options,
+        worktree_manipulation,
     } = options;
 
     configure_test_repo(&env);
+    if worktree_manipulation {
+        // Set on the sandbox rather than on one `Context`, because every render builds a fresh
+        // one - a flag set on a single context would vanish on the first reload.
+        env.app_settings_mut().feature_flags.worktree_manipulation = true;
+    }
     let mut ctx = env.context();
+    if worktree_manipulation {
+        // The first read with the flag on adopts, i.e. archives every worktree already on disk
+        // on the assumption it predates GitButler. A fixture's worktrees are the subject of the
+        // test, so bring them back. This is persisted, so later contexts see them as active.
+        let adopted = ctx
+            .worktrees_with_state()
+            .expect("worktree state is readable");
+        for worktree in adopted {
+            ctx.set_worktree_archived(worktree.name.as_ref(), false)
+                .expect("archived state is writable");
+        }
+    }
     let operating_mode = but_api::legacy::modes::operating_mode(&ctx)
         .expect("failed to get operating mode")
         .operating_mode;

@@ -32,6 +32,7 @@ mod pick_tests;
 mod squash_tests;
 mod stack_tests;
 mod utils;
+mod worktree_tests;
 
 #[test]
 fn directory_watcher_paths_affect_nested_uncommitted_details() {
