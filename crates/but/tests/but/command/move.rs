@@ -2995,9 +2995,68 @@ fn move_commit_above_a_worktree_is_refused() {
         .stderr_eq(snapbox::str![[r#"
 Error: Bad input 'po' for '--above'
 
-Cannot move above a worktree
+Cannot place a commit above a worktree
 
-Hint: Use `--below` to move onto the tip of the worktree's branch
+Hint: Use `--below` to target the tip of the worktree's branch
+
+"#]]);
+}
+
+/// `--branch` accepts a worktree's branch by name, moving the commit onto that lane's tip
+/// instead of misreading the name as a branch to create.
+#[test]
+fn move_a_commit_to_a_worktrees_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    crate::command::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm -b wt-inside")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-inside'
+
+"#]]);
+
+    // "add B" left its stack for the tip of the worktree's branch, exactly like `--below po`.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 4ce1279 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Stacking a branch onto a worktree's branch is refused with the real reason rather than
+/// the misleading "not found".
+#[test]
+fn move_a_branch_onto_a_worktree_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    crate::command::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move B -b wt-inside")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'wt-inside' for '--branch'
+
+Cannot stack a branch onto worktree branch 'wt-inside'
 
 "#]]);
 }

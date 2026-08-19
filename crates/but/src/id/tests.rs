@@ -3024,7 +3024,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
 }
 
 #[test]
-fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> {
+fn a_file_literally_named_zz_competes_with_the_uncommitted_area() -> anyhow::Result<()> {
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -3037,15 +3037,18 @@ fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> 
         Default::default(),
     )?;
 
-    // The full parser returns the filename match before considering the `zz`
-    // sentinel; the scoped parser must agree instead of reporting an
-    // ambiguity the full parser does not have.
+    // `zz` names the whole area, so a dirty file of the same name must surface
+    // as a competing match for the resolver to report - not silently win, the
+    // same way a file named after a worktree competes with the worktree.
     let scoped = id_map.parse_uncommitted("zz", Box::new(changed_paths_fn))?;
     match scoped.as_slice() {
-        [CliId::UncommittedHunkOrFile(uncommitted)] => {
+        [
+            CliId::UncommittedHunkOrFile(uncommitted),
+            CliId::Uncommitted { .. },
+        ] => {
             assert_eq!(uncommitted.hunks.first().hunk.path, "zz");
         }
-        other => panic!("expected exactly the file named zz, got {other:?}"),
+        other => panic!("expected the file named zz and the area sentinel, got {other:?}"),
     }
     Ok(())
 }

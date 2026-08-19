@@ -500,3 +500,47 @@ Hint: Run `but status` to show applicable targets
 
 "#]]);
 }
+
+/// `zz` expands to the main checkout's whole uncommitted area for amending, the way a
+/// worktree's ID expands to its area.
+#[test]
+fn amend_the_uncommitted_area_by_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file("one.txt", "first\n");
+    env.file("two.txt", "second\n");
+
+    env.but("amend zz --target lrm")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended lrm
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:pl A B
+┊│     lrm:z  A one.txt
+┊│     lrm:pp A two.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

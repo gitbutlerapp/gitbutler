@@ -80,11 +80,15 @@ they appear in a top-level `worktrees` array. The worktree ID on the heading nam
 uncommitted area the way `zz` names the main worktree's, and `<worktree-name>:<path>` scopes a
 filename to that checkout — `zz:<path>` keeps meaning the main worktree. A filename dirty in
 several checkouts at once is ambiguous; the error suggests the scoped forms. A worktree file or
-heading ID works as a `but commit` change and a `but amend` source: the change lands on the
-target commit or branch, which does not have to be the worktree's own, and leaves that worktree's
-uncommitted area. One operation reads from one checkout at a time — a selection mixing checkouts
-is refused. A worktree's own commits carry ordinary commit IDs: `reword`, `move`, `squash`, and
-`pick` accept them, and the worktree's branch and checkout follow the rewrite.
+heading ID — like `zz` for the main checkout — works as a `but commit` change and a `but amend`
+source: the change lands on the target and leaves that worktree's uncommitted area. Without a
+target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
+commit or branch does not have to be the worktree's own. One operation reads from one checkout
+at a time — a selection mixing checkouts is refused. A worktree is also a target: `but commit`,
+`but move`, and `but pick` with `-b <worktree-id-or-its-branch-name>` or `--below <worktree-id>`
+place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
+that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+`squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 
 ## Parallel vs Stacked Branches
 

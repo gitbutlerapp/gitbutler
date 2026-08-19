@@ -41,6 +41,9 @@ pub struct Platform {
     /// If `BRANCH` does not exist, it is created as an unstacked branch for commit or
     /// committed-file sources. Using a branch source with a nonexistent `BRANCH` is an error.
     ///
+    /// If `BRANCH` is a linked worktree or a branch checked out in one, commit or
+    /// committed-file sources are moved onto the tip of that worktree's branch.
+    ///
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created. This is
     /// exactly equivalent to `--unstack` and is allowed for any source kind.
     ///

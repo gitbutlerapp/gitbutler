@@ -23,7 +23,7 @@ use serde::Serialize;
 use crate::{
     CliError, CliId, CliResult, CliResultExt, IdMap,
     args::{
-        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose, ResolvedCliIdArg},
         commit::Platform,
     },
     bad_input,
@@ -41,6 +41,7 @@ use crate::{
         merged_upstream::MergedUpstream,
         rejection,
         targeting::Side,
+        worktrees::{worktree_branch, worktree_branch_target, worktree_tip_target},
     },
 };
 
@@ -239,19 +240,21 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
-            |err| match err {
-                RouteCommitOperationError::NoStackToCommitTo => {
-                    bad_input("Found no stack that could be committed to").into()
-                }
-                RouteCommitOperationError::UnclearTargetCantPrompt => {
-                    bad_input("Unclear where to commit. Found more than one stack")
-                        .hint("You can specify where to commit with `--branch [<BRANCH>]`")
-                        .into()
-                }
-                RouteCommitOperationError::Other(cli_error) => cli_error,
-            },
-        )?
+        let source = commit_selection.source();
+        route_commit_operation(
+            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged,
+        )
+        .map_err(|err| match err {
+            RouteCommitOperationError::NoStackToCommitTo => {
+                bad_input("Found no stack that could be committed to").into()
+            }
+            RouteCommitOperationError::UnclearTargetCantPrompt => {
+                bad_input("Unclear where to commit. Found more than one stack")
+                    .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                    .into()
+            }
+            RouteCommitOperationError::Other(cli_error) => cli_error,
+        })?
     };
 
     let reword_op = CommitMessageSource::from_args(no_message, message)?;
@@ -406,6 +409,10 @@ impl CommitOperationTargetIsh {
     }
 }
 
+/// `source` is the checkout the changes to commit are read from: a worktree source with no
+/// explicit target defaults to that worktree's own branch tip, the way the TUI's heading
+/// gesture does, instead of a workspace stack.
+#[expect(clippy::too_many_arguments)]
 pub fn route_commit_operation(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
@@ -413,6 +420,7 @@ pub fn route_commit_operation(
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
+    source: &ChangeSourceId,
     merged: &MergedUpstream,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
     match target {
@@ -441,6 +449,14 @@ pub fn route_commit_operation(
                 };
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
+            } else if let Some(name) = worktree_branch_target(repo, id_map, &cli_id)? {
+                // A worktree, or a branch checked out in one, is that lane's tip - not a
+                // branch waiting to be created. Merged branches are guarded the same
+                // whichever way they are spelled.
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip { name },
+                }))
             } else {
                 let branch = BranchArg(cli_id.0);
                 let branch_name = branch
@@ -457,6 +473,18 @@ pub fn route_commit_operation(
             CommitToNewBranchOperation { branch_name: None },
         )),
         CommitOperationTargetIsh::Default => {
+            // Changes read from a worktree default to where the TUI's heading gesture
+            // puts them: the tip of the branch checked out there, not a workspace stack.
+            if let ChangeSourceId::Worktree(name) = source {
+                // The user picked the changes, not this target, but a detached or
+                // otherwise branchless worktree is still their input to fix.
+                let name = worktree_branch(repo, name.as_ref())
+                    .map_err(|err| CliError::from(bad_input(err.to_string())))?;
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                return Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip { name },
+                }));
+            }
             // Branches that have landed upstream are not sensible default targets;
             // skip them so new work goes to a live branch or a fresh one.
             let stacks = head_info
@@ -581,23 +609,33 @@ fn route_commit_above_or_below(
     side: Side,
     merged: &MergedUpstream,
 ) -> CliResult<CommitOperation> {
-    let target = match cli_id
+    let resolved = cli_id
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
         .hint(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
-        )?
-        .into_branch_or_commit()
-        .hint("Run `but status` to show applicable targets")?
-    {
-        BranchOrCommit::Commit(commit) => {
-            merged.ensure_commit_not_merged(commit.commit_id)?;
-            CommitRelativeToTarget::Commit { commit, side }
-        }
-        BranchOrCommit::Branch(arg) => {
-            let name = arg.resolve_local_branch_name()?;
+        )?;
+    let target = match resolved {
+        // Below a worktree heading is the top of its lane, so the commit goes to the tip of
+        // the branch checked out there - the same targeting `but move` uses.
+        ResolvedCliIdArg::Worktree(name) => {
+            let name = worktree_tip_target(repo, name.as_ref(), side, &cli_id)?;
             merged.ensure_branch_not_merged(name.as_ref())?;
-            CommitRelativeToTarget::BranchBucket { name, side }
+            CommitRelativeToTarget::BranchTip { name }
         }
+        resolved => match resolved
+            .into_branch_or_commit()
+            .hint("Run `but status` to show applicable targets")?
+        {
+            BranchOrCommit::Commit(commit) => {
+                merged.ensure_commit_not_merged(commit.commit_id)?;
+                CommitRelativeToTarget::Commit { commit, side }
+            }
+            BranchOrCommit::Branch(arg) => {
+                let name = arg.resolve_local_branch_name()?;
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                CommitRelativeToTarget::BranchBucket { name, side }
+            }
+        },
     };
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }

@@ -326,3 +326,40 @@ Picked 580bef0 onto branch 'B' to create 1
 "#]]
     );
 }
+
+/// A worktree is also a pick destination: the copy lands on the tip of the branch that
+/// worktree has checked out, and the source branch stays untouched.
+#[test]
+fn pick_a_commit_onto_a_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    super::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("pick lrm -b wt-inside")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto branch 'wt-inside' to create 1
+
+"#]]);
+
+    // The copy sits on wt-inside's tip; B keeps its own "add B" and the workspace is unchanged.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 1339f61 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}

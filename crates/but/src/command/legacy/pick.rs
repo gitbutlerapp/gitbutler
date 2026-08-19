@@ -206,19 +206,23 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish, &merged).map_err(
-            |err| match err {
-                RouteCommitOperationError::NoStackToCommitTo => {
-                    bad_input("Found no stack that could be picked to").into()
-                }
-                RouteCommitOperationError::UnclearTargetCantPrompt => {
-                    bad_input("Unclear where to pick to. Found more than one stack")
-                        .hint("You can specify where to pick to with `--branch [<BRANCH>]`")
-                        .into()
-                }
-                RouteCommitOperationError::Other(cli_error) => cli_error,
-            },
-        )?
+        // Picked commits are not read from any checkout, so no worktree source can
+        // steer the default target.
+        let source = crate::utils::change_source::ChangeSourceId::Head;
+        route_commit_operation(
+            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged,
+        )
+        .map_err(|err| match err {
+            RouteCommitOperationError::NoStackToCommitTo => {
+                bad_input("Found no stack that could be picked to").into()
+            }
+            RouteCommitOperationError::UnclearTargetCantPrompt => {
+                bad_input("Unclear where to pick to. Found more than one stack")
+                    .hint("You can specify where to pick to with `--branch [<BRANCH>]`")
+                    .into()
+            }
+            RouteCommitOperationError::Other(cli_error) => cli_error,
+        })?
     };
 
     Ok(PickOperation {
