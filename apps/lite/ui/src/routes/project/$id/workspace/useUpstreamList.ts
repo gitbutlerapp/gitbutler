@@ -4,7 +4,7 @@ import {
 	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
 import { usePage } from "#ui/use-cursor.ts";
-import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -15,7 +15,7 @@ import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 // churn while the page is hidden.
 const noItems: Array<UpstreamListItem> = [];
 const noCommits: Array<UpstreamCommitItem> = [];
-const emptyNavigationIndex: NavigationIndex<Operand> = { items: [], indexByKey: new Map() };
+const emptyNavigationIndex: NavigationIndex<Address> = { items: [], indexByKey: new Map() };
 
 /**
  * Commit items are cached per target commit, so list rebuilds (expansion
@@ -92,7 +92,7 @@ export type UpstreamListData = {
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
 	hasIntegrated: boolean;
-	navigationIndex: NavigationIndex<Operand>;
+	navigationIndex: NavigationIndex<Address>;
 	/**
 	 * The target-commits query's state, so the page can tell a genuinely empty
 	 * result apart from one that has not arrived or failed.
@@ -359,13 +359,13 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 			// Commit rows are selectable wherever they appear, older ones
 			// included, so the index runs on into the older section and arrow
 			// navigation crosses into it like any other row.
-			const navigationItems = [...items, ...olderItems].flatMap((item): Array<Operand> => {
+			const navigationItems = [...items, ...olderItems].flatMap((item): Array<Address> => {
 				switch (item.type) {
 					case "commit":
 						// Upstream commits often carry no change-id; the commit id is
 						// the fallback identity.
 						return [
-							commitOperand({
+							commitAddress({
 								commitId: item.commit.id,
 								changeId: item.commit.changeId ?? item.commit.id,
 							}),
@@ -390,7 +390,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 				hasIntegrated: stacks.some((stack) => stack.integrated.length > 0),
 				navigationIndex: {
 					items: navigationItems,
-					indexByKey: buildIndexByKey(navigationItems, operandIdentityKey),
+					indexByKey: buildIndexByKey(navigationItems, addressIdentityKey),
 				},
 				isPending,
 				isError,

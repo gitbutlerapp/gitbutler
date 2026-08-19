@@ -13,7 +13,7 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -112,7 +112,7 @@ export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	branchesList: BranchesListData;
 	upstreamList: UpstreamListData;
-	navigationIndex: NavigationIndex<Operand>;
+	navigationIndex: NavigationIndex<Address>;
 	uncommittedNavigationIndex: NavigationIndex<string>;
 	onActiveFileSelection: (selection: string) => void;
 	project: ProjectForFrontend;

@@ -2,7 +2,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Fragment, memo, type FC, useSyncExternalStore } from "react";
@@ -12,10 +12,10 @@ import styles from "./DiffGutterPortals.module.css";
 
 export type GutterCheckboxGroup = {
 	key: string;
-	parentOperand: Extract<Operand, { _tag: "Hunk" }>;
+	parentAddress: Extract<Address, { _tag: "Hunk" }>;
 	parentSlotName: string;
 	lines: Array<{
-		operand: Extract<Operand, { _tag: "Hunk" }>;
+		address: Extract<Address, { _tag: "Hunk" }>;
 		slotName: string;
 	}>;
 };
@@ -37,15 +37,15 @@ export type GutterStore = {
 
 const LineCheckbox: FC<{
 	projectId: string;
-	operand: Extract<Operand, { _tag: "Hunk" }>;
+	address: Extract<Address, { _tag: "Hunk" }>;
 	slotName: string;
-	onCheck: (operand: Extract<Operand, { _tag: "Hunk" }>, shiftKey: boolean) => void;
+	onCheck: (address: Extract<Address, { _tag: "Hunk" }>, shiftKey: boolean) => void;
 }> = (p) => {
 	const checked = useAppSelector((state) =>
-		projectSlice.selectors.selectOperandChecked(state, p.projectId, p.operand),
+		projectSlice.selectors.selectAddressChecked(state, p.projectId, p.address),
 	);
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.operand.parent.parent),
+		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.address.parent.parent),
 	);
 	if (!canCheck) return null;
 
@@ -61,7 +61,7 @@ const LineCheckbox: FC<{
 				const shiftKey =
 					(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
 					event.shiftKey === true;
-				p.onCheck(p.operand, shiftKey);
+				p.onCheck(p.address, shiftKey);
 			}}
 			aria-label="Check line"
 			className={styles.checkbox}
@@ -101,24 +101,24 @@ const CommentButton: FC<{
 
 const HunkCheckbox: FC<{
 	projectId: string;
-	operand: Extract<Operand, { _tag: "Hunk" }>;
+	address: Extract<Address, { _tag: "Hunk" }>;
 	slotName: string;
-	lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>;
+	lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>;
 	onCheck: (
-		operand: Extract<Operand, { _tag: "Hunk" }>,
-		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		address: Extract<Address, { _tag: "Hunk" }>,
+		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void;
 }> = (p) => {
 	const checkedState = useAppSelector((state): HunkCheckedState => {
-		const checkedCount = p.lineOperands.filter((operand) =>
-			projectSlice.selectors.selectOperandChecked(state, p.projectId, operand),
+		const checkedCount = p.lineAddresses.filter((address) =>
+			projectSlice.selectors.selectAddressChecked(state, p.projectId, address),
 		).length;
 		if (checkedCount === 0) return "unchecked";
-		return checkedCount === p.lineOperands.length ? "checked" : "indeterminate";
+		return checkedCount === p.lineAddresses.length ? "checked" : "indeterminate";
 	});
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.operand.parent.parent),
+		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.address.parent.parent),
 	);
 	if (!canCheck) return null;
 
@@ -135,7 +135,7 @@ const HunkCheckbox: FC<{
 				const shiftKey =
 					(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
 					event.shiftKey === true;
-				p.onCheck(p.operand, p.lineOperands, shiftKey);
+				p.onCheck(p.address, p.lineAddresses, shiftKey);
 			}}
 			aria-label="Check hunk"
 			className={styles.checkbox}
@@ -152,10 +152,10 @@ export const DiffGutterPortals = memo(function DiffGutterPortals({
 }: {
 	projectId: string;
 	store: GutterStore;
-	onCheckLine: (operand: Extract<Operand, { _tag: "Hunk" }>, shiftKey: boolean) => void;
+	onCheckLine: (address: Extract<Address, { _tag: "Hunk" }>, shiftKey: boolean) => void;
 	onCheckHunk: (
-		operand: Extract<Operand, { _tag: "Hunk" }>,
-		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		address: Extract<Address, { _tag: "Hunk" }>,
+		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void;
 	onComment?: (target: DiffLineTarget) => void;
@@ -176,16 +176,16 @@ export const DiffGutterPortals = memo(function DiffGutterPortals({
 					<Fragment key={group.key}>
 						<HunkCheckbox
 							projectId={projectId}
-							operand={group.parentOperand}
+							address={group.parentAddress}
 							slotName={group.parentSlotName}
-							lineOperands={group.lines.map((line) => line.operand)}
+							lineAddresses={group.lines.map((line) => line.address)}
 							onCheck={onCheckHunk}
 						/>
 						{group.lines.map((line) => (
 							<LineCheckbox
 								key={line.slotName}
 								projectId={projectId}
-								operand={line.operand}
+								address={line.address}
 								slotName={line.slotName}
 								onCheck={onCheckLine}
 							/>

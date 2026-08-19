@@ -8,7 +8,7 @@ import {
 import { Annotation } from "#ui/components/Annotation.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import type { FileParent } from "#ui/operands.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useRef, useState, type FC, type RefObject } from "react";
 

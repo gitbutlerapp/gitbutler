@@ -45,7 +45,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
+import { branchAddress, addressEquals, type BranchAddress } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -171,10 +171,10 @@ export const BranchRow: FC<
 		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
-	const branchOperandV: BranchOperand = {
+	const branchAddressV: BranchAddress = {
 		branchRef: refName.fullNameBytes,
 	};
-	const operand = branchOperand(branchOperandV);
+	const address = branchAddress(branchAddressV);
 	const branchRef = decodeBytes(refName.fullNameBytes);
 	// A plain boolean, so this re-renders only when this branch's own fold state
 	// changes rather than on every fold anywhere.
@@ -187,7 +187,7 @@ export const BranchRow: FC<
 	const isRenaming = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 		return (
-			pendingOperation._tag === "InlineEdit" && operandEquals(operand, pendingOperation.operand)
+			pendingOperation._tag === "InlineEdit" && addressEquals(address, pendingOperation.address)
 		);
 	});
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
@@ -199,12 +199,12 @@ export const BranchRow: FC<
 	const { mutateAsync: branchRename } = useBranchRename();
 
 	const startEditing = () => {
-		startInlineEdit(operand);
+		startInlineEdit(address);
 	};
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
-		setCursor("applied", operand);
+		setCursor("applied", address);
 		focusScope("sidebar");
 	};
 
@@ -251,7 +251,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
-		startKeyboardTransfer({ sources: [operand], kind: "move" });
+		startKeyboardTransfer({ sources: [address], kind: "move" });
 		focusScope("sidebar");
 	};
 
@@ -279,7 +279,7 @@ export const BranchRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -427,7 +427,7 @@ export const BranchRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			operand={operand}
+			address={address}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

@@ -1,7 +1,7 @@
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 
 export type DragData = {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 };
 
 export const parseDragData = (data: unknown): DragData | null => {

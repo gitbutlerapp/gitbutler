@@ -13,7 +13,7 @@ import {
 import { diffHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
-import { hunkOperand, type HunkOperand, type Operand } from "#ui/operands.ts";
+import { hunkAddress, type HunkAddress, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
@@ -24,10 +24,10 @@ import { Match } from "effect";
 
 type HunkMenuTarget = {
 	change: TreeChange;
-	hunk: HunkOperand;
+	hunk: HunkAddress;
 	lineNumber: number;
-	sources: Array<Extract<Operand, { _tag: "Hunk" }>>;
-	checkedProbe: Extract<Operand, { _tag: "Hunk" }> | null;
+	sources: Array<Extract<Address, { _tag: "Hunk" }>>;
+	checkedProbe: Extract<Address, { _tag: "Hunk" }> | null;
 	usesSelectedLines: boolean;
 };
 
@@ -59,9 +59,9 @@ export const useHunkMenuItems = ({
 		const state = store.getState();
 		const usesCheckedLines =
 			checkedProbe !== null &&
-			projectSlice.selectors.selectOperandChecked(state, projectId, checkedProbe);
+			projectSlice.selectors.selectAddressChecked(state, projectId, checkedProbe);
 		const cutSources = usesCheckedLines
-			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
 			: sources;
 		const canUseHunk = sources.every((source) => !source.isResultOfBinaryToTextConversion);
 		const canCut = cutSources.every(
@@ -177,7 +177,7 @@ export const useHunkMenuItems = ({
 							enabled: !hunk.isResultOfBinaryToTextConversion,
 							onSelect: () => {
 								startAbsorb({
-									sources: [hunkOperand(hunk)],
+									sources: [hunkAddress(hunk)],
 									sourceTarget: {
 										type: "hunks",
 										subject: {

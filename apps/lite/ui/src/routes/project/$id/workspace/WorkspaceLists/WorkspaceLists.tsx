@@ -12,15 +12,15 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
-	branchOperand,
-	uncommittedChangesOperand,
+	branchAddress,
+	uncommittedChangesAddress,
 	uncommittedChangesFileParent,
-	commitOperand,
-	operandIdentityKey,
-	type Operand,
-	operandEquals,
+	commitAddress,
+	addressIdentityKey,
+	type Address,
+	addressEquals,
 	commitIdentityKey,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -107,17 +107,17 @@ type PanelId = "uncommitted-changes-panel" | "stacks-panel";
 
 const TreeItem: FC<
 	{
-		operand: Operand;
+		address: Address;
 	} & useRender.ComponentProps<"div">
-> = ({ operand, render, ...props }) => {
+> = ({ address, render, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("applied", navigationIndex, operand);
+	const isSelected = useIsCursorAt("applied", navigationIndex, address);
 
 	return useRender({
 		render,
 		defaultTagName: "div",
 		props: mergeProps<"div">(props, {
-			id: treeItemId(operand),
+			id: treeItemId(address),
 			role: "treeitem",
 			"aria-selected": isSelected,
 		}),
@@ -127,12 +127,12 @@ const TreeItem: FC<
 const OperationTarget: FC<
 	{
 		enabled: boolean;
-		operand: Operand;
+		address: Address;
 		projectId: string;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"button">
-> = ({ enabled, operand, projectId, outline, render, ...props }) => {
-	const dropRef = useOperationDropTarget({ enabled, target: operand, projectId });
+> = ({ enabled, address, projectId, outline, render, ...props }) => {
+	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
 
 	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -147,7 +147,7 @@ const OperationTarget: FC<
 			Match.tags({
 				Absorb: (): ActiveOperation | null => {
 					const isActive =
-						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId);
+						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId);
 					if (!isActive) return null;
 
 					return { placement: "into", tooltip: "Absorb target" };
@@ -156,14 +156,14 @@ const OperationTarget: FC<
 					if (mode.placement === null) return null;
 
 					const target = getTransferTarget(mode, selection, activeList);
-					const isActive = target !== null && operandEquals(target, operand);
+					const isActive = target !== null && addressEquals(target, address);
 					if (!isActive) return null;
 
 					return {
 						placement: mode.placement,
 						tooltip: getOperation({
 							sources: mode.sources,
-							target: operand,
+							target: address,
 							placement: mode.placement,
 							kind: getTransferKind(mode),
 						})?.label,
@@ -206,26 +206,26 @@ const OperationTarget: FC<
 	);
 };
 
-const OperandC: FC<
+const AddressC: FC<
 	{
 		projectId: string;
-		operand: Operand;
+		address: Address;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, outline, render, ...props }) => {
+> = ({ projectId, address, outline, render, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return useRender({
 		render: (
 			<OperationSourceC
 				projectId={projectId}
-				source={operand}
+				source={address}
 				outline={outline}
 				render={
 					<OperationTarget
-						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+						enabled={navigationIndexIncludes(navigationIndex, address, addressIdentityKey)}
 						projectId={projectId}
-						operand={operand}
+						address={address}
 						outline={outline}
 						render={render}
 					/>
@@ -399,14 +399,14 @@ const BranchSegment: FC<{
 	onAmendCommit,
 	canAmendCommit,
 }) => {
-	const operand = branchOperand({ branchRef: refName.fullNameBytes });
+	const address = branchAddress({ branchRef: refName.fullNameBytes });
 
 	return (
 		<TreeItem
-			operand={operand}
+			address={address}
 			aria-label={refName.displayName}
 			aria-expanded
-			render={<OperandC projectId={projectId} operand={operand} outline="outside" />}
+			render={<AddressC projectId={projectId} address={address} outline="outside" />}
 		>
 			<BranchRow
 				projectId={projectId}
@@ -444,8 +444,8 @@ const EmptySegmentContent: FC<{
 	const refName = assert(segment.refName);
 	const inert = !navigationIndexIncludes(
 		navigationIndex,
-		branchOperand({ branchRef: refName.fullNameBytes }),
-		operandIdentityKey,
+		branchAddress({ branchRef: refName.fullNameBytes }),
+		addressIdentityKey,
 	);
 
 	return (
@@ -493,7 +493,7 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
+				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
@@ -502,12 +502,12 @@ const SegmentContent: FC<{
 				return (
 					<TreeItem
 						key={commit.id}
-						operand={operand}
+						address={address}
 						aria-label={commitTitle(commit.message) ?? "(no message)"}
 						render={
-							<OperandC
+							<AddressC
 								projectId={projectId}
-								operand={operand}
+								address={address}
 								outline="outside"
 								render={
 									<CommitRow
@@ -533,7 +533,7 @@ const SegmentContent: FC<{
  * segment's last row — and, after the final segment, standing in as the card's
  * floor.
  *
- * It dims with the rows it joins, so it has to ask about the same operand the
+ * It dims with the rows it joins, so it has to ask about the same address the
  * row above it stands for: the last commit while the segment is unfolded, and
  * the branch itself once it is folded, because folding takes the commits out of
  * the navigation index (see `buildAppliedNavigationIndex`). Asking after a
@@ -561,14 +561,14 @@ const SegmentRailConnector: FC<{
 	const lastCommit = segment.commits.at(-1);
 	const standsFor =
 		lastCommit === undefined || isFolded
-			? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-			: commitOperand({ commitId: lastCommit.id, changeId: lastCommit.changeId });
+			? branchAddress({ branchRef: assert(segment.refName).fullNameBytes })
+			: commitAddress({ commitId: lastCommit.id, changeId: lastCommit.changeId });
 
 	return (
 		<Row
 			interactive={false}
 			className={stackCardStyles.railConnector}
-			inert={!navigationIndexIncludes(navigationIndex, standsFor, operandIdentityKey)}
+			inert={!navigationIndexIncludes(navigationIndex, standsFor, addressIdentityKey)}
 		>
 			<GraphSegment
 				glyph="parent"
@@ -736,7 +736,7 @@ const Stacks: FC<{
 export const WorkspaceLists: FC<
 	{
 		projectId: string;
-		navigationIndex: NavigationIndex<Operand>;
+		navigationIndex: NavigationIndex<Address>;
 		uncommittedNavigationIndex: NavigationIndex<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
@@ -796,7 +796,7 @@ export const WorkspaceLists: FC<
 	const commitCheckRangeAnchor = useRef<string>(null);
 	const commitCheckRangeEnd = useRef<string>(null);
 
-	const rangeResolver = navigationIndexRange<Operand, string>({
+	const rangeResolver = navigationIndexRange<Address, string>({
 		navigationIndex,
 		getKey: (commitId) => commitIdentityKey({ commitId }),
 		filterMap: (item) => (item._tag === "Commit" ? item.commitId : null),
@@ -823,21 +823,21 @@ export const WorkspaceLists: FC<
 		const checkedCommits = nextCommitRange.checked.difference(checkedCommitIds);
 		const uncheckedCommits = checkedCommitIds.difference(nextCommitRange.checked);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: Array.from(checkedCommits).flatMap((commitId) => {
+				addresses: Array.from(checkedCommits).flatMap((commitId) => {
 					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: true,
 			}),
 		);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: Array.from(uncheckedCommits).flatMap((commitId) => {
+				addresses: Array.from(uncheckedCommits).flatMap((commitId) => {
 					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: false,
 			}),
@@ -889,13 +889,13 @@ export const WorkspaceLists: FC<
 					>
 						<OperationSourceC
 							projectId={projectId}
-							source={uncommittedChangesOperand}
+							source={uncommittedChangesAddress}
 							outline="inside"
 							render={
 								<OperationTarget
 									enabled
 									projectId={projectId}
-									operand={uncommittedChangesOperand}
+									address={uncommittedChangesAddress}
 									outline="inside"
 									render={
 										<UncommittedChanges

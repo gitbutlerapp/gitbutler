@@ -1,8 +1,8 @@
-import { type Operand, operandEquals } from "#ui/operands.ts";
+import { type Address, addressEquals } from "#ui/addresses.ts";
 import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getOperationSources, pointerTransfer } from "#ui/operations/pending-operation.ts";
 import styles from "./OperationSourceC.module.css";
-import { operandsLabel } from "./operandLabel.ts";
+import { addressesLabel } from "./addressLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -27,7 +27,7 @@ type OperationSourceOutline = "inside" | "outside";
 export const OperationSourceC: FC<
 	{
 		projectId: string;
-		source: Operand;
+		source: Address;
 		outline: OperationSourceOutline;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
 > = ({ projectId, source, outline, render, ...props }) => {
@@ -42,8 +42,8 @@ export const OperationSourceC: FC<
 	const dragSource = useAppSelector((state) => {
 		if (source._tag !== "Commit" && source._tag !== "File") return source;
 
-		const isChecked = projectSlice.selectors.selectOperandChecked(state, projectId, source);
-		return isChecked ? projectSlice.selectors.selectCheckedOperands(state, projectId) : source;
+		const isChecked = projectSlice.selectors.selectAddressChecked(state, projectId, source);
+		return isChecked ? projectSlice.selectors.selectCheckedAddresses(state, projectId) : source;
 	});
 	const dragSources = Array.isArray(dragSource) ? dragSource : [dragSource];
 
@@ -58,7 +58,7 @@ export const OperationSourceC: FC<
 					if (!headInfoIndex) return;
 					const root = createRoot(container);
 					root.render(
-						<DragPreview>{operandsLabel({ operands: dragSources, headInfoIndex })}</DragPreview>,
+						<DragPreview>{addressesLabel({ addresses: dragSources, headInfoIndex })}</DragPreview>,
 					);
 					return () => {
 						root.unmount();
@@ -102,7 +102,7 @@ export const OperationSourceC: FC<
 
 	const operationSources = getOperationSources(pendingOperation);
 	const isActiveSource = operationSources
-		? operationSources.some((operationSource) => operandEquals(operationSource, source))
+		? operationSources.some((operationSource) => addressEquals(operationSource, source))
 		: false;
 
 	return useRender({

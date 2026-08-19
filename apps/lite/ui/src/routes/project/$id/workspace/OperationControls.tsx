@@ -8,7 +8,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import {
 	getOperations,
 	useExecuteOperation,
@@ -17,7 +17,7 @@ import {
 	type TransferKind,
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { operandLabel, operandsLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
+import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
@@ -134,14 +134,14 @@ const Controls: FC<{
 	);
 };
 
-const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; projectId: string }> = ({
-	checkedOperandCount,
+const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; projectId: string }> = ({
+	checkedAddressCount,
 	projectId,
 }) => {
 	const dispatch = useAppDispatch();
 
 	const checkedType = useAppSelector((state): string | null => {
-		switch (projectSlice.selectors.selectCheckedOperandsContext(state, projectId)) {
+		switch (projectSlice.selectors.selectCheckedAddressesContext(state, projectId)) {
 			case "Commit":
 				return "commit";
 			case "File":
@@ -155,15 +155,15 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 	if (checkedType === null) return;
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.clearCheckedOperands({ projectId }));
+		dispatch(projectSlice.actions.clearCheckedAddresses({ projectId }));
 	};
 
 	return (
 		<Container>
 			<ControlsRow>
 				<Label>
-					{new Intl.NumberFormat().format(checkedOperandCount)} {checkedType}
-					{new Intl.PluralRules().select(checkedOperandCount) !== "one" && "s"} selected
+					{new Intl.NumberFormat().format(checkedAddressCount)} {checkedType}
+					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
 				</Label>
 				<Controls onCancel={cancel} />
 			</ControlsRow>
@@ -204,7 +204,7 @@ const AbsorbOperationControls: FC<{
 					<Label>Failed to load absorb plan</Label>
 				) : (
 					<Label>
-						Absorb {operandsLabel({ headInfoIndex, operands: pending.sources })} into{" "}
+						Absorb {addressesLabel({ headInfoIndex, addresses: pending.sources })} into{" "}
 						{absorptionPlan.length} commits
 					</Label>
 				)}
@@ -373,7 +373,7 @@ const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
 	transfer: KeyboardTransfer;
-	appliedNavigationIndex: NavigationIndex<Operand>;
+	appliedNavigationIndex: NavigationIndex<Address>;
 }> = ({ headInfoIndex, projectId, transfer, appliedNavigationIndex }) => {
 	const activeList = useActiveList();
 	const selection = useSelection("applied", appliedNavigationIndex);
@@ -412,8 +412,8 @@ const TransferKeyboardOperationControls: FC<{
 			<Separator />
 			<ControlsRow>
 				<Label>
-					<div>Source: {operandsLabel({ headInfoIndex, operands: transfer.sources })}</div>
-					<div>Target: {operandLabel({ headInfoIndex, operand: target })}</div>
+					<div>Source: {addressesLabel({ headInfoIndex, addresses: transfer.sources })}</div>
+					<div>Target: {addressLabel({ headInfoIndex, address: target })}</div>
 				</Label>
 				<Controls
 					onCancel={cancel}
@@ -432,7 +432,7 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Operand> }> = ({
+export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Address> }> = ({
 	appliedNavigationIndex,
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
@@ -443,16 +443,16 @@ export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Ope
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const checkedOperandCount = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedOperandCount(state, projectId),
+	const checkedAddressCount = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
 
 	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () =>
-				checkedOperandCount > 0 && (
-					<CheckedOperandOperationControls
-						checkedOperandCount={checkedOperandCount}
+				checkedAddressCount > 0 && (
+					<CheckedAddressOperationControls
+						checkedAddressCount={checkedAddressCount}
 						projectId={projectId}
 					/>
 				),

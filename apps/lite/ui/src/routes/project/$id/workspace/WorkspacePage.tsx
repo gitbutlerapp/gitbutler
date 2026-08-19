@@ -37,16 +37,16 @@ import { Match } from "effect";
 import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
-	branchOperand,
-	commitOperand,
-	operandContains,
-	operandEquals,
-	operandIdentityKey,
-	type BranchOperand,
-	type HunkOperand,
-	type Operand,
+	branchAddress,
+	commitAddress,
+	addressContains,
+	addressEquals,
+	addressIdentityKey,
+	type BranchAddress,
+	type HunkAddress,
+	type Address,
 	uncommittedChangesFileParent,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import {
 	BranchesDetails,
 	type DiffViewerHandle,
@@ -240,7 +240,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const hasAnyOperation = (sources: Array<Operand>, target: Operand, kind: TransferKind) => {
+const hasAnyOperation = (sources: Array<Address>, target: Address, kind: TransferKind) => {
 	const operations = getOperations(sources, target, kind);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
@@ -255,10 +255,10 @@ const buildAppliedNavigationIndex = ({
 	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
-}): NavigationIndex<Operand> => {
-	const allItems = (): Array<Operand> =>
+}): NavigationIndex<Address> => {
+	const allItems = (): Array<Address> =>
 		headInfo?.stacks.toReversed().flatMap((stack) =>
-			stack.segments.flatMap((segment): Array<Operand> => {
+			stack.segments.flatMap((segment): Array<Address> => {
 				// Matches what WorkspaceLists renders: a folded segment shows a stub
 				// in place of its commits, so they are not navigable.
 				const folded =
@@ -266,11 +266,11 @@ const buildAppliedNavigationIndex = ({
 					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
 
 				return [
-					...(segment.refName ? [branchOperand({ branchRef: segment.refName.fullNameBytes })] : []),
+					...(segment.refName ? [branchAddress({ branchRef: segment.refName.fullNameBytes })] : []),
 					...(folded
 						? []
 						: segment.commits.map((commit) =>
-								commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+								commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 							)),
 				];
 			}),
@@ -285,14 +285,14 @@ const buildAppliedNavigationIndex = ({
 		sources,
 		isCompatibleTarget,
 	}: {
-		sources: Array<Operand>;
-		isCompatibleTarget: (operand: Operand) => boolean;
-	}): Array<Operand> =>
+		sources: Array<Address>;
+		isCompatibleTarget: (address: Address) => boolean;
+	}): Array<Address> =>
 		allItems().filter(
-			(operand) =>
+			(address) =>
 				sources.some(
-					(source) => operandEquals(operand, source) || operandContains(operand, source),
-				) || isCompatibleTarget(operand),
+					(source) => addressEquals(address, source) || addressContains(address, source),
+				) || isCompatibleTarget(address),
 		);
 
 	const filteredItems = Match.value(pendingOperation).pipe(
@@ -301,20 +301,20 @@ const buildAppliedNavigationIndex = ({
 			Absorb: (operation) =>
 				compatibleItems({
 					sources: operation.sources,
-					isCompatibleTarget: (operand) =>
-						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId),
+					isCompatibleTarget: (address) =>
+						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId),
 				}),
 			Transfer: ({ value: operation }) =>
 				compatibleItems({
 					sources: operation.sources,
-					isCompatibleTarget: (operand) =>
-						hasAnyOperation(operation.sources, operand, getTransferKind(operation)),
+					isCompatibleTarget: (address) =>
+						hasAnyOperation(operation.sources, address, getTransferKind(operation)),
 				}),
-			InlineEdit: (x) => [x.operand],
+			InlineEdit: (x) => [x.address],
 		}),
 	);
 
-	const indexByKey = buildIndexByKey(filteredItems, operandIdentityKey);
+	const indexByKey = buildIndexByKey(filteredItems, addressIdentityKey);
 
 	return { items: filteredItems, indexByKey };
 };
@@ -400,7 +400,7 @@ const WorkspacePage: FC = () => {
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
-		(itemId: string, firstHunk: HunkOperand | null) => {
+		(itemId: string, firstHunk: HunkAddress | null) => {
 			setCursor("diff", firstHunk);
 
 			if (renderAllFiles) {
@@ -426,8 +426,8 @@ const WorkspacePage: FC = () => {
 
 	useWorkspaceHotkeys(projectId);
 
-	const selectBranch = (branch: BranchOperand) => {
-		setCursor("applied", branchOperand(branch));
+	const selectBranch = (branch: BranchAddress) => {
+		setCursor("applied", branchAddress(branch));
 		focusScope("sidebar");
 	};
 

@@ -10,7 +10,7 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -36,7 +36,7 @@ import styles from "./UpstreamList.module.css";
 
 const pluralRules = new Intl.PluralRules("en");
 
-const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "upstream");
+const useIsSelected = (address: Address): boolean => useIsSelectedInList(address, "upstream");
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -67,8 +67,8 @@ const TargetCommitRow: FC<{
 	status?: GraphSegmentStatus;
 }> = ({ item, status }) => {
 	const { commit, review, inWorkspace } = item;
-	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
-	const isSelected = useIsSelected(operand);
+	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
+	const isSelected = useIsSelected(address);
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
 	const title = review?.title ?? commitTitle(commit.message);
@@ -78,12 +78,12 @@ const TargetCommitRow: FC<{
 
 	return (
 		<Row
-			id={treeItemId(operand)}
+			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() => setCursor("upstream", operand)}
+			onSelect={() => setCursor("upstream", address)}
 		>
 			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
 			<div className={styles.label}>
@@ -403,7 +403,7 @@ export const UpstreamList: FC<
 		select: (newItem) => setCursor("upstream", newItem),
 		selection,
 		ref: hotkeysRef,
-		getKey: operandIdentityKey,
+		getKey: addressIdentityKey,
 	});
 
 	// Decided by `canUpdateWorkspace`, not by whether this page has rows to

@@ -14,7 +14,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitForgeUrl } from "#ui/commit.ts";
 import { sidebarHotkeys } from "#ui/hotkeys.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { focusScope, useNavigationIndexHotkeys } from "#ui/focus-scopes.ts";
@@ -72,7 +72,7 @@ export const useActiveListsHotkeys = ({
 	focusCommitMessageInput,
 	onEdgeSpill,
 }: {
-	navigationIndex: NavigationIndex<Operand>;
+	navigationIndex: NavigationIndex<Address>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -186,7 +186,7 @@ export const useActiveListsHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -218,10 +218,10 @@ export const useActiveListsHotkeys = ({
 				: false;
 
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: selectedBranchSegment.commits.map((commit) =>
-					commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+				addresses: selectedBranchSegment.commits.map((commit) =>
+					commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 				),
 				checked: !selectedBranchCommitsChecked,
 			}),
@@ -231,8 +231,8 @@ export const useActiveListsHotkeys = ({
 	const moveSelectedCommit = (offset: -1 | 1) => {
 		if (!selection || selection._tag !== "Commit") return;
 
-		const source = commitOperand(selection);
-		const selectionIdx = navigationIndex.indexByKey.get(operandIdentityKey(source));
+		const source = commitAddress(selection);
+		const selectionIdx = navigationIndex.indexByKey.get(addressIdentityKey(source));
 		if (selectionIdx === undefined) return;
 
 		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
@@ -243,7 +243,7 @@ export const useActiveListsHotkeys = ({
 			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
 
 		let nextItemIndex = selectionIdx;
-		let nextItem: Operand | undefined;
+		let nextItem: Address | undefined;
 		do {
 			nextItemIndex += offset;
 			nextItem = navigationIndex.items[nextItemIndex];
@@ -301,7 +301,7 @@ export const useActiveListsHotkeys = ({
 						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
 						if (newId === undefined) break rewrite;
 
-						latestSelectionAfterDiscard = commitOperand({
+						latestSelectionAfterDiscard = commitAddress({
 							commitId: newId,
 							changeId: selectionAfterDiscard.changeId,
 						});
@@ -422,12 +422,12 @@ export const useActiveListsHotkeys = ({
 	const canCheckCommits = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckCommits(state, projectId),
 	);
-	const operationSourcesForItem = (operand: Operand): Array<Operand> => {
-		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+	const operationSourcesForItem = (address: Address): Array<Address> => {
+		const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 			store.getState(),
 			projectId,
 		);
-		return checkedOperands.length > 0 ? checkedOperands : [operand];
+		return checkedAddresses.length > 0 ? checkedAddresses : [address];
 	};
 
 	useNavigationIndexHotkeys({
@@ -437,9 +437,9 @@ export const useActiveListsHotkeys = ({
 		select: (newItem) => setCursor("applied", newItem),
 		selection,
 		onEdgeSpill,
-		getKey: operandIdentityKey,
+		getKey: addressIdentityKey,
 		operationSourcesForItem,
-		selectSectionPredicate: (operand) => operand._tag === "Branch",
+		selectSectionPredicate: (address) => address._tag === "Branch",
 	});
 
 	useHotkeys([

@@ -1,7 +1,7 @@
 import { useApply } from "#ui/api/mutations.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
-import { branchOperand } from "#ui/operands.ts";
+import { branchAddress } from "#ui/addresses.ts";
 
 /**
  * Apply a branch and follow it into the workspace: on success the sidebar
@@ -22,7 +22,7 @@ export const useApplyToWorkspace = (projectId: string) => {
 					if (!appliedRef) return;
 
 					setPage("workspace");
-					setCursor("applied", branchOperand({ branchRef: encodeBytes(appliedRef.full) }));
+					setCursor("applied", branchAddress({ branchRef: encodeBytes(appliedRef.full) }));
 				},
 			},
 		);

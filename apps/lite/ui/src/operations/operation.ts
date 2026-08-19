@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import type { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
-import { type Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
+import { type Address, addressEquals, addressFileParent } from "#ui/addresses.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
@@ -28,7 +28,7 @@ import { syncCoreCaches } from "#ui/api/mutations.ts";
  * a single, atomic operation.
  */
 type Operation =
-	| { _tag: "AmendCommit"; sources: Array<Operand>; commitId: string }
+	| { _tag: "AmendCommit"; sources: Array<Address>; commitId: string }
 	| {
 			_tag: "CherryPick";
 			sourceCommitIds: Array<string>;
@@ -37,14 +37,14 @@ type Operation =
 	  }
 	| {
 			_tag: "CreateCommit";
-			sources: Array<Operand>;
+			sources: Array<Address>;
 			relativeTo: RelativeTo;
 			side: InsertSide;
 			message: string;
 	  }
 	| {
 			_tag: "SplitCommit";
-			sources: Array<Operand>;
+			sources: Array<Address>;
 			sourceCommitId: string;
 			relativeTo: RelativeTo;
 			side: InsertSide;
@@ -57,7 +57,7 @@ type Operation =
 	  }
 	| {
 			_tag: "MoveCommitFile";
-			sources: Array<Operand>;
+			sources: Array<Address>;
 			sourceCommitId: string;
 			destinationCommitId: string;
 	  }
@@ -69,7 +69,7 @@ type Operation =
 	| { _tag: "UndoCommit"; subjectCommitIds: Array<string>; assignTo: string | null }
 	| {
 			_tag: "DiscardChanges";
-			sources: Array<Operand>;
+			sources: Array<Address>;
 			commitId: string;
 			assignTo: string | null;
 	  }
@@ -85,7 +85,7 @@ const executeOperation = async ({
 }: {
 	projectId: string;
 	operation: Operation;
-	resolveChanges: (sources: Array<Operand>) => Promise<Array<DiffSpec> | null>;
+	resolveChanges: (sources: Array<Address>) => Promise<Array<DiffSpec> | null>;
 	dryRun: boolean;
 }) =>
 	Match.value(operation).pipe(
@@ -279,19 +279,19 @@ export const useExecuteOperation = () => {
 	});
 };
 
-const isUncommittedChangesSource = (source: Operand): boolean =>
-	operandFileParent(source)?._tag === "UncommittedChanges";
+const isUncommittedChangesSource = (source: Address): boolean =>
+	addressFileParent(source)?._tag === "UncommittedChanges";
 
-const commitIdFromFileSources = (sources: Array<Operand>): string | null => {
+const commitIdFromFileSources = (sources: Array<Address>): string | null => {
 	const [source, ...rest] = sources;
 	if (!source) return null;
 
-	const parent = operandFileParent(source);
+	const parent = addressFileParent(source);
 	if (parent?._tag !== "Commit") return null;
 
 	const hasDisparateParent = rest.some((source) => {
-		const otherParent = operandFileParent(source);
-		return otherParent === null || !operandEquals(parent, otherParent);
+		const otherParent = addressFileParent(source);
+		return otherParent === null || !addressEquals(parent, otherParent);
 	});
 	return hasDisparateParent ? null : parent.commitId;
 };
@@ -307,8 +307,8 @@ const squashOperation = ({
 	sources,
 	target,
 }: {
-	sources: Array<Operand>;
-	target: Operand;
+	sources: Array<Address>;
+	target: Address;
 }): LabelledOperation | null => {
 	if (
 		target._tag === "Commit" &&
@@ -385,8 +385,8 @@ const intoOperation = ({
 	sources,
 	target,
 }: {
-	sources: Array<Operand>;
-	target: Operand;
+	sources: Array<Address>;
+	target: Address;
 }): LabelledOperation | null => {
 	const squash = squashOperation({ sources, target });
 	if (squash) return squash;
@@ -429,8 +429,8 @@ const moveOperation = ({
 	target,
 	side,
 }: {
-	sources: Array<Operand>;
-	target: Operand;
+	sources: Array<Address>;
+	target: Address;
 	side: InsertSide;
 }): LabelledOperation | null => {
 	const relativeTo: RelativeTo | null = Match.value({ target, side }).pipe(
@@ -441,7 +441,7 @@ const moveOperation = ({
 		Match.when(
 			{
 				target: { _tag: "Branch" },
-				// We use the branch operand as the source/target for the branch
+				// We use the branch address as the source/target for the branch
 				// contents. However, `RelativeTo` is interpreted to mean just the
 				// branch reference rather than the branch bucket, meaning `side:
 				// "below"` won't work as expected.
@@ -531,7 +531,7 @@ const moveOperation = ({
 export type Placement = "into" | "above" | "below";
 export type TransferKind = "move" | "copy";
 
-const isOperationSourceEnabled = (source: Operand): boolean =>
+const isOperationSourceEnabled = (source: Address): boolean =>
 	Match.value(source).pipe(
 		Match.when({ _tag: "Hunk", isResultOfBinaryToTextConversion: true }, () => false),
 		Match.orElse(() => true),
@@ -544,8 +544,8 @@ const cherryPickOperation = ({
 	target,
 	placement,
 }: {
-	sources: Array<Operand>;
-	target: Operand;
+	sources: Array<Address>;
+	target: Address;
 	placement: Placement;
 }): LabelledOperation | null => {
 	if (sources.length === 0 || !sources.every((source) => source._tag === "Commit")) return null;
@@ -590,8 +590,8 @@ const cherryPickOperation = ({
 };
 
 export const getOperations = (
-	sources: Array<Operand>,
-	target: Operand,
+	sources: Array<Address>,
+	target: Address,
 	kind: TransferKind,
 ): OperationsByPlacement => {
 	if (sources.length === 0 || !sources.every(isOperationSourceEnabled)) {
@@ -610,7 +610,7 @@ export const getOperations = (
 				below: cherryPickOperation({ sources, target, placement: "below" }),
 			};
 		case "move":
-			if (sources.some((source) => operandEquals(source, target)))
+			if (sources.some((source) => addressEquals(source, target)))
 				return { into: null, above: null, below: null };
 
 			return {
@@ -622,8 +622,8 @@ export const getOperations = (
 };
 
 export const getOperation = (x: {
-	sources: Array<Operand>;
-	target: Operand;
+	sources: Array<Address>;
+	target: Address;
 	placement: Placement;
 	kind: TransferKind;
 }): LabelledOperation | null => getOperations(x.sources, x.target, x.kind)[x.placement];

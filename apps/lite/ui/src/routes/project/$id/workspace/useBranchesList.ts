@@ -8,7 +8,7 @@ import {
 	searchStacks,
 	unappliedStacks,
 } from "#ui/branch.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -18,7 +18,7 @@ import { useDeferredValue } from "react";
 
 export type BranchesListData = {
 	unapplied: Array<ListedStack>;
-	navigationIndex: NavigationIndex<Operand>;
+	navigationIndex: NavigationIndex<Address>;
 	/**
 	 * The listing query's state, so the page can tell a genuinely empty result
 	 * apart from one that has not arrived or failed.
@@ -66,7 +66,7 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 				unfoldedBranchRefs.map((refName, index) => [
 					refName,
 					results[index]?.data?.commits.map((commit) =>
-						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+						commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 					) ?? [],
 				]),
 			),
@@ -90,8 +90,8 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 			const unapplied = searchStacks(unappliedStacks(listedStacks, filters), search);
 			const items = unapplied.flatMap((stack) =>
 				stack.branches.flatMap(
-					(branch): Array<Operand> => [
-						branchOperand({ branchRef: encodeBytes(branch.refName.full) }),
+					(branch): Array<Address> => [
+						branchAddress({ branchRef: encodeBytes(branch.refName.full) }),
 						// Matches what BranchesList renders: a branch with no commits of
 						// its own cannot be unfolded, and an unfolded one shows only the
 						// commits it contributes itself.
@@ -104,7 +104,7 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 
 			return {
 				unapplied,
-				navigationIndex: { items, indexByKey: buildIndexByKey(items, operandIdentityKey) },
+				navigationIndex: { items, indexByKey: buildIndexByKey(items, addressIdentityKey) },
 			};
 		},
 	});

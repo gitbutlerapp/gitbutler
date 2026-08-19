@@ -1,11 +1,11 @@
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
-	branchOperand,
-	commitOperand,
-	operandIdentityKey,
-	type CommitOperand,
-	type Operand,
-} from "#ui/operands.ts";
+	branchAddress,
+	commitAddress,
+	addressIdentityKey,
+	type CommitAddress,
+	type Address,
+} from "#ui/addresses.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 export const selectAfterDiscardedCommits = ({
@@ -14,14 +14,14 @@ export const selectAfterDiscardedCommits = ({
 	discardedCommitIds,
 	headInfoIndex,
 }: {
-	navigationIndex: NavigationIndex<Operand>;
-	commit: CommitOperand;
+	navigationIndex: NavigationIndex<Address>;
+	commit: CommitAddress;
 	discardedCommitIds: ReadonlySet<string>;
 	headInfoIndex: HeadInfoIndex | undefined;
-}): Operand | null => {
-	if (!discardedCommitIds.has(commit.commitId)) return commitOperand(commit);
+}): Address | null => {
+	if (!discardedCommitIds.has(commit.commitId)) return commitAddress(commit);
 
-	const commitIndex = navigationIndex.indexByKey.get(operandIdentityKey(commitOperand(commit)));
+	const commitIndex = navigationIndex.indexByKey.get(addressIdentityKey(commitAddress(commit)));
 	if (commitIndex === undefined) return null;
 
 	for (let index = commitIndex + 1; ; index++) {
@@ -40,8 +40,8 @@ export const selectAfterDiscardedCommits = ({
 	if (!commitCtx?.segment.refName) return null;
 
 	const branchIdx = navigationIndex.indexByKey.get(
-		operandIdentityKey(
-			branchOperand({
+		addressIdentityKey(
+			branchAddress({
 				branchRef: commitCtx.segment.refName.fullNameBytes,
 			}),
 		),

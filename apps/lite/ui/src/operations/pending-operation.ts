@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import { operandEquals, type Operand, uncommittedChangesOperand } from "#ui/operands.ts";
+import { addressEquals, type Address, uncommittedChangesAddress } from "#ui/addresses.ts";
 import type { Placement, TransferKind } from "#ui/operations/operation.ts";
 import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
@@ -9,7 +9,7 @@ import type { AbsorptionTarget } from "@gitbutler/but-sdk";
  * pending.
  */
 export type PendingAbsorb = {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	/** The same sources in a richer representation needed by the SDK to compute the plan. */
 	sourceTarget: AbsorptionTarget;
 	restoreSelection: WorkspaceCursorSnapshot;
@@ -19,7 +19,7 @@ export type PendingAbsorb = {
  * Derives the operation target from the current workspace selection.
  */
 export type KeyboardTransfer = {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	kind: TransferKind;
 	placement: Placement;
 	restoreSelection: WorkspaceCursorSnapshot;
@@ -29,8 +29,8 @@ export type KeyboardTransfer = {
  * Stores the target and placement selected through drag-and-drop.
  */
 type PointerTransfer = {
-	sources: Array<Operand>;
-	target: Operand | null;
+	sources: Array<Address>;
+	target: Address | null;
 	placement: Placement | null;
 };
 
@@ -71,15 +71,15 @@ export const getTransferKind = (transfer: PendingTransfer): TransferKind =>
 
 export const getTransferTarget = (
 	transfer: PendingTransfer,
-	appliedSelection: Operand | null,
+	appliedSelection: Address | null,
 	activeList: "applied" | "uncommitted",
-): Operand | null =>
+): Address | null =>
 	Match.value(transfer).pipe(
 		Match.tagsExhaustive({
 			Pointer: (transfer) => transfer.target,
 			Keyboard: () =>
 				Match.value(activeList).pipe(
-					Match.when("uncommitted", () => uncommittedChangesOperand),
+					Match.when("uncommitted", () => uncommittedChangesAddress),
 					Match.when("applied", () => appliedSelection),
 					Match.exhaustive,
 				),
@@ -102,9 +102,9 @@ export const pendingTransfer = (transfer: PendingTransfer): PendingOperation => 
 	value: transfer,
 });
 
-export type InlineEditOperand = Extract<Operand, { _tag: "Branch" | "Commit" }>;
+export type InlineEditAddress = Extract<Address, { _tag: "Branch" | "Commit" }>;
 
-export type PendingInlineEdit = { operand: InlineEditOperand };
+export type PendingInlineEdit = { address: InlineEditAddress };
 
 export type PendingOperation =
 	| { _tag: "None" }
@@ -116,9 +116,9 @@ export const noPendingOperation: PendingOperation = {
 	_tag: "None",
 };
 
-export const pendingInlineEdit = ({ operand }: PendingInlineEdit): PendingOperation => ({
+export const pendingInlineEdit = ({ address }: PendingInlineEdit): PendingOperation => ({
 	_tag: "InlineEdit",
-	operand,
+	address,
 });
 
 export const isValidPendingOperationForSelection = ({
@@ -126,18 +126,18 @@ export const isValidPendingOperationForSelection = ({
 	selection,
 }: {
 	pendingOperation: PendingOperation;
-	selection: Operand;
+	selection: Address;
 }): boolean =>
 	Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () => true,
 			Absorb: () => true,
 			Transfer: () => true,
-			InlineEdit: (pending) => operandEquals(selection, pending.operand),
+			InlineEdit: (pending) => addressEquals(selection, pending.address),
 		}),
 	);
 
-export const getOperationSources = (pendingOperation: PendingOperation): Array<Operand> | null =>
+export const getOperationSources = (pendingOperation: PendingOperation): Array<Address> | null =>
 	Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () => null,

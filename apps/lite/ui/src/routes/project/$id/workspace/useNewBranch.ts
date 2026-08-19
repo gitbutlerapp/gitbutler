@@ -1,7 +1,7 @@
 import { useBranchCheckoutNew, useBranchCreate } from "#ui/api/mutations.ts";
 import { toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
-import { branchOperand } from "#ui/operands.ts";
+import { branchAddress } from "#ui/addresses.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -48,7 +48,7 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 					// where it can be seen — and selecting it there is what opens it for
 					// renaming, which is the first thing a canned name wants.
 					setPage("workspace");
-					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
 					focusScope("sidebar");
 				},
 			},

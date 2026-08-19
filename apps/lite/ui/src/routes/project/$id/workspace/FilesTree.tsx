@@ -10,11 +10,11 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import {
 	uncommittedChangesFileParent,
-	fileOperand,
-	operandEquals,
-	operandIdentityKey,
+	fileAddress,
+	addressEquals,
+	addressIdentityKey,
 	type FileParent,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -105,10 +105,10 @@ const useFilesTreeHotkeys = ({
 		startAbsorb({
 			sources: (checkedPaths.size > 0
 				? Array.from(checkedPaths, (path) =>
-						fileOperand({ parent: uncommittedChangesFileParent, path }),
+						fileAddress({ parent: uncommittedChangesFileParent, path }),
 					)
 				: null) ?? [
-				fileOperand({
+				fileAddress({
 					parent: uncommittedChangesFileParent,
 					path: selectedUncommittedChange.path,
 				}),
@@ -275,12 +275,12 @@ const useFilesTreeHotkeys = ({
 		onEdgeSpill,
 		getKey: (path) => path,
 		operationSourcesForItem: (path) => {
-			const operand = fileOperand({ parent: fileParent, path });
-			const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+			const address = fileAddress({ parent: fileParent, path });
+			const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 				store.getState(),
 				projectId,
 			);
-			return checkedOperands.length > 0 ? checkedOperands : [operand];
+			return checkedAddresses.length > 0 ? checkedAddresses : [address];
 		},
 	});
 };
@@ -335,8 +335,8 @@ export const FilesTree: FC<
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
-	const checkedOperandKeys = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedOperandKeys(state, projectId),
+	const checkedAddressKeys = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -361,7 +361,7 @@ export const FilesTree: FC<
 		mode === "tree" ? "hidden" : (pathFirst ?? defaultSettings.pathFirst) ? "lead" : "trail";
 
 	const isFileChecked = (path: string): boolean =>
-		checkedOperandKeys.has(operandIdentityKey(fileOperand({ parent: fileParent, path })));
+		checkedAddressKeys.has(addressIdentityKey(fileAddress({ parent: fileParent, path })));
 
 	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
 		const paths = filePaths.filter(checkable);
@@ -380,13 +380,13 @@ export const FilesTree: FC<
 	const getCheckedRange = checkedRange(rangeResolver);
 
 	const checkedFilePaths = (): Set<string> => {
-		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+		const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 			store.getState(),
 			projectId,
 		);
 		return new Set(
-			checkedOperands.flatMap((operand) =>
-				operand._tag === "File" && operandEquals(operand.parent, fileParent) ? operand.path : [],
+			checkedAddresses.flatMap((address) =>
+				address._tag === "File" && addressEquals(address.parent, fileParent) ? address.path : [],
 			),
 		);
 	};
@@ -399,20 +399,20 @@ export const FilesTree: FC<
 		next: Set<string>;
 	}): void => {
 		const nextCheckable = new Set([...next].filter(checkable));
-		const operands = (paths: Set<string>) =>
-			Array.from(paths, (path) => fileOperand({ parent: fileParent, path }));
+		const addresses = (paths: Set<string>) =>
+			Array.from(paths, (path) => fileAddress({ parent: fileParent, path }));
 
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operands(nextCheckable.difference(previous)),
+				addresses: addresses(nextCheckable.difference(previous)),
 				checked: true,
 			}),
 		);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operands(previous.difference(nextCheckable)),
+				addresses: addresses(previous.difference(nextCheckable)),
 				checked: false,
 			}),
 		);
@@ -546,7 +546,7 @@ export const FilesTree: FC<
 						}
 
 						const item = row.item;
-						const operand = fileOperand({ parent: fileParent, path: row.path });
+						const address = fileAddress({ parent: fileParent, path: row.path });
 
 						return (
 							<TreeItem
@@ -561,7 +561,7 @@ export const FilesTree: FC<
 								render={
 									<OperationSourceC
 										projectId={projectId}
-										source={operand}
+										source={address}
 										outline="outside"
 										render={
 											<FileRow
@@ -570,7 +570,7 @@ export const FilesTree: FC<
 												pathDisplay={pathDisplay}
 												inert={!navigationIndexIncludes(navigationIndex, row.path, (path) => path)}
 												isSelected={isSelected}
-												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}
+												isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
 												onSelect={() => onRowSelection(row.path)}
 												canCheck={canCheck && item._tag === "Change"}
 												checkFile={checkFile}

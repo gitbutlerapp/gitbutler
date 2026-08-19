@@ -1,6 +1,6 @@
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle } from "#ui/commit.ts";
-import { operandEquals, type Operand } from "#ui/operands.ts";
+import { addressEquals, type Address } from "#ui/addresses.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
 
@@ -11,7 +11,7 @@ export const buildCommitTargetComboboxItems = ({
 }: {
 	headInfo: RefInfo | undefined;
 	headInfoIndex: HeadInfoIndex | undefined;
-	appliedSelection: Operand | null;
+	appliedSelection: Address | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
 		appliedSelection?._tag === "Commit"
@@ -23,7 +23,7 @@ export const buildCommitTargetComboboxItems = ({
 			? ([
 					{
 						label: commitTitle(commitTarget.message) ?? "(no message)",
-						operand: { _tag: "Commit", commitId: commitTarget.id, changeId: commitTarget.changeId },
+						address: { _tag: "Commit", commitId: commitTarget.id, changeId: commitTarget.changeId },
 						relativeTo: { type: "commit", subject: commitTarget.id },
 					},
 				] satisfies Array<CommitTargetComboboxItem>)
@@ -38,7 +38,7 @@ export const buildCommitTargetComboboxItems = ({
 							return [
 								{
 									label: refName.displayName,
-									operand: { _tag: "Branch", branchRef: refName.fullNameBytes },
+									address: { _tag: "Branch", branchRef: refName.fullNameBytes },
 									relativeTo: {
 										type: "referenceBytes",
 										subject: refName.fullNameBytes,
@@ -56,6 +56,6 @@ export const selectCommitTargetComboboxItem = ({
 	appliedSelection,
 }: {
 	items: Array<CommitTargetComboboxItem>;
-	appliedSelection: Operand | null;
+	appliedSelection: Address | null;
 }): CommitTargetComboboxItem | null =>
-	(appliedSelection && items.find((item) => operandEquals(item.operand, appliedSelection))) ?? null;
+	(appliedSelection && items.find((item) => addressEquals(item.address, appliedSelection))) ?? null;

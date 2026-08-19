@@ -1,7 +1,7 @@
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { CursorItem, CursorName } from "#ui/cursors.ts";
 import type { PageId } from "#ui/projects/project.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 
 /**
  * The workspace URL's query params: where the user is, in one flat namespace.
@@ -28,17 +28,17 @@ export type UrlCursorName = Exclude<CursorName, "diff">;
 export const isUrlCursor = (list: CursorName): list is UrlCursorName => list !== "diff";
 
 /**
- * Operand codec: `branch:<full-ref>`, `change:<change-id>` (first choice — a
+ * Address codec: `branch:<full-ref>`, `change:<change-id>` (first choice — a
  * change id survives amend and reword, so the URL needs no repair) and
- * `commit:<commit-id>` only for a commit that has no change id. Other operands
+ * `commit:<commit-id>` only for a commit that has no change id. Other addresses
  * are not addressable places.
  */
-const encodeOperand = (operand: Operand): string | null => {
-	switch (operand._tag) {
+const encodeAddress = (address: Address): string | null => {
+	switch (address._tag) {
 		case "Branch":
-			return `branch:${decodeBytes(operand.branchRef)}`;
+			return `branch:${decodeBytes(address.branchRef)}`;
 		case "Commit":
-			return operand.changeId !== "" ? `change:${operand.changeId}` : `commit:${operand.commitId}`;
+			return address.changeId !== "" ? `change:${address.changeId}` : `commit:${address.commitId}`;
 		default:
 			return null;
 	}
@@ -51,9 +51,9 @@ const commitPrefix = "commit:";
 const encodePath = (path: string): string => path;
 
 const cursorParam: { [L in UrlCursorName]: (item: CursorItem[L]) => string | null } = {
-	applied: encodeOperand,
-	unapplied: encodeOperand,
-	upstream: encodeOperand,
+	applied: encodeAddress,
+	unapplied: encodeAddress,
+	upstream: encodeAddress,
 	uncommitted: encodePath,
 	files: encodePath,
 };

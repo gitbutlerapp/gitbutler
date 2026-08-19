@@ -11,7 +11,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import type { FileParent } from "#ui/operands.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { Toolbar } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";

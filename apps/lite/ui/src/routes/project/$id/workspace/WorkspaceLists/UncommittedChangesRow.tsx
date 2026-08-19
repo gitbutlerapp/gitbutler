@@ -11,10 +11,10 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import {
-	fileOperand,
+	fileAddress,
 	uncommittedChangesFileParent,
-	uncommittedChangesOperand,
-} from "#ui/operands.ts";
+	uncommittedChangesAddress,
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
@@ -39,7 +39,7 @@ export const UncommittedChangesRow: FC<{
 		combine: (results) => getLineStats(results.map((result) => result.data)),
 	});
 
-	const operand = uncommittedChangesOperand;
+	const address = uncommittedChangesAddress;
 	const store = useAppStore();
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
@@ -54,13 +54,13 @@ export const UncommittedChangesRow: FC<{
 			projectId,
 		);
 		if (checkedPaths.size === 0) {
-			startAbsorb({ sources: [operand], sourceTarget: { type: "all" } });
+			startAbsorb({ sources: [address], sourceTarget: { type: "all" } });
 			return;
 		}
 
 		startAbsorb({
 			sources: Array.from(checkedPaths, (path) =>
-				fileOperand({ parent: uncommittedChangesFileParent, path }),
+				fileAddress({ parent: uncommittedChangesFileParent, path }),
 			),
 			sourceTarget: {
 				type: "treeChanges",
@@ -73,7 +73,7 @@ export const UncommittedChangesRow: FC<{
 	};
 
 	const cutChanges = () => {
-		startKeyboardTransfer({ sources: [operand], kind: "move" });
+		startKeyboardTransfer({ sources: [address], kind: "move" });
 		focusScope("sidebar");
 	};
 

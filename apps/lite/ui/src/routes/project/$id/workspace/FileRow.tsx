@@ -2,7 +2,7 @@ import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import type { FileParent } from "#ui/operands.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -66,7 +66,7 @@ export const FileRow: FC<
 	);
 	const menuItems = useFileMenuItems({
 		projectId,
-		operand: { parent: fileParent, path: relativePath },
+		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
 		canUncommit,

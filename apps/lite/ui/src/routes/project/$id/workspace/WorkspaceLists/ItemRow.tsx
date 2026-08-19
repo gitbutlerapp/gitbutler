@@ -1,26 +1,26 @@
 import { NavigationIndexContext } from "../SidebarNavigationIndexContext.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { Row } from "../Row.tsx";
-import { operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
 import { type ComponentProps, type FC, use } from "react";
 import { assert } from "#ui/assert.ts";
 
 export const ItemRow: FC<
 	{
-		operand: Operand;
+		address: Address;
 	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
-> = ({ operand, ...props }) => {
+> = ({ address, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("applied", navigationIndex, operand);
+	const isSelected = useIsCursorAt("applied", navigationIndex, address);
 	const selectItem = () => {
-		setCursor("applied", operand);
+		setCursor("applied", address);
 	};
 
 	return (
 		<Row
 			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+			inert={!navigationIndexIncludes(navigationIndex, address, addressIdentityKey)}
 			isSelected={isSelected}
 			onSelect={selectItem}
 		/>

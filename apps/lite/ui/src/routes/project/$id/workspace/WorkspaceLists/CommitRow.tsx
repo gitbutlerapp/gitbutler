@@ -29,7 +29,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
+import { branchAddress, commitAddress, addressEquals, type CommitAddress } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
@@ -67,11 +67,11 @@ export const CommitRow: FC<
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
-	const commitOperandV: CommitOperand = {
+	const commitAddressV: CommitAddress = {
 		commitId: commit.id,
 		changeId: commit.changeId,
 	};
-	const operand = commitOperand(commitOperandV);
+	const address = commitAddress(commitAddressV);
 
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckCommits(state, projectId),
@@ -80,7 +80,7 @@ export const CommitRow: FC<
 		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
 	const isChecked = useAppSelector((state) =>
-		projectSlice.selectors.selectOperandChecked(state, projectId, operand),
+		projectSlice.selectors.selectAddressChecked(state, projectId, address),
 	);
 
 	const dispatch = useAppDispatch();
@@ -92,7 +92,7 @@ export const CommitRow: FC<
 	const isRewording = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 		return (
-			pendingOperation._tag === "InlineEdit" && operandEquals(operand, pendingOperation.operand)
+			pendingOperation._tag === "InlineEdit" && addressEquals(address, pendingOperation.address)
 		);
 	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
@@ -137,7 +137,7 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -150,12 +150,12 @@ export const CommitRow: FC<
 
 	const deleteCommit = () => {
 		const state = store.getState();
-		const subjectCommitIds = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+		const subjectCommitIds = projectSlice.selectors.selectAddressChecked(state, projectId, address)
 			? projectSlice.selectors.selectCheckedCommitIds(state, projectId)
 			: new Set([commit.id]);
 		const selectionAfterDiscard = selectAfterDiscardedCommits({
 			navigationIndex,
-			commit: commitOperandV,
+			commit: commitAddressV,
 			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,
 		});
@@ -174,7 +174,7 @@ export const CommitRow: FC<
 						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
 						if (newId === undefined) break rewrite;
 
-						latestSelectionAfterDiscard = commitOperand({
+						latestSelectionAfterDiscard = commitAddress({
 							commitId: newId,
 							changeId: selectionAfterDiscard.changeId,
 						});
@@ -188,9 +188,9 @@ export const CommitRow: FC<
 
 	const cutCommit = () => {
 		const state = store.getState();
-		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
-			? projectSlice.selectors.selectCheckedOperands(state, projectId)
-			: [operand];
+		const sources = projectSlice.selectors.selectAddressChecked(state, projectId, address)
+			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
+			: [address];
 
 		startKeyboardTransfer({ sources, kind: "move" });
 		focusScope("sidebar");
@@ -198,9 +198,9 @@ export const CommitRow: FC<
 
 	const copyCommit = () => {
 		const state = store.getState();
-		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
-			? projectSlice.selectors.selectCheckedOperands(state, projectId)
-			: [operand];
+		const sources = projectSlice.selectors.selectAddressChecked(state, projectId, address)
+			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
+			: [address];
 		if (!sources.every((source) => source._tag === "Commit")) return;
 
 		startKeyboardTransfer({ sources, kind: "copy", placement: "above" });
@@ -209,7 +209,7 @@ export const CommitRow: FC<
 
 	const uncommitCommit = () => {
 		const state = store.getState();
-		const subjectCommitIds = projectSlice.selectors.selectOperandChecked(state, projectId, operand)
+		const subjectCommitIds = projectSlice.selectors.selectAddressChecked(state, projectId, address)
 			? Array.from(projectSlice.selectors.selectCheckedCommitIds(state, projectId))
 			: [commit.id];
 
@@ -222,12 +222,12 @@ export const CommitRow: FC<
 	};
 
 	const startEditing = () => {
-		startInlineEdit(operand);
+		startInlineEdit(address);
 	};
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
-		setCursor("applied", operand);
+		setCursor("applied", address);
 		focusScope("sidebar");
 	};
 
@@ -357,7 +357,7 @@ export const CommitRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			operand={operand}
+			address={address}
 			isChecked={isChecked}
 			isHighlighted={isHighlighted}
 			onShiftSelect={

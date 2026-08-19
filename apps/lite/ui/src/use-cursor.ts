@@ -12,9 +12,9 @@ import {
 } from "#ui/cursor-url.ts";
 import {
 	isValidPendingOperationForSelection,
-	type InlineEditOperand,
+	type InlineEditAddress,
 } from "#ui/operations/pending-operation.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import type { PageId, ActiveList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
@@ -205,7 +205,7 @@ const setDiffCursor = (selection: CursorItem["diff"] | null): void => {
 };
 
 /** An applied selection dissolves a pending operation it invalidates, as before. */
-const dissolveInvalidOperation = (selection: Operand | null): void => {
+const dissolveInvalidOperation = (selection: Address | null): void => {
 	const pendingOperation = projectSlice.selectors.selectPendingOperation(
 		store.getState(),
 		projectIdOf(),
@@ -238,7 +238,7 @@ export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | n
 
 	if (list === "applied") {
 		setDiffCursor(null);
-		dissolveInvalidOperation(item as Operand | null);
+		dissolveInvalidOperation(item as Address | null);
 	}
 };
 
@@ -288,7 +288,7 @@ export const startKeyboardTransfer = ({
 	kind,
 	placement,
 }: {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	kind: TransferKind;
 	placement?: "above" | "below" | "into";
 }): void => {
@@ -311,7 +311,7 @@ export const startAbsorb = ({
 	sources,
 	sourceTarget,
 }: {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	sourceTarget: AbsorptionTarget;
 }): void => {
 	store.dispatch(
@@ -338,14 +338,14 @@ export const cancelPendingOperation = (): void => {
 	if (restore) restoreWorkspaceCursors(restore);
 };
 
-export const startInlineEdit = (operand: InlineEditOperand): void => {
-	setCursor("applied", operand);
-	store.dispatch(projectSlice.actions.startInlineEdit({ projectId: projectIdOf(), operand }));
+export const startInlineEdit = (address: InlineEditAddress): void => {
+	setCursor("applied", address);
+	store.dispatch(projectSlice.actions.startInlineEdit({ projectId: projectIdOf(), address }));
 };
 
 /* ------------------------------------------------------- rewrite handling */
 
-const operandParams = ["applied", "unapplied", "upstream"] as const;
+const addressParams = ["applied", "unapplied", "upstream"] as const;
 
 /**
  * Rewrite `commit:` params after a commit rewrite. `change:` params need no
@@ -354,7 +354,7 @@ const operandParams = ["applied", "unapplied", "upstream"] as const;
 export const remapSearchCommits = (replacedCommits: Record<string, string>): void => {
 	navigateParams((prev) => {
 		const next = { ...prev };
-		for (const param of operandParams) {
+		for (const param of addressParams) {
 			const value = next[param];
 			if (value === undefined || !value.startsWith("commit:")) continue;
 
@@ -369,7 +369,7 @@ export const remapSearchCommits = (replacedCommits: Record<string, string>): voi
 export const remapSearchBranch = (oldRef: string, newRef: string): void => {
 	navigateParams((prev) => {
 		const next = { ...prev };
-		for (const param of operandParams)
+		for (const param of addressParams)
 			if (next[param] === `branch:${oldRef}`) next[param] = `branch:${newRef}`;
 		return next;
 	});

@@ -29,20 +29,20 @@ import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
 	branchIdentityKey,
-	type BranchOperand,
-	branchOperand,
+	type BranchAddress,
+	branchAddress,
 	commitFileParent,
-	type FileOperand,
-	fileOperand,
-	hunkOperand,
-	operandEquals,
+	type FileAddress,
+	fileAddress,
+	hunkAddress,
+	addressEquals,
 	type FileParent,
-	type HunkOperand,
-	type Operand,
+	type HunkAddress,
+	type Address,
 	uncommittedChangesFileParent,
 	weakCommitIdentityKey,
 	weakFileParentIdentityKey,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -178,7 +178,7 @@ import {
 	codeViewLayout,
 	type DiffView,
 	getDiffView,
-	hunkOperandIdentityKey,
+	hunkAddressIdentityKey,
 	prepareDiffFiles,
 	withoutFoldedHunks,
 } from "./diff-view.ts";
@@ -266,7 +266,7 @@ const withAnnotations = (
 		const file = diffView.fileByItemId.get(item.id);
 		if (!file) throw new Error("Diff view file not found by ID");
 
-		const persistedAnnotations = annotationsByPath.get(file.operand.path);
+		const persistedAnnotations = annotationsByPath.get(file.address.path);
 		if (!persistedAnnotations || persistedAnnotations.length === 0) return item;
 
 		const annotations: Array<DiffLineAnnotation<Annotation>> = persistedAnnotations.map(
@@ -304,7 +304,7 @@ const navigationHunkForSelectedLines = ({
 	fileParent: FileParent;
 	fileByItemId: DiffView["fileByItemId"];
 	hunkByKey: DiffView["hunkByKey"];
-}): HunkOperand | null => {
+}): HunkAddress | null => {
 	if (!selection) return null;
 	const file = fileByItemId.get(selection.id);
 	if (file?.patch?.type !== "Patch") return null;
@@ -325,12 +325,12 @@ const navigationHunkForSelectedLines = ({
 			: null);
 	if (!cursorSelection) return null;
 
-	const operand: HunkOperand = {
+	const address: HunkAddress = {
 		parent: { parent: fileParent, path: file.change.path },
 		...cursorSelection,
 		isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
 	};
-	return hunkByKey.get(hunkOperandIdentityKey(operand))?.operand ?? null;
+	return hunkByKey.get(hunkAddressIdentityKey(address))?.address ?? null;
 };
 
 const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection): boolean =>
@@ -437,10 +437,10 @@ const DiffContents: FC<{
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const diffSelectionHunk =
-		diffSelection !== null ? hunkByKey.get(hunkOperandIdentityKey(diffSelection)) : null;
-	const diffSelectionKey = diffSelection === null ? null : hunkOperandIdentityKey(diffSelection);
+		diffSelection !== null ? hunkByKey.get(hunkAddressIdentityKey(diffSelection)) : null;
+	const diffSelectionKey = diffSelection === null ? null : hunkAddressIdentityKey(diffSelection);
 	const cursorSelectedHunk = diffSelection
-		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
+		? (hunkByKey.get(hunkAddressIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
 	const cursorSelectedRange: CodeViewLineSelection | null = cursorSelectedHunk
 		? {
@@ -507,13 +507,13 @@ const DiffContents: FC<{
 		// oxlint-disable-next-line react-hooks/exhaustive-deps react-hooks-js/exhaustive-deps -- Sync scroll only on mount, otherwise use events.
 	}, []);
 
-	const selectDiff = (selection: HunkOperand) => {
+	const selectDiff = (selection: HunkAddress) => {
 		setCursor("diff", selection);
 
-		const nextSelectedLines = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
+		const nextSelectedLines = hunkByKey.get(hunkAddressIdentityKey(selection))?.selectedLines;
 		if (!nextSelectedLines) return;
 		setSelectedLinesState({
-			cursorKey: hunkOperandIdentityKey(selection),
+			cursorKey: hunkAddressIdentityKey(selection),
 			selection: nextSelectedLines,
 		});
 
@@ -529,7 +529,7 @@ const DiffContents: FC<{
 		if (selectedLines) {
 			const file = fileByItemId.get(selectedLines.id);
 			if (file?.patch?.type === "Patch") {
-				const fileHunks = file.hunks.map(({ operand }) => operand);
+				const fileHunks = file.hunks.map(({ address }) => address);
 				const lineHunk = hunkSelectionForLineNavigation({
 					hunks: file.item.fileDiff.hunks,
 					selections: fileHunks,
@@ -540,7 +540,7 @@ const DiffContents: FC<{
 				selection = lineHunk ?? fileHunks.at(offset === 1 ? -1 : 0) ?? null;
 
 				if (lineHunk) {
-					const hunkLines = hunkByKey.get(hunkOperandIdentityKey(lineHunk))?.selectedLines;
+					const hunkLines = hunkByKey.get(hunkAddressIdentityKey(lineHunk))?.selectedLines;
 					if (hunkLines && !lineSelectionsEqual(selectedLines, hunkLines)) {
 						selectDiff(lineHunk);
 						return;
@@ -556,7 +556,7 @@ const DiffContents: FC<{
 						navigationIndex: visibleNavigationIndex,
 						selection,
 						offset,
-						getKey: hunkOperandIdentityKey,
+						getKey: hunkAddressIdentityKey,
 					});
 		if (next) selectDiff(next);
 	};
@@ -567,21 +567,21 @@ const DiffContents: FC<{
 		select: selectDiff,
 		selection: selectedLinesHunk ?? diffSelection,
 		selectSectionPredicate: (hunk) => {
-			const k = hunkOperandIdentityKey(hunk);
-			return hunkOperandIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).operand) === k;
+			const k = hunkAddressIdentityKey(hunk);
+			return hunkAddressIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).address) === k;
 		},
 		ref: focusScopeRef,
-		getKey: hunkOperandIdentityKey,
+		getKey: hunkAddressIdentityKey,
 		operationSourcesForItem: (hunk) => {
-			const selectedSources = operandsForSelectedLines(selectedLines, "compact");
-			const sources = selectedSources.length > 0 ? selectedSources : [hunkOperand(hunk)];
+			const selectedSources = addressesForSelectedLines(selectedLines, "compact");
+			const sources = selectedSources.length > 0 ? selectedSources : [hunkAddress(hunk)];
 			const checkedSources =
-				selectedSources.length > 0 ? operandsForSelectedLines(selectedLines, "line") : sources;
+				selectedSources.length > 0 ? addressesForSelectedLines(selectedLines, "line") : sources;
 			const state = store.getState();
 			return checkedSources.every((source) =>
-				projectSlice.selectors.selectOperandChecked(state, projectId, source),
+				projectSlice.selectors.selectAddressChecked(state, projectId, source),
 			)
-				? projectSlice.selectors.selectCheckedOperands(state, projectId)
+				? projectSlice.selectors.selectCheckedAddresses(state, projectId)
 				: sources;
 		},
 		directionalNavigation: false,
@@ -613,16 +613,16 @@ const DiffContents: FC<{
 
 	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
 		if (event.composedPath().some(isInteractiveElement)) return;
-		const operands = operandsForSelectedLines(selectedLines, "line");
-		if (operands.length === 0) return;
+		const addresses = addressesForSelectedLines(selectedLines, "line");
+		if (addresses.length === 0) return;
 
 		event.preventDefault();
 		event.stopPropagation();
 		const state = store.getState();
-		const checked = !operands.every((operand) =>
-			projectSlice.selectors.selectOperandChecked(state, projectId, operand),
+		const checked = !addresses.every((address) =>
+			projectSlice.selectors.selectAddressChecked(state, projectId, address),
 		);
-		dispatch(projectSlice.actions.checkOperands({ projectId, operands, checked }));
+		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
 	}
 
 	useHotkeys([
@@ -734,10 +734,10 @@ const DiffContents: FC<{
 			hotkey: diffHotkeys.absorb.hotkey,
 			callback: () => {
 				if (!diffSelectionHunk) return;
-				const firstLine = diffSelectionHunk.operand.lineGroups[0];
+				const firstLine = diffSelectionHunk.address.lineGroups[0];
 				if (!firstLine) return;
 
-				const hunk = getHunkOperandAtLine({
+				const hunk = getHunkAddressAtLine({
 					itemId: diffSelectionHunk.file.item.id,
 					lineNumber: firstLine.start,
 					side: firstLine.side,
@@ -746,7 +746,7 @@ const DiffContents: FC<{
 				if (!hunk) return;
 
 				startAbsorb({
-					sources: [hunkOperand(hunk)],
+					sources: [hunkAddress(hunk)],
 					sourceTarget: {
 						type: "hunks",
 						subject: {
@@ -767,7 +767,7 @@ const DiffContents: FC<{
 					fileParent._tag === "UncommittedChanges" &&
 					noOperationPending &&
 					!!diffSelectionHunk &&
-					!diffSelectionHunk.operand.isResultOfBinaryToTextConversion,
+					!diffSelectionHunk.address.isResultOfBinaryToTextConversion,
 				conflictBehavior: "allow",
 				target: focusScopeRef,
 				meta: diffHotkeys.absorb.meta,
@@ -869,13 +869,13 @@ const DiffContents: FC<{
 		const file = fileByItemId.get(activeItem.id);
 		if (!file) return;
 
-		onViewerFileSelection(file.operand.path);
+		onViewerFileSelection(file.address.path);
 	};
 
-	function operandForLineSelection(
+	function addressForLineSelection(
 		itemId: string,
 		selection: HunkLineSelection | null,
-	): HunkOperand | null {
+	): HunkAddress | null {
 		if (!selection) return null;
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
@@ -887,10 +887,10 @@ const DiffContents: FC<{
 		};
 	}
 
-	function operandsForSelectedLines(
+	function addressesForSelectedLines(
 		selection: CodeViewLineSelection | null,
 		granularity: "compact" | "line",
-	): Array<Extract<Operand, { _tag: "Hunk" }>> {
+	): Array<Extract<Address, { _tag: "Hunk" }>> {
 		if (!selection) return [];
 		const file = fileByItemId.get(selection.id);
 		if (file?.patch?.type !== "Patch") return [];
@@ -902,7 +902,7 @@ const DiffContents: FC<{
 			diffStyle: effectiveDiffStyle,
 			granularity,
 		}).map((lineSelection) =>
-			hunkOperand({
+			hunkAddress({
 				parent: { parent: fileParent, path: file.change.path },
 				...lineSelection,
 				isResultOfBinaryToTextConversion,
@@ -927,7 +927,7 @@ const DiffContents: FC<{
 			return;
 		}
 		setSelectedLinesState({
-			cursorKey: hunkOperandIdentityKey(navigationHunk),
+			cursorKey: hunkAddressIdentityKey(navigationHunk),
 			selection,
 		});
 		setCursor("diff", navigationHunk);
@@ -941,29 +941,29 @@ const DiffContents: FC<{
 		applySelectedLines(selection);
 	};
 
-	const getLineOperandAtLine = ({
+	const getLineAddressAtLine = ({
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkOperand | null => {
+	}: DiffLineTarget): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
-		return operandForLineSelection(
+		return addressForLineSelection(
 			itemId,
 			singleLineSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
 		);
 	};
 
-	const getHunkOperandAtLine = ({
+	const getHunkAddressAtLine = ({
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkOperand | null => {
+	}: DiffLineTarget): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
-		return operandForLineSelection(
+		return addressForLineSelection(
 			itemId,
 			wholeHunkSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
 		);
@@ -980,39 +980,39 @@ const DiffContents: FC<{
 				itemId: context.item.id,
 			});
 			if (!target) return;
-			const operand = getHunkOperandAtLine(target);
-			if (!operand) return;
-			const range = rangeFromLineGroups(operand.lineGroups);
+			const address = getHunkAddressAtLine(target);
+			if (!address) return;
+			const range = rangeFromLineGroups(address.lineGroups);
 			if (!range) return;
 
 			applySelectedLines({ id: target.itemId, range });
 		});
 
-	const getContiguousHunkOperandAtLine = ({
+	const getContiguousHunkAddressAtLine = ({
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkOperand | null => {
+	}: DiffLineTarget): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
-		return operandForLineSelection(
+		return addressForLineSelection(
 			itemId,
 			contiguousSelectionByLine({ hunks: file.item.fileDiff.hunks, line: lineNumber, side }),
 		);
 	};
 
-	const getContextMenuOperandAtLine = ({
+	const getContextMenuAddressAtLine = ({
 		itemId,
 		lineNumber,
 		side,
 		lineType,
-	}: DiffLineTarget): HunkOperand | null => {
+	}: DiffLineTarget): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 		const query = { hunks: file.item.fileDiff.hunks, line: lineNumber, side };
 
-		return operandForLineSelection(
+		return addressForLineSelection(
 			itemId,
 			lineType === "context" ? wholeHunkSelectionByLine(query) : contiguousSelectionByLine(query),
 		);
@@ -1021,174 +1021,176 @@ const DiffContents: FC<{
 	const checkedHunkKeys = (): Set<string> =>
 		new Set(
 			projectSlice.selectors
-				.selectCheckedOperands(store.getState(), projectId)
-				.flatMap((operand) => (operand._tag === "Hunk" ? [hunkOperandIdentityKey(operand)] : [])),
+				.selectCheckedAddresses(store.getState(), projectId)
+				.flatMap((address) => (address._tag === "Hunk" ? [hunkAddressIdentityKey(address)] : [])),
 		);
 
-	const applyCheckedOperandGroups = ({
+	const applyCheckedAddressGroups = ({
 		previous,
 		next,
-		operandsByKey,
+		addressesByKey,
 	}: {
 		previous: Set<string>;
 		next: Set<string>;
-		operandsByKey: Map<string, Array<Extract<Operand, { _tag: "Hunk" }>>>;
+		addressesByKey: Map<string, Array<Extract<Address, { _tag: "Hunk" }>>>;
 	}): void => {
-		const operandsForKeys = (keys: Set<string>) =>
-			Array.from(keys).flatMap((key) => operandsByKey.get(key) ?? []);
+		const addressesForKeys = (keys: Set<string>) =>
+			Array.from(keys).flatMap((key) => addressesByKey.get(key) ?? []);
 
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operandsForKeys(next.difference(previous)),
+				addresses: addressesForKeys(next.difference(previous)),
 				checked: true,
 			}),
 		);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operandsForKeys(previous.difference(next)),
+				addresses: addressesForKeys(previous.difference(next)),
 				checked: false,
 			}),
 		);
 	};
 
 	const checkedRangeFor = ({
-		orderedOperands,
+		orderedAddresses,
 		checked,
 		rangeAnchor,
 		rangeEnd,
 		target,
 		shiftKey,
 	}: {
-		orderedOperands: Array<HunkOperand>;
+		orderedAddresses: Array<HunkAddress>;
 		checked: Set<string>;
 		rangeAnchor: string | null;
 		rangeEnd: string | null;
-		target: HunkOperand;
+		target: HunkAddress;
 		shiftKey: boolean;
 	}) => {
 		const navigationIndex = {
-			items: orderedOperands,
-			indexByKey: buildIndexByKey(orderedOperands, hunkOperandIdentityKey),
+			items: orderedAddresses,
+			indexByKey: buildIndexByKey(orderedAddresses, hunkAddressIdentityKey),
 		};
 		const resolveRange = navigationIndexRange({
 			navigationIndex,
 			getKey: (key: string) => key,
-			filterMap: (operand: HunkOperand) => hunkOperandIdentityKey(operand),
+			filterMap: (address: HunkAddress) => hunkAddressIdentityKey(address),
 		});
 
 		return checkedRange(resolveRange)({ checked, rangeAnchor, rangeEnd })({
-			item: hunkOperandIdentityKey(target),
+			item: hunkAddressIdentityKey(target),
 			shiftKey,
 		});
 	};
 
 	const visibleHunkGroups = () =>
-		visibleNavigationIndex.items.flatMap((operand) => {
-			const selection = hunkByKey.get(hunkOperandIdentityKey(operand))?.selectedLines;
-			const lineOperands = selection ? operandsForSelectedLines(selection, "line") : [];
-			return lineOperands.length > 0 ? [{ operand, lineOperands }] : [];
+		visibleNavigationIndex.items.flatMap((address) => {
+			const selection = hunkByKey.get(hunkAddressIdentityKey(address))?.selectedLines;
+			const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : [];
+			return lineAddresses.length > 0 ? [{ address, lineAddresses }] : [];
 		});
 
 	// Checkbox Shift-click extends persistent checked ranges. Shift-clicking the surrounding gutter
 	// remains Pierre's active line-range gesture, unlike the whole-row shortcut on file/commit rows.
-	function checkLine(operand: HunkOperand, shiftKey: boolean): void {
-		const key = hunkOperandIdentityKey(operand);
+	function checkLine(address: HunkAddress, shiftKey: boolean): void {
+		const key = hunkAddressIdentityKey(address);
 		const previous = shiftKey && lineCheckRangeAnchor.current !== null ? checkedHunkKeys() : null;
 		if (previous && previous.size > 0) {
 			const groups = visibleHunkGroups();
-			const orderedOperands = groups.flatMap(({ lineOperands }) => lineOperands);
-			const operandsByKey = new Map(
-				orderedOperands.map((lineOperand) => [hunkOperandIdentityKey(lineOperand), [lineOperand]]),
+			const orderedAddresses = groups.flatMap(({ lineAddresses }) => lineAddresses);
+			const addressesByKey = new Map(
+				orderedAddresses.map((lineAddress) => [hunkAddressIdentityKey(lineAddress), [lineAddress]]),
 			);
 			const nextRange = checkedRangeFor({
-				orderedOperands,
+				orderedAddresses,
 				checked: previous,
 				rangeAnchor: lineCheckRangeAnchor.current,
 				rangeEnd: lineCheckRangeEnd.current,
-				target: operand,
+				target: address,
 				shiftKey,
 			});
 
 			lineCheckRangeAnchor.current = nextRange.rangeAnchor;
 			lineCheckRangeEnd.current = nextRange.rangeEnd;
-			return applyCheckedOperandGroups({
+			return applyCheckedAddressGroups({
 				previous,
 				next: nextRange.checked,
-				operandsByKey,
+				addressesByKey,
 			});
 		}
 
-		const source = hunkOperand(operand);
-		const checked = !projectSlice.selectors.selectOperandChecked(
+		const source = hunkAddress(address);
+		const checked = !projectSlice.selectors.selectAddressChecked(
 			store.getState(),
 			projectId,
 			source,
 		);
 		lineCheckRangeAnchor.current = key;
 		lineCheckRangeEnd.current = key;
-		dispatch(projectSlice.actions.checkOperand({ projectId, operand: source, checked }));
+		dispatch(projectSlice.actions.checkAddress({ projectId, address: source, checked }));
 	}
 
 	function checkHunkLines(
-		operand: HunkOperand,
-		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		address: HunkAddress,
+		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	): void {
-		const key = hunkOperandIdentityKey(operand);
+		const key = hunkAddressIdentityKey(address);
 		if (!shiftKey || hunkCheckRangeAnchor.current === null) {
 			const state = store.getState();
-			const checked = !lineOperands.every((lineOperand) =>
-				projectSlice.selectors.selectOperandChecked(state, projectId, lineOperand),
+			const checked = !lineAddresses.every((lineAddress) =>
+				projectSlice.selectors.selectAddressChecked(state, projectId, lineAddress),
 			);
 			hunkCheckRangeAnchor.current = key;
 			hunkCheckRangeEnd.current = key;
-			dispatch(projectSlice.actions.checkOperands({ projectId, operands: lineOperands, checked }));
+			dispatch(
+				projectSlice.actions.checkAddresses({ projectId, addresses: lineAddresses, checked }),
+			);
 			return;
 		}
 
 		const groups = visibleHunkGroups();
-		const operandsByKey = new Map(
-			groups.map(({ operand, lineOperands }) => [hunkOperandIdentityKey(operand), lineOperands]),
+		const addressesByKey = new Map(
+			groups.map(({ address, lineAddresses }) => [hunkAddressIdentityKey(address), lineAddresses]),
 		);
 		const state = store.getState();
 		const previous = new Set(
-			groups.flatMap(({ operand, lineOperands }) =>
-				lineOperands.every((lineOperand) =>
-					projectSlice.selectors.selectOperandChecked(state, projectId, lineOperand),
+			groups.flatMap(({ address, lineAddresses }) =>
+				lineAddresses.every((lineAddress) =>
+					projectSlice.selectors.selectAddressChecked(state, projectId, lineAddress),
 				)
-					? [hunkOperandIdentityKey(operand)]
+					? [hunkAddressIdentityKey(address)]
 					: [],
 			),
 		);
 		const nextRange = checkedRangeFor({
-			orderedOperands: groups.map(({ operand }) => operand),
+			orderedAddresses: groups.map(({ address }) => address),
 			checked: previous,
 			rangeAnchor: hunkCheckRangeAnchor.current,
 			rangeEnd: hunkCheckRangeEnd.current,
-			target: operand,
+			target: address,
 			shiftKey,
 		});
 
 		hunkCheckRangeAnchor.current = nextRange.rangeAnchor;
 		hunkCheckRangeEnd.current = nextRange.rangeEnd;
-		applyCheckedOperandGroups({ previous, next: nextRange.checked, operandsByKey });
+		applyCheckedAddressGroups({ previous, next: nextRange.checked, addressesByKey });
 	}
 
 	const handleLineContextMenu = ({ event, ...target }: DiffLineContextMenuTarget): void => {
 		const file = fileByItemId.get(target.itemId);
 		if (!file) return;
-		const operand = getContextMenuOperandAtLine(target);
-		if (!operand) return;
-		const hunk = getHunkOperandAtLine(target);
+		const address = getContextMenuAddressAtLine(target);
+		if (!address) return;
+		const hunk = getHunkAddressAtLine(target);
 		if (!hunk) return;
-		const lineOperand = getLineOperandAtLine(target);
-		const checkedProbe = lineOperand ? hunkOperand(lineOperand) : null;
-		const selectedOperands = operandsForSelectedLines(selectedLines, "compact");
+		const lineAddress = getLineAddressAtLine(target);
+		const checkedProbe = lineAddress ? hunkAddress(lineAddress) : null;
+		const selectedAddresses = addressesForSelectedLines(selectedLines, "compact");
 		const usesSelectedLines =
 			selectedLines?.id === target.itemId &&
-			selectedOperands.length > 0 &&
+			selectedAddresses.length > 0 &&
 			selectedLineRangeContainsPoint({
 				hunks: file.item.fileDiff.hunks,
 				range: selectedLines.range,
@@ -1203,7 +1205,7 @@ const DiffContents: FC<{
 				change: file.change,
 				hunk,
 				lineNumber: target.lineNumber,
-				sources: usesSelectedLines ? selectedOperands : [hunkOperand(operand)],
+				sources: usesSelectedLines ? selectedAddresses : [hunkAddress(address)],
 				checkedProbe,
 				usesSelectedLines,
 			}),
@@ -1225,7 +1227,7 @@ const DiffContents: FC<{
 			projectId,
 			comment: {
 				id,
-				path: file.operand.path,
+				path: file.address.path,
 				commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
 				side: annotationSideToDiffSide(line.side),
 				lineNumber: line.lineNumber,
@@ -1237,15 +1239,15 @@ const DiffContents: FC<{
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
 		fileParent,
-		getHunkOperand: getHunkOperandAtLine,
-		getLineOperand: getLineOperandAtLine,
-		getSelectedOperands: () => operandsForSelectedLines(selectedLines, "compact"),
+		getHunkAddress: getHunkAddressAtLine,
+		getLineAddress: getLineAddressAtLine,
+		getSelectedAddresses: () => addressesForSelectedLines(selectedLines, "compact"),
 	});
 	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
 		useDiffGutterCheckboxes(
 			handleHunkPostRender,
-			getLineOperandAtLine,
-			getContiguousHunkOperandAtLine,
+			getLineAddressAtLine,
+			getContiguousHunkAddressAtLine,
 			projectId,
 			checkLine,
 			checkHunkLines,
@@ -1258,10 +1260,10 @@ const DiffContents: FC<{
 		// header in view. The stored selection is read off the store rather than
 		// captured, so this callback's identity does not churn with j/k moves.
 		const stored = projectSlice.selectors.selectDiffCursor(store.getState(), projectId);
-		const storedFile = stored && hunkByKey.get(hunkOperandIdentityKey(stored))?.file;
+		const storedFile = stored && hunkByKey.get(hunkAddressIdentityKey(stored))?.file;
 		if (storedFile?.item.id !== itemId) return;
 
-		selectDiff(assert(storedFile.hunks[0]).operand);
+		selectDiff(assert(storedFile.hunks[0]).address);
 		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "nearest" });
 	};
 
@@ -1335,7 +1337,7 @@ const DiffContents: FC<{
 						<DiffFileHeader
 							projectId={projectId}
 							item={item}
-							operand={file.operand}
+							address={file.address}
 							change={file.change}
 							hasDiff={item.fileDiff.hunks.length !== 0}
 							collapsed={item.collapsed ?? false}
@@ -1355,7 +1357,7 @@ const DiffContents: FC<{
 					const file = fileByItemId.get(item.id);
 					if (!file) return null;
 
-					const annotations = annotationsByPath.get(file.operand.path) ?? [];
+					const annotations = annotationsByPath.get(file.address.path) ?? [];
 					const annotationId = anno.metadata.id;
 					const annotation = annotations.find(({ id }) => id === annotationId);
 					if (!annotation) return null;
@@ -1364,7 +1366,7 @@ const DiffContents: FC<{
 						<AnnotationCard
 							projectId={projectId}
 							annotation={annotation}
-							path={file.operand.path}
+							path={file.address.path}
 							fileParent={fileParent}
 							annotationsByPath={annotationsByPath}
 							focusAnnotationIdRef={newFocusableAnnotationIdRef}
@@ -1462,7 +1464,7 @@ const DiffContents: FC<{
 type DiffFileHeaderProps = {
 	projectId: string;
 	item: CodeViewDiffItem<unknown>;
-	operand: FileOperand;
+	address: FileAddress;
 	change: TreeChange;
 	hasDiff: boolean;
 	collapsed: boolean;
@@ -1478,7 +1480,7 @@ type DiffFileHeaderProps = {
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const menuItems = useFileMenuItems({
 		projectId: p.projectId,
-		operand: p.operand,
+		address: p.address,
 		path: p.change.path,
 		change: p.change,
 		canUncommit: p.canUncommit,
@@ -1498,7 +1500,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				: "Not reviewed";
 
 	return (
-		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)} outline="inside">
+		<OperationSourceC projectId={p.projectId} source={fileAddress(p.address)} outline="inside">
 			<header
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
@@ -1741,9 +1743,9 @@ const Diff: FC<{
 	manualConflicts?: Array<ManualConflict>;
 	/** True while `conflicts` still shows the replaced commit's hunks. */
 	conflictsStale?: boolean;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	onPassiveFileSelection: (selection: string) => void;
-	selection: Operand;
+	selection: Address;
 	projectId: string;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
@@ -1844,14 +1846,14 @@ const Diff: FC<{
 	const uncommit = (change: TreeChange, extendToCheckedFiles: boolean): void => {
 		if (fileParent._tag !== "Commit") return;
 
-		const sources = projectSlice.selectors.selectCheckedOperands(store.getState(), projectId);
+		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
 
 		let subjectChanges = [change];
 		if (
 			extendToCheckedFiles &&
 			sources.length > 0 &&
 			sources.every(
-				(operand) => operand._tag === "File" && operandEquals(operand.parent, fileParent),
+				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
 			)
 		) {
 			const checkedChanges = sources.flatMap(
@@ -1945,7 +1947,7 @@ const Diff: FC<{
 		const file = path === null ? undefined : diffViewSansAnno.fileByPath.get(path);
 		if (!file) return;
 
-		onActiveFileSelection(file.item.id, file.hunks[0]?.operand ?? null);
+		onActiveFileSelection(file.item.id, file.hunks[0]?.address ?? null);
 	};
 
 	const filesPanelRef = useRef<HTMLDivElement>(null);
@@ -2311,10 +2313,10 @@ const CommitDetailsSkeleton: FC = () => {
 };
 
 const CommitDetails: FC<{
-	selection: Extract<Operand, { _tag: "Commit" }>;
+	selection: Extract<Address, { _tag: "Commit" }>;
 	/** The merged review the commit landed, when known: adds a Pull Request tab. */
 	review?: TargetCommitReview | null;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ selection, review, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
@@ -2548,7 +2550,7 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 						}),
 					)}
 					onPassiveFileSelection={selectFile}
-					selection={branchOperand(branch)}
+					selection={branchAddress(branch)}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
@@ -2675,12 +2677,12 @@ const ReviewView: FC<{
 
 /** What every details view threads through to its Diff. */
 type DetailsViewProps = {
-	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 };
 
-type BranchDetailsProps = { branch: BranchOperand } & DetailsViewProps;
+type BranchDetailsProps = { branch: BranchAddress } & DetailsViewProps;
 
 /**
  * A branch the workspace does not hold, as the branches tab lists them: its
@@ -2930,7 +2932,7 @@ const FileDetailsSkeleton: FC = () => {
 
 const FileDetails: FC<{
 	path: string;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkOperand | null) => void;
+	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ path, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
@@ -2969,7 +2971,7 @@ const FileDetails: FC<{
 					filesVisible={filesVisible}
 					filesItems={filesItems}
 					onPassiveFileSelection={selectFile}
-					selection={fileOperand({ parent: uncommittedChangesFileParent, path })}
+					selection={fileAddress({ parent: uncommittedChangesFileParent, path })}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
@@ -2988,14 +2990,14 @@ const FileDetails: FC<{
 /**
  * One details component per sidebar page, as the sidebar has one list per
  * page: the component tree, not a tag on the selection, carries where a
- * selection came from. Each dispatches over the operands its own page can
+ * selection came from. Each dispatches over the addresses its own page can
  * select, so a branch is applied or unapplied by which page shows it.
  */
-type SidebarDetailsProps = { selection: Operand | null } & DetailsViewProps;
+type SidebarDetailsProps = { selection: Address | null } & DetailsViewProps;
 
 /** A commit selection is shown the same way whichever page selected it. */
 const commitDetails = (
-	commit: Extract<Operand, { _tag: "Commit" }>,
+	commit: Extract<Address, { _tag: "Commit" }>,
 	viewProps: DetailsViewProps,
 	review?: TargetCommitReview | null,
 ): ReactNode => (
@@ -3024,7 +3026,7 @@ export const WorkspaceDetails: FC<SidebarDetailsProps> = ({ selection, ...viewPr
 
 /**
  * The details pane for the upstream tab. Only commits are selectable there;
- * its branch rows carry no operand.
+ * its branch rows carry no address.
  */
 export const UpstreamDetails: FC<SidebarDetailsProps & { review: TargetCommitReview | null }> = ({
 	selection,

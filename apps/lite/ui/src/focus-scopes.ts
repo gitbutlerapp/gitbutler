@@ -3,7 +3,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { startKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useParams } from "@tanstack/react-router";
@@ -164,7 +164,7 @@ export const useNavigationIndexHotkeys = <T>({
 	ref: React.RefObject<HTMLElement | null>;
 	selectSectionPredicate?: (item: T) => boolean;
 	/** When omitted, the selection operation hotkeys (move, cut) are not registered. */
-	operationSourcesForItem?: (item: T) => Array<Operand>;
+	operationSourcesForItem?: (item: T) => Array<Address>;
 	/**
 	 * Called with the direction when arrow navigation hits the pane's edge (or
 	 * the pane is empty). Wired by whichever component stacks this pane against

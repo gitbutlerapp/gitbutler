@@ -20,7 +20,7 @@ import {
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
 import { changesHotkeys, sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
-import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
@@ -43,7 +43,7 @@ import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
 	label: string;
-	operand: Extract<Operand, { _tag: "Branch" | "Commit" }>;
+	address: Extract<Address, { _tag: "Branch" | "Commit" }>;
 	relativeTo: RelativeTo;
 };
 
@@ -60,7 +60,7 @@ const CommitTargetComboboxPopup: FC = () => (
 		<Combobox.List className={styles.targetList}>
 			{(item: CommitTargetComboboxItem) => (
 				<Combobox.Item
-					key={operandIdentityKey(item.operand)}
+					key={addressIdentityKey(item.address)}
 					value={item}
 					className={styles.targetItem}
 				>
@@ -93,8 +93,8 @@ const CommitTargetCombobox: FC<{
 		value={value}
 		onValueChange={onValueChange}
 		itemToStringLabel={(x) => x.label}
-		itemToStringValue={(x) => operandIdentityKey(x.operand)}
-		isItemEqualToValue={(a, b) => operandEquals(a.operand, b.operand)}
+		itemToStringValue={(x) => addressIdentityKey(x.address)}
+		isItemEqualToValue={(a, b) => addressEquals(a.address, b.address)}
 		autoHighlight
 		disabled={disabled}
 	>
@@ -114,7 +114,7 @@ export const CommitForm: FC<{
 	/**
 	 * Whether the workspace holds no branch to commit onto. Committing is still
 	 * allowed — the branch is created on submit — so this is deliberately kept
-	 * apart from `commitTarget`, whose items carry an `Operand` that drives the
+	 * apart from `commitTarget`, whose items carry an `Address` that drives the
 	 * applied selection and which a branch that doesn't exist yet cannot have.
 	 */
 	hasNoBranches: boolean;
@@ -220,7 +220,7 @@ export const CommitForm: FC<{
 	const canAmend = canCommitOrAmendBase && canAmendCommit && amendTargetCommitId !== null;
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		if (option) setCursor("applied", option.operand);
+		if (option) setCursor("applied", option.address);
 		setOpen(false);
 	};
 
@@ -420,7 +420,7 @@ export const CommitForm: FC<{
 						>
 							<Icon name="bullseye" size={14} />
 							<Icon
-								name={commitTarget?.operand._tag === "Commit" ? "commit" : "branch"}
+								name={commitTarget?.address._tag === "Commit" ? "commit" : "branch"}
 								size={14}
 							/>
 						</Combobox.Trigger>
@@ -532,7 +532,7 @@ export const CommitForm: FC<{
 							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 						>
 							<Icon
-								name={commitTarget?.operand._tag === "Commit" ? "commit" : "branch"}
+								name={commitTarget?.address._tag === "Commit" ? "commit" : "branch"}
 								size={14}
 							/>
 							{hasNoBranches ? (

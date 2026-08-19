@@ -26,7 +26,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -84,7 +84,7 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 const branchGraphStatus = (branch: ListedBranch): GraphSegmentStatus =>
 	branch.remoteRefs.length > 0 ? "LocalAndRemote" : "LocalOnly";
 
-const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "unapplied");
+const useIsSelected = (address: Address): boolean => useIsSelectedInList(address, "unapplied");
 
 const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }) => (
 	<Row interactive={false} role="treeitem" aria-label={label}>
@@ -96,11 +96,11 @@ const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }
 );
 
 const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
-	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
-	const isSelected = useIsSelected(operand);
+	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
+	const isSelected = useIsSelected(address);
 	const title = commitTitle(commit.message);
 	const copyCommit = () =>
-		startKeyboardTransfer({ sources: [operand], kind: "copy", placement: "above" });
+		startKeyboardTransfer({ sources: [address], kind: "copy", placement: "above" });
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Copy Commit",
@@ -112,12 +112,12 @@ const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
 	return (
 		// oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- This page was vibecoded and needs an accessibility pass.
 		<Row
-			id={treeItemId(operand)}
+			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() => setCursor("unapplied", operand)}
+			onSelect={() => setCursor("unapplied", address)}
 			onContextMenu={(event) => void showNativeContextMenu(event, menuItems)}
 		>
 			<GraphSegment
@@ -154,7 +154,7 @@ const BranchItem: FC<{
 }> = ({ projectId, branch, isTopBranch, isStacked }) => {
 	const dispatch = useAppDispatch();
 	const branchRef = branch.refName.full;
-	const operand = branchOperand({ branchRef: encodeBytes(branchRef) });
+	const address = branchAddress({ branchRef: encodeBytes(branchRef) });
 	// A branch with no commits of its own has nothing to unfold; an unknown
 	// count keeps the affordance.
 	const canUnfold = !branchIsEmpty(branch);
@@ -162,7 +162,7 @@ const BranchItem: FC<{
 		useAppSelector((state) =>
 			projectSlice.selectors.selectBranchUnfolded(state, projectId, branchRef),
 		) && canUnfold;
-	const isSelected = useIsSelected(operand);
+	const isSelected = useIsSelected(address);
 	const [now] = useState(() => Date.now());
 
 	// Same topology as the applied list: nothing above the branch means the
@@ -219,7 +219,7 @@ const BranchItem: FC<{
 
 	return (
 		<div
-			id={treeItemId(operand)}
+			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={branch.displayName}
 			aria-selected={isSelected}
@@ -229,7 +229,7 @@ const BranchItem: FC<{
 		>
 			<Row
 				isSelected={isSelected}
-				onSelect={() => setCursor("unapplied", operand)}
+				onSelect={() => setCursor("unapplied", address)}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
@@ -365,9 +365,9 @@ export const BranchesList: FC<
 		group: "Sidebar",
 		select: (newItem) => setCursor("unapplied", newItem),
 		selection,
-		selectSectionPredicate: (operand) => operand._tag === "Branch",
+		selectSectionPredicate: (address) => address._tag === "Branch",
 		ref: hotkeysRef,
-		getKey: operandIdentityKey,
+		getKey: addressIdentityKey,
 	});
 
 	useHotkey(
@@ -404,11 +404,11 @@ export const BranchesList: FC<
 		inputId: "branches-filter-input",
 		subject: "branches",
 		scope: "sidebar",
-		selectionKey: selection === null ? null : operandIdentityKey(selection),
+		selectionKey: selection === null ? null : addressIdentityKey(selection),
 		firstKey:
 			firstBranch === undefined
 				? undefined
-				: operandIdentityKey(branchOperand({ branchRef: encodeBytes(firstBranch.refName.full) })),
+				: addressIdentityKey(branchAddress({ branchRef: encodeBytes(firstBranch.refName.full) })),
 		onEnterList: () => {
 			if (selection !== null) setCursor("unapplied", selection);
 		},
