@@ -251,9 +251,22 @@ fn uncommitted_hunk_or_file_to_diff(
     ctx: &Context,
     uncommitted: &UncommittedHunkOrFile,
 ) -> anyhow::Result<String> {
-    let repo = ctx.repo.get()?;
-    let worktree_changes =
-        but_api::diff::changes_in_worktree(ctx, but_api::commit::json::ChangesSource::Head, false)?;
+    // The changes have to be read from the checkout the selection lives in, or
+    // a linked worktree's file would copy the main worktree's diff of that path.
+    let (repo, changes_source) = {
+        let main_repo = ctx.repo.get()?;
+        match uncommitted.source.worktree_name() {
+            None => (
+                (*main_repo).clone(),
+                but_api::commit::json::ChangesSource::Head,
+            ),
+            Some(name) => (
+                but_workspace::worktrees::open_worktree_repo(&main_repo, name)?,
+                but_api::commit::json::ChangesSource::Worktree(name.to_string()),
+            ),
+        }
+    };
+    let worktree_changes = but_api::diff::changes_in_worktree(ctx, changes_source, false)?;
     let hunks: Vec<_> = but_core::hunks_from_changes(
         &repo,
         worktree_changes.worktree_changes.changes.clone(),

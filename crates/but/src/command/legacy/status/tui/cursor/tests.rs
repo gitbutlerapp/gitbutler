@@ -119,6 +119,7 @@ fn uncommitted_cli_id_with_old_start(path: &str, id: &str, old_start: u32) -> Ar
             hunk: hunk(path, old_start),
         }),
         is_entire_file: true,
+        source: crate::ChangeSourceId::Head,
     }))
 }
 
@@ -141,6 +142,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::CommittedFile { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
+            | CliId::Worktree { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
     } else {
@@ -218,11 +220,13 @@ fn select_resolved_target_selects_parent_file_for_hunk() {
             tail: vec![second_hunk.clone()],
         },
         is_entire_file: true,
+        source: crate::ChangeSourceId::Head,
     };
     let selected_hunk = UncommittedHunkOrFile {
         id: second_hunk.id.clone(),
         hunks: NonEmpty::new(second_hunk),
         is_entire_file: false,
+        source: crate::ChangeSourceId::Head,
     };
     let lines = vec![
         uncommitted_file_line("other.txt", "ot"),

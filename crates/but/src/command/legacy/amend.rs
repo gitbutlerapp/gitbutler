@@ -67,6 +67,13 @@ fn resolve(
                     .map(|source| ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(source))),
             );
         }
+        // A source can expand to nothing, e.g. a worktree without changes, and
+        // squash classification requires at least one source.
+        if resolved_sources.is_empty() {
+            return Err(crate::bad_input("No changes to amend")
+                .hint("Run `but status` to show applicable targets")
+                .into());
+        }
         resolved_sources
     };
     let sources = resolved_sources

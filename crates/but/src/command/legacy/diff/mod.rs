@@ -6,6 +6,7 @@ use crate::{
     command::legacy::diff::show::Filter,
     id::{CommitId, CommittedFileId},
     utils::OutputChannel,
+    utils::change_source::ChangeSourceId,
 };
 
 mod display;
@@ -29,12 +30,18 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
                 DiffFileEntry::from_worktree(&id_map, Some(&filter))
             }
             CliId::PathPrefix { hunks, .. } => DiffFileEntry::from_hunks(&hunks),
-            CliId::Uncommitted { .. } => {
-                DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::UncommittedArea))
-            }
-            CliId::Stack { .. } => {
-                DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::UncommittedArea))
-            }
+            CliId::Uncommitted { .. } => DiffFileEntry::from_worktree(
+                &id_map,
+                Some(&WorktreeFilter::Source(ChangeSourceId::Head)),
+            ),
+            CliId::Worktree { name, .. } => DiffFileEntry::from_worktree(
+                &id_map,
+                Some(&WorktreeFilter::Source(ChangeSourceId::Worktree(name))),
+            ),
+            CliId::Stack { .. } => DiffFileEntry::from_worktree(
+                &id_map,
+                Some(&WorktreeFilter::Source(ChangeSourceId::Head)),
+            ),
             CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {
@@ -78,7 +85,14 @@ pub fn handle(
                 show::worktree(id_map, out, Some(Filter::Uncommitted(id)))
             }
             CliId::PathPrefix { hunks, .. } => show::hunks(&hunks, out),
-            CliId::Uncommitted { .. } => show::worktree(id_map, out, Some(Filter::UncommittedArea)),
+            CliId::Uncommitted { .. } => {
+                show::worktree(id_map, out, Some(Filter::Source(ChangeSourceId::Head)))
+            }
+            CliId::Worktree { name, .. } => show::worktree(
+                id_map,
+                out,
+                Some(Filter::Source(ChangeSourceId::Worktree(name))),
+            ),
             CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {
@@ -91,7 +105,9 @@ pub fn handle(
                 commit: CommitId { commit_id: id, .. },
                 id: _,
             } => show::commit(ctx, out, id, None),
-            CliId::Stack { .. } => show::worktree(id_map, out, Some(Filter::UncommittedArea)),
+            CliId::Stack { .. } => {
+                show::worktree(id_map, out, Some(Filter::Source(ChangeSourceId::Head)))
+            }
         }
     } else {
         show::worktree(id_map, out, None)

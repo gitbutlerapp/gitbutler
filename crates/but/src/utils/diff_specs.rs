@@ -31,7 +31,11 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 self.push_changes_from_uncommitted(uncommitted)
             }
-            CliId::PathPrefix { id: _, hunks } => self.push_changes_from_path_prefix(hunks),
+            CliId::PathPrefix {
+                id: _,
+                hunks,
+                source: _,
+            } => self.push_changes_from_path_prefix(hunks),
             CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {
@@ -53,6 +57,11 @@ impl<'a> DiffSpecBuilder<'a> {
                 id: _,
             } => self.push_changes_from_commit(*commit_id),
             CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
+            // A worktree is expanded into its files during resolution, so the
+            // builder only ever sees hunks that already come from its own repo.
+            CliId::Worktree { name, .. } => {
+                anyhow::bail!("Cannot compute diff specs for worktree `{name}`")
+            }
             CliId::Stack { .. } => {
                 anyhow::bail!("Cannot compute diff specs for stacks")
             }
@@ -63,6 +72,12 @@ impl<'a> DiffSpecBuilder<'a> {
         &mut self,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
+        // The builder reads the main worktree, so specs built from another
+        // checkout's hunks would silently address the wrong files. Operations
+        // learn to open the source's own repository separately.
+        if let Some(name) = uncommitted.source.worktree_name() {
+            anyhow::bail!("Cannot operate on uncommitted changes in worktree {name} yet");
+        }
         let hunks = uncommitted.hunks.iter().cloned();
         self.push_hunks(hunks.map(|id_and_hunk| id_and_hunk.hunk))
     }

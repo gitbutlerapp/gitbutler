@@ -11,10 +11,12 @@ use crate::{
     IdMap,
     id::{IdAndHunk, UncommittedHunkOrFile},
     utils::OutputChannel,
+    utils::change_source::ChangeSourceId,
 };
 
 pub(crate) enum Filter {
-    UncommittedArea,
+    /// Every uncommitted change of one checkout.
+    Source(ChangeSourceId),
     Uncommitted(UncommittedHunkOrFile),
 }
 
@@ -29,14 +31,17 @@ pub(crate) fn worktree(
         .filter(|(_, uncommitted_hunk)| {
             let a = &uncommitted_hunk.hunk;
             match &filter {
-                None => true,
-                Some(Filter::UncommittedArea) => true,
+                // Unfiltered means the main worktree, not every checkout: a
+                // linked worktree is only ever shown when asked for by name.
+                None => uncommitted_hunk.source == ChangeSourceId::Head,
+                Some(Filter::Source(source)) => uncommitted_hunk.source == *source,
                 Some(Filter::Uncommitted(id)) => {
-                    if id.is_entire_file {
-                        a.path == id.hunks.first().hunk.path
-                    } else {
-                        a.identifies_same_hunk(&id.hunks.first().hunk)
-                    }
+                    uncommitted_hunk.source == id.source
+                        && if id.is_entire_file {
+                            a.path == id.hunks.first().hunk.path
+                        } else {
+                            a.identifies_same_hunk(&id.hunks.first().hunk)
+                        }
                 }
             }
         })
