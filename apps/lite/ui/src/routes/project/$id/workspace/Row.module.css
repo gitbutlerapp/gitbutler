@@ -48,7 +48,9 @@
 }
 
 .containerSelected {
-	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	&:not([data-preview-source="false"] *) {
+		background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	}
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-selection-scope]:focus & {
