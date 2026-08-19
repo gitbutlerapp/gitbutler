@@ -18,6 +18,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { AddProjectButton } from "#ui/components/AddProjectButton.tsx";
+import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
@@ -308,6 +309,8 @@ type ProjectPickerProps = {
 	projects: Array<ProjectForFrontend>;
 	selectedProjectId: string;
 	onOpenChange: (open: boolean) => void;
+	onAddProject: () => void;
+	isAddingProject: boolean;
 };
 
 const ProjectPicker: FC<ProjectPickerProps> = (p) => {
@@ -331,7 +334,11 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 				<AddProjectButton
 					testId={LiteTestId.ProjectPickerAddLocalProjectButton}
 					size="small"
-					onBeforePick={() => p.onOpenChange(false)}
+					isPending={p.isAddingProject}
+					onClick={() => {
+						p.onOpenChange(false);
+						p.onAddProject();
+					}}
 				/>
 			}
 			getItemKey={(project) => project.id}
@@ -429,6 +436,10 @@ const WorkspacePage: FC = () => {
 		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ProjectPicker" } }));
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
+
+	// Owned here rather than by the picker's footer button: the flow outlives
+	// the dialog, which unmounts on close.
+	const { addLocalRepository, isPending: isAddingProject } = useAddLocalRepository();
 
 	const setSettingsOpen = (open: boolean) => {
 		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
@@ -717,6 +728,8 @@ const WorkspacePage: FC = () => {
 							projects={projects}
 							selectedProjectId={projectId}
 							onOpenChange={setProjectPickerOpen}
+							onAddProject={() => void addLocalRepository()}
+							isAddingProject={isAddingProject}
 						/>
 					),
 					Settings: () => (
