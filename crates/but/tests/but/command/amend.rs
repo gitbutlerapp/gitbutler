@@ -357,9 +357,10 @@ Amended tpm
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ m [worktree wt-feature] (no changes)
-┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-feature} (no changes)
+┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
 ┊│     tpm:u A note.txt
@@ -403,9 +404,10 @@ Amended lrm
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ m [worktree wt-feature] (no changes)
-┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-feature} (no changes)
+┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -470,9 +472,10 @@ fn amend_a_clean_worktree_has_nothing_to_amend() {
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-╭┄ n [worktree wt-clean] (no changes)
-┊
 ┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ n {wt-clean} (no changes)
+┊├╯
 ┊●   tpm add A
 ├╯
 ┊
