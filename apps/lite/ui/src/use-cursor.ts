@@ -185,13 +185,29 @@ export const useOutlineFocusScope = (): "outline" | "uncommitted-files" =>
 
 /* ----------------------------------------------------------------- writes */
 
+/**
+ * The params we have asked the router for but that are not in the URL yet.
+ *
+ * Navigating is asynchronous: for a moment after a write, `currentParams()`
+ * still returns the old params. A second write in that moment would build on
+ * the old params and silently undo the first. Writes build on the pending
+ * request instead, so writes made together stack into one result.
+ */
+let requestedParams: UrlQueryParams | null = null;
+
 /** Within-page state never creates history entries (ruled 2026-08-13). */
 const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void => {
-	// Applied against the live params rather than handed to the router as an
-	// updater: a write triggered by data arriving (a list resolving its cursor)
-	// would otherwise be given a `prev` snapshotted before the URL was parsed,
-	// dropping whatever it had not yet seen — the page param, most visibly.
-	void router.navigate({ to: ".", search: update(currentParams()), replace: true }).then(() => {
+	// Start from the pending request if one is in flight, else from the live
+	// params. Applied here rather than handed to the router as an updater: the
+	// router would call it with a `prev` snapshotted before the URL was parsed,
+	// dropping params it had not seen yet — the page param, most visibly.
+	const search = update(requestedParams ?? currentParams());
+	requestedParams = search;
+	void router.navigate({ to: ".", search, replace: true }).then(() => {
+		// This write has landed, so the live params now hold everything it knew:
+		// clear the marker. Unless a newer write replaced it — that one is still
+		// in flight and stands on its own.
+		if (requestedParams === search) requestedParams = null;
 		writeLastPlace(projectIdOf(), router.state.location.searchStr);
 	});
 };
