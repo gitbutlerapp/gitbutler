@@ -250,6 +250,7 @@ describe("branchIntegrationView", () => {
 				isManagedRef: true,
 				isManagedCommit: true,
 				isEntrypoint: true,
+				worktrees: [],
 			},
 			checkoutConflictOccurred: false,
 		};

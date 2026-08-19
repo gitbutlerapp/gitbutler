@@ -79,7 +79,7 @@ pub mod workspace;
 ///
 /// We always try to deduce a set of stacks that are currently applied to a workspace,
 /// even though it's possible to look at refs that are outside a workspace as well.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RefInfo {
     /// The name of the ref that points to a workspace commit,
     /// *or* the name of the first stack segment, along with worktree information.
@@ -137,6 +137,46 @@ pub struct RefInfo {
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
     /// The workspace represents what `HEAD` is pointing to.
     pub is_entrypoint: bool,
+    /// The active linked worktrees along with the commits they own, or empty if the traversal
+    /// wasn't seeded with worktree tips (i.e. the `worktreeManipulation` flag is off).
+    pub worktrees: Vec<worktrees::WorktreeInfo>,
+}
+
+/// Hand-written so `worktrees` only shows up once there are some, keeping the debug output (and
+/// the many snapshots built on it) unchanged for the overwhelmingly common flag-off case.
+impl std::fmt::Debug for RefInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let RefInfo {
+            workspace_ref_info,
+            symbolic_remote_names,
+            stacks,
+            target_ref,
+            target_commit,
+            is_target_current,
+            lower_bound,
+            is_managed_ref,
+            is_managed_commit,
+            ancestor_workspace_commit,
+            is_entrypoint,
+            worktrees,
+        } = self;
+        let mut s = f.debug_struct("RefInfo");
+        s.field("workspace_ref_info", workspace_ref_info)
+            .field("symbolic_remote_names", symbolic_remote_names)
+            .field("stacks", stacks)
+            .field("target_ref", target_ref)
+            .field("target_commit", target_commit)
+            .field("is_target_current", is_target_current)
+            .field("lower_bound", lower_bound)
+            .field("is_managed_ref", is_managed_ref)
+            .field("is_managed_commit", is_managed_commit)
+            .field("ancestor_workspace_commit", ancestor_workspace_commit)
+            .field("is_entrypoint", is_entrypoint);
+        if !worktrees.is_empty() {
+            s.field("worktrees", worktrees);
+        }
+        s.finish()
+    }
 }
 
 impl RefInfo {

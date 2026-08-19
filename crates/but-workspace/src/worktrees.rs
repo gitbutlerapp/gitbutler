@@ -6,7 +6,168 @@
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
 use anyhow::Context as _;
-use bstr::BStr;
+use bstr::{BStr, BString};
+
+/// What a linked worktree's own commits are resting on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorktreeBase {
+    /// The base commit is owned by one of the workspace stacks - or by a worktree listed
+    /// earlier in [tip order](but_graph::Graph::worktree_tips), for worktrees stacked on
+    /// each other - so the worktree branches off the workspace and belongs *inside* it
+    /// when presented.
+    InWorkspace(gix::ObjectId),
+    /// The base commit is outside the workspace, i.e. it is the target commit or below it,
+    /// so the worktree stands on its own.
+    Outside(gix::ObjectId),
+}
+
+impl WorktreeBase {
+    /// The commit the worktree's own commits are resting on.
+    pub fn commit_id(&self) -> gix::ObjectId {
+        match self {
+            WorktreeBase::InWorkspace(id) | WorktreeBase::Outside(id) => *id,
+        }
+    }
+}
+
+/// A non-archived linked worktree along with the commits it owns exclusively, i.e. the commits
+/// between its `HEAD` and the workspace (or the target).
+#[derive(Debug, Clone)]
+pub struct WorktreeInfo {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    pub name: BString,
+    /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
+    pub ref_name: Option<gix::refs::FullName>,
+    /// The commit the worktree `HEAD` peels to, as re-resolved during traversal.
+    pub head: gix::ObjectId,
+    /// What [`Self::commits`] are resting on.
+    ///
+    /// This is `None` only if the traversal ran out of graph before reaching the workspace or the
+    /// target, which happens for worktrees on unrelated history or when a traversal limit was hit.
+    pub base: Option<WorktreeBase>,
+    /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its
+    /// [base](Self::base), along the first parent.
+    ///
+    /// Empty if the worktree `HEAD` is itself a workspace commit.
+    pub commits: Vec<crate::ref_info::LocalCommit>,
+}
+
+/// Project the linked worktrees that seeded `workspace`'s traversal into the commits they own.
+///
+/// Returns an empty list when the traversal wasn't seeded with worktree tips, which is how the
+/// `worktreeManipulation` feature flag switches this off - the flag decides whether
+/// [`worktrees`](but_graph::init::Options::worktrees) is set, and everything here rides on that.
+///
+/// The tips are the ones the traversal itself resolved, so a ref that vanished by then was
+/// already dropped rather than resurrected at its stale commit. A worktree that cannot be
+/// projected - its tip is not in the graph, or one of its commits fails to load - is skipped
+/// with a warning rather than failing the whole projection: worktree commits are decoration,
+/// and a single broken worktree must not take down the workspace view.
+pub fn worktree_infos(
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+) -> Vec<WorktreeInfo> {
+    let graph = &workspace.graph;
+    if graph.worktree_tips.is_empty() {
+        return Vec::new();
+    }
+
+    // Commits no worktree may own: everything in the workspace stacks, plus - as tips are
+    // processed - the commits already claimed by an earlier worktree, so worktrees stacked
+    // on each other don't repeat each other's commits.
+    let mut off_limits: gix::hashtable::HashSet<gix::ObjectId> = workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.segments.iter())
+        .flat_map(|segment| segment.commits.iter().map(|commit| commit.id))
+        .collect();
+
+    let mut out = Vec::new();
+    for tip in &graph.worktree_tips {
+        let head = tip.id;
+        let Ok(sidx) = graph.segment_id_by_commit_id(head) else {
+            // Another tip may have claimed the commit for a segment we can't walk from, or a
+            // traversal limit cut it off. Either way there is nothing to show.
+            tracing::warn!(
+                worktree = %tip.name,
+                %head,
+                "Worktree tip is not part of the graph, skipping it"
+            );
+            continue;
+        };
+        let (commits, base) = commits_and_base(graph, sidx, head, &off_limits, workspace);
+        let local_commits: Vec<_> = match commits
+            .iter()
+            .map(|commit| crate::ref_info::LocalCommit::try_from_stack_commit(commit, repo))
+            .collect()
+        {
+            Ok(local_commits) => local_commits,
+            Err(err) => {
+                tracing::warn!(
+                    worktree = %tip.name,
+                    %head,
+                    ?err,
+                    "Failed to load a worktree commit, skipping the worktree"
+                );
+                continue;
+            }
+        };
+        off_limits.extend(commits.iter().map(|commit| commit.id));
+        out.push(WorktreeInfo {
+            name: tip.name.clone(),
+            ref_name: tip.ref_name.clone(),
+            head,
+            base,
+            commits: local_commits,
+        });
+    }
+    out
+}
+
+/// Walk down from `head` (owned by `sidx`) along the first parent, collecting commits until
+/// reaching a commit in `off_limits` or the target of `workspace`.
+fn commits_and_base(
+    graph: &but_graph::Graph,
+    sidx: but_graph::SegmentIndex,
+    head: gix::ObjectId,
+    off_limits: &gix::hashtable::HashSet<gix::ObjectId>,
+    workspace: &but_graph::Workspace,
+) -> (Vec<but_graph::workspace::StackCommit>, Option<WorktreeBase>) {
+    let target_commit_id = workspace.target_commit.as_ref().map(|t| t.commit_id);
+
+    let mut commits = Vec::new();
+    let mut base = None;
+    // `head` can sit in the middle of its segment when another tip owns the segment's first commit.
+    let mut before_head = true;
+    graph.visit_segments_downward_along_first_parent_include_start(sidx, |segment| {
+        for commit in &segment.commits {
+            if before_head {
+                if commit.id != head {
+                    continue;
+                }
+                before_head = false;
+            }
+            if off_limits.contains(&commit.id) {
+                base = Some(WorktreeBase::InWorkspace(commit.id));
+                return true;
+            }
+            // Reachable from the target branch means at or below the target - a per-commit
+            // property, unlike global measures such as segment generations, which cannot tell
+            // deep unrelated history apart from history below the target. The stored target
+            // commit is checked as well in case the target branch was rewritten and no longer
+            // reaches it.
+            if commit.flags.contains(but_graph::CommitFlags::Integrated)
+                || target_commit_id == Some(commit.id)
+            {
+                base = Some(WorktreeBase::Outside(commit.id));
+                return true;
+            }
+            commits.push(but_graph::workspace::StackCommit::from_graph_commit(commit));
+        }
+        false
+    });
+    (commits, base)
+}
 
 /// Open the linked worktree named `name` as a from-disk repository.
 ///
