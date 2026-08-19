@@ -78,8 +78,8 @@ import {
 	useCanShowFiles,
 	useSidebarFocusScope,
 	usePage,
-	useResolvedCursor,
-	useWorkspaceList,
+	useSelection,
+	useActiveList,
 } from "#ui/use-cursor.ts";
 import { defaultSettings } from "#ui/settings.ts";
 
@@ -246,7 +246,7 @@ const hasAnyOperation = (sources: Array<Operand>, target: Operand, kind: Transfe
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
-const buildSidebarNavigationIndex = ({
+const buildAppliedNavigationIndex = ({
 	headInfo,
 	pendingOperation,
 	absorptionTargetCommitIds,
@@ -428,7 +428,7 @@ const WorkspacePage: FC = () => {
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
-		setCursor("stacks", branchOperand(branch));
+		setCursor("applied", branchOperand(branch));
 		focusScope("sidebar");
 	};
 
@@ -516,7 +516,7 @@ const WorkspacePage: FC = () => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const sidebarNavigationIndex = buildSidebarNavigationIndex({
+	const appliedNavigationIndex = buildAppliedNavigationIndex({
 		headInfo,
 		pendingOperation,
 		absorptionTargetCommitIds,
@@ -527,9 +527,9 @@ const WorkspacePage: FC = () => {
 	const branchesList = useBranchesList(projectId);
 	const upstreamList = useUpstreamList(projectId);
 
-	const appliedSelection = useResolvedCursor("stacks", sidebarNavigationIndex);
-	const branchesSelection = useResolvedCursor("branches", branchesList.navigationIndex);
-	const upstreamSelection = useResolvedCursor("upstream", upstreamList.navigationIndex);
+	const appliedSelection = useSelection("applied", appliedNavigationIndex);
+	const branchesSelection = useSelection("branches", branchesList.navigationIndex);
+	const upstreamSelection = useSelection("upstream", upstreamList.navigationIndex);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -547,7 +547,7 @@ const WorkspacePage: FC = () => {
 	});
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
-	const uncommittedFilesNavigationIndex = fileTreeNavigationIndex(uncommittedFileRows);
+	const uncommittedNavigationIndex = fileTreeNavigationIndex(uncommittedFileRows);
 	const uncommittedTreeChangeDiffs = useQueries({
 		queries:
 			worktreeChanges?.changes.map((change) =>
@@ -582,12 +582,9 @@ const WorkspacePage: FC = () => {
 		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
 	};
 
-	const uncommittedFilesSelection = useResolvedCursor(
-		"uncommitted",
-		uncommittedFilesNavigationIndex,
-	);
+	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedNavigationIndex);
 
-	const workspaceList = useWorkspaceList();
+	const activeList = useActiveList();
 	// The pane's content is one component per page, as the sidebar has one list
 	// per page — the component tree, not a tag on the selection, carries where a
 	// selection came from. Only the workspace page has two lists, so only its arm
@@ -604,8 +601,8 @@ const WorkspacePage: FC = () => {
 
 		return Match.value(page).pipe(
 			Match.when("workspace", () =>
-				Match.value(workspaceList).pipe(
-					Match.when("stacks", () => (
+				Match.value(activeList).pipe(
+					Match.when("applied", () => (
 						<WorkspaceDetails selection={appliedSelection} {...viewProps} />
 					)),
 					Match.when(
@@ -634,7 +631,7 @@ const WorkspacePage: FC = () => {
 		uncommittedFilesSelection,
 		upstreamReview,
 		upstreamSelection,
-		workspaceList,
+		activeList,
 	]);
 
 	const deferredDetails = useDeferredValue(details);
@@ -704,8 +701,8 @@ const WorkspacePage: FC = () => {
 								project={selectedProject}
 								branchesList={branchesList}
 								upstreamList={upstreamList}
-								navigationIndex={sidebarNavigationIndex}
-								uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
+								navigationIndex={appliedNavigationIndex}
+								uncommittedNavigationIndex={uncommittedNavigationIndex}
 								absorptionTargetCommitIds={absorptionTargetCommitIds}
 								onActiveFileSelection={onActiveUncommittedFileSelection}
 							/>
@@ -726,7 +723,7 @@ const WorkspacePage: FC = () => {
 				</Panel>
 			</Group>
 
-			<OperationControls sidebarNavigationIndex={sidebarNavigationIndex} />
+			<OperationControls appliedNavigationIndex={appliedNavigationIndex} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

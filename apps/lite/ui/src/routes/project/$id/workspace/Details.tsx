@@ -1,5 +1,5 @@
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { startAbsorb, setCursor, useCanShowFiles, useResolvedCursor } from "#ui/use-cursor.ts";
+import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
@@ -421,7 +421,7 @@ const DiffContents: FC<{
 	);
 	const visibleNavigationIndex = withoutFoldedHunks(navigationIndex, hunkByKey, collapsedItems);
 
-	const diffSelection = useResolvedCursor("diff", visibleNavigationIndex);
+	const diffSelection = useSelection("diff", visibleNavigationIndex);
 	const hasStoredDiffSelection = useAppSelector(
 		(state) => projectSlice.selectors.selectDiffCursor(state, projectId) !== null,
 	);
@@ -1816,7 +1816,7 @@ const Diff: FC<{
 		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories],
 	);
 	const filesNavigationIndex = useMemo(() => fileTreeNavigationIndex(filesRows), [filesRows]);
-	const filesSelection = useResolvedCursor("files", filesNavigationIndex);
+	const filesSelection = useSelection("files", filesNavigationIndex);
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
 	// the sidebar selection, even with the helpers inlined, hence manual memoisation.

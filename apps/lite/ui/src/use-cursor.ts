@@ -1,13 +1,13 @@
 import {
 	cursorKey,
-	type ListItem,
-	type ListName,
+	type CursorItem,
+	type CursorName,
 	type WorkspaceCursorSnapshot,
 } from "#ui/cursors.ts";
 import {
 	encodeCursorParam,
-	isUrlList,
-	type UrlListName,
+	isUrlCursor,
+	type UrlCursorName,
 	type UrlQueryParams,
 } from "#ui/cursor-url.ts";
 import {
@@ -15,7 +15,7 @@ import {
 	type InlineEditOperand,
 } from "#ui/operations/pending-operation.ts";
 import type { Operand } from "#ui/operands.ts";
-import type { PageId, WorkspaceList } from "#ui/projects/project.ts";
+import type { PageId, ActiveList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
@@ -42,8 +42,8 @@ const WORKSPACE_ROUTE = "/project/$id/workspace" as const;
 // Indexing the per-list map with a union collapses it to an intersection;
 // this view is what the generic paths below call.
 const encodeUnion = encodeCursorParam as (
-	list: UrlListName,
-	item: ListItem[UrlListName],
+	list: UrlCursorName,
+	item: CursorItem[UrlCursorName],
 ) => string | null;
 
 /**
@@ -69,10 +69,10 @@ export const currentParams = (): UrlQueryParams => router.state.location.search 
  */
 const encodedIndexes = new WeakMap<object, Map<string, unknown>>();
 
-const encodedIndex = <L extends UrlListName>(
+const encodedIndex = <L extends UrlCursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<ListItem[L]>,
-): Map<string, ListItem[L]> => {
+	navigationIndex: NavigationIndex<CursorItem[L]>,
+): Map<string, CursorItem[L]> => {
 	let byParam = encodedIndexes.get(navigationIndex);
 	if (!byParam) {
 		byParam = new Map();
@@ -82,54 +82,55 @@ const encodedIndex = <L extends UrlListName>(
 		}
 		encodedIndexes.set(navigationIndex, byParam);
 	}
-	return byParam as Map<string, ListItem[L]>;
+	return byParam as Map<string, CursorItem[L]>;
 };
 
-const resolveCursorParam = <L extends UrlListName>(
+const resolveCursorParam = <L extends UrlCursorName>(
 	list: L,
 	param: string | undefined,
-	navigationIndex: NavigationIndex<ListItem[L]>,
-): ListItem[L] | null =>
+	navigationIndex: NavigationIndex<CursorItem[L]>,
+): CursorItem[L] | null =>
 	(param === undefined ? undefined : encodedIndex(list, navigationIndex).get(param)) ??
 	navigationIndex.items[0] ??
 	null;
 
 /** The cursor resolved against what the list currently shows. */
-export const useResolvedCursor = <L extends ListName>(
+export const useSelection = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<ListItem[L]>,
-): ListItem[L] | null => {
+	navigationIndex: NavigationIndex<CursorItem[L]>,
+): CursorItem[L] | null => {
 	// Both stores are subscribed unconditionally so hook order never depends
 	// on the list; every call site passes a literal list name anyway.
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) => (isUrlList(list) ? params[list as UrlListName] : undefined),
+		select: (params: UrlQueryParams) =>
+			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
 	});
 	const storedDiff = useAppSelector((state) =>
 		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
 	);
 
 	return (
-		isUrlList(list)
+		isUrlCursor(list)
 			? resolveCursorParam(list, param, navigationIndex as never)
 			: resolveNavigationIndexSelection(
-					navigationIndex as NavigationIndex<ListItem["diff"]>,
+					navigationIndex as NavigationIndex<CursorItem["diff"]>,
 					storedDiff,
 					cursorKey.diff,
 				)
-	) as ListItem[L] | null;
+	) as CursorItem[L] | null;
 };
 
 /**
  * Whether the resolved cursor rests on `item`. A primitive, so a cursor move
  * re-renders the two affected rows rather than the whole list.
  */
-export const useIsCursorAt = <L extends ListName>(
+export const useIsCursorAt = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<ListItem[L]>,
-	item: ListItem[L],
+	navigationIndex: NavigationIndex<CursorItem[L]>,
+	item: CursorItem[L],
 ): boolean => {
-	const resolved = useResolvedCursor(list, navigationIndex);
+	const resolved = useSelection(list, navigationIndex);
 	return resolved !== null && cursorKey[list](resolved) === cursorKey[list](item);
 };
 
@@ -138,7 +139,7 @@ export const useIsCursorAt = <L extends ListName>(
  * Rows subscribe to this plain boolean so index rebuilds (fold, filter, data
  * refresh) do not re-render every row.
  */
-export const useCursorMatches = <L extends UrlListName>(list: L, item: ListItem[L]): boolean =>
+export const useCursorMatches = <L extends UrlCursorName>(list: L, item: CursorItem[L]): boolean =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams) => params[list] === encodeCursorParam(list, item),
@@ -154,16 +155,16 @@ export const usePage = (): PageId =>
 const pageOf = (): PageId => currentParams().page ?? "workspace";
 
 /** The workspace page's driving list, `stacks` unless the URL says otherwise. */
-export const useWorkspaceList = (): WorkspaceList =>
+export const useActiveList = (): ActiveList =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) => params.list ?? "stacks",
+		select: (params: UrlQueryParams) => params.active ?? "applied",
 	});
 
-const workspaceListOf = (): WorkspaceList => currentParams().list ?? "stacks";
+const activeListOf = (): ActiveList => currentParams().active ?? "applied";
 
 const drivenByUncommitted = (params: UrlQueryParams): boolean =>
-	(params.page ?? "workspace") === "workspace" && (params.list ?? "stacks") === "uncommitted";
+	(params.page ?? "workspace") === "workspace" && (params.active ?? "applied") === "uncommitted";
 
 /**
  * The uncommitted list is itself a file list, so while it drives the pane a
@@ -199,7 +200,7 @@ const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void 
 	});
 };
 
-const setDiffCursor = (selection: ListItem["diff"] | null): void => {
+const setDiffCursor = (selection: CursorItem["diff"] | null): void => {
 	store.dispatch(projectSlice.actions.selectDiffCursor({ projectId: projectIdOf(), selection }));
 };
 
@@ -216,14 +217,14 @@ const dissolveInvalidOperation = (selection: Operand | null): void => {
 };
 
 /** Move a list's cursor. */
-export const setCursor = <L extends ListName>(list: L, item: ListItem[L] | null): void => {
-	if (!isUrlList(list)) {
-		setDiffCursor(item as ListItem["diff"] | null);
+export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | null): void => {
+	if (!isUrlCursor(list)) {
+		setDiffCursor(item as CursorItem["diff"] | null);
 		return;
 	}
 
 	const encoded =
-		item === null ? undefined : (encodeUnion(list, item as ListItem[UrlListName]) ?? undefined);
+		item === null ? undefined : (encodeUnion(list, item as CursorItem[UrlCursorName]) ?? undefined);
 	// Selecting the same item is a no-op, side effects included; selecting
 	// null always lands (it may still have sub-cursors to clear).
 	if (item !== null && currentParams()[list] === encoded) return;
@@ -232,10 +233,10 @@ export const setCursor = <L extends ListName>(list: L, item: ListItem[L] | null)
 		...prev,
 		[list]: encoded,
 		// The file and diff cursors follow whatever the stacks cursor rests on.
-		...(list === "stacks" ? { files: undefined } : {}),
+		...(list === "applied" ? { files: undefined } : {}),
 	}));
 
-	if (list === "stacks") {
+	if (list === "applied") {
 		setDiffCursor(null);
 		dissolveInvalidOperation(item as Operand | null);
 	}
@@ -250,10 +251,10 @@ export const setPage = (page: PageId): void => {
 };
 
 /** Name the workspace list that drives the details pane. */
-export const setWorkspaceList = (list: WorkspaceList): void => {
-	if (workspaceListOf() === list) return;
+export const setActiveList = (list: ActiveList): void => {
+	if (activeListOf() === list) return;
 
-	navigateParams((prev) => ({ ...prev, list: list === "stacks" ? undefined : list }));
+	navigateParams((prev) => ({ ...prev, active: list === "applied" ? undefined : list }));
 };
 
 /* -------------------------- pending operations with restoration */
@@ -262,8 +263,8 @@ const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	const params = currentParams();
 	return {
 		page: params.page,
-		list: params.list,
-		stacks: params.stacks,
+		active: params.active,
+		applied: params.applied,
 		uncommitted: params.uncommitted,
 		files: params.files,
 		diff: projectSlice.selectors.selectDiffCursor(store.getState(), projectIdOf()),
@@ -274,8 +275,8 @@ const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
 	navigateParams((prev) => ({
 		...prev,
 		page: snapshot.page,
-		list: snapshot.list,
-		stacks: snapshot.stacks,
+		active: snapshot.active,
+		applied: snapshot.applied,
 		uncommitted: snapshot.uncommitted,
 		files: snapshot.files,
 	}));
@@ -293,7 +294,7 @@ export const startKeyboardTransfer = ({
 }): void => {
 	const restoreSelection = snapshotWorkspaceCursors();
 	if (restoreSelection.page !== undefined)
-		navigateParams((prev) => ({ ...prev, page: undefined, list: undefined }));
+		navigateParams((prev) => ({ ...prev, page: undefined, active: undefined }));
 
 	store.dispatch(
 		projectSlice.actions.startKeyboardTransfer({
@@ -338,13 +339,13 @@ export const cancelPendingOperation = (): void => {
 };
 
 export const startInlineEdit = (operand: InlineEditOperand): void => {
-	setCursor("stacks", operand);
+	setCursor("applied", operand);
 	store.dispatch(projectSlice.actions.startInlineEdit({ projectId: projectIdOf(), operand }));
 };
 
 /* ------------------------------------------------------- rewrite handling */
 
-const operandParams = ["stacks", "branches", "upstream"] as const;
+const operandParams = ["applied", "branches", "upstream"] as const;
 
 /**
  * Rewrite `commit:` params after a commit rewrite. `change:` params need no
@@ -382,14 +383,15 @@ export const remapSearchBranch = (oldRef: string, newRef: string): void => {
  * the index — the list stores the resolved value to keep the two in
  * agreement. One effect for every list.
  */
-export const useCursorWriteBack = <L extends ListName>(
+export const useCursorWriteBack = <L extends CursorName>(
 	list: L,
-	navigationIndex: NavigationIndex<ListItem[L]>,
+	navigationIndex: NavigationIndex<CursorItem[L]>,
 ): void => {
-	const resolved = useResolvedCursor(list, navigationIndex);
+	const resolved = useSelection(list, navigationIndex);
 	const storedParam = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) => (isUrlList(list) ? params[list as UrlListName] : undefined),
+		select: (params: UrlQueryParams) =>
+			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
 	});
 	const storedDiff = useAppSelector((state) =>
 		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
@@ -397,10 +399,10 @@ export const useCursorWriteBack = <L extends ListName>(
 
 	const outOfSync =
 		resolved !== null &&
-		(isUrlList(list)
-			? storedParam !== encodeUnion(list, resolved as ListItem[UrlListName])
+		(isUrlCursor(list)
+			? storedParam !== encodeUnion(list, resolved as CursorItem[UrlCursorName])
 			: storedDiff === null ||
-				cursorKey.diff(storedDiff) !== cursorKey.diff(resolved as ListItem["diff"]))
+				cursorKey.diff(storedDiff) !== cursorKey.diff(resolved as CursorItem["diff"]))
 			? resolved
 			: null;
 

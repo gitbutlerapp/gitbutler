@@ -48,7 +48,7 @@ export const useStateReconciler = (): void => {
 	// id (encode-match), and a `commit:` param names an identity nothing survives.
 	const reconcileSelectedBranch = useEffectEvent(
 		(headInfo: RefInfo, headInfoIndex: HeadInfoIndex, prevHeadInfoIndex: HeadInfoIndex) => {
-			const refName = branchParamRef(currentParams().stacks);
+			const refName = branchParamRef(currentParams().applied);
 			if (refName === null) return;
 
 			const refBytes = encodeBytes(refName);

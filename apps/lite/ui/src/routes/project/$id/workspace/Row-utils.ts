@@ -18,7 +18,7 @@ export const treeItemId = (operand: Operand): string =>
 export const useIsSelected = (
 	projectId: string,
 	operand: Operand,
-	list: "stacks" | "branches" | "upstream",
+	list: "applied" | "branches" | "upstream",
 ): boolean => useCursorMatches(list, operand);
 
 export const getRowButtonClassName = ({

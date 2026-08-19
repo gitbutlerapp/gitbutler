@@ -12,9 +12,9 @@ export const ItemRow: FC<
 	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
 > = ({ operand, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("stacks", navigationIndex, operand);
+	const isSelected = useIsCursorAt("applied", navigationIndex, operand);
 	const selectItem = () => {
-		setCursor("stacks", operand);
+		setCursor("applied", operand);
 	};
 
 	return (

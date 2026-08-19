@@ -72,15 +72,15 @@ export const getTransferKind = (transfer: PendingTransfer): TransferKind =>
 export const getTransferTarget = (
 	transfer: PendingTransfer,
 	appliedSelection: Operand | null,
-	workspaceList: "stacks" | "uncommitted",
+	activeList: "applied" | "uncommitted",
 ): Operand | null =>
 	Match.value(transfer).pipe(
 		Match.tagsExhaustive({
 			Pointer: (transfer) => transfer.target,
 			Keyboard: () =>
-				Match.value(workspaceList).pipe(
+				Match.value(activeList).pipe(
 					Match.when("uncommitted", () => uncommittedChangesOperand),
-					Match.when("stacks", () => appliedSelection),
+					Match.when("applied", () => appliedSelection),
 					Match.exhaustive,
 				),
 		}),

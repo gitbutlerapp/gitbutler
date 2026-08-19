@@ -21,7 +21,7 @@ export const toggleFoldedSegment = (
 		select,
 	}: { projectId: string; branchRefBytes: Array<number>; select: boolean },
 ) => {
-	if (select) setCursor("stacks", branchOperand({ branchRef: branchRefBytes }));
+	if (select) setCursor("applied", branchOperand({ branchRef: branchRefBytes }));
 
 	dispatch(
 		projectSlice.actions.toggleSegmentFolded({

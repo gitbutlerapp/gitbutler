@@ -691,7 +691,7 @@ export const useCommitCreate = () => {
 
 				if (newCommitCtx) {
 					setCursor(
-						"stacks",
+						"applied",
 						commitOperand({
 							commitId: response.newCommit,
 							changeId: newCommitCtx.commit.changeId,
@@ -847,7 +847,7 @@ export const useCommitInsertBlank = () => {
 
 			if (newCommitCtx) {
 				setCursor(
-					"stacks",
+					"applied",
 					commitOperand({
 						commitId: response.newCommit,
 						changeId: newCommitCtx.commit.changeId,

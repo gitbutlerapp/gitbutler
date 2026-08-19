@@ -1,5 +1,5 @@
 import { decodeBytes } from "#ui/api/bytes.ts";
-import type { ListItem, ListName } from "#ui/cursors.ts";
+import type { CursorItem, CursorName } from "#ui/cursors.ts";
 import type { PageId } from "#ui/projects/project.ts";
 import type { Operand } from "#ui/operands.ts";
 
@@ -14,8 +14,8 @@ import type { Operand } from "#ui/operands.ts";
  */
 export type UrlQueryParams = {
 	page?: Exclude<PageId, "workspace">;
-	list?: "uncommitted";
-	stacks?: string;
+	active?: "uncommitted";
+	applied?: string;
 	uncommitted?: string;
 	branches?: string;
 	upstream?: string;
@@ -23,9 +23,9 @@ export type UrlQueryParams = {
 };
 
 /** The lists whose cursor is a URL param — every list but `diff`. */
-export type UrlListName = Exclude<ListName, "diff">;
+export type UrlCursorName = Exclude<CursorName, "diff">;
 
-export const isUrlList = (list: ListName): list is UrlListName => list !== "diff";
+export const isUrlCursor = (list: CursorName): list is UrlCursorName => list !== "diff";
 
 /**
  * Operand codec: `branch:<full-ref>`, `change:<change-id>` (first choice — a
@@ -50,8 +50,8 @@ const commitPrefix = "commit:";
 
 const encodePath = (path: string): string => path;
 
-const cursorParam: { [L in UrlListName]: (item: ListItem[L]) => string | null } = {
-	stacks: encodeOperand,
+const cursorParam: { [L in UrlCursorName]: (item: CursorItem[L]) => string | null } = {
+	applied: encodeOperand,
 	branches: encodeOperand,
 	upstream: encodeOperand,
 	uncommitted: encodePath,
@@ -74,7 +74,7 @@ export const commitParamRef = (
 				? { commitId: param.slice(commitPrefix.length) }
 				: null;
 
-export const encodeCursorParam = <L extends UrlListName>(
+export const encodeCursorParam = <L extends UrlCursorName>(
 	list: L,
-	item: ListItem[L],
+	item: CursorItem[L],
 ): string | null => cursorParam[list](item);

@@ -113,7 +113,7 @@ export const Sidebar: FC<{
 	branchesList: BranchesListData;
 	upstreamList: UpstreamListData;
 	navigationIndex: NavigationIndex<Operand>;
-	uncommittedFilesNavigationIndex: NavigationIndex<string>;
+	uncommittedNavigationIndex: NavigationIndex<string>;
 	onActiveFileSelection: (selection: string) => void;
 	project: ProjectForFrontend;
 	projectId: string;
@@ -122,7 +122,7 @@ export const Sidebar: FC<{
 	branchesList,
 	upstreamList,
 	navigationIndex,
-	uncommittedFilesNavigationIndex,
+	uncommittedNavigationIndex,
 	onActiveFileSelection,
 	project,
 	projectId,
@@ -396,7 +396,7 @@ export const Sidebar: FC<{
 				<WorkspaceLists
 					className={styles.page}
 					navigationIndex={navigationIndex}
-					uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
+					uncommittedNavigationIndex={uncommittedNavigationIndex}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}

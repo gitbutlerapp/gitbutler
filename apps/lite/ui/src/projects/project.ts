@@ -51,7 +51,7 @@ import {
 } from "./upstream.ts";
 
 /** The workspace page's two lists; the one named here drives the details pane. */
-export type WorkspaceList = "stacks" | "uncommitted";
+export type ActiveList = "applied" | "uncommitted";
 
 type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" | "Hunk" }>;
 

@@ -1,5 +1,5 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { cancelPendingOperation, useResolvedCursor, useWorkspaceList } from "#ui/use-cursor.ts";
+import { cancelPendingOperation, useSelection, useActiveList } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -373,15 +373,15 @@ const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
 	transfer: KeyboardTransfer;
-	sidebarNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, transfer, sidebarNavigationIndex }) => {
-	const workspaceList = useWorkspaceList();
-	const selection = useResolvedCursor("stacks", sidebarNavigationIndex);
+	appliedNavigationIndex: NavigationIndex<Operand>;
+}> = ({ headInfoIndex, projectId, transfer, appliedNavigationIndex }) => {
+	const activeList = useActiveList();
+	const selection = useSelection("applied", appliedNavigationIndex);
 
 	const dispatch = useAppDispatch();
 	const { mutate: executeOperation } = useExecuteOperation();
 
-	const target = getTransferTarget(keyboardTransfer(transfer), selection, workspaceList);
+	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
 	if (!target) return null;
 
 	const operations = getOperations(transfer.sources, target, transfer.kind);
@@ -432,8 +432,8 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ sidebarNavigationIndex: NavigationIndex<Operand> }> = ({
-	sidebarNavigationIndex,
+export const OperationControls: FC<{ appliedNavigationIndex: NavigationIndex<Operand> }> = ({
+	appliedNavigationIndex,
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const pendingOperation = useAppSelector((state) =>
@@ -473,7 +473,7 @@ export const OperationControls: FC<{ sidebarNavigationIndex: NavigationIndex<Ope
 									headInfoIndex={headInfoIndex}
 									projectId={projectId}
 									transfer={transfer}
-									sidebarNavigationIndex={sidebarNavigationIndex}
+									appliedNavigationIndex={appliedNavigationIndex}
 								/>
 							),
 					}),

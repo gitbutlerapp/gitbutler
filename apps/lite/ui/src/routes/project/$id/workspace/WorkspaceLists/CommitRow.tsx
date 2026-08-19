@@ -137,7 +137,7 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -180,7 +180,7 @@ export const CommitRow: FC<
 						});
 					}
 
-					setCursor("stacks", latestSelectionAfterDiscard);
+					setCursor("applied", latestSelectionAfterDiscard);
 				},
 			},
 		);
@@ -227,7 +227,7 @@ export const CommitRow: FC<
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
-		setCursor("stacks", operand);
+		setCursor("applied", operand);
 		focusScope("sidebar");
 	};
 

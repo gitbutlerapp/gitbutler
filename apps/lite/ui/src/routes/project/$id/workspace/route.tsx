@@ -14,12 +14,12 @@ export const Route = createRoute({
 	// so a corrupt or stale URL opens the page at defaults.
 	validateSearch: (params: Record<string, unknown>): UrlQueryParams => {
 		const page = str(params.page);
-		const list = str(params.list);
+		const active = str(params.active);
 
 		return {
 			page: page === "upstream" || page === "branches" ? page : undefined,
-			list: list === "uncommitted" ? list : undefined,
-			stacks: str(params.stacks),
+			active: active === "uncommitted" ? active : undefined,
+			applied: str(params.applied),
 			uncommitted: str(params.uncommitted),
 			branches: str(params.branches),
 			upstream: str(params.upstream),

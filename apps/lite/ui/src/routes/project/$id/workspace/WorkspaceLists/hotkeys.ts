@@ -8,12 +8,7 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
-import {
-	startKeyboardTransfer,
-	setCursor,
-	startInlineEdit,
-	useResolvedCursor,
-} from "#ui/use-cursor.ts";
+import { startKeyboardTransfer, setCursor, startInlineEdit, useSelection } from "#ui/use-cursor.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -69,7 +64,7 @@ const pushContextForSegment = ({
 	};
 };
 
-export const useWorkspaceListsHotkeys = ({
+export const useActiveListsHotkeys = ({
 	navigationIndex,
 	projectId,
 	ref,
@@ -90,7 +85,7 @@ export const useWorkspaceListsHotkeys = ({
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const store = useAppStore();
-	const selection = useResolvedCursor("stacks", navigationIndex);
+	const selection = useSelection("applied", navigationIndex);
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -191,7 +186,7 @@ export const useWorkspaceListsHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -312,7 +307,7 @@ export const useWorkspaceListsHotkeys = ({
 						});
 					}
 
-					setCursor("stacks", latestSelectionAfterDiscard);
+					setCursor("applied", latestSelectionAfterDiscard);
 				},
 			},
 		);
@@ -439,7 +434,7 @@ export const useWorkspaceListsHotkeys = ({
 		ref,
 		navigationIndex,
 		group: "Sidebar",
-		select: (newItem) => setCursor("stacks", newItem),
+		select: (newItem) => setCursor("applied", newItem),
 		selection,
 		onEdgeSpill,
 		getKey: operandIdentityKey,

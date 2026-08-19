@@ -22,7 +22,7 @@ export const useApplyToWorkspace = (projectId: string) => {
 					if (!appliedRef) return;
 
 					setPage("workspace");
-					setCursor("stacks", branchOperand({ branchRef: encodeBytes(appliedRef.full) }));
+					setCursor("applied", branchOperand({ branchRef: encodeBytes(appliedRef.full) }));
 				},
 			},
 		);

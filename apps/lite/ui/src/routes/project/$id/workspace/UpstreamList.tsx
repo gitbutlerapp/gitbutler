@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
+import { setCursor, useCursorWriteBack, useSelection } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -394,7 +394,7 @@ export const UpstreamList: FC<
 		isError,
 	} = list;
 
-	const selection = useResolvedCursor("upstream", navigationIndex);
+	const selection = useSelection("upstream", navigationIndex);
 	useCursorWriteBack("upstream", navigationIndex);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);

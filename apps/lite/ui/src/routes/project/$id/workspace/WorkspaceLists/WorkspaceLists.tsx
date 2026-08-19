@@ -1,10 +1,10 @@
 import rowStyles from "../Row.module.css";
 import {
 	setCursor,
-	setWorkspaceList,
+	setActiveList,
 	useIsCursorAt,
-	useResolvedCursor,
-	useWorkspaceList,
+	useSelection,
+	useActiveList,
 } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -71,7 +71,7 @@ import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
-import { useWorkspaceListsHotkeys } from "./hotkeys.ts";
+import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
@@ -111,7 +111,7 @@ const TreeItem: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ operand, render, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("stacks", navigationIndex, operand);
+	const isSelected = useIsCursorAt("applied", navigationIndex, operand);
 
 	return useRender({
 		render,
@@ -138,8 +138,8 @@ const OperationTarget: FC<
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
-	const selection = useResolvedCursor("stacks", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const selection = useSelection("applied", navigationIndex);
+	const activeList = useActiveList();
 	const activeOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
@@ -155,7 +155,7 @@ const OperationTarget: FC<
 				Transfer: ({ value: mode }): ActiveOperation | null => {
 					if (mode.placement === null) return null;
 
-					const target = getTransferTarget(mode, selection, workspaceList);
+					const target = getTransferTarget(mode, selection, activeList);
 					const isActive = target !== null && operandEquals(target, operand);
 					if (!isActive) return null;
 
@@ -276,8 +276,8 @@ const UncommittedChanges: FC<{
 		collapsedDirectories,
 	});
 
-	const fileSelection = useResolvedCursor("uncommitted", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const fileSelection = useSelection("uncommitted", navigationIndex);
+	const activeList = useActiveList();
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
@@ -319,9 +319,9 @@ const UncommittedChanges: FC<{
 			>
 				<FilesTree
 					canUncommit={false}
-					data-preview-source={workspaceList === "uncommitted"}
+					data-preview-source={activeList === "uncommitted"}
 					focusScope="uncommitted-files"
-					onFocus={() => setWorkspaceList("uncommitted")}
+					onFocus={() => setActiveList("uncommitted")}
 					emptyLabel={
 						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
 							? "No matching files."
@@ -339,7 +339,7 @@ const UncommittedChanges: FC<{
 					onRowSelection={onActiveFileSelection}
 					onEdgeSpill={onEdgeSpill}
 					projectId={projectId}
-					ref={useMergedRefs(fileListRef, useAutofocusScope(workspaceList === "uncommitted"))}
+					ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
 					selection={fileSelection}
 				/>
 			</div>
@@ -536,7 +536,7 @@ const SegmentContent: FC<{
  * It dims with the rows it joins, so it has to ask about the same operand the
  * row above it stands for: the last commit while the segment is unfolded, and
  * the branch itself once it is folded, because folding takes the commits out of
- * the navigation index (see `buildSidebarNavigationIndex`). Asking after a
+ * the navigation index (see `buildAppliedNavigationIndex`). Asking after a
  * folded commit would always miss, dimming the connector to half the weight of
  * the rail on either side of it and breaking the line between branches.
  */
@@ -664,8 +664,8 @@ const Stacks: FC<{
 }> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useResolvedCursor("stacks", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const selection = useSelection("applied", navigationIndex);
+	const activeList = useActiveList();
 	const dryRunOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
@@ -674,7 +674,7 @@ const Stacks: FC<{
 				Transfer: ({ value: mode }) => {
 					if (mode.placement === null) return;
 
-					const target = getTransferTarget(mode, selection, workspaceList);
+					const target = getTransferTarget(mode, selection, activeList);
 					if (!target) return;
 
 					return getOperation({
@@ -697,7 +697,7 @@ const Stacks: FC<{
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
-	useWorkspaceListsHotkeys({
+	useActiveListsHotkeys({
 		navigationIndex,
 		projectId,
 		ref: hotkeysRef,
@@ -714,9 +714,9 @@ const Stacks: FC<{
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(styles.tree, styles.stacks)}
 				data-focus-scope={"sidebar" satisfies FocusScope}
-				data-preview-source={workspaceList === "stacks"}
-				onFocus={() => setWorkspaceList("stacks")}
-				ref={useMergedRefs(hotkeysRef, useAutofocusScope(workspaceList === "stacks"))}
+				data-preview-source={activeList === "applied"}
+				onFocus={() => setActiveList("applied")}
+				ref={useMergedRefs(hotkeysRef, useAutofocusScope(activeList === "applied"))}
 			>
 				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (
 					<StackC
@@ -737,7 +737,7 @@ export const WorkspaceLists: FC<
 	{
 		projectId: string;
 		navigationIndex: NavigationIndex<Operand>;
-		uncommittedFilesNavigationIndex: NavigationIndex<string>;
+		uncommittedNavigationIndex: NavigationIndex<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
@@ -745,7 +745,7 @@ export const WorkspaceLists: FC<
 > = ({
 	projectId,
 	navigationIndex,
-	uncommittedFilesNavigationIndex,
+	uncommittedNavigationIndex,
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
@@ -755,7 +755,7 @@ export const WorkspaceLists: FC<
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
-	const appliedSelection = useResolvedCursor("stacks", navigationIndex);
+	const appliedSelection = useSelection("applied", navigationIndex);
 	const commitTargetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
@@ -858,12 +858,12 @@ export const WorkspaceLists: FC<
 		if (offset !== 1) return;
 		const item = navigationIndex.items.at(0);
 		if (item === undefined) return;
-		setCursor("stacks", item);
+		setCursor("applied", item);
 		focusScope("sidebar");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
 		if (offset !== -1) return;
-		const path = uncommittedFilesNavigationIndex.items.at(-1);
+		const path = uncommittedNavigationIndex.items.at(-1);
 		if (path === undefined) return;
 		onActiveFileSelection(path);
 		focusScope("uncommitted-files");
@@ -899,7 +899,7 @@ export const WorkspaceLists: FC<
 									outline="inside"
 									render={
 										<UncommittedChanges
-											navigationIndex={uncommittedFilesNavigationIndex}
+											navigationIndex={uncommittedNavigationIndex}
 											commitTarget={commitTarget}
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}

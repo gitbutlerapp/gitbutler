@@ -21,8 +21,8 @@ import {
  * root changes (select the next commit, stay on the same file). Do not
  * "upgrade" them to File operands — the embedded parent would go stale.
  */
-export type ListItem = {
-	stacks: Operand;
+export type CursorItem = {
+	applied: Operand;
 	uncommitted: string;
 	branches: Operand;
 	upstream: Operand;
@@ -30,7 +30,7 @@ export type ListItem = {
 	diff: HunkOperand;
 };
 
-export type ListName = keyof ListItem;
+export type CursorName = keyof CursorItem;
 
 /**
  * The workspace page's cursors, snapshotted by pending operations that restore on cancel.
@@ -39,8 +39,8 @@ export type ListName = keyof ListItem;
  */
 export type WorkspaceCursorSnapshot = {
 	page?: "upstream" | "branches";
-	list?: "uncommitted";
-	stacks?: string;
+	active?: "uncommitted";
+	applied?: string;
 	uncommitted?: string;
 	files?: string;
 	diff: HunkOperand | null;
@@ -49,8 +49,8 @@ export type WorkspaceCursorSnapshot = {
 const pathKey = (path: string): string => path;
 
 /** One identity key per list; resolution and no-op guards share it. */
-export const cursorKey: { [L in ListName]: (item: ListItem[L]) => string } = {
-	stacks: operandIdentityKey,
+export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } = {
+	applied: operandIdentityKey,
 	branches: operandIdentityKey,
 	upstream: operandIdentityKey,
 	uncommitted: pathKey,

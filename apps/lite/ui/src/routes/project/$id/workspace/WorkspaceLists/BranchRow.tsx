@@ -204,7 +204,7 @@ export const BranchRow: FC<
 
 	const endEditing = () => {
 		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
-		setCursor("stacks", operand);
+		setCursor("applied", operand);
 		focusScope("sidebar");
 	};
 
@@ -279,7 +279,7 @@ export const BranchRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchOperand({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -330,7 +330,7 @@ export const BranchRow: FC<
 		// Hand the selection over only when folding would hide it — the selected
 		// commit sits in this segment. Unrelated selections (and the details pane
 		// they drive) stay put.
-		const commitRef = commitParamRef(currentParams().stacks);
+		const commitRef = commitParamRef(currentParams().applied);
 		const storedSegmentRef =
 			commitRef === null
 				? undefined

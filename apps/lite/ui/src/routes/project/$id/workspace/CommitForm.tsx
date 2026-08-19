@@ -220,7 +220,7 @@ export const CommitForm: FC<{
 	const canAmend = canCommitOrAmendBase && canAmendCommit && amendTargetCommitId !== null;
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		if (option) setCursor("stacks", option.operand);
+		if (option) setCursor("applied", option.operand);
 		setOpen(false);
 	};
 
@@ -279,7 +279,7 @@ export const CommitForm: FC<{
 			{ projectId, newRef: null, placement: { type: "independent" } },
 			{
 				onSuccess: (response) => {
-					setCursor("stacks", {
+					setCursor("applied", {
 						_tag: "Branch",
 						branchRef: response.newRef.fullNameBytes,
 					});

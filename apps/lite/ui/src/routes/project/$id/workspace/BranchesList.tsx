@@ -63,7 +63,7 @@ import {
 	startKeyboardTransfer,
 	setCursor,
 	useCursorWriteBack,
-	useResolvedCursor,
+	useSelection,
 } from "#ui/use-cursor.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import type { NewBranchActions } from "./useNewBranch.ts";
@@ -351,7 +351,7 @@ export const BranchesList: FC<
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
-	const selection = useResolvedCursor("branches", navigationIndex);
+	const selection = useSelection("branches", navigationIndex);
 	useCursorWriteBack("branches", navigationIndex);
 
 	const panelRef = useRef<HTMLDivElement>(null);
