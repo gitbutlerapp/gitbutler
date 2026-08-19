@@ -8,23 +8,18 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
-import {
-	enterKeyboardTransfer,
-	setCursor,
-	startInlineEdit,
-	useResolvedCursor,
-} from "#ui/use-cursor.ts";
+import { startKeyboardTransfer, setCursor, startInlineEdit, useSelection } from "#ui/use-cursor.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitForgeUrl } from "#ui/commit.ts";
-import { outlineHotkeys } from "#ui/hotkeys.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { sidebarHotkeys } from "#ui/hotkeys.ts";
+import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { focusScope, useNavigationIndexHotkeys } from "#ui/focus-scopes.ts";
+import { focusScope, useAddressSpaceHotkeys } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import type {
@@ -69,15 +64,15 @@ const pushContextForSegment = ({
 	};
 };
 
-export const useOutlineTreeHotkeys = ({
-	navigationIndex,
+export const useActiveListsHotkeys = ({
+	addressSpace,
 	projectId,
 	ref,
 	checkCommit,
 	focusCommitMessageInput,
 	onEdgeSpill,
 }: {
-	navigationIndex: NavigationIndex<Operand>;
+	addressSpace: AddressSpace<Address>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -90,9 +85,9 @@ export const useOutlineTreeHotkeys = ({
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const store = useAppStore();
-	const selection = useResolvedCursor("stacks", navigationIndex);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const selection = useSelection("applied", addressSpace);
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const selectionContext = Match.value(selection).pipe(
@@ -191,7 +186,7 @@ export const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
 				},
 			},
 		);
@@ -223,10 +218,10 @@ export const useOutlineTreeHotkeys = ({
 				: false;
 
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: selectedBranchSegment.commits.map((commit) =>
-					commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+				addresses: selectedBranchSegment.commits.map((commit) =>
+					commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 				),
 				checked: !selectedBranchCommitsChecked,
 			}),
@@ -236,8 +231,8 @@ export const useOutlineTreeHotkeys = ({
 	const moveSelectedCommit = (offset: -1 | 1) => {
 		if (!selection || selection._tag !== "Commit") return;
 
-		const source = commitOperand(selection);
-		const selectionIdx = navigationIndex.indexByKey.get(operandIdentityKey(source));
+		const source = commitAddress(selection);
+		const selectionIdx = addressSpace.indexByKey.get(addressIdentityKey(source));
 		if (selectionIdx === undefined) return;
 
 		const checkedCommitIds = projectSlice.selectors.selectCheckedCommitIds(
@@ -248,10 +243,10 @@ export const useOutlineTreeHotkeys = ({
 			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
 
 		let nextItemIndex = selectionIdx;
-		let nextItem: Operand | undefined;
+		let nextItem: Address | undefined;
 		do {
 			nextItemIndex += offset;
-			nextItem = navigationIndex.items[nextItemIndex];
+			nextItem = addressSpace.items[nextItemIndex];
 		} while (nextItem?._tag === "Commit" && subjectCommitIds.has(nextItem.commitId));
 		if (!nextItem) return;
 
@@ -264,7 +259,7 @@ export const useOutlineTreeHotkeys = ({
 				relativeTo = { type: "referenceBytes", subject: nextItem.branchRef };
 				break;
 			default:
-				throw new Error("Only commits and branches are valid outline items");
+				throw new Error("Only commits and branches are valid sidebar items");
 		}
 
 		commitMove({
@@ -286,7 +281,7 @@ export const useOutlineTreeHotkeys = ({
 			checkedCommitIds.size > 0 ? checkedCommitIds : new Set([selection.commitId]);
 
 		const selectionAfterDiscard = selectAfterDiscardedCommits({
-			navigationIndex,
+			addressSpace,
 			commit: { commitId: selection.commitId, changeId: selection.changeId },
 			discardedCommitIds: subjectCommitIds,
 			headInfoIndex,
@@ -306,13 +301,13 @@ export const useOutlineTreeHotkeys = ({
 						const newId = response.workspace.replacedCommits[selectionAfterDiscard.commitId];
 						if (newId === undefined) break rewrite;
 
-						latestSelectionAfterDiscard = commitOperand({
+						latestSelectionAfterDiscard = commitAddress({
 							commitId: newId,
 							changeId: selectionAfterDiscard.changeId,
 						});
 					}
 
-					setCursor("stacks", latestSelectionAfterDiscard);
+					setCursor("applied", latestSelectionAfterDiscard);
 				},
 			},
 		);
@@ -409,7 +404,7 @@ export const useOutlineTreeHotkeys = ({
 		await window.lite.openInWebBrowser(selectedBranchPullRequestUrl);
 	};
 
-	const defaultOutlineHotkeysEnabled = isDefaultMode;
+	const defaultSidebarHotkeysEnabled = noOperationPending;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
 	const canPushSelectedBranch =
@@ -427,63 +422,63 @@ export const useOutlineTreeHotkeys = ({
 	const canCheckCommits = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckCommits(state, projectId),
 	);
-	const operationSourcesForItem = (operand: Operand): Array<Operand> => {
-		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+	const operationSourcesForItem = (address: Address): Array<Address> => {
+		const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 			store.getState(),
 			projectId,
 		);
-		return checkedOperands.length > 0 ? checkedOperands : [operand];
+		return checkedAddresses.length > 0 ? checkedAddresses : [address];
 	};
 
-	useNavigationIndexHotkeys({
+	useAddressSpaceHotkeys({
 		ref,
-		navigationIndex,
-		group: "Outline",
-		select: (newItem) => setCursor("stacks", newItem),
+		addressSpace,
+		group: "Sidebar",
+		select: (newItem) => setCursor("applied", newItem),
 		selection,
 		onEdgeSpill,
-		getKey: operandIdentityKey,
+		getKey: addressIdentityKey,
 		operationSourcesForItem,
-		selectSectionPredicate: (operand) => operand._tag === "Branch",
+		selectSectionPredicate: (address) => address._tag === "Branch",
 	});
 
 	useHotkeys([
 		{
-			hotkey: outlineHotkeys.selectBranch.hotkey,
+			hotkey: sidebarHotkeys.selectBranch.hotkey,
 			callback: openBranchPicker,
 			options: {
 				conflictBehavior: "allow",
-				meta: outlineHotkeys.selectBranch.meta,
+				meta: sidebarHotkeys.selectBranch.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
+			hotkey: sidebarHotkeys.composeCommitMessage.hotkey,
 			callback: focusCommitMessageInput,
 			options: {
 				conflictBehavior: "allow",
 			},
 		},
 		{
-			hotkey: outlineHotkeys.copy.hotkey,
+			hotkey: sidebarHotkeys.copy.hotkey,
 			callback: () => {
 				if (selection === null) return;
 
 				const sources = operationSourcesForItem(selection);
 				if (!sources.every((source) => source._tag === "Commit")) return;
 
-				enterKeyboardTransfer({
+				startKeyboardTransfer({
 					sources,
 					kind: "copy",
 					placement: "above",
 				});
-				focusScope("outline");
+				focusScope("sidebar");
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit,
 				ignoreInputs: true,
 				target: ref,
-				meta: outlineHotkeys.copy.meta,
+				meta: sidebarHotkeys.copy.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -491,15 +486,15 @@ export const useOutlineTreeHotkeys = ({
 			Match.tags({
 				Commit: (selection): Array<UseHotkeyDefinition> => [
 					{
-						hotkey: outlineHotkeys.rewordCommit.hotkey,
+						hotkey: sidebarHotkeys.rewordCommit.hotkey,
 						callback: () => {
 							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
-							enabled: defaultOutlineHotkeysEnabled,
+							enabled: defaultSidebarHotkeysEnabled,
 							target: ref,
-							meta: outlineHotkeys.rewordCommit.meta,
+							meta: sidebarHotkeys.rewordCommit.meta,
 						},
 					},
 					{
@@ -509,22 +504,22 @@ export const useOutlineTreeHotkeys = ({
 						},
 						options: {
 							conflictBehavior: "allow",
-							enabled: defaultOutlineHotkeysEnabled,
+							enabled: defaultSidebarHotkeysEnabled,
 							target: ref,
 						},
 					},
 				],
 				Branch: (selection): Array<UseHotkeyDefinition> => [
 					{
-						hotkey: outlineHotkeys.renameBranch.hotkey,
+						hotkey: sidebarHotkeys.renameBranch.hotkey,
 						callback: () => {
 							startInlineEdit(selection);
 						},
 						options: {
 							conflictBehavior: "allow",
-							enabled: defaultOutlineHotkeysEnabled,
+							enabled: defaultSidebarHotkeysEnabled,
 							target: ref,
-							meta: outlineHotkeys.renameBranch.meta,
+							meta: sidebarHotkeys.renameBranch.meta,
 						},
 					},
 					{
@@ -534,7 +529,7 @@ export const useOutlineTreeHotkeys = ({
 						},
 						options: {
 							conflictBehavior: "allow",
-							enabled: defaultOutlineHotkeysEnabled,
+							enabled: defaultSidebarHotkeysEnabled,
 							target: ref,
 						},
 					},
@@ -543,15 +538,15 @@ export const useOutlineTreeHotkeys = ({
 			Match.orElse(() => []),
 		),
 		{
-			hotkey: outlineHotkeys.checkCommit.hotkey,
+			hotkey: sidebarHotkeys.checkCommit.hotkey,
 			callback: toggleSelectedCommitChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && canCheckCommits,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && canCheckCommits,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
-				meta: outlineHotkeys.checkCommit.meta,
+				meta: sidebarHotkeys.checkCommit.meta,
 			},
 		},
 		{
@@ -559,150 +554,150 @@ export const useOutlineTreeHotkeys = ({
 			callback: toggleSelectedCommitChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && canCheckCommits,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && canCheckCommits,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.checkBranchCommits.hotkey,
+			hotkey: sidebarHotkeys.checkBranchCommits.hotkey,
 			callback: toggleSelectedBranchChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch && canCheckCommits,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedBranch && canCheckCommits,
 				target: ref,
-				meta: outlineHotkeys.checkBranchCommits.meta,
+				meta: sidebarHotkeys.checkBranchCommits.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.deleteBranchRef.hotkey,
+			hotkey: sidebarHotkeys.deleteBranchRef.hotkey,
 			callback: deleteSelectedBranchReference,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && canDeleteSelectedBranchReference,
+				enabled: defaultSidebarHotkeysEnabled && canDeleteSelectedBranchReference,
 				target: ref,
-				meta: outlineHotkeys.deleteBranchRef.meta,
+				meta: sidebarHotkeys.deleteBranchRef.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.deleteCommit.hotkey,
+			hotkey: sidebarHotkeys.deleteCommit.hotkey,
 			callback: deleteSelectedCommit,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitDiscardPending,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && !isCommitDiscardPending,
 				target: ref,
-				meta: outlineHotkeys.deleteCommit.meta,
+				meta: sidebarHotkeys.deleteCommit.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.uncommitCommit.hotkey,
+			hotkey: sidebarHotkeys.uncommitCommit.hotkey,
 			callback: uncommitSelectedCommit,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitUncommitPending,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && !isCommitUncommitPending,
 				target: ref,
-				meta: outlineHotkeys.uncommitCommit.meta,
+				meta: sidebarHotkeys.uncommitCommit.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.toggleFoldBranch.hotkey,
+			hotkey: sidebarHotkeys.toggleFoldBranch.hotkey,
 			callback: toggleFoldSelected,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && foldableSegmentRef !== null,
+				enabled: defaultSidebarHotkeysEnabled && foldableSegmentRef !== null,
 				target: ref,
-				meta: outlineHotkeys.toggleFoldBranch.meta,
+				meta: sidebarHotkeys.toggleFoldBranch.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.openCommitInBrowser.hotkey,
+			hotkey: sidebarHotkeys.openCommitInBrowser.hotkey,
 			callback: () => void openSelectedCommitInBrowser(),
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !!selectedCommitForgeUrl,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && !!selectedCommitForgeUrl,
 				target: ref,
-				meta: outlineHotkeys.openCommitInBrowser.meta,
+				meta: sidebarHotkeys.openCommitInBrowser.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.moveCommitUp.hotkey,
+			hotkey: sidebarHotkeys.moveCommitUp.hotkey,
 			callback: () => moveSelectedCommit(-1),
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitMovePending,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && !isCommitMovePending,
 				target: ref,
-				meta: outlineHotkeys.moveCommitUp.meta,
+				meta: sidebarHotkeys.moveCommitUp.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.moveCommitDown.hotkey,
+			hotkey: sidebarHotkeys.moveCommitDown.hotkey,
 			callback: () => moveSelectedCommit(1),
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !isCommitMovePending,
+				enabled: defaultSidebarHotkeysEnabled && isSelectedCommit && !isCommitMovePending,
 				target: ref,
-				meta: outlineHotkeys.moveCommitDown.meta,
+				meta: sidebarHotkeys.moveCommitDown.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey,
+			hotkey: sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey,
 			callback: pushSelectedBranch,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
+				enabled: defaultSidebarHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
-				meta: outlineHotkeys.workspaceBranchAndAncestorsPush.meta,
+				meta: sidebarHotkeys.workspaceBranchAndAncestorsPush.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.openPRInBrowser.hotkey,
+			hotkey: sidebarHotkeys.openPRInBrowser.hotkey,
 			callback: () => void openSelectedBranchPRInBrowser(),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					defaultOutlineHotkeysEnabled && isSelectedBranch && selectedBranchPullRequestUrl !== null,
+					defaultSidebarHotkeysEnabled && isSelectedBranch && selectedBranchPullRequestUrl !== null,
 				target: ref,
-				meta: outlineHotkeys.openPRInBrowser.meta,
+				meta: sidebarHotkeys.openPRInBrowser.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.updateStack.hotkey,
+			hotkey: sidebarHotkeys.updateStack.hotkey,
 			callback: updateSelectedStack,
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					defaultOutlineHotkeysEnabled &&
+					defaultSidebarHotkeysEnabled &&
 					!!selectedStackRebaseUpdate &&
 					!isWorkspaceIntegrateUpstreamPending,
 				target: ref,
-				meta: outlineHotkeys.updateStack.meta,
+				meta: sidebarHotkeys.updateStack.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.insertEmptyCommitAbove.hotkey,
+			hotkey: sidebarHotkeys.insertEmptyCommitAbove.hotkey,
 			callback: () => insertEmptyCommit("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					defaultOutlineHotkeysEnabled &&
+					defaultSidebarHotkeysEnabled &&
 					(isSelectedBranch || isSelectedCommit) &&
 					!isCommitInsertBlankPending,
 				target: ref,
-				meta: outlineHotkeys.insertEmptyCommitAbove.meta,
+				meta: sidebarHotkeys.insertEmptyCommitAbove.meta,
 			},
 		},
 		{
-			hotkey: outlineHotkeys.insertEmptyCommitBelow.hotkey,
+			hotkey: sidebarHotkeys.insertEmptyCommitBelow.hotkey,
 			callback: () => insertEmptyCommit("below"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					defaultOutlineHotkeysEnabled &&
+					defaultSidebarHotkeysEnabled &&
 					(isSelectedBranch || isSelectedCommit) &&
 					!isCommitInsertBlankPending,
 				target: ref,
-				meta: outlineHotkeys.insertEmptyCommitBelow.meta,
+				meta: sidebarHotkeys.insertEmptyCommitBelow.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -718,13 +713,13 @@ export const useOutlineTreeHotkeys = ({
 				relativeTo
 					? [
 							{
-								hotkey: outlineHotkeys.createDependentBranchAbove.hotkey,
+								hotkey: sidebarHotkeys.createDependentBranchAbove.hotkey,
 								callback: () => createDependentBranchAbove(relativeTo),
 								options: {
 									conflictBehavior: "allow",
-									enabled: defaultOutlineHotkeysEnabled,
+									enabled: defaultSidebarHotkeysEnabled,
 									target: ref,
-									meta: outlineHotkeys.createDependentBranchAbove.meta,
+									meta: sidebarHotkeys.createDependentBranchAbove.meta,
 									requireReset: true,
 								},
 							} satisfies UseHotkeyDefinition,

@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import { enterAbsorb } from "#ui/use-cursor.ts";
+import { startAbsorb } from "#ui/use-cursor.ts";
 import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
@@ -10,11 +10,11 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import {
 	uncommittedChangesFileParent,
-	fileOperand,
-	operandEquals,
-	operandIdentityKey,
+	fileAddress,
+	addressEquals,
+	addressIdentityKey,
 	type FileParent,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -24,8 +24,8 @@ import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { focusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
-import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -34,13 +34,13 @@ import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
 const useFilesTreeHotkeys = ({
 	checkRow,
-	navigationIndex,
+	addressSpace,
 	onRowSelection,
 	onEdgeSpill,
 	projectId,
@@ -55,7 +55,7 @@ const useFilesTreeHotkeys = ({
 	toggleDirectoryCollapsed,
 }: {
 	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
-	navigationIndex: NavigationIndex<string>;
+	addressSpace: AddressSpace<string>;
 	onRowSelection: (selection: string) => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
 	projectId: string;
@@ -69,8 +69,8 @@ const useFilesTreeHotkeys = ({
 	selectedChange: TreeChange | null;
 	toggleDirectoryCollapsed: (path: string) => void;
 }) => {
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const mode = useFileDisplayMode();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -102,13 +102,13 @@ const useFilesTreeHotkeys = ({
 						?.changes.filter((change) => checkedPaths.has(change.path));
 		if (checkedPaths.size > 0 && !checkedChanges) return;
 
-		enterAbsorb({
+		startAbsorb({
 			sources: (checkedPaths.size > 0
 				? Array.from(checkedPaths, (path) =>
-						fileOperand({ parent: uncommittedChangesFileParent, path }),
+						fileAddress({ parent: uncommittedChangesFileParent, path }),
 					)
 				: null) ?? [
-				fileOperand({
+				fileAddress({
 					parent: uncommittedChangesFileParent,
 					path: selectedUncommittedChange.path,
 				}),
@@ -121,7 +121,7 @@ const useFilesTreeHotkeys = ({
 				},
 			},
 		});
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	const toggleSelectedRowChecked = (event: KeyboardEvent) => {
@@ -181,7 +181,7 @@ const useFilesTreeHotkeys = ({
 			callback: absorbSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedChangesFile !== null && isDefaultMode,
+				enabled: selectedChangesFile !== null && noOperationPending,
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -191,7 +191,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
+				enabled: selection !== null && noOperationPending && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -203,7 +203,7 @@ const useFilesTreeHotkeys = ({
 			callback: discardSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: isDefaultMode && canDiscardSelectedFile,
+				enabled: noOperationPending && canDiscardSelectedFile,
 				target: ref,
 				meta: changesFileHotkeys.discard.meta,
 			},
@@ -213,7 +213,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleSelectedRowChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selection !== null && isDefaultMode && canCheckTheseFiles,
+				enabled: selection !== null && noOperationPending && canCheckTheseFiles,
 				preventDefault: false,
 				stopPropagation: false,
 				target: ref,
@@ -244,7 +244,10 @@ const useFilesTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled:
-					isDefaultMode && selectedChange !== null && fileParent._tag === "Commit" && canUncommit,
+					noOperationPending &&
+					selectedChange !== null &&
+					fileParent._tag === "Commit" &&
+					canUncommit,
 				target: ref,
 				meta: changesFileHotkeys.uncommit.meta,
 			},
@@ -254,7 +257,7 @@ const useFilesTreeHotkeys = ({
 			callback: toggleFoldSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				// Folding is a view operation, so it stays available in every outline
+				// Folding is a view operation, so it stays available in every workspace
 				// mode. Flat list mode has no directory rows, nothing to fold.
 				enabled: mode === "tree" && selectedRow !== undefined,
 				target: ref,
@@ -263,8 +266,8 @@ const useFilesTreeHotkeys = ({
 		},
 	]);
 
-	useNavigationIndexHotkeys({
-		navigationIndex,
+	useAddressSpaceHotkeys({
+		addressSpace,
 		group: "File",
 		select: onRowSelection,
 		selection,
@@ -272,12 +275,12 @@ const useFilesTreeHotkeys = ({
 		onEdgeSpill,
 		getKey: (path) => path,
 		operationSourcesForItem: (path) => {
-			const operand = fileOperand({ parent: fileParent, path });
-			const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+			const address = fileAddress({ parent: fileParent, path });
+			const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 				store.getState(),
 				projectId,
 			);
-			return checkedOperands.length > 0 ? checkedOperands : [operand];
+			return checkedAddresses.length > 0 ? checkedAddresses : [address];
 		},
 	});
 };
@@ -292,9 +295,9 @@ export const FilesTree: FC<
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
 		onRowSelection: (selection: string) => void;
-		/** See {@link useNavigationIndexHotkeys}'s option of the same name. */
+		/** See {@link useAddressSpaceHotkeys}'s option of the same name. */
 		onEdgeSpill?: (offset: -1 | 1) => void;
-		navigationIndex: NavigationIndex<string>;
+		addressSpace: AddressSpace<string>;
 		fileParent: FileParent;
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
 		focusScope: FocusScope;
@@ -310,7 +313,7 @@ export const FilesTree: FC<
 	onRowSelection,
 	onEdgeSpill,
 	projectId,
-	navigationIndex,
+	addressSpace,
 	fileParent,
 	focusScope,
 	emptyLabel = "No changes.",
@@ -332,8 +335,8 @@ export const FilesTree: FC<
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
-	const checkedOperandKeys = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedOperandKeys(state, projectId),
+	const checkedAddressKeys = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -358,7 +361,7 @@ export const FilesTree: FC<
 		mode === "tree" ? "hidden" : (pathFirst ?? defaultSettings.pathFirst) ? "lead" : "trail";
 
 	const isFileChecked = (path: string): boolean =>
-		checkedOperandKeys.has(operandIdentityKey(fileOperand({ parent: fileParent, path })));
+		checkedAddressKeys.has(addressIdentityKey(fileAddress({ parent: fileParent, path })));
 
 	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
 		const paths = filePaths.filter(checkable);
@@ -367,8 +370,8 @@ export const FilesTree: FC<
 		return checkedCount === paths.length ? "checked" : "indeterminate";
 	};
 
-	const rangeResolver = navigationIndexRange<string, string>({
-		navigationIndex,
+	const rangeResolver = addressSpaceRange<string, string>({
+		addressSpace,
 		getKey: (path) => path,
 		// Range-checking runs over files; a directory caught in the middle of a
 		// range is passed over rather than checked as a path of its own.
@@ -377,13 +380,13 @@ export const FilesTree: FC<
 	const getCheckedRange = checkedRange(rangeResolver);
 
 	const checkedFilePaths = (): Set<string> => {
-		const checkedOperands = projectSlice.selectors.selectCheckedOperands(
+		const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 			store.getState(),
 			projectId,
 		);
 		return new Set(
-			checkedOperands.flatMap((operand) =>
-				operand._tag === "File" && operandEquals(operand.parent, fileParent) ? operand.path : [],
+			checkedAddresses.flatMap((address) =>
+				address._tag === "File" && addressEquals(address.parent, fileParent) ? address.path : [],
 			),
 		);
 	};
@@ -396,20 +399,20 @@ export const FilesTree: FC<
 		next: Set<string>;
 	}): void => {
 		const nextCheckable = new Set([...next].filter(checkable));
-		const operands = (paths: Set<string>) =>
-			Array.from(paths, (path) => fileOperand({ parent: fileParent, path }));
+		const addresses = (paths: Set<string>) =>
+			Array.from(paths, (path) => fileAddress({ parent: fileParent, path }));
 
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operands(nextCheckable.difference(previous)),
+				addresses: addresses(nextCheckable.difference(previous)),
 				checked: true,
 			}),
 		);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: operands(previous.difference(nextCheckable)),
+				addresses: addresses(previous.difference(nextCheckable)),
 				checked: false,
 			}),
 		);
@@ -462,7 +465,7 @@ export const FilesTree: FC<
 
 	useFilesTreeHotkeys({
 		checkRow,
-		navigationIndex,
+		addressSpace,
 		onRowSelection,
 		onEdgeSpill,
 		projectId,
@@ -543,7 +546,7 @@ export const FilesTree: FC<
 						}
 
 						const item = row.item;
-						const operand = fileOperand({ parent: fileParent, path: row.path });
+						const address = fileAddress({ parent: fileParent, path: row.path });
 
 						return (
 							<TreeItem
@@ -558,16 +561,16 @@ export const FilesTree: FC<
 								render={
 									<OperationSourceC
 										projectId={projectId}
-										source={operand}
+										source={address}
 										outline="outside"
 										render={
 											<FileRow
 												item={item}
 												depth={row.depth}
 												pathDisplay={pathDisplay}
-												inert={!navigationIndexIncludes(navigationIndex, row.path, (path) => path)}
+												inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
 												isSelected={isSelected}
-												isChecked={checkedOperandKeys.has(operandIdentityKey(operand))}
+												isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
 												onSelect={() => onRowSelection(row.path)}
 												canCheck={canCheck && item._tag === "Change"}
 												checkFile={checkFile}

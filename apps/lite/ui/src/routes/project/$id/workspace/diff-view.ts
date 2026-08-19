@@ -6,14 +6,14 @@ import {
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import {
-	hunkOperand,
-	operandIdentityKey,
-	type FileOperand,
+	hunkAddress,
+	addressIdentityKey,
+	type FileAddress,
 	type FileParent,
-	type HunkOperand,
+	type HunkAddress,
 	weakFileIdentityKey,
-} from "#ui/operands.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+} from "#ui/addresses.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	processFile,
@@ -48,7 +48,7 @@ type PrepareDiffFilesDeps = {
 };
 
 export type PreparedDiffFile = {
-	file: FileOperand;
+	file: FileAddress;
 	fileId: string;
 	change: TreeChange;
 	treeChangeDiff: UnifiedPatch | null;
@@ -57,7 +57,7 @@ export type PreparedDiffFile = {
 };
 
 export type DiffViewFile = {
-	operand: FileOperand;
+	address: FileAddress;
 	item: CodeViewDiffItem<Annotation>;
 	change: TreeChange;
 	patch: UnifiedPatch | null;
@@ -65,21 +65,21 @@ export type DiffViewFile = {
 };
 
 type DiffViewHunk = {
-	operand: HunkOperand;
+	address: HunkAddress;
 	selectedLines: CodeViewLineSelection;
 	file: DiffViewFile;
 };
 
 export type DiffView = {
-	navigationIndex: NavigationIndex<HunkOperand>;
+	addressSpace: AddressSpace<HunkAddress>;
 	items: Array<CodeViewDiffItem<Annotation>>;
 	fileByItemId: Map<string, DiffViewFile>;
 	fileByPath: Map<string, DiffViewFile>;
 	hunkByKey: Map<string, DiffViewHunk>;
 };
 
-export const hunkOperandIdentityKey = (operand: HunkOperand): string =>
-	operandIdentityKey(hunkOperand(operand));
+export const hunkAddressIdentityKey = (address: HunkAddress): string =>
+	addressIdentityKey(hunkAddress(address));
 
 const parseFileDiff = (
 	patch: string,
@@ -102,7 +102,7 @@ export const prepareDiffFiles = ({
 	treeChangeDiffs,
 }: PrepareDiffFilesDeps): Array<PreparedDiffFile> =>
 	changes.map((change, index) => {
-		const file: FileOperand = { parent: fileParent, path: change.path };
+		const file: FileAddress = { parent: fileParent, path: change.path };
 		const treeChangeDiff = treeChangeDiffs[index] ?? null;
 		const patch = synthesizeFilePatch(
 			change,
@@ -125,7 +125,7 @@ export const parsePreparedDiffFile = (
 
 type DiffFileNavigation = {
 	itemId: string;
-	firstHunk: HunkOperand | null;
+	firstHunk: HunkAddress | null;
 };
 
 export const getDiffFileNavigation = ({
@@ -137,7 +137,7 @@ export const getDiffFileNavigation = ({
 	change: TreeChange;
 	treeChangeDiff: UnifiedPatch | null;
 }): DiffFileNavigation => {
-	const file: FileOperand = {
+	const file: FileAddress = {
 		parent: fileParent,
 		path: change.path,
 	};
@@ -169,7 +169,7 @@ export const getDiffFileNavigation = ({
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
-	const navigationIndex: NavigationIndex<HunkOperand> = {
+	const addressSpace: AddressSpace<HunkAddress> = {
 		items: [],
 		indexByKey: new Map(),
 	};
@@ -192,7 +192,7 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 		items.push(item);
 
 		const diffViewFile: DiffViewFile = {
-			operand: file,
+			address: file,
 			item,
 			change,
 			patch: mdiff,
@@ -208,18 +208,18 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 					const range = rangeFromLineGroups(selection.lineGroups);
 					if (!range) continue;
 
-					const hunkOperand: HunkOperand = {
+					const hunkAddress: HunkAddress = {
 						parent: file,
 						...selection,
 						isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
 					};
-					const hunkKey = hunkOperandIdentityKey(hunkOperand);
+					const hunkKey = hunkAddressIdentityKey(hunkAddress);
 
-					const len = navigationIndex.items.push(hunkOperand);
-					navigationIndex.indexByKey.set(hunkKey, len - 1);
+					const len = addressSpace.items.push(hunkAddress);
+					addressSpace.indexByKey.set(hunkKey, len - 1);
 
 					const diffViewHunk: DiffViewHunk = {
-						operand: hunkOperand,
+						address: hunkAddress,
 						selectedLines: {
 							id: item.id,
 							range,
@@ -238,31 +238,31 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 		fileByItemId,
 		fileByPath,
 		hunkByKey,
-		navigationIndex,
+		addressSpace,
 	};
 };
 
 /**
- * The navigation index with folded files' hunks removed — except each folded
+ * The address space with folded files' hunks removed — except each folded
  * file's first hunk, which stands in for the file the way a folded branch
  * keeps its branch row. j/k then stop once per folded file instead of walking
  * its hidden hunks, and z can unfold from the keyboard.
  */
 export const withoutFoldedHunks = (
-	navigationIndex: NavigationIndex<HunkOperand>,
+	addressSpace: AddressSpace<HunkAddress>,
 	hunkByKey: DiffView["hunkByKey"],
 	collapsedItems: Set<string>,
-): NavigationIndex<HunkOperand> => {
-	if (collapsedItems.size === 0) return navigationIndex;
+): AddressSpace<HunkAddress> => {
+	if (collapsedItems.size === 0) return addressSpace;
 
-	const items = navigationIndex.items.filter((hunk) => {
-		const key = hunkOperandIdentityKey(hunk);
+	const items = addressSpace.items.filter((hunk) => {
+		const key = hunkAddressIdentityKey(hunk);
 		const file = hunkByKey.get(key)?.file;
 		return (
 			file === undefined ||
 			!collapsedItems.has(file.item.id) ||
-			hunkOperandIdentityKey(assert(file.hunks[0]).operand) === key
+			hunkAddressIdentityKey(assert(file.hunks[0]).address) === key
 		);
 	});
-	return { items, indexByKey: buildIndexByKey(items, hunkOperandIdentityKey) };
+	return { items, indexByKey: buildIndexByKey(items, hunkAddressIdentityKey) };
 };

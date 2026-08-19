@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import { setCursor, useCursorWriteBack, useResolvedCursor } from "#ui/use-cursor.ts";
+import { setCursor, useCursorWriteBack, useSelection } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { commitTitle } from "#ui/commit.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -10,9 +10,9 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
@@ -30,14 +30,13 @@ import type {
 	UpstreamBranchItem,
 	UpstreamCommitItem,
 	UpstreamListItem,
-	UpstreamOutline,
-} from "./useUpstreamOutline.ts";
+	UpstreamListData,
+} from "./useUpstreamList.ts";
 import styles from "./UpstreamList.module.css";
 
 const pluralRules = new Intl.PluralRules("en");
 
-const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useIsSelectedInList(projectId, operand, "upstream");
+const useIsSelected = (address: Address): boolean => useIsSelectedInList(address, "upstream");
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -58,7 +57,6 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 );
 
 const TargetCommitRow: FC<{
-	projectId: string;
 	item: UpstreamCommitItem;
 	/**
 	 * Overrides the rail colour the commit's own position would give it. The
@@ -67,10 +65,10 @@ const TargetCommitRow: FC<{
 	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
-}> = ({ projectId, item, status }) => {
+}> = ({ item, status }) => {
 	const { commit, review, inWorkspace } = item;
-	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
-	const isSelected = useIsSelected(projectId, operand);
+	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
+	const isSelected = useIsSelected(address);
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
 	const title = review?.title ?? commitTitle(commit.message);
@@ -80,12 +78,12 @@ const TargetCommitRow: FC<{
 
 	return (
 		<Row
-			id={treeItemId(operand)}
+			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			onSelect={() => setCursor("upstream", operand)}
+			onSelect={() => setCursor("upstream", address)}
 		>
 			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
 			<div className={styles.label}>
@@ -260,7 +258,7 @@ const UpdateBlock: FC<{
 
 /**
  * Pages the older section further down the target line. Owns the fetching
- * rather than taking it from the outline: the outline's result is memoized on
+ * rather than taking it from the list: the list's result is memoized on
  * its inputs, and a callback in it would defeat that.
  *
  * Renders nothing once the line is exhausted, so the band it draws is also the
@@ -274,7 +272,7 @@ const UpdateBlock: FC<{
  * the section, later ones extend it.
  */
 const LoadMoreOlder: FC<{ projectId: string; hasOlder: boolean }> = ({ projectId, hasOlder }) => {
-	// Shares the base listing the outline already reads; this only takes the
+	// Shares the base listing the sidebar already reads; this only takes the
 	// cursor its last commit supplies.
 	const { data: olderFrom = null } = useQuery({
 		...workspaceTargetCommitsQueryOptions(projectId),
@@ -345,7 +343,7 @@ const listItem = (
 ) => {
 	switch (item.type) {
 		case "commit":
-			return <TargetCommitRow key={item.commit.id} projectId={projectId} item={item} />;
+			return <TargetCommitRow key={item.commit.id} item={item} />;
 		case "branch":
 			return (
 				<UpstreamBranchRow
@@ -373,21 +371,14 @@ const listItem = (
 export const UpstreamList: FC<
 	{
 		projectId: string;
-		outline: UpstreamOutline;
+		list: UpstreamListData;
 		canUpdateWorkspace: boolean;
 		isUpdatePending: boolean;
 		onUpdateWorkspace: () => void;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	outline,
-	canUpdateWorkspace,
-	isUpdatePending,
-	onUpdateWorkspace,
-	...restProps
-}) => {
+> = ({ projectId, list, canUpdateWorkspace, isUpdatePending, onUpdateWorkspace, ...restProps }) => {
 	// Derived once in WorkspacePage and passed down, so the rendered list and the
-	// navigation index that resolves selection are the same object.
+	// address space that resolves selection are the same object.
 	const {
 		items,
 		incomingItemCount,
@@ -396,23 +387,23 @@ export const UpstreamList: FC<
 		targetLabel,
 		incomingCount,
 		hasIntegrated,
-		navigationIndex,
+		addressSpace,
 		isPending,
 		isError,
-	} = outline;
+	} = list;
 
-	const selection = useResolvedCursor("upstream", navigationIndex);
-	useCursorWriteBack("upstream", navigationIndex);
+	const selection = useSelection("upstream", addressSpace);
+	useCursorWriteBack("upstream", addressSpace);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 
-	useNavigationIndexHotkeys({
-		navigationIndex,
-		group: "Outline",
+	useAddressSpaceHotkeys({
+		addressSpace,
+		group: "Sidebar",
 		select: (newItem) => setCursor("upstream", newItem),
 		selection,
 		ref: hotkeysRef,
-		getKey: operandIdentityKey,
+		getKey: addressIdentityKey,
 	});
 
 	// Decided by `canUpdateWorkspace`, not by whether this page has rows to
@@ -438,7 +429,7 @@ export const UpstreamList: FC<
 			<SectionHeaderRow
 				className={styles.header}
 				label="Incoming changes"
-				childrenBefore={<FocusScopeKbd hotkey="1" scope="outline" />}
+				childrenBefore={<FocusScopeKbd hotkey="1" scope="sidebar" />}
 			/>
 
 			{/* One graph across three regions: what is coming in, where the
@@ -451,7 +442,7 @@ export const UpstreamList: FC<
 				role="tree"
 				aria-label="Upstream"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
-				data-focus-scope={"outline" satisfies FocusScope}
+				data-focus-scope={"sidebar" satisfies FocusScope}
 				className={classes(uiStyles.scroller, styles.list)}
 				ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
 			>
@@ -530,12 +521,7 @@ export const UpstreamList: FC<
 						<RailEdge status="Upstream" edge="head" />
 
 						{olderItems.map((item) => (
-							<TargetCommitRow
-								key={item.commit.id}
-								projectId={projectId}
-								item={item}
-								status="Upstream"
-							/>
+							<TargetCommitRow key={item.commit.id} item={item} status="Upstream" />
 						))}
 
 						<RailEdge status="Upstream" edge="tail" />

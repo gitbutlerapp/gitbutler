@@ -1,5 +1,5 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { outlineFocusScopeOf } from "#ui/use-cursor.ts";
+import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -18,9 +18,9 @@ const FullWindowButton: FC = () => {
 		dispatch(interfaceSlice.actions.setDetailsFullWindow({ fullWindow: !fullWindow }));
 
 		// Toggling swaps this button for the copy in the other pane, so the click leaves focus on
-		// the body. Hand it to the pane the outline is folding out of, or back into.
-		const outlineFocusScope = outlineFocusScopeOf();
-		requestAnimationFrame(() => focusScope(fullWindow ? outlineFocusScope : "diff"));
+		// the body. Hand it to the pane the sidebar is folding out of, or back into.
+		const sidebarFocusScope = sidebarFocusScopeOf();
+		requestAnimationFrame(() => focusScope(fullWindow ? sidebarFocusScope : "diff"));
 	};
 
 	return (
@@ -30,7 +30,7 @@ const FullWindowButton: FC = () => {
 					<button
 						type="button"
 						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-						aria-label={workspaceHotkeys.toggleOutline.meta.name}
+						aria-label={workspaceHotkeys.toggleSidebar.meta.name}
 						onClick={toggle}
 					>
 						{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
@@ -39,8 +39,8 @@ const FullWindowButton: FC = () => {
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleOutline.hotkey} />}>
-						{workspaceHotkeys.toggleOutline.meta.name}
+					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleSidebar.hotkey} />}>
+						{workspaceHotkeys.toggleSidebar.meta.name}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>

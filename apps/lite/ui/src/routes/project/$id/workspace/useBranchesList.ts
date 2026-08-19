@@ -8,40 +8,40 @@ import {
 	searchStacks,
 	unappliedStacks,
 } from "#ui/branch.ts";
-import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { branchAddress, commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { ListedStack } from "@gitbutler/but-sdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 
-export type BranchesOutline = {
-	stacks: Array<ListedStack>;
-	navigationIndex: NavigationIndex<Operand>;
+export type BranchesListData = {
+	unapplied: Array<ListedStack>;
+	addressSpace: AddressSpace<Address>;
 	/**
-	 * The listing query's state, so the tab can tell a genuinely empty result
+	 * The listing query's state, so the page can tell a genuinely empty result
 	 * apart from one that has not arrived or failed.
 	 */
 	isPending: boolean;
 	isError: boolean;
 };
 
-type OutlineContent = Pick<BranchesOutline, "stacks" | "navigationIndex">;
+type BranchesListContent = Pick<BranchesListData, "unapplied" | "addressSpace">;
 
-const emptyContent: OutlineContent = {
-	stacks: [],
-	navigationIndex: { items: [], indexByKey: new Map() },
+const emptyContent: BranchesListContent = {
+	unapplied: [],
+	addressSpace: { items: [], indexByKey: new Map() },
 };
 
 /**
- * The branches tab's visible stacks and the matching navigation index.
+ * The branches page's visible unapplied stacks and the matching address space.
  *
- * This is the single source of truth for what the tab shows: both the list
+ * This is the single source of truth for what the page shows: both the list
  * rendering and the selection resolution in the workspace page consume it, so
  * filtering and fold state cannot drift between the two.
  */
-export const useBranchesOutline = (projectId: string): BranchesOutline => {
+export const useBranchesList = (projectId: string): BranchesListData => {
 	const active = usePage() === "branches";
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
@@ -66,7 +66,7 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 				unfoldedBranchRefs.map((refName, index) => [
 					refName,
 					results[index]?.data?.commits.map((commit) =>
-						commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+						commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 					) ?? [],
 				]),
 			),
@@ -77,7 +77,7 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 	// reference, and React Compiler memoizes this inline closure by its captured
 	// inputs — so the closure, and thus the cached result, only changes when an
 	// input like `search` or `showEmpty` does. Deriving in render instead would
-	// rebuild the navigation index every pass and re-render every row that reads
+	// rebuild the address space every pass and re-render every row that reads
 	// it through context.
 	const {
 		data: content = emptyContent,
@@ -86,12 +86,12 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 	} = useQuery({
 		...branchListQueryOptions(projectId),
 		enabled: active,
-		select: (listedStacks): OutlineContent => {
-			const stacks = searchStacks(unappliedStacks(listedStacks, filters), search);
-			const items = stacks.flatMap((stack) =>
+		select: (listedStacks): BranchesListContent => {
+			const unapplied = searchStacks(unappliedStacks(listedStacks, filters), search);
+			const items = unapplied.flatMap((stack) =>
 				stack.branches.flatMap(
-					(branch): Array<Operand> => [
-						branchOperand({ branchRef: encodeBytes(branch.refName.full) }),
+					(branch): Array<Address> => [
+						branchAddress({ branchRef: encodeBytes(branch.refName.full) }),
 						// Matches what BranchesList renders: a branch with no commits of
 						// its own cannot be unfolded, and an unfolded one shows only the
 						// commits it contributes itself.
@@ -103,8 +103,8 @@ export const useBranchesOutline = (projectId: string): BranchesOutline => {
 			);
 
 			return {
-				stacks,
-				navigationIndex: { items, indexByKey: buildIndexByKey(items, operandIdentityKey) },
+				unapplied,
+				addressSpace: { items, indexByKey: buildIndexByKey(items, addressIdentityKey) },
 			};
 		},
 	});

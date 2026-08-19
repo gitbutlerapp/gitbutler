@@ -1,7 +1,7 @@
 import { useBranchCheckoutNew, useBranchCreate } from "#ui/api/mutations.ts";
 import { toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
-import { branchOperand } from "#ui/operands.ts";
+import { branchAddress } from "#ui/addresses.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -24,17 +24,17 @@ export type NewBranchActions = {
  * for it the way a plain checkout does. Neither is the obvious default, so
  * every `+` offers both rather than picking.
  *
- * Call this once, in the outline, and hand the result to every trigger: two
+ * Call this once, in the sidebar, and hand the result to every trigger: two
  * instances would each hold their own mutation, so neither one's in-flight
  * guard would see the other's create and a hotkey could start a second branch
  * while a menu's is still landing.
  */
 export const useNewBranch = (projectId: string): NewBranchActions => {
-	// Read here rather than taken from callers: an outline busy with a transfer
+	// Read here rather than taken from callers: a sidebar busy with a transfer
 	// or an absorb is no place to start a branch from, and that is true of every
 	// trigger rather than something each one should have to remember.
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const { isPending: isCreatePending, mutate: branchCreate } = useBranchCreate();
 	const { isPending: isCheckoutPending, mutate: branchCheckoutNew } = useBranchCheckoutNew();
@@ -48,8 +48,8 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 					// where it can be seen — and selecting it there is what opens it for
 					// renaming, which is the first thing a canned name wants.
 					setPage("workspace");
-					setCursor("stacks", branchOperand({ branchRef: response.newRef.fullNameBytes }));
-					focusScope("outline");
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
+					focusScope("sidebar");
 				},
 			},
 		);
@@ -65,19 +65,19 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 		menuItems: [
 			nativeMenuItem({
 				label: "New Branch in Workspace",
-				enabled: isDefaultMode && !isCreatePending,
+				enabled: noOperationPending && !isCreatePending,
 				accelerator: toElectronAccelerator(workspaceHotkeys.createIndependentBranch.hotkey),
 				onSelect: createInWorkspace,
 			}),
 			nativeMenuItem({
 				label: "New Branch and Switch to It",
-				enabled: isDefaultMode && !isCheckoutPending,
+				enabled: noOperationPending && !isCheckoutPending,
 				accelerator: toElectronAccelerator(workspaceHotkeys.createBranchAndSwitch.hotkey),
 				onSelect: createAndSwitch,
 			}),
 		],
 		isPending: isCreatePending || isCheckoutPending,
-		enabled: isDefaultMode && !isCreatePending && !isCheckoutPending,
+		enabled: noOperationPending && !isCreatePending && !isCheckoutPending,
 		createInWorkspace,
 		createAndSwitch,
 	};

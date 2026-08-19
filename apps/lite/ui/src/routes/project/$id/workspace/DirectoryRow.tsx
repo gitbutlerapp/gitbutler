@@ -44,8 +44,8 @@ export const DirectoryRow: FC<
 	focusScope,
 	...restProps
 }) => {
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	return (
@@ -83,7 +83,7 @@ export const DirectoryRow: FC<
 			<div className={styles.leading}>
 				<FolderIcon className={styles.leadingMark} />
 				<RowCheckbox
-					disabled={!isDefaultMode || !canCheck}
+					disabled={!noOperationPending || !canCheck}
 					aria-label={`Check directory ${path}`}
 					checked={checkedState === "checked"}
 					indeterminate={checkedState === "indeterminate"}

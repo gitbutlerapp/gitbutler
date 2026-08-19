@@ -3,7 +3,7 @@ import {
 	useOpenInProgram,
 	useResolveWorktreeConflicts,
 } from "#ui/api/mutations.ts";
-import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
@@ -16,7 +16,7 @@ import {
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
-import { fileOperand, type FileOperand } from "#ui/operands.ts";
+import { fileAddress, type FileAddress } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
@@ -26,14 +26,14 @@ import { Match } from "effect";
 
 export const useFileMenuItems = ({
 	projectId,
-	operand,
+	address,
 	path,
 	change,
 	canUncommit,
 	uncommit,
 }: {
 	projectId: string;
-	operand: FileOperand;
+	address: FileAddress;
 	path: string;
 	change?: TreeChange;
 	canUncommit: boolean;
@@ -53,16 +53,16 @@ export const useFileMenuItems = ({
 
 	const { canDiscard, discard } = useDiscardFileChanges({
 		projectId,
-		fileParent: operand.parent,
+		fileParent: address.parent,
 	});
 	// A file's actions apply to the checked set when the file is part of it, as dragging it does.
 	const isChecked = useAppSelector((state) =>
-		projectSlice.selectors.selectOperandChecked(state, projectId, fileOperand(operand)),
+		projectSlice.selectors.selectAddressChecked(state, projectId, fileAddress(address)),
 	);
 	// Gated on the set being wholly ours, as the discard is, so the label can't overstate it.
 	const discardFileCount = useAppSelector((state) =>
-		isChecked && projectSlice.selectors.selectCanCheckFiles(state, projectId, operand.parent)
-			? projectSlice.selectors.selectCheckedOperandCount(state, projectId)
+		isChecked && projectSlice.selectors.selectCanCheckFiles(state, projectId, address.parent)
+			? projectSlice.selectors.selectCheckedAddressCount(state, projectId)
 			: 1,
 	);
 	const discardLabel =
@@ -71,16 +71,16 @@ export const useFileMenuItems = ({
 	const { isPending: isResolvePending, mutate: resolveWorktreeConflicts } =
 		useResolveWorktreeConflicts();
 	// A file listed under uncommitted changes without a change is a conflicted one.
-	const isWorktreeConflict = !change && operand.parent._tag === "UncommittedChanges";
+	const isWorktreeConflict = !change && address.parent._tag === "UncommittedChanges";
 	const cutFile = () => {
-		const source = fileOperand(operand);
+		const source = fileAddress(address);
 		const state = store.getState();
-		const sources = projectSlice.selectors.selectOperandChecked(state, projectId, source)
-			? projectSlice.selectors.selectCheckedOperands(state, projectId)
+		const sources = projectSlice.selectors.selectAddressChecked(state, projectId, source)
+			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
 			: [source];
 
-		enterKeyboardTransfer({ sources, kind: "move" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources, kind: "move" });
+		focusScope("sidebar");
 	};
 
 	const menuItemGroups: Array<Array<NativeMenuItem>> = [
@@ -143,7 +143,7 @@ export const useFileMenuItems = ({
 					] satisfies Array<NativeMenuItem>,
 				]
 			: []),
-		...(change && operand.parent._tag !== "Branch"
+		...(change && address.parent._tag !== "Branch"
 			? [
 					[
 						nativeMenuItem({
@@ -155,7 +155,7 @@ export const useFileMenuItems = ({
 				]
 			: []),
 		...(change
-			? Match.value(operand).pipe(
+			? Match.value(address).pipe(
 					Match.withReturnType<Array<Array<NativeMenuItem>>>(),
 					Match.when({ parent: { _tag: "Commit" } }, () => [
 						[
@@ -173,11 +173,11 @@ export const useFileMenuItems = ({
 							}),
 						],
 					]),
-					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
+					Match.when({ parent: { _tag: "UncommittedChanges" } }, (address) => {
 						const absorb = () => {
-							const source = fileOperand(operand);
+							const source = fileAddress(address);
 							const state = store.getState();
-							const checkedPaths = projectSlice.selectors.selectOperandChecked(
+							const checkedPaths = projectSlice.selectors.selectAddressChecked(
 								state,
 								projectId,
 								source,
@@ -192,10 +192,10 @@ export const useFileMenuItems = ({
 											?.changes.filter((change) => checkedPaths.has(change.path));
 							if (checkedPaths.size > 0 && !checkedChanges) return;
 
-							enterAbsorb({
+							startAbsorb({
 								sources: (checkedPaths.size > 0
 									? Array.from(checkedPaths, (path) =>
-											fileOperand({ parent: operand.parent, path }),
+											fileAddress({ parent: address.parent, path }),
 										)
 									: null) ?? [source],
 								sourceTarget: {
@@ -206,7 +206,7 @@ export const useFileMenuItems = ({
 									},
 								},
 							});
-							focusScope("outline");
+							focusScope("sidebar");
 						};
 
 						return [

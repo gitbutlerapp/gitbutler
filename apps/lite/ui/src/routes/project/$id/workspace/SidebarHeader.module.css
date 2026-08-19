@@ -1,26 +1,5 @@
-.container {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	grid-template-columns: minmax(0, 1fr);
-}
-
-.top {
-	container-type: inline-size;
-	display: flex;
-	row-gap: 10px;
-	flex-direction: column;
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block);
-}
-
-/* When the panel is too narrow to fit the tab labels, show icons only. */
-@container (max-width: 320px) {
-	.tabLabel {
-		display: none;
-	}
-}
-
-/* Too narrow for the project name, keep only the folder mark. */
+/* Too narrow for the project name, keep only the folder mark. The size is
+   the sidebar's `top` container, where the header renders. */
 @container (max-width: 275px) {
 	.workspaceNameLabel {
 		display: none;
@@ -64,8 +43,4 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.outlineTree {
-	border-top: 1px solid var(--border-section);
 }

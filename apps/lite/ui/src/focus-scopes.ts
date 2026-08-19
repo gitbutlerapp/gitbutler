@@ -1,19 +1,19 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startKeyboardTransfer } from "#ui/use-cursor.ts";
 import type { Placement } from "#ui/operations/operation.ts";
-import type { Operand } from "#ui/operands.ts";
-import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import type { Address } from "#ui/addresses.ts";
+import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 
-export type FocusScope = "details" | "uncommitted-files" | "outline" | "files" | "diff" | "pr";
+export type FocusScope = "details" | "uncommitted-files" | "sidebar" | "files" | "diff" | "pr";
 const allFocusScopes: Set<string> = new Set([
 	"details",
 	"uncommitted-files",
-	"outline",
+	"sidebar",
 	"files",
 	"diff",
 	"pr",
@@ -78,26 +78,26 @@ export const focusScope = (scope: FocusScope) => {
 export const focusHorizontalScope = ({
 	filesVisible,
 	offset,
-	outlineFocusScope,
-	outlineVisible,
+	sidebarFocusScope,
+	detailsFullWindow,
 }: {
 	filesVisible: boolean;
 	offset: -1 | 1;
-	outlineFocusScope: Extract<FocusScope, "uncommitted-files" | "outline"> | null;
-	outlineVisible: boolean;
+	sidebarFocusScope: Extract<FocusScope, "uncommitted-files" | "sidebar"> | null;
+	detailsFullWindow: boolean;
 }) => {
 	if (!paneNavigationAllowed()) return;
 
 	const currentFocusScope = getFocusedScope(document.activeElement);
-	const currentOutlineFocusScope =
-		currentFocusScope === "uncommitted-files" || currentFocusScope === "outline"
+	const currentSidebarFocusScope =
+		currentFocusScope === "uncommitted-files" || currentFocusScope === "sidebar"
 			? currentFocusScope
-			: outlineFocusScope;
+			: sidebarFocusScope;
 
 	// "details" resolves to whichever of its child scopes is mounted (diff or
 	// pr tab), so the rightmost slot works on both tabs.
 	const orderedFocusScopes: Array<FocusScope> = [
-		...(outlineVisible ? [currentOutlineFocusScope ?? "outline"] : []),
+		...(detailsFullWindow ? [] : [currentSidebarFocusScope ?? "sidebar"]),
 		...(filesVisible ? (["files"] satisfies Array<FocusScope>) : []),
 		"details",
 	];
@@ -129,8 +129,8 @@ export const useAutofocusScope = (enabled = true) => {
 	return (el: HTMLElement | null) => {
 		if (el === null || attached.current) return;
 
-		// A list that is not the one driving the pane must not take focus on
-		// mount: its onFocus would then name it the driving list, so autofocus
+		// A list that is not the active one must not take focus on
+		// mount: its onFocus would then name it the active list, so autofocus
 		// would decide where the URL says the user is. Checked before the latch,
 		// which records having taken the one autofocus rather than having seen a
 		// ref, so a list that starts out passive can still take it later.
@@ -145,8 +145,8 @@ export const useAutofocusScope = (enabled = true) => {
 	};
 };
 
-export const useNavigationIndexHotkeys = <T>({
-	navigationIndex,
+export const useAddressSpaceHotkeys = <T>({
+	addressSpace,
 	group,
 	select,
 	selection,
@@ -157,14 +157,14 @@ export const useNavigationIndexHotkeys = <T>({
 	getKey,
 	directionalNavigation = true,
 }: {
-	navigationIndex: NavigationIndex<T>;
+	addressSpace: AddressSpace<T>;
 	group: CommandGroup;
 	select: (newItem: T) => void;
 	selection: T | null;
 	ref: React.RefObject<HTMLElement | null>;
 	selectSectionPredicate?: (item: T) => boolean;
 	/** When omitted, the selection operation hotkeys (move, cut) are not registered. */
-	operationSourcesForItem?: (item: T) => Array<Operand>;
+	operationSourcesForItem?: (item: T) => Array<Address>;
 	/**
 	 * Called with the direction when arrow navigation hits the pane's edge (or
 	 * the pane is empty). Wired by whichever component stacks this pane against
@@ -179,14 +179,14 @@ export const useNavigationIndexHotkeys = <T>({
 	const operationHotkeysEnabled = useAppSelector(
 		(state) =>
 			operationSourcesForItem === undefined ||
-			projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+			projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
 			selection === null
-				? navigationIndex.items.at(offset === 1 ? 0 : -1)
-				: getAdjacent({ navigationIndex, selection, offset, getKey });
+				? addressSpace.items.at(offset === 1 ? 0 : -1)
+				: getAdjacent({ addressSpace, selection, offset, getKey });
 		if (newItem === null || newItem === undefined) {
 			onEdgeSpill?.(offset);
 			return;
@@ -205,15 +205,15 @@ export const useNavigationIndexHotkeys = <T>({
 	const moveToMatchingItem = (offset: -1 | 1, predicate: (item: T) => boolean) => {
 		if (selection === null) return;
 
-		const selectionIndex = navigationIndex.indexByKey.get(getKey(selection));
+		const selectionIndex = addressSpace.indexByKey.get(getKey(selection));
 		if (selectionIndex === undefined) return;
 
-		const currentItem = navigationIndex.items[selectionIndex];
+		const currentItem = addressSpace.items[selectionIndex];
 		const startsOnMatch = currentItem !== undefined && predicate(currentItem);
 		let itemIndex = selectionIndex + (offset === -1 && !startsOnMatch ? 0 : offset);
 
-		while (itemIndex >= 0 && itemIndex < navigationIndex.items.length) {
-			const item = navigationIndex.items[itemIndex];
+		while (itemIndex >= 0 && itemIndex < addressSpace.items.length) {
+			const item = addressSpace.items[itemIndex];
 			if (item !== undefined && predicate(item)) {
 				select(item);
 				return;
@@ -233,13 +233,13 @@ export const useNavigationIndexHotkeys = <T>({
 	};
 
 	const selectFirstItem = () => {
-		const newItem = navigationIndex.items[0];
+		const newItem = addressSpace.items[0];
 		if (newItem === undefined) return;
 		select(newItem);
 	};
 
 	const selectLastItem = () => {
-		const newItem = navigationIndex.items.at(-1);
+		const newItem = addressSpace.items.at(-1);
 		if (newItem === undefined) return;
 		select(newItem);
 	};
@@ -372,22 +372,22 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 	]);
 
-	const enterTransferModeForSelection = (placement: Placement) => {
+	const startTransferForSelection = (placement: Placement) => {
 		if (selection === null || operationSourcesForItem === undefined) return;
 
-		enterKeyboardTransfer({
+		startKeyboardTransfer({
 			sources: operationSourcesForItem(selection),
 			kind: "move",
 			placement,
 		});
 
-		focusScope("outline");
+		focusScope("sidebar");
 	};
 
 	useHotkeys([
 		{
 			hotkey: selectionOperationHotkeys.move.hotkey,
-			callback: () => enterTransferModeForSelection("above"),
+			callback: () => startTransferForSelection("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:
@@ -398,7 +398,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.cut.hotkey,
-			callback: () => enterTransferModeForSelection("into"),
+			callback: () => startTransferForSelection("into"),
 			options: {
 				conflictBehavior: "allow",
 				enabled:

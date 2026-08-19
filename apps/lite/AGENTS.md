@@ -32,7 +32,7 @@ export const MyComponent: FC<Props> = (p) => {
 Share machinery, not state: when a new surface (a tab, pane, or mode) has its
 own configuration or lifecycle, give it its own sub-state with its own
 reducers/selectors (see `ui/src/projects/branches.ts`), even when it reuses the
-same operand/navigation machinery. Don't multiplex an existing state container
+same address/navigation machinery. Don't multiplex an existing state container
 behind mode conditionals — the tell is an `if (tab === ...)` guard, or a
 comment explaining a special case, in code that shouldn't know that mode
 exists.

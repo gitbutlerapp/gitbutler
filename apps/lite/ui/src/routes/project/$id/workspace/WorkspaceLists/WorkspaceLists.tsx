@@ -1,10 +1,10 @@
 import rowStyles from "../Row.module.css";
 import {
 	setCursor,
-	setWorkspaceList,
+	setActiveList,
 	useIsCursorAt,
-	useResolvedCursor,
-	useWorkspaceList,
+	useSelection,
+	useActiveList,
 } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -12,27 +12,27 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
-	branchOperand,
-	uncommittedChangesOperand,
+	branchAddress,
+	uncommittedChangesAddress,
 	uncommittedChangesFileParent,
-	commitOperand,
-	operandIdentityKey,
-	type Operand,
-	operandEquals,
+	commitAddress,
+	addressIdentityKey,
+	type Address,
+	addressEquals,
 	commitIdentityKey,
-} from "#ui/operands.ts";
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferKind, getTransferTarget } from "#ui/outline/mode.ts";
+import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	OperationTarget as OperationTarget_,
 	type OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOperationDropTarget.ts";
-import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
+import { AddressSpaceContext } from "#ui/routes/project/$id/workspace/AddressSpaceContext.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
@@ -58,7 +58,7 @@ import {
 	useRef,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
-import styles from "./OutlineTree.module.css";
+import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
@@ -71,7 +71,7 @@ import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
-import { useOutlineTreeHotkeys } from "./hotkeys.ts";
+import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
@@ -82,7 +82,7 @@ import {
 	downstackPushStatusesFromSegments,
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
-import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
@@ -107,17 +107,17 @@ type PanelId = "uncommitted-changes-panel" | "stacks-panel";
 
 const TreeItem: FC<
 	{
-		operand: Operand;
+		address: Address;
 	} & useRender.ComponentProps<"div">
-> = ({ operand, render, ...props }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsCursorAt("stacks", navigationIndex, operand);
+> = ({ address, render, ...props }) => {
+	const addressSpace = assert(use(AddressSpaceContext));
+	const isSelected = useIsCursorAt("applied", addressSpace, address);
 
 	return useRender({
 		render,
 		defaultTagName: "div",
 		props: mergeProps<"div">(props, {
-			id: treeItemId(operand),
+			id: treeItemId(address),
 			role: "treeitem",
 			"aria-selected": isSelected,
 		}),
@@ -127,27 +127,27 @@ const TreeItem: FC<
 const OperationTarget: FC<
 	{
 		enabled: boolean;
-		operand: Operand;
+		address: Address;
 		projectId: string;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"button">
-> = ({ enabled, operand, projectId, outline, render, ...props }) => {
-	const dropRef = useOperationDropTarget({ enabled, target: operand, projectId });
+> = ({ enabled, address, projectId, outline, render, ...props }) => {
+	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
 
 	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
-	const selection = useResolvedCursor("stacks", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const selection = useSelection("applied", addressSpace);
+	const activeList = useActiveList();
 	const activeOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
-		return Match.value(outlineMode).pipe(
+		return Match.value(pendingOperation).pipe(
 			Match.tags({
 				Absorb: (): ActiveOperation | null => {
 					const isActive =
-						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId);
+						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId);
 					if (!isActive) return null;
 
 					return { placement: "into", tooltip: "Absorb target" };
@@ -155,15 +155,15 @@ const OperationTarget: FC<
 				Transfer: ({ value: mode }): ActiveOperation | null => {
 					if (mode.placement === null) return null;
 
-					const target = getTransferTarget(mode, selection, workspaceList);
-					const isActive = target !== null && operandEquals(target, operand);
+					const target = getTransferTarget(mode, selection, activeList);
+					const isActive = target !== null && addressEquals(target, address);
 					if (!isActive) return null;
 
 					return {
 						placement: mode.placement,
 						tooltip: getOperation({
 							sources: mode.sources,
-							target: operand,
+							target: address,
 							placement: mode.placement,
 							kind: getTransferKind(mode),
 						})?.label,
@@ -206,26 +206,26 @@ const OperationTarget: FC<
 	);
 };
 
-const OperandC: FC<
+const AddressC: FC<
 	{
 		projectId: string;
-		operand: Operand;
+		address: Address;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, outline, render, ...props }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+> = ({ projectId, address, outline, render, ...props }) => {
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	return useRender({
 		render: (
 			<OperationSourceC
 				projectId={projectId}
-				source={operand}
+				source={address}
 				outline={outline}
 				render={
 					<OperationTarget
-						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+						enabled={addressSpaceIncludes(addressSpace, address, addressIdentityKey)}
 						projectId={projectId}
-						operand={operand}
+						address={address}
 						outline={outline}
 						render={render}
 					/>
@@ -238,7 +238,7 @@ const OperandC: FC<
 };
 
 const UncommittedChanges: FC<{
-	navigationIndex: NavigationIndex<string>;
+	addressSpace: AddressSpace<string>;
 	commitTarget: CommitTargetComboboxItem | null;
 	projectId: string;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
@@ -249,7 +249,7 @@ const UncommittedChanges: FC<{
 	onEdgeSpill: (offset: -1 | 1) => void;
 	worktreeChanges: WorktreeChanges | undefined;
 }> = ({
-	navigationIndex,
+	addressSpace,
 	commitTarget,
 	projectId,
 	targetComboboxItems,
@@ -276,8 +276,8 @@ const UncommittedChanges: FC<{
 		collapsedDirectories,
 	});
 
-	const fileSelection = useResolvedCursor("uncommitted", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const fileSelection = useSelection("uncommitted", addressSpace);
+	const activeList = useActiveList();
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
@@ -319,9 +319,9 @@ const UncommittedChanges: FC<{
 			>
 				<FilesTree
 					canUncommit={false}
-					data-preview-source={workspaceList === "uncommitted"}
+					data-preview-source={activeList === "uncommitted"}
 					focusScope="uncommitted-files"
-					onFocus={() => setWorkspaceList("uncommitted")}
+					onFocus={() => setActiveList("uncommitted")}
 					emptyLabel={
 						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
 							? "No matching files."
@@ -335,11 +335,11 @@ const UncommittedChanges: FC<{
 							projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({ projectId, path }),
 						)
 					}
-					navigationIndex={navigationIndex}
+					addressSpace={addressSpace}
 					onRowSelection={onActiveFileSelection}
 					onEdgeSpill={onEdgeSpill}
 					projectId={projectId}
-					ref={useMergedRefs(fileListRef, useAutofocusScope(workspaceList === "uncommitted"))}
+					ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
 					selection={fileSelection}
 				/>
 			</div>
@@ -399,14 +399,14 @@ const BranchSegment: FC<{
 	onAmendCommit,
 	canAmendCommit,
 }) => {
-	const operand = branchOperand({ branchRef: refName.fullNameBytes });
+	const address = branchAddress({ branchRef: refName.fullNameBytes });
 
 	return (
 		<TreeItem
-			operand={operand}
+			address={address}
 			aria-label={refName.displayName}
 			aria-expanded
-			render={<OperandC projectId={projectId} operand={operand} outline="outside" />}
+			render={<AddressC projectId={projectId} address={address} outline="outside" />}
 		>
 			<BranchRow
 				projectId={projectId}
@@ -439,13 +439,13 @@ const BranchSegment: FC<{
 const EmptySegmentContent: FC<{
 	segment: Segment;
 }> = ({ segment }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	const refName = assert(segment.refName);
-	const inert = !navigationIndexIncludes(
-		navigationIndex,
-		branchOperand({ branchRef: refName.fullNameBytes }),
-		operandIdentityKey,
+	const inert = !addressSpaceIncludes(
+		addressSpace,
+		branchAddress({ branchRef: refName.fullNameBytes }),
+		addressIdentityKey,
 	);
 
 	return (
@@ -493,7 +493,7 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
+				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
@@ -502,12 +502,12 @@ const SegmentContent: FC<{
 				return (
 					<TreeItem
 						key={commit.id}
-						operand={operand}
+						address={address}
 						aria-label={commitTitle(commit.message) ?? "(no message)"}
 						render={
-							<OperandC
+							<AddressC
 								projectId={projectId}
-								operand={operand}
+								address={address}
 								outline="outside"
 								render={
 									<CommitRow
@@ -533,10 +533,10 @@ const SegmentContent: FC<{
  * segment's last row — and, after the final segment, standing in as the card's
  * floor.
  *
- * It dims with the rows it joins, so it has to ask about the same operand the
+ * It dims with the rows it joins, so it has to ask about the same address the
  * row above it stands for: the last commit while the segment is unfolded, and
  * the branch itself once it is folded, because folding takes the commits out of
- * the navigation index (see `buildOutlineNavigationIndex`). Asking after a
+ * the address space (see `buildAppliedAddressSpace`). Asking after a
  * folded commit would always miss, dimming the connector to half the weight of
  * the rail on either side of it and breaking the line between branches.
  */
@@ -544,7 +544,7 @@ const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
 }> = ({ projectId, segment }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 
 	// A plain boolean, so this re-renders only when this segment's own fold
 	// state changes rather than on every fold anywhere.
@@ -561,14 +561,14 @@ const SegmentRailConnector: FC<{
 	const lastCommit = segment.commits.at(-1);
 	const standsFor =
 		lastCommit === undefined || isFolded
-			? branchOperand({ branchRef: assert(segment.refName).fullNameBytes })
-			: commitOperand({ commitId: lastCommit.id, changeId: lastCommit.changeId });
+			? branchAddress({ branchRef: assert(segment.refName).fullNameBytes })
+			: commitAddress({ commitId: lastCommit.id, changeId: lastCommit.changeId });
 
 	return (
 		<Row
 			interactive={false}
 			className={stackCardStyles.railConnector}
-			inert={!navigationIndexIncludes(navigationIndex, standsFor, operandIdentityKey)}
+			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
 			<GraphSegment
 				glyph="parent"
@@ -662,19 +662,19 @@ const Stacks: FC<{
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
 }> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
+	const addressSpace = assert(use(AddressSpaceContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useResolvedCursor("stacks", navigationIndex);
-	const workspaceList = useWorkspaceList();
+	const selection = useSelection("applied", addressSpace);
+	const activeList = useActiveList();
 	const dryRunOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
-		return Match.value(outlineMode).pipe(
+		return Match.value(pendingOperation).pipe(
 			Match.tags({
 				Transfer: ({ value: mode }) => {
 					if (mode.placement === null) return;
 
-					const target = getTransferTarget(mode, selection, workspaceList);
+					const target = getTransferTarget(mode, selection, activeList);
 					if (!target) return;
 
 					return getOperation({
@@ -697,8 +697,8 @@ const Stacks: FC<{
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
-	useOutlineTreeHotkeys({
-		navigationIndex,
+	useActiveListsHotkeys({
+		addressSpace,
 		projectId,
 		ref: hotkeysRef,
 		checkCommit,
@@ -713,10 +713,10 @@ const Stacks: FC<{
 				role="tree"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(styles.tree, styles.stacks)}
-				data-focus-scope={"outline" satisfies FocusScope}
-				data-preview-source={workspaceList === "stacks"}
-				onFocus={() => setWorkspaceList("stacks")}
-				ref={useMergedRefs(hotkeysRef, useAutofocusScope(workspaceList === "stacks"))}
+				data-focus-scope={"sidebar" satisfies FocusScope}
+				data-preview-source={activeList === "applied"}
+				onFocus={() => setActiveList("applied")}
+				ref={useMergedRefs(hotkeysRef, useAutofocusScope(activeList === "applied"))}
 			>
 				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (
 					<StackC
@@ -733,19 +733,19 @@ const Stacks: FC<{
 	);
 };
 
-export const OutlineTree: FC<
+export const WorkspaceLists: FC<
 	{
 		projectId: string;
-		navigationIndex: NavigationIndex<Operand>;
-		uncommittedFilesNavigationIndex: NavigationIndex<string>;
+		addressSpace: AddressSpace<Address>;
+		uncommittedAddressSpace: AddressSpace<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
-	navigationIndex,
-	uncommittedFilesNavigationIndex,
+	addressSpace,
+	uncommittedAddressSpace,
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
@@ -755,15 +755,15 @@ export const OutlineTree: FC<
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
-	const outlineSelection = useResolvedCursor("stacks", navigationIndex);
+	const appliedSelection = useSelection("applied", addressSpace);
 	const commitTargetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
-		outlineSelection,
+		appliedSelection,
 	});
 	const commitTarget = selectCommitTargetComboboxItem({
 		items: commitTargetComboboxItems,
-		outlineSelection,
+		appliedSelection,
 	});
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the draft-branch affordance on every open.
@@ -796,8 +796,8 @@ export const OutlineTree: FC<
 	const commitCheckRangeAnchor = useRef<string>(null);
 	const commitCheckRangeEnd = useRef<string>(null);
 
-	const rangeResolver = navigationIndexRange<Operand, string>({
-		navigationIndex,
+	const rangeResolver = addressSpaceRange<Address, string>({
+		addressSpace,
 		getKey: (commitId) => commitIdentityKey({ commitId }),
 		filterMap: (item) => (item._tag === "Commit" ? item.commitId : null),
 	});
@@ -823,29 +823,29 @@ export const OutlineTree: FC<
 		const checkedCommits = nextCommitRange.checked.difference(checkedCommitIds);
 		const uncheckedCommits = checkedCommitIds.difference(nextCommitRange.checked);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: Array.from(checkedCommits).flatMap((commitId) => {
+				addresses: Array.from(checkedCommits).flatMap((commitId) => {
 					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: true,
 			}),
 		);
 		dispatch(
-			projectSlice.actions.checkOperands({
+			projectSlice.actions.checkAddresses({
 				projectId,
-				operands: Array.from(uncheckedCommits).flatMap((commitId) => {
+				addresses: Array.from(uncheckedCommits).flatMap((commitId) => {
 					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitOperand({ commitId, changeId: ctx.commit.changeId }) : [];
+					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
 				}),
 				checked: false,
 			}),
 		);
 	};
 
-	const layoutId = `project=${projectId}:outline-tree`;
-	const outlineLayout = useDefaultLayout({
+	const layoutId = `project=${projectId}:sidebar-tree`;
+	const sidebarLayout = useDefaultLayout({
 		id: layoutId,
 		panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
 	});
@@ -856,29 +856,29 @@ export const OutlineTree: FC<
 	// focus where it is. Mod+Alt+arrow pane toggling stays selection-neutral.
 	const spillIntoStacks = (offset: -1 | 1) => {
 		if (offset !== 1) return;
-		const item = navigationIndex.items.at(0);
+		const item = addressSpace.items.at(0);
 		if (item === undefined) return;
-		setCursor("stacks", item);
-		focusScope("outline");
+		setCursor("applied", item);
+		focusScope("sidebar");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
 		if (offset !== -1) return;
-		const path = uncommittedFilesNavigationIndex.items.at(-1);
+		const path = uncommittedAddressSpace.items.at(-1);
 		if (path === undefined) return;
 		onActiveFileSelection(path);
 		focusScope("uncommitted-files");
 	};
 
 	return (
-		<NavigationIndexContext value={navigationIndex}>
+		<AddressSpaceContext value={addressSpace}>
 			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
 				<Group
 					{...props}
 					id={layoutId}
 					orientation="vertical"
 					className={classes(props.className, styles.tree)}
-					defaultLayout={outlineLayout.defaultLayout}
-					onLayoutChanged={outlineLayout.onLayoutChanged}
+					defaultLayout={sidebarLayout.defaultLayout}
+					onLayoutChanged={sidebarLayout.onLayoutChanged}
 				>
 					<Panel
 						id={"uncommitted-changes-panel" satisfies PanelId}
@@ -889,17 +889,17 @@ export const OutlineTree: FC<
 					>
 						<OperationSourceC
 							projectId={projectId}
-							source={uncommittedChangesOperand}
+							source={uncommittedChangesAddress}
 							outline="inside"
 							render={
 								<OperationTarget
 									enabled
 									projectId={projectId}
-									operand={uncommittedChangesOperand}
+									address={uncommittedChangesAddress}
 									outline="inside"
 									render={
 										<UncommittedChanges
-											navigationIndex={uncommittedFilesNavigationIndex}
+											addressSpace={uncommittedAddressSpace}
 											commitTarget={commitTarget}
 											projectId={projectId}
 											targetComboboxItems={commitTargetComboboxItems}
@@ -921,7 +921,7 @@ export const OutlineTree: FC<
 					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
 						<SectionHeaderRow
 							label="Stacks and branches"
-							childrenBefore={<FocusScopeKbd hotkey="2" scope="outline" />}
+							childrenBefore={<FocusScopeKbd hotkey="2" scope="sidebar" />}
 							className={styles.stacksHeader}
 							actions={stacksHeaderActions}
 						/>
@@ -938,6 +938,6 @@ export const OutlineTree: FC<
 					</Panel>
 				</Group>
 			</AbsorptionTargetCommitIdsContext>
-		</NavigationIndexContext>
+		</AddressSpaceContext>
 	);
 };

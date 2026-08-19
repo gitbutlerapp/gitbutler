@@ -1,14 +1,14 @@
 import {
 	branchFileParent,
 	commitFileParent,
-	hunkOperand,
-	operandEquals,
-	operandIdentityKey,
-	type BranchOperand,
+	hunkAddress,
+	addressEquals,
+	addressIdentityKey,
+	type BranchAddress,
 	type FileParent,
-	type HunkOperand,
-	type Operand,
-} from "#ui/operands.ts";
+	type HunkAddress,
+	type Address,
+} from "#ui/addresses.ts";
 
 /**
  * The app's named lists, each with one cursor. A cursor stores the identity
@@ -19,43 +19,43 @@ import {
  *
  * `uncommitted` and `files` stay path-keyed on purpose: a bare path survives
  * root changes (select the next commit, stay on the same file). Do not
- * "upgrade" them to File operands — the embedded parent would go stale.
+ * "upgrade" them to File addresses — the embedded parent would go stale.
  */
-export type ListItem = {
-	stacks: Operand;
+export type CursorItem = {
+	applied: Address;
 	uncommitted: string;
-	branches: Operand;
-	upstream: Operand;
+	unapplied: Address;
+	upstream: Address;
 	files: string;
-	diff: HunkOperand;
+	diff: HunkAddress;
 };
 
-export type ListName = keyof ListItem;
+export type CursorName = keyof CursorItem;
 
 /**
- * The workspace page's cursors, snapshotted by modes that restore on cancel.
+ * The workspace page's cursors, snapshotted by pending operations that restore on cancel.
  * URL cursors are held in their encoded form: restoration writes the params
  * back verbatim, no resolution needed.
  */
 export type WorkspaceCursorSnapshot = {
 	page?: "upstream" | "branches";
-	list?: "uncommitted";
-	stacks?: string;
+	active?: "uncommitted";
+	applied?: string;
 	uncommitted?: string;
 	files?: string;
-	diff: HunkOperand | null;
+	diff: HunkAddress | null;
 };
 
 const pathKey = (path: string): string => path;
 
 /** One identity key per list; resolution and no-op guards share it. */
-export const cursorKey: { [L in ListName]: (item: ListItem[L]) => string } = {
-	stacks: operandIdentityKey,
-	branches: operandIdentityKey,
-	upstream: operandIdentityKey,
+export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } = {
+	applied: addressIdentityKey,
+	unapplied: addressIdentityKey,
+	upstream: addressIdentityKey,
 	uncommitted: pathKey,
 	files: pathKey,
-	diff: (operand) => operandIdentityKey(hunkOperand(operand)),
+	diff: (address) => addressIdentityKey(hunkAddress(address)),
 };
 
 /* The diff cursor is store-held, so history rewrites remap it in the store;
@@ -72,20 +72,20 @@ const remapFileParent = (parent: FileParent, replaced: Record<string, string>): 
 };
 
 export const remapDiffCursor = (
-	diff: HunkOperand,
+	diff: HunkAddress,
 	replacedCommits: Record<string, string>,
-): HunkOperand => {
+): HunkAddress => {
 	const parent = remapFileParent(diff.parent.parent, replacedCommits);
 	return parent === diff.parent.parent ? diff : { ...diff, parent: { ...diff.parent, parent } };
 };
 
 export const remapDiffCursorBranch = (
-	diff: HunkOperand,
-	oldBranch: BranchOperand,
-	newBranch: BranchOperand,
-): HunkOperand => {
+	diff: HunkAddress,
+	oldBranch: BranchAddress,
+	newBranch: BranchAddress,
+): HunkAddress => {
 	const parent = diff.parent.parent;
-	if (parent._tag !== "Branch" || !operandEquals(parent, branchFileParent(oldBranch))) return diff;
+	if (parent._tag !== "Branch" || !addressEquals(parent, branchFileParent(oldBranch))) return diff;
 
 	return { ...diff, parent: { ...diff.parent, parent: branchFileParent(newBranch) } };
 };

@@ -7,7 +7,7 @@ describe("file tree ordering", () => {
 			"readme.md",
 			"src/ui/v10.ts",
 			"src/app.ts",
-			"src/ui/Outline.tsx",
+			"src/ui/Sidebar.tsx",
 			"docs/guide.md",
 			"src/ui/v9.ts",
 			"src/ui/lineStats.ts",
@@ -17,7 +17,7 @@ describe("file tree ordering", () => {
 			[
 			  "docs/guide.md",
 			  "src/ui/lineStats.ts",
-			  "src/ui/Outline.tsx",
+			  "src/ui/Sidebar.tsx",
 			  "src/ui/v9.ts",
 			  "src/ui/v10.ts",
 			  "src/app.ts",

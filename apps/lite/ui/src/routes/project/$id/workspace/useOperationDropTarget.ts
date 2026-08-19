@@ -4,8 +4,8 @@ import {
 	type Placement,
 	useExecuteOperation,
 } from "#ui/operations/operation.ts";
-import { cancelMode } from "#ui/use-cursor.ts";
-import type { Operand } from "#ui/operands.ts";
+import { cancelPendingOperation } from "#ui/use-cursor.ts";
+import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -42,7 +42,7 @@ export const useOperationDropTarget = ({
 	projectId,
 }: {
 	enabled: boolean;
-	target: Operand;
+	target: Address;
 	projectId: string;
 }) => {
 	const dispatch = useAppDispatch();
@@ -122,11 +122,11 @@ export const useOperationDropTarget = ({
 						: null;
 
 				if (!operation) {
-					cancelMode();
+					cancelPendingOperation();
 					return;
 				}
 
-				dispatch(projectSlice.actions.exitMode({ projectId }));
+				dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 				executeOperation(operation.operation);
 			},
 		});

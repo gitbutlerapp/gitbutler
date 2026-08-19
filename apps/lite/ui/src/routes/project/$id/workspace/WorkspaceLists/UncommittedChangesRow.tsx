@@ -1,5 +1,5 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
-import { enterAbsorb, enterKeyboardTransfer } from "#ui/use-cursor.ts";
+import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -11,10 +11,10 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import {
-	fileOperand,
+	fileAddress,
 	uncommittedChangesFileParent,
-	uncommittedChangesOperand,
-} from "#ui/operands.ts";
+	uncommittedChangesAddress,
+} from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
@@ -39,10 +39,10 @@ export const UncommittedChangesRow: FC<{
 		combine: (results) => getLineStats(results.map((result) => result.data)),
 	});
 
-	const operand = uncommittedChangesOperand;
+	const address = uncommittedChangesAddress;
 	const store = useAppStore();
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
@@ -54,13 +54,13 @@ export const UncommittedChangesRow: FC<{
 			projectId,
 		);
 		if (checkedPaths.size === 0) {
-			enterAbsorb({ sources: [operand], sourceTarget: { type: "all" } });
+			startAbsorb({ sources: [address], sourceTarget: { type: "all" } });
 			return;
 		}
 
-		enterAbsorb({
+		startAbsorb({
 			sources: Array.from(checkedPaths, (path) =>
-				fileOperand({ parent: uncommittedChangesFileParent, path }),
+				fileAddress({ parent: uncommittedChangesFileParent, path }),
 			),
 			sourceTarget: {
 				type: "treeChanges",
@@ -73,8 +73,8 @@ export const UncommittedChangesRow: FC<{
 	};
 
 	const cutChanges = () => {
-		enterKeyboardTransfer({ sources: [operand], kind: "move" });
-		focusScope("outline");
+		startKeyboardTransfer({ sources: [address], kind: "move" });
+		focusScope("sidebar");
 	};
 
 	const discardChanges = () => {
@@ -112,7 +112,7 @@ export const UncommittedChangesRow: FC<{
 				void showNativeContextMenu(event, menuItems);
 			}}
 			actions={
-				isDefaultMode && (
+				noOperationPending && (
 					<Toolbar.Root
 						aria-label="Uncommitted changes actions"
 						render={<RowToolbar forceVisible />}

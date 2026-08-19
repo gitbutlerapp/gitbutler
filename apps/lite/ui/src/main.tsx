@@ -2,7 +2,7 @@ import { MutationCache, QueryClient, focusManager } from "@tanstack/react-query"
 import { App } from "#ui/App.tsx";
 import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
 import { createAppRouter } from "#ui/router.ts";
-import { routeTree } from "#ui/routeTree.ts";
+import { routeTree } from "#ui/routes.tsx";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";

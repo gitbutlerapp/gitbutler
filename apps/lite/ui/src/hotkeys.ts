@@ -30,7 +30,7 @@ export type CommandGroup =
 	| "Operations log"
 	| "Stack"
 	| "Uncommitted changes"
-	| "Outline"
+	| "Sidebar"
 	| "Workspace";
 
 declare module "@tanstack/react-hotkeys" {
@@ -143,16 +143,16 @@ export const workspaceHotkeys = {
 		hotkey: "F",
 		meta: { group: "Diff", name: "Toggle files" },
 	},
-	toggleOutline: {
+	toggleSidebar: {
 		hotkey: ".",
-		meta: { group: "Global", name: "Toggle outline" },
+		meta: { group: "Global", name: "Toggle sidebar" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const branchesHotkeys = {
 	copy: {
 		hotkey: "Mod+C",
-		meta: { group: "Outline", name: "Copy" },
+		meta: { group: "Sidebar", name: "Copy" },
 	},
 	deleteBranchRef: {
 		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
@@ -160,10 +160,10 @@ export const branchesHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
-export const outlineHotkeys = {
+export const sidebarHotkeys = {
 	copy: {
 		hotkey: "Mod+C",
-		meta: { group: "Outline", name: "Copy" },
+		meta: { group: "Sidebar", name: "Copy" },
 	},
 	checkCommit: {
 		hotkey: "Space",

@@ -19,13 +19,13 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
 import {
-	fileOperand,
-	operandIdentityKey,
+	fileAddress,
+	addressIdentityKey,
 	type FileParent,
-	type Operand,
+	type Address,
 	uncommittedChangesFileParent,
 	weakFileParentIdentityKey,
-} from "./operands.ts";
+} from "./addresses.ts";
 import { decodeBytes, encodeBytes } from "./api/bytes.ts";
 import { hunkContainsHunk } from "./hunk.ts";
 import type { RefInfo, TreeChange } from "@gitbutler/but-sdk";
@@ -48,11 +48,11 @@ export const useStateReconciler = (): void => {
 	// id (encode-match), and a `commit:` param names an identity nothing survives.
 	const reconcileSelectedBranch = useEffectEvent(
 		(headInfo: RefInfo, headInfoIndex: HeadInfoIndex, prevHeadInfoIndex: HeadInfoIndex) => {
-			const refName = branchParamRef(currentParams().stacks);
+			const refName = branchParamRef(currentParams().applied);
 			if (refName === null) return;
 
 			const refBytes = encodeBytes(refName);
-			if (headInfoIndex.branchContextByRefBytes(refBytes)) return;
+			if (headInfoIndex.isApplied(refBytes)) return;
 
 			const prev = prevHeadInfoIndex.branchContextByRefBytes(refBytes);
 			if (!prev) return;
@@ -71,11 +71,11 @@ export const useStateReconciler = (): void => {
 		},
 	);
 
-	const checkedOperands = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedOperands(state, projectId),
+	const checkedAddresses = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddresses(state, projectId),
 	);
 
-	const checkedCommits = checkedOperands.filter((operand) => operand._tag === "Commit");
+	const checkedCommits = checkedAddresses.filter((address) => address._tag === "Commit");
 	const reconcileCheckedCommits = useEffectEvent((headInfoIndex: HeadInfoIndex) => {
 		const invalidated = checkedCommits.filter(
 			(commit) => !headInfoIndex.commitContextByCommitId(commit.commitId),
@@ -83,22 +83,22 @@ export const useStateReconciler = (): void => {
 
 		if (invalidated.length > 0) {
 			dispatch(
-				projectSlice.actions.checkOperands({ projectId, operands: invalidated, checked: false }),
+				projectSlice.actions.checkAddresses({ projectId, addresses: invalidated, checked: false }),
 			);
 		}
 	});
 
-	type FileScopedCheckedOperand = {
-		operand: Extract<Operand, { _tag: "File" | "Hunk" }>;
+	type FileScopedCheckedAddress = {
+		address: Extract<Address, { _tag: "File" | "Hunk" }>;
 		parent: FileParent;
 		path: string;
 	};
-	const checkedFiles = checkedOperands.flatMap<FileScopedCheckedOperand>((operand) => {
-		switch (operand._tag) {
+	const checkedFiles = checkedAddresses.flatMap<FileScopedCheckedAddress>((address) => {
+		switch (address._tag) {
 			case "File":
-				return [{ operand, parent: operand.parent, path: operand.path }];
+				return [{ address, parent: address.parent, path: address.path }];
 			case "Hunk":
-				return [{ operand, parent: operand.parent.parent, path: operand.parent.path }];
+				return [{ address, parent: address.parent.parent, path: address.parent.path }];
 			default:
 				return [];
 		}
@@ -115,12 +115,16 @@ export const useStateReconciler = (): void => {
 	const reconcileCheckedUncommittedFiles = useEffectEvent(
 		(worktreeChangesByPath: Map<string, TreeChange>) => {
 			const invalidated = checkedUncommittedFiles.flatMap((file) =>
-				worktreeChangesByPath.has(file.path) ? [] : file.operand,
+				worktreeChangesByPath.has(file.path) ? [] : file.address,
 			);
 
 			if (invalidated.length > 0) {
 				dispatch(
-					projectSlice.actions.checkOperands({ projectId, operands: invalidated, checked: false }),
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: invalidated,
+						checked: false,
+					}),
 				);
 			}
 		},
@@ -137,13 +141,17 @@ export const useStateReconciler = (): void => {
 			const invalidated = checkedCommitFiles.flatMap((file) =>
 				!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
 				checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false
-					? file.operand
+					? file.address
 					: [],
 			);
 
 			if (invalidated.length > 0) {
 				dispatch(
-					projectSlice.actions.checkOperands({ projectId, operands: invalidated, checked: false }),
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: invalidated,
+						checked: false,
+					}),
 				);
 			}
 		},
@@ -155,16 +163,20 @@ export const useStateReconciler = (): void => {
 	const reconcileCheckedBranchFiles = useEffectEvent(
 		(headInfoIndex: HeadInfoIndex, checkedBranchFilesByBranchName: Map<string, Set<string>>) => {
 			const invalidated = checkedBranchFiles.flatMap((file) =>
-				!headInfoIndex.branchContextByRefBytes(file.parent.branchRef) ||
+				!headInfoIndex.isApplied(file.parent.branchRef) ||
 				checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
 					false
-					? file.operand
+					? file.address
 					: [],
 			);
 
 			if (invalidated.length > 0) {
 				dispatch(
-					projectSlice.actions.checkOperands({ projectId, operands: invalidated, checked: false }),
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: invalidated,
+						checked: false,
+					}),
 				);
 			}
 		},
@@ -270,9 +282,9 @@ export const useStateReconciler = (): void => {
 		reconcileCheckedBranchFiles(headInfoIndex, checkedBranchFilesByBranchName);
 	}, [headInfoIndex, checkedBranchFilesByBranchName]);
 
-	const checkedHunks = checkedOperands.filter((operand) => operand._tag === "Hunk");
+	const checkedHunks = checkedAddresses.filter((address) => address._tag === "Hunk");
 	const checkedHunkFiles = Map.groupBy(checkedHunks, (hunk) =>
-		operandIdentityKey(fileOperand(hunk.parent)),
+		addressIdentityKey(fileAddress(hunk.parent)),
 	)
 		.values()
 		.flatMap((hunks) => {
@@ -303,18 +315,18 @@ export const useStateReconciler = (): void => {
 						hunk.isResultOfBinaryToTextConversion ===
 							patch.subject.isResultOfBinaryToTextConversion &&
 						patch.subject.hunks.some((current) => hunkContainsHunk(current, hunk.hunkHeader))
-							? operandIdentityKey(hunk)
+							? addressIdentityKey(hunk)
 							: [],
 					);
 				}),
 			),
 	});
 	const reconcileCheckedHunks = useEffectEvent((validHunkKeys: Set<string>) => {
-		const invalidated = checkedHunks.filter((hunk) => !validHunkKeys.has(operandIdentityKey(hunk)));
+		const invalidated = checkedHunks.filter((hunk) => !validHunkKeys.has(addressIdentityKey(hunk)));
 
 		if (invalidated.length > 0) {
 			dispatch(
-				projectSlice.actions.checkOperands({ projectId, operands: invalidated, checked: false }),
+				projectSlice.actions.checkAddresses({ projectId, addresses: invalidated, checked: false }),
 			);
 		}
 	});

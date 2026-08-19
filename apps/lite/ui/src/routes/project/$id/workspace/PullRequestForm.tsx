@@ -51,7 +51,7 @@ import type {
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type FC, type SubmitEventHandler, Suspense, useId, useRef, useState } from "react";
-import styles from "./PullRequestTab.module.css";
+import styles from "./PullRequestForm.module.css";
 
 /**
  * The building blocks of the Pull Request tab, defined bottom-up:

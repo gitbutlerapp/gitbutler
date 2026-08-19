@@ -1,3 +1,11 @@
+/**
+ * The workspace route's page — the app's hub, and the place to start
+ * reading. Everything above (main → App → routes.tsx) is bootstrap,
+ * providers and window chrome; everything interesting hangs from here:
+ * this file derives every list's address space and data, then renders
+ * the pages — each a list — beside Details, and wires the app-level
+ * hotkeys and operation controls.
+ */
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -37,55 +45,49 @@ import { Match } from "effect";
 import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
-	branchOperand,
-	commitOperand,
-	operandContains,
-	operandEquals,
-	operandIdentityKey,
-	type BranchOperand,
-	type HunkOperand,
-	type Operand,
+	branchAddress,
+	commitAddress,
+	addressContains,
+	addressEquals,
+	addressIdentityKey,
+	type BranchAddress,
+	type HunkAddress,
+	type Address,
 	uncommittedChangesFileParent,
-} from "#ui/operands.ts";
-import {
-	BranchesDetails,
-	type DiffViewerHandle,
-	UncommittedFilesDetails,
-	UpstreamDetails,
-	WorkspaceDetails,
-} from "./Details.tsx";
+} from "#ui/addresses.ts";
+import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
-import { fileTreeNavigationIndex, selectedFilePath } from "./file-tree.ts";
+import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import styles from "./WorkspacePage.module.css";
+import styles from "./Page.module.css";
 import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
-import { Outline } from "./Outline.tsx";
+import { Sidebar } from "./Sidebar.tsx";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
-import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
-import { useBranchesOutline } from "./useBranchesOutline.ts";
-import { upstreamCommitReview, useUpstreamOutline } from "./useUpstreamOutline.ts";
-import { getTransferKind, type OutlineMode } from "#ui/outline/mode.ts";
+import { useBranchesList } from "./useBranchesList.ts";
+import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
+import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
 	useCanShowFiles,
-	useOutlineFocusScope,
+	useSidebarFocusScope,
 	usePage,
-	useResolvedCursor,
-	useWorkspaceList,
+	useSelection,
+	useActiveList,
 } from "#ui/use-cursor.ts";
 import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
-type PanelId = "outline-panel" | "details-panel";
+type PanelId = "sidebar-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
@@ -97,13 +99,12 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
 	const focusedFocusScope = getFocusedScope(activeElement);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
-	const outlineVisible = !detailsFullWindow;
-	const outlineFocusScope = useOutlineFocusScope();
+	const sidebarFocusScope = useSidebarFocusScope();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const outlineTab = usePage();
+	const page = usePage();
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -114,8 +115,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		focusHorizontalScope({
 			filesVisible,
 			offset,
-			outlineFocusScope,
-			outlineVisible,
+			sidebarFocusScope,
+			detailsFullWindow,
 		});
 	};
 	const focusPaneLeft = () => {
@@ -130,7 +131,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.redo.hotkey,
 			callback: () => restoreSnapshot("redo"),
 			options: {
-				enabled: isDefaultMode && !isRestoreSnapshotPending,
+				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.redo.meta,
 				ignoreInputs: true,
 			},
@@ -139,7 +140,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.undo.hotkey,
 			callback: () => restoreSnapshot("undo"),
 			options: {
-				enabled: isDefaultMode && !isRestoreSnapshotPending,
+				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.undo.meta,
 				ignoreInputs: true,
 			},
@@ -158,7 +159,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
 				if (focusedFocusScope === "files" && filesVisible)
-					focusScope(outlineVisible ? "outline" : "diff");
+					focusScope(detailsFullWindow ? "diff" : "sidebar");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
 			},
@@ -172,39 +173,39 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: "0",
 			callback: () => focusScope("details"),
 		},
-		...Match.value(outlineTab).pipe(
+		...Match.value(page).pipe(
 			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.when("workspace", () => [
 				{
 					hotkey: "1",
 					callback: () => focusScope("uncommitted-files"),
 					options: {
-						enabled: outlineVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 				{
 					hotkey: "2",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),
 			Match.when("branches", () => [
 				{
 					hotkey: "1",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),
 			Match.when("upstream", () => [
 				{
 					hotkey: "1",
-					callback: () => focusScope("outline"),
+					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: outlineVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),
@@ -241,65 +242,81 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const hasAnyOperation = (sources: Array<Operand>, target: Operand, kind: TransferKind) => {
+const hasAnyOperation = (sources: Array<Address>, target: Address, kind: TransferKind) => {
 	const operations = getOperations(sources, target, kind);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
-const buildOutlineNavigationIndex = ({
+const buildAppliedAddressSpace = ({
 	headInfo,
-	outlineMode,
+	pendingOperation,
 	absorptionTargetCommitIds,
 	foldedSegments,
 }: {
 	headInfo: RefInfo | undefined;
-	outlineMode: OutlineMode;
+	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
-}): NavigationIndex<Operand> => {
-	const allItems = (): Array<Operand> =>
+}): AddressSpace<Address> => {
+	const allItems = (): Array<Address> =>
 		headInfo?.stacks.toReversed().flatMap((stack) =>
-			stack.segments.flatMap((segment): Array<Operand> => {
-				// Matches what OutlineTree renders: a folded segment shows a stub
+			stack.segments.flatMap((segment): Array<Address> => {
+				// Matches what WorkspaceLists renders: a folded segment shows a stub
 				// in place of its commits, so they are not navigable.
 				const folded =
 					segment.refName !== null &&
 					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
 
 				return [
-					...(segment.refName ? [branchOperand({ branchRef: segment.refName.fullNameBytes })] : []),
+					...(segment.refName ? [branchAddress({ branchRef: segment.refName.fullNameBytes })] : []),
 					...(folded
 						? []
 						: segment.commits.map((commit) =>
-								commitOperand({ commitId: commit.id, changeId: commit.changeId }),
+								commitAddress({ commitId: commit.id, changeId: commit.changeId }),
 							)),
 				];
 			}),
 		) ?? [];
 
-	const filteredItems = Match.value(outlineMode).pipe(
+	/**
+	 * The action-compatibility filter: while a target-seeking operation collects
+	 * its second input, only its sources and the compatible targets stay
+	 * navigable — invalid destinations are unlisted, never validated.
+	 */
+	const compatibleItems = ({
+		sources,
+		isCompatibleTarget,
+	}: {
+		sources: Array<Address>;
+		isCompatibleTarget: (address: Address) => boolean;
+	}): Array<Address> =>
+		allItems().filter(
+			(address) =>
+				sources.some(
+					(source) => addressEquals(address, source) || addressContains(address, source),
+				) || isCompatibleTarget(address),
+		);
+
+	const filteredItems = Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () => allItems(),
-			Absorb: (activeMode) =>
-				allItems().filter(
-					(operand) =>
-						activeMode.sources.some(
-							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) ||
-						(operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId)),
-				),
-			Transfer: ({ value: activeMode }) =>
-				allItems().filter(
-					(operand) =>
-						activeMode.sources.some(
-							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) || hasAnyOperation(activeMode.sources, operand, getTransferKind(activeMode)),
-				),
-			InlineEdit: (x) => [x.operand],
+			None: () => allItems(),
+			Absorb: (operation) =>
+				compatibleItems({
+					sources: operation.sources,
+					isCompatibleTarget: (address) =>
+						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId),
+				}),
+			Transfer: ({ value: operation }) =>
+				compatibleItems({
+					sources: operation.sources,
+					isCompatibleTarget: (address) =>
+						hasAnyOperation(operation.sources, address, getTransferKind(operation)),
+				}),
+			InlineEdit: (x) => [x.address],
 		}),
 	);
 
-	const indexByKey = buildIndexByKey(filteredItems, operandIdentityKey);
+	const indexByKey = buildIndexByKey(filteredItems, addressIdentityKey);
 
 	return { items: filteredItems, indexByKey };
 };
@@ -359,7 +376,7 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
-const WorkspacePage: FC = () => {
+const PageBody: FC = () => {
 	useReconcileState();
 
 	const dispatch = useAppDispatch();
@@ -385,7 +402,7 @@ const WorkspacePage: FC = () => {
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
-		(itemId: string, firstHunk: HunkOperand | null) => {
+		(itemId: string, firstHunk: HunkAddress | null) => {
 			setCursor("diff", firstHunk);
 
 			if (renderAllFiles) {
@@ -405,15 +422,15 @@ const WorkspacePage: FC = () => {
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
+	const pendingOperation = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
 
 	useWorkspaceHotkeys(projectId);
 
-	const selectBranch = (branch: BranchOperand) => {
-		setCursor("stacks", branchOperand(branch));
-		focusScope("outline");
+	const selectBranch = (branch: BranchAddress) => {
+		setCursor("applied", branchAddress(branch));
+		focusScope("sidebar");
 	};
 
 	const setBranchPickerOpen = (open: boolean) => {
@@ -453,7 +470,7 @@ const WorkspacePage: FC = () => {
 	const toggleDetailsFullWindow = () => {
 		if (
 			!detailsFullWindow &&
-			getFocusedScope(document.activeElement) === ("outline" satisfies FocusScope)
+			getFocusedScope(document.activeElement) === ("sidebar" satisfies FocusScope)
 		)
 			requestAnimationFrame(() => focusScope("diff"));
 
@@ -462,11 +479,11 @@ const WorkspacePage: FC = () => {
 
 	useHotkeys([
 		{
-			hotkey: workspaceHotkeys.toggleOutline.hotkey,
+			hotkey: workspaceHotkeys.toggleSidebar.hotkey,
 			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleOutline.meta,
+				meta: workspaceHotkeys.toggleSidebar.meta,
 			},
 		},
 		{
@@ -483,7 +500,7 @@ const WorkspacePage: FC = () => {
 		},
 	]);
 
-	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+	const absorptionPlanTarget = Match.value(pendingOperation).pipe(
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
@@ -500,20 +517,20 @@ const WorkspacePage: FC = () => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const outlineNavigationIndex = buildOutlineNavigationIndex({
+	const appliedAddressSpace = buildAppliedAddressSpace({
 		headInfo,
-		outlineMode,
+		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
 	});
 
-	const outlineTab = usePage();
-	const branchesOutline = useBranchesOutline(projectId);
-	const upstreamOutline = useUpstreamOutline(projectId);
+	const page = usePage();
+	const branchesList = useBranchesList(projectId);
+	const upstreamList = useUpstreamList(projectId);
 
-	const outlineSelection = useResolvedCursor("stacks", outlineNavigationIndex);
-	const branchesSelection = useResolvedCursor("branches", branchesOutline.navigationIndex);
-	const upstreamSelection = useResolvedCursor("upstream", upstreamOutline.navigationIndex);
+	const appliedSelection = useSelection("applied", appliedAddressSpace);
+	const branchesSelection = useSelection("unapplied", branchesList.addressSpace);
+	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -531,7 +548,7 @@ const WorkspacePage: FC = () => {
 	});
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
-	const uncommittedFilesNavigationIndex = fileTreeNavigationIndex(uncommittedFileRows);
+	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
 	const uncommittedTreeChangeDiffs = useQueries({
 		queries:
 			worktreeChanges?.changes.map((change) =>
@@ -548,7 +565,7 @@ const WorkspacePage: FC = () => {
 		// A directory row stands for the first file below it, so activating a
 		// folder still gives the details pane somewhere to go.
 		const path = selectedFilePath(uncommittedFileRows, selection);
-		// Indexed against the worktree changes rather than the navigation index,
+		// Indexed against the worktree changes rather than the address space,
 		// which the file filter can narrow out from under them.
 		const index = worktreeChanges?.changes.findIndex((change) => change.path === path) ?? -1;
 		const change = index === -1 ? undefined : worktreeChanges?.changes[index];
@@ -566,31 +583,27 @@ const WorkspacePage: FC = () => {
 		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
 	};
 
-	const uncommittedFilesSelection = useResolvedCursor(
-		"uncommitted",
-		uncommittedFilesNavigationIndex,
-	);
+	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
-	const workspaceList = useWorkspaceList();
-	// The pane's content is one component per page, as the outline has one list
-	// per tab — the component tree, not a tag on the selection, carries where a
-	// selection came from. Only the workspace page has two lists, so only its arm
-	// asks which one drives. Memoised because `useDeferredValue` compares by
-	// identity, so a freshly built element every render would defer every render.
-	// Looked up outside the memo so the details only rebuild when the review
-	// itself changes, not on every outline rerun.
+	const activeList = useActiveList();
+	// The page picks only which list's cursor drives the pane; one Details
+	// component then dispatches on the selection itself. The uncommitted arm is
+	// the genuine fork — its cursor is a path, not an address. Memoised because
+	// `useDeferredValue` compares by identity, so a freshly built element every
+	// render would defer every render. Looked up outside the memo so the details
+	// only rebuild when the review itself changes, not on every list rerun.
 	const upstreamReview =
 		upstreamSelection?._tag === "Commit"
-			? upstreamCommitReview(upstreamOutline, upstreamSelection.commitId)
+			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
 			: null;
 	const details = useMemo(() => {
 		const viewProps = { onActiveFileSelection, viewerRef, didScrollToViaFileRef };
 
-		return Match.value(outlineTab).pipe(
+		return Match.value(page).pipe(
 			Match.when("workspace", () =>
-				Match.value(workspaceList).pipe(
-					Match.when("stacks", () => (
-						<WorkspaceDetails selection={outlineSelection} {...viewProps} />
+				Match.value(activeList).pipe(
+					Match.when("applied", () => (
+						<Details selection={appliedSelection} review={null} {...viewProps} />
 					)),
 					Match.when(
 						"uncommitted",
@@ -603,22 +616,22 @@ const WorkspacePage: FC = () => {
 				),
 			),
 			Match.when("upstream", () => (
-				<UpstreamDetails selection={upstreamSelection} review={upstreamReview} {...viewProps} />
+				<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
 			)),
 			Match.when("branches", () => (
-				<BranchesDetails selection={branchesSelection} {...viewProps} />
+				<Details selection={branchesSelection} review={null} {...viewProps} />
 			)),
 			Match.exhaustive,
 		);
 	}, [
 		branchesSelection,
 		onActiveFileSelection,
-		outlineSelection,
-		outlineTab,
+		appliedSelection,
+		page,
 		uncommittedFilesSelection,
 		upstreamReview,
 		upstreamSelection,
-		workspaceList,
+		activeList,
 	]);
 
 	const deferredDetails = useDeferredValue(details);
@@ -652,7 +665,7 @@ const WorkspacePage: FC = () => {
 	const layoutId = `project=${projectId}:workspace`;
 	const panelIds: Array<PanelId> = detailsFullWindow
 		? ["details-panel"]
-		: ["outline-panel", "details-panel"];
+		: ["sidebar-panel", "details-panel"];
 	const workspaceLayout = useDefaultLayout({
 		id: layoutId,
 		panelIds,
@@ -669,12 +682,12 @@ const WorkspacePage: FC = () => {
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 				data-selection-focus-styles={
-					!(outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer")
+					!(pendingOperation._tag === "Transfer" && pendingOperation.value._tag === "Pointer")
 				}
 			>
 				<Activity mode={detailsFullWindow ? "hidden" : "visible"}>
 					<Panel
-						id={"outline-panel" satisfies PanelId}
+						id={"sidebar-panel" satisfies PanelId}
 						className={styles.panel}
 						minSize={260}
 						defaultSize={420}
@@ -683,13 +696,13 @@ const WorkspacePage: FC = () => {
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
 						<ErrorBoundary>
-							<Outline
+							<Sidebar
 								projectId={projectId}
 								project={selectedProject}
-								branchesOutline={branchesOutline}
-								upstreamOutline={upstreamOutline}
-								navigationIndex={outlineNavigationIndex}
-								uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
+								branchesList={branchesList}
+								upstreamList={upstreamList}
+								addressSpace={appliedAddressSpace}
+								uncommittedAddressSpace={uncommittedAddressSpace}
 								absorptionTargetCommitIds={absorptionTargetCommitIds}
 								onActiveFileSelection={onActiveUncommittedFileSelection}
 							/>
@@ -710,7 +723,7 @@ const WorkspacePage: FC = () => {
 				</Panel>
 			</Group>
 
-			<OperationControls outlineNavigationIndex={outlineNavigationIndex} />
+			<OperationControls appliedAddressSpace={appliedAddressSpace} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
@@ -746,7 +759,7 @@ const WorkspacePage: FC = () => {
 	);
 };
 
-export const Route: FC = () => {
+export const Page: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -757,7 +770,7 @@ export const Route: FC = () => {
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
 				<ErrorBoundary onReset={reset}>
-					<WorkspacePage />
+					<PageBody />
 				</ErrorBoundary>
 			)}
 		</QueryErrorResetBoundary>

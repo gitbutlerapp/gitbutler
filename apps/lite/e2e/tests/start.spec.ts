@@ -13,8 +13,8 @@ test.describe("with a seeded project", () => {
 		await expect(appWindow).toHaveURL(/\/project\/[^/]+\/workspace$/);
 		await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toBeVisible();
 
-		const navigation = appWindow.getByRole("group", { name: "Navigation" });
-		await navigation.getByRole("button", { name: "Branches" }).click();
+		const pages = appWindow.getByRole("group", { name: "Pages" });
+		await pages.getByRole("button", { name: "Branches" }).click();
 		// The header, not the list: the seeded remote branches are filtered out by
 		// the default local-only filter, so the tree is empty and has no height.
 		await expect(appWindow.getByText("Recent branches")).toBeVisible();

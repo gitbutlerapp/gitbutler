@@ -2,7 +2,7 @@ import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import type { FileParent } from "#ui/operands.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -61,12 +61,12 @@ export const FileRow: FC<
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
+	const noOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const menuItems = useFileMenuItems({
 		projectId,
-		operand: { parent: fileParent, path: relativePath },
+		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
 		canUncommit,
@@ -94,7 +94,7 @@ export const FileRow: FC<
 						{...restProps}
 						isChecked={isChecked}
 						onShiftSelect={
-							isDefaultMode && canCheck
+							noOperationPending && canCheck
 								? () => checkFile({ path: relativePath, shiftKey: true })
 								: undefined
 						}
@@ -115,7 +115,7 @@ export const FileRow: FC<
 						disableHoverablePopup
 					>
 						<RowCheckbox
-							disabled={!isDefaultMode || !canCheck}
+							disabled={!noOperationPending || !canCheck}
 							aria-label={`Check file ${relativePath}`}
 							checked={isChecked}
 							className={treeStyles.leadingCheckbox}
@@ -163,7 +163,7 @@ export const FileRow: FC<
 					</RowLabel>
 				</RowLabelContainer>
 
-				{isDefaultMode && (
+				{noOperationPending && (
 					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
 						<Toolbar.Button
 							aria-label="File menu"
@@ -177,7 +177,7 @@ export const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
-				{isDefaultMode &&
+				{noOperationPending &&
 					item._tag === "Change" &&
 					fileParent._tag === "UncommittedChanges" &&
 					item.dependencyCommitIds.length > 0 && (

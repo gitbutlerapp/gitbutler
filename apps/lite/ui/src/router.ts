@@ -1,6 +1,6 @@
 import { createRouter } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import type { RouteTree } from "#ui/routeTree.ts";
+import type { RouteTree } from "#ui/routes.tsx";
 
 /* Every search param is a plain string (see cursor-url.ts), so the default
    JSON search serialization would only add quoting noise. Slashes and colons

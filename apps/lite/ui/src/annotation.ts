@@ -2,7 +2,7 @@ import type { PayloadFor } from "#electron/ipc.ts";
 import { commentsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import type { FileParent } from "#ui/operands.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import { Toast } from "@base-ui/react";
 import type { DiffComment, DiffSide } from "@gitbutler/but-sdk";
 import type { AnnotationSide } from "@pierre/diffs";

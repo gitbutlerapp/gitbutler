@@ -1,23 +1,23 @@
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { Match } from "effect";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 
-const hunkLabel = (operands: Array<Extract<Operand, { _tag: "Hunk" }>>) => {
-	const add = operands.reduce(
-		(sum, operand) =>
+const hunkLabel = (addresses: Array<Extract<Address, { _tag: "Hunk" }>>) => {
+	const add = addresses.reduce(
+		(sum, address) =>
 			sum +
-			operand.lineGroups.reduce(
+			address.lineGroups.reduce(
 				(groupSum, group) => groupSum + (group.side === "additions" ? group.lines : 0),
 				0,
 			),
 		0,
 	);
-	const del = operands.reduce(
-		(sum, operand) =>
+	const del = addresses.reduce(
+		(sum, address) =>
 			sum +
-			operand.lineGroups.reduce(
+			address.lineGroups.reduce(
 				(groupSum, group) => groupSum + (group.side === "deletions" ? group.lines : 0),
 				0,
 			),
@@ -37,14 +37,14 @@ const hunkLabel = (operands: Array<Extract<Operand, { _tag: "Hunk" }>>) => {
 	return words;
 };
 
-export const operandLabel = ({
-	operand,
+export const addressLabel = ({
+	address,
 	headInfoIndex,
 }: {
-	operand: Operand;
+	address: Address;
 	headInfoIndex: HeadInfoIndex;
 }) =>
-	Match.value(operand).pipe(
+	Match.value(address).pipe(
 		Match.tagsExhaustive({
 			Branch: ({ branchRef }) => {
 				const segment = headInfoIndex.branchContextByRefBytes(branchRef)?.segment;
@@ -58,20 +58,20 @@ export const operandLabel = ({
 					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);
 			},
-			Hunk: (operand) => hunkLabel([operand]),
+			Hunk: (address) => hunkLabel([address]),
 		}),
 	);
 
-export const operandsLabel = ({
-	operands,
+export const addressesLabel = ({
+	addresses,
 	headInfoIndex,
 }: {
-	operands: Array<Operand>;
+	addresses: Array<Address>;
 	headInfoIndex: HeadInfoIndex;
 }) => {
-	if (operands.length > 0 && operands.every((operand) => operand._tag === "Hunk"))
-		return hunkLabel(operands);
-	if (operands.length !== 1) return `${operands.length.toLocaleString()} items`;
+	if (addresses.length > 0 && addresses.every((address) => address._tag === "Hunk"))
+		return hunkLabel(addresses);
+	if (addresses.length !== 1) return `${addresses.length.toLocaleString()} items`;
 
-	return operandLabel({ operand: assert(operands[0]), headInfoIndex });
+	return addressLabel({ address: assert(addresses[0]), headInfoIndex });
 };

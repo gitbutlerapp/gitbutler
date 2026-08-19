@@ -24,7 +24,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitOperand, operandEquals, type FileParent } from "#ui/operands.ts";
+import { commitAddress, addressEquals, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
@@ -691,8 +691,8 @@ export const useCommitCreate = () => {
 
 				if (newCommitCtx) {
 					setCursor(
-						"stacks",
-						commitOperand({
+						"applied",
+						commitAddress({
 							commitId: response.newCommit,
 							changeId: newCommitCtx.commit.changeId,
 						}),
@@ -803,11 +803,11 @@ export const useDiscardFileChanges = ({
 		change: TreeChange;
 		extendToCheckedFiles: boolean;
 	}): Promise<void> => {
-		const sources = projectSlice.selectors.selectCheckedOperands(store.getState(), projectId);
+		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
 
 		const areAllFilesUnder = () =>
 			sources.every(
-				(operand) => operand._tag === "File" && operandEquals(operand.parent, fileParent),
+				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
 			);
 
 		if (!extendToCheckedFiles || sources.length === 0 || !areAllFilesUnder())
@@ -847,8 +847,8 @@ export const useCommitInsertBlank = () => {
 
 			if (newCommitCtx) {
 				setCursor(
-					"stacks",
-					commitOperand({
+					"applied",
+					commitAddress({
 						commitId: response.newCommit,
 						changeId: newCommitCtx.commit.changeId,
 					}),
@@ -884,7 +884,7 @@ export const useCommitReword = () => {
 /**
  * Resolve some of a conflicted commit's conflicts. Every apply rewrites the
  * commit, so the reply carries the replaced ids that `syncCoreCaches` feeds to
- * the store — selection and checked operands follow the new commit on their own,
+ * the store — selection and checked addresses follow the new commit on their own,
  * and the conflicts query re-reads under the new id.
  */
 export const useResolveCommitConflictHunks = () => {
@@ -1087,7 +1087,7 @@ export const useBranchRename = () => {
 				newBranch: response.newRef.displayName,
 			});
 
-			dispatch(projectSlice.actions.exitMode({ projectId: input.projectId }));
+			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
 		meta: { failureTitle: "Failed to rename branch" },
 	});

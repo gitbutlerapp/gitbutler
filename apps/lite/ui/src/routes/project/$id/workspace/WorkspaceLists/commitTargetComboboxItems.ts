@@ -1,21 +1,21 @@
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle } from "#ui/commit.ts";
-import { operandEquals, type Operand } from "#ui/operands.ts";
+import { addressEquals, type Address } from "#ui/addresses.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
 
 export const buildCommitTargetComboboxItems = ({
 	headInfo,
 	headInfoIndex,
-	outlineSelection,
+	appliedSelection,
 }: {
 	headInfo: RefInfo | undefined;
 	headInfoIndex: HeadInfoIndex | undefined;
-	outlineSelection: Operand | null;
+	appliedSelection: Address | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
-		outlineSelection?._tag === "Commit"
-			? headInfoIndex?.commitContextByCommitId(outlineSelection.commitId)?.commit
+		appliedSelection?._tag === "Commit"
+			? headInfoIndex?.commitContextByCommitId(appliedSelection.commitId)?.commit
 			: null;
 
 	return [
@@ -23,7 +23,7 @@ export const buildCommitTargetComboboxItems = ({
 			? ([
 					{
 						label: commitTitle(commitTarget.message) ?? "(no message)",
-						operand: { _tag: "Commit", commitId: commitTarget.id, changeId: commitTarget.changeId },
+						address: { _tag: "Commit", commitId: commitTarget.id, changeId: commitTarget.changeId },
 						relativeTo: { type: "commit", subject: commitTarget.id },
 					},
 				] satisfies Array<CommitTargetComboboxItem>)
@@ -38,7 +38,7 @@ export const buildCommitTargetComboboxItems = ({
 							return [
 								{
 									label: refName.displayName,
-									operand: { _tag: "Branch", branchRef: refName.fullNameBytes },
+									address: { _tag: "Branch", branchRef: refName.fullNameBytes },
 									relativeTo: {
 										type: "referenceBytes",
 										subject: refName.fullNameBytes,
@@ -53,9 +53,9 @@ export const buildCommitTargetComboboxItems = ({
 
 export const selectCommitTargetComboboxItem = ({
 	items,
-	outlineSelection,
+	appliedSelection,
 }: {
 	items: Array<CommitTargetComboboxItem>;
-	outlineSelection: Operand | null;
+	appliedSelection: Address | null;
 }): CommitTargetComboboxItem | null =>
-	(outlineSelection && items.find((item) => operandEquals(item.operand, outlineSelection))) ?? null;
+	(appliedSelection && items.find((item) => addressEquals(item.address, appliedSelection))) ?? null;

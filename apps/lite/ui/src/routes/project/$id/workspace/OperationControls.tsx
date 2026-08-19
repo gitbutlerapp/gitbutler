@@ -1,5 +1,5 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { cancelMode, useResolvedCursor, useWorkspaceList } from "#ui/use-cursor.ts";
+import { cancelPendingOperation, useSelection, useActiveList } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -8,7 +8,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
-import type { Operand } from "#ui/operands.ts";
+import type { Address } from "#ui/addresses.ts";
 import {
 	getOperations,
 	useExecuteOperation,
@@ -17,7 +17,7 @@ import {
 	type TransferKind,
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { operandLabel, operandsLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
+import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
@@ -27,12 +27,12 @@ import { Match } from "effect";
 import type { FC, ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import {
-	type AbsorbMode,
+	type PendingAbsorb,
 	getTransferTarget,
-	type KeyboardTransferMode,
-	keyboardTransferMode,
-} from "#ui/outline/mode.ts";
-import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+	type KeyboardTransfer,
+	keyboardTransfer,
+} from "#ui/operations/pending-operation.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -134,14 +134,14 @@ const Controls: FC<{
 	);
 };
 
-const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; projectId: string }> = ({
-	checkedOperandCount,
+const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; projectId: string }> = ({
+	checkedAddressCount,
 	projectId,
 }) => {
 	const dispatch = useAppDispatch();
 
 	const checkedType = useAppSelector((state): string | null => {
-		switch (projectSlice.selectors.selectCheckedOperandsContext(state, projectId)) {
+		switch (projectSlice.selectors.selectCheckedAddressesContext(state, projectId)) {
 			case "Commit":
 				return "commit";
 			case "File":
@@ -155,15 +155,15 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 	if (checkedType === null) return;
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.clearCheckedOperands({ projectId }));
+		dispatch(projectSlice.actions.clearCheckedAddresses({ projectId }));
 	};
 
 	return (
 		<Container>
 			<ControlsRow>
 				<Label>
-					{new Intl.NumberFormat().format(checkedOperandCount)} {checkedType}
-					{new Intl.PluralRules().select(checkedOperandCount) !== "one" && "s"} selected
+					{new Intl.NumberFormat().format(checkedAddressCount)} {checkedType}
+					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
 				</Label>
 				<Controls onCancel={cancel} />
 			</ControlsRow>
@@ -174,25 +174,25 @@ const CheckedOperandOperationControls: FC<{ checkedOperandCount: number; project
 const AbsorbOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
-	mode: AbsorbMode;
-}> = ({ headInfoIndex, projectId, mode }) => {
+	pending: PendingAbsorb;
+}> = ({ headInfoIndex, projectId, pending }) => {
 	const dispatch = useAppDispatch();
 	const {
 		data: absorptionPlan,
 		isError: isAbsorptionPlanError,
 		isPending: isAbsorptionPlanPending,
-	} = useQuery(absorptionPlanQueryOptions({ projectId, target: mode.sourceTarget }));
+	} = useQuery(absorptionPlanQueryOptions({ projectId, target: pending.sourceTarget }));
 	const canAbsorb = !isAbsorptionPlanPending && !!absorptionPlan && absorptionPlan.length > 0;
 	const { mutate: absorb } = useAbsorb({ projectId });
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 
 		absorb(absorptionPlan);
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelPendingOperation();
 	};
 
 	return (
@@ -204,7 +204,7 @@ const AbsorbOperationControls: FC<{
 					<Label>Failed to load absorb plan</Label>
 				) : (
 					<Label>
-						Absorb {operandsLabel({ headInfoIndex, operands: mode.sources })} into{" "}
+						Absorb {addressesLabel({ headInfoIndex, addresses: pending.sources })} into{" "}
 						{absorptionPlan.length} commits
 					</Label>
 				)}
@@ -372,25 +372,25 @@ const TransferKindToggleGroup: FC<{
 const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
-	mode: KeyboardTransferMode;
-	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
-	const workspaceList = useWorkspaceList();
-	const selection = useResolvedCursor("stacks", outlineNavigationIndex);
+	transfer: KeyboardTransfer;
+	appliedAddressSpace: AddressSpace<Address>;
+}> = ({ headInfoIndex, projectId, transfer, appliedAddressSpace }) => {
+	const activeList = useActiveList();
+	const selection = useSelection("applied", appliedAddressSpace);
 
 	const dispatch = useAppDispatch();
 	const { mutate: executeOperation } = useExecuteOperation();
 
-	const target = getTransferTarget(keyboardTransferMode(mode), selection, workspaceList);
+	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
 	if (!target) return null;
 
-	const operations = getOperations(mode.sources, target, mode.kind);
-	const operation = operations[mode.placement];
+	const operations = getOperations(transfer.sources, target, transfer.kind);
+	const operation = operations[transfer.placement];
 	const canCopy =
-		mode.sources.length > 0 && mode.sources.every((source) => source._tag === "Commit");
+		transfer.sources.length > 0 && transfer.sources.every((source) => source._tag === "Commit");
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
 
 		if (!operation) return;
 
@@ -398,22 +398,22 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelPendingOperation();
 	};
 
 	return (
 		<Container>
-			<TransferKindToggleGroup canCopy={canCopy} kind={mode.kind} projectId={projectId} />
+			<TransferKindToggleGroup canCopy={canCopy} kind={transfer.kind} projectId={projectId} />
 			<TransferTypeToggleGroup
 				projectId={projectId}
 				operations={operations}
-				placement={mode.placement}
+				placement={transfer.placement}
 			/>
 			<Separator />
 			<ControlsRow>
 				<Label>
-					<div>Source: {operandsLabel({ headInfoIndex, operands: mode.sources })}</div>
-					<div>Target: {operandLabel({ headInfoIndex, operand: target })}</div>
+					<div>Source: {addressesLabel({ headInfoIndex, addresses: transfer.sources })}</div>
+					<div>Target: {addressLabel({ headInfoIndex, address: target })}</div>
 				</Label>
 				<Controls
 					onCancel={cancel}
@@ -432,48 +432,48 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = ({
-	outlineNavigationIndex,
+export const OperationControls: FC<{ appliedAddressSpace: AddressSpace<Address> }> = ({
+	appliedAddressSpace,
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
+	const pendingOperation = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const checkedOperandCount = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedOperandCount(state, projectId),
+	const checkedAddressCount = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
 
-	return Match.value(outlineMode).pipe(
+	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
-			Default: () =>
-				checkedOperandCount > 0 && (
-					<CheckedOperandOperationControls
-						checkedOperandCount={checkedOperandCount}
+			None: () =>
+				checkedAddressCount > 0 && (
+					<CheckedAddressOperationControls
+						checkedAddressCount={checkedAddressCount}
 						projectId={projectId}
 					/>
 				),
-			Absorb: (mode) =>
+			Absorb: (pending) =>
 				headInfoIndex && (
 					<AbsorbOperationControls
 						headInfoIndex={headInfoIndex}
 						projectId={projectId}
-						mode={mode}
+						pending={pending}
 					/>
 				),
-			Transfer: ({ value: mode }) =>
-				Match.value(mode).pipe(
+			Transfer: ({ value: transfer }) =>
+				Match.value(transfer).pipe(
 					Match.tags({
-						Keyboard: (mode) =>
+						Keyboard: (transfer) =>
 							headInfoIndex && (
 								<TransferKeyboardOperationControls
 									headInfoIndex={headInfoIndex}
 									projectId={projectId}
-									mode={mode}
-									outlineNavigationIndex={outlineNavigationIndex}
+									transfer={transfer}
+									appliedAddressSpace={appliedAddressSpace}
 								/>
 							),
 					}),

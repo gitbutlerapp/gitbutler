@@ -1,13 +1,13 @@
 import type { CodeViewOptions } from "@pierre/diffs";
 import { createElement, type ReactElement, useLayoutEffect, useRef } from "react";
 import {
-	hunkOperand,
-	hunkOperandContainsLine,
-	operandIdentityKey,
-	type HunkOperand,
-	type Operand,
-} from "#ui/operands.ts";
-import { getOperationSources } from "#ui/outline/mode.ts";
+	hunkAddress,
+	hunkAddressContainsLine,
+	addressIdentityKey,
+	type HunkAddress,
+	type Address,
+} from "#ui/addresses.ts";
+import { getOperationSources } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
 import {
@@ -106,7 +106,7 @@ type InternalGutterStore<T> = GutterStore & {
 	cleanUp: () => void;
 };
 
-type GetHunkOperand = (target: DiffLineTarget) => HunkOperand | null;
+type GetHunkAddress = (target: DiffLineTarget) => HunkAddress | null;
 
 const removeGutterControls = (host: HTMLElement): void => {
 	for (const control of host.shadowRoot?.querySelectorAll(
@@ -122,8 +122,8 @@ const clearOperationSources = (host: HTMLElement): void => {
 		line.removeAttribute(OPERATION_SOURCE_ATTRIBUTE);
 };
 
-const isOperationSourceLine = (sources: Array<Operand> | null, line: HunkOperand): boolean =>
-	sources?.some((source) => source._tag === "Hunk" && hunkOperandContainsLine(source, line)) ??
+const isOperationSourceLine = (sources: Array<Address> | null, line: HunkAddress): boolean =>
+	sources?.some((source) => source._tag === "Hunk" && hunkAddressContainsLine(source, line)) ??
 	false;
 
 const keepDragHandlePointerDownOutOfLineSelection = (event: PointerEvent): void => {
@@ -134,9 +134,9 @@ const keepDragHandlePointerDownOutOfLineSelection = (event: PointerEvent): void 
 
 const createGutterStore = <T>(
 	getOnPostRender: () => OnPostRender<T>,
-	getLineOperand: () => GetHunkOperand,
-	getParentOperand: () => GetHunkOperand,
-	getOperationSourceOperands: () => Array<Operand> | null,
+	getLineAddress: () => GetHunkAddress,
+	getParentAddress: () => GetHunkAddress,
+	getOperationSourceAddresses: () => Array<Address> | null,
 ): InternalGutterStore<T> => {
 	const listeners = new Set<() => void>();
 	const targets = new Map<HTMLElement, GutterTarget>();
@@ -265,7 +265,7 @@ const createGutterStore = <T>(
 		const groupsByKey = new Map<string, GutterCheckboxGroup>();
 		const controlsByGroup = new Map<string, Array<HTMLElement>>();
 		const usedControls = new Set<HTMLElement>();
-		const operationSources = getOperationSourceOperands();
+		const operationSources = getOperationSourceAddresses();
 		itemIdsByHost.set(host, itemId);
 		ensureHoverListeners(host, shadowRoot);
 
@@ -273,12 +273,12 @@ const createGutterStore = <T>(
 			const target = diffLineTargetFromElement({ element: cell, itemId });
 			if (target?.lineType !== "change") continue;
 
-			const lineOperand = getLineOperand()(target);
-			const parentOperand = getParentOperand()(target);
-			if (!lineOperand || !parentOperand) continue;
+			const lineAddress = getLineAddress()(target);
+			const parentAddress = getParentAddress()(target);
+			if (!lineAddress || !parentAddress) continue;
 
-			const checkedLineOperand = hunkOperand(lineOperand);
-			const checkedParentOperand = hunkOperand(parentOperand);
+			const checkedLineAddress = hunkAddress(lineAddress);
+			const checkedParentAddress = hunkAddress(parentAddress);
 			const lineIndex = cell.getAttribute("data-line-index");
 			const lineType = cell.getAttribute("data-line-type");
 			const codeLine =
@@ -289,20 +289,20 @@ const createGutterStore = <T>(
 					: null;
 			codeLine?.toggleAttribute(
 				OPERATION_SOURCE_ATTRIBUTE,
-				isOperationSourceLine(operationSources, checkedLineOperand),
+				isOperationSourceLine(operationSources, checkedLineAddress),
 			);
-			const groupKey = operandIdentityKey(checkedParentOperand);
+			const groupKey = addressIdentityKey(checkedParentAddress);
 			const lineSlotName = `gitbutler-diff-gutter-line-${key}-${index}`;
 			const group = groupsByKey.get(groupKey);
 			if (group) {
-				group.lines.push({ operand: checkedLineOperand, slotName: lineSlotName });
+				group.lines.push({ address: checkedLineAddress, slotName: lineSlotName });
 			} else {
 				const parentSlotName = `gitbutler-diff-gutter-hunk-${key}-${index}`;
 				groupsByKey.set(groupKey, {
 					key: groupKey,
-					parentOperand: checkedParentOperand,
+					parentAddress: checkedParentAddress,
 					parentSlotName,
-					lines: [{ operand: checkedLineOperand, slotName: lineSlotName }],
+					lines: [{ address: checkedLineAddress, slotName: lineSlotName }],
 				});
 
 				let parentSlot = cell.querySelector<HTMLSlotElement>(
@@ -379,7 +379,7 @@ const createGutterStore = <T>(
 						return (
 							nextLine !== undefined &&
 							line.slotName === nextLine.slotName &&
-							operandIdentityKey(line.operand) === operandIdentityKey(nextLine.operand)
+							addressIdentityKey(line.address) === addressIdentityKey(nextLine.address)
 						);
 					})
 				);
@@ -426,13 +426,13 @@ const createGutterStore = <T>(
 
 export const useDiffGutterCheckboxes = <T>(
 	onPostRender: OnPostRender<T>,
-	getLineOperand: GetHunkOperand,
-	getParentOperand: GetHunkOperand,
+	getLineAddress: GetHunkAddress,
+	getParentAddress: GetHunkAddress,
 	projectId: string,
-	onCheckLine: (operand: HunkOperand, shiftKey: boolean) => void,
+	onCheckLine: (address: HunkAddress, shiftKey: boolean) => void,
 	onCheckHunk: (
-		operand: HunkOperand,
-		lineOperands: Array<Extract<Operand, { _tag: "Hunk" }>>,
+		address: HunkAddress,
+		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void,
 	onComment?: (target: DiffLineTarget) => void,
@@ -442,10 +442,10 @@ export const useDiffGutterCheckboxes = <T>(
 } => {
 	const onPostRenderRef = useRef(onPostRender);
 	onPostRenderRef.current = onPostRender;
-	const getLineOperandRef = useRef(getLineOperand);
-	getLineOperandRef.current = getLineOperand;
-	const getParentOperandRef = useRef(getParentOperand);
-	getParentOperandRef.current = getParentOperand;
+	const getLineAddressRef = useRef(getLineAddress);
+	getLineAddressRef.current = getLineAddress;
+	const getParentAddressRef = useRef(getParentAddress);
+	getParentAddressRef.current = getParentAddress;
 	const appStore = useAppStore();
 	const projectIdRef = useRef(projectId);
 	projectIdRef.current = projectId;
@@ -453,23 +453,23 @@ export const useDiffGutterCheckboxes = <T>(
 	const storeRef = useRef<InternalGutterStore<T>>(null);
 	storeRef.current ??= createGutterStore(
 		() => onPostRenderRef.current,
-		() => getLineOperandRef.current,
-		() => getParentOperandRef.current,
+		() => getLineAddressRef.current,
+		() => getParentAddressRef.current,
 		() =>
 			getOperationSources(
-				projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectIdRef.current),
+				projectSlice.selectors.selectPendingOperation(appStore.getState(), projectIdRef.current),
 			),
 	);
 	const store = storeRef.current;
 
 	useLayoutEffect(() => {
-		let previousMode = projectSlice.selectors.selectOutlineModeState(
+		let previousMode = projectSlice.selectors.selectPendingOperation(
 			appStore.getState(),
 			projectId,
 		);
 		let previousSources = getOperationSources(previousMode);
 		return appStore.subscribe(() => {
-			const mode = projectSlice.selectors.selectOutlineModeState(appStore.getState(), projectId);
+			const mode = projectSlice.selectors.selectPendingOperation(appStore.getState(), projectId);
 			if (mode === previousMode) return;
 
 			previousMode = mode;

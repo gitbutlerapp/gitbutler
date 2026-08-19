@@ -1,10 +1,10 @@
 import { useApply } from "#ui/api/mutations.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
-import { branchOperand } from "#ui/operands.ts";
+import { branchAddress } from "#ui/addresses.ts";
 
 /**
- * Apply a branch and follow it into the workspace: on success the outline
+ * Apply a branch and follow it into the workspace: on success the sidebar
  * switches to the workspace tab with the applied branch selected, so the
  * details pane stays on the branch the user was looking at.
  */
@@ -22,7 +22,7 @@ export const useApplyToWorkspace = (projectId: string) => {
 					if (!appliedRef) return;
 
 					setPage("workspace");
-					setCursor("stacks", branchOperand({ branchRef: encodeBytes(appliedRef.full) }));
+					setCursor("applied", branchAddress({ branchRef: encodeBytes(appliedRef.full) }));
 				},
 			},
 		);

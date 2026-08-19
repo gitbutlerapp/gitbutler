@@ -1,14 +1,14 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { cancelMode } from "#ui/use-cursor.ts";
+import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
-	hunkOperand,
-	hunkOperandContainsLine,
+	hunkAddress,
+	hunkAddressContainsLine,
 	type FileParent,
-	type HunkOperand,
-	type Operand,
-} from "#ui/operands.ts";
-import { pointerTransferMode } from "#ui/outline/mode.ts";
+	type HunkAddress,
+	type Address,
+} from "#ui/addresses.ts";
+import { pointerTransfer } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
 import {
@@ -24,7 +24,7 @@ import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
 import { parseDragData } from "./DragData.ts";
 import { DragPreview } from "./OperationSourceC.tsx";
-import { operandsLabel } from "./operandLabel.ts";
+import { addressesLabel } from "./addressLabel.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
 const HUNK_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
@@ -68,15 +68,15 @@ const cleanHunkDragHandles = (host: HTMLElement): void => {
 export const useDiffHunkDrag = <T>({
 	projectId,
 	fileParent,
-	getHunkOperand,
-	getLineOperand,
-	getSelectedOperands,
+	getHunkAddress,
+	getLineAddress,
+	getSelectedAddresses,
 }: {
 	projectId: string;
 	fileParent: FileParent;
-	getHunkOperand: (target: DiffLineTarget) => HunkOperand | null;
-	getLineOperand: (target: DiffLineTarget) => HunkOperand | null;
-	getSelectedOperands: () => Array<Extract<Operand, { _tag: "Hunk" }>>;
+	getHunkAddress: (target: DiffLineTarget) => HunkAddress | null;
+	getLineAddress: (target: DiffLineTarget) => HunkAddress | null;
+	getSelectedAddresses: () => Array<Extract<Address, { _tag: "Hunk" }>>;
 }): OnPostRender<T> => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
@@ -87,16 +87,16 @@ export const useDiffHunkDrag = <T>({
 		canDrag: () => {
 			if (fileParent._tag === "Branch") return false;
 
-			const mode = projectSlice.selectors.selectOutlineModeState(store.getState(), projectId);
-			return mode._tag !== "InlineEdit";
+			const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectId);
+			return pending._tag !== "InlineEdit";
 		},
 		getHeadInfoIndex: () => {
 			const headInfo = queryClient.getQueryData(headInfoQueryOptions(projectId).queryKey);
 			return headInfo ? getHeadInfoIndex(headInfo) : null;
 		},
-		getHunkOperand,
-		getLineOperand,
-		getSelectedOperands,
+		getHunkAddress,
+		getLineAddress,
+		getSelectedAddresses,
 	};
 	const configRef = useRef(config);
 	configRef.current = config;
@@ -128,19 +128,19 @@ export const useDiffHunkDrag = <T>({
 			const target = hunkLineAtPoint(host, registration.itemId, input);
 			if (!target) return null;
 
-			const lineOperand = configRef.current.getLineOperand(target);
-			const hunk = configRef.current.getHunkOperand(target);
-			if (!lineOperand || !hunk) return null;
+			const lineAddress = configRef.current.getLineAddress(target);
+			const hunk = configRef.current.getHunkAddress(target);
+			if (!lineAddress || !hunk) return null;
 
-			const line = hunkOperand(lineOperand);
-			const selected = configRef.current.getSelectedOperands();
+			const line = hunkAddress(lineAddress);
+			const selected = configRef.current.getSelectedAddresses();
 			const state = store.getState();
-			if (projectSlice.selectors.selectOperandChecked(state, projectId, line))
-				return projectSlice.selectors.selectCheckedOperands(state, projectId);
+			if (projectSlice.selectors.selectAddressChecked(state, projectId, line))
+				return projectSlice.selectors.selectCheckedAddresses(state, projectId);
 
-			return selected.some((source) => hunkOperandContainsLine(source, line))
+			return selected.some((source) => hunkAddressContainsLine(source, line))
 				? selected
-				: [hunkOperand(hunk)];
+				: [hunkAddress(hunk)];
 		};
 
 		registration.cleanup = draggable({
@@ -162,7 +162,11 @@ export const useDiffHunkDrag = <T>({
 
 						const root = createRoot(container);
 						root.render(
-							createElement(DragPreview, null, operandsLabel({ operands: sources, headInfoIndex })),
+							createElement(
+								DragPreview,
+								null,
+								addressesLabel({ addresses: sources, headInfoIndex }),
+							),
 						);
 						return () => root.unmount();
 					},
@@ -174,9 +178,9 @@ export const useDiffHunkDrag = <T>({
 				if (!sources) return;
 
 				config.dispatch(
-					projectSlice.actions.enterTransferMode({
+					projectSlice.actions.startTransfer({
 						projectId: config.projectId,
-						mode: pointerTransferMode({
+						transfer: pointerTransfer({
 							sources,
 							target: null,
 							placement: null,
@@ -187,7 +191,7 @@ export const useDiffHunkDrag = <T>({
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				cancelMode();
+				cancelPendingOperation();
 			},
 		});
 

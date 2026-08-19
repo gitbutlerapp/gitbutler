@@ -1,5 +1,5 @@
 import { nativeMenuItem } from "#ui/native-menu.ts";
-import { outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 
 export const insertBlankCommitMenuItem = (
 	insertBlankCommit: (side: "above" | "below") => void,
@@ -12,7 +12,7 @@ export const insertBlankCommitMenuItem = (
 				label: "Above",
 				accelerator:
 					acceleratorSide === "above"
-						? toElectronAccelerator(outlineHotkeys.insertEmptyCommitAbove.hotkey)
+						? toElectronAccelerator(sidebarHotkeys.insertEmptyCommitAbove.hotkey)
 						: undefined,
 				onSelect: () => insertBlankCommit("above"),
 			}),
@@ -20,8 +20,8 @@ export const insertBlankCommitMenuItem = (
 				label: "Below",
 				accelerator: toElectronAccelerator(
 					acceleratorSide === "below"
-						? outlineHotkeys.insertEmptyCommitAbove.hotkey
-						: outlineHotkeys.insertEmptyCommitBelow.hotkey,
+						? sidebarHotkeys.insertEmptyCommitAbove.hotkey
+						: sidebarHotkeys.insertEmptyCommitBelow.hotkey,
 				),
 				onSelect: () => insertBlankCommit("below"),
 			}),

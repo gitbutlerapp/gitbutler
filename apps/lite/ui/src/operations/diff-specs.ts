@@ -2,7 +2,7 @@ import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 } from "#ui/api/queries.ts";
-import { operandEquals, type FileParent, type Operand, operandFileParent } from "#ui/operands.ts";
+import { addressEquals, type FileParent, type Address, addressFileParent } from "#ui/addresses.ts";
 import { type QueryClient, useQueries, useQuery } from "@tanstack/react-query";
 import type {
 	CommitDetails,
@@ -22,16 +22,16 @@ export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader
 		change.status.type === "Addition" || change.status.type === "Deletion" ? [] : hunkHeaders,
 });
 
-const resolvedDiffSpecsFromOperand = ({
-	operand,
+const resolvedDiffSpecsFromAddress = ({
+	address,
 	worktreeChanges,
 	commitDetails,
 }: {
-	operand: Operand;
+	address: Address;
 	worktreeChanges: WorktreeChanges | undefined;
 	commitDetails: CommitDetails | undefined;
 }) =>
-	Match.value(operand).pipe(
+	Match.value(address).pipe(
 		Match.withReturnType<Array<DiffSpec> | null>(),
 		Match.tags({
 			File: ({ parent, path }) =>
@@ -98,17 +98,17 @@ const commitIdFromParent = (parent: FileParent) =>
  * Gets the file parent from an array of sibling sources, if any. Disparate file parents are not
  * currently supported.
  */
-const fileParentFromSources = (sources: Array<Operand>): FileParent | null => {
+const fileParentFromSources = (sources: Array<Address>): FileParent | null => {
 	const [source, ...rest] = sources;
 	if (!source) return null;
 
-	const fileParent = operandFileParent(source);
+	const fileParent = addressFileParent(source);
 	if (!fileParent) return null;
 
 	if (
 		rest.some((source) => {
-			const otherFileParent = operandFileParent(source);
-			return otherFileParent === null || !operandEquals(fileParent, otherFileParent);
+			const otherFileParent = addressFileParent(source);
+			return otherFileParent === null || !addressEquals(fileParent, otherFileParent);
 		})
 	)
 		return null;
@@ -121,15 +121,15 @@ const resolvedDiffSpecsFromSources = ({
 	worktreeChanges,
 	commitDetails,
 }: {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	worktreeChanges: WorktreeChanges | undefined;
 	commitDetails: CommitDetails | undefined;
 }): Array<DiffSpec> | null => {
 	const diffSpecsByPath = new Map<string, DiffSpec>();
 
-	for (const operand of sources) {
-		const resolvedDiffSpecs = resolvedDiffSpecsFromOperand({
-			operand,
+	for (const address of sources) {
+		const resolvedDiffSpecs = resolvedDiffSpecsFromAddress({
+			address,
 			worktreeChanges,
 			commitDetails,
 		});
@@ -159,7 +159,7 @@ export const resolveDiffSpecs = async ({
 	projectId,
 	queryClient,
 }: {
-	sources: Array<Operand>;
+	sources: Array<Address>;
 	projectId: string;
 	queryClient: QueryClient;
 }) => {
@@ -185,7 +185,7 @@ export const useResolveDiffSpecs = ({
 	sources,
 	projectId,
 }: {
-	sources?: Array<Operand>;
+	sources?: Array<Address>;
 	projectId: string;
 }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
