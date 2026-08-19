@@ -72,6 +72,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
+	type CodeViewItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	type CodeViewOptions,
@@ -186,6 +187,7 @@ import {
 	withoutFoldedHunks,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
+import { ImageDiff } from "./ImageDiff.tsx";
 import {
 	getMinimapFiles,
 	measureWrapColumns,
@@ -267,6 +269,8 @@ const withAnnotations = (
 ): DiffView => ({
 	...diffView,
 	items: diffView.items.map((item) => {
+		if (item.type === "file") return item;
+
 		const file = diffView.fileByItemId.get(item.id);
 		if (!file) throw new Error("Diff view file not found by ID");
 
@@ -293,7 +297,7 @@ const withAnnotations = (
 		return {
 			...item,
 			version: combineHashes(version, annoHash),
-			annotations,
+			annotations: [...(item.annotations ?? []), ...annotations],
 		};
 	}),
 });
@@ -1303,10 +1307,7 @@ const DiffContents: FC<{
 	// We must change the version for updates to the collapsed property to be respected. The versions
 	// should be as stable as possible, collapsed or not, for performance. The selected flag is
 	// hashed in so the header re-renders when the selection enters or leaves a folded file.
-	const enhanceCollapsed = <T,>(
-		item: CodeViewDiffItem<T>,
-		selected: boolean,
-	): CodeViewDiffItem<T> => ({
+	const enhanceCollapsed = <T,>(item: CodeViewItem<T>, selected: boolean): CodeViewItem<T> => ({
 		...item,
 		collapsed: true,
 		// We always use versions.
@@ -1332,8 +1333,6 @@ const DiffContents: FC<{
 				ref={viewerRef}
 				renderCodeViewFooter={() => <DadJokeFooter />}
 				renderCustomHeader={(item) => {
-					if (item.type === "file") throw new Error("Only diff items may be rendered");
-
 					const file = fileByItemId.get(item.id);
 					// CodeView may briefly hold onto stale snapshots of our data.
 					if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
@@ -1353,10 +1352,10 @@ const DiffContents: FC<{
 					return (
 						<DiffFileHeader
 							projectId={projectId}
-							item={item}
+							item={file.item}
 							address={file.address}
 							change={file.change}
-							hasDiff={item.fileDiff.hunks.length !== 0}
+							hasDiff={item.type === "file" || file.item.fileDiff.hunks.length !== 0}
 							collapsed={item.collapsed ?? false}
 							reviewState={reviewState}
 							lineStats={patchLineStats(file.patch)}
@@ -1369,8 +1368,21 @@ const DiffContents: FC<{
 					);
 				}}
 				renderAnnotation={(anno, item) => {
-					if (!isDiffAnnotation<Annotation>(anno))
-						throw new Error("Only diff items may be rendered");
+					if (anno.metadata._tag === "image") {
+						const file = fileByItemId.get(item.id);
+						if (!file) return null;
+
+						return (
+							<ImageDiff
+								projectId={projectId}
+								change={file.change}
+								fileParent={fileParent}
+								version={file.item.version ?? 0}
+							/>
+						);
+					}
+
+					if (!isDiffAnnotation<Annotation>(anno)) return null;
 
 					const file = fileByItemId.get(item.id);
 					if (!file) return null;
@@ -1433,6 +1445,20 @@ const DiffContents: FC<{
             border-style: solid;
             border: none;
           }
+
+    		  /* Pierre doesn't support image diffs yet:
+               https://github.com/pierrecomputer/pierre/issues/258
+
+             We leverage annotations on synthetic empty diffs as a workaround. Here we hide the
+   		       empty diff that causes to render. */
+    		  pre[data-file] {
+    		    user-select: none;
+    		  }
+
+    		  pre[data-file] :is([data-column-number], [data-line]) {
+    		    visibility: hidden;
+    		    pointer-events: none;
+    		  }
 
           [data-column-number] {
             --mix-selection-light: 0%;

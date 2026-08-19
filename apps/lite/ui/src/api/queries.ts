@@ -100,6 +100,22 @@ export const commentsQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.commentsList(projectId),
 	});
 
+export const workspaceFileQueryOptions = ({
+	projectId,
+	version,
+	...params
+}: PayloadFor<"getWorkspaceFile"> & { version: number }) =>
+	queryOptions({
+		queryKey: ["getWorkspaceFile", projectId, params, version],
+		queryFn: () => window.lite.getWorkspaceFile({ projectId, ...params }),
+	});
+
+export const blobFileQueryOptions = ({ projectId, ...params }: PayloadFor<"getBlobFile">) =>
+	queryOptions({
+		queryKey: ["getBlobFile", projectId, params],
+		queryFn: () => window.lite.getBlobFile({ projectId, ...params }),
+	});
+
 export const commitDetailsWithLineStatsQueryOptions = ({
 	projectId,
 	...params
