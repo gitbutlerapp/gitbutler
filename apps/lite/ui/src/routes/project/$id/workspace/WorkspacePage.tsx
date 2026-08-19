@@ -100,7 +100,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
-	const sidebarVisible = !detailsFullWindow;
 	const sidebarFocusScope = useSidebarFocusScope();
 	const filesVisible = canShowFiles && filesVisibleState;
 	const page = usePage();
@@ -115,7 +114,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			filesVisible,
 			offset,
 			sidebarFocusScope,
-			sidebarVisible,
+			detailsFullWindow,
 		});
 	};
 	const focusPaneLeft = () => {
@@ -158,7 +157,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
 				if (focusedFocusScope === "files" && filesVisible)
-					focusScope(sidebarVisible ? "sidebar" : "diff");
+					focusScope(detailsFullWindow ? "diff" : "sidebar");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
 			},
@@ -179,14 +178,14 @@ const useWorkspaceHotkeys = (projectId: string) => {
 					hotkey: "1",
 					callback: () => focusScope("uncommitted-files"),
 					options: {
-						enabled: sidebarVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 				{
 					hotkey: "2",
 					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: sidebarVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),
@@ -195,7 +194,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 					hotkey: "1",
 					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: sidebarVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),
@@ -204,7 +203,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 					hotkey: "1",
 					callback: () => focusScope("sidebar"),
 					options: {
-						enabled: sidebarVisible,
+						enabled: !detailsFullWindow,
 					},
 				},
 			]),

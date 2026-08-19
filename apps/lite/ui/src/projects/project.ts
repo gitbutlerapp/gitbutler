@@ -50,7 +50,7 @@ import {
 	type UpstreamState,
 } from "./upstream.ts";
 
-/** The workspace page's two lists; the one named here drives the details pane. */
+/** The workspace page's two lists; the one named here is active and drives the details pane. */
 export type ActiveList = "applied" | "uncommitted";
 
 type CheckableOperand = Extract<Operand, { _tag: "Commit" | "File" | "Hunk" }>;

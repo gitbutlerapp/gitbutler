@@ -31,7 +31,7 @@ import { useEffect } from "react";
 
 /**
  * The one way in and out of navigation state. The URL holds the page, the
- * driving list and every addressable cursor; the store holds only the diff
+ * active list and every addressable cursor; the store holds only the diff
  * cursor (see cursor-url.ts for why). Callers never see the split: reads are
  * hooks here, writes are plain calls — the router and the store are both
  * module-level, so moving a cursor needs no dispatch and no hook.
@@ -145,7 +145,7 @@ export const useCursorMatches = <L extends UrlCursorName>(list: L, item: CursorI
 		select: (params: UrlQueryParams) => params[list] === encodeCursorParam(list, item),
 	});
 
-/** The sidebar page shown, `workspace` unless the URL says otherwise. */
+/** The page shown, `workspace` unless the URL says otherwise. */
 export const usePage = (): PageId =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
@@ -154,7 +154,7 @@ export const usePage = (): PageId =>
 
 const pageOf = (): PageId => currentParams().page ?? "workspace";
 
-/** The workspace page's driving list, `stacks` unless the URL says otherwise. */
+/** The workspace page's active list, `applied` unless the URL says otherwise. */
 export const useActiveList = (): ActiveList =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
@@ -179,7 +179,7 @@ export const useCanShowFiles = (): boolean =>
 export const sidebarFocusScopeOf = (): "sidebar" | "uncommitted-files" =>
 	drivenByUncommitted(currentParams()) ? "uncommitted-files" : "sidebar";
 
-/** The focus scope of the sidebar's driving list. */
+/** The focus scope of the sidebar's active list. */
 export const useSidebarFocusScope = (): "sidebar" | "uncommitted-files" =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
@@ -204,7 +204,7 @@ const setDiffCursor = (selection: CursorItem["diff"] | null): void => {
 	store.dispatch(projectSlice.actions.selectDiffCursor({ projectId: projectIdOf(), selection }));
 };
 
-/** A stacks selection dissolves a pending operation it invalidates, as before. */
+/** An applied selection dissolves a pending operation it invalidates, as before. */
 const dissolveInvalidOperation = (selection: Operand | null): void => {
 	const pendingOperation = projectSlice.selectors.selectPendingOperation(
 		store.getState(),
@@ -232,7 +232,7 @@ export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | n
 	navigateParams((prev) => ({
 		...prev,
 		[list]: encoded,
-		// The file and diff cursors follow whatever the stacks cursor rests on.
+		// The file and diff cursors follow whatever the applied cursor rests on.
 		...(list === "applied" ? { files: undefined } : {}),
 	}));
 
@@ -242,7 +242,7 @@ export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | n
 	}
 };
 
-/** Switch the sidebar page. Changing pages dissolves any pending operation. */
+/** Switch the page. Changing pages dissolves any pending operation. */
 export const setPage = (page: PageId): void => {
 	if (pageOf() === page) return;
 

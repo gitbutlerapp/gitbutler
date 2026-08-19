@@ -413,8 +413,8 @@ export const CommitRow: FC<
 					label="Commit message"
 					onMount={(el) => {
 						const firstNewline = el.value.indexOf("\n");
-						const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
-						el.setSelectionRange(cursorPosition, cursorPosition);
+						const caretPosition = firstNewline !== -1 ? firstNewline : el.value.length;
+						el.setSelectionRange(caretPosition, caretPosition);
 					}}
 					onSubmit={saveNewMessage}
 					onExit={endEditing}

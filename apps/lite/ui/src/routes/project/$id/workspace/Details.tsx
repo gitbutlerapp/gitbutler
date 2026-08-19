@@ -64,7 +64,12 @@ import {
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
-import type { CommitDetails, ConflictedFile, ManualConflict, TreeChange } from "@gitbutler/but-sdk";
+import type {
+	CommitDetails as CommitDetailsData,
+	ConflictedFile,
+	ManualConflict,
+	TreeChange,
+} from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
@@ -212,7 +217,7 @@ const getCommitFileRowItems = ({
 	commitDetails,
 	manual = EMPTY_MANUAL,
 }: {
-	commitDetails: CommitDetails;
+	commitDetails: CommitDetailsData;
 	/**
 	 * Conflicted files the resolve API cannot address. They have no diff to
 	 * show, which is exactly what a conflict row is — so they keep the commit

@@ -79,12 +79,12 @@ export const focusHorizontalScope = ({
 	filesVisible,
 	offset,
 	sidebarFocusScope,
-	sidebarVisible,
+	detailsFullWindow,
 }: {
 	filesVisible: boolean;
 	offset: -1 | 1;
 	sidebarFocusScope: Extract<FocusScope, "uncommitted-files" | "sidebar"> | null;
-	sidebarVisible: boolean;
+	detailsFullWindow: boolean;
 }) => {
 	if (!paneNavigationAllowed()) return;
 
@@ -97,7 +97,7 @@ export const focusHorizontalScope = ({
 	// "details" resolves to whichever of its child scopes is mounted (diff or
 	// pr tab), so the rightmost slot works on both tabs.
 	const orderedFocusScopes: Array<FocusScope> = [
-		...(sidebarVisible ? [currentSidebarFocusScope ?? "sidebar"] : []),
+		...(detailsFullWindow ? [] : [currentSidebarFocusScope ?? "sidebar"]),
 		...(filesVisible ? (["files"] satisfies Array<FocusScope>) : []),
 		"details",
 	];
@@ -129,8 +129,8 @@ export const useAutofocusScope = (enabled = true) => {
 	return (el: HTMLElement | null) => {
 		if (el === null || attached.current) return;
 
-		// A list that is not the one driving the pane must not take focus on
-		// mount: its onFocus would then name it the driving list, so autofocus
+		// A list that is not the active one must not take focus on
+		// mount: its onFocus would then name it the active list, so autofocus
 		// would decide where the URL says the user is. Checked before the latch,
 		// which records having taken the one autofocus rather than having seen a
 		// ref, so a list that starts out passive can still take it later.

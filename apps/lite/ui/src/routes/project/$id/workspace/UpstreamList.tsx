@@ -36,8 +36,7 @@ import styles from "./UpstreamList.module.css";
 
 const pluralRules = new Intl.PluralRules("en");
 
-const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useIsSelectedInList(projectId, operand, "upstream");
+const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "upstream");
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -58,7 +57,6 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 );
 
 const TargetCommitRow: FC<{
-	projectId: string;
 	item: UpstreamCommitItem;
 	/**
 	 * Overrides the rail colour the commit's own position would give it. The
@@ -67,10 +65,10 @@ const TargetCommitRow: FC<{
 	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
-}> = ({ projectId, item, status }) => {
+}> = ({ item, status }) => {
 	const { commit, review, inWorkspace } = item;
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
-	const isSelected = useIsSelected(projectId, operand);
+	const isSelected = useIsSelected(operand);
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
 	const title = review?.title ?? commitTitle(commit.message);
@@ -345,7 +343,7 @@ const listItem = (
 ) => {
 	switch (item.type) {
 		case "commit":
-			return <TargetCommitRow key={item.commit.id} projectId={projectId} item={item} />;
+			return <TargetCommitRow key={item.commit.id} item={item} />;
 		case "branch":
 			return (
 				<UpstreamBranchRow
@@ -523,12 +521,7 @@ export const UpstreamList: FC<
 						<RailEdge status="Upstream" edge="head" />
 
 						{olderItems.map((item) => (
-							<TargetCommitRow
-								key={item.commit.id}
-								projectId={projectId}
-								item={item}
-								status="Upstream"
-							/>
+							<TargetCommitRow key={item.commit.id} item={item} status="Upstream" />
 						))}
 
 						<RailEdge status="Upstream" edge="tail" />

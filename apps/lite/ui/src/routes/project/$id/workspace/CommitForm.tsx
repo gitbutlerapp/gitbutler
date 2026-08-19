@@ -115,7 +115,7 @@ export const CommitForm: FC<{
 	 * Whether the workspace holds no branch to commit onto. Committing is still
 	 * allowed — the branch is created on submit — so this is deliberately kept
 	 * apart from `commitTarget`, whose items carry an `Operand` that drives the
-	 * sidebar selection and which a branch that doesn't exist yet cannot have.
+	 * applied selection and which a branch that doesn't exist yet cannot have.
 	 */
 	hasNoBranches: boolean;
 	startCommitButtonId: string;

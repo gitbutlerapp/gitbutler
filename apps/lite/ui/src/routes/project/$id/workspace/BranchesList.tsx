@@ -84,8 +84,7 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 const branchGraphStatus = (branch: ListedBranch): GraphSegmentStatus =>
 	branch.remoteRefs.length > 0 ? "LocalAndRemote" : "LocalOnly";
 
-const useIsSelected = (projectId: string, operand: Operand): boolean =>
-	useIsSelectedInList(projectId, operand, "branches");
+const useIsSelected = (operand: Operand): boolean => useIsSelectedInList(operand, "branches");
 
 const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }) => (
 	<Row interactive={false} role="treeitem" aria-label={label}>
@@ -96,9 +95,9 @@ const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }
 	</Row>
 );
 
-const CommitItem: FC<{ projectId: string; commit: Commit }> = ({ projectId, commit }) => {
+const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
 	const operand = commitOperand({ commitId: commit.id, changeId: commit.changeId });
-	const isSelected = useIsSelected(projectId, operand);
+	const isSelected = useIsSelected(operand);
 	const title = commitTitle(commit.message);
 	const copyCommit = () =>
 		startKeyboardTransfer({ sources: [operand], kind: "copy", placement: "above" });
@@ -144,9 +143,7 @@ const BranchCommits: FC<{ projectId: string; branch: ListedBranch }> = ({ projec
 	const commits = branchOwnCommits(branch, branchDetails.commits);
 	if (commits.length === 0) return <InertRow branch={branch} label="No commits." />;
 
-	return commits.map((commit) => (
-		<CommitItem key={commit.id} projectId={projectId} commit={commit} />
-	));
+	return commits.map((commit) => <CommitItem key={commit.id} commit={commit} />);
 };
 
 const BranchItem: FC<{
@@ -165,7 +162,7 @@ const BranchItem: FC<{
 		useAppSelector((state) =>
 			projectSlice.selectors.selectBranchUnfolded(state, projectId, branchRef),
 		) && canUnfold;
-	const isSelected = useIsSelected(projectId, operand);
+	const isSelected = useIsSelected(operand);
 	const [now] = useState(() => Date.now());
 
 	// Same topology as the applied list: nothing above the branch means the
