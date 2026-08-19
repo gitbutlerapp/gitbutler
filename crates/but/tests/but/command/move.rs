@@ -1,3 +1,5 @@
+use snapbox::IntoData as _;
+
 use crate::{
     command::util::{
         branch_commit_cli_ids, commit_two_files_as_two_hunks_each,
@@ -2936,4 +2938,66 @@ Moved nsn to the tip of branch 'B'
 
 "#]]
     );
+}
+
+/// `--below` a worktree heading moves the commit to the tip of the branch that worktree has
+/// checked out, taking it out of the workspace.
+#[test]
+fn move_commit_below_a_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    crate::command::util::enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk, so the one
+    // under test has to be created after it.
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm --below po")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-inside'
+
+"#]]);
+
+    // "add B" left its stack for the tip of the worktree's branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 4ce1279 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Above a worktree heading is its uncommitted area, which cannot hold a commit.
+#[test]
+fn move_commit_above_a_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    crate::command::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move lrm --above po")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'po' for '--above'
+
+Cannot move above a worktree
+
+Hint: Use `--below` to move onto the tip of the worktree's branch
+
+"#]]);
 }

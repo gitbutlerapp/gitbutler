@@ -28,6 +28,7 @@ use crate::{
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
         diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, targeting::Side,
+        worktrees::worktree_branch,
     },
 };
 
@@ -670,14 +671,28 @@ fn create_move_above_or_below_op(
     side: Side,
 ) -> CliResult<MoveOperation> {
     let target = {
-        match unresolved_target
-            .resolve_in_workspace(repo, id_map, Purpose::Anchor, None)?
-            .into_branch_or_commit()?
-        {
-            BranchOrCommit::Commit(commit) => MoveTarget::Commit { commit, side },
-            BranchOrCommit::Branch(branch_arg) => MoveTarget::BranchBucket {
-                name: branch_arg.resolve_existing_local_branch(repo)?,
-                side,
+        match unresolved_target.resolve_in_workspace(repo, id_map, Purpose::Anchor, None)? {
+            // Below a worktree heading is the top of its lane, so the move goes to the tip of
+            // the branch checked out there. Above it is the worktree's uncommitted area, which
+            // cannot hold a commit.
+            ResolvedCliIdArg::Worktree(name) => match side {
+                Side::Below => MoveTarget::BranchTip {
+                    name: worktree_branch(repo, name.as_ref())?,
+                },
+                Side::Above => {
+                    return Err(bad_input("Cannot move above a worktree")
+                        .arg_name("--above")
+                        .arg_value(unresolved_target.to_string())
+                        .hint("Use `--below` to move onto the tip of the worktree's branch")
+                        .into());
+                }
+            },
+            resolved => match resolved.into_branch_or_commit()? {
+                BranchOrCommit::Commit(commit) => MoveTarget::Commit { commit, side },
+                BranchOrCommit::Branch(branch_arg) => MoveTarget::BranchBucket {
+                    name: branch_arg.resolve_existing_local_branch(repo)?,
+                    side,
+                },
             },
         }
     };

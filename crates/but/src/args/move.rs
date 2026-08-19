@@ -67,6 +67,9 @@ pub struct Platform {
     /// branch. Branches are treated as buckets, meaning that "below a branch" is treated as below
     /// the oldest ancestor on that branch.
     ///
+    /// If `BRANCH_OR_COMMIT` is a linked worktree, `<SOURCES>` are placed on the tip of the branch
+    /// that worktree has checked out.
+    ///
     /// This target is only applicable for `<SOURCES>` that are commits or committed files.
     #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
     pub below: Option<CliIdArg>,

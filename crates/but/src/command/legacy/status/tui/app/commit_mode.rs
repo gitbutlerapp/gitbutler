@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Context as _;
-use bstr::{BStr, BString};
+use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -33,6 +32,7 @@ use crate::{
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
         targeting,
+        worktrees::worktree_branch,
     },
 };
 
@@ -377,9 +377,12 @@ impl App {
                 commit: commit.clone(),
                 side: targeting::Side::from(*insert_side),
             },
-            CliId::Worktree { name, .. } => commit::CommitRelativeToTarget::BranchTip {
-                name: worktree_branch(ctx, name.as_ref())?,
-            },
+            CliId::Worktree { name, .. } => {
+                let repo = ctx.repo.get()?;
+                commit::CommitRelativeToTarget::BranchTip {
+                    name: worktree_branch(&repo, name.as_ref())?,
+                }
+            }
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -488,26 +491,6 @@ impl App {
             }
         }
     }
-}
-
-/// The branch checked out in the linked worktree `name`, which is where a commit made from that
-/// checkout goes.
-///
-/// A detached worktree has no branch to move, so it is refused rather than silently committing
-/// somewhere else. The same goes for a workspace ref: such worktrees never render a heading,
-/// but the checkout can change between render and confirm, and a workspace ref must never
-/// receive a commit meant for a branch.
-pub(super) fn worktree_branch(ctx: &Context, name: &BStr) -> anyhow::Result<gix::refs::FullName> {
-    let repo = ctx.repo.get()?;
-    let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, name)?;
-    let branch = worktree_repo.head_name()?.with_context(|| {
-        format!("Worktree {name} has a detached HEAD, so there is no branch to commit to")
-    })?;
-    anyhow::ensure!(
-        !but_core::is_workspace_ref_name(branch.as_ref()),
-        "Worktree {name} has a workspace ref checked out, so there is no branch to commit to"
-    );
-    Ok(branch)
 }
 
 fn commit_with<T>(

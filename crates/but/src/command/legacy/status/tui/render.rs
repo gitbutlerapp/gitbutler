@@ -1236,6 +1236,13 @@ pub fn move_operation_display(
                 InsertSide::Below => Some("move commit below"),
             },
             StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
+            // A linked worktree's heading doubles as the top of its lane, which is the only
+            // place in the lane a whole commit can move to.
+            StatusOutputLineData::UncommittedChanges { cli_id }
+                if matches!(&**cli_id, CliId::Worktree { .. }) =>
+            {
+                Some("move commit to worktree")
+            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -1264,6 +1271,15 @@ pub fn move_operation_display(
                     Some("move commit to branch")
                 } else {
                     Some("move commits to branch")
+                }
+            }
+            StatusOutputLineData::UncommittedChanges { cli_id }
+                if matches!(&**cli_id, CliId::Worktree { .. }) =>
+            {
+                if marks.len() == 1 {
+                    Some("move commit to worktree")
+                } else {
+                    Some("move commits to worktree")
                 }
             }
             StatusOutputLineData::UpdateNotice

@@ -273,3 +273,44 @@ fn empty_commit_on_a_worktree_heading() {
         ])
         .assert_current_line_eq(str!["┊┊●   1 (no commit message) (no changes)"]);
 }
+
+/// A worktree heading is a move target: confirming on it moves the commit to the tip of the
+/// branch the worktree has checked out.
+#[test]
+fn move_commit_below_a_worktree_heading() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    // An empty commit moves without conflicts, so the move itself is all this test sees.
+    tui.input('n')
+        .assert_current_line_eq(str!["┊●   1 (no commit message) (no changes)"]);
+
+    tui.input('m');
+    // Past the worktree's own commit, onto its heading.
+    tui.input([KeyCode::Up, KeyCode::Up])
+        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_commit_below_a_worktree_heading_001.svg"
+        ]);
+
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_commit_below_a_worktree_heading_002.svg"
+    ]);
+
+    // The empty commit left the stack for the tip of the worktree's branch.
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        str![[r#"
+* 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 1ce4908 (wt-branch) 
+| * 20da4fb add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}

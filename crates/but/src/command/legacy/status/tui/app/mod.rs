@@ -1490,7 +1490,10 @@ impl App {
                 let CliId::Worktree { name, .. } = &**cli_id else {
                     return Ok(());
                 };
-                let branch = worktree_branch(ctx, name.as_ref())?;
+                let branch = {
+                    let repo = ctx.repo.get()?;
+                    crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?
+                };
 
                 let mut guard = ctx.exclusive_worktree_access();
                 let mut meta = ctx.meta()?;
