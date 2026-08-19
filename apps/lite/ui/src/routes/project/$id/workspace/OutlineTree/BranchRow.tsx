@@ -47,7 +47,7 @@ import {
 } from "#ui/native-menu.ts";
 import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
@@ -203,7 +203,7 @@ export const BranchRow: FC<
 	const endEditing = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
 		setCursor("stacks", operand);
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -250,7 +250,7 @@ export const BranchRow: FC<
 
 	const cutBranch = () => {
 		enterKeyboardTransfer({ sources: [operand], kind: "move" });
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const insertBlankCommit = (side: "above" | "below") => {

@@ -19,7 +19,7 @@ import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -80,7 +80,7 @@ export const useFileMenuItems = ({
 			: [source];
 
 		enterKeyboardTransfer({ sources, kind: "move" });
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const menuItemGroups: Array<Array<NativeMenuItem>> = [
@@ -206,7 +206,7 @@ export const useFileMenuItems = ({
 									},
 								},
 							});
-							focusSelectionScope("outline");
+							focusScope("outline");
 						};
 
 						return [

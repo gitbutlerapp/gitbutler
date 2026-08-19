@@ -12,14 +12,10 @@ import {
 import { Icon } from "#ui/components/Icon.tsx";
 import { commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import {
-	useAutofocusSelectionScope,
-	useNavigationIndexHotkeys,
-	type SelectionScope,
-} from "#ui/selection-scopes.ts";
+import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import {
 	olderTargetCommitsInfiniteQueryOptions,
 	workspaceTargetCommitsQueryOptions,
@@ -442,7 +438,7 @@ export const UpstreamList: FC<
 			<SectionHeaderRow
 				className={styles.header}
 				label="Incoming changes"
-				childrenBefore={<SelectionScopeKbd hotkey="1" scope="outline" />}
+				childrenBefore={<FocusScopeKbd hotkey="1" scope="outline" />}
 			/>
 
 			{/* One graph across three regions: what is coming in, where the
@@ -455,9 +451,9 @@ export const UpstreamList: FC<
 				role="tree"
 				aria-label="Upstream"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
-				data-selection-scope={"outline" satisfies SelectionScope}
+				data-focus-scope={"outline" satisfies FocusScope}
 				className={classes(uiStyles.scroller, styles.list)}
-				ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
+				ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
 			>
 				<div role="none" className={styles.section}>
 					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}

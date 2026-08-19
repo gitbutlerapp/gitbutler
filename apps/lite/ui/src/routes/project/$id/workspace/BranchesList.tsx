@@ -28,11 +28,7 @@ import {
 } from "#ui/native-menu.ts";
 import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import {
-	useAutofocusSelectionScope,
-	useNavigationIndexHotkeys,
-	type SelectionScope,
-} from "#ui/selection-scopes.ts";
+import { useAutofocusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
@@ -54,7 +50,7 @@ import {
 } from "./Row.tsx";
 import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import {
 	getRowButtonClassName,
 	treeItemId,
@@ -444,7 +440,7 @@ export const BranchesList: FC<
 				<SectionHeaderRow
 					className={styles.header}
 					label="Recent branches"
-					childrenBefore={<SelectionScopeKbd hotkey="1" scope="outline" />}
+					childrenBefore={<FocusScopeKbd hotkey="1" scope="outline" />}
 					actions={
 						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Group className={styles.headerGroup}>
@@ -501,9 +497,9 @@ export const BranchesList: FC<
 					role="tree"
 					aria-label="Branches"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					data-selection-scope={"outline" satisfies SelectionScope}
+					data-focus-scope={"outline" satisfies FocusScope}
 					className={styles.tree}
-					ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope())}
+					ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
 				>
 					{stacks.map((stack) => (
 						<StackCard

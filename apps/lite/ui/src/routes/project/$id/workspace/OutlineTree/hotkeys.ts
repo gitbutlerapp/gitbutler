@@ -22,7 +22,7 @@ import { outlineHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, commitOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import { focusScope, useNavigationIndexHotkeys } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { prForgeUrl } from "#ui/pr.ts";
@@ -476,7 +476,7 @@ export const useOutlineTreeHotkeys = ({
 					kind: "copy",
 					placement: "above",
 				});
-				focusSelectionScope("outline");
+				focusScope("outline");
 			},
 			options: {
 				conflictBehavior: "allow",

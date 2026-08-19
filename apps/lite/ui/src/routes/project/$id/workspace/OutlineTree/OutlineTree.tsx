@@ -66,7 +66,7 @@ import { treeItemId } from "../Row-utils.ts";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -84,11 +84,7 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, navigationIndexRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import {
-	focusSelectionScope,
-	useAutofocusSelectionScope,
-	type SelectionScope,
-} from "#ui/selection-scopes.ts";
+import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -324,7 +320,7 @@ const UncommittedChanges: FC<{
 				<FilesTree
 					canUncommit={false}
 					data-preview-source={workspaceList === "uncommitted"}
-					selectionScope="uncommitted-files"
+					focusScope="uncommitted-files"
 					onFocus={() => setWorkspaceList("uncommitted")}
 					emptyLabel={
 						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
@@ -343,10 +339,7 @@ const UncommittedChanges: FC<{
 					onRowSelection={onActiveFileSelection}
 					onEdgeSpill={onEdgeSpill}
 					projectId={projectId}
-					ref={useMergedRefs(
-						fileListRef,
-						useAutofocusSelectionScope(workspaceList === "uncommitted"),
-					)}
+					ref={useMergedRefs(fileListRef, useAutofocusScope(workspaceList === "uncommitted"))}
 					selection={fileSelection}
 				/>
 			</div>
@@ -720,10 +713,10 @@ const Stacks: FC<{
 				role="tree"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(styles.tree, styles.stacks)}
-				data-selection-scope={"outline" satisfies SelectionScope}
+				data-focus-scope={"outline" satisfies FocusScope}
 				data-preview-source={workspaceList === "stacks"}
 				onFocus={() => setWorkspaceList("stacks")}
-				ref={useMergedRefs(hotkeysRef, useAutofocusSelectionScope(workspaceList === "stacks"))}
+				ref={useMergedRefs(hotkeysRef, useAutofocusScope(workspaceList === "stacks"))}
 			>
 				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (
 					<StackC
@@ -866,14 +859,14 @@ export const OutlineTree: FC<
 		const item = navigationIndex.items.at(0);
 		if (item === undefined) return;
 		setCursor("stacks", item);
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
 		if (offset !== -1) return;
 		const path = uncommittedFilesNavigationIndex.items.at(-1);
 		if (path === undefined) return;
 		onActiveFileSelection(path);
-		focusSelectionScope("uncommitted-files");
+		focusScope("uncommitted-files");
 	};
 
 	return (
@@ -928,7 +921,7 @@ export const OutlineTree: FC<
 					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
 						<SectionHeaderRow
 							label="Stacks and branches"
-							childrenBefore={<SelectionScopeKbd hotkey="2" scope="outline" />}
+							childrenBefore={<FocusScopeKbd hotkey="2" scope="outline" />}
 							className={styles.stacksHeader}
 							actions={stacksHeaderActions}
 						/>

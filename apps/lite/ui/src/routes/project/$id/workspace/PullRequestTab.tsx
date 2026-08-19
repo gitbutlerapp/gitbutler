@@ -40,7 +40,7 @@ import {
 	usePersistDraftPR,
 	usePersistMergeMethod,
 } from "#ui/pr.ts";
-import { type SelectionScope, useAutofocusSelectionScope } from "#ui/selection-scopes.ts";
+import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Field, Tooltip } from "@base-ui/react";
 import type {
 	ForgeReviewReaction,
@@ -193,8 +193,8 @@ export const PullRequestForm: FC<{
 				<Field.Control
 					render={<FieldControlStyles />}
 					className="text-15 text-semibold"
-					data-selection-scope={"pr" satisfies SelectionScope}
-					ref={useAutofocusSelectionScope()}
+					data-focus-scope={"pr" satisfies FocusScope}
+					ref={useAutofocusScope()}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="Title"

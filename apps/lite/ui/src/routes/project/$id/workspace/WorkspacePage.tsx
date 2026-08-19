@@ -9,11 +9,11 @@ import {
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import {
-	focusHorizontalSelectionScope,
-	focusSelectionScope,
-	getFocusedSelectionScope,
-	type SelectionScope,
-} from "#ui/selection-scopes.ts";
+	focusHorizontalScope,
+	focusScope,
+	getFocusedScope,
+	type FocusScope,
+} from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
@@ -73,7 +73,7 @@ import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
 	useCanShowFiles,
-	useOutlineSelectionScope,
+	useOutlineFocusScope,
 	usePage,
 	useResolvedCursor,
 	useWorkspaceList,
@@ -93,12 +93,12 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	);
 	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
-	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
+	const focusedFocusScope = getFocusedScope(activeElement);
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
 	const outlineVisible = !detailsFullWindow;
-	const outlineSelectionScope = useOutlineSelectionScope();
+	const outlineFocusScope = useOutlineFocusScope();
 	const filesVisible = canShowFiles && filesVisibleState;
 	const outlineTab = usePage();
 
@@ -108,10 +108,10 @@ const useWorkspaceHotkeys = (projectId: string) => {
 
 	// Shared by the arrow keys and their h/l aliases so the pairs cannot diverge.
 	const focusPane = (offset: -1 | 1) => {
-		focusHorizontalSelectionScope({
+		focusHorizontalScope({
 			filesVisible,
 			offset,
-			outlineSelectionScope,
+			outlineFocusScope,
 			outlineVisible,
 		});
 	};
@@ -154,8 +154,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				if (focusedSelectionScope === "files" && filesVisible)
-					focusSelectionScope(outlineVisible ? "outline" : "diff");
+				if (focusedFocusScope === "files" && filesVisible)
+					focusScope(outlineVisible ? "outline" : "diff");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
 			},
@@ -167,21 +167,21 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		},
 		{
 			hotkey: "0",
-			callback: () => focusSelectionScope("details"),
+			callback: () => focusScope("details"),
 		},
 		...Match.value(outlineTab).pipe(
 			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.when("workspace", () => [
 				{
 					hotkey: "1",
-					callback: () => focusSelectionScope("uncommitted-files"),
+					callback: () => focusScope("uncommitted-files"),
 					options: {
 						enabled: outlineVisible,
 					},
 				},
 				{
 					hotkey: "2",
-					callback: () => focusSelectionScope("outline"),
+					callback: () => focusScope("outline"),
 					options: {
 						enabled: outlineVisible,
 					},
@@ -190,7 +190,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			Match.when("branches", () => [
 				{
 					hotkey: "1",
-					callback: () => focusSelectionScope("outline"),
+					callback: () => focusScope("outline"),
 					options: {
 						enabled: outlineVisible,
 					},
@@ -199,7 +199,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			Match.when("upstream", () => [
 				{
 					hotkey: "1",
-					callback: () => focusSelectionScope("outline"),
+					callback: () => focusScope("outline"),
 					options: {
 						enabled: outlineVisible,
 					},
@@ -208,7 +208,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			Match.exhaustive,
 		),
 		{
-			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeLeft.hotkey,
+			hotkey: workspaceHotkeys.focusHorizontalScopeLeft.hotkey,
 			callback: focusPaneLeft,
 			options: {
 				conflictBehavior: "allow",
@@ -222,7 +222,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusHorizontalSelectionScopeRight.hotkey,
+			hotkey: workspaceHotkeys.focusHorizontalScopeRight.hotkey,
 			callback: focusPaneRight,
 			options: {
 				conflictBehavior: "allow",
@@ -397,7 +397,7 @@ const WorkspacePage: FC = () => {
 
 	const selectBranch = (branch: BranchOperand) => {
 		setCursor("stacks", branchOperand(branch));
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const setBranchPickerOpen = (open: boolean) => {
@@ -433,9 +433,9 @@ const WorkspacePage: FC = () => {
 	const toggleDetailsFullWindow = () => {
 		if (
 			!detailsFullWindow &&
-			getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
+			getFocusedScope(document.activeElement) === ("outline" satisfies FocusScope)
 		)
-			requestAnimationFrame(() => focusSelectionScope("diff"));
+			requestAnimationFrame(() => focusScope("diff"));
 
 		dispatch(interfaceSlice.actions.toggleDetailsFullWindow());
 	};
@@ -681,7 +681,7 @@ const WorkspacePage: FC = () => {
 				<Panel
 					id={"details-panel" satisfies PanelId}
 					className={styles.panel}
-					data-selection-scope={"details" satisfies SelectionScope}
+					data-focus-scope={"details" satisfies FocusScope}
 				>
 					{/* Keyed on the deferred view itself, not on the URL: the deferred
 					    value still holds the old view for a beat after navigating, so a

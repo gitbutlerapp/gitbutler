@@ -16,7 +16,7 @@ import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "
 import { hunkOperand, type HunkOperand, type Operand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppStore } from "#ui/store.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -69,7 +69,7 @@ export const useHunkMenuItems = ({
 		);
 		const cutHunk = () => {
 			enterKeyboardTransfer({ sources: cutSources, kind: "move" });
-			focusSelectionScope("outline");
+			focusScope("outline");
 		};
 		const discardDiffSpec = createDiffSpec(
 			change,
@@ -186,7 +186,7 @@ export const useHunkMenuItems = ({
 									},
 								});
 
-								focusSelectionScope("outline");
+								focusScope("outline");
 							},
 							accelerator: toElectronAccelerator(diffHotkeys.absorb.hotkey),
 						}),

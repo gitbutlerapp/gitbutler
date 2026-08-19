@@ -50,7 +50,7 @@ import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { SelectionScopeKbd } from "#ui/components/SelectionScopeKbd.tsx";
+import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -99,11 +99,11 @@ import styles from "./Details.module.css";
 import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import {
-	focusSelectionScope,
-	type SelectionScope,
-	useAutofocusSelectionScope,
+	focusScope,
+	type FocusScope,
+	useAutofocusScope,
 	useNavigationIndexHotkeys,
-} from "#ui/selection-scopes.ts";
+} from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/navigation-index.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
@@ -338,7 +338,7 @@ const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection)
 
 const DiffContents: FC<{
 	activeFileItemId: string | null;
-	selectionScopeRef: RefObject<HTMLDivElement | null>;
+	focusScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
 	projectId: string;
@@ -358,7 +358,7 @@ const DiffContents: FC<{
 	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
 	activeFileItemId,
-	selectionScopeRef,
+	focusScopeRef,
 	onViewerFileSelection,
 	fileParent,
 	projectId,
@@ -565,7 +565,7 @@ const DiffContents: FC<{
 			const k = hunkOperandIdentityKey(hunk);
 			return hunkOperandIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).operand) === k;
 		},
-		ref: selectionScopeRef,
+		ref: focusScopeRef,
 		getKey: hunkOperandIdentityKey,
 		operationSourcesForItem: (hunk) => {
 			const selectedSources = operandsForSelectedLines(selectedLines, "compact");
@@ -627,7 +627,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -636,7 +636,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -645,7 +645,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -654,7 +654,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -663,7 +663,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -672,7 +672,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -681,7 +681,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -690,7 +690,7 @@ const DiffContents: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -698,7 +698,7 @@ const DiffContents: FC<{
 			callback: () => moveSelectedHunk(-1),
 			options: {
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -706,7 +706,7 @@ const DiffContents: FC<{
 			callback: () => moveSelectedHunk(-1),
 			options: {
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -714,7 +714,7 @@ const DiffContents: FC<{
 			callback: () => moveSelectedHunk(1),
 			options: {
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -722,7 +722,7 @@ const DiffContents: FC<{
 			callback: () => moveSelectedHunk(1),
 			options: {
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -755,7 +755,7 @@ const DiffContents: FC<{
 					},
 				});
 
-				focusSelectionScope("outline");
+				focusScope("outline");
 			},
 			options: {
 				enabled:
@@ -764,7 +764,7 @@ const DiffContents: FC<{
 					!!diffSelectionHunk &&
 					!diffSelectionHunk.operand.isResultOfBinaryToTextConversion,
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 				meta: diffHotkeys.absorb.meta,
 			},
 		},
@@ -776,7 +776,7 @@ const DiffContents: FC<{
 				enabled: selectedLines !== null && canCheckHunks,
 				preventDefault: false,
 				stopPropagation: false,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 				meta: diffHotkeys.checkHunk.meta,
 			},
 		},
@@ -788,7 +788,7 @@ const DiffContents: FC<{
 				enabled: selectedLines !== null && canCheckHunks,
 				preventDefault: false,
 				stopPropagation: false,
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -806,7 +806,7 @@ const DiffContents: FC<{
 				// file far off-screen. j/k (which stores a selection) is the way in.
 				enabled: hasStoredDiffSelection && !!diffSelectionHunk,
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 				meta: diffHotkeys.toggleFoldFile.meta,
 			},
 		},
@@ -824,7 +824,7 @@ const DiffContents: FC<{
 			options: {
 				enabled: hasStoredDiffSelection && !!diffSelectionHunk,
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 			},
 		},
 		{
@@ -841,7 +841,7 @@ const DiffContents: FC<{
 			options: {
 				enabled: !!diffSelectionHunk && !!settings?.editor,
 				conflictBehavior: "allow",
-				target: selectionScopeRef,
+				target: focusScopeRef,
 				meta: diffHotkeys.openInEditor.meta,
 			},
 		},
@@ -1363,7 +1363,7 @@ const DiffContents: FC<{
 							fileParent={fileParent}
 							annotationsByPath={annotationsByPath}
 							focusAnnotationIdRef={newFocusableAnnotationIdRef}
-							selectionScopeRef={selectionScopeRef}
+							focusScopeRef={focusScopeRef}
 						/>
 					);
 				}}
@@ -1758,7 +1758,7 @@ const Diff: FC<{
 	didScrollToViaFileRef,
 	headerSlot,
 }) => {
-	const selectionScopeRef = useRef<HTMLDivElement>(null);
+	const focusScopeRef = useRef<HTMLDivElement>(null);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { mutate: setFilesReviewed } = useSetFilesReviewed();
@@ -2107,7 +2107,7 @@ const Diff: FC<{
 									)}
 								>
 									<FilesTree
-										selectionScope="files"
+										focusScope="files"
 										onRowSelection={activateRow}
 										projectId={projectId}
 										rows={filesRows}
@@ -2207,11 +2207,11 @@ const Diff: FC<{
 						)}
 
 						<div
-							data-selection-scope={"diff" satisfies SelectionScope}
+							data-focus-scope={"diff" satisfies FocusScope}
 							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 							tabIndex={0}
 							className={styles.diffContentsContainer}
-							ref={useMergedRefs(selectionScopeRef, diffContentsEl, useAutofocusSelectionScope())}
+							ref={useMergedRefs(focusScopeRef, diffContentsEl, useAutofocusScope())}
 						>
 							<DiffContents
 								activeFileItemId={activeFileItemId}
@@ -2229,7 +2229,7 @@ const Diff: FC<{
 								setFilesReviewed={setFilesReviewed}
 								canUncommit={!isCommitUncommitChangesPending}
 								uncommit={uncommit}
-								selectionScopeRef={selectionScopeRef}
+								focusScopeRef={focusScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}
 								minimapFiles={minimapShown ? minimapFiles : null}
@@ -2295,7 +2295,7 @@ const CommitDetailsSkeleton: FC = () => {
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
-						<SelectionScopeKbd hotkey="0" scope="details" />
+						<FocusScopeKbd hotkey="0" scope="details" />
 						<Icon name="commit" />
 						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
 					</div>
@@ -2385,7 +2385,7 @@ const CommitDetails: FC<{
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
-						<SelectionScopeKbd hotkey="0" scope="details" />
+						<FocusScopeKbd hotkey="0" scope="details" />
 						<Icon name="commit" />
 						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
 							<span className={styles.titleContent}>
@@ -2562,7 +2562,7 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
-				<SelectionScopeKbd hotkey="0" scope="details" />
+				<FocusScopeKbd hotkey="0" scope="details" />
 				<Icon name="branch" />
 				<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
 			</div>
@@ -2911,7 +2911,7 @@ const FileDetailsSkeleton: FC = () => {
 					{detailsFullWindow && <TopLeftControls />}
 
 					<div className={styles.title}>
-						<SelectionScopeKbd hotkey="0" scope="details" />
+						<FocusScopeKbd hotkey="0" scope="details" />
 						<Icon name="file" />
 						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 					</div>
@@ -2949,7 +2949,7 @@ const FileDetails: FC<{
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
-				<SelectionScopeKbd hotkey="0" scope="details" />
+				<FocusScopeKbd hotkey="0" scope="details" />
 				<Icon name="file-diff" />
 				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
 			</div>

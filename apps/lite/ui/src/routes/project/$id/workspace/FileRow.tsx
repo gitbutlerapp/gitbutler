@@ -4,7 +4,7 @@ import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import type { SelectionScope } from "#ui/selection-scopes.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -41,7 +41,7 @@ export const FileRow: FC<
 		 * — the tree already says which directory this is. Resolved by the list.
 		 */
 		pathDisplay: "lead" | "trail" | "hidden";
-		selectionScope: SelectionScope;
+		focusScope: FocusScope;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({
 	item,
@@ -55,7 +55,7 @@ export const FileRow: FC<
 	checkFile,
 	depth,
 	pathDisplay,
-	selectionScope,
+	focusScope,
 	id,
 	...restProps
 }) => {
@@ -132,10 +132,7 @@ export const FileRow: FC<
 							<Tooltip.Positioner sideOffset={4}>
 								<Tooltip.Popup
 									render={
-										<TooltipPopup
-											kbd={changesFileHotkeys.checkFile.hotkey}
-											kbdScope={selectionScope}
-										/>
+										<TooltipPopup kbd={changesFileHotkeys.checkFile.hotkey} kbdScope={focusScope} />
 									}
 								>
 									{changesFileHotkeys.checkFile.meta.name}

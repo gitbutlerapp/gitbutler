@@ -24,11 +24,7 @@ import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import {
-	focusSelectionScope,
-	useNavigationIndexHotkeys,
-	type SelectionScope,
-} from "#ui/selection-scopes.ts";
+import { focusScope, useNavigationIndexHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -125,7 +121,7 @@ const useFilesTreeHotkeys = ({
 				},
 			},
 		});
-		focusSelectionScope("outline");
+		focusScope("outline");
 	};
 
 	const toggleSelectedRowChecked = (event: KeyboardEvent) => {
@@ -301,7 +297,7 @@ export const FilesTree: FC<
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
-		selectionScope: SelectionScope;
+		focusScope: FocusScope;
 		emptyLabel?: string;
 	} & ComponentProps<"div">
 > = ({
@@ -316,7 +312,7 @@ export const FilesTree: FC<
 	projectId,
 	navigationIndex,
 	fileParent,
-	selectionScope,
+	focusScope,
 	emptyLabel = "No changes.",
 	ref: refProp,
 	...props
@@ -484,7 +480,7 @@ export const FilesTree: FC<
 	return (
 		<div
 			{...props}
-			data-selection-scope={selectionScope}
+			data-focus-scope={focusScope}
 			tabIndex={0}
 			role="tree"
 			aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
@@ -538,7 +534,7 @@ export const FilesTree: FC<
 											canCheck={canCheck}
 											checkedState={directoryCheckedState(row.filePaths)}
 											checkDirectory={checkDirectory}
-											selectionScope={selectionScope}
+											focusScope={focusScope}
 											onSelect={() => onRowSelection(row.path)}
 										/>
 									}
@@ -579,7 +575,7 @@ export const FilesTree: FC<
 												fileParent={fileParent}
 												canUncommit={canUncommit}
 												uncommit={uncommit}
-												selectionScope={selectionScope}
+												focusScope={focusScope}
 												branchNameByCommitId={(commitId) =>
 													headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
 														?.displayName
