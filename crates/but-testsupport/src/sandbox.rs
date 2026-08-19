@@ -305,6 +305,18 @@ impl Sandbox {
         self.app_settings.as_ref()
     }
 
+    /// Mutable access to the app settings every [`Self::context()`] is built from, for tests
+    /// that need a non-default feature flag. Panics if these weren't initialized.
+    ///
+    /// This only changes the in-memory copy, which is what `context()` reads; it does not
+    /// rewrite the settings file that an invoked `but` binary would load.
+    #[cfg(feature = "sandbox-but-api")]
+    pub fn app_settings_mut(&mut self) -> &mut AppSettings {
+        self.app_settings
+            .as_mut()
+            .expect("BUG: app settings are not initialized")
+    }
+
     /// Return app settings or panic if these weren't initialized.
     #[cfg(feature = "sandbox-but-api")]
     pub fn app_settings(&self) -> &AppSettings {

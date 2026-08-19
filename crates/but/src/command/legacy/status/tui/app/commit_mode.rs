@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::Context as _;
+use bstr::{BStr, BString};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -28,7 +30,10 @@ use crate::{
     },
     id::UncommittedHunkOrFile,
     tui::TerminalGuard,
-    utils::{change_source::UncommittedSelection, targeting},
+    utils::{
+        change_source::{ChangeSourceId, UncommittedSelection},
+        targeting,
+    },
 };
 
 use super::{SquashMarks, SquashSource, mark::MarksRef};
@@ -63,13 +68,21 @@ pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
     Uncommitted,
     UncommittedHunk(UncommittedHunkOrFile),
+    /// Every uncommitted change of a linked worktree, the way [`Self::Uncommitted`] means every
+    /// uncommitted change of the main one.
+    Worktree(BString),
 }
 
 impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
+        let is_worktree_heading = matches!(
+            data,
+            StatusOutputLineData::UncommittedChanges { cli_id } if matches!(&**cli_id, CliId::Worktree { .. })
+        );
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) || is_worktree_heading {
+            // Below the heading is the top of the worktree's lane, which is where the commit goes.
             ExtensionDirection::Below
         } else {
             return None;
@@ -87,12 +100,20 @@ impl ModeRender for CommitMode {
         data: &StatusOutputLineData,
         line: &mut RenderSingleLineSpans<'_, '_>,
     ) {
-        if data
-            .cli_id()
-            .is_some_and(|target| self.source.contains(target))
-        {
-            render_commit_operation_target_marker(app, data, self, line);
+        let Some(target) = data.cli_id() else {
+            return;
+        };
+        if !self.source.contains(target) {
+            return;
         }
+        // A worktree heading is both the source of its own changes and a genuine destination.
+        // The destination half is advertised by its extension line, so the line itself only
+        // claims the source instead of the no-op marker a pure source would get.
+        if matches!(&**target, CliId::Worktree { .. }) {
+            line.extend([source_span(app.theme), Span::raw(" ")]);
+            return;
+        }
+        render_commit_operation_target_marker(app, data, self, line);
     }
 
     fn render_operation_source_marker(
@@ -124,6 +145,9 @@ impl CommitSource {
             CommitSource::Uncommitted => {
                 matches!(other, CliId::Uncommitted { .. })
             }
+            CommitSource::Worktree(name) => {
+                matches!(other, CliId::Worktree { name: other, .. } if other == name)
+            }
             CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs || hunk_is_child_of(rhs, lhs)
@@ -140,10 +164,10 @@ impl CommitSource {
                 Some(CommitSource::Uncommitted)
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Worktree { .. }
-            | CliId::Stack { .. } => None,
+            // A worktree heading names that checkout's uncommitted area, so it is a source in
+            // exactly the way `zz` is one for the main worktree.
+            CliId::Worktree { name, .. } => Some(CommitSource::Worktree(name.clone())),
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => None,
         }
     }
 }
@@ -337,7 +361,10 @@ impl App {
             return Ok(());
         };
 
-        if source.contains(data) {
+        // A worktree heading is both the source of its own changes and the top of its lane, which
+        // is where they belong, so confirming on it commits rather than cancelling.
+        let is_own_worktree_lane = matches!(&**data, CliId::Worktree { .. });
+        if source.contains(data) && !is_own_worktree_lane {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         }
@@ -350,11 +377,13 @@ impl App {
                 commit: commit.clone(),
                 side: targeting::Side::from(*insert_side),
             },
+            CliId::Worktree { name, .. } => commit::CommitRelativeToTarget::BranchTip {
+                name: worktree_branch(ctx, name.as_ref())?,
+            },
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
@@ -461,6 +490,26 @@ impl App {
     }
 }
 
+/// The branch checked out in the linked worktree `name`, which is where a commit made from that
+/// checkout goes.
+///
+/// A detached worktree has no branch to move, so it is refused rather than silently committing
+/// somewhere else. The same goes for a workspace ref: such worktrees never render a heading,
+/// but the checkout can change between render and confirm, and a workspace ref must never
+/// receive a commit meant for a branch.
+pub(super) fn worktree_branch(ctx: &Context, name: &BStr) -> anyhow::Result<gix::refs::FullName> {
+    let repo = ctx.repo.get()?;
+    let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, name)?;
+    let branch = worktree_repo.head_name()?.with_context(|| {
+        format!("Worktree {name} has a detached HEAD, so there is no branch to commit to")
+    })?;
+    anyhow::ensure!(
+        !but_core::is_workspace_ref_name(branch.as_ref()),
+        "Worktree {name} has a workspace ref checked out, so there is no branch to commit to"
+    );
+    Ok(branch)
+}
+
 fn commit_with<T>(
     ctx: &mut Context,
     terminal_guard: &mut T,
@@ -490,7 +539,10 @@ where
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
         )),
-        CommitSource::Uncommitted => commit::CommitSelection::AllChanges,
+        CommitSource::Uncommitted => commit::CommitSelection::AllChanges(ChangeSourceId::Head),
+        CommitSource::Worktree(name) => {
+            commit::CommitSelection::AllChanges(ChangeSourceId::Worktree(name.clone()))
+        }
         CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(NonEmpty::new(hunk.clone()))
                 .map_err(CliError::into_internal)?,

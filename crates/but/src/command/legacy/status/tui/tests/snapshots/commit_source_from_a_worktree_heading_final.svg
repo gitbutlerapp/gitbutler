@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
+  <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <rect x="10" y="82" width="40" height="18" fill="#45475A" />
+  <rect x="50" y="82" width="96" height="18" fill="#555555" />
+  <rect x="146" y="82" width="664" height="18" fill="#45475A" />
+  <rect x="10" y="100" width="40" height="18" fill="#45475A" />
+  <rect x="50" y="100" width="192" height="18" fill="#00AA00" />
+  <rect x="242" y="100" width="568" height="18" fill="#45475A" />
+  <rect x="10" y="352" width="80" height="18" fill="#00AA00" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
+    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;opacity:0.75;">zz</text>
+    <text x="58" y="24" style="fill:#CCCCCC;opacity:0.75;">[</text>
+    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;opacity:0.75;">uncommitted</text>
+    <text x="154" y="24" style="fill:#CCCCCC;opacity:0.75;">]</text>
+    <text x="170 178 186" y="24" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="202 210 218 226 234 242 250 258" y="24" style="fill:#CCCCCC;opacity:0.75;">changes)</text>
+    <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
+    <text x="10 18 26" y="60" style="fill:#CCCCCC;">┊╭┄</text>
+    <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">g0</text>
+    <text x="66" y="60" style="fill:#CCCCCC;">[</text>
+    <text x="74" y="60" style="fill:#00AA00;">A</text>
+    <text x="82" y="60" style="fill:#CCCCCC;">]</text>
+    <text x="10 18" y="78" style="fill:#CCCCCC;">┊┊</text>
+    <text x="10 18 26 34" y="96" style="fill:#FFFFFF;font-weight:bold;">┊┊╭┄</text>
+    <text x="50 58" y="96" style="fill:#FFFFFF;font-weight:bold;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="96" style="fill:#FFFFFF;font-weight:bold;">source</text>
+    <text x="130 138" y="96" style="fill:#FFFFFF;font-weight:bold;">&gt;&gt;</text>
+    <text x="154" y="96" style="fill:#0000AA;font-weight:bold;">v</text>
+    <text x="170" y="96" style="fill:#FFFFFF;font-weight:bold;">{</text>
+    <text x="178 186 194 202 210 218 226 234 242" y="96" style="fill:#00AAAA;font-weight:bold;">wt-branch</text>
+    <text x="250" y="96" style="fill:#FFFFFF;font-weight:bold;">}</text>
+    <text x="10 18 26" y="114" style="fill:#FFFFFF;font-weight:bold;">┊┊│</text>
+    <text x="50 58" y="114" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="114" style="fill:#000000;font-weight:bold;">commit</text>
+    <text x="130 138" y="114" style="fill:#000000;font-weight:bold;">to</text>
+    <text x="154 162 170 178 186 194 202 210" y="114" style="fill:#000000;font-weight:bold;">worktree</text>
+    <text x="226 234" y="114" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
+    <text x="10 18 26" y="132" style="fill:#CCCCCC;">┊┊┊</text>
+    <text x="58 66" y="132" style="fill:#0000AA;font-weight:bold;opacity:0.75;">ok</text>
+    <text x="82" y="132" style="fill:#CCCCCC;opacity:0.75;">A</text>
+    <text x="98 106 114 122 130 138 146 154 162 170 178" y="132" style="fill:#00AA00;opacity:0.75;">wt-file.txt</text>
+    <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊●</text>
+    <text x="58" y="150" style="fill:#AA00AA;">n</text>
+    <text x="66 74" y="150" style="fill:#CCCCCC;opacity:0.75;">ll</text>
+    <text x="90 98 106" y="150" style="fill:#CCCCCC;">add</text>
+    <text x="122" y="150" style="fill:#CCCCCC;">W</text>
+    <text x="10 18 26" y="168" style="fill:#CCCCCC;">┊├╯</text>
+    <text x="10 18" y="186" style="fill:#CCCCCC;">┊●</text>
+    <text x="50" y="186" style="fill:#AA00AA;">t</text>
+    <text x="58 66" y="186" style="fill:#CCCCCC;opacity:0.75;">pm</text>
+    <text x="82 90 98" y="186" style="fill:#CCCCCC;">add</text>
+    <text x="114" y="186" style="fill:#CCCCCC;">A</text>
+    <text x="10 18" y="204" style="fill:#CCCCCC;">├╯</text>
+    <text x="10" y="222" style="fill:#CCCCCC;">┊</text>
+    <text x="10" y="240" style="fill:#CCCCCC;">┴</text>
+    <text x="26 34 42 50 58 66 74" y="240" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
+    <text x="90 98 106 114 122 130 138" y="240" style="fill:#CCCCCC;opacity:0.75;">(common</text>
+    <text x="154 162 170 178 186" y="240" style="fill:#CCCCCC;opacity:0.75;">base)</text>
+    <text x="202 210 218 226 234 242 250 258 266 274" y="240" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
+    <text x="290 298 306" y="240" style="fill:#CCCCCC;opacity:0.75;">add</text>
+    <text x="322" y="240" style="fill:#CCCCCC;opacity:0.75;">M</text>
+    <text x="26 34 42 50 58 66" y="366" style="fill:#000000;">commit</text>
+    <text x="98 106 114 122 130" y="366" style="fill:#0000AA;">enter</text>
+    <text x="146 154 162 170 178 186 194" y="366" style="fill:#CCCCCC;opacity:0.75;">confirm</text>
+    <text x="210" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="226" y="366" style="fill:#0000AA;">e</text>
+    <text x="242 250 258 266 274" y="366" style="fill:#CCCCCC;opacity:0.75;">empty</text>
+    <text x="290 298 306 314 322 330 338" y="366" style="fill:#CCCCCC;opacity:0.75;">message</text>
+    <text x="354" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="370" y="366" style="fill:#0000AA;">i</text>
+    <text x="386 394 402 410 418 426" y="366" style="fill:#CCCCCC;opacity:0.75;">reword</text>
+    <text x="442 450 458 466 474 482" y="366" style="fill:#CCCCCC;opacity:0.75;">inline</text>
+    <text x="498" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="514" y="366" style="fill:#0000AA;">a</text>
+    <text x="530 538 546 554 562 570 578 586 594 602 610" y="366" style="fill:#CCCCCC;opacity:0.75;">above/below</text>
+    <text x="626" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="642" y="366" style="fill:#0000AA;">?</text>
+    <text x="658 666 674 682" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="698" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="714" y="366" style="fill:#0000AA;">q</text>
+    <text x="730 738 746 754" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+  </g>
+</svg>

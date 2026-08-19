@@ -1483,12 +1483,40 @@ impl App {
                     ReloadCause::Mutation,
                 ));
             }
+            StatusOutputLineData::UncommittedChanges { cli_id } => {
+                // A worktree heading is the top of its lane, so the empty commit goes to the tip
+                // of the branch checked out there. The main `zz` heading names no branch, so it
+                // stays a no-op.
+                let CliId::Worktree { name, .. } = &**cli_id else {
+                    return Ok(());
+                };
+                let branch = worktree_branch(ctx, name.as_ref())?;
+
+                let mut guard = ctx.exclusive_worktree_access();
+                let mut meta = ctx.meta()?;
+
+                let (outcome, _ws) = commit::run(
+                    ctx,
+                    &mut meta,
+                    guard.write_permission(),
+                    CommitOperation::CommitAt(CommitAtOperation {
+                        target: CommitRelativeToTarget::BranchTip { name: branch },
+                    }),
+                    false,
+                    CommitSelection::Nothing,
+                    CommitMessageSource::Empty,
+                )?;
+
+                messages.push(Message::Reload(
+                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
+                    ReloadCause::Mutation,
+                ));
+            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
