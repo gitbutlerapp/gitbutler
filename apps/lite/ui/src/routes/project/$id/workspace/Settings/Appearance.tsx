@@ -109,18 +109,6 @@ export const Appearance: FC = () => {
 			</Section>
 
 			<Section heading="Diff">
-				<Row
-					label="Minimap"
-					labelId="minimap"
-					hint="A map of the diff down the right-hand edge, standing in for the scrollbar."
-				>
-					<Switch
-						aria-labelledby="minimap"
-						checked={settings.minimap ?? defaultSettings.minimap}
-						onCheckedChange={(minimap) => saveGUISettings({ minimap })}
-					/>
-				</Row>
-
 				<Row label="Diff files" labelId="unidiff">
 					<ToggleGroup
 						aria-labelledby="unidiff"

@@ -95,6 +95,25 @@ export const DiffMinimap: FC<{
 		let lastOffset: number | null = null;
 		let lastScrollTop: number | null = null;
 
+		// Shown while the diff scrolls or the pointer is on it; hidden again
+		// after a moment of stillness.
+		let shown = false;
+		let pointed = false;
+		let linger: ReturnType<typeof setTimeout> | null = null;
+		const settle = (): void => {
+			linger = null;
+			if (pointed || !shown) return;
+			shown = false;
+			rulerRef.current?.setAttribute("data-minimap-awake", "false");
+		};
+		const wake = (): void => {
+			if (linger !== null) clearTimeout(linger);
+			linger = setTimeout(settle, 1200);
+			if (shown) return;
+			shown = true;
+			rulerRef.current?.setAttribute("data-minimap-awake", "true");
+		};
+
 		/**
 		 * What the ruler was last told, so a frame that would repeat itself doesn't
 		 * dirty style for nothing — the paint reads layout back, and a write between
@@ -150,7 +169,10 @@ export const DiffMinimap: FC<{
 			const scrollTop = viewer.getScrollTop();
 			const scrolled = lastScrollTop !== null && scrollTop !== lastScrollTop;
 			lastScrollTop = scrollTop;
-			if (scrolled) freeRef.current = false;
+			if (scrolled) {
+				freeRef.current = false;
+				wake();
+			}
 
 			const moved = scrolled && !grabRef.current ? "draws" : freeRef.current ? "free" : "holds";
 			const layout = getMinimapLayout(viewer, track, scrollTop, offsetRef.current, moved);
@@ -229,6 +251,22 @@ export const DiffMinimap: FC<{
 		};
 		ruler?.addEventListener("wheel", onWheel, { passive: false });
 
+		// A hidden ruler takes no pointer events, so hovering can only hold it
+		// up, never summon it.
+		const onEnter = (): void => {
+			pointed = true;
+			if (linger !== null) {
+				clearTimeout(linger);
+				linger = null;
+			}
+		};
+		const onLeave = (): void => {
+			pointed = false;
+			if (shown && linger === null) linger = setTimeout(settle, 1200);
+		};
+		ruler?.addEventListener("pointerenter", onEnter);
+		ruler?.addEventListener("pointerleave", onLeave);
+
 		// Canvas colours are sampled, not live CSS, so they need reading again and
 		// repainting when the tokens behind them resolve differently.
 		const scheme = globalThis.matchMedia("(prefers-color-scheme: dark)");
@@ -257,11 +295,14 @@ export const DiffMinimap: FC<{
 		return () => {
 			resyncRef.current = null;
 			if (frame !== null) cancelAnimationFrame(frame);
+			if (linger !== null) clearTimeout(linger);
 			unsubscribe();
 			resizeObserver.disconnect();
 			scheme.removeEventListener("change", onScheme);
 			pixels?.removeEventListener("change", onPixels);
 			ruler?.removeEventListener("wheel", onWheel);
+			ruler?.removeEventListener("pointerenter", onEnter);
+			ruler?.removeEventListener("pointerleave", onLeave);
 		};
 	}, [viewerRef]);
 

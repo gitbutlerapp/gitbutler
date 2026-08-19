@@ -59,15 +59,31 @@
 	/* Behind the marks it covers rather than over them, so a selected hunk still
 	   reads as added or removed. */
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
-	position: relative;
-
-	/* Ends where the map does rather than stretching past it. At a fixed scale a
-	   short diff simply doesn't reach the foot of the pane, and ruler below the
-	   last line is ruler the lens can never travel to. */
-	align-self: start;
+	/* Overlaid on the code's right edge, so a diff at rest keeps the whole
+	   pane. Ends where the map does: at a fixed scale a short diff doesn't
+	   reach the foot of the pane. */
+	position: absolute;
+	top: 0;
+	right: 0;
 	width: 56px;
 	height: var(--minimap-track-height, 100%);
+	/* Its own backdrop and edge, so the marks stay readable over code. */
+	border-left: 1px solid var(--border-section);
+	background-color: var(--bg-1);
 	cursor: default;
+
+	/* Hidden until the ruler's effect wakes it; no pointer events so clicks
+	   fall through to the code. */
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.4s ease;
+}
+
+.minimap[data-minimap-awake="true"] {
+	opacity: 1;
+	pointer-events: auto;
+	/* The awake state's duration governs the fade in. */
+	transition-duration: 0.15s;
 }
 
 /* Nothing worth mapping: no files, or the diff is barely taller than the pane. */
