@@ -4,6 +4,7 @@ use std::{env, ffi::OsStr};
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_error::bail_precondition;
+use but_settings::AppSettings;
 use std::path::Path;
 use tracing::instrument;
 use url::Url;
@@ -312,8 +313,25 @@ mod wsl_tests {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn open_url(url: String) -> Result<()> {
-    let url = Url::parse(&url).with_context(|| format!("Invalid path format: '{url}'"))?;
+    let mut url = Url::parse(&url).with_context(|| format!("Invalid path format: '{url}'"))?;
+    add_did_param(&mut url);
     open_that(&url)
+}
+
+fn add_did_param(url: &mut Url) {
+    let own_site = url.host_str().is_some_and(|host| {
+        ["gitbutler.com", "but.dev"]
+            .iter()
+            .any(|site| host == *site || host.ends_with(&format!(".{site}")))
+    });
+    let Some(id) = own_site
+        .then(AppSettings::load_from_default_path_creating_without_customization)
+        .and_then(Result::ok)
+        .and_then(|settings| settings.telemetry.distinct_id_if_enabled())
+    else {
+        return;
+    };
+    url.query_pairs_mut().append_pair("did", &id);
 }
 
 /// Opens a terminal application at the specified directory path.

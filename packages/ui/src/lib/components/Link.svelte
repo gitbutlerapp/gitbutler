@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { EXTERNAL_LINK_SERVICE } from "$lib/utils/externalLinkService";
+	import { injectOptional } from "@gitbutler/core/context";
 	import { onMount, type Snippet } from "svelte";
 
 	interface Props {
@@ -8,6 +10,10 @@
 	}
 
 	const { href, class: classes, children }: Props = $props();
+
+	const externalLinkService = injectOptional(EXTERNAL_LINK_SERVICE, undefined);
+
+	const isExternal = $derived(href.startsWith("http"));
 
 	let element = $state<HTMLAnchorElement>();
 
@@ -19,9 +25,17 @@
 
 	const target = "_blank";
 	const rel = "noopener noreferrer";
+
+	function onclick(e: MouseEvent) {
+		if (!externalLinkService || !isExternal) return;
+		if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+		e.preventDefault();
+		e.stopPropagation();
+		externalLinkService.open(href);
+	}
 </script>
 
-<a {href} {target} {rel} class="link {classes}" bind:this={element}>
+<a {href} {target} {rel} {onclick} class="link {classes}" bind:this={element}>
 	<span class="underline">
 		{@render children()}
 	</span>

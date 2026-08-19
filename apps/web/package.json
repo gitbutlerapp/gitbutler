@@ -51,6 +51,7 @@
 		"dayjs": "^1.11.20",
 		"highlight.js": "^11.10.0",
 		"marked": "catalog:",
+		"posthog-js": "1.417.1",
 		"svelte-exmarkdown": "^5.0.2"
 	}
 }
