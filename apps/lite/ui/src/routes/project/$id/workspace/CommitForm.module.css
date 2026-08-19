@@ -23,9 +23,7 @@
 .form {
 	container-type: inline-size;
 	display: flex;
-	row-gap: 10px;
 	flex-direction: column;
-	padding: 8px;
 	border-radius: var(--radius-lg);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
@@ -42,11 +40,16 @@
 }
 
 .textarea {
-	padding: 4px;
+	/* The message box is the card's own surface, so the scrollbar rides on it
+	   rather than in the app's gutter. */
+	--scrollbar-track-bg: transparent;
+	--scrollbar-track-border: transparent;
+	padding: 12px;
 	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
-	min-height: calc(1lh);
+	/* Sized so the empty message row is 50px tall, as designed. */
+	min-height: 26px;
 	max-height: calc(10lh);
 
 	&:focus {
@@ -58,10 +61,40 @@
 	}
 }
 
+/* The rule above the controls is inset from the card edge, so it is drawn
+   inside the footer's padding rather than as a border on the card itself. */
 .footer {
 	display: flex;
-	column-gap: 6px;
+	row-gap: 10px;
+	flex-direction: column;
+	padding: 0 10px 10px;
+
+	&::before {
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
+	}
+}
+
+.footerRow {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
 	justify-content: space-between;
+}
+
+.footerStart {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+}
+
+.footerSeparator {
+	flex-shrink: 0;
+	width: 1px;
+	height: 19px;
+	background-color: var(--border-3);
 }
 
 .commitActions {
@@ -102,16 +135,9 @@
 }
 
 .targetTrigger {
-	display: flex;
-	column-gap: 6px;
-	align-items: center;
-	min-width: 0;
-	padding-inline: 8px;
-	border-radius: var(--radius-button);
-	color: color-mix(in srgb, var(--text-1) 60%, transparent);
-	white-space: nowrap;
+	flex-shrink: 0;
+	padding-inline: 6px;
 
-	&:not([data-disabled]):hover,
 	&:not([data-disabled])[aria-expanded="true"] {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	}
@@ -141,17 +167,12 @@
 	white-space: nowrap;
 }
 
-.targetTriggerLabel {
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-/* Marks a branch name that doesn't exist yet: committing is what creates it.
-   The pill itself is the shared badge; only its place in the trigger row is
-   this file's business, so it never shrinks away with the branch name. */
-.targetTriggerBadge {
+/* Icon-only, so it keeps the same tight inline padding as the target trigger
+   beside it rather than the button default. */
+.generateButton {
 	flex-shrink: 0;
-	text-transform: uppercase;
+	width: auto;
+	padding-inline: 6px;
 }
 
 .targetPopup {
