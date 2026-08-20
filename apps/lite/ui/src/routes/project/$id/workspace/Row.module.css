@@ -23,8 +23,9 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	height: 44px;
+	height: 64px;
 	padding-inline: var(--panel-padding-inline);
+	background-color: var(--bg-2);
 }
 
 /* Square, and edge to edge in every list that has them: a row's fill is a band
