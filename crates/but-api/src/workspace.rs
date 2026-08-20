@@ -602,11 +602,13 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
         let materialized = rebase.materialize(Default::default())?;
         project_meta.persist(&repo)?;
-        but_workspace::fast_forward_local_tracking_branch(
+        if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
             project_meta.target_ref_or_err()?.as_ref(),
             project_meta.target_commit_id_or_err()?,
-        )?;
+        ) {
+            warn!(?err, "failed to fast-forward local target branch");
+        }
 
         if let Some(ref_name) = materialized.workspace.ref_name()
             && let Some(ws_meta) = ws_meta

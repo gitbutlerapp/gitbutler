@@ -4078,6 +4078,9 @@ fn prefers_same_named_local_target_branch() -> Result<()> {
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
         .run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/heads/main", "refs/heads/feature"])
+        .run();
     let repo = open_repo(tmp.path())?;
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_id = repo.find_reference(&target_ref)?.id().detach();
@@ -4085,6 +4088,11 @@ fn prefers_same_named_local_target_branch() -> Result<()> {
 
     fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
 
+    assert_eq!(
+        repo.find_reference("refs/heads/main")?.id().detach(),
+        target_id,
+        "the same-named main branch should fast-forward to the target"
+    );
     assert_eq!(
         repo.find_reference("refs/heads/feature")?.id().detach(),
         feature_id,
