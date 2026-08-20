@@ -847,14 +847,17 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
             "the graph preserves the stable name of each active worktree"
         );
     }
+    // The worktree branch never owns its commit: it is an empty segment
+    // forking onto the anonymous commit-owning segment below.
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
-└── ►:1[0]:feat-b[📁wt-b]
-    └── ·7d7d38f (⌂)
-        └── 👉►:0[1]:main[🌳@repo]
-            └── 🏁·85efbe4 (⌂|1)
+└── ►:2[0]:feat-b[📁wt-b]
+    └── ►:1[1]:anon:
+        └── ·7d7d38f (⌂)
+            └── 👉►:0[2]:main[🌳@repo]
+                └── 🏁·85efbe4 (⌂|1)
 
 "#]]
     );

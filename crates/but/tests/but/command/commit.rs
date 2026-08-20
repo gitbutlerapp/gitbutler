@@ -2731,8 +2731,6 @@ Created commit 1 on branch 'A'
 ┊╭┄ g0 [A]
 ┊●   1 note from worktree
 ┊│     1:u A note.txt
-┊│
-┊├┄ wt [wt-feature 📁 [..]worktrees/wt-feature]
 ┊┊
 ┊┊╭┄ m {wt-feature} (no changes)
 ┊├╯

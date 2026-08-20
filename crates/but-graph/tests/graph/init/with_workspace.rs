@@ -10316,3 +10316,584 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* dd0cca8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* e255adc (wsref, foo) A
+* fafd9d0 (origin/main, main) init
+
+"#]]
+    );
+
+    // Without metadata for `wsref`, the applied branch `foo` names the commit-owning
+    // segment and the worktree-checked-out `wsref` stays as a ref on the commit.
+    // Note that the shape is the same with or without seeded worktree tips.
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|01)
+◎  📙foo
+│ ◎  wsref[📁worktree-ref-at-applied-branch-wt]
+├─╯
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:3:foo on fafd9d0 {0}
+    └── 📙:3:foo
+        └── ·e255adc (🏘️) ►wsref[📁worktree-ref-at-applied-branch-wt]
+
+"#]]
+    );
+
+    // With `wsref` recorded as a dependent branch below `foo`, it becomes an
+    // in-lane commit-owning segment, so it shows up as a stack branch even though
+    // the worktree listing represents it as well.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|01)
+◎  📙foo
+◎  📙wsref[📁worktree-ref-at-applied-branch-wt]
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:4:foo on fafd9d0 {0}
+    ├── 📙:4:foo
+    └── 📙:5:wsref[📁worktree-ref-at-applied-branch-wt]
+        └── ·e255adc (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
+    let options = || but_graph::init::Options {
+        worktrees: true,
+        ..standard_options()
+    };
+    // With the worktree tip discovered, `wsref` leaves the lane: the commit is
+    // owned by an anonymous segment, `foo` keeps its place in the lane as an
+    // empty segment, and `wsref` forks directly into the commit.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    // Adoption already ran, so the fixture worktree counts as active.
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|01)
+◎  📙foo
+│ ◎  wsref[📁worktree-ref-at-applied-branch-wt]
+├─╯
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    // The worktree branch is no longer a stack row - the worktree listing
+    // represents it instead.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:5:foo on fafd9d0 {0}
+    └── 📙:5:foo
+        └── ·e255adc (🏘️)
+
+"#]]
+    );
+
+    // Even when workspace metadata records `wsref` as a dependent branch below
+    // `foo`, the worktree classification wins and the shape is the same.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|01)
+◎  📙foo
+│ ◎  📙wsref[📁worktree-ref-at-applied-branch-wt]
+├─╯
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:4:foo on fafd9d0 {0}
+    └── 📙:4:foo
+        └── ·e255adc (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_mid_stack() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* a62b0de (foo) A2
+* 120a217 (wsref) A1
+* fafd9d0 (origin/main, main) init
+
+"#]]
+    );
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    // The worktree branch points below `foo`'s tip: its commit is split into an
+    // anonymous segment that stays in the lane, and the branch forks into it.
+    // Rewrites relative to `wsref` thus never touch `foo` or the workspace.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·3ea2742 (⌂|🏘|01)
+◎  📙foo
+●  ·a62b0de (⌂|🏘|01)
+│ ◎  wsref[📁worktree-ref-mid-stack-wt]
+├─╯
+●  ·120a217 (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    // Both commits still belong to `foo`'s stack row.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:3:foo on fafd9d0 {0}
+    └── 📙:3:foo
+        ├── ·a62b0de (🏘️)
+        └── ·120a217 (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+/// Assert `short_name` is represented as a worktree fork: an empty named
+/// segment that nothing routes through, whose single outgoing connection lands
+/// on the first commit of a differently-owned segment.
+fn assert_worktree_ref_is_fork(graph: &Graph, short_name: &str) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+    use but_graph::petgraph::{Direction, visit::EdgeRef};
+    let full_name: gix::refs::FullName = format!("refs/heads/{short_name}").try_into()?;
+    let segment = graph
+        .segment_by_ref_name(full_name.as_ref())
+        .with_context(|| format!("{short_name} must still be addressable by name"))?;
+    assert!(
+        segment.commits.is_empty(),
+        "worktree-checked-out refs never own commits"
+    );
+    assert_eq!(
+        graph
+            .edges_directed(segment.id, Direction::Incoming)
+            .count(),
+        0,
+        "no lane routes through a worktree ref"
+    );
+    let outgoing: Vec<_> = graph
+        .edges_directed(segment.id, Direction::Outgoing)
+        .collect();
+    assert_eq!(outgoing.len(), 1, "a fork attaches to exactly one commit");
+    let target = &graph[outgoing[0].target()];
+    assert!(
+        target
+            .ref_name()
+            .is_none_or(|rn| { rn.category() != Some(gix::refs::Category::LocalBranch) })
+            || target.workspace_metadata().is_some(),
+        "no local branch names the commit-owning segment, so the editor \
+         attaches the fork to the commit instead of another reference"
+    );
+    assert_eq!(
+        segment.ref_info.as_ref().and_then(|ri| ri.commit_id),
+        target.commits.first().map(|c| c.id),
+        "the fork lands on the first commit of the owning segment, \
+         which the ref-info also remembers"
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
+    // Workspace metadata records `wsref` as the stack top above `foo`, which the
+    // workspace upgrades represent as an empty segment chained into the lane.
+    // The worktree classification wins: the chained segment is spliced out and
+    // re-attached as a fork onto the commit, while `foo` keeps the lane.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &["foo"]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|01)
+◎  📙foo
+│ ◎  📙wsref[📁worktree-ref-at-applied-branch-wt]
+├─╯
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:3:foo on fafd9d0 {0}
+    └── 📙:3:foo
+        └── ·e255adc (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_as_entrypoint_keeps_its_lane() -> anyhow::Result<()> {
+    // Viewing the graph from the worktree branch itself - like branch details
+    // for it would - keeps the ref addressable as a lane instead of forking it
+    // out from under the entrypoint.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let (wsref_id, wsref_ref) = id_at(&repo, "wsref");
+    let graph = Graph::from_commit_traversal(
+        wsref_id,
+        wsref_ref,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘)
+◎  👉wsref[📁worktree-ref-at-applied-branch-wt]
+◎  📙foo
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
+    // Both the applied branch sharing the commit and the worktree branch have
+    // remotes: hoisting `foo` must keep its remote linkage, and the pass must
+    // run after the remote improvements - otherwise those would re-name the
+    // anonymous owner from the refs left on the commit, or wire the worktree
+    // branch's remote through the fork, re-coupling it to the lane.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-remote-tracked-branch")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* dd0cca8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* e255adc (origin/wsref, origin/foo, wsref, foo) A
+* fafd9d0 (origin/main, main) init
+
+"#]]
+    );
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let options = || but_graph::init::Options {
+        worktrees: true,
+        ..standard_options()
+    };
+    let graph =
+        Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘|001)
+│ ◎  wsref[📁worktree-ref-at-remote-tracked-branch-wt]
+│ │ ◎  origin/foo
+├───╯
+│ │ ◎  origin/main
+│ │ │ ◎  origin/wsref
+├─────╯
+◎ │ │  📙foo <> origin/foo
+├─╯ │
+●   │  ·e255adc (⌂|🏘|101)
+├───╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|111)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡📙:7:foo <> origin/foo →:4: on fafd9d0 {0}
+    └── 📙:7:foo <> origin/foo →:4:
+        └── ❄️e255adc (🏘️)
+
+"#]]
+    );
+
+    // With `wsref` itself recorded as the stack branch, traversal names the
+    // commit-owning segment after it and the pass demotes it in place, moving
+    // the remote linkage onto the fork. The owner stays anonymous even though
+    // `foo`, with its own remote, is left on the commit - which is exactly what
+    // running after the remote improvements guarantees.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-remote-tracked-branch")?;
+    add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?.validated()?;
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  foo
+│ ◎  👉📕gitbutler/workspace[🌳@repo]
+│ ●  ·dd0cca8 (⌂|🏘|001)
+├─╯
+│ ◎  📙wsref[📁worktree-ref-at-remote-tracked-branch-wt] <> origin/wsref
+├─╯
+│ ◎  origin/foo
+├─╯
+│ ◎  origin/main
+│ │ ◎  origin/wsref
+├───╯
+● │  ·e255adc (⌂|🏘|101)
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|111)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡:3:anon: on fafd9d0
+    └── :3:anon:
+        └── ·e255adc (🏘️) ►foo
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_beside_entrypoint_branch() -> anyhow::Result<()> {
+    // Viewing the graph from `foo` while the worktree branch shares its commit:
+    // extracting `foo`'s name into an empty in-lane segment must carry the
+    // entrypoint along, and the worktree branch still forks out.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let (foo_id, foo_ref) = id_at(&repo, "foo");
+    let graph = Graph::from_commit_traversal(
+        foo_id,
+        foo_ref,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📕gitbutler/workspace[🌳@repo]
+●  ·dd0cca8 (⌂|🏘)
+◎  👉📙foo
+│ ◎  wsref[📁worktree-ref-at-applied-branch-wt]
+├─╯
+●  ·e255adc (⌂|🏘|01)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·fafd9d0 (⌂|🏘|✓|11)
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ref_survives_metadata_normalization() -> anyhow::Result<()> {
+    let options = || but_graph::init::Options {
+        worktrees: true,
+        ..standard_options()
+    };
+    // As a dependent branch below `foo`: the projection hides `wsref`, but
+    // deriving metadata from the projection must not drop it from its stack -
+    // being checked out in a worktree is transient, not a workspace change.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let ws = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
+        .validated()?
+        .into_workspace()?;
+    let md = ws
+        .metadata_from_projection()?
+        .expect("workspace metadata exists");
+    let stack = md
+        .stacks
+        .iter()
+        .find(|stack| {
+            stack
+                .branches
+                .iter()
+                .any(|branch| branch.ref_name.as_ref().shorten() == "foo")
+        })
+        .expect("foo's stack is recorded");
+    assert!(
+        stack
+            .branches
+            .iter()
+            .any(|branch| branch.ref_name.as_ref().shorten() == "wsref"),
+        "the worktree-checked-out branch stays recorded in its stack"
+    );
+    assert!(
+        stack.workspacecommit_relation.is_in_workspace(),
+        "the stack remains applied"
+    );
+
+    // As the only branch of its stack: no projected stack matches it at all,
+    // yet it must not be flipped to outside-the-workspace.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &[]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let ws = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
+        .validated()?
+        .into_workspace()?;
+    let md = ws
+        .metadata_from_projection()?
+        .expect("workspace metadata exists");
+    let stack = md
+        .stacks
+        .iter()
+        .find(|stack| {
+            stack
+                .branches
+                .iter()
+                .any(|branch| branch.ref_name.as_ref().shorten() == "wsref")
+        })
+        .expect("the single-branch stack is still recorded");
+    assert!(
+        stack.workspacecommit_relation.is_in_workspace(),
+        "a stack whose only branch is checked out in a worktree remains applied"
+    );
+    Ok(())
+}

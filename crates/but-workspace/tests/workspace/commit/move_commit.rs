@@ -1157,17 +1157,20 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     )?
     .materialize(Default::default())?;
 
-    // Both moved commits land on `other` and `main` falls back onto `stack-base`. The
-    // placeholder left where `feat`'s commit sat keeps `feat` directly above `other`, so
-    // it resolves through the placeholder onto the moved commit; `stable` and `target`
-    // sit below the insertion point and stay on the base commit.
+    // Both moved commits land on `other`, and only on `other`: worktree-checked-out
+    // branches fork directly into the commit they point at, so inserting below `other`
+    // neither rebases `main`/`stack-base` nor drags `feat` along. The placeholder left
+    // where `feat`'s commit sat resolves through to the commit below, so `feat` falls
+    // back onto the base it donated its commit from; `stable` and `target` stay on the
+    // base commit as well.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 0529812 (HEAD -> main, stack-base) stack base
-* 9a81bea (other, feat) worktree source
-* 6f6bfe8 workspace source
-* 35b8235 (target, stable) base
+* 4119f49 (HEAD -> main, stack-base) stack base
+| * 9a81bea (other) worktree source
+| * 6f6bfe8 workspace source
+|/  
+* 35b8235 (target, stable, feat) base
 
 "#]]
         .raw()
@@ -1177,7 +1180,7 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     assert_eq!(
         git_status_at_dir(workdir.join("wt"))?,
         "",
-        "the source linked checkout follows its moved ref"
+        "the source linked checkout follows its moved-out ref cleanly"
     );
     assert_eq!(
         git_status_at_dir(workdir.join("other"))?,
@@ -1185,8 +1188,8 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
         "the destination linked checkout follows its rewritten ref"
     );
     assert!(
-        workdir.join("wt/wt-file").exists(),
-        "`feat` tracks its commit to the destination, so the source linked checkout has it too"
+        !workdir.join("wt/wt-file").exists(),
+        "`feat` stays behind on the base, so its checkout no longer contains the moved-away commit's file"
     );
     assert_eq!(
         std::fs::read_to_string(workdir.join("other/ws-file"))?,

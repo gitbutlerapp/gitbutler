@@ -1738,4 +1738,47 @@ EOF
        commit x2
      create_workspace_commit_once X
   )
+
+  # A branch checked out in a linked worktree points at the tip commit of an
+  # applied workspace branch, so the worktree ref competes with the stack
+  # branch for that commit.
+  git init worktree-ref-at-applied-branch
+  (cd worktree-ref-at-applied-branch
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A
+    git worktree add -b wsref ../worktree-ref-at-applied-branch-wt foo
+    create_workspace_commit_once foo
+  )
+
+  # A branch checked out in a linked worktree points at the tip of an applied
+  # branch that also has a remote tracking branch.
+  git init worktree-ref-at-remote-tracked-branch
+  (cd worktree-ref-at-remote-tracked-branch
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A
+    git checkout -b soon-origin-foo foo
+    git checkout -b soon-origin-wsref foo
+    git checkout foo
+    setup_remote_tracking soon-origin-foo foo "move"
+    setup_remote_tracking soon-origin-wsref wsref "move"
+    git worktree add -b wsref ../worktree-ref-at-remote-tracked-branch-wt foo
+    create_workspace_commit_once foo
+  )
+
+  # A branch checked out in a linked worktree points into the middle of an
+  # applied branch's commits, below its tip.
+  git init worktree-ref-mid-stack
+  (cd worktree-ref-mid-stack
+    commit init
+    setup_target_to_match_main
+    git checkout -b foo
+      commit A1
+      commit A2
+    git worktree add -b wsref ../worktree-ref-mid-stack-wt foo~1
+    create_workspace_commit_once foo
+  )
 )
