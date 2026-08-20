@@ -2045,33 +2045,39 @@ pub async fn list_reviews_for_branch(
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
-    // Get all stacks
-    let stacks = crate::legacy::workspace::stacks(ctx, None)?;
+    // Get all applied stacks and their branches
+    let workspace = crate::legacy::workspace::head_info(ctx)?;
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
 
-    // For each stack, get details and check branches
-    for stack in stacks {
-        if let Some(stack_id) = stack.id {
-            let details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-
-            // Process each branch that has a PR
-            for branch in &details.branch_details {
-                if branch.pr_number.is_some() {
-                    // Fetch CI checks with NoCache to force refresh
-                    let _ = list_ci_checks(
-                        ctx,
-                        branch.name.to_string(),
-                        Some(but_forge::CacheConfig::NoCache),
-                    );
-                    // Ignore errors for individual branches to ensure we process all branches
-
-                    // Track this reference as having CI checks
-                    current_refs.insert(branch.name.to_string());
-                }
-            }
+    // Process each branch that has a PR
+    for segment in workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.segments.iter())
+    {
+        let has_pull_request = segment
+            .metadata
+            .as_ref()
+            .is_some_and(|meta| meta.review.pull_request.is_some());
+        if !has_pull_request {
+            continue;
         }
+        let Some(name) = segment
+            .ref_info
+            .as_ref()
+            .map(|ref_info| ref_info.ref_name.shorten().to_string())
+        else {
+            continue;
+        };
+
+        // Fetch CI checks with NoCache to force refresh
+        let _ = list_ci_checks(ctx, name.clone(), Some(but_forge::CacheConfig::NoCache));
+        // Ignore errors for individual branches to ensure we process all branches
+
+        // Track this reference as having CI checks
+        current_refs.insert(name);
     }
 
     // Clean up stale CI check entries from the database
