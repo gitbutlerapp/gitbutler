@@ -75,6 +75,9 @@ pub mod watcher;
 /// The tag vocabulary clients cache API results under.
 pub mod tags;
 
+/// App-level AI configuration.
+pub mod ai;
+
 /// Functions for workspace state.
 pub mod workspace_state;
 

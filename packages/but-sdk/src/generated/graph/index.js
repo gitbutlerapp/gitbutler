@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, addCommentReaction, addProject, addReviewLabels, addReviewReaction, apply, applyBranchIntegration, assignHunk, branchCannedName, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, checkGithubAuthStatus, checkSigningSettings, commentArchive, commentCreate, commentsList, commentUpdate, commitAmend, commitCherryPick, commitConflicts, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, createReviewComment, currentForgeLogin, deleteAllData, deleteProject, deleteReviewComment, deleteUser, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, forgetBitbucketAccount, forgetGithubAccount, forgetGitlabAccount, getBbUser, getBlobFile, getGbConfig, getGhUser, getGlUser, getInitialBranchIntegration, getLoginToken, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getTerminalOptionsForPlatform, getUndoTargetSnapshot, getUserProfileLocal, getWorkspace, getWorkspaceFile, gitTestFetch, gitTestPush, headInfo, initApplicationNamespace, initGithubDeviceOauth, listAvailableReviewTemplates, listBranches, listCiChecks, listCommentReactions, listEditors, listKnownBitbucketAccounts, listKnownGithubAccounts, listKnownGitlabAccounts, listPrograms, listProjectsStateless, listRepoLabels, listReviewComments, listReviewerCandidates, listReviewReactions, listReviews, listReviewsForBranch, listReviewSubmissions, listReviewTimelineEvents, loginAndPersist, mergeReview, moveBranch, openInProgram, openInTerminal, peelRestoreSnapshot, ProgramCategory, publishReview, removeBranch, removeCommentReaction, removeReviewLabel, removeReviewReaction, requestReview, resolveCommitConflictHunks, resolveWorktreeConflicts, restoreSnapshotWithKind, reviewApply, reviewTemplate, setGbConfig, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setTargetRefAndInitProject, storeBitbucketApiToken, storeGithubPat, storeGitlabPat, tearOffBranch, treeChangeDiffs, unapplyStack, updateProfileAndPersist, updateProjectSettings, updateReview, updateReviewComment, updateReviewFooters, warmCiChecksCache, withdrawReviewRequest, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceTargetCommits, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAiConfiguration, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, interactiveLoginShellEnvironment, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, resetAiConfiguration, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, streamAiResponse, updateAiConfiguration, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, addCommentReaction, addProject, addReviewLabels, addReviewReaction, apply, applyBranchIntegration, assignHunk, branchCannedName, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, branchList, branchRemove, branchRename, changesInWorktree, changesInWorktreeWithPerm, checkGithubAuthStatus, checkSigningSettings, commentArchive, commentCreate, commentsList, commentUpdate, commitAmend, commitCherryPick, commitConflicts, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, commitUncommitChangesFromCommits, createReviewComment, currentForgeLogin, deleteAllData, deleteProject, deleteReviewComment, deleteUser, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, forgetBitbucketAccount, forgetGithubAccount, forgetGitlabAccount, getAiConfiguration, getBbUser, getBlobFile, getGbConfig, getGhUser, getGlUser, getInitialBranchIntegration, getLoginToken, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getTerminalOptionsForPlatform, getUndoTargetSnapshot, getUserProfileLocal, getWorkspace, getWorkspaceFile, gitTestFetch, gitTestPush, headInfo, initApplicationNamespace, initGithubDeviceOauth, listAvailableReviewTemplates, listBranches, listCiChecks, listCommentReactions, listEditors, listKnownBitbucketAccounts, listKnownGithubAccounts, listKnownGitlabAccounts, listPrograms, listProjectsStateless, listRepoLabels, listReviewComments, listReviewerCandidates, listReviewReactions, listReviews, listReviewsForBranch, listReviewSubmissions, listReviewTimelineEvents, loginAndPersist, mergeReview, moveBranch, openInProgram, openInTerminal, peelRestoreSnapshot, ProgramCategory, publishReview, removeBranch, removeCommentReaction, removeReviewLabel, removeReviewReaction, requestReview, resetAiConfiguration, resolveCommitConflictHunks, resolveWorktreeConflicts, restoreSnapshotWithKind, reviewApply, reviewTemplate, setGbConfig, setPushRemote, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, setTargetRefAndInitProject, storeBitbucketApiToken, storeGithubPat, storeGitlabPat, tearOffBranch, treeChangeDiffs, unapplyStack, updateAiConfiguration, updateProfileAndPersist, updateProjectSettings, updateReview, updateReviewComment, updateReviewFooters, warmCiChecksCache, withdrawReviewRequest, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceFetchFromRemotes, workspaceFetchStatus, workspaceIntegrateUpstream, workspaceTargetCommits, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, getAppSettings, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, interactiveLoginShellEnvironment, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, streamAiResponse, updateFeatureFlags, updateFetch, updateOnboardingComplete, updateReviews, updateTelemetry, updateTelemetryDistinctId, updateUi, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
 export { addCommentReaction }
@@ -635,6 +635,7 @@ export { forgeProvider }
 export { forgetBitbucketAccount }
 export { forgetGithubAccount }
 export { forgetGitlabAccount }
+export { getAiConfiguration }
 export { getBbUser }
 export { getBlobFile }
 export { getGbConfig }
@@ -688,6 +689,7 @@ export { removeCommentReaction }
 export { removeReviewLabel }
 export { removeReviewReaction }
 export { requestReview }
+export { resetAiConfiguration }
 export { resolveCommitConflictHunks }
 export { resolveWorktreeConflicts }
 export { restoreSnapshotWithKind }
@@ -705,6 +707,7 @@ export { storeGitlabPat }
 export { tearOffBranch }
 export { treeChangeDiffs }
 export { unapplyStack }
+export { updateAiConfiguration }
 export { updateProfileAndPersist }
 export { updateProjectSettings }
 export { updateReview }
@@ -725,7 +728,6 @@ export { ANY_MERGE }
 export { askpassInit }
 export { askpassSubmitPromptResponse }
 export { CHILD }
-export { getAiConfiguration }
 export { getAppSettings }
 export { HORIZ_ANCESTOR }
 export { HORIZ_PARENT }
@@ -737,7 +739,6 @@ export { LEFT_FORK_PARENT }
 export { LEFT_MERGE }
 export { LEFT_MERGE_ANCESTOR }
 export { LEFT_MERGE_PARENT }
-export { resetAiConfiguration }
 export { RIGHT_FORK }
 export { RIGHT_FORK_ANCESTOR }
 export { RIGHT_FORK_PARENT }
@@ -745,7 +746,6 @@ export { RIGHT_MERGE }
 export { RIGHT_MERGE_ANCESTOR }
 export { RIGHT_MERGE_PARENT }
 export { streamAiResponse }
-export { updateAiConfiguration }
 export { updateFeatureFlags }
 export { updateFetch }
 export { updateOnboardingComplete }

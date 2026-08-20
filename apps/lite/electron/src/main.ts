@@ -280,9 +280,8 @@ type Handler<K extends TableKey> = LiteElectronApi[K] extends (params: infer P) 
 	: never;
 
 /**
- * Members the main process answers itself: electron's own capabilities, and
- * the one endpoint that is not `#[but_api]`. Listing one here is what takes
- * it out of the derived set.
+ * Members the main process answers itself: electron's own capabilities.
+ * Listing one here is what takes it out of the derived set.
  */
 const ipcHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
@@ -290,7 +289,6 @@ const ipcHandlerOverrides = {
 		clipboard.writeText(text, "clipboard");
 	},
 	getVersion: () => app.getVersion(),
-	getAiConfiguration: () => sdk.getAiConfiguration(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
 		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
@@ -313,8 +311,6 @@ const ipcHandlerOverrides = {
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
-	resetAiConfiguration: () => sdk.resetAiConfiguration(),
-	updateAiConfiguration: (update) => sdk.updateAiConfiguration(update),
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);

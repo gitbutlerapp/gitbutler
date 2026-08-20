@@ -1509,7 +1509,6 @@ dependencies = [
  "but-ctx",
  "but-llm",
  "but-path",
- "but-secret",
  "but-settings",
  "gitbutler-watcher",
  "gix",
