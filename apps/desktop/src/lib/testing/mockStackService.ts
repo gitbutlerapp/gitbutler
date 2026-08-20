@@ -45,7 +45,6 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	tip: "tip-commit-a",
 	baseCommit: "base-commit-a",
 	isRemoteHead: false,
-	linkedWorktreeId: null,
 	lastUpdatedAt: 1672531200000,
 };
 

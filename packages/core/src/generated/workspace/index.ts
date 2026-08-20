@@ -31,11 +31,6 @@ export type BranchDetails = {
 	 */
 	reference: string;
 	/**
-	 * The id of the linked worktree that has the reference of `name` checked out.
-	 * Note that we don't list the main worktree here.
-	 */
-	linkedWorktreeId: string | null;
-	/**
 	 * Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
 	 */
 	remoteTrackingBranch: string | null;
