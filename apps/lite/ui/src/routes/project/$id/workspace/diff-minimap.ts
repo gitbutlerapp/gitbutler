@@ -1,6 +1,8 @@
 import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import type { CodeView } from "@pierre/diffs";
+import type { SearchMarks } from "./diff-search-marks.ts";
+import type { DiffSearchMatch } from "./diff-search.ts";
 import {
 	type Annotation,
 	codeViewItemMetrics,
@@ -455,6 +457,10 @@ const lineTop = (file: MinimapFile, side: ChangeSide, line: number): number | nu
 	return null;
 };
 
+/** Identifies a match across the two views drawing it. */
+const searchMatchKey = (itemId: string, match: DiffSearchMatch): string =>
+	`${itemId} ${match.side} ${match.lineNumber}`;
+
 /** The range the diff currently has selected, in file line numbers. */
 export type MinimapSelection = {
 	itemId: string;
@@ -468,6 +474,8 @@ export type MinimapOverlays = {
 	/** Comment positions, in scroll-content pixels. */
 	pins: Array<number>;
 	band: { top: number; height: number } | null;
+	/** Search matches, in scroll-content pixels, the current one flagged. */
+	matches: Array<{ top: number; current: boolean }>;
 };
 
 /**
@@ -480,14 +488,28 @@ export const getMinimapOverlays = ({
 	geometry,
 	annotationsByPath,
 	selection,
+	searchMarks,
 }: {
 	files: Array<MinimapFile>;
 	geometry: MinimapGeometry;
 	annotationsByPath: LocalAnnotationsByPath;
 	selection: MinimapSelection | null;
+	searchMarks: SearchMarks;
 }): MinimapOverlays => {
 	const pins: Array<number> = [];
+	const matches: Array<{ top: number; current: boolean }> = [];
 	let band: { top: number; height: number } | null = null;
+
+	const currentKey =
+		searchMarks.current === null
+			? null
+			: searchMatchKey(searchMarks.current.itemId, searchMarks.current);
+	const matchesByItem = new Map<string, Array<DiffSearchMatch>>();
+	for (const match of searchMarks.matches) {
+		const forItem = matchesByItem.get(match.itemId);
+		if (forItem) forItem.push(match);
+		else matchesByItem.set(match.itemId, [match]);
+	}
 
 	for (const [index, file] of files.entries()) {
 		const block = geometry.blocks[index];
@@ -502,6 +524,15 @@ export const getMinimapOverlays = ({
 		for (const annotation of annotationsByPath.get(file.path) ?? []) {
 			const top = place(annotation.side, annotation.lineNumber);
 			if (top !== null) pins.push(top);
+		}
+
+		for (const match of matchesByItem.get(file.itemId) ?? []) {
+			// A context match is numbered on the additions side; in split view its
+			// deletions-column twin sits on the same row, so one mark says it.
+			const top = place(match.side, match.lineNumber);
+			if (top === null) continue;
+
+			matches.push({ top, current: searchMatchKey(file.itemId, match) === currentKey });
 		}
 
 		if (selection?.itemId !== file.itemId) continue;
@@ -529,7 +560,7 @@ export const getMinimapOverlays = ({
 		band = { top, height: Math.max(bottom - top, 0) };
 	}
 
-	return { pins, band };
+	return { pins, band, matches };
 };
 
 /**

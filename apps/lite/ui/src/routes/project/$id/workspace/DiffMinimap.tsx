@@ -9,7 +9,9 @@ import {
 	useLayoutEffect,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
+import type { SearchMarks } from "./diff-search-marks.ts";
 import type { Annotation } from "./diff-view.ts";
 import {
 	getMinimapGeometry,
@@ -51,7 +53,16 @@ export const DiffMinimap: FC<{
 	diffStyle: GUISettings["diffStyle"];
 	annotationsByPath: LocalAnnotationsByPath;
 	selection: MinimapSelection | null;
-}> = ({ viewerRef, files, diffStyle, annotationsByPath, selection }) => {
+	/**
+	 * Subscribed to rather than passed as matches, so a keystroke in the search
+	 * bar repaints this ruler without re-rendering the diff pane around it.
+	 */
+	searchMarks: {
+		subscribe: (listener: () => void) => () => void;
+		getSnapshot: () => SearchMarks;
+	};
+}> = ({ viewerRef, files, diffStyle, annotationsByPath, selection, searchMarks }) => {
+	const marks = useSyncExternalStore(searchMarks.subscribe, searchMarks.getSnapshot);
 	const rulerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const markerRef = useRef<HTMLDivElement>(null);
@@ -68,7 +79,7 @@ export const DiffMinimap: FC<{
 		scale: number;
 		scrollable: number;
 	} | null>(null);
-	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection });
+	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection, marks });
 	const geometryRef = useRef<MinimapGeometry | null>(null);
 	const layoutRef = useRef<MinimapLayout | null>(null);
 	/** Where the map is wound to, which it keeps until the lens runs out of ruler. */
@@ -136,7 +147,7 @@ export const DiffMinimap: FC<{
 
 		const draw = (layout: MinimapLayout): void => {
 			const data = dataRef.current;
-			const { files, diffStyle, annotationsByPath, selection } = data;
+			const { files, diffStyle, annotationsByPath, selection, marks } = data;
 			const geometry = getMinimapGeometry(viewer, files);
 
 			geometryRef.current = geometry;
@@ -146,7 +157,13 @@ export const DiffMinimap: FC<{
 			const overlays =
 				lastOverlays !== null && lastData === data && sameMinimapGeometry(lastGeometry, geometry)
 					? lastOverlays
-					: getMinimapOverlays({ files, geometry, annotationsByPath, selection });
+					: getMinimapOverlays({
+							files,
+							geometry,
+							annotationsByPath,
+							selection,
+							searchMarks: marks,
+						});
 
 			lastData = data;
 			lastGeometry = geometry;
@@ -314,10 +331,11 @@ export const DiffMinimap: FC<{
 			previous.files !== files ||
 			previous.diffStyle !== diffStyle ||
 			previous.annotationsByPath !== annotationsByPath ||
-			previous.selection !== selection;
+			previous.selection !== selection ||
+			previous.marks !== marks;
 		if (!changed) return;
 
-		dataRef.current = { files, diffStyle, annotationsByPath, selection };
+		dataRef.current = { files, diffStyle, annotationsByPath, selection, marks };
 		resyncRef.current?.();
 	});
 

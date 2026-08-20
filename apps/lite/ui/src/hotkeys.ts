@@ -359,4 +359,8 @@ export const diffHotkeys = {
 		hotkey: "E",
 		meta: { group: "Diff", name: "Open in editor" },
 	},
+	search: {
+		hotkey: "Mod+F",
+		meta: { group: "Diff", name: "Search diff" },
+	},
 } satisfies Record<string, HotkeyWithMeta>;

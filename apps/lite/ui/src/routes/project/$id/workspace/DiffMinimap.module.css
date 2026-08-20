@@ -39,6 +39,18 @@
 	initial-value: transparent;
 }
 
+@property --minimap-search {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+@property --minimap-search-current {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
 .minimap {
 	/* Mixed towards the background the way the diff tints its own changed rows,
 	   just further, since a mark can be a single pixel tall. This is the colour
@@ -59,6 +71,11 @@
 	/* Behind the marks it covers rather than over them, so a selected hunk still
 	   reads as added or removed. */
 	--minimap-selection: color-mix(in srgb, var(--fill-pop-bg) 16%, transparent);
+	/* The same amber the diff washes matching lines in, over the marks so a match
+	   is findable in a dense file; the current one opaque enough to pick out of
+	   its neighbours at a pixel a line. */
+	--minimap-search: color-mix(in srgb, var(--fill-warn-bg) 45%, transparent);
+	--minimap-search-current: var(--fill-warn-bg);
 	/* Overlaid on the code's right edge, so a diff at rest keeps the whole
 	   pane. Ends where the map does: at a fixed scale a short diff doesn't
 	   reach the foot of the pane. */

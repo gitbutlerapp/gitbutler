@@ -192,6 +192,9 @@ import {
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
 import { ImageDiff } from "./ImageDiff.tsx";
+import { DiffSearchBar } from "./DiffSearchBar.tsx";
+import type { DiffSearchMatch } from "./diff-search.ts";
+import { diffSearchMarksUnsafeCSS, useDiffSearchMarks } from "./diff-search-marks.ts";
 import {
 	getMinimapFiles,
 	measureWrapColumns,
@@ -1278,6 +1281,11 @@ const DiffContents: FC<{
 			checkHunkLines,
 			fileParent._tag === "Branch" ? undefined : handleCreateComment,
 		);
+	const {
+		onPostRender: handleMarkedDiffPostRender,
+		setSearchMatches,
+		searchMarks,
+	} = useDiffSearchMarks(handleDiffPostRender);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
 		// Folding hides the selected hunk's lines; hand the selection to the
@@ -1296,6 +1304,34 @@ const DiffContents: FC<{
 		setManualCollapse(itemId, collapsed);
 		if (collapsed && !collapsedItems.has(itemId)) handOffCollapsedSelection(itemId);
 	};
+
+	// Stable so typing in the search bar only re-renders the bar, never this
+	// component; the callback still reads the render-fresh helpers it closes over.
+	const navigateToSearchMatch = useStableCallback((match: DiffSearchMatch): void => {
+		if (collapsedItems.has(match.itemId)) setManualCollapse(match.itemId, false);
+
+		applySelectedLines({
+			id: match.itemId,
+			range: {
+				start: match.lineNumber,
+				side: match.side,
+				end: match.lineNumber,
+				endSide: match.side,
+			},
+		});
+
+		// A frame later, so an unfold above reaches CodeView's layout before the
+		// scroll asks it where the line is.
+		requestAnimationFrame(() => {
+			viewerRef.current?.scrollTo({
+				type: "line",
+				id: match.itemId,
+				lineNumber: match.lineNumber,
+				side: match.side,
+				align: "center",
+			});
+		});
+	});
 
 	const handleSetReviewed =
 		(itemId: string, path: string, version: number) => (reviewed: boolean) => {
@@ -1486,7 +1522,7 @@ const DiffContents: FC<{
 					// as defined in the metrics. We'll see an additional set of logs if there are other issues
 					// with our metrics.
 					__devOnlyValidateItemHeights: false,
-					onPostRender: handleDiffPostRender,
+					onPostRender: handleMarkedDiffPostRender,
 					itemMetrics: codeViewItemMetrics,
 					unsafeCSS: `
           :host {
@@ -1542,6 +1578,7 @@ const DiffContents: FC<{
           }
 
           ${diffGutterUnsafeCSS}
+          ${diffSearchMarksUnsafeCSS}
         `,
 				}}
 				style={{
@@ -1554,6 +1591,13 @@ const DiffContents: FC<{
 
 			{diffGutterPortals}
 
+			<DiffSearchBar
+				items={items}
+				focusScopeRef={focusScopeRef}
+				onNavigate={navigateToSearchMatch}
+				onMatchesChange={setSearchMatches}
+			/>
+
 			{minimapFiles && (
 				<DiffMinimap
 					viewerRef={viewerRef}
@@ -1561,6 +1605,7 @@ const DiffContents: FC<{
 					diffStyle={effectiveDiffStyle}
 					annotationsByPath={annotationsByPath}
 					selection={minimapSelection}
+					searchMarks={searchMarks}
 				/>
 			)}
 		</>

@@ -281,6 +281,8 @@ type MinimapPalette = {
 	pin: string;
 	selection: string;
 	rule: string;
+	search: string;
+	searchCurrent: string;
 };
 
 let palette: MinimapPalette | null = null;
@@ -301,6 +303,8 @@ const readMinimapPalette = (canvas: HTMLCanvasElement): MinimapPalette => {
 		pin: tokens.getPropertyValue("--minimap-pin"),
 		selection: tokens.getPropertyValue("--minimap-selection"),
 		rule: tokens.getPropertyValue("--minimap-file-rule"),
+		search: tokens.getPropertyValue("--minimap-search"),
+		searchCurrent: tokens.getPropertyValue("--minimap-search-current"),
 	};
 	return palette;
 };
@@ -451,6 +455,14 @@ export const paintMinimap = (
 		marks.putImageData(surface.image, 0, 0);
 		// Drawn rather than written, so the band beneath shows through the gaps.
 		context.drawImage(surface.canvas, 0, 0, width, height);
+	}
+
+	// Over the marks, so a match is findable in a dense file, but under the rules
+	// and pins. Full width and at least a device pixel tall, since a match is a
+	// single line and would otherwise vanish on a long diff.
+	for (const match of overlays.matches) {
+		context.fillStyle = match.current ? fills.searchCurrent : fills.search;
+		context.fillRect(0, match.top * scale - offset, width, Math.max(scale, thinnest));
 	}
 
 	// Drawn last and opaque, so a rule reads over the marks it crosses rather
