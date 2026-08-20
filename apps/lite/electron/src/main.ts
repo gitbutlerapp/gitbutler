@@ -369,11 +369,12 @@ const registerIpcHandlers = (): void => {
 };
 
 /**
- * A `but://app/...` link, translated to whatever this build actually serves:
- * the dev server in development, our own scheme when packaged. Returns null
- * for anything that is not one of our links.
+ * Where a `but://app/...` link points, in both forms a window can take it:
+ * `url` for one that has to load the page (the dev server in development, our
+ * own scheme when packaged), `path` for one whose router can just navigate
+ * there. Null for anything that is not one of our links.
  */
-const deepLinkTargetUrl = (link: string): string | null => {
+const deepLinkTarget = (link: string): { url: string; path: string } | null => {
 	const url = newUrlOrNull(link);
 	if (
 		url === null ||
@@ -391,7 +392,7 @@ const deepLinkTargetUrl = (link: string): string | null => {
 	// having checked out says nothing about where this one points.
 	if (target.protocol !== base.protocol || target.host !== base.host) return null;
 
-	return target.href;
+	return { url: target.href, path: `${target.pathname}${target.search}` };
 };
 
 /**
@@ -421,8 +422,10 @@ const showAndFocusWindow = (window: BrowserWindow): void => {
 
 /**
  * Open a deep link in the window we already have, or start one if the app was
- * launched by the link. The project it names is checked by the route itself,
- * which covers every other way a URL arrives too.
+ * launched by the link. A running window navigates to the link rather than
+ * reloading the page, so the app keeps its state and its history. The project
+ * the link names is checked by the route itself, which covers every other way
+ * a URL arrives too.
  */
 const openDeepLink = async (link: string): Promise<void> => {
 	const url = newUrlOrNull(link);
@@ -432,7 +435,7 @@ const openDeepLink = async (link: string): Promise<void> => {
 		return;
 	}
 
-	const target = deepLinkTargetUrl(link);
+	const target = deepLinkTarget(link);
 	if (target === null) {
 		// oxlint-disable-next-line no-console
 		console.error(`Ignored deep link ${link}`);
@@ -441,12 +444,20 @@ const openDeepLink = async (link: string): Promise<void> => {
 
 	const [existing] = BrowserWindow.getAllWindows();
 	if (!existing) {
-		await createMainWindow(target);
+		await createMainWindow(target.url);
 		return;
 	}
 
 	showAndFocusWindow(existing);
-	await existing.loadURL(target);
+
+	// A page still loading has no listener yet, so it has to be given the link
+	// as the page to load.
+	if (existing.webContents.isLoading()) {
+		await existing.loadURL(target.url);
+		return;
+	}
+
+	existing.webContents.send("deepLink", target.path);
 };
 
 /** The `but://` link in a launch argv, if the OS started us with one. */
@@ -632,7 +643,7 @@ void app.whenReady().then(async () => {
 	if (launchUrl?.protocol === `${liteProtocolScheme}:`) await completeLogin(launchUrl);
 
 	await createMainWindow(
-		launchLink === undefined ? undefined : (deepLinkTargetUrl(launchLink) ?? undefined),
+		launchLink === undefined ? undefined : (deepLinkTarget(launchLink)?.url ?? undefined),
 	);
 
 	app.on("activate", () => {

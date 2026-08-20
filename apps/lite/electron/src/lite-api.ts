@@ -18,6 +18,7 @@ type LiteApiTransport = {
 /** API members implemented below rather than forwarded. */
 type SpecialKey =
 	| "onAskpassPrompt"
+	| "onDeepLink"
 	| "onFullScreenChange"
 	| "platform"
 	| "streamAiResponse"
@@ -28,6 +29,7 @@ type SpecialKey =
 /** The same members under their endpoint names; `platform` has no channel at all. */
 const specialNames = [
 	"askpassPrompt",
+	"deepLink",
 	"fullScreenChange",
 	"streamAiResponse",
 	"watcherSubscribe",
@@ -77,6 +79,10 @@ export const createLiteApi = ({
 		onAskpassPrompt: (callback) =>
 			subscribe("askpassPrompt", (payload) => {
 				callback(payload as AskpassPromptEvent);
+			}),
+		onDeepLink: (callback) =>
+			subscribe("deepLink", (payload) => {
+				callback(payload as string);
 			}),
 		onFullScreenChange: (callback) =>
 			subscribe("fullScreenChange", (payload) => {
