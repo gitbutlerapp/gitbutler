@@ -25,7 +25,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
+import { SwitchButton } from "#ui/components/SwitchButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -46,7 +46,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEventHandler, Suspense, useId, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, Suspense, useRef, useState } from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -88,7 +88,6 @@ export const PullRequestForm: FC<{
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-	const draftSwitchId = useId();
 	/** Drives the rule under the toolbar, so text never slides under it bare. */
 	const [bodyScrolled, setBodyScrolled] = useState(false);
 
@@ -246,26 +245,13 @@ export const PullRequestForm: FC<{
 						<div className={styles.footerEnd}>
 							{isNew && (
 								<>
-									{/* Ghost-button chrome on the label rather than around the
-									    switch: base-ui renders the switch as a button, and a
-									    button cannot nest inside one. The label takes every
-									    click — see the CSS — and forwards a single one on. */}
-									<label
-										className={classes(
-											getButtonClassName({ variant: "ghost", size: "small" }),
-											styles.draftToggle,
-										)}
-										htmlFor={draftSwitchId}
-									>
-										<Switch
-											id={draftSwitchId}
-											checked={localDocument.isDraft}
-											disabled={isAnyPending}
-											name="isDraft"
-											onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
-										/>
-										Draft
-									</label>
+									<SwitchButton
+										label="Draft"
+										checked={localDocument.isDraft}
+										disabled={isAnyPending}
+										name="isDraft"
+										onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
+									/>
 									<div aria-hidden className={styles.footerSeparator} />
 								</>
 							)}
@@ -455,7 +441,6 @@ export const PullRequestPrimaryAction: FC<{
 	isEditing: boolean;
 	onToggleEdit: () => void;
 }> = ({ projectId, reviewId, isDraft, autoMergeEnabled, isEditing, onToggleEdit }) => {
-	const autoMergeSwitchId = useId();
 	const { data: mergeStatus } = useQuery({
 		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
 		// Minimise API calls.
@@ -505,20 +490,16 @@ export const PullRequestPrimaryAction: FC<{
 
 			{!isDraft && (
 				<>
-					<span className={classes("text-13", styles.autoMerge)}>
-						{/* Optimistic: the cache patch flips `checked` instantly, so no
-						    spinner — but like its neighbors it locks while any of the
-						    row's mutations are in flight. */}
-						<Switch
-							id={autoMergeSwitchId}
-							checked={autoMergeEnabled}
-							disabled={isAnyPending}
-							onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
-						/>
-						{/* A wrapping label would forward clicks back to the switch
-						    button and double-toggle; the for-association doesn't. */}
-						<label htmlFor={autoMergeSwitchId}>Auto-merge</label>
-					</span>
+					{/* Optimistic: the cache patch flips `checked` instantly, so no
+					    spinner — but like its neighbors it locks while any of the
+					    row's mutations are in flight. */}
+					<SwitchButton
+						label="Auto-merge"
+						variant="outline"
+						checked={autoMergeEnabled}
+						disabled={isAnyPending}
+						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
+					/>
 
 					<div className={styles.splitButton}>
 						{/* The trigger span always wraps the button so its tree position

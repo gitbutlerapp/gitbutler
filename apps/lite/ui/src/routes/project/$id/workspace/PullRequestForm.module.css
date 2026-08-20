@@ -8,35 +8,6 @@
 	gap: 2px;
 }
 
-/* The design's auto-merge control: a switch and label in outline-button
-   chrome, sitting between Edit and Merge. */
-.autoMerge {
-	display: flex;
-	align-items: center;
-	height: 28px;
-	padding-inline: 8px;
-	gap: 6px;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-button);
-
-	label {
-		cursor: pointer;
-	}
-
-	/* Fade the whole pill like a disabled button; the switch's own fade is
-	   neutralized via its opacity variable so the two don't compound.
-	   base-ui disables via data-disabled, never the native attribute. */
-	&:has(button[data-disabled]) {
-		--disabled-opacity: 100%;
-
-		opacity: 0.5;
-
-		label {
-			cursor: default;
-		}
-	}
-}
-
 /* The design's kebab is chromeless, unlike its outlined neighbors. */
 .moreActions {
 	display: flex;
@@ -169,42 +140,6 @@
 	width: 1px;
 	height: 18px;
 	background-color: var(--border-3);
-}
-
-.draftToggle {
-	/* Ghost chrome at the row's 28px height, but the design's smaller label:
-	   the size class carries .text-12, and Button exposes its metrics at zero
-	   specificity precisely so a consumer can restore them. */
-	--button-height: 28px;
-	--button-padding-inline: 8px;
-	--button-gap: 8px;
-	--button-fg: var(--text-2);
-	--button-hover-fg: var(--text-1);
-
-	cursor: pointer;
-
-	/* Every click belongs to the label, which forwards exactly one synthetic
-	   click to the switch. Left interactive, the switch would also handle its
-	   own and the pair would cancel out. */
-	> button {
-		pointer-events: none;
-	}
-
-	/* Focus lands on the switch, but the pill is what reads as the control. */
-	&:has(button:focus-visible) {
-		outline: var(--focus-ring);
-		outline-offset: -1px;
-	}
-
-	/* Fade the pair together; the switch's own fade is neutralized via its
-	   opacity variable so the two don't compound. base-ui disables via
-	   data-disabled, never the native attribute. */
-	&:has(button[data-disabled]) {
-		--disabled-opacity: 100%;
-		cursor: default;
-
-		opacity: 0.5;
-	}
 }
 
 .prView {
