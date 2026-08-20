@@ -10316,3 +10316,35 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+/// `git switch main --detach` with a configured target must not produce a stack whose
+/// single segment has neither a ref name (`HEAD` is detached so the segment is anonymized)
+/// nor any commits (the stack is exactly the base), advertising only the upstream of the
+/// ref `HEAD` was detached from.
+/// Instead, the anonymized entrypoint doesn't keep `main`'s upstream, and the projection
+/// declines to mint the base-only stack in the first place.
+#[test]
+fn detached_head_at_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/detached-head-at-target")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD, origin/main, main) M1");
+
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── ►:1[0]:origin/main →:0:
+        └── ►:0[1]:anon:
+            └── 👉🏁·3183e43 (⌂|1) ►main
+    ");
+
+    let ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"⌂:0:DETACHED <> ✓refs/remotes/origin/main on 3183e43");
+
+    assert_eq!(
+        ws.stacks.len(),
+        0,
+        "a detached HEAD parked on the base has no stack to show"
+    );
+    Ok(())
+}
