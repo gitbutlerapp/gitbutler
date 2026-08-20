@@ -1,4 +1,4 @@
-import { LiteTestId } from "@gitbutler/ui/utils/testIds";
+import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 
 test("starts without configured projects", async ({ appWindow }) => {
@@ -11,7 +11,7 @@ test.describe("with a seeded project", () => {
 
 	test("opens the project and navigates between views", async ({ appWindow }) => {
 		await expect(appWindow).toHaveURL(/\/project\/[^/]+\/workspace$/);
-		await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toBeVisible();
+		await expect(appWindow.getByRole("button", { name: /Select project/ })).toBeVisible();
 
 		const pages = appWindow.getByRole("group", { name: "Pages" });
 		await pages.getByRole("button", { name: "Branches" }).click();

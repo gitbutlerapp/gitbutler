@@ -760,7 +760,6 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Build dependencies
         run: |
-          pnpm --filter @gitbutler/ui package
           pnpm --filter @gitbutler/but-sdk build:napi
           cargo build -p but
       # Ubuntu restricts the user namespaces used by unpackaged Chromium builds. Configure

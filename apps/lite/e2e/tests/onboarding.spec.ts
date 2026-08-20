@@ -1,5 +1,5 @@
 import path from "node:path";
-import { LiteTestId } from "@gitbutler/ui/utils/testIds";
+import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 import { assertHeadBranch } from "../utils.ts";
 
@@ -19,14 +19,15 @@ test("adds a local repository without changing its branch", async ({
 	}, repositoryPath);
 
 	await expect(appWindow.getByTestId(LiteTestId.OnboardingPage)).toBeVisible();
-	await appWindow.getByTestId(LiteTestId.OnboardingAddLocalProjectButton).click();
+	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toBeVisible();
+	const projectPicker = appWindow.getByRole("button", { name: /Select project/ });
+	await expect(projectPicker).toBeVisible();
 
-	await appWindow.getByTestId(LiteTestId.ProjectPickerButton).click();
+	await projectPicker.click();
 	await expect(appWindow.getByRole("option", { name: /onboarding-repository/i })).toBeVisible();
-	await expect(appWindow.getByTestId(LiteTestId.ProjectPickerAddLocalProjectButton)).toBeVisible();
+	await expect(appWindow.getByRole("button", { name: "Add local repository" })).toBeVisible();
 
 	assertHeadBranch(repositoryPath, initialBranch);
 });

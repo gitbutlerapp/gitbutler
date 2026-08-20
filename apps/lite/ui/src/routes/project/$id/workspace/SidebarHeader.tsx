@@ -8,7 +8,6 @@ import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControl
 import { formatRelativeTime } from "#ui/time.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { LiteTestId } from "@gitbutler/ui/utils/testIds";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type FC, useState } from "react";
@@ -94,7 +93,6 @@ export const SidebarHeader: FC<{
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					data-testid={LiteTestId.ProjectPickerButton}
 					className={classes(
 						getButtonClassName({ variant: "ghost" }),
 						"text-15",
