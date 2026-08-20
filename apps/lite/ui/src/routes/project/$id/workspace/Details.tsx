@@ -199,6 +199,7 @@ import {
 	useSetFilesReviewed,
 } from "#ui/reviewed-files.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
+import { getRandomDadJoke } from "#ui/dad-jokes.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -343,6 +344,17 @@ const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection)
 	a.range.end === b.range.end &&
 	(a.range.endSide ?? a.range.side ?? "additions") ===
 		(b.range.endSide ?? b.range.side ?? "additions");
+
+const DadJokeFooter: FC = () => {
+	const [{ setup, punchline }] = useState(getRandomDadJoke);
+
+	return (
+		<p className={styles.dadJoke}>
+			<span>{setup}</span>
+			<span>{punchline}</span>
+		</p>
+	);
+};
 
 const DiffContents: FC<{
 	activeFileItemId: string | null;
@@ -1318,6 +1330,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
+				renderCodeViewFooter={() => <DadJokeFooter />}
 				renderCustomHeader={(item) => {
 					if (item.type === "file") throw new Error("Only diff items may be rendered");
 
