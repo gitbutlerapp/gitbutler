@@ -284,6 +284,13 @@ pub struct Graph {
     /// callers previewing worktree changes may replace it before redoing. They are
     /// ignored by [`Graph::from_head()`] when `HEAD` is unborn, as no traversal
     /// happens there.
+    ///
+    /// Post-processing represents each branch listed here as an empty segment
+    /// forking directly onto the commit it points at, so it never owns commits,
+    /// no lane routes through it, and rewrites relative to it stay local.
+    /// Exempt is the subject of the graph's view - the branch this repository
+    /// itself has checked out, and the entrypoint ref - as well as refs the
+    /// traversal could not place.
     pub worktree_tips: Vec<init::WorktreeTip>,
     /// Project-wide metadata used for target ref, target commit, and push remote resolution.
     pub project_meta: but_core::ref_metadata::ProjectMeta,

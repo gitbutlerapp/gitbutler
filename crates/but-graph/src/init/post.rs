@@ -11,7 +11,8 @@ use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, SegmentIndex, SegmentMetadata,
+    Commit, CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex,
+    SegmentMetadata,
     init::{
         PetGraph, TipRole, branch_segment_from_name_and_meta,
         overlay::{OverlayMetadata, OverlayRepo},
@@ -97,6 +98,15 @@ impl Graph {
             configured_remote_tracking_branches,
             &worktree_by_branch,
         )?;
+
+        // Branches checked out in linked worktrees leave the lanes the passes
+        // above put them in - the worktree classification wins over workspace
+        // metadata. This must run after everything that names segments: the
+        // remote improvements above can re-name an anonymous segment from the
+        // refs left on its first commit, which would re-couple a fork to the
+        // lane it points into. The pass maintains remote/sibling links itself
+        // when it moves a name.
+        self.fork_out_worktree_checkout_refs(meta, &worktree_by_branch)?;
 
         // Finally, once all segments were added, it's good to generations
         // have to figure out early abort conditions, or to know what's ahead of another.
@@ -219,11 +229,6 @@ impl Graph {
                 // ref-name is known to not be the desired one, and the first commit of this segment has the name
                 // we seek. For that, we now create a new
                 let new_ep_sidx_first_commit_idx = s.commits.first().map(|_| 0);
-                let incoming_edges = collect_edges_at_commit_in_traversal_order(
-                    &self.inner,
-                    (new_ep_sidx, new_ep_sidx_first_commit_idx),
-                    Direction::Incoming,
-                );
                 let mut entrypoint_segment = branch_segment_from_name_and_meta(
                     Some((desired_ref_name.ref_name, None)),
                     meta,
@@ -235,28 +240,18 @@ impl Graph {
                     ri.worktree = desired_ref_name.worktree;
                 }
                 let entrypoint_sidx = self.insert_segment_set_entrypoint(entrypoint_segment);
+                self.move_incoming_edges(
+                    (new_ep_sidx, new_ep_sidx_first_commit_idx),
+                    entrypoint_sidx,
+                    None,
+                    None,
+                );
                 self.connect_segments(
                     entrypoint_sidx,
                     None,
                     new_ep_sidx,
                     new_ep_sidx_first_commit_idx,
                 );
-                // Preserve incoming traversal order after moving the edges to
-                // the new entrypoint segment.
-                for edge in incoming_edges.into_iter().rev() {
-                    self.inner.add_edge(
-                        edge.source,
-                        entrypoint_sidx,
-                        Edge {
-                            src: edge.weight.src,
-                            src_id: edge.weight.src_id,
-                            dst: None,
-                            dst_id: None,
-                            parent_order: edge.weight.parent_order,
-                        },
-                    );
-                    self.inner.remove_edge(edge.id);
-                }
                 self.entrypoint = Some((entrypoint_sidx, ep_commit));
             } else {
                 let entrypoint_commit_id = s
@@ -479,27 +474,17 @@ impl Graph {
             0,
         );
 
-        let (src, src_id) = {
-            let s = &self[new_segment_sidx];
-            let last = s.commits.len() - 1;
-            (Some(last), Some(s.commits[last].id))
-        };
-        // Preserve outgoing traversal order after moving all outgoing edges
-        // from the old segment to the new segment.
-        for edge in edges_to_reconnect.into_iter().rev() {
-            self.inner.add_edge(
-                new_segment_sidx,
-                edge.target,
-                Edge {
-                    src,
-                    src_id,
-                    dst: edge.weight.dst,
-                    dst_id: edge.weight.dst_id,
-                    parent_order: edge.weight.parent_order,
-                },
-            );
-            self.inner.remove_edge(edge.id);
-        }
+        // Move all outgoing edges from the old segment to the new segment,
+        // re-sourced at its last commit.
+        let last_commit_id = self[new_segment_sidx]
+            .commits
+            .last()
+            .map(|commit| commit.id);
+        reconnect_outgoing_edges(
+            &mut self.inner,
+            edges_to_reconnect,
+            (new_segment_sidx, last_commit_id),
+        );
 
         if cidx_for_new_segment == 0 {
             // The top-segment is still connected with edges that think they link to a commit, so adjust them.
@@ -1608,6 +1593,308 @@ impl Graph {
             )?;
         }
         Ok(())
+    }
+
+    /// Give each branch that a linked worktree has checked out its own empty
+    /// segment, forking directly into the commit it points at, see
+    /// [worktree tips](Graph::worktree_tips).
+    ///
+    /// Being checked out somewhere is transient state: it decides where the
+    /// branch is drawn and which checkout follows a rewrite, never what the
+    /// lanes contain. Such branches are therefore presented through the
+    /// worktree listing rather than as stack rows, and rewriting history
+    /// relative to them must never rewrite the lane they point into. Wherever
+    /// the branch currently lives - naming a commit-owning segment, chained
+    /// into a lane as an empty segment, or riding on a commit in its refs -
+    /// it is re-attached uniformly as a fork: an empty segment nothing routes
+    /// through, whose only connection lands on its commit. Since a connection
+    /// into a named segment implicitly passes that segment's reference, the
+    /// commit-owning segment is made anonymous, its rewritable name extracted
+    /// into an empty segment that keeps its place in the lane; remote names
+    /// stay put as they cannot be rewritten from a worktree's perspective,
+    /// and refs remaining on the commit itself keep their usual meaning of
+    /// moving with it.
+    ///
+    /// For the same reason this classification wins over workspace metadata,
+    /// demoting whatever earlier passes stacked inline, while the durable
+    /// metadata itself keeps such branches recorded in their stacks (see
+    /// `Workspace::metadata_from_projection()`). Exempt is only the subject
+    /// of this graph's view: the branch checked out by the repository that
+    /// built the graph, and the entrypoint ref.
+    fn fork_out_worktree_checkout_refs<T: RefMetadata>(
+        &mut self,
+        meta: &OverlayMetadata<'_, T>,
+        worktree_by_branch: &WorktreeByBranch,
+    ) -> anyhow::Result<()> {
+        let mut seen = BTreeSet::new();
+        let checkout_refs: Vec<gix::refs::FullName> = self
+            .worktree_tips
+            .iter()
+            .filter_map(|tip| tip.ref_name.clone())
+            .filter(|ref_name| {
+                !worktree_by_branch
+                    .get(ref_name)
+                    .is_some_and(|worktrees| worktrees.iter().any(|wt| wt.owned_by_repo))
+            })
+            // The entrypoint is the subject of this graph's view, even when it is
+            // checked out in a linked worktree - keep it addressable as a lane.
+            .filter(|ref_name| Some(ref_name) != self.entrypoint_ref.as_ref())
+            .filter(|ref_name| seen.insert(ref_name.clone()))
+            .collect();
+        let mut identity_left_the_lane = BTreeSet::new();
+        for ref_name in checkout_refs {
+            if let Some((fork_sidx, vacated_sidx)) =
+                self.fork_out_worktree_checkout_ref(ref_name, meta, worktree_by_branch)?
+            {
+                identity_left_the_lane.insert(fork_sidx);
+                identity_left_the_lane.extend(vacated_sidx);
+            }
+        }
+        // Anonymous lane segments may still carry sibling links planted by the
+        // workspace upgrades for stack reconstruction, which must point at
+        // named in-lane segments. A link to a fork would resurrect the
+        // worktree branch as a stack row, and a link to the anonymous segment
+        // its identity vacated denotes nothing anymore - cut both. The remote
+        // back-links established above live on named remote segments and stay.
+        if !identity_left_the_lane.is_empty() {
+            for sidx in self.segments().collect::<Vec<_>>() {
+                let segment = &mut self[sidx];
+                if segment.ref_info.is_none()
+                    && segment
+                        .sibling_segment_id
+                        .is_some_and(|sibling| identity_left_the_lane.contains(&sibling))
+                {
+                    segment.sibling_segment_id = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the fork segment now carrying `ref_name` along with the lane
+    /// segment its identity vacated, if any, or `None` if the ref could not be
+    /// placed.
+    fn fork_out_worktree_checkout_ref<T: RefMetadata>(
+        &mut self,
+        ref_name: gix::refs::FullName,
+        meta: &OverlayMetadata<'_, T>,
+        worktree_by_branch: &WorktreeByBranch,
+    ) -> anyhow::Result<Option<(SegmentIndex, Option<SegmentIndex>)>> {
+        enum Location {
+            Named(SegmentIndex),
+            OnCommit(SegmentIndex, CommitIndex),
+        }
+        let location = self.segments().find_map(|sidx| {
+            let segment = &self[sidx];
+            if segment.ref_name() == Some(ref_name.as_ref()) {
+                return Some(Location::Named(sidx));
+            }
+            segment
+                .commits
+                .iter()
+                .enumerate()
+                .find_map(|(cidx, commit)| {
+                    commit
+                        .refs
+                        .iter()
+                        .any(|ri| ri.ref_name == ref_name)
+                        .then_some(Location::OnCommit(sidx, cidx))
+                })
+        });
+        let Some(location) = location else {
+            // Traversal limits or an overlay can leave the ref out of the graph.
+            tracing::debug!(
+                ref_name = %ref_name.as_bstr(),
+                "worktree-checked-out ref not in graph, leaving it as is"
+            );
+            return Ok(None);
+        };
+
+        let (fork_sidx, vacated_sidx, commit_id) = match location {
+            Location::Named(sidx) if self[sidx].workspace_metadata().is_some() => {
+                // Never dismantle a workspace segment.
+                return Ok(None);
+            }
+            Location::Named(sidx) if self[sidx].commits.is_empty() => {
+                // An empty segment, possibly chained into a lane by branch
+                // metadata. Splice it out of the chain and re-attach it as a
+                // fork onto its commit below.
+                let Some(commit_id) = self
+                    .resolve_to_unambiguously_pointed_to_commit(sidx)
+                    .map(|(commit, _sidx)| commit.id)
+                else {
+                    tracing::debug!(
+                        ref_name = %ref_name.as_bstr(),
+                        "empty worktree-checked-out segment points at no unambiguous commit"
+                    );
+                    return Ok(None);
+                };
+                let outgoing: Vec<EdgeOwned> = self
+                    .inner
+                    .edges_directed(sidx, Direction::Outgoing)
+                    .map(Into::into)
+                    .collect();
+                let [outgoing] = outgoing.as_slice() else {
+                    unreachable!("the commit was resolved through a single outgoing connection")
+                };
+                let (target, dst, dst_id, outgoing_id) = (
+                    outgoing.target,
+                    outgoing.weight.dst,
+                    outgoing.weight.dst_id,
+                    outgoing.id,
+                );
+                self.move_incoming_edges((sidx, None), target, dst, dst_id);
+                self.inner.remove_edge(outgoing_id);
+                if let Some(ref_info) = self[sidx].ref_info.as_mut() {
+                    ref_info.commit_id = Some(commit_id);
+                }
+                (sidx, None, commit_id)
+            }
+            Location::Named(sidx) => {
+                // The ref names a commit-owning segment: the commits stay
+                // behind in the now anonymous segment, while everything
+                // ref-related moves onto the new fork segment.
+                let commit_id = self[sidx]
+                    .commits
+                    .first()
+                    .map(|commit| commit.id)
+                    .expect("just verified the segment owns commits");
+                (
+                    self.split_off_ref_identity(sidx, commit_id),
+                    Some(sidx),
+                    commit_id,
+                )
+            }
+            Location::OnCommit(sidx, cidx) => {
+                let commit = &mut self[sidx].commits[cidx];
+                let commit_id = commit.id;
+                commit.refs.retain(|ri| ri.ref_name != ref_name);
+                let mut fork_segment = branch_segment_from_name_and_meta(
+                    Some((ref_name.clone(), None)),
+                    meta,
+                    None,
+                    worktree_by_branch,
+                )?;
+                if let Some(ref_info) = fork_segment.ref_info.as_mut() {
+                    ref_info.commit_id = Some(commit_id);
+                }
+                (self.insert_segment(fork_segment), None, commit_id)
+            }
+        };
+
+        // Attach the fork to the segment owning the commit, making sure the
+        // commit starts that segment and no local branch names it.
+        let owner_sidx = self.segment_id_by_commit_id(commit_id)?;
+        let owner_sidx = match self[owner_sidx]
+            .commit_index_of(commit_id)
+            .context("BUG: the owning segment must contain the commit")?
+        {
+            0 => owner_sidx,
+            cidx => self.split_segment(owner_sidx, cidx, None, None, meta, worktree_by_branch)?,
+        };
+        // Only rewritable names can couple the fork to a rewrite, so only
+        // local branches are extracted: routing through a remote reference is
+        // harmless as the editor never rewrites remotes, and workspace
+        // segments must survive as the workspace's own head. Tags and other
+        // refs on the commit itself also stay in place.
+        if self[owner_sidx]
+            .ref_name()
+            .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
+            && self[owner_sidx].workspace_metadata().is_none()
+        {
+            self.hoist_segment_identity_into_empty_segment(owner_sidx);
+        }
+        self.connect_segments(fork_sidx, None, owner_sidx, Some(0));
+        Ok(Some((fork_sidx, vacated_sidx)))
+    }
+
+    /// Move the identity of `sidx` into a new empty segment that takes over
+    /// all incoming connections of `sidx`, leaving `sidx` anonymous while the
+    /// new segment keeps its place in the lane. Everything denoting the
+    /// identity - the entrypoint and third-party reconstruction links - moves
+    /// along. Returns the new segment's index.
+    fn hoist_segment_identity_into_empty_segment(&mut self, sidx: SegmentIndex) -> SegmentIndex {
+        let commit_id = self[sidx]
+            .commits
+            .first()
+            .map(|commit| commit.id)
+            .expect("callers only hoist commit-owning segments");
+        let empty_sidx = self.split_off_ref_identity(sidx, commit_id);
+        self.move_incoming_edges((sidx, Some(0)), empty_sidx, None, None);
+        self.connect_segments(empty_sidx, None, sidx, Some(0));
+        if let Some((ep_sidx, _)) = self.entrypoint.as_mut()
+            && *ep_sidx == sidx
+        {
+            *ep_sidx = empty_sidx;
+        }
+        for other_sidx in self.segments().collect::<Vec<_>>() {
+            if other_sidx == sidx || other_sidx == empty_sidx {
+                continue;
+            }
+            let segment = &mut self[other_sidx];
+            if segment.ref_info.is_none() && segment.sibling_segment_id == Some(sidx) {
+                segment.sibling_segment_id = Some(empty_sidx);
+            }
+        }
+        empty_sidx
+    }
+
+    /// Take everything ref-related from `sidx` - name, metadata, and
+    /// remote/sibling links - into a new empty segment, leaving `sidx`
+    /// anonymous, with the remote's back-link following to the new home.
+    /// The moved ref-info remembers `commit_id` as the commit it points at.
+    /// Connections are left untouched.
+    fn split_off_ref_identity(&mut self, sidx: SegmentIndex, commit_id: ObjectId) -> SegmentIndex {
+        let segment = &mut self[sidx];
+        let mut ref_info = segment.ref_info.take();
+        if let Some(ref_info) = ref_info.as_mut() {
+            ref_info.commit_id = Some(commit_id);
+        }
+        let metadata = segment.metadata.take();
+        let remote_tracking_ref_name = segment.remote_tracking_ref_name.take();
+        let remote_sidx = segment.remote_tracking_branch_segment_id.take();
+        let sibling_segment_id = segment.sibling_segment_id.take();
+        let new_sidx = self.insert_segment(Segment {
+            ref_info,
+            metadata,
+            remote_tracking_ref_name,
+            remote_tracking_branch_segment_id: remote_sidx,
+            sibling_segment_id,
+            ..Default::default()
+        });
+        if let Some(remote_sidx) = remote_sidx {
+            self[remote_sidx].sibling_segment_id = Some(new_sidx);
+        }
+        new_sidx
+    }
+
+    /// Move all incoming connections of `from` onto `to`, retargeting their
+    /// destination to `(dst, dst_id)` while keeping source positions and
+    /// traversal order.
+    fn move_incoming_edges(
+        &mut self,
+        from: (SegmentIndex, Option<CommitIndex>),
+        to: SegmentIndex,
+        dst: Option<CommitIndex>,
+        dst_id: Option<ObjectId>,
+    ) {
+        let incoming =
+            collect_edges_at_commit_in_traversal_order(&self.inner, from, Direction::Incoming);
+        // Preserve incoming traversal order by re-adding in reverse.
+        for edge in incoming.into_iter().rev() {
+            self.inner.add_edge(
+                edge.source,
+                to,
+                Edge {
+                    src: edge.weight.src,
+                    src_id: edge.weight.src_id,
+                    dst,
+                    dst_id,
+                    parent_order: edge.weight.parent_order,
+                },
+            );
+            self.inner.remove_edge(edge.id);
+        }
     }
 }
 

@@ -770,3 +770,84 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
     );
     Ok(())
 }
+
+/// Inserting below a worktree-checked-out branch moves only that branch:
+/// the lane its commit belongs to is not rebased, because the branch is
+/// represented as a fork directly onto the commit it points at.
+#[test]
+fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
+    use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a96434e (HEAD -> main) b
+* d591dfe (middle) a
+* 35b8235 base
+
+"#]]
+    );
+    let old_main = repo.rev_parse_single("main")?.detach();
+    let old_middle = repo.rev_parse_single("middle")?.detach();
+
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // A commit to insert, with the same tree the worktree already has.
+    let mut template = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
+    template.message = "only for the worktree branch".into();
+    template.parents = vec![].into();
+    let new_commit = repo.write_object(template.inner)?.detach();
+
+    editor.insert(
+        RelativeTo::Reference("refs/heads/middle".try_into()?),
+        Step::new_pick(new_commit),
+        InsertSide::Below,
+    )?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.rev_parse_single("main")?.detach(),
+        old_main,
+        "nothing above the worktree branch is rebased"
+    );
+    let new_middle = repo.rev_parse_single("middle")?.detach();
+    assert_ne!(new_middle, old_middle, "the worktree branch moved");
+    assert_eq!(
+        repo.find_commit(new_middle)?
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>(),
+        [old_middle],
+        "the inserted commit sits directly on the commit the branch pointed at"
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a96434e (HEAD -> main) b
+| * 3c608ef (middle) only for the worktree branch
+|/  
+* d591dfe a
+* 35b8235 base
+
+"#]]
+        .raw()
+    );
+
+    // The linked checkout followed its branch and is clean.
+    let attached = linked_repo(&repo, "wt")?;
+    assert_eq!(
+        attached.head_name()?,
+        Some("refs/heads/middle".try_into()?),
+        "the branch-backed worktree stays attached"
+    );
+    assert_eq!(
+        attached.head_id()?.detach(),
+        new_middle,
+        "the checkout follows the moved branch"
+    );
+    snapbox::assert_data_eq!(git_status(&attached)?, snapbox::str![""]);
+    Ok(())
+}

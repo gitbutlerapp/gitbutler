@@ -2731,8 +2731,6 @@ Created commit 1 on branch 'A'
 ┊╭┄ g0 [A]
 ┊●   1 note from worktree
 ┊│     1:u A note.txt
-┊│
-┊├┄ wt [wt-feature 📁 [..]worktrees/wt-feature]
 ┊┊
 ┊┊╭┄ m {wt-feature} (no changes)
 ┊├╯
@@ -3062,13 +3060,14 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
-/// A worktree freshly checked out at a stack branch's tip shares that commit with the
-/// branch, and the editor's shared-ref insert moves both refs: the stack branch
-/// fast-forwards onto the new commit, which thereby enters the workspace. Existing editor
-/// semantics - the TUI's heading gesture and an explicit `-b <worktree>` behave the same -
+/// A worktree freshly checked out at a stack branch's tip starts as its own fork that
+/// merely shares that commit: being checked out is transient state and never couples
+/// identities. So committing from the worktree only fast-forwards its own branch onto
+/// the new commit; the stack branch it forked from stays put. Existing editor semantics,
+/// namely the TUI's heading gesture and an explicit `-b <worktree>`, behave the same;
 /// pinned here so a deliberate change to it shows up.
 #[test]
-fn commit_from_a_worktree_sharing_its_branch_tip_moves_both_refs() {
+fn commit_from_a_worktree_sharing_its_branch_tip_advances_only_the_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
@@ -3084,15 +3083,18 @@ Created commit 1 on branch 'wt-feature'
 
 "#]]);
 
-    // Both refs sit on the new commit, which the workspace commit thereby merges.
+    // Only wt-feature advances onto the new commit; A, the branch it forked from,
+    // stays on its old tip.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   57c3c19 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * cc2a9bc (wt-feature, A) note from the worktree
-| * 9477ae7 add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+| | * cc2a9bc (wt-feature) note from the worktree
+| |/  
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

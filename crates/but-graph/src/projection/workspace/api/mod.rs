@@ -104,12 +104,23 @@ impl Workspace {
     /// Unlike [`Self::metadata`], applied stacks absent from the projection are
     /// treated as outside the workspace, and branches absent from a projected
     /// stack are excluded.
+    ///
+    /// Branches checked out in linked worktrees are deliberately absent from
+    /// projected stacks, but they remain part of their recorded stack - being
+    /// checked out elsewhere is transient state, not a workspace change - so
+    /// they count as present here.
     pub fn metadata_from_projection(
         &self,
     ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
         let Some(mut metadata) = self.metadata.clone() else {
             return Ok(None);
         };
+        let worktree_refs: std::collections::BTreeSet<&gix::refs::FullName> = self
+            .graph
+            .worktree_tips
+            .iter()
+            .filter_map(|tip| tip.ref_name.as_ref())
+            .collect();
         for stack in &mut metadata.stacks {
             if !stack.workspacecommit_relation.is_in_workspace() {
                 continue;
@@ -125,15 +136,23 @@ impl Workspace {
                         })
                     })
             }) else {
+                if stack
+                    .branches
+                    .iter()
+                    .any(|branch| worktree_refs.contains(&branch.ref_name))
+                {
+                    continue;
+                }
                 stack.workspacecommit_relation =
                     but_core::ref_metadata::WorkspaceCommitRelation::Outside;
                 continue;
             };
             stack.branches.retain(|branch| {
-                projected_stack
-                    .segments
-                    .iter()
-                    .any(|segment| segment.ref_name() == Some(branch.ref_name.as_ref()))
+                worktree_refs.contains(&branch.ref_name)
+                    || projected_stack
+                        .segments
+                        .iter()
+                        .any(|segment| segment.ref_name() == Some(branch.ref_name.as_ref()))
             });
         }
         self.reconcile_metadata(&mut metadata)?;
