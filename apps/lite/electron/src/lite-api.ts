@@ -7,7 +7,7 @@ import type { LiteElectronApi, StreamAiResponseToken, WatcherSubscribeResult } f
  * function, one event channel, and the platform it runs on. Electron backs
  * these with the preload's ipcRenderer; other hosts with their own channel.
  */
-type LiteApiTransport = {
+export type LiteApiTransport = {
 	/** Send one request and await its result. */
 	invoke: (channel: string, ...args: Array<unknown>) => Promise<unknown>;
 	/** Hear every event on a named channel until the returned function runs. */

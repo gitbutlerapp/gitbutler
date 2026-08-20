@@ -1,4 +1,4 @@
-import { createRouter } from "@tanstack/react-router";
+import { createRouter, type RouterHistory } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import type { RouteTree } from "#ui/routes.tsx";
 
@@ -20,13 +20,21 @@ const parseSearch = (searchStr: string): Record<string, unknown> =>
 /* The tree is passed in, not imported: importing its value closes a cycle back
    through use-cursor.ts, and workspace/route.tsx reads its page component at
    module scope, so HMR re-entry throws on the half-built binding. */
-const buildRouter = (queryClient: QueryClient, routeTree: RouteTree) =>
-	createRouter({ routeTree, context: { queryClient }, parseSearch, stringifySearch });
+const buildRouter = (queryClient: QueryClient, routeTree: RouteTree, history?: RouterHistory) =>
+	createRouter({ routeTree, context: { queryClient }, parseSearch, stringifySearch, history });
 
 type AppRouter = ReturnType<typeof buildRouter>;
 
-export const createAppRouter = (queryClient: QueryClient, routeTree: RouteTree): AppRouter => {
-	router = buildRouter(queryClient, routeTree);
+/**
+ * `history` defaults to the browser's; the harness panel passes a memory
+ * history, so the same router runs where no URL bar exists.
+ */
+export const createAppRouter = (
+	queryClient: QueryClient,
+	routeTree: RouteTree,
+	history?: RouterHistory,
+): AppRouter => {
+	router = buildRouter(queryClient, routeTree, history);
 	return router;
 };
 

@@ -1,0 +1,20 @@
+/* The component CSS modules use the design tokens. The app loads them via
+   global.css; the panel loads them here, without the app's window styling. */
+@import "@gitbutler/design-core/core";
+
+/* The app's `:root` custom properties (global.css) — the panel has no
+   global.css, so the components' `var(--panel-padding-*)` references would
+   otherwise fall back to nothing: section headers would lose their inset and
+   the scrollbar gutter its background. */
+:root {
+	color-scheme: light dark;
+
+	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
+	--focus-ring: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
+	--transition-fast: 0.08s ease;
+	--panel-padding-block: 12px;
+	--panel-padding-inline: 12px;
+
+	--scrollbar-track-bg: var(--bg-2);
+	--scrollbar-track-border: var(--border-section);
+}

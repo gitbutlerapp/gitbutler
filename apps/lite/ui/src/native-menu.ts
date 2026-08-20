@@ -65,16 +65,26 @@ const serializeNativeMenuItems = (
 		};
 	});
 
+/** Optional context the caller wants the host to know about (e.g. the file path). */
+type NativeMenuContext = {
+	path?: string;
+};
+
 const showNativeMenu = async (
 	items: Array<NativeMenuItem>,
 	position: NativeMenuPosition,
+	context?: NativeMenuContext,
 ): Promise<void> => {
 	if (items.length === 0) return;
 
 	const handlers = new Map<string, NativeMenuAction | undefined>();
 	const serializedItems = serializeNativeMenuItems(items, handlers, { value: 0 });
 
-	const selectedItemId = await window.lite.showNativeMenu({ items: serializedItems, position });
+	const selectedItemId = await window.lite.showNativeMenu({
+		items: serializedItems,
+		position,
+		context,
+	});
 	if (selectedItemId === null) return;
 	await handlers.get(selectedItemId)?.();
 };
@@ -90,6 +100,7 @@ const getBottomLeft = (element: HTMLElement): NativeMenuPosition => {
 export const showNativeContextMenu = async (
 	event: ReactMouseEvent<HTMLElement> | MouseEvent,
 	items: Array<NativeMenuItem>,
+	context?: NativeMenuContext,
 ): Promise<void> => {
 	event.preventDefault();
 
@@ -103,10 +114,11 @@ export const showNativeContextMenu = async (
 					y: Math.round(event.clientY) + 1,
 				};
 
-	await showNativeMenu(items, position);
+	await showNativeMenu(items, position, context);
 };
 
 export const showNativeMenuFromTrigger = async (
 	trigger: HTMLElement,
 	items: Array<NativeMenuItem>,
-): Promise<void> => showNativeMenu(items, getBottomLeft(trigger));
+	context?: NativeMenuContext,
+): Promise<void> => showNativeMenu(items, getBottomLeft(trigger), context);

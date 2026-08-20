@@ -122,7 +122,13 @@ export const FileRow: FC<
 						}
 						className={classes(restProps.className, treeStyles.row)}
 						onContextMenu={(event) => {
-							void showNativeContextMenu(event, menuItems);
+							// Hand the file path along so a plugin host can add its own
+							// actions (the app's native menus ignore it).
+							void showNativeContextMenu(
+								event,
+								menuItems,
+								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+							);
 						}}
 					/>
 				}
@@ -190,7 +196,11 @@ export const FileRow: FC<
 						<Toolbar.Button
 							aria-label="File menu"
 							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								void showNativeMenuFromTrigger(
+									event.currentTarget,
+									menuItems,
+									fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+								);
 							}}
 							className={getRowButtonClassName({ iconOnly: true })}
 						>

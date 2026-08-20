@@ -159,4 +159,6 @@ export type NativeMenuPopupItem =
 export interface ShowNativeMenuParams {
 	items: Array<NativeMenuPopupItem>;
 	position: NativeMenuPosition;
+	/** Opaque caller context (e.g. the file path); hosts may ignore it. */
+	context?: unknown;
 }

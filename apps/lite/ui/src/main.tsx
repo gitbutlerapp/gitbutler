@@ -2,7 +2,8 @@ import { MutationCache, QueryClient, focusManager } from "@tanstack/react-query"
 import { App } from "#ui/App.tsx";
 import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
 import { createAppRouter } from "#ui/router.ts";
-import { routeTree } from "#ui/routes.tsx";
+import { createRouteTree } from "#ui/routes.tsx";
+import { Page } from "#ui/routes/project/$id/workspace/Page.tsx";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
@@ -60,7 +61,7 @@ focusManager.setEventListener((setFocused) => {
 	};
 });
 
-const router = createAppRouter(queryClient, routeTree);
+const router = createAppRouter(queryClient, createRouteTree({ workspace: Page }));
 
 // A link opened while the app is running is a navigation, not a page load: the
 // main process hands over the path it names and the router goes there, keeping

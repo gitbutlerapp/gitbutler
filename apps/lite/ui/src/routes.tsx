@@ -2,7 +2,6 @@ import type { UrlQueryParams } from "#ui/cursor-url.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
 import { readLastOpenedProject, readLastPlace } from "#ui/project.ts";
 import { IndexPage } from "#ui/routes/IndexPage.tsx";
-import { Page } from "#ui/routes/project/$id/workspace/Page.tsx";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -106,31 +105,36 @@ const projectRoute = createRoute({
 const str = (value: unknown): string | undefined =>
 	typeof value === "string" && value !== "" ? value : undefined;
 
-const workspaceRoute = createRoute({
-	getParentRoute: () => projectRoute,
-	path: "workspace",
-	component: Page,
-	// Total decoding: a param that fails its codec is absent, never an error,
-	// so a corrupt or stale URL opens the page at defaults.
-	validateSearch: (params: Record<string, unknown>): UrlQueryParams => {
-		const page = str(params.page);
-		const active = str(params.active);
+/**
+ * The tree takes its workspace component instead of naming one: the app
+ * mounts `Page`, the harness panel mounts its own surface, and every other
+ * route definition is shared. Build one tree per process — the route
+ * objects above are module singletons.
+ */
+export const createRouteTree = ({ workspace }: { workspace: FC }) => {
+	const workspaceRoute = createRoute({
+		getParentRoute: () => projectRoute,
+		path: "workspace",
+		component: workspace,
+		// Total decoding: a param that fails its codec is absent, never an error,
+		// so a corrupt or stale URL opens the page at defaults.
+		validateSearch: (params: Record<string, unknown>): UrlQueryParams => {
+			const page = str(params.page);
+			const active = str(params.active);
 
-		return {
-			page: page === "upstream" || page === "branches" ? page : undefined,
-			active: active === "uncommitted" ? active : undefined,
-			applied: str(params.applied),
-			uncommitted: str(params.uncommitted),
-			unapplied: str(params.unapplied),
-			upstream: str(params.upstream),
-			files: str(params.files),
-		};
-	},
-});
+			return {
+				page: page === "upstream" || page === "branches" ? page : undefined,
+				active: active === "uncommitted" ? active : undefined,
+				applied: str(params.applied),
+				uncommitted: str(params.uncommitted),
+				unapplied: str(params.unapplied),
+				upstream: str(params.upstream),
+				files: str(params.files),
+			};
+		},
+	});
 
-export const routeTree = rootRoute.addChildren([
-	indexRoute,
-	projectRoute.addChildren([workspaceRoute]),
-]);
+	return rootRoute.addChildren([indexRoute, projectRoute.addChildren([workspaceRoute])]);
+};
 
-export type RouteTree = typeof routeTree;
+export type RouteTree = ReturnType<typeof createRouteTree>;

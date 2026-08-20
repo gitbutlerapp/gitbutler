@@ -15,7 +15,6 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
-import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	focusHorizontalScope,
 	focusScope,
@@ -32,7 +31,7 @@ import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
+import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
@@ -53,18 +52,10 @@ import {
 	useState,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
-import {
-	branchAddress,
-	commitAddress,
-	addressContains,
-	addressEquals,
-	addressIdentityKey,
-	type BranchAddress,
-	type Address,
-	uncommittedChangesFileParent,
-} from "#ui/addresses.ts";
+import { branchAddress, type BranchAddress, uncommittedChangesFileParent } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
+import { buildAppliedAddressSpace } from "./applied-address-space.ts";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
@@ -75,14 +66,11 @@ import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { Sidebar } from "./Sidebar.tsx";
-import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
-import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesList } from "./useBranchesList.ts";
 import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
-import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
@@ -250,85 +238,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 	]);
-};
-
-const hasAnyOperation = (sources: Array<Address>, target: Address, kind: TransferKind) => {
-	const operations = getOperations(sources, target, kind);
-	return !!operations.into || !!operations.above || !!operations.below;
-};
-
-const buildAppliedAddressSpace = ({
-	headInfo,
-	pendingOperation,
-	absorptionTargetCommitIds,
-	foldedSegments,
-}: {
-	headInfo: RefInfo | undefined;
-	pendingOperation: PendingOperation;
-	absorptionTargetCommitIds: ReadonlySet<string>;
-	foldedSegments: Record<string, true>;
-}): AddressSpace<Address> => {
-	const allItems = (): Array<Address> =>
-		headInfo?.stacks.toReversed().flatMap((stack) =>
-			stack.segments.flatMap((segment): Array<Address> => {
-				// Matches what WorkspaceLists renders: a folded segment shows a stub
-				// in place of its commits, so they are not navigable.
-				const folded =
-					segment.refName !== null &&
-					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
-
-				return [
-					...(segment.refName ? [branchAddress({ branchRef: segment.refName.fullNameBytes })] : []),
-					...(folded
-						? []
-						: segment.commits.map((commit) =>
-								commitAddress({ commitId: commit.id, changeId: commit.changeId }),
-							)),
-				];
-			}),
-		) ?? [];
-
-	/**
-	 * The action-compatibility filter: while a target-seeking operation collects
-	 * its second input, only its sources and the compatible targets stay
-	 * navigable — invalid destinations are unlisted, never validated.
-	 */
-	const compatibleItems = ({
-		sources,
-		isCompatibleTarget,
-	}: {
-		sources: Array<Address>;
-		isCompatibleTarget: (address: Address) => boolean;
-	}): Array<Address> =>
-		allItems().filter(
-			(address) =>
-				sources.some(
-					(source) => addressEquals(address, source) || addressContains(address, source),
-				) || isCompatibleTarget(address),
-		);
-
-	const filteredItems = Match.value(pendingOperation).pipe(
-		Match.tagsExhaustive({
-			None: () => allItems(),
-			Absorb: (operation) =>
-				compatibleItems({
-					sources: operation.sources,
-					isCompatibleTarget: (address) =>
-						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId),
-				}),
-			Transfer: ({ value: operation }) =>
-				compatibleItems({
-					sources: operation.sources,
-					isCompatibleTarget: (address) =>
-						hasAnyOperation(operation.sources, address, getTransferKind(operation)),
-				}),
-			InlineEdit: (x) => [x.address],
-		}),
-	);
-
-	const indexByKey = buildIndexByKey(filteredItems, addressIdentityKey);
-
-	return { items: filteredItems, indexByKey };
 };
 
 type ProjectPickerProps = {

@@ -18,6 +18,12 @@
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
+
+	/* react-resizable-panels styles the panel element with an inline
+	   `overflow: auto`, which would scroll the whole section — header, file
+	   list and the commit form together — when the panel is shorter than its
+	   content. Scrolling belongs to the file list alone; the form stays put. */
+	overflow: hidden !important;
 }
 
 .panel {
@@ -68,6 +74,7 @@
 }
 
 .commitForm {
+	flex-shrink: 0;
 	margin-inline: var(--panel-padding-inline);
 	margin-block: var(--panel-padding-block);
 }
