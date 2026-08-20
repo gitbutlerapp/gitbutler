@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::{Direction, prelude::EdgeRef};
+use petgraph::{Direction, prelude::EdgeRef, visit::IntoEdgeReferences};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
@@ -344,12 +344,37 @@ pub fn swap_queued_segments(queue: &mut Queue, a: SegmentIndex, b: SegmentIndex)
 }
 
 pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: SegmentIndex) {
+    let connections = graph
+        .edge_references()
+        .filter(|edge| {
+            [edge.source(), edge.target()]
+                .into_iter()
+                .any(|node| node == a || node == b)
+        })
+        .map(EdgeOwned::from)
+        .collect::<Vec<_>>();
+    for connection in &connections {
+        graph.remove_edge(connection.id);
+    }
     {
         let (a, b) = graph.index_twice_mut(a, b);
         std::mem::swap(&mut a.commits, &mut b.commits);
     }
-    if graph.edges(a).next().is_some() || graph.edges(b).next().is_some() {
-        todo!("swap connections of nodes as well")
+    for connection in connections {
+        let swap = |node| {
+            if node == a {
+                b
+            } else if node == b {
+                a
+            } else {
+                node
+            }
+        };
+        graph.add_edge(
+            swap(connection.source),
+            swap(connection.target),
+            connection.weight,
+        );
     }
 }
 
