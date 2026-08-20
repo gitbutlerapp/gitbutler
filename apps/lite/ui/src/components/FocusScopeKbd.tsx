@@ -15,7 +15,8 @@ export const FocusScopeKbd: FC<Props> = ({ hotkey, scope }) => (
 		{/* Inline style as we can't interpolate a custom property into the selectors. */}
 		<style href={`selection-scope-kbd-${scope}`}>{`
 			[data-selection-focus-styles="true"]:has(
-				[data-focus-scope="${scope}"]:focus-within
+				[data-focus-scope="${scope}"][data-selection-focused="true"],
+				[data-focus-scope="${scope}"] [data-selection-focused="true"]
 			) [data-focus-scope-kbd="${scope}"] .${keyClassName} {
 				background-color: var(--fill-gray-bg);
 				color: var(--fill-gray-fg);

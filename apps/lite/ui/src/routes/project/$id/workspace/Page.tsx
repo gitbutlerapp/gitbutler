@@ -20,6 +20,7 @@ import {
 	focusHorizontalScope,
 	focusScope,
 	getFocusedScope,
+	useCommittedSelectionFocus,
 	type FocusScope,
 } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -76,6 +77,7 @@ import { getTransferKind, type PendingOperation } from "#ui/operations/pending-o
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
+	setActiveList,
 	useCanShowFiles,
 	useSidebarFocusScope,
 	usePage,
@@ -668,6 +670,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		id: layoutId,
 		panelIds,
 	});
+	const selectionFocus = useCommittedSelectionFocus((scope) => {
+		if (page !== "workspace") return;
+		if (scope === "uncommitted-files") setActiveList("uncommitted");
+		if (scope === "sidebar") setActiveList("applied");
+	});
 
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -675,6 +682,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	return (
 		<>
 			<Group
+				{...selectionFocus}
 				id={layoutId}
 				className={styles.page}
 				defaultLayout={workspaceLayout.defaultLayout}
