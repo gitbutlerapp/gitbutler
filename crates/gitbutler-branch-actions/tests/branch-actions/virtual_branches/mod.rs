@@ -142,6 +142,7 @@ impl TestRepo {
     pub fn commit_all(&self, message: &str) -> gix::ObjectId {
         let repo = self.open();
         let parent = repo.head_id().expect("HEAD peels").detach();
+        #[allow(deprecated)]
         let tree_id = repo
             .create_wd_tree(0)
             .expect("worktree tree can be written");
