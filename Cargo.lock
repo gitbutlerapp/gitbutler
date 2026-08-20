@@ -868,7 +868,6 @@ dependencies = [
  "but-transaction",
  "but-update",
  "but-workspace",
- "but-worktrees",
  "cfg-if",
  "chrono",
  "clap",
@@ -1017,7 +1016,6 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-workspace",
- "but-worktrees",
  "chrono",
  "futures",
  "gitbutler-branch",
@@ -1805,26 +1803,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "but-worktrees"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "but-core",
- "but-ctx",
- "but-db",
- "but-graph",
- "but-rebase",
- "but-serde",
- "but-testsupport",
- "gix",
- "serde",
- "snapbox",
- "tracing",
- "uuid",
 ]
 
 [[package]]

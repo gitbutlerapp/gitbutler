@@ -50,8 +50,6 @@ members = [
     "crates/but-serde", # 📄Serde attributes for serialisation and deserialisation of custom datatypes.
     # 👉Lacks tests. Centralized simple utility schema generation modules.
     "crates/but-schemars", # 📄`schemars` json schema generation utilities.
-    # 👉Feels overengingeered, uses `but-ctx` and legacy crates.
-    "crates/but-worktrees", # 📄Worktree creation and removal;
     # 👉Could be exemplary after review.
     "crates/but-update", # 📄Retrieve information about available program versions to guide updates.
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
@@ -153,7 +151,6 @@ but-branches = { path = "crates/but-branches" }
 but-comments = { path = "crates/but-comments" }
 but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
-but-worktrees = { path = "crates/but-worktrees" }
 but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }

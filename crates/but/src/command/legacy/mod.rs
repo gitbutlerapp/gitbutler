@@ -39,7 +39,6 @@ pub mod uncommit;
 pub mod undo_redo;
 pub(crate) mod upstream;
 pub(crate) mod workspace_target;
-pub mod worktree;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ShowDiffInEditor {

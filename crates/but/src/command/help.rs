@@ -198,8 +198,6 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::External => continue,
 
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Worktree => continue,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::RefreshRemoteData => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Actions => continue,
