@@ -80,6 +80,7 @@ fn updates() -> Vec<EnvOp> {
         EnvOp::Remove("GIT_EDITOR"),
         EnvOp::Remove("VISUAL"),
         EnvOp::Remove("EDITOR"),
+        EnvOp::Remove("NO_BG_TASKS"),
         EnvOp::Remove("BUT_THEME"),
         EnvOp::Remove("COPILOT_MODEL"),
         EnvOp::Remove("COPILOT_ALLOW_ALL"),
