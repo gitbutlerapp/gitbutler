@@ -32,6 +32,107 @@ fn allows_read_inside_worktree_with_relative_path() {
 }
 
 #[test]
+fn rejects_untracked_gitignored_file() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join("secret.ignored"), "SUPER_SECRET").expect("write ignored file");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new("secret.ignored"))
+        .expect_err("Git-ignored files must not be readable");
+}
+
+#[test]
+fn rejects_git_metadata_file() {
+    let (repo, _tmp) = test_repository();
+    let workdir = repo.workdir().expect("workdir exists");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new(".git/config"))
+        .expect_err("Git metadata files must not be readable");
+}
+
+#[test]
+fn allows_tracked_file_matching_ignore_rule() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join(".gitignore"), "tracked\n").expect("update ignore file");
+
+    let ctx = context_for_repo(workdir);
+    let info = ctx
+        .read_file_from_workspace(Path::new("tracked"))
+        .expect("tracked files remain readable when they match an ignore rule");
+
+    assert_eq!(info.content, Some("content".to_owned()));
+}
+
+#[test]
+fn rejects_git_metadata_aliases() {
+    let (repo, _tmp) = test_repository();
+    let workdir = repo.workdir().expect("workdir exists");
+
+    let ctx = context_for_repo(workdir);
+    for path in [
+        ".GIT/config",
+        "GIT~1/config",
+        ".git./config",
+        ".git /config",
+    ] {
+        ctx.read_file_from_workspace(Path::new(path))
+            .expect_err("Git metadata aliases must not be readable");
+    }
+}
+
+#[test]
+fn rejects_file_inside_ignored_directory() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join(".gitignore"), "build/\n").expect("update ignore file");
+    fs::create_dir(workdir.join("build")).expect("create ignored directory");
+    fs::write(workdir.join("build/out.env"), "SECRET").expect("write file in ignored dir");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new("build/out.env"))
+        .expect_err("files inside an ignored directory must not be readable");
+}
+
+#[test]
+fn allows_ignored_directory_as_empty_placeholder() {
+    // Callers depend on directories yielding the placeholder rather than an
+    // error (see error-cleanup-checklist.md).
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join(".gitignore"), "build/\n").expect("update ignore file");
+    fs::create_dir(workdir.join("build")).expect("create ignored directory");
+
+    let ctx = context_for_repo(workdir);
+    let info = ctx
+        .read_file_from_workspace(Path::new("build"))
+        .expect("ignored directory still resolves to the placeholder");
+
+    assert_eq!(info.content, Some(String::new()));
+    assert_eq!(info.size, Some(0));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn allows_differently_cased_tracked_file_on_case_insensitive_fs() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    if !repo.filesystem_options().expect("fs options").ignore_case {
+        return; // A case-sensitive volume can't exercise this branch.
+    }
+    fs::write(workdir.join(".gitignore"), "tracked\n").expect("update ignore file");
+
+    let ctx = context_for_repo(workdir);
+    let info = ctx
+        .read_file_from_workspace(Path::new("Tracked"))
+        .expect("differently-cased name of a tracked file remains readable");
+
+    assert_eq!(info.content, Some("content".to_owned()));
+}
+
+#[test]
 fn rejects_dotdot_traversal() {
     let (repo, _tmp) = test_repository();
     let workdir = repo.workdir().expect("workdir exists");
@@ -145,4 +246,36 @@ fn keeps_absolute_inside_worktree_behavior() {
         .expect("absolute in-worktree path should be readable");
 
     assert_eq!(info.content, Some("absolute read".to_owned()));
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_symlink_to_ignored_file() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join("secret.ignored"), "SUPER_SECRET").expect("write ignored file");
+    gix::fs::symlink::create(Path::new("secret.ignored"), &workdir.join("innocent.txt"))
+        .expect("create symlink");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new("innocent.txt"))
+        .expect_err("a symlink must not launder an ignored file's content");
+}
+
+#[cfg(unix)]
+#[test]
+fn allows_ignored_symlink_to_non_ignored_file() {
+    // Ignore rules match the resolved target, not the link's name: the content
+    // behind `link.ignored` is `tracked`'s, which is readable directly anyway.
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    gix::fs::symlink::create(Path::new("tracked"), &workdir.join("link.ignored"))
+        .expect("create symlink");
+
+    let ctx = context_for_repo(workdir);
+    let info = ctx
+        .read_file_from_workspace(Path::new("link.ignored"))
+        .expect("ignored-named symlink to readable content stays readable");
+
+    assert_eq!(info.content, Some("content".to_owned()));
 }

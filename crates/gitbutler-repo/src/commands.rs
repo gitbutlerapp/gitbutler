@@ -198,6 +198,11 @@ pub trait RepoCommands {
     /// `path` can be a repository-relative path, or a path that is within the
     /// worktree of the current repository.
     ///
+    /// Fails if `path` names Git metadata (a `.git` component in any spelling) or
+    /// a Git-ignored file that isn't tracked, so a compromised renderer can't read
+    /// secrets like `.env`. Directories are exempt: their `FileInfo` placeholder
+    /// carries no content.
+    ///
     /// Returns `FileInfo::default()` if file could not be found.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
 
@@ -313,8 +318,34 @@ impl RepoCommands for Context {
             }
         };
 
+        // Refuse `.git` in every spelling an OS can map onto it (`.GIT`,
+        // `GIT~1`, `.git.`). Runs before the stat: `.git` can be a file
+        // (linked worktrees) and must be refused all the same.
+        if relative_path.components().any(|component| {
+            matches!(
+                gix::validate::path::component(
+                    component.as_os_str().as_encoded_bytes().as_bstr(),
+                    None,
+                    Default::default(),
+                ),
+                Err(gix::validate::path::component::Error::DotGitDir)
+            )
+        }) {
+            bail!(
+                "Refusing to read Git metadata path '{}'",
+                relative_path.display()
+            );
+        }
+
         let out = match path.symlink_metadata() {
             Ok(md) => {
+                // Directories are exempt: their `FileInfo` placeholder carries no
+                // content, and callers rely on getting it rather than an error.
+                if !md.is_dir() {
+                    let repo = self.repo.get()?;
+                    ensure_not_ignored(&repo, &relative_path)?;
+                }
+
                 if md.is_file() {
                     let content = std::fs::read(&path)?;
                     FileInfo::from_content(&relative_path, &content)
@@ -342,7 +373,7 @@ impl RepoCommands for Context {
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 let repo = self.repo.get()?;
                 let relative_path_bstr = gix::path::to_unix_separators_on_windows(
-                    gix::path::into_bstr(relative_path.clone()),
+                    gix::path::into_bstr(relative_path.as_path()),
                 );
                 let index = repo.index_or_empty()?;
                 match index.entry_by_path(relative_path_bstr.as_ref()) {
@@ -389,4 +420,43 @@ impl RepoCommands for Context {
 
         Ok(scored_files)
     }
+}
+
+/// Refuse to read `relative_path` when Git ignores it. Tracked files stay
+/// readable even when an ignore rule matches them (`git add -f`): their
+/// content is in Git already.
+///
+/// The caller resolves symlinks first, so the check applies to the file whose
+/// content would actually be returned — a link to an ignored file is refused
+/// no matter what the link is called.
+fn ensure_not_ignored(repo: &gix::Repository, relative_path: &Path) -> Result<()> {
+    let relative_path_bstr =
+        gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative_path));
+    let index = repo.index_or_empty()?;
+    if index.entry_by_path(relative_path_bstr.as_ref()).is_some() {
+        return Ok(());
+    }
+    let mut excludes = repo.excludes(
+        &index,
+        None,
+        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+    )?;
+    if !excludes.at_path(relative_path, None)?.is_excluded() {
+        return Ok(());
+    }
+    // On a case-insensitive filesystem `Tracked` names the tracked file
+    // `tracked`; retry the index lookup case-insensitively before refusing.
+    if repo.filesystem_options()?.ignore_case {
+        let icase_accelerator = index.prepare_icase_backing();
+        if index
+            .entry_by_path_icase(relative_path_bstr.as_ref(), true, &icase_accelerator)
+            .is_some()
+        {
+            return Ok(());
+        }
+    }
+    bail!(
+        "Refusing to read Git-ignored path '{}'",
+        relative_path.display()
+    );
 }
