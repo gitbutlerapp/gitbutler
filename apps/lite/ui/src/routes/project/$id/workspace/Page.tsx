@@ -30,7 +30,7 @@ import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
@@ -41,7 +41,16 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
+import {
+	type FC,
+	Activity,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useRef,
+} from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchAddress,
@@ -374,6 +383,9 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
+/** Longer than a key repeat, so a held arrow key never counts as settled. */
+const cursorSettleMs = 120;
+
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
 
@@ -507,19 +519,27 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 			absorptionPlanQueryOptions({ projectId, target }),
 		),
 	});
-	const absorptionTargetCommitIds = new Set(
-		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
+	const absorptionPlanData = absorptionPlanQuery?.data;
+	// Rebuilt every render, these hand `WorkspaceListsContext` a new value, which
+	// re-renders every row in the lists on any cursor move.
+	const absorptionTargetCommitIds = useMemo(
+		() => new Set(absorptionPlanData?.map(({ commitId }) => commitId)),
+		[absorptionPlanData],
 	);
 
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const appliedAddressSpace = buildAppliedAddressSpace({
-		headInfo,
-		pendingOperation,
-		absorptionTargetCommitIds,
-		foldedSegments,
-	});
+	const appliedAddressSpace = useMemo(
+		() =>
+			buildAppliedAddressSpace({
+				headInfo,
+				pendingOperation,
+				absorptionTargetCommitIds,
+				foldedSegments,
+			}),
+		[headInfo, pendingOperation, absorptionTargetCommitIds, foldedSegments],
+	);
 
 	const page = usePage();
 	const branchesList = useBranchesList(projectId);
@@ -558,29 +578,61 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		},
 	});
 
+	// Moving the cursor is all this does; the details pane follows below.
 	const onActiveUncommittedFileSelection = (selection: string) => {
+		setCursor("uncommitted", selection);
+	};
+
+	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
+
+	const store = useAppStore();
+	const repointDetailsPane = useEffectEvent(() => {
+		if (uncommittedFilesSelection === null) return;
+
 		// A directory row stands for the first file below it, so activating a
 		// folder still gives the details pane somewhere to go.
-		const path = selectedFilePath(uncommittedFileRows, selection);
+		const path = selectedFilePath(uncommittedFileRows, uncommittedFilesSelection);
+		// A cursor restored from the URL keeps its stored hunk; re-pointing would
+		// throw away the line selection it came back with.
+		const stored = projectSlice.selectors.selectDiffCursor(store.getState(), projectId);
+		if (stored !== null && stored.parent.path === path) return;
+
 		// Indexed against the worktree changes rather than the address space,
 		// which the file filter can narrow out from under them.
 		const index = worktreeChanges?.changes.findIndex((change) => change.path === path) ?? -1;
 		const change = index === -1 ? undefined : worktreeChanges?.changes[index];
 		const treeChangeDiff = index === -1 ? undefined : uncommittedTreeChangeDiffs?.[index];
-		const navigation =
-			change && treeChangeDiff !== undefined
-				? getDiffFileNavigation({
-						fileParent: uncommittedChangesFileParent,
-						change,
-						treeChangeDiff,
-					})
-				: null;
+		if (!change || treeChangeDiff === undefined) return;
 
-		setCursor("uncommitted", selection);
-		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
-	};
+		const navigation = getDiffFileNavigation({
+			fileParent: uncommittedChangesFileParent,
+			change,
+			treeChangeDiff,
+		});
+		onActiveFileSelection(navigation.itemId, navigation.firstHunk);
+	});
 
-	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
+	// Re-pointing writes the diff cursor and scrolls the virtualised viewer, which
+	// takes longer than the gap between key repeats — so the pane, not the list,
+	// used to set the pace. Cancelling on every move is what skips the files a
+	// held key passes; deferring would skip none, as each move finishes before
+	// the next key arrives.
+	const lastCursorMoveRef = useRef(Number.NEGATIVE_INFINITY);
+	useEffect(() => {
+		const movedAt = performance.now();
+		const cursorWasStill = movedAt - lastCursorMoveRef.current > cursorSettleMs;
+		lastCursorMoveRef.current = movedAt;
+
+		if (cursorWasStill) {
+			repointDetailsPane();
+			return;
+		}
+
+		const timer = window.setTimeout(repointDetailsPane, cursorSettleMs);
+		return () => {
+			window.clearTimeout(timer);
+		};
+	}, [uncommittedFilesSelection]);
 
 	const activeList = useActiveList();
 	// The page picks only which list's cursor drives the pane; one Details
