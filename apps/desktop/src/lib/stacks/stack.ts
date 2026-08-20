@@ -33,6 +33,18 @@ function prettyNamedListIfPossible(expectedNames: number, names: string[]): stri
 }
 
 export function handleApplyOutcome(outcome: ApplyOutcome) {
+	if (outcome.status === "conflictsWithTarget") {
+		const files = outcome.targetConflicts;
+		const fileList =
+			files.length > 0 ? `\n\nConflicting files:\n\n${files.map((f) => `- ${f}`).join("\n")}` : "";
+		showWarning(
+			"Couldn't apply branch due to conflicts",
+			`It is behind the workspace target and conflicts with it. Update the branch with the latest target changes, then try applying again.${fileList}`,
+			undefined,
+			TestId.BranchApplyConflictToast,
+		);
+		return;
+	}
 	if (outcome.status !== "conflictAborted") return;
 	const names = outcome.conflictingStacks.map((stack) => stack.shortName);
 	const single = names.length === 1;

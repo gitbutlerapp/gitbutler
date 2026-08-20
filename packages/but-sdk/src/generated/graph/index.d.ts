@@ -1480,13 +1480,19 @@ export type ApplyOutcome = {
   /**
    * Branches activated or recorded by the operation.
    *
-   * This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
+   * This is empty for `alreadyApplied`, `conflictAborted` and `conflictsWithTarget`, and populated for `applied`.
    */
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
   workspaceRefCreated: boolean;
   /** Stacks that conflicted while applying the branch. */
   conflictingStacks: Array<ConflictingStack>;
+  /**
+   * Worktree-relative paths at which the branch conflicts with the workspace target.
+   *
+   * Only populated for `conflictsWithTarget`.
+   */
+  targetConflicts: Array<string>;
 };
 
 /** Represents the author of a commit. */
@@ -3222,7 +3228,7 @@ export type OperatingMode = {
 export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflicts" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
 
 /** What kind of apply operation completed. */
-export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
+export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted" | "conflictsWithTarget";
 
 export type OutsideWorkspaceMetadata = {
   /** The name of the currently checked out branch or None if in detached head state. */

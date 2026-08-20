@@ -599,7 +599,7 @@ pub mod merge {
         Ok((peel_to_tree(base_commit_id)?, base_sidx))
     }
 
-    fn peel_to_tree(commit: gix::Id) -> anyhow::Result<gix::ObjectId> {
+    pub(crate) fn peel_to_tree(commit: gix::Id) -> anyhow::Result<gix::ObjectId> {
         let commit = but_core::Commit::from_id(commit)?;
         Ok(commit.tree_id_or_auto_resolution()?.detach())
     }

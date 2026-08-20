@@ -36,6 +36,9 @@ pub enum OutcomeStatus {
     Applied,
     /// A workspace merge was attempted and conflicts prevented persistence.
     ConflictAborted,
+    /// The branch conflicts with the workspace target it is based behind, so no stack is to blame.
+    /// The branch itself needs updating with the target changes before it can be applied.
+    ConflictsWithTarget,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(OutcomeStatus);
@@ -47,6 +50,7 @@ impl OutcomeStatus {
             OutcomeStatus::AlreadyApplied => "alreadyApplied",
             OutcomeStatus::Applied => "applied",
             OutcomeStatus::ConflictAborted => "conflictAborted",
+            OutcomeStatus::ConflictsWithTarget => "conflictsWithTarget",
         }
     }
 
@@ -86,6 +90,10 @@ pub struct Outcome {
     /// Each entry includes the stable stack id and its tip ref name, so callers don't have to
     /// recover names from the returned workspace graph.
     pub conflicting_stacks: Vec<ConflictingStack>,
+    /// Worktree-relative paths at which the branch conflicts with the workspace target.
+    ///
+    /// Only populated when [Outcome::status] is [OutcomeStatus::ConflictsWithTarget].
+    pub target_conflicts: Vec<bstr::BString>,
 }
 
 impl Outcome {
@@ -104,6 +112,7 @@ impl std::fmt::Debug for Outcome {
             workspace_ref_created,
             workspace_merge: _,
             conflicting_stacks,
+            target_conflicts,
             applied_branches,
         } = self;
         let mut f = f.debug_struct("Outcome");
@@ -122,6 +131,19 @@ impl std::fmt::Debug for Outcome {
             );
         if !conflicting_stacks.is_empty() {
             f.field("conflicting_stacks", conflicting_stacks);
+        }
+        if !target_conflicts.is_empty() {
+            f.field(
+                "target_conflicts",
+                &format!(
+                    "[{}]",
+                    target_conflicts
+                        .iter()
+                        .map(|path| path.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            );
         }
         f.finish()
     }
@@ -191,7 +213,7 @@ use tracing::instrument;
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
-    commit::merge::Tip,
+    commit::merge::{Tip, peel_to_tree},
     ref_info::WorkspaceExt,
 };
 
@@ -269,6 +291,7 @@ pub fn apply(
             workspace_ref_created,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
+            target_conflicts: Vec::new(),
             applied_branches: Vec::new(),
         });
     } else if !branch_has_applied_metadata && ws.refname_is_segment(branch.as_ref()) {
@@ -316,6 +339,7 @@ pub fn apply(
             workspace_ref_created: false,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
+            target_conflicts: Vec::new(),
             applied_branches,
         });
     };
@@ -545,6 +569,7 @@ pub fn apply(
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
+            target_conflicts: Vec::new(),
             applied_branches,
         });
     }
@@ -556,13 +581,30 @@ pub fn apply(
         );
     }
 
+    let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
+    // The workspace merge only knows stack tips, so a branch that conflicts with the target
+    // it is based behind would blame whatever stacks stand between it and the target delta -
+    // even empty ones. Detect that case upfront and attribute it to the target instead.
+    if on_workspace_conflict.should_abort()
+        && let Some(target_conflicts) =
+            branch_conflicts_with_target(&ws, branch.as_ref(), &in_memory_repo)?
+    {
+        return Ok(Outcome {
+            workspace: ws,
+            status: OutcomeStatus::ConflictsWithTarget,
+            workspace_ref_created: false,
+            workspace_merge: None,
+            conflicting_stacks: Vec::new(),
+            target_conflicts,
+            applied_branches: Vec::new(),
+        });
+    }
     let existing_stacks_superseded_by_branch =
         find_superseded_stacks(branch.as_ref(), &ws, &mut ws_md);
     // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
     // doesn't see one or more of to-be-applied branches (to become stacks).
     // These are, however, part of the graph by now, and we want to try to create a workspace
     // merge.
-    let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
     let mut merge_result = WorkspaceCommit::from_new_merge_with_metadata(
         filter_superseded_metadata_stacks(
             ws_md.stacks.iter(),
@@ -588,6 +630,7 @@ pub fn apply(
             workspace_ref_created: false,
             workspace_merge: Some(merge_result),
             conflicting_stacks,
+            target_conflicts: Vec::new(),
             applied_branches: Vec::new(),
         });
     }
@@ -702,6 +745,7 @@ pub fn apply(
                 workspace_ref_created: false,
                 workspace_merge: Some(merge_result),
                 conflicting_stacks,
+                target_conflicts: Vec::new(),
                 applied_branches: Vec::new(),
             });
         }
@@ -770,8 +814,53 @@ pub fn apply(
         workspace_ref_created: needs_ws_ref_creation,
         workspace_merge: Some(merge_result),
         conflicting_stacks,
+        target_conflicts: Vec::new(),
         applied_branches,
     })
+}
+
+/// Return the worktree-relative paths at which the tree of `branch` conflicts with the
+/// workspace's integration frame - the target commit if set, or the workspace lower bound
+/// otherwise - when merged from their common ancestor.
+///
+/// This is `None` whenever there is no conflict or the question cannot be answered, e.g.
+/// without a frame or with `branch` missing from the graph, so callers fall back to the
+/// ordinary stack merge.
+fn branch_conflicts_with_target(
+    ws: &but_graph::Workspace,
+    branch: &FullNameRef,
+    repo: &gix::Repository,
+) -> anyhow::Result<Option<Vec<bstr::BString>>> {
+    let frame = (ws.target_commit.as_ref())
+        .map(|target| (target.segment_index, target.commit_id))
+        .or(ws.lower_bound_segment_id.zip(ws.lower_bound));
+    let branch_tip = ws.graph.segment_and_commit_by_ref_name(branch);
+    let (Some((frame_sidx, frame_id)), Some((branch_segment, branch_commit))) = (frame, branch_tip)
+    else {
+        return Ok(None);
+    };
+    let Some(base) = (ws.graph.find_merge_base(frame_sidx, branch_segment.id))
+        .and_then(|base_sidx| ws.graph.tip_skip_empty(base_sidx))
+    else {
+        return Ok(None);
+    };
+
+    // No fail-fast here - the conflicting paths are reported, so all of them are wanted.
+    let merge = repo.merge_trees(
+        peel_to_tree(base.id.attach(repo))?,
+        peel_to_tree(frame_id.attach(repo))?,
+        peel_to_tree(branch_commit.id.attach(repo))?,
+        repo.default_merge_labels(),
+        repo.tree_merge_options()?,
+    )?;
+    let conflict_kind = gix::merge::tree::TreatAsUnresolved::git();
+    let conflicting_paths: Vec<_> = merge
+        .conflicts
+        .iter()
+        .filter(|conflict| conflict.is_unresolved(conflict_kind))
+        .map(|conflict| conflict.ours.location().to_owned())
+        .collect();
+    Ok((!conflicting_paths.is_empty()).then_some(conflicting_paths))
 }
 
 /// Map conflicting merge tips back to workspace stack metadata.
