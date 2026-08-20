@@ -135,6 +135,8 @@ impl Subcommands {
             },
             #[cfg(feature = "legacy")]
             Subcommands::Unapply { .. } => BranchUnapply,
+            // Worktree creation is local plumbing; it has no metric of its own yet.
+            Subcommands::Worktree(_) => Unknown,
             #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
             #[cfg(feature = "legacy")]
