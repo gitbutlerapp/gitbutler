@@ -1,0 +1,48 @@
+.dropdownButton {
+	display: inline-flex;
+	max-width: 100%;
+
+	/* The joined edges are drawn by the separator instead, so the buttons drop
+	   the border and radius they'd otherwise carry between them. Two classes
+	   deep so these win over Button's own chrome regardless of sheet order. */
+	> .action,
+	> .trigger {
+		overflow: hidden;
+	}
+
+	> .action {
+		flex: 1;
+		min-width: 0;
+		border-right: 0;
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	> .trigger {
+		flex-shrink: 0;
+		border-left: 0;
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+}
+
+.separator {
+	flex-shrink: 0;
+	width: 1px;
+	background-color: var(--dropdown-button-separator);
+}
+
+/* Each variant divides its own fill, so the rule reads as a seam in the button
+   rather than a line drawn on top of it. */
+.pop {
+	--dropdown-button-separator: color-mix(in srgb, var(--scale-pop-40) 20%, var(--scale-pop-70));
+}
+
+.gray {
+	--dropdown-button-separator: color-mix(in srgb, var(--fill-gray-fg) 20%, var(--fill-gray-bg));
+}
+
+/* Outline has no fill to divide, so the seam matches its border. */
+.outline {
+	--dropdown-button-separator: color-mix(in srgb, var(--fill-gray-bg) 26%, transparent);
+}

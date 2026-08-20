@@ -9,6 +9,7 @@ import {
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -454,30 +455,21 @@ export const CommitForm: FC<{
 				{/* Amend ignores the message, so its affordance belongs here rather than
 				    behind the message composer. Mirrors the hotkeys, which are registered
 				    regardless of whether the form is expanded. */}
-				<div className={classes(styles.dropdownButton, styles.startCommitSplit)}>
-					<Button
-						className={classes(getButtonClassName({ variant: "pop" }), styles.startCommitButton)}
-						id={startCommitButtonId}
-						onClick={() => setIsExpanded(true)}
-						focusableWhenDisabled
-						disabled={!noOperationPending}
-					>
-						Start commit
-						<Kbd hotkey={sidebarHotkeys.composeCommitMessage.hotkey} variant="button" />
-					</Button>
-					<div aria-hidden className={styles.dropdownButtonSeparator} />
-					<Button
-						focusableWhenDisabled
-						disabled={!(canAmend || canCommit)}
-						aria-label="Commit options"
-						className={getButtonClassName({ variant: "pop", iconOnly: true })}
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-						}}
-					>
-						<Icon name="chevron-down" />
-					</Button>
-				</div>
+				<DropdownButton
+					className={styles.startCommitSplit}
+					variant="pop"
+					id={startCommitButtonId}
+					onClick={() => setIsExpanded(true)}
+					disabled={!noOperationPending}
+					menuLabel="Commit options"
+					menuDisabled={!(canAmend || canCommit)}
+					onMenuTrigger={(trigger) => {
+						void showNativeMenuFromTrigger(trigger, commitMenuItems);
+					}}
+				>
+					Start commit
+					<Kbd hotkey={sidebarHotkeys.composeCommitMessage.hotkey} variant="button" />
+				</DropdownButton>
 			</div>
 		);
 	}
