@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
@@ -13,7 +14,7 @@ use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_workspace::ui::{BranchDetails, StackDetails};
+use but_workspace::{RefInfo, branch::Stack};
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -139,15 +140,19 @@ pub fn absorption_plan_with_perm(
             let dependencies = worktree_changes.dependencies;
 
             // Get the stack ID for this branch
-            let stacks = crate::legacy::workspace::stacks(ctx, None)?;
+            let workspace = crate::legacy::workspace::head_info(ctx)?;
 
             // Find the stack that contains this branch
-            let stack = stacks
+            let stack = workspace
+                .stacks
                 .iter()
-                .find(|s| {
-                    s.heads
-                        .iter()
-                        .any(|h| h.name.to_str().map(|n| n == branch_name).unwrap_or(false))
+                .find(|stack| {
+                    stack.segments.iter().any(|segment| {
+                        segment
+                            .ref_info
+                            .as_ref()
+                            .is_some_and(|ri| ri.ref_name.shorten() == branch_name.as_bytes())
+                    })
                 })
                 .ok_or_else(|| anyhow::anyhow!("Branch not found: {branch_name}"))?;
 
@@ -245,7 +250,9 @@ fn group_changes_by_target_commit(
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
 
-    let mut stack_details_cache = HashMap::<StackId, StackDetails>::new();
+    // One projection of the workspace serves every candidate; it is re-read whenever
+    // `ensure_target_commit()` inserts a blank commit.
+    let mut workspace = crate::legacy::workspace::head_info(ctx)?;
 
     // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
@@ -257,13 +264,8 @@ fn group_changes_by_target_commit(
             .as_ref()
             .map(|idx| locks_for_candidate(idx, candidate))
             .filter(|l| !l.is_empty());
-        let (stack_id, commit_id, reason) = ensure_target_commit(
-            ctx,
-            candidate,
-            locks.as_deref(),
-            &mut stack_details_cache,
-            perm,
-        )?;
+        let (stack_id, commit_id, reason) =
+            ensure_target_commit(ctx, candidate, locks.as_deref(), &mut workspace, perm)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -346,11 +348,7 @@ fn locks_for_candidate(index: &LockIndex, candidate: &AbsorbCandidate) -> Vec<Hu
 }
 
 // Find the lock that is highest in the application order (child-most commit)
-fn find_top_most_lock<'a>(
-    locks: &'a [HunkLock],
-    ctx: &mut Context,
-    stack_details_cache: &'a mut HashMap<StackId, StackDetails>,
-) -> Option<&'a HunkLock> {
+fn find_top_most_lock<'a>(locks: &'a [HunkLock], workspace: &RefInfo) -> Option<&'a HunkLock> {
     // These are all the stack IDs that the hunk is dependent on.
     // If there are multiple, then the absorb will fail.
     let all_stack_ids = locks
@@ -360,15 +358,9 @@ fn find_top_most_lock<'a>(
         .collect::<Vec<_>>();
     for stack_id in &all_stack_ids {
         if let HunkLockTarget::Stack(stack_id) = stack_id {
-            let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
-                details.clone()
-            } else {
-                let details = crate::legacy::workspace::stack_details(ctx, Some(*stack_id)).ok()?;
-                stack_details_cache.insert(*stack_id, details.clone());
-                details
-            };
-            for branch in stack_details.branch_details.iter() {
-                for commit in branch.commits.iter() {
+            let stack = stack_by_id(workspace, *stack_id)?;
+            for segment in stack.segments.iter() {
+                for commit in segment.commits.iter() {
                     if let Some(lock) = locks.iter().find(|l| {
                         l.commit_id == commit.id && l.target == HunkLockTarget::Stack(*stack_id)
                     }) {
@@ -384,19 +376,41 @@ fn find_top_most_lock<'a>(
     None
 }
 
-/// Resolve the target branch in stack details: match `branch_ref` if set, otherwise use the topmost branch.
-fn find_target_branch<'a>(
-    stack_details: &'a StackDetails,
+/// Find the stack identified by `stack_id` in the workspace projection.
+fn stack_by_id(workspace: &RefInfo, stack_id: StackId) -> Option<&Stack> {
+    workspace
+        .stacks
+        .iter()
+        .find(|stack| stack.id == Some(stack_id))
+}
+
+/// Resolve the segment that an absorption targets in `stack_id`: the one named by `branch_ref` if
+/// set, otherwise the topmost one. Returns its reference and the commit to absorb into, if any.
+fn target_segment(
+    workspace: &RefInfo,
+    stack_id: StackId,
     branch_ref: Option<&gix::refs::FullName>,
-) -> Option<&'a BranchDetails> {
-    branch_ref
+) -> anyhow::Result<(gix::refs::FullName, Option<gix::ObjectId>)> {
+    let stack = stack_by_id(workspace, stack_id)
+        .with_context(|| format!("Couldn't find {stack_id} in the current workspace"))?;
+    let segment = branch_ref
         .and_then(|branch_ref| {
-            stack_details
-                .branch_details
-                .iter()
-                .find(|b| &b.reference == branch_ref)
+            stack.segments.iter().find(|segment| {
+                segment
+                    .ref_info
+                    .as_ref()
+                    .is_some_and(|ri| &ri.ref_name == branch_ref)
+            })
         })
-        .or_else(|| stack_details.branch_details.first())
+        .or_else(|| stack.segments.first())
+        .context("Stack has no branches")?;
+    let ref_name = segment
+        .ref_info
+        .as_ref()
+        .context("Can't absorb into a stack segment that isn't pointed to by a reference")?
+        .ref_name
+        .clone();
+    Ok((ref_name, segment.commits.first().map(|commit| commit.id)))
 }
 
 /// Determine the target commit for a candidate based on dependencies and assignments
@@ -405,7 +419,7 @@ fn ensure_target_commit(
     ctx: &mut Context,
     candidate: &AbsorbCandidate,
     locks: Option<&[HunkLock]>,
-    stack_details_cache: &mut HashMap<StackId, StackDetails>,
+    workspace: &mut RefInfo,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
@@ -414,7 +428,7 @@ fn ensure_target_commit(
 )> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = locks {
-        if let Some(lock) = find_top_most_lock(locks, ctx, stack_details_cache) {
+        if let Some(lock) = find_top_most_lock(locks, workspace) {
             if let HunkLockTarget::Stack(stack_id) = lock.target {
                 return Ok((stack_id, lock.commit_id, AbsorptionReason::HunkDependency));
             }
@@ -430,66 +444,49 @@ fn ensure_target_commit(
     if let Some(stack_id) = candidate.stack_id {
         let branch_ref = candidate.branch_ref.as_ref();
 
-        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-        if let Some(branch) = find_target_branch(&stack_details, branch_ref)
-            && let Some(commit) = branch.commits.first()
-        {
-            return Ok((stack_id, commit.id, AbsorptionReason::StackAssignment));
+        let (reference, commit_id) = target_segment(workspace, stack_id, branch_ref)?;
+        if let Some(commit_id) = commit_id {
+            return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment));
         }
 
         // If there are no commits in the target branch, create a blank commit first
-        let branch = find_target_branch(&stack_details, branch_ref)
-            .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            RelativeTo::Reference(branch.reference.clone()),
+            RelativeTo::Reference(reference),
             InsertSide::Below,
             DryRun::No,
             perm,
         )?;
 
-        // Fetch again to get the newly created commit
-        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-        if let Some(branch) = find_target_branch(&stack_details, branch_ref)
-            && let Some(commit) = branch.commits.first()
-        {
-            return Ok((stack_id, commit.id, AbsorptionReason::StackAssignment));
+        // Project the workspace again to see the newly created commit
+        *workspace = crate::legacy::workspace::head_info(ctx)?;
+        if let (_, Some(commit_id)) = target_segment(workspace, stack_id, branch_ref)? {
+            return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment));
         }
 
         anyhow::bail!("Failed to create blank commit in stack: {stack_id:?}");
     }
 
     // Priority 3: If no assignment, find the topmost commit of the leftmost lane
-    let stacks = crate::legacy::workspace::stacks(ctx, None)?;
-    if let Some(stack) = stacks.first()
-        && let Some(stack_id) = stack.id
-    {
-        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-        if let Some(branch) = stack_details.branch_details.first()
-            && let Some(commit) = branch.commits.first()
-        {
-            return Ok((stack_id, commit.id, AbsorptionReason::DefaultStack));
+    if let Some(stack_id) = workspace.stacks.first().and_then(|stack| stack.id) {
+        let (reference, commit_id) = target_segment(workspace, stack_id, None)?;
+        if let Some(commit_id) = commit_id {
+            return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack));
         }
 
         // If the first stack has no commits, create a blank commit first
-        let branch = stack_details
-            .branch_details
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            RelativeTo::Reference(branch.reference.clone()),
+            RelativeTo::Reference(reference),
             InsertSide::Below,
             DryRun::No,
             perm,
         )?;
 
-        // Now fetch the stack details again to get the newly created commit
-        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-        if let Some(branch) = stack_details.branch_details.first()
-            && let Some(commit) = branch.commits.first()
-        {
-            return Ok((stack_id, commit.id, AbsorptionReason::DefaultStack));
+        // Now project the workspace again to see the newly created commit
+        *workspace = crate::legacy::workspace::head_info(ctx)?;
+        if let (_, Some(commit_id)) = target_segment(workspace, stack_id, None)? {
+            return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack));
         }
 
         anyhow::bail!("Failed to create blank commit in leftmost stack");
@@ -510,39 +507,33 @@ fn prepare_commit_absorptions(
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
     let mut commit_absorptions = Vec::new();
 
-    // Cache the stack details to determine the commit order
-    let mut stack_details_map = HashMap::<StackId, StackDetails>::new();
+    // The workspace projection carries every stack's segments and commits in order
+    let workspace = crate::legacy::workspace::head_info(ctx)?;
     let all_stack_ids = changes_by_commit
         .keys()
         .map(|(stack_id, _)| *stack_id)
         .unique()
         .collect::<Vec<_>>();
 
-    for stack_id in &all_stack_ids {
-        if let std::collections::hash_map::Entry::Vacant(e) = stack_details_map.entry(*stack_id) {
-            let details = crate::legacy::workspace::stack_details(ctx, Some(*stack_id))?;
-            e.insert(details);
-        }
-    }
     // Iterate through the stacks' commits in application order (parent to child)
     for stack_id in all_stack_ids {
-        if let Some(stack_details) = stack_details_map.get(&stack_id) {
-            for branch in stack_details.branch_details.iter().rev() {
-                for commit in branch.commits.iter().rev() {
-                    let key = (stack_id, commit.id);
-                    if let Some((candidates, reason)) = changes_by_commit.get(&key) {
-                        let hunks = candidates
-                            .iter()
-                            .map(|candidate| candidate.hunk.clone())
-                            .collect();
-                        commit_absorptions.push(CommitAbsorption {
-                            stack_id,
-                            commit_id: commit.id,
-                            commit_summary: get_commit_summary(&*ctx.repo.get()?, commit.id)?,
-                            hunks,
-                            reason: reason.clone(),
-                        });
-                    }
+        let stack = stack_by_id(&workspace, stack_id)
+            .with_context(|| format!("Couldn't find {stack_id} in the current workspace"))?;
+        for segment in stack.segments.iter().rev() {
+            for commit in segment.commits.iter().rev() {
+                let key = (stack_id, commit.id);
+                if let Some((candidates, reason)) = changes_by_commit.get(&key) {
+                    let hunks = candidates
+                        .iter()
+                        .map(|candidate| candidate.hunk.clone())
+                        .collect();
+                    commit_absorptions.push(CommitAbsorption {
+                        stack_id,
+                        commit_id: commit.id,
+                        commit_summary: get_commit_summary(&*ctx.repo.get()?, commit.id)?,
+                        hunks,
+                        reason: reason.clone(),
+                    });
                 }
             }
         }

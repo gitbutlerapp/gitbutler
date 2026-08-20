@@ -1,15 +1,9 @@
 use but_ctx::Context;
-use serde::{Deserialize, Serialize};
 
 pub mod head;
-mod stacks;
 pub use head::{
     merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2,
 };
-
-// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
-#[expect(deprecated, reason = "re-exports stacks_v3 and stack_details_v3")]
-pub use stacks::{stack_details_v3, stacks_v3};
 
 /// Various types for the frontend.
 pub mod ui;
@@ -66,17 +60,4 @@ pub fn log_target_first_parent(
         commits.push(commit.try_into()?);
     }
     Ok(commits)
-}
-/// A filter for the list of stacks.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-pub enum StacksFilter {
-    /// Show all stacks
-    All,
-    /// Show only applied stacks
-    #[default]
-    InWorkspace,
-    /// Show only unapplied stacks
-    // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
-    Unapplied,
 }
