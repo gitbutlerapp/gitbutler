@@ -56,6 +56,7 @@ export declare const apiParamNames: {
 	readonly forgetBitbucketAccount: readonly ["account"];
 	readonly forgetGithubAccount: readonly ["account"];
 	readonly forgetGitlabAccount: readonly ["account"];
+	readonly getAiConfiguration: readonly [];
 	readonly getBbUser: readonly ["account"];
 	readonly getBlobFile: readonly ["projectId", "relativePath", "blobId"];
 	readonly getGbConfig: readonly ["projectId"];
@@ -108,6 +109,7 @@ export declare const apiParamNames: {
 	readonly removeReviewLabel: readonly ["projectId", "reviewId", "label"];
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];
 	readonly requestReview: readonly ["projectId", "reviewId", "logins"];
+	readonly resetAiConfiguration: readonly [];
 	readonly resolveCommitConflictHunks: readonly ["projectId", "commitId", "specs"];
 	readonly resolveWorktreeConflicts: readonly ["projectId", "paths"];
 	readonly restoreSnapshotWithKind: readonly ["projectId", "restoreKind", "sha"];
@@ -125,6 +127,7 @@ export declare const apiParamNames: {
 	readonly tearOffBranch: readonly ["projectId", "subjectBranch", "dryRun"];
 	readonly treeChangeDiffs: readonly ["projectId", "change"];
 	readonly unapplyStack: readonly ["projectId", "stackId"];
+	readonly updateAiConfiguration: readonly ["update"];
 	readonly updateProfileAndPersist: readonly ["params"];
 	readonly updateProjectSettings: readonly ["projectId", "settings"];
 	readonly updateReview: readonly ["projectId", "reviewId", "title", "body", "state", "targetBase"];

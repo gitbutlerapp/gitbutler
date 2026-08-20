@@ -85,4 +85,6 @@ cache_tags! {
     SigningSettings,
     /// The projects known to the app.
     Projects,
+    /// The app's AI provider configuration.
+    AiConfiguration,
 }
