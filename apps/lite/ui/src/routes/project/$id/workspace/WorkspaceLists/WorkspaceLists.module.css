@@ -38,29 +38,26 @@
 	--scroll-gradient-height: 14px;
 
 	flex-grow: 1;
-	--scroll-gradient-overlap: 4px;
 
-	/* The sticky gradient below takes up flow space at the end of the content.
-	   Account for it when scrolling rows into view (e.g. arrow-key navigation),
-	   so the last row can reach the true bottom and the gradient fades out. */
-	scroll-padding-block-end: calc(var(--scroll-gradient-height) - var(--scroll-gradient-overlap));
-
-	/* Gradient ramp that fades out the scrolling items, shown only while there
-	   is more content to scroll to below. */
+	/* Gradient ramp that fades out the scrolling items, shown only once the
+	   list has been scrolled away from the top and there is still more content
+	   below. An untouched list shows no ramp. */
 	&::after {
 		display: block;
 		z-index: 1;
 		position: sticky;
 		bottom: 0;
 		height: var(--scroll-gradient-height);
-		margin-block-start: calc(-1 * var(--scroll-gradient-overlap));
+		/* Pulled back by its own height so it claims no flow space and leaves no
+		   gap under the last row; it overlays the content instead. */
+		margin-block-start: calc(-1 * var(--scroll-gradient-height));
 		background: linear-gradient(to top, var(--bg-1) 20%, transparent);
 		content: "";
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 120ms ease;
 
-		@container scroll-state(scrollable: bottom) {
+		@container scroll-state((scrollable: top) and (scrollable: bottom)) {
 			opacity: 1;
 		}
 	}
