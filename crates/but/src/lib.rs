@@ -35,7 +35,7 @@ use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 pub mod args;
 use args::{
     Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
-    update as update_args, worktree,
+    update as update_args,
 };
 use but_settings::AppSettings;
 use gix::date::time::CustomFormat;
@@ -818,7 +818,6 @@ async fn match_subcommand(
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
         | Subcommands::Fetch
-        | Subcommands::Worktree(..)
         | Subcommands::Push(..)
         | Subcommands::Oplog(..)
         | Subcommands::Undo(..)
@@ -1115,11 +1114,6 @@ async fn match_subcommand(
                 },
             )
             .emit_metrics(metrics_ctx)?
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Worktree(worktree::Platform { cmd }) => {
-            command::legacy::worktree::handle(cmd, &mut ctx, out).emit_metrics(metrics_ctx)?;
-            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Status {

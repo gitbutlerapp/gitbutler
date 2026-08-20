@@ -79,7 +79,6 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:but-action",
     "dep:but-gerrit",
-    "dep:but-worktrees",
 ]
 
 [dependencies]
@@ -116,7 +115,6 @@ itertools.workspace = true
 # so need some refactoring/rethinking to become usable.
 but-action = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
-but-worktrees = { workspace = true, optional = true }
 gitbutler-user = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-branch = { workspace = true, optional = true }

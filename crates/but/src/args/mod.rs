@@ -951,20 +951,6 @@ pub enum Subcommands {
         file: String,
     },
 
-    /// Commands for managing worktrees.
-    ///
-    /// GitButler worktrees allow you to have multiple working directories
-    /// associated with a single Git repository, each tied to a specific
-    /// GitButler branch.
-    ///
-    /// This can be useful for working on multiple versions of a branch at
-    /// the same time, or for isolating changes in different workspaces.
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(hide = true, alias = "wt")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Worktree(worktree::Platform),
-
     /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
     ///
     /// This is a hidden command primarily used for background sync operations.
@@ -1145,44 +1131,6 @@ pub mod oplog;
 pub mod push;
 #[cfg(feature = "legacy")]
 pub mod resolve;
-
-pub mod worktree {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Subcommands,
-    }
-
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        /// Create a new worktree from a reference
-        New {
-            /// The reference (branch, commit, etc.) to create the worktree from
-            reference: String,
-        },
-        /// List all worktrees
-        List,
-        /// Integrate a worktree
-        Integrate {
-            /// The path or name of the worktree to integrate
-            path: String,
-            /// The target reference to integrate into (defaults to the reference the worktree was created from)
-            #[clap(long)]
-            target: Option<String>,
-            /// Perform a dry run without making changes
-            #[clap(long)]
-            dry: bool,
-        },
-        /// Destroy worktree(s)
-        Destroy {
-            /// The path to the worktree to destroy, or a reference to destroy all worktrees created from it
-            target: String,
-            /// Treat the target as a reference instead of a path
-            #[clap(long)]
-            reference: bool,
-        },
-    }
-}
 
 pub mod branch;
 
