@@ -35,7 +35,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/disjoint",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: None,
     pr_number: None,
     review_id: None,
@@ -67,7 +66,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/main",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: None,
     pr_number: None,
     review_id: None,

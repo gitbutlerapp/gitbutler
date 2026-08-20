@@ -90,7 +90,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/A",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: None,
     pr_number: Some(
         42,
@@ -153,7 +152,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/A",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: Some(
         "refs/remotes/origin/A",
     ),
@@ -221,7 +219,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/A",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: Some(
         "refs/remotes/origin/A",
     ),
@@ -270,7 +267,6 @@ BranchDetails {
     reference: FullName(
         "refs/remotes/origin/A",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: None,
     pr_number: None,
     review_id: None,
@@ -330,7 +326,6 @@ BranchDetails {
     reference: FullName(
         "refs/heads/A",
     ),
-    linked_worktree_id: None,
     remote_tracking_branch: Some(
         "refs/remotes/origin/A",
     ),

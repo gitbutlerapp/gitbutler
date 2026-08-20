@@ -221,14 +221,6 @@ pub struct BranchDetails {
     )]
     /// The full reference of the branch
     pub reference: gix::refs::FullName,
-    /// The id of the linked worktree that has the reference of `name` checked out.
-    /// Note that we don't list the main worktree here.
-    #[serde(with = "but_serde::bstring_lossy_opt")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_lossy_opt")
-    )]
-    pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_lossy_opt")]
     #[cfg_attr(
