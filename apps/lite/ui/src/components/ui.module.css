@@ -30,8 +30,18 @@
 	overscroll-behavior: contain;
 }
 
-/* Shows a separator line at a scroller's top edge while it is scrolled down. */
+/* Shows a separator line at a scroller's top edge while it is scrolled down,
+   and keeps the scrollbar gutter free of a band of its own so rows and
+   scrollbar sit on the same surface, with only the thumb to show for it.
+
+   The two go together: the gutter is reserved, content cannot paint into it,
+   so the sticky line stops a scrollbar's width short of the edge. The track
+   paints that last stretch itself, under the same scroll state, and the two
+   halves appear and disappear as one line. */
 .scrollerWithSeparator {
+	--scrollbar-track-bg: transparent;
+	--scrollbar-track-border: transparent;
+
 	container-type: scroll-state;
 
 	&:before {
@@ -47,6 +57,12 @@
 
 		@container scroll-state(scrollable: top) {
 			opacity: 1;
+		}
+	}
+
+	&::-webkit-scrollbar-track:vertical {
+		@container scroll-state(scrollable: top) {
+			border-top: 1px solid var(--border-section);
 		}
 	}
 }
