@@ -9,6 +9,7 @@ import {
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
 import {
+	blobFileQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
@@ -21,6 +22,7 @@ import {
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
 	treeChangeDiffsQueryOptions,
+	workspaceFileQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { ForgeReview, TargetCommitReview } from "@gitbutler/but-sdk";
@@ -72,16 +74,19 @@ import type {
 } from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
+	type CodeViewItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	type CodeViewOptions,
 	type DiffLineAnnotation,
+	type FileContents,
 	isDiffAnnotation,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle, useStableCallback } from "@pierre/diffs/react";
 import {
 	keepPreviousData,
 	useQuery,
+	useQueryClient,
 	useSuspenseQueries,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -186,6 +191,7 @@ import {
 	withoutFoldedHunks,
 } from "./diff-view.ts";
 import { DiffMinimap } from "./DiffMinimap.tsx";
+import { ImageDiff } from "./ImageDiff.tsx";
 import {
 	getMinimapFiles,
 	measureWrapColumns,
@@ -267,6 +273,8 @@ const withAnnotations = (
 ): DiffView => ({
 	...diffView,
 	items: diffView.items.map((item) => {
+		if (item.type === "file") return item;
+
 		const file = diffView.fileByItemId.get(item.id);
 		if (!file) throw new Error("Diff view file not found by ID");
 
@@ -293,7 +301,7 @@ const withAnnotations = (
 		return {
 			...item,
 			version: combineHashes(version, annoHash),
-			annotations,
+			annotations: [...(item.annotations ?? []), ...annotations],
 		};
 	}),
 });
@@ -382,7 +390,7 @@ const DiffContents: FC<{
 	onViewerFileSelection,
 	fileParent,
 	projectId,
-	diffView: { items, addressSpace, hunkByKey, fileByItemId },
+	diffView: { items, addressSpace, hunkByKey, fileByItemId, fileByPath },
 	annotationsByPath,
 	diffBackgrounds,
 	diffOverflow,
@@ -416,6 +424,7 @@ const DiffContents: FC<{
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const store = useAppStore();
+	const queryClient = useQueryClient();
 	const lineCheckRangeAnchor = useRef<string>(null);
 	const lineCheckRangeEnd = useRef<string>(null);
 	const hunkCheckRangeAnchor = useRef<string>(null);
@@ -1303,10 +1312,7 @@ const DiffContents: FC<{
 	// We must change the version for updates to the collapsed property to be respected. The versions
 	// should be as stable as possible, collapsed or not, for performance. The selected flag is
 	// hashed in so the header re-renders when the selection enters or leaves a folded file.
-	const enhanceCollapsed = <T,>(
-		item: CodeViewDiffItem<T>,
-		selected: boolean,
-	): CodeViewDiffItem<T> => ({
+	const enhanceCollapsed = <T,>(item: CodeViewItem<T>, selected: boolean): CodeViewItem<T> => ({
 		...item,
 		collapsed: true,
 		// We always use versions.
@@ -1324,6 +1330,62 @@ const DiffContents: FC<{
 						: item,
 				);
 
+	const loadDiffFiles: NonNullable<CodeViewOptions<Annotation>["loadDiffFiles"]> =
+		useStableCallback(async (fileDiff) => {
+			const file = fileByPath.get(fileDiff.name);
+			if (file?.patch?.type !== "Patch") throw new Error("Cannot expand non-patch diff");
+			if (file.patch.subject.isResultOfBinaryToTextConversion)
+				throw new Error("Cannot expand text-converted diff");
+
+			const { version } = file.item;
+			if (version === undefined) throw new Error("Diff view item missing version");
+
+			const { change } = file;
+			if (change.status.type !== "Modification" && change.status.type !== "Rename")
+				throw new Error(`Cannot load full files for ${fileDiff.name}`);
+
+			const loadBlobFile = async (path: string, blobId: string): Promise<FileContents> => {
+				const res = await queryClient.fetchQuery(
+					blobFileQueryOptions({ projectId, relativePath: path, blobId }),
+				);
+				if (res.content === null || res.mimeType !== null)
+					throw new Error("Could not load file contents from blob");
+
+				return { name: path, contents: res.content, cacheKey: blobId };
+			};
+
+			const loadWorkspaceFile = async (path: string): Promise<FileContents> => {
+				const res = await queryClient.fetchQuery(
+					workspaceFileQueryOptions({ projectId, relativePath: path, version }),
+				);
+				if (res.content === null || res.mimeType !== null)
+					throw new Error("Could not load file contents from workspace");
+
+				return {
+					name: path,
+					contents: res.content,
+					cacheKey: `workspace:${path}:${version}`,
+				};
+			};
+
+			// Don't await yet, retain prospective parallelisation.
+			const asyncNewFile =
+				fileParent._tag === "UncommittedChanges"
+					? loadWorkspaceFile(change.path)
+					: loadBlobFile(change.path, change.status.subject.state.id);
+
+			if (fileDiff.type === "rename-pure") return { oldFile: null, newFile: await asyncNewFile };
+
+			const [oldFile, newFile] = await Promise.all([
+				loadBlobFile(
+					change.status.type === "Rename" ? change.status.subject.previousPath : change.path,
+					change.status.subject.previousState.id,
+				),
+				asyncNewFile,
+			]);
+			return { oldFile, newFile };
+		});
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
@@ -1332,8 +1394,6 @@ const DiffContents: FC<{
 				ref={viewerRef}
 				renderCodeViewFooter={() => <DadJokeFooter />}
 				renderCustomHeader={(item) => {
-					if (item.type === "file") throw new Error("Only diff items may be rendered");
-
 					const file = fileByItemId.get(item.id);
 					// CodeView may briefly hold onto stale snapshots of our data.
 					if (!file) return <div style={{ height: codeViewItemMetrics.diffHeaderHeight }} />;
@@ -1353,10 +1413,10 @@ const DiffContents: FC<{
 					return (
 						<DiffFileHeader
 							projectId={projectId}
-							item={item}
+							item={file.item}
 							address={file.address}
 							change={file.change}
-							hasDiff={item.fileDiff.hunks.length !== 0}
+							hasDiff={item.type === "file" || file.item.fileDiff.hunks.length !== 0}
 							collapsed={item.collapsed ?? false}
 							reviewState={reviewState}
 							lineStats={patchLineStats(file.patch)}
@@ -1369,8 +1429,21 @@ const DiffContents: FC<{
 					);
 				}}
 				renderAnnotation={(anno, item) => {
-					if (!isDiffAnnotation<Annotation>(anno))
-						throw new Error("Only diff items may be rendered");
+					if (anno.metadata._tag === "image") {
+						const file = fileByItemId.get(item.id);
+						if (!file) return null;
+
+						return (
+							<ImageDiff
+								projectId={projectId}
+								change={file.change}
+								fileParent={fileParent}
+								version={file.item.version ?? 0}
+							/>
+						);
+					}
+
+					if (!isDiffAnnotation<Annotation>(anno)) return null;
 
 					const file = fileByItemId.get(item.id);
 					if (!file) return null;
@@ -1399,6 +1472,7 @@ const DiffContents: FC<{
 				onSelectedLinesChange={handleLinesSelected}
 				options={{
 					diffStyle: effectiveDiffStyle,
+					loadDiffFiles,
 					disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
 					lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
 					overflow: diffOverflow ?? defaultSettings.diffOverflow,
@@ -1433,6 +1507,20 @@ const DiffContents: FC<{
             border-style: solid;
             border: none;
           }
+
+    		  /* Pierre doesn't support image diffs yet:
+               https://github.com/pierrecomputer/pierre/issues/258
+
+             We leverage annotations on synthetic empty diffs as a workaround. Here we hide the
+   		       empty diff that causes to render. */
+    		  pre[data-file] {
+    		    user-select: none;
+    		  }
+
+    		  pre[data-file] :is([data-column-number], [data-line]) {
+    		    visibility: hidden;
+    		    pointer-events: none;
+    		  }
 
           [data-column-number] {
             --mix-selection-light: 0%;

@@ -15,9 +15,11 @@ export declare const apiProvides: {
 	readonly commitDetailsWithLineStats: readonly ["Commits"];
 	readonly currentForgeLogin: readonly ["ForgeLogin"];
 	readonly forgeInfo: readonly ["ForgeInfo"];
+	readonly getBlobFile: readonly [];
 	readonly getGbConfig: readonly ["GbConfig"];
 	readonly getReview: readonly ["Reviews"];
 	readonly getReviewMergeStatus: readonly ["MergeStatus"];
+	readonly getWorkspaceFile: readonly [];
 	readonly headInfo: readonly ["Workspace"];
 	readonly listCiChecks: readonly ["Checks"];
 	readonly listCommentReactions: readonly ["CommentReactions"];

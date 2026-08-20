@@ -57,6 +57,7 @@ export declare const apiParamNames: {
 	readonly forgetGithubAccount: readonly ["account"];
 	readonly forgetGitlabAccount: readonly ["account"];
 	readonly getBbUser: readonly ["account"];
+	readonly getBlobFile: readonly ["projectId", "relativePath", "blobId"];
 	readonly getGbConfig: readonly ["projectId"];
 	readonly getGhUser: readonly ["account"];
 	readonly getGlUser: readonly ["account"];
@@ -71,6 +72,7 @@ export declare const apiParamNames: {
 	readonly getUndoTargetSnapshot: readonly ["projectId"];
 	readonly getUserProfileLocal: readonly [];
 	readonly getWorkspace: readonly ["projectId"];
+	readonly getWorkspaceFile: readonly ["projectId", "relativePath"];
 	readonly gitTestFetch: readonly ["projectId", "remoteName", "action"];
 	readonly gitTestPush: readonly ["projectId", "remoteName", "branchName"];
 	readonly headInfo: readonly ["projectId"];

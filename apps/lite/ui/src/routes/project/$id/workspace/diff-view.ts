@@ -5,6 +5,7 @@ import {
 	rangeFromLineGroups,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
+import { isRasterImageFile, isSvgFile } from "#ui/file.ts";
 import {
 	hunkAddress,
 	addressIdentityKey,
@@ -18,12 +19,18 @@ import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	processFile,
 	type CodeViewDiffItem,
+	type CodeViewFileItem,
+	type CodeViewItem,
 	type CodeViewLayout,
 	type CodeViewLineSelection,
 	type VirtualFileMetrics,
 } from "@pierre/diffs";
 
-export type Annotation = { _tag: "local"; id: string };
+export type Annotation =
+	/** Local review comments. */
+	| { _tag: "local"; id: string }
+	/** Workaround to render images w/o native library support. */
+	| { _tag: "image" };
 
 /**
  * Layout and metrics handed to CodeView. Shared because the minimap models item
@@ -72,7 +79,7 @@ type DiffViewHunk = {
 
 export type DiffView = {
 	addressSpace: AddressSpace<HunkAddress>;
-	items: Array<CodeViewDiffItem<Annotation>>;
+	items: Array<CodeViewItem<Annotation>>;
 	fileByItemId: Map<string, DiffViewFile>;
 	fileByPath: Map<string, DiffViewFile>;
 	hunkByKey: Map<string, DiffViewHunk>;
@@ -174,7 +181,7 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 		indexByKey: new Map(),
 	};
 
-	const items: Array<CodeViewDiffItem<Annotation>> = [];
+	const items: Array<CodeViewItem<Annotation>> = [];
 
 	const fileByItemId = new Map<string, DiffViewFile>();
 	const fileByPath = new Map<string, DiffViewFile>();
@@ -187,9 +194,32 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 			id: fileId,
 			version,
 			fileDiff: parsePreparedDiffFile(prepared),
+			...(mdiff?.type === "Patch" && isSvgFile(change.path)
+				? {
+						annotations: [
+							{
+								lineNumber: 0,
+								side: change.status.type === "Deletion" ? "deletions" : "additions",
+								metadata: { _tag: "image" as const },
+							},
+						],
+					}
+				: {}),
 		};
 
-		items.push(item);
+		const renderItem: CodeViewDiffItem<Annotation> | CodeViewFileItem<Annotation> =
+			// Construct a synthetic diff using annotations as a workaround for rendering images.
+			mdiff?.type === "Binary" && isRasterImageFile(change.path)
+				? {
+						type: "file",
+						id: fileId,
+						version,
+						file: { name: change.path, contents: "" },
+						annotations: [{ lineNumber: 0, metadata: { _tag: "image" } }],
+					}
+				: item;
+
+		items.push(renderItem);
 
 		const diffViewFile: DiffViewFile = {
 			address: file,
