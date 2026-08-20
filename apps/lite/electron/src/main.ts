@@ -21,6 +21,7 @@ import {
 } from "@gitbutler/but-sdk";
 import {
 	app,
+	autoUpdater,
 	BrowserWindow,
 	clipboard,
 	dialog,
@@ -489,6 +490,12 @@ const completeLogin = async (url: URL): Promise<boolean> => {
 	return true;
 };
 
+const showAndFocusWindow = (window: BrowserWindow): void => {
+	if (window.isMinimized()) window.restore();
+	window.show();
+	window.focus();
+};
+
 /**
  * Open a deep link in the window we already have, or start one if the app was
  * launched by the link. The project it names is checked by the route itself,
@@ -497,7 +504,8 @@ const completeLogin = async (url: URL): Promise<boolean> => {
 const openDeepLink = async (link: string): Promise<void> => {
 	const url = newUrlOrNull(link);
 	if (url !== null && url.protocol === `${liteProtocolScheme}:` && (await completeLogin(url))) {
-		BrowserWindow.getAllWindows()[0]?.focus();
+		const [existing] = BrowserWindow.getAllWindows();
+		if (existing) showAndFocusWindow(existing);
 		return;
 	}
 
@@ -514,8 +522,7 @@ const openDeepLink = async (link: string): Promise<void> => {
 		return;
 	}
 
-	if (existing.isMinimized()) existing.restore();
-	existing.focus();
+	showAndFocusWindow(existing);
 	await existing.loadURL(target);
 };
 
@@ -546,6 +553,24 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 	};
 	mainWindow.on("enter-full-screen", notifyFullScreenChange);
 	mainWindow.on("leave-full-screen", notifyFullScreenChange);
+
+	if (process.platform === "darwin") {
+		const hideWindowInsteadOfClosing = (event: Electron.Event) => {
+			event.preventDefault();
+			mainWindow.hide();
+		};
+		const allowWindowToClose = () => {
+			mainWindow.removeListener("close", hideWindowInsteadOfClosing);
+		};
+
+		mainWindow.on("close", hideWindowInsteadOfClosing);
+		app.once("before-quit", allowWindowToClose);
+		autoUpdater.once("before-quit-for-update", allowWindowToClose);
+		mainWindow.once("closed", () => {
+			app.removeListener("before-quit", allowWindowToClose);
+			autoUpdater.removeListener("before-quit-for-update", allowWindowToClose);
+		});
+	}
 
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 	if (devServerUrl !== undefined) {
@@ -688,7 +713,9 @@ void app.whenReady().then(async () => {
 	);
 
 	app.on("activate", () => {
-		if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+		const [existing] = BrowserWindow.getAllWindows();
+		if (existing) showAndFocusWindow(existing);
+		else void createMainWindow();
 	});
 });
 
