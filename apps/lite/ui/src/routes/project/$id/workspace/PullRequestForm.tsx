@@ -29,7 +29,11 @@ import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
 import { SwitchButton } from "#ui/components/SwitchButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
-import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import {
+	nativeMenuItem,
+	nativeMenuItemsFromGroups,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
 import {
 	draftPRQueryOptions,
 	mergeMethodQueryOptions,
@@ -40,6 +44,7 @@ import {
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Field, Tooltip } from "@base-ui/react";
 import type {
+	ForgeReview,
 	ForgeReviewReaction,
 	ForgeReviewReactionCount,
 	ReviewMergeMethod,
@@ -57,8 +62,8 @@ import styles from "./PullRequestForm.module.css";
  *   branches without a PR yet)
  * - {@link PullRequestDescription} — the rendered title/body view that
  *   flips into the form when edit mode is on
- * - {@link PullRequestPrimaryAction} — the Edit/draft/auto-merge/Merge
- *   button row; note it mounts in the details *header*, not the tab body
+ * - {@link PullRequestPrimaryAction} — the Edit/auto-merge/Merge button
+ *   row; note it mounts in the details *header*, not the tab body
  *
  * `BranchDetails` (Details.tsx) owns the tab switching and edit-mode state
  * and composes these with `PullRequestPanel` and `PullRequestComments`.
@@ -430,18 +435,22 @@ const mergeMethodLabels: Record<ReviewMergeMethod, string> = {
 };
 
 /**
- * Edit / draft-toggle / auto-merge / merge-with-method / overflow actions.
+ * Edit / auto-merge / merge-with-method / overflow actions. Draft toggling
+ * and closing live in the overflow menu.
  * Rendered in the details header row (next to the Diff|PR tab toggle),
  * only while the PR tab is showing.
  */
 export const PullRequestPrimaryAction: FC<{
 	projectId: string;
-	reviewId: number;
-	isDraft: boolean;
-	autoMergeEnabled: boolean;
+	review: ForgeReview;
 	isEditing: boolean;
-	onToggleEdit: () => void;
-}> = ({ projectId, reviewId, isDraft, autoMergeEnabled, isEditing, onToggleEdit }) => {
+	onStartEdit: () => void;
+}> = ({ projectId, review, isEditing, onStartEdit }) => {
+	const { number: reviewId, draft: isDraft, autoMergeEnabled } = review;
+	// A merged review is closed too, so merge wins when both timestamps are set.
+	const isMerged = review.mergedAt !== null;
+	const isClosed = !isMerged && review.closedAt !== null;
+
 	const { data: mergeStatus } = useQuery({
 		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
 		// Minimise API calls.
@@ -466,27 +475,57 @@ export const PullRequestPrimaryAction: FC<{
 
 	const blockedReason = mergeBlockedReason(mergeStatus);
 
+	// A merged review can be neither drafted nor reopened, so its menu is the
+	// browser link alone; `nativeMenuItemsFromGroups` would otherwise trail a
+	// separator after an empty group.
+	const stateItems = isMerged
+		? []
+		: [
+				...(isClosed
+					? []
+					: [
+							nativeMenuItem({
+								label: isDraft ? "Mark as ready for review" : "Convert to draft",
+								onSelect: () => setReviewDraftiness({ projectId, reviewId, draft: !isDraft }),
+							}),
+						]),
+				nativeMenuItem({
+					label: isClosed ? "Reopen pull request" : "Close pull request",
+					onSelect: () =>
+						updateReview({
+							projectId,
+							reviewId,
+							state: isClosed ? "open" : "closed",
+							title: null,
+							body: null,
+							targetBase: null,
+						}),
+				}),
+			];
+
+	const menuItems = nativeMenuItemsFromGroups(
+		[
+			[
+				nativeMenuItem({
+					label: "Open pull request in browser",
+					onSelect: () => window.lite.openInWebBrowser(review.htmlUrl),
+				}),
+			],
+			stateItems,
+		].filter((group) => group.length > 0),
+	);
+
 	return (
 		<div className={styles.prActions}>
+			{/* One-way: the form's own Cancel and Save leave edit mode. */}
 			<button
-				aria-pressed={isEditing}
-				className={getButtonClassName({ variant: isEditing ? "gray" : "outline" })}
-				disabled={isAnyPending}
-				onClick={onToggleEdit}
+				className={getButtonClassName({ variant: "ghost" })}
+				disabled={isAnyPending || isEditing}
+				onClick={onStartEdit}
 				type="button"
 			>
-				<Icon name="edit" />
 				Edit
-			</button>
-
-			<button
-				className={getButtonClassName({ variant: !isDraft ? "outline" : "pop" })}
-				disabled={isAnyPending}
-				onClick={() => setReviewDraftiness({ projectId, reviewId, draft: !isDraft })}
-				type="button"
-			>
-				{isSetReviewDraftinessPending && <Icon name="spinner" />}
-				{isDraft ? "Mark as Ready" : "Convert to draft"}
+				<Icon name="edit" />
 			</button>
 
 			{!isDraft && (
@@ -530,27 +569,16 @@ export const PullRequestPrimaryAction: FC<{
 
 			<button
 				aria-label="More pull request actions"
-				className={styles.moreActions}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 				disabled={isAnyPending}
-				onClick={(evt) =>
-					void showNativeMenuFromTrigger(evt.currentTarget, [
-						nativeMenuItem({
-							label: "Close pull request",
-							onSelect: () =>
-								updateReview({
-									projectId,
-									reviewId,
-									state: "closed",
-									title: null,
-									body: null,
-									targetBase: null,
-								}),
-						}),
-					])
-				}
+				onClick={(evt) => void showNativeMenuFromTrigger(evt.currentTarget, menuItems)}
 				type="button"
 			>
-				{isUpdateReviewPending ? <Icon name="spinner" /> : <Icon name="kebab" />}
+				{isUpdateReviewPending || isSetReviewDraftinessPending ? (
+					<Icon name="spinner" />
+				) : (
+					<Icon name="kebab" />
+				)}
 			</button>
 		</div>
 	);

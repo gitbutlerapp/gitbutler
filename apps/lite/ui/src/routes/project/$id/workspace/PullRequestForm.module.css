@@ -1,21 +1,6 @@
 .prActions {
 	display: flex;
-	gap: 6px;
-}
-
-/* The design's kebab is chromeless, unlike its outlined neighbors. */
-.moreActions {
-	display: flex;
-	align-items: center;
-	padding: 0 4px;
-	border: none;
-	background: none;
-	color: var(--text-2);
-	cursor: pointer;
-
-	&:hover:not(:disabled) {
-		color: var(--text-1);
-	}
+	gap: 7px;
 }
 
 .disabledActionWrap {
