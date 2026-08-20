@@ -62,6 +62,15 @@ focusManager.setEventListener((setFocused) => {
 
 const router = createAppRouter(queryClient, routeTree);
 
+// A link opened while the app is running is a navigation, not a page load: the
+// main process hands over the path it names and the router goes there, keeping
+// the state and the history the window already has. `href` is the option for a
+// path built elsewhere: the router splits it and parses the query with the
+// app's own parseSearch, so there is nothing to take apart here.
+window.lite.onDeepLink((path) => {
+	void router.navigate({ href: path });
+});
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 
