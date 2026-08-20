@@ -1,17 +1,18 @@
 import { checkForUpdates, registerUpdater, setAutoUpdateEnabled } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import * as sdk from "@gitbutler/but-sdk";
-import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import {
-	exposedEndpoints,
-	type PayloadFor,
-	type Endpoint,
-	type LiteElectronApi,
-	type ShowNativeMenuParams,
-	type StreamAiResponseParams,
-	type WatcherSubscribeParams,
-	type WatcherUnsubscribeParams,
-	type NativeMenuPopupItem,
+	createEndpointTable,
+	type Handler,
+	type HandlerOverrides,
+	type HostOnlyKey,
+} from "./endpoint-table.js";
+import type {
+	ShowNativeMenuParams,
+	StreamAiResponseParams,
+	WatcherSubscribeParams,
+	WatcherUnsubscribeParams,
+	NativeMenuPopupItem,
 } from "./ipc.js";
 import {
 	askpassInit,
@@ -255,35 +256,11 @@ const newUrlOrNull = (url: string): URL | null => {
 	}
 };
 
-/** Members the renderer implements itself; they have no main-side handler. */
-type RendererOnlyKey = "onAskpassPrompt" | "onFullScreenChange" | "platform";
-
-/** Handlers needing the IPC event itself, or taking variadic arguments. */
-type ImperativeKey =
-	| "isFullScreen"
-	| "pathJoin"
-	| "showNativeMenu"
-	| "streamAiResponse"
-	| "watcherSubscribe"
-	// The preload wraps the id in an object, so the payload is not the argument.
-	| "watcherUnsubscribe";
-
-type TableKey = Exclude<keyof LiteElectronApi, RendererOnlyKey | ImperativeKey>;
-
 /**
- * A handler takes what the renderer sends and returns what it expects, both
- * read off `LiteElectronApi`, so a payload or result that drifts from the
- * renderer's view is a compile error.
+ * Members only electron main can answer: its own capabilities, injected into
+ * the endpoint table. `HostOnlyKey` makes forgetting one a compile error.
  */
-type Handler<K extends TableKey> = LiteElectronApi[K] extends (params: infer P) => infer R
-	? (params: P) => R | Awaited<R>
-	: never;
-
-/**
- * Members the main process answers itself: electron's own capabilities.
- * Listing one here is what takes it out of the derived set.
- */
-const ipcHandlerOverrides = {
+const electronHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
 	clipboardWriteText: (text) => {
 		clipboard.writeText(text, "clipboard");
@@ -315,51 +292,7 @@ const ipcHandlerOverrides = {
 		applyGUISettings(settings);
 		await writeSettings(settings);
 	},
-} satisfies { [K in TableKey]?: Handler<K> };
-
-type OverrideKey = keyof typeof ipcHandlerOverrides;
-type DerivedKey = Exclude<TableKey, OverrideKey>;
-
-/** Narrowing rather than asserting: an exposed endpoint may be either. */
-const isOverride = (key: Endpoint): key is Endpoint & OverrideKey => key in ipcHandlerOverrides;
-
-/**
- * Every other endpoint reads its arguments out of the payload by name, so
- * it cannot pass them in the wrong order — which a hand-written call can,
- * silently: `commitMoveChangesBetween` takes source and destination commit
- * ids that are both strings.
- */
-const derivedHandler =
-	(key: DerivedKey) =>
-	(params: unknown): unknown => {
-		const names: ReadonlyArray<string> = apiParamNames[key];
-		const call = sdk[key] as (...args: Array<unknown>) => unknown;
-		// A lone argument is sent as itself; the rest arrive as a payload.
-		return names.length === 1
-			? call(params)
-			: call(...names.map((name) => (params as Record<string, unknown>)[name]));
-	};
-
-type PayloadOf<K extends TableKey> = Parameters<LiteElectronApi[K]>[0];
-
-/**
- * A derived handler can only supply arguments its payload carries, so the
- * multi-argument ones must carry every name and the single-argument ones
- * must be the argument. Anything else has to be an override.
- */
-type CannotSupplyItsArguments = {
-	[K in DerivedKey]: (typeof apiParamNames)[K]["length"] extends 0
-		? never
-		: (typeof apiParamNames)[K]["length"] extends 1
-			? PayloadOf<K> extends Parameters<(typeof sdk)[K]>[0]
-				? never
-				: K
-			: PayloadOf<K> extends PayloadFor<K>
-				? never
-				: K;
-}[DerivedKey];
-type AssertNever<T extends never> = T;
-type _EveryDerivedHandlerCanSupplyItsArguments = AssertNever<CannotSupplyItsArguments>;
+} satisfies HandlerOverrides & { [K in HostOnlyKey]: Handler<K> };
 
 const registerIpcHandlers = (): void => {
 	const senderValidatingHandle: typeof ipcMain.handle = (channel, listener) => {
@@ -382,14 +315,8 @@ const registerIpcHandlers = (): void => {
 		ipcMain.handle(channel, senderValidatingListener);
 	};
 
-	for (const key of exposedEndpoints) {
-		if (isOverride(key)) continue;
-		senderValidatingHandle(key, (_e, params: unknown) => derivedHandler(key)(params));
-	}
-	for (const [name, handler] of Object.entries(ipcHandlerOverrides)) {
-		const call = handler as (params: unknown) => unknown;
-		senderValidatingHandle(name, (_e, params: unknown) => call(params));
-	}
+	for (const [name, handler] of createEndpointTable(electronHandlerOverrides))
+		senderValidatingHandle(name, (_e, params: unknown) => handler(params));
 	senderValidatingHandle("watcherUnsubscribe", (_e, { subscriptionId }: WatcherUnsubscribeParams) =>
 		WatcherManager.getInstance().removeSubscription(subscriptionId),
 	);
