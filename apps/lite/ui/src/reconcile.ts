@@ -13,7 +13,6 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "./api/queries.ts";
 import { currentParams, remapSearchBranch } from "#ui/use-cursor.ts";
-import { useParams } from "@tanstack/react-router";
 import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
@@ -39,9 +38,7 @@ import { reviewedFilesQueryOptions, usePruneReviewedFiles } from "./reviewed-fil
  * effects don't waste too much work. This hook remains subscribed to queries relevant to state that
  * may need reconciliation.
  */
-export const useStateReconciler = (): void => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-
+export const useStateReconciler = (projectId: string): void => {
 	const dispatch = useAppDispatch();
 
 	// Commit cursors need no repair here: `change:` params re-resolve by change

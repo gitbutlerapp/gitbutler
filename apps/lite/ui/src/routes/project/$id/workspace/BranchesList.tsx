@@ -361,6 +361,7 @@ export const BranchesList: FC<
 	};
 
 	useAddressSpaceHotkeys({
+		projectId,
 		addressSpace,
 		group: "Sidebar",
 		select: (newItem) => setCursor("unapplied", newItem),

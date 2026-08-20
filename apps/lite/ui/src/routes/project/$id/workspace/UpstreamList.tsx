@@ -398,6 +398,7 @@ export const UpstreamList: FC<
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 
 	useAddressSpaceHotkeys({
+		projectId,
 		addressSpace,
 		group: "Sidebar",
 		select: (newItem) => setCursor("upstream", newItem),

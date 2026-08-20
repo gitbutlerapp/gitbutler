@@ -18,7 +18,6 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { useAppDispatch } from "#ui/store.ts";
-import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
 
@@ -237,8 +236,7 @@ export const useDryRunOperation = ({
 	});
 };
 
-export const useExecuteOperation = () => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+export const useExecuteOperation = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();

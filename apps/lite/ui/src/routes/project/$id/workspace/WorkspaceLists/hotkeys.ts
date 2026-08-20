@@ -431,6 +431,7 @@ export const useActiveListsHotkeys = ({
 	};
 
 	useAddressSpaceHotkeys({
+		projectId,
 		ref,
 		addressSpace,
 		group: "Sidebar",

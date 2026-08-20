@@ -85,7 +85,6 @@ import {
 	useSuspenseQueries,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
 	type ComponentProps,
@@ -566,6 +565,7 @@ const DiffContents: FC<{
 	};
 
 	useAddressSpaceHotkeys({
+		projectId,
 		addressSpace: visibleAddressSpace,
 		group: "Diff",
 		select: selectDiff,
@@ -1586,8 +1586,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const FilesToggle: FC = () => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -2158,7 +2157,7 @@ const Diff: FC<{
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div className={styles.actions}>
-						{canShowFiles && <FilesToggle />}
+						{canShowFiles && <FilesToggle projectId={projectId} />}
 
 						{headerSlot}
 
@@ -2327,13 +2326,20 @@ const CommitDetailsSkeleton: FC = () => {
 
 const CommitDetails: FC<{
 	selection: Extract<Address, { _tag: "Commit" }>;
+	projectId: string;
 	/** The merged review the commit landed, when known: adds a Pull Request tab. */
 	review?: TargetCommitReview | null;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ selection, review, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+}> = ({
+	selection,
+	review,
+	projectId,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -2532,11 +2538,11 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ project
 /** A branch's own changes, whatever the branch's standing. */
 const BranchDiff: FC<BranchDetailsProps> = ({
 	branch,
+	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
@@ -2690,6 +2696,7 @@ const ReviewView: FC<{
 
 /** What every details view threads through to its Diff. */
 type DetailsViewProps = {
+	projectId: string;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
@@ -2705,11 +2712,11 @@ type BranchDetailsProps = { branch: BranchAddress } & DetailsViewProps;
  */
 const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
+	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const branchName = branchDetailsParams(decodeBytes(branch.branchRef)).branchName;
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -2765,6 +2772,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 					</div>
 				) : (
 					<BranchDiff
+						projectId={projectId}
 						branch={branch}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
@@ -2779,11 +2787,11 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 /** A branch applied to the workspace: its changes, and the review of them. */
 const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
+	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
@@ -2910,6 +2918,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 					</div>
 				) : (
 					<BranchDiff
+						projectId={projectId}
 						branch={branch}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
@@ -2945,11 +2954,11 @@ const FileDetailsSkeleton: FC = () => {
 
 const FileDetails: FC<{
 	path: string;
+	projectId: string;
 	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ path, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+}> = ({ path, projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -3026,7 +3035,7 @@ const commitDetails = (
 export const Details: FC<
 	{ selection: Address | null; review: TargetCommitReview | null } & DetailsViewProps
 > = ({ selection, review, ...viewProps }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { projectId } = viewProps;
 	// The Pull Request tab fetches the review from the forge, so it is only
 	// offered on a forge that serves them.
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));

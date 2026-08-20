@@ -376,12 +376,11 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
-const PageBody: FC = () => {
-	useReconcileState();
+const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
+	useReconcileState(projectId);
 
 	const dispatch = useAppDispatch();
 
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: renderAllFiles } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
@@ -597,7 +596,7 @@ const PageBody: FC = () => {
 			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
 			: null;
 	const details = useMemo(() => {
-		const viewProps = { onActiveFileSelection, viewerRef, didScrollToViaFileRef };
+		const viewProps = { projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef };
 
 		return Match.value(page).pipe(
 			Match.when("workspace", () =>
@@ -624,6 +623,7 @@ const PageBody: FC = () => {
 			Match.exhaustive,
 		);
 	}, [
+		projectId,
 		branchesSelection,
 		onActiveFileSelection,
 		appliedSelection,
@@ -723,7 +723,7 @@ const PageBody: FC = () => {
 				</Panel>
 			</Group>
 
-			<OperationControls appliedAddressSpace={appliedAddressSpace} />
+			<OperationControls projectId={projectId} appliedAddressSpace={appliedAddressSpace} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
@@ -732,7 +732,12 @@ const PageBody: FC = () => {
 						<ApplyBranchPicker open onOpenChange={setApplyBranchPickerOpen} projectId={projectId} />
 					),
 					BranchPicker: () => (
-						<BranchPicker open onOpenChange={setBranchPickerOpen} onSelectBranch={selectBranch} />
+						<BranchPicker
+							projectId={projectId}
+							open
+							onOpenChange={setBranchPickerOpen}
+							onSelectBranch={selectBranch}
+						/>
 					),
 					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
 					ProjectPicker: () => (
@@ -770,7 +775,7 @@ export const Page: FC = () => {
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
 				<ErrorBoundary onReset={reset}>
-					<PageBody />
+					<PageBody projectId={projectId} />
 				</ErrorBoundary>
 			)}
 		</QueryErrorResetBoundary>

@@ -6,7 +6,6 @@ import type { Placement } from "#ui/operations/operation.ts";
 import type { Address } from "#ui/addresses.ts";
 import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
-import { useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 
 export type FocusScope = "details" | "uncommitted-files" | "sidebar" | "files" | "diff" | "pr";
@@ -156,7 +155,9 @@ export const useAddressSpaceHotkeys = <T>({
 	onEdgeSpill,
 	getKey,
 	directionalNavigation = true,
+	projectId,
 }: {
+	projectId: string;
 	addressSpace: AddressSpace<T>;
 	group: CommandGroup;
 	select: (newItem: T) => void;
@@ -175,7 +176,6 @@ export const useAddressSpaceHotkeys = <T>({
 	/** Disable arrow and Vim directional keys when a surface owns finer-grained navigation. */
 	directionalNavigation?: boolean;
 }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const operationHotkeysEnabled = useAppSelector(
 		(state) =>
 			operationSourcesForItem === undefined ||
