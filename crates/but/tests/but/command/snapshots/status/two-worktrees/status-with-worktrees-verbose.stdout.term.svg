@@ -27,7 +27,7 @@
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="64px"><tspan>┊╭┄ </tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan> 📁 gitbutler/worktrees/A]</tspan>
+    <tspan x="10px" y="64px"><tspan>┊╭┄ </tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan>
 </tspan>
     <tspan x="10px" y="82px"><tspan>┊┊</tspan>
 </tspan>
@@ -47,7 +47,7 @@
 </tspan>
     <tspan x="10px" y="226px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>┊╭┄ </tspan><tspan class="fg-blue bold">h0</tspan><tspan> [</tspan><tspan class="fg-green">B</tspan><tspan> 📁 gitbutler/worktrees/B]</tspan>
+    <tspan x="10px" y="244px"><tspan>┊╭┄ </tspan><tspan class="fg-blue bold">h0</tspan><tspan> [</tspan><tspan class="fg-green">B</tspan><tspan>]</tspan>
 </tspan>
     <tspan x="10px" y="262px"><tspan>┊● </tspan><tspan class="fg-magenta">u</tspan><tspan class="dimmed">zk</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-01 00:00:00 +0000</tspan><tspan class="dimmed"> (sha 3e01e28)</tspan><tspan class="dimmed"> (no changes)</tspan>
 </tspan>

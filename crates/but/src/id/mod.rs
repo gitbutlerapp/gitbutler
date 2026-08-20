@@ -507,17 +507,6 @@ impl SegmentWithId {
             .as_ref()
             .map(|ref_info| ref_info.ref_name.shorten())
     }
-    /// Returns the linked worktree ID.
-    pub fn linked_worktree_id(&self) -> Option<&BStr> {
-        if let Some(ref_info) = &self.inner.ref_info
-            && let Some(worktree) = &ref_info.worktree
-            && let but_graph::WorktreeKind::LinkedId(id) = &worktree.kind
-        {
-            Some(id.as_bstr())
-        } else {
-            None
-        }
-    }
 }
 impl<'a> Node<'a> for &'a SegmentWithId {
     fn parse(
