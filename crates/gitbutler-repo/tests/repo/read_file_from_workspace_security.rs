@@ -32,6 +32,41 @@ fn allows_read_inside_worktree_with_relative_path() {
 }
 
 #[test]
+fn rejects_untracked_gitignored_file() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join("secret.ignored"), "SUPER_SECRET").expect("write ignored file");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new("secret.ignored"))
+        .expect_err("Git-ignored files must not be readable");
+}
+
+#[test]
+fn rejects_git_metadata_file() {
+    let (repo, _tmp) = test_repository();
+    let workdir = repo.workdir().expect("workdir exists");
+
+    let ctx = context_for_repo(workdir);
+    ctx.read_file_from_workspace(Path::new(".git/config"))
+        .expect_err("Git metadata files must not be readable");
+}
+
+#[test]
+fn allows_tracked_file_matching_ignore_rule() {
+    let (repo, _tmp) = repository("create-wd-tree-ignored-files");
+    let workdir = repo.workdir().expect("workdir exists");
+    fs::write(workdir.join(".gitignore"), "tracked\n").expect("update ignore file");
+
+    let ctx = context_for_repo(workdir);
+    let info = ctx
+        .read_file_from_workspace(Path::new("tracked"))
+        .expect("tracked files remain readable when they match an ignore rule");
+
+    assert_eq!(info.content, Some("content".to_owned()));
+}
+
+#[test]
 fn rejects_dotdot_traversal() {
     let (repo, _tmp) = test_repository();
     let workdir = repo.workdir().expect("workdir exists");

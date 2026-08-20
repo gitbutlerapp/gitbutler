@@ -315,6 +315,69 @@ impl RepoCommands for Context {
 
         let out = match path.symlink_metadata() {
             Ok(md) => {
+                if relative_path.components().any(|component| {
+                    component
+                        .as_os_str()
+                        .as_encoded_bytes()
+                        .eq_ignore_ascii_case(b".git")
+                }) {
+                    bail!(
+                        "Refusing to read Git metadata path '{}'",
+                        relative_path.display()
+                    );
+                }
+
+                let repo = self.repo.get()?;
+                let relative_path_bstr = gix::path::to_unix_separators_on_windows(
+                    gix::path::into_bstr(relative_path.clone()),
+                );
+                let index = repo.index_or_empty()?;
+                let is_tracked_exactly = if md.is_dir() {
+                    index.path_is_directory(relative_path_bstr.as_ref())
+                } else {
+                    index.entry_by_path(relative_path_bstr.as_ref()).is_some()
+                };
+                if !is_tracked_exactly {
+                    let mut excludes = repo.excludes(
+                        &index,
+                        None,
+                        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+                    )?;
+                    let is_excluded = excludes
+                        .at_path(
+                            &relative_path,
+                            md.is_dir().then_some(gix::index::entry::Mode::DIR),
+                        )?
+                        .is_excluded();
+                    if is_excluded {
+                        let is_tracked_with_different_case = repo.filesystem_options()?.ignore_case
+                            && {
+                                let icase_accelerator = index.prepare_icase_backing();
+                                if md.is_dir() {
+                                    index.path_is_directory_icase(
+                                        relative_path_bstr.as_ref(),
+                                        true,
+                                        &icase_accelerator,
+                                    )
+                                } else {
+                                    index
+                                        .entry_by_path_icase(
+                                            relative_path_bstr.as_ref(),
+                                            true,
+                                            &icase_accelerator,
+                                        )
+                                        .is_some()
+                                }
+                            };
+                        if !is_tracked_with_different_case {
+                            bail!(
+                                "Refusing to read Git-ignored path '{}'",
+                                relative_path.display()
+                            );
+                        }
+                    }
+                }
+
                 if md.is_file() {
                     let content = std::fs::read(&path)?;
                     FileInfo::from_content(&relative_path, &content)
