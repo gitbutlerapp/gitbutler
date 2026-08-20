@@ -280,23 +280,6 @@ pub struct BranchDetails {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(BranchDetails);
 
-/// Information about the current state of a stack
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-pub struct StackDetails {
-    /// This is the name of the top-most branch, provided by the API for convenience
-    pub derived_name: String,
-    /// The pushable status for the stack
-    pub push_status: PushStatus,
-    /// The details about the contained branches
-    pub branch_details: Vec<BranchDetails>,
-    /// Whether the stack is conflicted.
-    pub is_conflicted: bool,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(StackDetails);
-
 /// Represents a branch in a `Stack`. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -12,8 +12,8 @@ use crate::ui::{self, CommitState, PushStatus, UpstreamCommit};
 /// Returns information about the current state of a branch identified by its `name`.
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
 /// reference if set.
-/// Note that for stacks, we shouldn't call `stack_details_v3`, but instead [`head_info()`](crate::head_info()) to get all stacks
-/// reachable from the current HEAD.
+/// Note that stacks are described by [`head_info()`](crate::head_info()) instead, which returns all
+/// stacks reachable from the current HEAD.
 ///
 /// ### Implementation
 ///

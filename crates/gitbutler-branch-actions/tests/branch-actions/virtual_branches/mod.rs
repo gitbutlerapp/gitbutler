@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "calls but_workspace::legacy::stacks_v3")]
-
 use std::{fs, path::PathBuf, str::FromStr};
 
 use but_core::RepositoryExt as _;
@@ -15,7 +13,7 @@ use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_g
 use gix::refs::transaction::PreviousValue;
 use tempfile::{TempDir, tempdir};
 
-pub(crate) use crate::support::stack_details;
+pub(crate) use crate::support::{stack_details, stack_name};
 
 const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 

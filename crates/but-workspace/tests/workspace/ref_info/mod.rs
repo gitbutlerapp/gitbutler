@@ -1,13 +1,8 @@
-#![expect(
-    deprecated,
-    reason = "covers calls to but_workspace::legacy::stacks_v3 and but_workspace::legacy::stack_details_v3"
-)]
-
 use snapbox::prelude::*;
 use std::borrow::Cow;
 
-use but_core::{WORKSPACE_REF_NAME, ref_metadata::StackId};
-use but_workspace::{legacy::StacksFilter, ref_info};
+use but_core::WORKSPACE_REF_NAME;
+use but_workspace::ref_info;
 use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
@@ -35,46 +30,6 @@ fn project_meta(repo: &gix::Repository) -> anyhow::Result<but_core::ref_metadata
     } else {
         Ok(project_meta)
     }
-}
-
-#[deprecated(
-    note = "Use head_info() and the returned RefInfo instead. Callers that already have a Context should prefer ctx.workspace_* helpers."
-)]
-pub fn stacks_v3(
-    repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
-    filter: StacksFilter,
-    ref_name_override: Option<&gix::refs::FullNameRef>,
-) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    but_workspace::legacy::stacks_v3(
-        repo,
-        meta,
-        &project_meta(repo)?,
-        db,
-        but_graph::init::Options::limited(),
-        filter,
-        ref_name_override,
-    )
-}
-
-#[deprecated(
-    note = "Use head_info() and the returned RefInfo instead. Callers that already have a Context should prefer ctx.workspace_* helpers."
-)]
-pub fn stack_details_v3(
-    stack_id: Option<StackId>,
-    repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
-) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    but_workspace::legacy::stack_details_v3(
-        stack_id,
-        repo,
-        meta,
-        &project_meta(repo)?,
-        db,
-        but_graph::init::Options::limited(),
-    )
 }
 
 fn first_commit(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::LocalCommit {
@@ -210,66 +165,6 @@ RefInfo {
 "#]]
     );
 
-    let stacks = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
-    // It's now possible to use the old API with unborn repos.
-    // This type can't really represent missing tips, but `null()` will do.
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[
-    StackEntry {
-        id: None,
-        heads: [
-            StackHeadInfo {
-                name: "main",
-                tip: Sha1(0000000000000000000000000000000000000000),
-                review_id: None,
-                is_checked_out: false,
-            },
-        ],
-        tip: Sha1(0000000000000000000000000000000000000000),
-        order: None,
-        is_checked_out: false,
-    },
-]
-
-"#]]
-    );
-
-    let details = stack_details_v3(stacks[0].id, &repo, &meta, &mut db)?;
-    // It's also possible to obtain details.
-    snapbox::assert_data_eq!(
-        details.to_debug(),
-        snapbox::str![[r#"
-StackDetails {
-    derived_name: "main",
-    push_status: CompletelyUnpushed,
-    branch_details: [
-        BranchDetails {
-            name: "main",
-            reference: FullName(
-                "refs/heads/main",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(0000000000000000000000000000000000000000),
-            base_commit: Sha1(0000000000000000000000000000000000000000),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [],
-            is_conflicted: false,
-            commits: [],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-    ],
-    is_conflicted: false,
-}
-
-"#]]
-    );
     Ok(())
 }
 
@@ -322,21 +217,6 @@ RefInfo {
         .raw()
     );
 
-    let stacks = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
-    // Detached heads can't be represented with this API as it really needs a name.
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[]
-
-"#]]
-    );
-
-    let err = stack_details_v3(None, &repo, &meta, &mut db).unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Can't handle a stack yet whose tip isn't pointed to by a ref"
-    );
     Ok(())
 }
 
@@ -404,70 +284,6 @@ RefInfo {
         .raw()
     );
 
-    let stacks = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[
-    StackEntry {
-        id: None,
-        heads: [
-            StackHeadInfo {
-                name: "main",
-                tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
-                review_id: None,
-                is_checked_out: false,
-            },
-        ],
-        tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
-        order: None,
-        is_checked_out: false,
-    },
-]
-
-"#]]
-    );
-
-    let details = stack_details_v3(stacks[0].id, &repo, &meta, &mut db)?;
-    // The conflict is visible here as well.
-    snapbox::assert_data_eq!(
-        details.to_debug(),
-        snapbox::str![[r#"
-StackDetails {
-    derived_name: "main",
-    push_status: CompletelyUnpushed,
-    branch_details: [
-        BranchDetails {
-            name: "main",
-            reference: FullName(
-                "refs/heads/main",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
-            base_commit: Sha1(0000000000000000000000000000000000000000),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                GitButler <gitbutler@gitbutler.com>,
-                author <author@example.com>,
-            ],
-            is_conflicted: true,
-            commits: [
-                Commit(8450331, "GitButler WIP Commit", local),
-                Commit(a047f81, "init", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-    ],
-    is_conflicted: true,
-}
-
-"#]]
-    );
     Ok(())
 }
 
@@ -548,76 +364,6 @@ RefInfo {
         .raw()
     );
 
-    let stacks = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[
-    StackEntry {
-        id: None,
-        heads: [
-            StackHeadInfo {
-                name: "main",
-                tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                review_id: None,
-                is_checked_out: false,
-            },
-        ],
-        tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-        order: None,
-        is_checked_out: false,
-    },
-]
-
-"#]]
-    );
-
-    let details = stack_details_v3(stacks[0].id, &repo, &meta, &mut db)?;
-    snapbox::assert_data_eq!(
-        details.to_debug(),
-        snapbox::str![[r#"
-StackDetails {
-    derived_name: "main",
-    push_status: CompletelyUnpushed,
-    branch_details: [
-        BranchDetails {
-            name: "main",
-            reference: FullName(
-                "refs/heads/main",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            base_commit: Sha1(0000000000000000000000000000000000000000),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(b5743a3, "10", local),
-                Commit(344e320, "9", local),
-                Commit(599c271, "8", local),
-                Commit(05f069b, "7", local),
-                Commit(c4f2a35, "6", local),
-                Commit(44c12ce, "5", local),
-                Commit(c584dbe, "4", local),
-                Commit(281da94, "3", local),
-                Commit(12995d7, "2", local),
-                Commit(3d57fc1, "1", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-    ],
-    is_conflicted: false,
-}
-
-"#]]
-    );
     Ok(())
 }
 
@@ -744,189 +490,6 @@ RefInfo {
 
     assert_eq!(info.stacks[0].segments.len(), 5, "multiple segments");
 
-    let stacks = stacks_v3(&repo, &meta, &mut db, StacksFilter::All, None)?;
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[
-    StackEntry {
-        id: None,
-        heads: [
-            StackHeadInfo {
-                name: "main",
-                tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                review_id: None,
-                is_checked_out: false,
-            },
-            StackHeadInfo {
-                name: "nine",
-                tip: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
-                review_id: None,
-                is_checked_out: false,
-            },
-            StackHeadInfo {
-                name: "six",
-                tip: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
-                review_id: None,
-                is_checked_out: false,
-            },
-            StackHeadInfo {
-                name: "three",
-                tip: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
-                review_id: None,
-                is_checked_out: false,
-            },
-            StackHeadInfo {
-                name: "one",
-                tip: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
-                review_id: None,
-                is_checked_out: false,
-            },
-        ],
-        tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-        order: None,
-        is_checked_out: false,
-    },
-]
-
-"#]]
-    );
-
-    let details = stack_details_v3(stacks[0].id, &repo, &meta, &mut db)?;
-    // It also works with multiple segments.
-    snapbox::assert_data_eq!(
-        details.to_debug(),
-        snapbox::str![[r#"
-StackDetails {
-    derived_name: "main",
-    push_status: CompletelyUnpushed,
-    branch_details: [
-        BranchDetails {
-            name: "main",
-            reference: FullName(
-                "refs/heads/main",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            base_commit: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(b5743a3, "10", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-        BranchDetails {
-            name: "nine",
-            reference: FullName(
-                "refs/heads/nine",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
-            base_commit: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(344e320, "9", local),
-                Commit(599c271, "8", local),
-                Commit(05f069b, "7", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-        BranchDetails {
-            name: "six",
-            reference: FullName(
-                "refs/heads/six",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
-            base_commit: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(c4f2a35, "6", local),
-                Commit(44c12ce, "5", local),
-                Commit(c584dbe, "4", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-        BranchDetails {
-            name: "three",
-            reference: FullName(
-                "refs/heads/three",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
-            base_commit: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(281da94, "3", local),
-                Commit(12995d7, "2", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-        BranchDetails {
-            name: "one",
-            reference: FullName(
-                "refs/heads/one",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
-            base_commit: Sha1(0000000000000000000000000000000000000000),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(3d57fc1, "1", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-    ],
-    is_conflicted: false,
-}
-
-"#]]
-    );
     Ok(())
 }
 

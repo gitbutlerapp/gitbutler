@@ -4560,7 +4560,6 @@ Worktree changes need to be re-committed manually for now.
 
 mod branch_details;
 mod journey;
-mod legacy;
 
 pub(crate) mod utils {
     use but_core::ref_metadata::{ProjectMeta, StackId};

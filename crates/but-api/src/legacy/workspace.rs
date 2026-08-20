@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::{RepositoryExt, ref_metadata::StackId};
+use but_core::RepositoryExt;
 use but_ctx::{Context, ThreadSafeContext};
 use but_rebase::{
     RebaseOutput,
@@ -12,10 +12,7 @@ use but_rebase::{
         mutate::{InsertSide, RelativeToRef},
     },
 };
-use but_workspace::{
-    commit_engine,
-    legacy::{StacksFilter, ui::StackEntry},
-};
+use but_workspace::commit_engine;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -77,61 +74,6 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     Ok(info)
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn stacks(
-    ctx: &Context,
-    filter: Option<but_workspace::legacy::StacksFilter>,
-) -> Result<Vec<StackEntry>> {
-    stacks_v3_from_ctx(ctx, filter.unwrap_or_default())
-}
-///
-/// Return stack information for the repository that `ctx` refers to using legacy metadata.
-#[expect(deprecated, reason = "calls but_workspace::legacy::stacks_v3")]
-pub(crate) fn stacks_v3_from_ctx(
-    ctx: &Context,
-    filter: StacksFilter,
-) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.meta()?;
-    let workspace_ref = match repo.head() {
-        Ok(head)
-            if head.referent_name().is_some_and(|head_ref| {
-                head_ref.as_bstr() == gitbutler_operating_modes::EDIT_BRANCH_REF
-            }) =>
-        {
-            [
-                gitbutler_operating_modes::WORKSPACE_BRANCH_REF,
-                gitbutler_operating_modes::INTEGRATION_BRANCH_REF,
-            ]
-            .iter()
-            .find_map(|&name| {
-                let ref_name: &gix::refs::FullNameRef = name.try_into().ok()?;
-                repo.try_find_reference(ref_name).ok().flatten()?;
-                Some(ref_name)
-            })
-        }
-        _ => None,
-    };
-    // Only seed worktree tips when querying from HEAD. When HEAD points at
-    // `gitbutler/edit`, querying stacks from HEAD would produce entries without stack IDs
-    // because the edit branch itself is not part of the workspace metadata.
-    let worktrees = workspace_ref.is_none() && ctx.settings.feature_flags.worktree_manipulation;
-    let mut db = ctx.db.get_cache_mut()?;
-    but_workspace::legacy::stacks_v3(
-        &repo,
-        &meta,
-        &ctx.project_meta()?,
-        &mut db,
-        but_graph::init::Options {
-            worktrees,
-            ..but_graph::init::Options::limited()
-        },
-        filter,
-        workspace_ref,
-    )
-}
-
 #[cfg(unix)]
 #[but_api]
 #[instrument(err(Debug))]
@@ -145,41 +87,6 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
     graph.open_as_svg();
     Ok(())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-#[expect(deprecated, reason = "calls but_workspace::legacy::stack_details_v3")]
-pub fn stack_details(
-    ctx: &Context,
-    stack_id: Option<StackId>,
-) -> Result<but_workspace::ui::StackDetails> {
-    let mut details = {
-        let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.meta()?;
-        let mut db = ctx.db.get_cache_mut()?;
-        but_workspace::legacy::stack_details_v3(
-            stack_id,
-            &repo,
-            &meta,
-            &ctx.project_meta()?,
-            &mut db,
-            but_graph::init::Options {
-                worktrees: ctx.settings.feature_flags.worktree_manipulation,
-                ..but_graph::init::Options::limited()
-            },
-        )
-    }?;
-    let repo = ctx.repo.get()?;
-    let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let db = ctx.db.get_cache()?;
-    if gerrit_mode {
-        for branch in details.branch_details.iter_mut() {
-            handle_gerrit(branch, &repo, &db)?;
-            update_push_status(branch);
-        }
-    }
-    Ok(details)
 }
 
 fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {

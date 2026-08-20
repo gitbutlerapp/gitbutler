@@ -9,7 +9,7 @@ use std::{
 };
 
 use bstr::{BString, ByteSlice};
-use but_core::{WORKSPACE_REF_NAME, ref_metadata};
+use but_core::ref_metadata;
 use but_graph::{SegmentIndex, workspace::StackCommitFlags};
 use gix::Repository;
 
@@ -400,7 +400,6 @@ impl std::fmt::Debug for Segment {
 }
 
 use anyhow::{Context as _, bail};
-use but_core::{is_workspace_ref_name, ref_metadata::ValueInfo};
 use but_graph::{
     Graph,
     petgraph::Direction,
@@ -874,33 +873,6 @@ impl LocalCommit {
             },
         })
     }
-}
-
-// Fetch non-default workspace information, but only if reference at `name` seems to be a workspace reference.
-pub(crate) fn workspace_data_of_workspace_branch(
-    meta: &impl but_core::RefMetadata,
-    name: &gix::refs::FullNameRef,
-) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
-    if !is_workspace_ref_name(name) {
-        return Ok(None);
-    }
-
-    let md = meta.workspace(name)?;
-    Ok(if md.is_default() {
-        None
-    } else {
-        Some((*md).clone())
-    })
-}
-
-/// Like [`workspace_data_of_workspace_branch()`], but it will try the name of the default GitButler workspace branch.
-pub(crate) fn workspace_data_of_default_workspace_branch(
-    meta: &impl but_core::RefMetadata,
-) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
-    workspace_data_of_workspace_branch(
-        meta,
-        WORKSPACE_REF_NAME.try_into().expect("statically known"),
-    )
 }
 
 #[cfg(test)]

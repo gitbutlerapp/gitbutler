@@ -1,14 +1,9 @@
-#![expect(
-    deprecated,
-    reason = "calls but_workspace::legacy::stacks_v3 and but_workspace::legacy::stack_details_v3"
-)]
-
 use anyhow::Result;
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
 use but_testsupport::gix_testtools::{Creation, scripted_fixture_writable_with_args};
-use but_workspace::{legacy::StacksFilter, ui::StackDetails};
+use but_workspace::branch::Stack;
 use tempfile::{TempDir, tempdir};
 
 pub struct HookCase {
@@ -41,47 +36,43 @@ pub fn hook_case() -> Result<HookCase> {
     })
 }
 
-pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
+/// The applied stacks of `ctx` that are recorded in workspace metadata, as the workspace
+/// projects them.
+///
+/// An ad-hoc workspace (a plain branch checkout) is projected as a single stack under the
+/// synthetic [`StackId::single_branch_id()`]; it isn't a metadata stack, so it is left out.
+pub fn stack_details(ctx: &Context) -> Vec<(StackId, Stack)> {
     let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
-    let stacks = {
-        let meta = ctx.legacy_meta().unwrap();
-        let mut db = ctx.db.get_cache_mut().unwrap();
-        but_workspace::legacy::stacks_v3(
-            &repo,
-            &meta,
-            &ctx.project_meta().unwrap(),
-            &mut db,
-            but_graph::init::Options {
+    let meta = ctx.legacy_meta().unwrap();
+    let mut db = ctx.db.get_cache_mut().unwrap();
+    but_workspace::head_info(
+        &repo,
+        &meta,
+        &mut db,
+        but_workspace::ref_info::Options {
+            project_meta: ctx.project_meta().unwrap(),
+            traversal: but_graph::init::Options {
                 worktrees: ctx.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
             },
-            StacksFilter::default(),
-            None,
-        )
-    }
-    .unwrap();
+            expensive_commit_info: true,
+            ..Default::default()
+        },
+    )
+    .unwrap()
+    .pruned_to_entrypoint()
+    .stacks
+    .into_iter()
+    .filter_map(|stack| Some((stack.id?, stack)))
+    .filter(|(id, _)| *id != StackId::single_branch_id())
+    .collect()
+}
 
-    stacks
-        .into_iter()
-        .filter_map(|stack| {
-            let stack_id = stack.id?;
-            let details = {
-                let meta = ctx.legacy_meta().unwrap();
-                let mut db = ctx.db.get_cache_mut().unwrap();
-                but_workspace::legacy::stack_details_v3(
-                    stack_id.into(),
-                    &repo,
-                    &meta,
-                    &ctx.project_meta().unwrap(),
-                    &mut db,
-                    but_graph::init::Options {
-                        worktrees: ctx.settings.feature_flags.worktree_manipulation,
-                        ..but_graph::init::Options::limited()
-                    },
-                )
-            }
-            .unwrap();
-            Some((stack_id, details))
-        })
-        .collect()
+/// The short name of the stack's top-most branch.
+pub fn stack_name(stack: &Stack) -> String {
+    stack
+        .name()
+        .expect("stacks in a workspace are named")
+        .shorten()
+        .to_string()
 }

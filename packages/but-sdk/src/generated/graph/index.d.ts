@@ -3690,39 +3690,6 @@ export type Stack = {
   segments: Array<Segment>;
 };
 
-/** Information about the current state of a stack */
-export type StackDetails = {
-  /** This is the name of the top-most branch, provided by the API for convenience */
-  derivedName: string;
-  /** The pushable status for the stack */
-  pushStatus: PushStatus;
-  /** The details about the contained branches */
-  branchDetails: Array<BranchDetails>;
-  /** Whether the stack is conflicted. */
-  isConflicted: boolean;
-};
-
-/**
- * Represents a lightweight version of a legacy stack for listing.
- * NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
- */
-export type StackEntry = {
-  /** The ID of the stack. */
-  id: string | null;
-  /**
-   * The list of the branch information that are part of the stack.
-   * The list is never empty.
-   * The first entry in the list is always the most recent branch on top the stack.
-   */
-  heads: Array<StackHeadInfo>;
-  /** The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch. */
-  tip: string;
-  /** The zero-based index for sorting stacks. */
-  order: number | null;
-  /** If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack. */
-  isCheckedOut: boolean;
-};
-
 /**
  * **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
  * WARNING: for use by parts in the code that can rely on having a non-optional `stack_id`. The goal is to have none of these.

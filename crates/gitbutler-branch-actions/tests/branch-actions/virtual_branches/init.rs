@@ -80,7 +80,7 @@ fn dirty_non_target() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn dirty_target() {
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
     assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
+        stack_name(&stacks[0].1).as_str(),
         "g-branch-1" | "a-branch-1"
     ));
     if let Some(old) = old {
@@ -137,7 +137,7 @@ fn commit_on_non_target_local() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
 }
 
 #[test]
@@ -160,8 +160,8 @@ fn commit_on_non_target_remote() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, "some-feature");
-    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
+    assert_eq!(stack_name(&stacks[0].1), "some-feature");
+    assert_eq!(stacks[0].1.segments[0].commits.len(), 1);
 }
 
 #[test]
@@ -191,10 +191,10 @@ fn commit_on_target() {
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
     assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
+        stack_name(&stacks[0].1).as_str(),
         "g-branch-1" | "a-branch-1"
     ));
-    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
+    assert_eq!(stacks[0].1.segments[0].commits.len(), 1);
     if let Some(old) = old {
         unsafe {
             std::env::set_var("GIT_AUTHOR_NAME", old);
