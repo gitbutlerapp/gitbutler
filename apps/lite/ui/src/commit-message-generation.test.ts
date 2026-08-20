@@ -11,7 +11,7 @@ const change = (path: string): TreeChange =>
 	({ path, status: { type: "Modification" } }) as TreeChange;
 
 describe("commit message generation", () => {
-	it("shows only configured project AI and disables the button while busy", () => {
+	it("hints at what blocks generation and disables the button while busy", () => {
 		expect(
 			commitMessageGenerationButtonState({
 				enabled: true,
@@ -19,15 +19,41 @@ describe("commit message generation", () => {
 				busy: false,
 				changeCount: 1,
 			}),
-		).toEqual({ visible: true, disabled: false });
+		).toEqual({ disabled: false, hint: null });
 		expect(
 			commitMessageGenerationButtonState({
-				enabled: false,
+				enabled: true,
 				configured: true,
 				busy: true,
 				changeCount: 1,
 			}),
-		).toEqual({ visible: false, disabled: true });
+		).toEqual({ disabled: true, hint: null });
+		// An unconfigured provider is reported over a disabled project setting,
+		// since the setting can't be turned on without one.
+		expect(
+			commitMessageGenerationButtonState({
+				enabled: false,
+				configured: false,
+				busy: false,
+				changeCount: 1,
+			}).hint,
+		).toContain("Application → AI");
+		expect(
+			commitMessageGenerationButtonState({
+				enabled: false,
+				configured: true,
+				busy: false,
+				changeCount: 1,
+			}).hint,
+		).toContain("Project → AI");
+		expect(
+			commitMessageGenerationButtonState({
+				enabled: true,
+				configured: true,
+				busy: false,
+				changeCount: 0,
+			}),
+		).toEqual({ disabled: true, hint: "No changes to commit" });
 	});
 
 	it("uses all changes when nothing is checked and otherwise filters by path", () => {

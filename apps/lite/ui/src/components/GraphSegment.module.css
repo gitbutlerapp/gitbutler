@@ -6,27 +6,22 @@
 
 	&[data-status="LocalOnly"] {
 		--commit-status-color: var(--commit-local);
-		--commit-line-color: var(--commit-local-line);
 	}
 
 	&[data-status="LocalAndRemote"] {
 		--commit-status-color: var(--commit-remote);
-		--commit-line-color: var(--commit-remote-line);
 	}
 
 	&[data-status="Integrated"] {
 		--commit-status-color: var(--commit-integrated);
-		--commit-line-color: var(--commit-integrated-line);
 	}
 
 	&[data-status="Upstream"] {
 		--commit-status-color: var(--commit-upstream);
-		--commit-line-color: var(--commit-upstream-line);
 	}
 
 	&[data-status="Diverged"] {
 		--commit-status-color: var(--commit-local);
-		--commit-line-color: var(--commit-local-line);
 	}
 
 	/* Selected rows set --selection-inverted; flipping to the opposite color
@@ -41,10 +36,11 @@
 	}
 }
 
-/* The rail itself is drawn in its own token rather than a faded-out version of
-   the glyph colour, so the line keeps its contrast in both themes. */
+/* The rail is the glyph colour faded back, so it reads as a quieter companion
+   to the node without needing a token of its own. */
 .line {
-	stroke: var(--commit-line-color);
+	stroke: currentColor;
+	stroke-opacity: 0.4;
 }
 
 .mainSegment {

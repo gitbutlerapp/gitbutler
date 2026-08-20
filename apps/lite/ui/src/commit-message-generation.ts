@@ -4,6 +4,12 @@ export const COMMIT_MESSAGE_SYSTEM_PROMPT =
 	"You write Git commit messages. Return only the commit message, without Markdown or commentary.";
 const COMMIT_MESSAGE_DIFF_LIMIT = 5_000;
 
+/**
+ * The button is always rendered so that generation is discoverable before it is set
+ * up; `hint` says what stands in the way, and is what the tooltip shows in place of
+ * the plain action label. An unconfigured provider is reported ahead of a disabled
+ * project setting because the setting cannot be turned on without one.
+ */
 export const commitMessageGenerationButtonState = ({
 	enabled,
 	configured,
@@ -14,7 +20,13 @@ export const commitMessageGenerationButtonState = ({
 	configured: boolean;
 	busy: boolean;
 	changeCount: number;
-}) => ({ visible: enabled && configured, disabled: busy || changeCount === 0 });
+}): { disabled: boolean; hint: string | null } => {
+	if (!configured) return { disabled: true, hint: "Set up AI in Settings → Application → AI" };
+	if (!enabled) return { disabled: true, hint: "Enable AI in Settings → Project → AI" };
+	if (changeCount === 0) return { disabled: true, hint: "No changes to commit" };
+
+	return { disabled: busy, hint: null };
+};
 
 export const changesSelectedForCommit = (
 	changes: Array<TreeChange>,

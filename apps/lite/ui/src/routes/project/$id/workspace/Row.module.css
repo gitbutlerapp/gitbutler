@@ -62,23 +62,6 @@
 .containerHighlighted {
 	background-color: color-mix(var(--fill-pop-bg) 20%, transparent);
 	color: var(--text-1);
-
-	@media (prefers-reduced-motion: no-preference) {
-		animation: wiggle 0.35s ease-in-out infinite;
-	}
-}
-
-@keyframes wiggle {
-	0%,
-	100% {
-		translate: 0;
-	}
-	25% {
-		translate: -1px;
-	}
-	75% {
-		translate: 1px;
-	}
 }
 
 .toolbar {
@@ -309,7 +292,10 @@
 
 /* Flag consumed via `@container style()` by the components that sit in a row —
    badges and graph segments — so they can restyle themselves for the selected
-   state without cross-module class references. */
-[data-selection-focus-styles="true"] [data-selection-scope]:focus .containerSelected {
+   state without cross-module class references. Raised for both states that give
+   the row its solid inverted fill: a focused selection, and a row carrying an
+   inline editor. */
+[data-selection-focus-styles="true"] [data-selection-scope]:focus .containerSelected,
+.containerSelected:has(:is(textarea, input):focus) {
 	--selection-inverted: true;
 }
