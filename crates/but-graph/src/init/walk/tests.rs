@@ -1,5 +1,51 @@
 use super::*;
 
+#[test]
+fn swapping_commits_also_swaps_incident_connections() {
+    let mut graph = PetGraph::default();
+    let a = graph.add_node(Segment::default());
+    let b = graph.add_node(Segment::default());
+    let before = graph.add_node(Segment::default());
+    let after = graph.add_node(Segment::default());
+    let edge = Edge {
+        src: None,
+        src_id: None,
+        dst: None,
+        dst_id: None,
+        parent_order: 0,
+    };
+    graph.add_edge(before, a, edge);
+    graph.add_edge(a, after, edge);
+    graph.add_edge(b, before, edge);
+
+    swap_commits_and_connections(&mut graph, a, b);
+
+    assert!(
+        graph.find_edge(before, b).is_some(),
+        "incoming connections move from a to b"
+    );
+    assert!(
+        graph.find_edge(b, after).is_some(),
+        "outgoing connections move from a to b"
+    );
+    assert!(
+        graph.find_edge(a, before).is_some(),
+        "connections move from b to a"
+    );
+    assert!(
+        graph.find_edge(before, a).is_none(),
+        "a no longer owns its old incoming connection"
+    );
+    assert!(
+        graph.find_edge(a, after).is_none(),
+        "a no longer owns its old outgoing connection"
+    );
+    assert!(
+        graph.find_edge(b, before).is_none(),
+        "b no longer owns its old outgoing connection"
+    );
+}
+
 fn gtt(generation: Option<u32>, committer_time: u64) -> GenThenTime {
     GenThenTime {
         generation,
