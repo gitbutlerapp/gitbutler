@@ -122,27 +122,19 @@
 
 .diffContentsContainer {
 	display: grid;
-	/* Bound the row to the pane. Left to size itself, it takes the height of the
-	   ruler's canvas — which has no height of its own but its bitmap's, which the
-	   painter sizes from this row. At a fractional device pixel ratio the rounding
-	   in that loop doesn't cancel and the pane grows a little on every frame. */
+	/* Anchors the minimap overlay. */
+	position: relative;
+	/* Bound the row to the pane rather than letting the diff size it. */
 	grid-template-rows: minmax(0, 1fr);
-	/* Code, then the minimap ruler — which collapses the column when it has
-	   nothing to map. */
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr);
 	/* Second row of `.diffArea`, named rather than implied: the conflict bar
 	   above renders nothing unless there are conflicts, and auto placement would
 	   otherwise drop this into that row's `auto` track and size it to the diff. */
 	grid-row: 2;
 
 	&:has([data-minimap-navigable="true"]) .diffContents {
-		/* The ruler's edge, drawn from the code's side of it. The ruler ends where
-		   its map does — at a fixed scale a short diff doesn't reach the foot of the
-		   pane — while this column always fills the row, so the line runs unbroken
-		   from here. */
-		border-right: 1px solid var(--border-section);
-		/* Drop the native scrollbar only while the minimap is showing, so a diff too
-		   short to map keeps one. */
+		/* Drop the native scrollbar while the minimap stands in for it; a diff
+		   too short to map keeps one. */
 		scrollbar-width: none;
 
 		&::-webkit-scrollbar {
