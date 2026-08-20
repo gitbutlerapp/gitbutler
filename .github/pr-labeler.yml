@@ -30,6 +30,13 @@ CLI:
 
 # Drives the Lite UI Screenshots workflow. Applying it by hand opts a change in
 # that this rule does not cover, such as a layout change with no CSS in it.
-screenshots:
+#
+# This label is a request, not a record: it says screenshots are wanted, and the
+# `lite-screenshots` skill swaps it for `screenshots` once they are posted.
+#
+# The labeler runs on every push, so a later commit re-adds it alongside
+# `screenshots` — which is the honest reading: a set was posted, and the code has
+# moved since. Recapturing swaps it away again.
+"screenshots needed":
   - changed-files:
       - any-glob-to-any-file: apps/lite/ui/**/*.css

@@ -42,12 +42,12 @@ jobs:
   remind:
     needs: changes
     # The paths filter is not redundant with the label. pr-labeler applies
-    # `screenshots` using GITHUB_TOKEN, and GitHub does not start workflow runs
+    # `screenshots needed` using GITHUB_TOKEN, and GitHub does not start workflow runs
     # from token-generated events — so an auto-applied label fires nothing. Only
     # a human applying it does. The filter is what makes this run on its own.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      (contains(github.event.pull_request.labels.*.name, 'screenshots') ||
+      (contains(github.event.pull_request.labels.*.name, 'screenshots needed') ||
        needs.changes.outputs.css == 'true')
     runs-on: ubuntu-latest
     permissions:
@@ -70,14 +70,16 @@ jobs:
           fi
           cat > /tmp/comment.md <<EOF
           ${marker}
-          This pull request changes Lite's UI. Before/after screenshots make it
-          reviewable without checking the branch out.
+          This pull request changes Lite's UI, so it is labelled
+          \`screenshots needed\`. Before/after screenshots make it reviewable
+          without checking the branch out.
 
-          To attach them, ask your agent for the \`lite-screenshots\` skill — it
-          captures both sides against seeded fixtures, publishes the surfaces that
-          changed, and posts them here.
+          Attach them however you like — drag images straight into a comment, or
+          have an agent capture them for you (the \`lite-screenshots\` skill in
+          this repository does it against seeded fixtures).
 
-          Remove the \`screenshots\` label if this change is not visual.
+          Swap the label for \`screenshots\` once they are posted, or remove it if
+          this change is not visual.
           EOF
           gh api -X POST "repos/${REPO}/issues/${PR}/comments" \
             --input <(jq -Rs '{body: .}' /tmp/comment.md) --silent
