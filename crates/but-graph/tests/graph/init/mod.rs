@@ -3,6 +3,7 @@ use but_graph::{
     init::{Overlay, Tip},
 };
 use but_testsupport::{
+    CommandExt as _,
     gix_testtools::{self, Creation, rust_fixture_writable},
     graph_workspace, visualize_commit_graph_all,
 };
@@ -1968,6 +1969,70 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
         ["worktree-ahead-detached", "worktree-ahead-feature"],
         "the refreshed workspace sees the worktree that became active since"
+    );
+    Ok(())
+}
+
+/// Adoption archives the worktrees that predate GitButler's worktree support, so it must
+/// record that it ran even when there is nothing to archive - otherwise the next graph
+/// build would adopt afresh and archive every worktree created since.
+#[test]
+fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let base = commit(&repo, "M")?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let options = but_graph::init::Options {
+        worktrees: true,
+        ..standard_options()
+    };
+
+    // The first graph build runs adoption with no worktree on disk to adopt.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::project_db(&repo)?,
+        options.clone(),
+    )?
+    .validated()?;
+    assert!(
+        graph.worktree_tips.is_empty(),
+        "there is nothing to discover"
+    );
+
+    repo.commit(
+        "refs/heads/wt-feature",
+        "W",
+        repo.object_hash().empty_tree(),
+        Some(base),
+    )?;
+    but_testsupport::git(&repo)
+        .args(["worktree", "add", "wt-feature", "wt-feature"])
+        .run();
+
+    // A fresh handle, just like the next process to build a graph: adoption already ran,
+    // so the worktree created since is active and seeds a traversal tip.
+    let mut db = but_testsupport::project_db(&repo)?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        options,
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  wt-feature[📁]
+●  ·88cbbc5 (⌂)
+◎  👉main[🌳@repo]
+●  🏁·7dfaa8f (⌂|1)
+"#]]
+    );
+    assert!(
+        db.worktree_meta().list()?.is_empty(),
+        "nothing was archived, so no row was written"
     );
     Ok(())
 }
