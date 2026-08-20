@@ -92,6 +92,13 @@ fn resolve(
         .into_branch_or_stack()?
     {
         BranchOrStack::Branch(branch_arg) => {
+            if branch_arg.0.is_empty() {
+                return Err(bad_input(format!(
+                    "Cannot unapply segment '{target}' because it has no branch reference"
+                ))
+                .hint("Run `but branch new <name> --above <commit-id>` with the segment's top commit ID from `but status`, then run `but unapply <name>`.")
+                .into());
+            }
             let branch = branch_arg.resolve_local_branch_name()?;
 
             let stack = head_info.stacks.iter().find(|stack| {

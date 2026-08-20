@@ -9,6 +9,35 @@ use crate::{
 };
 
 #[test]
+fn anonymous_segment_reports_recovery_workflow() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("unapply g0")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot unapply segment 'g0' because it has no branch reference
+
+Hint: Run `but branch new <name> --above <commit-id>` with the segment's top commit ID from `but status`, then run `but unapply <name>`.
+
+"#]])
+        .stdout_eq(str![]);
+
+    let anonymous_commit = env.invoke_git("rev-parse gitbutler/workspace^");
+    env.but("branch new recovered --above sxu")
+        .assert()
+        .success();
+    env.but("unapply recovered").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse recovered"),
+        anonymous_commit,
+        "recovery branch should preserve the anonymous commit"
+    );
+}
+
+#[test]
 fn single_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     snapbox::assert_data_eq!(
