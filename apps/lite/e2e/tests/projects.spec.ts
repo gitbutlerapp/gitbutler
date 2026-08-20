@@ -16,12 +16,11 @@ test("navigates to a project added from the project picker", async ({
 	}, repositoryPath);
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toContainText("local-clone");
+	const projectPicker = appWindow.getByRole("button", { name: /Select project/ });
+	await expect(projectPicker).toContainText("local-clone");
 
-	await appWindow.getByTestId(LiteTestId.ProjectPickerButton).click();
-	await appWindow.getByTestId(LiteTestId.ProjectPickerAddLocalProjectButton).click();
+	await projectPicker.click();
+	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
-	await expect(appWindow.getByTestId(LiteTestId.ProjectPickerButton)).toContainText(
-		"additional-repository",
-	);
+	await expect(projectPicker).toContainText("additional-repository");
 });

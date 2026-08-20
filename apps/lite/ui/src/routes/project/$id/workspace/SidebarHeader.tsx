@@ -5,7 +5,6 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { LiteTestId } from "#ui/testIds.ts";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
@@ -94,7 +93,6 @@ export const SidebarHeader: FC<{
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					data-testid={LiteTestId.ProjectPickerButton}
 					className={classes(
 						getButtonClassName({ variant: "ghost" }),
 						"text-15",

@@ -12,7 +12,6 @@ export const IndexPage: FC = () => {
 			<h1>Welcome to GitButler Lite</h1>
 			<p>Add a local Git repository to get started.</p>
 			<AddProjectButton
-				testId={LiteTestId.OnboardingAddLocalProjectButton}
 				isPending={isPending}
 				onClick={() => void addLocalRepository()}
 			/>
