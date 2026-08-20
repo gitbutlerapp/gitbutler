@@ -29,6 +29,7 @@ mod marking_tests;
 mod move_tests;
 mod open_tests;
 mod pick_tests;
+mod single_branch_mode;
 mod squash_tests;
 mod stack_tests;
 mod utils;

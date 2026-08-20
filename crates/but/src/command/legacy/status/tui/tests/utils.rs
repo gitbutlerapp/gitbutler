@@ -95,6 +95,10 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         StatusRenderMode::Tui(launch_options.clone()),
     )
     .expect("failed to build status context");
+
+    // App::new acquires a new guard so have to drop this before calling that
+    drop(guard);
+
     let initial_target = resolve_tui_target(
         &ctx.repo.get().unwrap(),
         &status_ctx.id_map,

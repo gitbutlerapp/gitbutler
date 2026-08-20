@@ -1031,9 +1031,26 @@ fn render_hot_bar(app: &App, area: Rect, frame: &mut Frame) {
 
     frame.render_widget(" ", layout[1]);
 
-    app.mode
-        .as_mode_render()
-        .render_hot_bar_content(app, layout[2], frame);
+    if app.is_in_single_branch_mode {
+        let content_layout =
+            Layout::horizontal([Constraint::Min(1), Constraint::Length(5)]).split(layout[2]);
+
+        app.mode
+            .as_mode_render()
+            .render_hot_bar_content(app, content_layout[0], frame);
+
+        frame.render_widget(
+            Span::styled(
+                " SBM ",
+                Style::default().bg(ModeDiscriminant::Normal.bg(app.theme)),
+            ),
+            content_layout[1],
+        );
+    } else {
+        app.mode
+            .as_mode_render()
+            .render_hot_bar_content(app, layout[2], frame);
+    }
 
     if let Some(started_at) = loading_spinner_started_at {
         let mut line = RenderSingleLineSpans::new(frame, layout[3]);
