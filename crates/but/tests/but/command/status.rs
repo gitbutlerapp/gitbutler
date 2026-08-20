@@ -89,6 +89,10 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+/// With `worktreeManipulation` off, linked worktrees are not part of the picture at all:
+/// no tips are seeded, so nothing forks out and no lane is drawn. A branch that happens to
+/// be checked out elsewhere is just an ordinary stack row. Lanes are covered by
+/// [`worktree_lanes`].
 #[test]
 fn worktrees() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");

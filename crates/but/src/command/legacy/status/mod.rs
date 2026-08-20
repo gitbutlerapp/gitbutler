@@ -1622,19 +1622,6 @@ fn print_group(
                 })
             };
 
-            let workspace = segment
-                .linked_worktree_id()
-                .and_then(|id| {
-                    let ws = repo.worktree_proxy_by_id(id.as_bstr())?;
-                    let base = ws.base().ok()?;
-                    let git_dir = gix::path::realpath(repo.git_dir()).ok();
-                    let base = git_dir
-                        .and_then(|git_dir| base.strip_prefix(git_dir).ok())
-                        .unwrap_or_else(|| &base);
-                    format!(" 📁 {base}", base = base.display()).into()
-                })
-                .unwrap_or_default();
-
             let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
             let branch_cli_id = lookup_cli_id_for_short_id(
                 &status_ctx.id_map,
@@ -1669,10 +1656,7 @@ fn print_group(
                 BranchLineContent {
                     id: Vec::from([Span::styled(segment.short_id.clone(), t.cli_id)]),
                     decoration_start: Vec::from([Span::raw(decoration_start)]),
-                    branch_name: Vec::from([
-                        Span::styled(branch, t.local_branch),
-                        Span::raw(workspace),
-                    ]),
+                    branch_name: Vec::from([Span::styled(branch, t.local_branch)]),
                     decoration_end: Vec::from([Span::raw(decoration_end)]),
                     suffix: branch_suffix,
                 },
