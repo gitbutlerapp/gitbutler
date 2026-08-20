@@ -138,6 +138,44 @@ test("should reparent workspace commit to advanced target after integrating all 
 
 	await waitForTestIdToNotExist(page, "stack");
 	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
+	expect(git(localClone, ["rev-parse", "master"])).toBe(
+		git(localClone, ["rev-parse", "origin/master"]),
+	);
+});
+
+test("should preserve a diverged local target branch during upstream integration", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	const oldMaster = git(localClone, ["rev-parse", "master"]);
+	const localMaster = git(localClone, [
+		"-c",
+		"user.name=GitButler",
+		"-c",
+		"user.email=gitbutler@example.com",
+		"commit-tree",
+		"master^{tree}",
+		"-p",
+		oldMaster,
+		"-m",
+		"local master",
+	]);
+	git(localClone, ["update-ref", "refs/heads/master", localMaster]);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__fast-forward-base-through-branch1-and-add-commit.sh",
+	);
+	await syncAndIntegrate(page);
+
+	await waitForTestIdToNotExist(page, "stack");
+	expect(git(localClone, ["rev-parse", "master"])).toBe(localMaster);
+	expect(git(localClone, ["rev-parse", "origin/master"])).not.toBe(localMaster);
 });
 
 test("should reparent workspace commit to advanced merge target after integrating all stacks", async ({
