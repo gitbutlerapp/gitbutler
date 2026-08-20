@@ -166,7 +166,7 @@
 		}
 	}
 
-	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within & {
+	[data-selection-focus-styles="true"] [data-focus-scope="diff"]:focus-within & {
 		--diffs-bg-selection-number-override: var(--fill-gray-bg);
 
 		diffs-container {
@@ -291,7 +291,7 @@
 		content: "";
 	}
 
-	[data-selection-focus-styles="true"] [data-selection-scope="diff"]:focus-within &::before {
+	[data-selection-focus-styles="true"] [data-focus-scope="diff"]:focus-within &::before {
 		background-color: var(--fill-gray-bg);
 	}
 }
