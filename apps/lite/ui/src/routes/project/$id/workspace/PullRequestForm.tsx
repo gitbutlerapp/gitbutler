@@ -20,6 +20,7 @@ import {
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
@@ -501,53 +502,29 @@ export const PullRequestPrimaryAction: FC<{
 						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
 					/>
 
-					<div className={styles.splitButton}>
-						{/* The trigger span always wraps the button so its tree position
-						    is stable — a conditional wrapper would remount the button
-						    (dropping focus) whenever blockedReason flips. */}
-						<Tooltip.Root>
-							{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-							<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
-								<button
-									className={getButtonClassName({ variant: "pop" })}
-									disabled={isAnyPending || blockedReason !== null}
-									onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
-									type="button"
-								>
-									{isMergeReviewPending && <Icon name="spinner" />}
-									{mergeMethodLabels[mergeMethod]}
-								</button>
-							</Tooltip.Trigger>
-							{!isAnyPending && blockedReason !== null && (
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>{blockedReason}</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							)}
-						</Tooltip.Root>
-
-						<button
-							aria-label="Merge method"
-							className={getButtonClassName({ variant: "pop", iconOnly: true })}
-							disabled={isAnyPending}
-							onClick={(evt) =>
-								void showNativeMenuFromTrigger(
-									evt.currentTarget,
-									mergeMethods.map((method) =>
-										nativeMenuItem({
-											label: mergeMethodLabels[method],
-											checked: method === mergeMethod,
-											onSelect: () => persistMergeMethod({ projectId, method }),
-										}),
-									),
-								)
-							}
-							type="button"
-						>
-							<Icon name="chevron-down" />
-						</button>
-					</div>
+					<DropdownButton
+						variant="pop"
+						disabled={isAnyPending || blockedReason !== null}
+						onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
+						actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
+						menuLabel="Merge method"
+						menuDisabled={isAnyPending}
+						onMenuTrigger={(trigger) =>
+							void showNativeMenuFromTrigger(
+								trigger,
+								mergeMethods.map((method) =>
+									nativeMenuItem({
+										label: mergeMethodLabels[method],
+										checked: method === mergeMethod,
+										onSelect: () => persistMergeMethod({ projectId, method }),
+									}),
+								),
+							)
+						}
+					>
+						{isMergeReviewPending && <Icon name="spinner" />}
+						{mergeMethodLabels[mergeMethod]}
+					</DropdownButton>
 				</>
 			)}
 

@@ -3,11 +3,6 @@
 	gap: 6px;
 }
 
-.splitButton {
-	display: flex;
-	gap: 2px;
-}
-
 /* The design's kebab is chromeless, unlike its outlined neighbors. */
 .moreActions {
 	display: flex;
