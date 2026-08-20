@@ -1233,6 +1233,11 @@ impl IdMap {
         // A worktree names its own uncommitted area, so like `zz` it resolves in
         // both scopes rather than only the full one.
         matches.extend(self.parse_worktree_name(element));
+        // `zz` competes here for the same reason a worktree name does: a dirty file
+        // called `zz` must surface as an ambiguity, not silently shadow the area.
+        if element == UNCOMMITTED {
+            matches.push(Box::new(Unstaged {}));
+        }
 
         // The following match only if there have been no matches so far.
         if !matches.is_empty() {
@@ -1241,9 +1246,6 @@ impl IdMap {
 
         if scope == SourceScope::Any {
             self.push_generated_id_matches(element, &mut matches);
-        }
-        if element == UNCOMMITTED {
-            matches.push(Box::new(Unstaged {}));
         }
 
         // We only match against uncommitted files if there are no other matches. The reason for

@@ -188,6 +188,25 @@ impl CliIdArg {
         }
     }
 
+    /// Try and resolve the argument to a linked worktree, by its ID or stable name.
+    ///
+    /// Returns `Ok(None)` if it doesn't name a worktree.
+    pub fn try_resolve_worktree(
+        &self,
+        repo: &gix::Repository,
+        id_map: &IdMap,
+    ) -> CliResult<Option<BString>> {
+        let Some(id) =
+            try_resolve_cli_id(self, repo, id_map, Purpose::Branch, Some(Priority::Branch))?
+        else {
+            return Ok(None);
+        };
+        match id {
+            CliId::Worktree { name, .. } => Ok(Some(name)),
+            _ => Ok(None),
+        }
+    }
+
     /// TODO: docs
     pub fn try_resolve_uncommitted(
         &self,
@@ -224,6 +243,11 @@ impl CliIdArg {
             CliId::Worktree { name, .. } => Ok(Some(
                 id_map.uncommitted_files_in(&ChangeSourceId::Worktree(name)),
             )),
+            // `zz` names the main checkout's uncommitted area the same way, so it
+            // expands to the files a bare `but commit` takes.
+            CliId::Uncommitted { .. } => {
+                Ok(Some(id_map.uncommitted_files_in(&ChangeSourceId::Head)))
+            }
             _ => Ok(None),
         }
     }
@@ -243,11 +267,18 @@ impl CliIdArg {
         let target = if target_ids.peek().is_none() {
             target
         } else {
-            // A worktree names an uncommitted area, so it competes here: dropping
-            // it would let a file of the same name silently shadow the worktree.
+            // A worktree or `zz` names an uncommitted area, so they compete here:
+            // dropping them would let a file of the same name silently shadow the area.
             let mut uncommitted = std::iter::once(target)
                 .chain(target_ids)
-                .filter(|id| matches!(id, CliId::UncommittedHunkOrFile(_) | CliId::Worktree { .. }))
+                .filter(|id| {
+                    matches!(
+                        id,
+                        CliId::UncommittedHunkOrFile(_)
+                            | CliId::Worktree { .. }
+                            | CliId::Uncommitted { .. }
+                    )
+                })
                 .collect::<Vec<_>>();
             match uncommitted.len() {
                 0 => return Ok(None),

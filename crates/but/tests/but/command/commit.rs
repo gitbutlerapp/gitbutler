@@ -2822,3 +2822,374 @@ Hint: An operation can only take changes from one checkout at a time
 
 "#]]);
 }
+
+/// `zz` names the main checkout's whole uncommitted area, so committing it means the same
+/// as a bare `but commit`, and an empty area is refused rather than committed.
+#[test]
+fn commit_the_uncommitted_area_by_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("one.txt", "first\n");
+    env.file("two.txt", "second\n");
+
+    env.but("commit zz -m 'everything at once'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'A'
+
+"#]]);
+
+    // Both files went into the commit, leaving the area empty.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 everything at once
+┊│     1:z A one.txt
+┊│     1:p A two.txt
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // An empty area has nothing to commit.
+    env.but("commit zz -m 'nothing'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: No changes to commit
+
+Hint: Run `but status` to show applicable targets
+
+"#]]);
+}
+
+/// `--below` a worktree heading commits to the tip of the branch that worktree has checked
+/// out, mirroring `but move`, and the checkouts follow: the change leaves the main worktree
+/// for the linked one.
+#[test]
+fn commit_below_a_worktree_targets_its_branch_tip() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+    env.file("main.txt", "from the main checkout\n");
+
+    env.but("commit --below po -m 'onto the worktree branch'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'wt-inside'
+
+"#]]);
+
+    // The commit sits on wt-inside's tip outside the workspace; A and B stayed put.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * f2ab70b (wt-inside) onto the worktree branch
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    // The change followed the commit into the worktree's checkout.
+    assert!(
+        wt_dir.join("main.txt").exists(),
+        "the committed file landed in the worktree checkout"
+    );
+}
+
+/// Above a worktree heading is its uncommitted area, which cannot hold a commit.
+#[test]
+fn commit_above_a_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("commit --above po -m 'nope'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'po' for '--above'
+
+Cannot place a commit above a worktree
+
+Hint: Use `--below` to target the tip of the worktree's branch
+
+"#]]);
+}
+
+/// A worktree ID is a valid `--branch` target, meaning the branch checked out there.
+#[test]
+fn commit_b_targets_a_worktree_by_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+    env.file("main.txt", "from the main checkout\n");
+
+    env.but("commit -b po -m 'by worktree id'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'wt-inside'
+
+"#]]);
+}
+
+/// The branch checked out in a linked worktree is a valid `--branch` target even when it
+/// does not share the worktree's name: the commit goes to its tip instead of the name
+/// misrouting to branch creation.
+#[test]
+fn commit_b_targets_a_worktrees_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"git worktree add -q -b wt-branch "{wt}/wt-checkout" A"#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    env.file("main.txt", "from the main checkout\n");
+
+    env.but("commit -b wt-branch -m 'by branch name'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'wt-branch'
+
+"#]]);
+}
+
+/// With no explicit target, changes read from a worktree default to that worktree's own
+/// branch, like the TUI's heading gesture - even with several stacks applied, which would
+/// make a main-checkout commit ask for a target.
+#[test]
+fn commit_from_a_worktree_defaults_to_its_own_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-feature", "A");
+    std::fs::write(wt_dir.join("note.txt"), "dirty\n").unwrap();
+
+    env.but("commit m -m 'note from the worktree'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'wt-feature'
+
+"#]]);
+
+    // Only the worktree's branch moved; A stayed put and the workspace does not
+    // contain the new commit.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * d7bdd3b (wt-feature) note from the worktree
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ m {wt-feature} (no changes)
+┊┊●   1 note from the worktree
+┊┊│     1:u A note.txt
+┊┊●   nsn add W
+┊┊│     nsn:m A wt-file.txt
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// A worktree freshly checked out at a stack branch's tip shares that commit with the
+/// branch, and the editor's shared-ref insert moves both refs: the stack branch
+/// fast-forwards onto the new commit, which thereby enters the workspace. Existing editor
+/// semantics - the TUI's heading gesture and an explicit `-b <worktree>` behave the same -
+/// pinned here so a deliberate change to it shows up.
+#[test]
+fn commit_from_a_worktree_sharing_its_branch_tip_moves_both_refs() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("commit m -m 'note from the worktree'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'wt-feature'
+
+"#]]);
+
+    // Both refs sit on the new commit, which the workspace commit thereby merges.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   57c3c19 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * cc2a9bc (wt-feature, A) note from the worktree
+| * 9477ae7 add A
+* | d3e2ba3 (B) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// Changes from a worktree with a detached HEAD have no branch to default to.
+#[test]
+fn commit_from_a_detached_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q --detach "{wt}/wt-detached" B
+        (cd "{wt}/wt-detached" && echo dirty >note.txt)
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("commit wt-detached -m 'nowhere to go'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-detached has a detached HEAD, so there is no branch to commit to
+
+"#]]);
+}
+
+/// A merged branch is guarded the same whichever way it is spelled: naming the worktree that
+/// has it checked out cannot bypass the refusal that `-b <branch>` gives.
+#[test]
+fn commit_to_a_worktree_on_a_merged_branch_is_refused() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    enable_worktree_manipulation(&env);
+    env.but("status").env("NO_BG_TASKS", "1").assert().success();
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"git worktree add -q "{wt}/wt-merged" A"#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    env.file("file.txt", "Some text");
+
+    env.but("commit -b wt-merged -m 'onto merged'")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+
+    env.but("commit --below wt-merged -m 'onto merged'")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+/// A dirty file literally named `zz` competes with the uncommitted area instead of silently
+/// shadowing it, the same way a file sharing a worktree's name does.
+#[test]
+fn commit_zz_with_a_file_named_zz_is_ambiguous() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("zz", "contents\n");
+    env.file("other.txt", "more\n");
+
+    env.but("commit zz -m 'which one'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Ambiguous uncommitted change 'zz', matches multiple items
+
+Hint: Use a longer ID to disambiguate
+
+"#]]);
+}

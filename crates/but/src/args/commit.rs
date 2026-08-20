@@ -40,6 +40,9 @@ pub struct Platform {
     ///
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created.
     ///
+    /// If `BRANCH` is a linked worktree or a branch checked out in one, the commit is placed
+    /// on the tip of that worktree's branch.
+    ///
     /// Attempting to place a commit on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH", group = "targeting")]
     pub branch: Option<Option<CliIdArg>>,
@@ -67,6 +70,9 @@ pub struct Platform {
     /// If `BRANCH_OR_COMMIT` is a branch, the new commit is placed on a new branch below the
     /// targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated
     /// as below the oldest ancestor on that branch.
+    ///
+    /// If `BRANCH_OR_COMMIT` is a linked worktree, the new commit is placed on the tip of the
+    /// branch that worktree has checked out.
     #[clap(
         short = 'B',
         long,

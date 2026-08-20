@@ -187,8 +187,8 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Where the commit goes:** `-b`/`--branch`, `-A`/`--above`, and `-B`/`--below` are mutually exclusive.
 
-- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error.
-- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it.
+- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a linked worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
+- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a linked worktree (experimental worktree flag), `--below` targets the tip of its checked-out branch and `--above` is refused.
 - With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
@@ -285,7 +285,9 @@ but move <commit-id>:<file-id> --above <commit>    # Move a committed file into 
 Sources may not mix kinds, all committed files must come from the same commit, and only one branch
 may be moved at a time. Source order does not matter. For a branch source only `--above` and
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-file sources. `--branch`
-with no value is equivalent to `--unstack`.
+with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
+accepts a linked worktree or the branch checked out in it, moving commit or committed-file
+sources onto that branch's tip (nothing is created); a branch source is refused there.
 
 ### `but uncommit <SOURCES>...`
 
