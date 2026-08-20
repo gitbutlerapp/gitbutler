@@ -11,10 +11,7 @@ export const IndexPage: FC = () => {
 		<section className={styles.page} data-testid={LiteTestId.OnboardingPage}>
 			<h1>Welcome to GitButler Lite</h1>
 			<p>Add a local Git repository to get started.</p>
-			<AddProjectButton
-				isPending={isPending}
-				onClick={() => void addLocalRepository()}
-			/>
+			<AddProjectButton isPending={isPending} onClick={() => void addLocalRepository()} />
 		</section>
 	);
 };
