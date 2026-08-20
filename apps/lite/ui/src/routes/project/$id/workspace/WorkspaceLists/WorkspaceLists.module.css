@@ -69,8 +69,7 @@
 
 .commitForm {
 	margin-inline: var(--panel-padding-inline);
-	margin-block-start: 1px; /* hack to avoid outline crop on focus */
-	margin-block-end: var(--panel-padding-block);
+	margin-block: var(--panel-padding-block);
 }
 
 .stacksPanel {
