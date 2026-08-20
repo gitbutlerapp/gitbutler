@@ -67,6 +67,21 @@ impl MergedUpstream {
                 }
             }
         }
+        // A branch checked out in a linked worktree is forked out of the stack
+        // rows entirely and shown only here (see `Graph::worktree_tips` and
+        // `Graph::fork_out_worktree_checkout_refs`), so the loop above never
+        // sees its name. Its classification still lives on the stack segment
+        // that owns the commit, keyed only by commit id now - `integrated_commits`
+        // already has it from the pass above, so a worktree sitting exactly on
+        // one is exactly the merged-upstream case.
+        for worktree in &head_info.worktrees {
+            if worktree.commits.is_empty()
+                && let Some(ref_name) = &worktree.ref_name
+                && this.integrated_commits.contains(&worktree.head)
+            {
+                this.merged_branches.insert(ref_name.clone());
+            }
+        }
         this.collect_merged_empty_branches(repo, head_info);
         this
     }
