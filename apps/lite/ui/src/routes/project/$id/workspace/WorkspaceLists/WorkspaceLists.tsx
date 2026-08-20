@@ -29,7 +29,6 @@ import {
 	type OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOperationDropTarget.ts";
-import { AddressSpaceContext } from "#ui/routes/project/$id/workspace/AddressSpaceContext.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
@@ -63,6 +62,11 @@ import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
+import {
+	useAbsorptionTargetCommitIds,
+	useAddressSpace,
+	WorkspaceListsProvider,
+} from "./context.tsx";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
@@ -98,9 +102,6 @@ import {
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
-const AbsorptionTargetCommitIdsContext = createContext<ReadonlySet<string> | null>(null);
-AbsorptionTargetCommitIdsContext.displayName = "AbsorptionTargetCommitIdsContext";
-
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
 type PanelId = "uncommitted-changes-panel" | "stacks-panel";
@@ -110,7 +111,7 @@ const TreeItem: FC<
 		address: Address;
 	} & useRender.ComponentProps<"div">
 > = ({ address, render, ...props }) => {
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 	const isSelected = useIsCursorAt("applied", addressSpace, address);
 
 	return useRender({
@@ -134,8 +135,8 @@ const OperationTarget: FC<
 > = ({ enabled, address, projectId, outline, render, ...props }) => {
 	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
 
-	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
-	const addressSpace = assert(use(AddressSpaceContext));
+	const absorptionTargetCommitIds = useAbsorptionTargetCommitIds();
+	const addressSpace = useAddressSpace();
 
 	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
 	const selection = useSelection("applied", addressSpace);
@@ -213,7 +214,7 @@ const AddressC: FC<
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, address, outline, render, ...props }) => {
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 
 	return useRender({
 		render: (
@@ -439,7 +440,7 @@ const BranchSegment: FC<{
 const EmptySegmentContent: FC<{
 	segment: Segment;
 }> = ({ segment }) => {
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 
 	const refName = assert(segment.refName);
 	const inert = !addressSpaceIncludes(
@@ -544,7 +545,7 @@ const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
 }> = ({ projectId, segment }) => {
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 
 	// A plain boolean, so this re-renders only when this segment's own fold
 	// state changes rather than on every fold anywhere.
@@ -662,7 +663,7 @@ const Stacks: FC<{
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
 }> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
@@ -870,74 +871,75 @@ export const WorkspaceLists: FC<
 	};
 
 	return (
-		<AddressSpaceContext value={addressSpace}>
-			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
-				<Group
-					{...props}
-					id={layoutId}
-					orientation="vertical"
-					className={classes(props.className, styles.tree)}
-					defaultLayout={sidebarLayout.defaultLayout}
-					onLayoutChanged={sidebarLayout.onLayoutChanged}
+		<WorkspaceListsProvider
+			addressSpace={addressSpace}
+			absorptionTargetCommitIds={absorptionTargetCommitIds}
+		>
+			<Group
+				{...props}
+				id={layoutId}
+				orientation="vertical"
+				className={classes(props.className, styles.tree)}
+				defaultLayout={sidebarLayout.defaultLayout}
+				onLayoutChanged={sidebarLayout.onLayoutChanged}
+			>
+				<Panel
+					id={"uncommitted-changes-panel" satisfies PanelId}
+					className={styles.uncommittedChangesOuterPanel}
+					defaultSize={280}
+					minSize={200}
+					groupResizeBehavior="preserve-pixel-size"
 				>
-					<Panel
-						id={"uncommitted-changes-panel" satisfies PanelId}
-						className={styles.uncommittedChangesOuterPanel}
-						defaultSize={280}
-						minSize={200}
-						groupResizeBehavior="preserve-pixel-size"
-					>
-						<OperationSourceC
-							projectId={projectId}
-							source={uncommittedChangesAddress}
-							outline="inside"
-							render={
-								<OperationTarget
-									enabled
-									projectId={projectId}
-									address={uncommittedChangesAddress}
-									outline="inside"
-									render={
-										<UncommittedChanges
-											addressSpace={uncommittedAddressSpace}
-											commitTarget={commitTarget}
-											projectId={projectId}
-											targetComboboxItems={commitTargetComboboxItems}
-											hasNoBranches={hasNoBranches}
-											onAmendCommit={amendCommit}
-											canAmendCommit={canAmendCommit}
-											onActiveFileSelection={onActiveFileSelection}
-											onEdgeSpill={spillIntoStacks}
-											worktreeChanges={worktreeChanges}
-										/>
-									}
-								/>
-							}
-						/>
-					</Panel>
-
-					<ResizeHandle />
-
-					<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
-						<SectionHeaderRow
-							label="Stacks and branches"
-							childrenBefore={<FocusScopeKbd hotkey="2" scope="sidebar" />}
-							className={styles.stacksHeader}
-							actions={stacksHeaderActions}
-						/>
-
-						<div className={classes(uiStyles.scroller, styles.stacksScroller)}>
-							<Stacks
+					<OperationSourceC
+						projectId={projectId}
+						source={uncommittedChangesAddress}
+						outline="inside"
+						render={
+							<OperationTarget
+								enabled
 								projectId={projectId}
-								checkCommit={checkCommit}
-								onAmendCommit={amendCommit}
-								canAmendCommit={canAmendCommit}
-								onEdgeSpill={spillIntoUncommittedChanges}
+								address={uncommittedChangesAddress}
+								outline="inside"
+								render={
+									<UncommittedChanges
+										addressSpace={uncommittedAddressSpace}
+										commitTarget={commitTarget}
+										projectId={projectId}
+										targetComboboxItems={commitTargetComboboxItems}
+										hasNoBranches={hasNoBranches}
+										onAmendCommit={amendCommit}
+										canAmendCommit={canAmendCommit}
+										onActiveFileSelection={onActiveFileSelection}
+										onEdgeSpill={spillIntoStacks}
+										worktreeChanges={worktreeChanges}
+									/>
+								}
 							/>
-						</div>
-					</Panel>
-				</Group>
-			</AbsorptionTargetCommitIdsContext>
-		</AddressSpaceContext>
+						}
+					/>
+				</Panel>
+
+				<ResizeHandle />
+
+				<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
+					<SectionHeaderRow
+						label="Stacks and branches"
+						childrenBefore={<FocusScopeKbd hotkey="2" scope="sidebar" />}
+						className={styles.stacksHeader}
+						actions={stacksHeaderActions}
+					/>
+
+					<div className={classes(uiStyles.scroller, styles.stacksScroller)}>
+						<Stacks
+							projectId={projectId}
+							checkCommit={checkCommit}
+							onAmendCommit={amendCommit}
+							canAmendCommit={canAmendCommit}
+							onEdgeSpill={spillIntoUncommittedChanges}
+						/>
+					</div>
+				</Panel>
+			</Group>
+		</WorkspaceListsProvider>
 	);
 };
