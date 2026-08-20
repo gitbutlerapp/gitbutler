@@ -1,4 +1,5 @@
 import rowStyles from "../Row.module.css";
+import { useAddressSpace } from "./context.tsx";
 import { startKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
@@ -13,7 +14,6 @@ import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { assert } from "#ui/assert.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
@@ -36,10 +36,9 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
 import { Toast, Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, use, useOptimistic, useTransition } from "react";
+import { type ComponentProps, type FC, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
-import { AddressSpaceContext } from "../AddressSpaceContext.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
@@ -85,7 +84,7 @@ export const CommitRow: FC<
 
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
-	const addressSpace = assert(use(AddressSpaceContext));
+	const addressSpace = useAddressSpace();
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
