@@ -1,0 +1,19 @@
+.toolbar {
+	display: flex;
+	column-gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.group {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+}
+
+.separator {
+	flex-shrink: 0;
+	width: 1px;
+	height: 18px;
+	background-color: var(--border-3);
+}

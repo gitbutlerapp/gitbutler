@@ -18,17 +18,13 @@ import {
 	type ReactorsByKind,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "#ui/components/classes.ts";
-import {
-	FieldControlStyles,
-	FieldLabelStyles,
-	FieldRootStyles,
-	FieldTextareaStyles,
-} from "#ui/components/Field.tsx";
+import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
+import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
 import { Switch } from "#ui/components/Switch.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
@@ -71,10 +67,11 @@ import styles from "./PullRequestForm.module.css";
  * Title/description form for creating a PR or editing an existing one.
  *
  * Unsubmitted input persists to idb per project+branch (survives restarts,
- * follows renames) and is cleared on Reset/Cancel. When the remote PR
- * changes underneath an *untouched* form, the fields follow the remote;
- * once locally edited, local wins until Reset. With `onCancel` set, Reset
- * becomes Cancel: discard edits and leave edit mode.
+ * follows renames), and is dropped again once the fields match the remote —
+ * clearing them by hand is what discards a draft. When the remote PR changes
+ * underneath an *untouched* form, the fields follow the remote; once locally
+ * edited, local wins. With `onCancel` set, the footer gains a Cancel button
+ * that discards edits and leaves edit mode.
  */
 export const PullRequestForm: FC<{
 	projectId: string;
@@ -84,12 +81,16 @@ export const PullRequestForm: FC<{
 	body: string | null;
 	canSubmit: boolean;
 	onAfterSubmit?: () => void;
-	/** Replaces Reset with a Cancel button that discards edits and calls this. */
+	/** Adds a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
 }> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, onAfterSubmit, onCancel }) => {
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
+	const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+	const draftSwitchId = useId();
+	/** Drives the rule under the toolbar, so text never slides under it bare. */
+	const [bodyScrolled, setBodyScrolled] = useState(false);
 
 	const remoteOrEmptyDocument = {
 		title: title ?? "",
@@ -188,80 +189,144 @@ export const PullRequestForm: FC<{
 	return (
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
 		<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
+			{/* Both fields name themselves in the placeholder, as designed, so
+			    they carry an aria-label instead of a visible one. */}
 			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Title</Field.Label>
 				<Field.Control
 					render={<FieldControlStyles />}
-					className="text-15 text-semibold"
+					aria-label="Pull request title"
 					data-focus-scope={"pr" satisfies FocusScope}
 					ref={useAutofocusScope()}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
-					placeholder="Title"
+					placeholder="PR title"
 					required
 					value={localDocument.title}
 				/>
 			</Field.Root>
 
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Description</Field.Label>
-				<Field.Control
-					render={<FieldTextareaStyles />}
-					className="text-14 text-body text-monospace"
+			<div className={styles.descriptionEditor} data-body-scrolled={bodyScrolled || undefined}>
+				<MarkdownToolbar
+					className={styles.descriptionToolbar}
+					disabled={isAnyPending}
+					onInput={(nextBody) => setLocalDocument({ ...localDocument, body: nextBody })}
+					targetRef={bodyRef}
+				/>
+
+				<textarea
+					aria-label="Pull request description"
+					className={classes("text-13", "text-body", styles.descriptionInput)}
 					name="body"
 					onChange={(evt) => setLocalDocument({ ...localDocument, body: evt.currentTarget.value })}
-					placeholder="Description"
+					// Only the flip re-renders: React bails out of an unchanged state.
+					onScroll={(evt) => setBodyScrolled(evt.currentTarget.scrollTop > 0)}
+					placeholder="PR description"
+					ref={bodyRef}
 					value={localDocument.body}
 				/>
-			</Field.Root>
 
-			{isNew && (
-				<Field.Root render={<FieldRootStyles />}>
-					<Field.Label render={<FieldLabelStyles />}>Draft</Field.Label>
-					<Checkbox
-						checked={localDocument.isDraft}
-						name="isDraft"
-						onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
-					/>
-				</Field.Root>
-			)}
+				<div className={styles.descriptionFooter}>
+					<div className={styles.footerRow}>
+						{/* Neither action has a backend yet; they are shown disabled so
+						    the composer's shape matches the design. */}
+						<div className={styles.footerStart}>
+							<UnavailableAction
+								icon="paperclip"
+								label="Attach a file"
+								reason="Attaching files isn't supported yet"
+							/>
+							<div aria-hidden className={styles.footerSeparator} />
+							<UnavailableAction
+								icon="ai-text"
+								label="Generate a description"
+								reason="Generating a description isn't supported yet"
+							/>
+						</div>
 
-			<div className={styles.prFormActions}>
-				{onCancel !== undefined ? (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending}
-						onClick={() => {
-							handleReset();
-							onCancel();
-						}}
-						type="button"
-					>
-						Cancel
-					</button>
-				) : (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending || !hasChanges}
-						onClick={handleReset}
-						type="button"
-					>
-						Reset
-					</button>
-				)}
+						<div className={styles.footerEnd}>
+							{isNew && (
+								<>
+									{/* Ghost-button chrome on the label rather than around the
+									    switch: base-ui renders the switch as a button, and a
+									    button cannot nest inside one. The label takes every
+									    click — see the CSS — and forwards a single one on. */}
+									<label
+										className={classes(
+											getButtonClassName({ variant: "ghost", size: "small" }),
+											styles.draftToggle,
+										)}
+										htmlFor={draftSwitchId}
+									>
+										<Switch
+											id={draftSwitchId}
+											checked={localDocument.isDraft}
+											disabled={isAnyPending}
+											name="isDraft"
+											onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
+										/>
+										Draft
+									</label>
+									<div aria-hidden className={styles.footerSeparator} />
+								</>
+							)}
 
-				<button
-					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canSubmit || isAnyPending || !hasChanges}
-					type="submit"
-				>
-					{isAnyPending && <Icon name="spinner" />}
-					{isNew ? "Submit" : "Update"}
-				</button>
+							<div className={styles.footerButtons}>
+								{/* Only edit mode offers a way out: clearing the fields by hand
+								    already drops the persisted draft on blur, so a Reset button
+								    would just be a destructive shortcut for that. */}
+								{onCancel !== undefined && (
+									<button
+										className={getButtonClassName({})}
+										disabled={isAnyPending}
+										onClick={() => {
+											handleReset();
+											onCancel();
+										}}
+										type="button"
+									>
+										Cancel
+									</button>
+								)}
+
+								<button
+									className={getButtonClassName({ variant: "gray" })}
+									disabled={!canSubmit || isAnyPending || !hasChanges}
+									type="submit"
+								>
+									{isNew ? "Create a PR" : "Save changes"}
+									{/* Creating opens a PR; saving only confirms an edit. */}
+									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</form>
 	);
 };
+
+/** A designed action whose backing feature does not exist yet. */
+const UnavailableAction: FC<{ icon: IconName; label: string; reason: string }> = (p) => (
+	<Tooltip.Root>
+		{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
+		<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
+			<button
+				aria-label={p.label}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+				disabled
+				type="button"
+			>
+				<Icon name={p.icon} />
+			</button>
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>{p.reason}</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
 
 /** Fold the raw reaction list into chip tallies plus who-reacted names. */
 const reviewReactionsSelect = (

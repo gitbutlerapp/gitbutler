@@ -40,6 +40,16 @@ test.describe("screenshots", () => {
 			await openProject(appWindow);
 			await shoot(appWindow, "details-pane", "#details-panel");
 		});
+
+		test("pull request form", async ({ appWindow }) => {
+			await openProject(appWindow);
+			// The branch tab is Redux state, not a route, so like the commit form
+			// this surface depends on a click producing a frame.
+			await appWindow.getByRole("treeitem", { name: "C", exact: true }).click();
+			await appWindow.getByRole("button", { name: "Pull Request" }).click();
+			await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
+			await shoot(appWindow, "pr-form", "#details-panel");
+		});
 	});
 
 	test.describe("remote branches", () => {
