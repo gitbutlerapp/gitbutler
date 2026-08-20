@@ -1,6 +1,6 @@
 //! Utilities for graph-walking specifically.
 use std::{
-    cmp::Ordering,
+    cmp::{Ordering, Reverse},
     collections::{BTreeMap, BTreeSet},
     ops::Deref,
 };
@@ -345,13 +345,18 @@ pub fn swap_queued_segments(queue: &mut Queue, a: SegmentIndex, b: SegmentIndex)
 
 pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: SegmentIndex) {
     // Connections describe the commits owned by a segment, so they must move with the commits.
-    let connections = graph
+    let touched_sources = graph
         .edge_references()
         .filter(|edge| {
             [edge.source(), edge.target()]
                 .into_iter()
                 .any(|node| node == a || node == b)
         })
+        .map(|edge| edge.source())
+        .collect::<BTreeSet<_>>();
+    let mut connections = graph
+        .edge_references()
+        .filter(|edge| touched_sources.contains(&edge.source()))
         .map(EdgeOwned::from)
         .collect::<Vec<_>>();
     for connection in &connections {
@@ -361,7 +366,7 @@ pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: Se
         let (a, b) = graph.index_twice_mut(a, b);
         std::mem::swap(&mut a.commits, &mut b.commits);
     }
-    for connection in connections {
+    for connection in &mut connections {
         let swap = |node| {
             if node == a {
                 b
@@ -371,11 +376,12 @@ pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: Se
                 node
             }
         };
-        graph.add_edge(
-            swap(connection.source),
-            swap(connection.target),
-            connection.weight,
-        );
+        connection.source = swap(connection.source);
+        connection.target = swap(connection.target);
+    }
+    connections.sort_by_key(|edge| (edge.source, Reverse(edge.weight.parent_order)));
+    for connection in connections {
+        graph.add_edge(connection.source, connection.target, connection.weight);
     }
 }
 
