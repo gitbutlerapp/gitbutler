@@ -54,7 +54,12 @@ const linePrefix =
 	(selection) => {
 		const { from, to } = lineRange(selection);
 		const lines = selection.text.slice(from, to).split("\n");
-		const applied = lines.every((line, index) => line.startsWith(prefix(index)));
+		// Compare the marker a line already carries, not just its opening
+		// characters: `- ` prefixes `- [ ] `, so a startsWith check would read a
+		// task line as an applied bullet and strip two characters off its box.
+		const applied = lines.every(
+			(line, index) => (replaces.exec(line)?.[0] ?? "") === prefix(index),
+		);
 		return mapLines((line, index) =>
 			applied ? line.slice(prefix(index).length) : prefix(index) + line.replace(replaces, ""),
 		)(selection);

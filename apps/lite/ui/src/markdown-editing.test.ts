@@ -72,6 +72,14 @@ describe("block commands", () => {
 		expect(apply(taskList, "- on|e")).toBe("[- [ ] one]");
 	});
 
+	test("converts a task line to a bullet instead of toggling it off", () => {
+		expect(apply(bulletList, "- [ ] on|e")).toBe("[- one]");
+	});
+
+	test("renumbers a task line rather than toggling it off", () => {
+		expect(apply(numberList, "- [ ] on|e")).toBe("[1. one]");
+	});
+
 	test("applies to the line holding a collapsed caret", () => {
 		expect(apply(quote, "before\nmid|dle\nafter")).toBe("before\n[> middle]\nafter");
 	});

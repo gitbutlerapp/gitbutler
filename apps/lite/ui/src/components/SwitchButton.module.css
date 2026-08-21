@@ -7,15 +7,13 @@
 
 	cursor: pointer;
 
-	/* Every click belongs to the label, which forwards exactly one synthetic
-	   click to the switch. Left interactive, the switch would also handle its
-	   own and the pair would cancel out. */
-	> button {
-		pointer-events: none;
-	}
+	/* base-ui renders the switch as a <span role="switch"> plus a hidden
+	   checkbox, never a <button>, so these match the role rather than the tag.
+	   It also calls preventDefault on the switch's own click, which is what
+	   stops the label from forwarding a second one. */
 
 	/* Focus lands on the switch, but the pill is what reads as the control. */
-	&:has(button:focus-visible) {
+	&:has([role="switch"]:focus-visible) {
 		outline: var(--focus-ring);
 		outline-offset: -1px;
 	}
@@ -23,7 +21,7 @@
 	/* Fade the pair together; the switch's own fade is neutralized via its
 	   opacity variable so the two don't compound. base-ui disables via
 	   data-disabled, never the native attribute. */
-	&:has(button[data-disabled]) {
+	&:has([role="switch"][data-disabled]) {
 		--disabled-opacity: 100%;
 		cursor: default;
 

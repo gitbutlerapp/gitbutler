@@ -68,4 +68,12 @@ describe("formatCompactDuration", () => {
 	it("formats hours", () => {
 		expect(formatCompactDuration(2 * 60 * 60_000)).toMatchInlineSnapshot(`"{"hours":2}"`);
 	});
+
+	it("carries a rounded-up second into the next unit", () => {
+		expect(formatCompactDuration(59_600)).toMatchInlineSnapshot(`"{"minutes":1}"`);
+	});
+
+	it("carries a rounded-up minute into the next unit", () => {
+		expect(formatCompactDuration(59 * 60_000 + 59_000)).toMatchInlineSnapshot(`"{"hours":1}"`);
+	});
 });

@@ -22,9 +22,9 @@ type Props = Omit<ComponentProps<typeof Switch>, "className" | "id"> & {
  * A switch and its label wearing button chrome, so the pair reads and behaves
  * as one control rather than a toggle with text next to it.
  *
- * The chrome lives on a `<label>` rather than around the switch: base-ui
- * renders the switch as a `<button>`, and a button cannot nest inside one.
- * The label owns every click and forwards a single one on — see the CSS.
+ * The chrome lives on a `<label>` rather than around the switch, so the text
+ * shares the switch's hit area: base-ui points the label at the hidden
+ * checkbox it renders alongside the `<span role="switch">`.
  */
 export const SwitchButton: FC<Props> = ({
 	label,

@@ -65,8 +65,14 @@ export const formatDuration: (ms: number) => string = formatDurationWith(stdDura
 export const formatCompactDurationWith =
 	(df: Intl.DurationFormat) =>
 	(ms: number): string => {
-		if (ms < 60_000) return df.format({ seconds: Math.max(1, Math.round(ms / 1_000)) });
-		if (ms < 3_600_000) return df.format({ minutes: Math.round(ms / 60_000) });
+		// Round before choosing the unit: picking first lets a value that rounds
+		// up to a full unit render as "60 sec" or "60 min".
+		const seconds = Math.max(1, Math.round(ms / 1_000));
+		if (seconds < 60) return df.format({ seconds });
+
+		const minutes = Math.round(ms / 60_000);
+		if (minutes < 60) return df.format({ minutes });
+
 		return df.format({ hours: Math.round(ms / 3_600_000) });
 	};
 
