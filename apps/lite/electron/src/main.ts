@@ -242,6 +242,32 @@ const buildNativeMenuTemplate = (
 		};
 	});
 
+const registerTextInputContextMenu = (window: BrowserWindow): void => {
+	window.webContents.on("context-menu", (_event, params) => {
+		if (!params.isEditable) return;
+
+		const { editFlags } = params;
+		const menu = Menu.buildFromTemplate([
+			{ role: "undo", enabled: editFlags.canUndo },
+			{ role: "redo", enabled: editFlags.canRedo },
+			{ type: "separator" },
+			{ role: "cut", enabled: editFlags.canCut },
+			{ role: "copy", enabled: editFlags.canCopy },
+			{ role: "paste", enabled: editFlags.canPaste },
+			{ type: "separator" },
+			{ role: "selectAll", enabled: editFlags.canSelectAll },
+		]);
+
+		menu.popup({
+			window,
+			frame: params.frame ?? undefined,
+			x: params.x,
+			y: params.y,
+			sourceType: params.menuSourceType,
+		});
+	});
+};
+
 // Returns true if the `url` is from an origin we trust to perform privileged actions such as executing IPC commands.
 const isTrustedLocalOrigin = (url: URL | null) =>
 	url !== null &&
@@ -482,6 +508,7 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 			preload: path.join(currentDirPath, "preload.cjs"),
 		},
 	});
+	registerTextInputContextMenu(mainWindow);
 
 	const notifyFullScreenChange = () => {
 		mainWindow.webContents.send("fullScreenChange", mainWindow.isFullScreen());
