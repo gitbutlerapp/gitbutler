@@ -289,6 +289,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let (mut args, output_format) = parse_args_and_output_format(args, agent_detected);
+
+    // Like `--version`, `--skill` prints and exits without dispatching a subcommand.
+    if args.skill {
+        print!("{}", command::skill::base_skill_text()?);
+        return Ok(());
+    }
+
     let _tracing_appender_worker_guard = if args.trace > 0 {
         trace::init(args.trace, args.log_file.as_deref())?
     } else {

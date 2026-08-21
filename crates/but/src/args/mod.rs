@@ -44,6 +44,9 @@ pub struct Args {
     /// Use when the next step needs IDs or details from the resulting workspace.
     #[clap(long, global = true)]
     pub status_after: bool,
+    /// Print the bundled agent skill text (SKILL.md) to stdout and exit.
+    #[clap(long)]
+    pub skill: bool,
     /// Subcommand to run (`but <COMMAND>`).
     ///
     /// On UNIX, if `<COMMAND>` is not built in and `but-<COMMAND>` exists on the PATH, that program
@@ -905,6 +908,12 @@ pub enum Subcommands {
     ///
     /// ```text
     /// but skill install --global
+    /// ```
+    ///
+    /// Print the base skill text (SKILL.md) to stdout:
+    ///
+    /// ```text
+    /// but --skill
     /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
