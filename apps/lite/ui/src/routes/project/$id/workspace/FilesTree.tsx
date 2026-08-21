@@ -502,6 +502,7 @@ export const FilesTree: FC<
 				<div role="group">
 					{rows.map((row) => {
 						const isSelected = selection !== null && selection === row.path;
+						const inert = !addressSpaceIncludes(addressSpace, row.path, (path) => path);
 
 						if (row._tag === "Directory") {
 							const isCollapsed = collapsedDirectories[row.path] === true;
@@ -539,6 +540,7 @@ export const FilesTree: FC<
 											checkedState={directoryCheckedState(row.filePaths)}
 											checkDirectory={checkDirectory}
 											focusScope={focusScope}
+											inert={inert}
 											onSelect={() => onRowSelection(row.path)}
 										/>
 									}
@@ -570,7 +572,7 @@ export const FilesTree: FC<
 												item={item}
 												depth={row.depth}
 												pathDisplay={pathDisplay}
-												inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
+												inert={inert}
 												isSelected={isSelected}
 												isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
 												onSelect={() => onRowSelection(row.path)}
