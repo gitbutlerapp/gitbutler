@@ -198,7 +198,7 @@ describe("buildStackEndpoints", () => {
 		expect(endpoints.commitMove.invalidatesTags).toEqual([
 			invalidatesList(ReduxTag.HeadSha),
 			invalidatesList(ReduxTag.WorktreeChanges),
-			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesType(ReduxTag.BranchChanges),
 			invalidatesList(ReduxTag.Stacks),
 			invalidatesList(ReduxTag.StackDetails),
 		]);
@@ -256,7 +256,7 @@ describe("buildStackEndpoints", () => {
 			invalidatesList(ReduxTag.HeadSha),
 			invalidatesList(ReduxTag.WorktreeChanges),
 			invalidatesList(ReduxTag.Stacks),
-			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesType(ReduxTag.BranchChanges),
 			invalidatesItem(ReduxTag.StackDetails, "stack-1"),
 		]);
 	});
@@ -420,7 +420,7 @@ describe("buildStackEndpoints", () => {
 			invalidatesList(ReduxTag.WorktreeChanges),
 			invalidatesList(ReduxTag.Stacks),
 			invalidatesList(ReduxTag.StackDetails),
-			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesType(ReduxTag.BranchChanges),
 			invalidatesList(ReduxTag.BranchListing),
 			invalidatesType(ReduxTag.BaseBranchData),
 		]);
@@ -429,6 +429,7 @@ describe("buildStackEndpoints", () => {
 	test("uses branch_land and invalidates target and stack state", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.landBranch.query;
+		const invalidatesTags = endpoints.landBranch.invalidatesTags;
 
 		expect(endpoints.landBranch.extraOptions).toEqual({
 			command: "branch_land",
@@ -451,12 +452,28 @@ describe("buildStackEndpoints", () => {
 
 		// The base-branch query provides a type-level tag, so it must be invalidated
 		// with invalidatesType rather than invalidatesList.
-		expect(endpoints.landBranch.invalidatesTags).toEqual([
+		if (typeof invalidatesTags !== "function") {
+			throw new Error("Expected landBranch.invalidatesTags to be callable");
+		}
+
+		expect(
+			invalidatesTags(
+				undefined,
+				undefined,
+				{
+					projectId: "project-1",
+					branch: "feature",
+					noFf: false,
+					wholeStack: true,
+				},
+				undefined,
+			),
+		).toEqual([
 			invalidatesList(ReduxTag.HeadSha),
 			invalidatesList(ReduxTag.WorktreeChanges),
 			invalidatesList(ReduxTag.Stacks),
 			invalidatesList(ReduxTag.StackDetails),
-			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesType(ReduxTag.BranchChanges),
 			invalidatesList(ReduxTag.BranchListing),
 			invalidatesType(ReduxTag.BaseBranchData),
 		]);
