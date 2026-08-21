@@ -72,6 +72,11 @@ export default class WatcherManager {
 		return this.instance;
 	}
 
+	/** Shutdown teardown; unlike `getInstance().destroy()` it does not create a manager just to destroy it. */
+	static destroyInstance(): void {
+		WatcherManager.instance?.destroy();
+	}
+
 	/**
 	 * Start watching a project and subscribe to it.
 	 *

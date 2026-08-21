@@ -154,6 +154,7 @@
 		"fuse.js": "^7.1.0",
 		"idb-keyval": "^6.3.0",
 		"ms": "^4.0.0-nightly.202508271359",
+		"posthog-node": "5.21.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"react-markdown": "^10.1.0",
