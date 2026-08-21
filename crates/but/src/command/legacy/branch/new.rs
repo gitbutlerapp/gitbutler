@@ -26,7 +26,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        merged_upstream::MergedUpstream, targeting::Side,
+        in_single_branch_mode_with_perm, merged_upstream::MergedUpstream, targeting::Side,
     },
 };
 
@@ -181,8 +181,7 @@ impl NewUnstackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let in_single_branch_mode = ctx.settings.feature_flags.single_branch
-            && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?;
+        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
 
         if in_single_branch_mode {
             self.execute_single_branch_mode(ctx, meta, perm)
@@ -356,8 +355,7 @@ impl NewStackedBranchOperation {
     ) -> anyhow::Result<NewOutcome> {
         let Self { name, target, side } = self;
 
-        let in_single_branch_mode = ctx.settings.feature_flags.single_branch
-            && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?;
+        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
 
         let mut checkout_after_create = false;
 
