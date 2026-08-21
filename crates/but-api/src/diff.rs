@@ -157,12 +157,12 @@ pub fn changes_in_worktree_with_perm(
     let context_lines = ctx.settings.context_lines;
 
     if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
-        return Ok(but_core::diff::worktree_changes(&wt_repo)?.into());
+        return Ok(but_core::diff::ui::worktree_changes(&wt_repo)?.into());
     }
 
     if !compute_deps_and_assignments {
         let repo = ctx.repo.get()?;
-        return Ok(but_core::diff::worktree_changes(&repo)?.into());
+        return Ok(but_core::diff::ui::worktree_changes(&repo)?.into());
     }
 
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
@@ -187,10 +187,14 @@ pub fn changes_in_worktree_with_perm(
     };
 
     trans.commit()?;
+
+    let mut worktree_changes: but_core::ui::WorktreeChanges = changes.into();
+    worktree_changes.modification_times =
+        but_core::diff::ui::modification_times(&repo, &worktree_changes.changes);
     drop((repo, ws, db));
 
     Ok(WorktreeChanges {
-        worktree_changes: changes.into(),
+        worktree_changes,
         assignments,
         assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
         dependencies: dependencies.as_ref().ok().cloned(),

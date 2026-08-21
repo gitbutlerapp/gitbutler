@@ -111,3 +111,9 @@
 		border-block-start: 1px solid var(--border-section);
 	}
 }
+
+/* The recency toggle keeps its icon lit while the mode is on. */
+.recentFirstToggle[aria-pressed="true"] {
+	background-color: color-mix(in srgb, var(--fill-pop-bg) 15%, transparent);
+	color: var(--fill-pop-bg);
+}

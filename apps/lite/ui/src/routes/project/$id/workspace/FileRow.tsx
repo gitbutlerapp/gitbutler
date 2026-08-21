@@ -11,7 +11,14 @@ import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
-import { type ComponentProps, type FC, useEffect, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	type CSSProperties,
+	type FC,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
@@ -21,7 +28,14 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
+import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "#ui/time.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
+
+/** How long a change keeps its just-changed pulse. */
+const FRESH_CHANGE_MAX_AGE_MS = 60_000;
+
+/** From this age up, the badge is coarse or hidden, so hover carries the full time ago. */
+const AGE_TOOLTIP_MIN_AGE_MS = 60 * 60_000;
 
 export const FileRow: FC<
 	{
@@ -42,6 +56,8 @@ export const FileRow: FC<
 		 */
 		pathDisplay: "lead" | "trail" | "hidden";
 		focusScope: FocusScope;
+		/** See {@link FilesTree}'s prop of the same name. */
+		ageBadgeNow?: number | null;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({
 	item,
@@ -56,10 +72,24 @@ export const FileRow: FC<
 	depth,
 	pathDisplay,
 	focusScope,
+	ageBadgeNow = null,
 	id,
 	...restProps
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
+
+	const modifiedAtMs = (item._tag === "Change" ? item.modifiedAtMs : null) ?? null;
+	const ageMs =
+		ageBadgeNow !== null && modifiedAtMs !== null ? Math.max(0, ageBadgeNow - modifiedAtMs) : null;
+	const ageBadge = ageMs === null ? null : formatAgeBadge(ageMs);
+	const isFresh = ageMs !== null && ageMs <= FRESH_CHANGE_MAX_AGE_MS;
+	const agedTooltip =
+		ageBadgeNow !== null &&
+		modifiedAtMs !== null &&
+		ageMs !== null &&
+		ageMs > AGE_TOOLTIP_MIN_AGE_MS
+			? formatRelativeTime(modifiedAtMs, ageBadgeNow)
+			: null;
 
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
@@ -83,9 +113,11 @@ export const FileRow: FC<
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	// The tooltip only repeats the label, so it opens only when the label is
-	// ellipsized and cannot say it all. Measured as it opens, never stale.
+	// ellipsized and cannot say it all — or when the row carries an aged
+	// time-ago that only hover can show. Measured as it opens, never stale.
 	const [rowTooltipOpen, setRowTooltipOpen] = useState(false);
 	const rowLabelRef = useRef<HTMLDivElement>(null);
+	const hasAgedTooltip = agedTooltip !== null;
 	const labelIsTruncated = () => {
 		const label = rowLabelRef.current;
 		return label !== null && label.scrollWidth > label.clientWidth;
@@ -103,7 +135,7 @@ export const FileRow: FC<
 	return (
 		<Tooltip.Root
 			open={rowTooltipOpen}
-			onOpenChange={(open) => setRowTooltipOpen(open && labelIsTruncated())}
+			onOpenChange={(open) => setRowTooltipOpen(open && (labelIsTruncated() || hasAgedTooltip))}
 			disableHoverablePopup
 		>
 			<Tooltip.Trigger
@@ -120,7 +152,7 @@ export const FileRow: FC<
 								? () => checkFile({ path: relativePath, shiftKey: true })
 								: undefined
 						}
-						className={classes(restProps.className, treeStyles.row)}
+						className={classes(restProps.className, treeStyles.row, isFresh && styles.freshChange)}
 						onContextMenu={(event) => {
 							// Hand the file path along so a plugin host can add its own
 							// actions (the app's native menus ignore it).
@@ -209,6 +241,15 @@ export const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
+				{ageBadge !== null && ageMs !== null && (
+					<span
+						className={styles.ageBadge}
+						style={{ "--age-badge-opacity": ageBadgeOpacity(ageMs) } as CSSProperties}
+					>
+						{ageBadge}
+					</span>
+				)}
+
 				{noOperationPending &&
 					item._tag === "Change" &&
 					fileParent._tag === "UncommittedChanges" &&
@@ -257,7 +298,9 @@ export const FileRow: FC<
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{rowTooltip}</Tooltip.Popup>
+					<Tooltip.Popup render={<TooltipPopup />}>
+						{agedTooltip !== null ? `${rowTooltip} — ${agedTooltip}` : rowTooltip}
+					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>

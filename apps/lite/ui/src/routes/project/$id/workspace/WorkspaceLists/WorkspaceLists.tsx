@@ -65,6 +65,7 @@ import { getOperation, type Placement, useDryRunOperation } from "#ui/operations
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
+import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -264,6 +265,11 @@ const UncommittedChanges: FC<
 		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
 	);
 	const fileDisplayMode = useFileDisplayMode();
+	const recentFirst = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
+	);
+	// Ticks only while the recency view needs its labels and freshness to age.
+	const ageBadgeNow = useNow(recentFirst ? 30_000 : null);
 	const collapsedDirectories = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesCollapsedDirectories(state, projectId),
 	);
@@ -272,6 +278,7 @@ const UncommittedChanges: FC<
 		filter,
 		mode: fileDisplayMode,
 		collapsedDirectories,
+		recentFirst,
 	});
 
 	const fileSelection = useSelection("uncommitted", addressSpace);
@@ -330,6 +337,7 @@ const UncommittedChanges: FC<
 					}
 					fileParent={uncommittedChangesFileParent}
 					rows={fileRows}
+					ageBadgeNow={recentFirst ? ageBadgeNow : null}
 					collapsedDirectories={collapsedDirectories}
 					onToggleDirectoryCollapsed={(path) =>
 						dispatch(

@@ -18,7 +18,9 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
-import { useAppSelector, useAppStore } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
+import { classes } from "#ui/components/classes.ts";
+import styles from "./WorkspaceLists.module.css";
 import { Toolbar } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
@@ -41,6 +43,10 @@ export const UncommittedChangesRow: FC<{
 
 	const address = uncommittedChangesAddress;
 	const store = useAppStore();
+	const dispatch = useAppDispatch();
+	const recentFirst = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
+	);
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -117,6 +123,22 @@ export const UncommittedChangesRow: FC<{
 						aria-label="Uncommitted changes actions"
 						render={<RowToolbar forceVisible />}
 					>
+						{changes.length > 0 && (
+							<Toolbar.Button
+								aria-label="Sort by last modified"
+								aria-pressed={recentFirst}
+								onClick={() =>
+									dispatch(projectSlice.actions.toggleUncommittedFilesRecentFirst({ projectId }))
+								}
+								className={classes(
+									getRowButtonClassName({ size: "regular", iconOnly: true }),
+									styles.recentFirstToggle,
+								)}
+							>
+								<Icon name="clock" />
+							</Toolbar.Button>
+						)}
+
 						{changes.length > 0 && (
 							<Toolbar.Button
 								aria-label="Filter files"

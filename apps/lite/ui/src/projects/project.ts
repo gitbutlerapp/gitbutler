@@ -98,6 +98,11 @@ type WorkspaceState = {
 	uncommittedFilesFilter: string | null;
 	filesFilter: string | null;
 	/**
+	 * Whether the uncommitted list shows a flat list ordered by file modification
+	 * time, newest first, instead of the shared file display mode.
+	 */
+	uncommittedFilesRecentFirst: boolean;
+	/**
 	 * Directories whose contents the tree view hides, keyed by directory path.
 	 *
 	 * Collapsed rather than expanded, as with {@link WorkspaceState.foldedSegments}:
@@ -119,6 +124,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	diffCursor: null,
 	uncommittedFilesFilter: null,
 	filesFilter: null,
+	uncommittedFilesRecentFirst: false,
 	uncommittedFilesCollapsedDirectories: {},
 	filesCollapsedDirectories: {},
 });
@@ -466,6 +472,9 @@ export const projectReducers = {
 
 		workspaceState.filesFilter = filter;
 	},
+	toggleUncommittedFilesRecentFirst: (state: ProjectState) => {
+		state.workspace.uncommittedFilesRecentFirst = !state.workspace.uncommittedFilesRecentFirst;
+	},
 	toggleUncommittedFilesDirectoryCollapsed: (state: ProjectState, { path }: { path: string }) => {
 		const collapsed = state.workspace.uncommittedFilesCollapsedDirectories;
 		if (collapsed[path]) delete collapsed[path];
@@ -581,6 +590,8 @@ export const projectSelectors = {
 		state.workspace.selectedBranchTabs[branchName] ?? defaultBranchTab,
 
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
+	selectUncommittedFilesRecentFirst: (state: ProjectState) =>
+		state.workspace.uncommittedFilesRecentFirst,
 	selectFilesFilter: (state: ProjectState) => state.workspace.filesFilter,
 	selectUncommittedFilesCollapsedDirectories: (state: ProjectState) =>
 		state.workspace.uncommittedFilesCollapsedDirectories,

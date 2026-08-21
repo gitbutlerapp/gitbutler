@@ -37,3 +37,30 @@
 	flex-shrink: 0;
 	margin-right: 2px;
 }
+
+/* Contrast carries how long ago the change was; the row sets the opacity. */
+.ageBadge {
+	flex-shrink: 0;
+	align-self: center;
+	color: var(--text-2);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	opacity: var(--age-badge-opacity, 1);
+}
+
+/* A change fresh off the disk pulses until it is a minute old. Inset shadow
+   rather than background, so hover and selection fills stay visible under it. */
+.freshChange {
+	animation: fresh-change-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes fresh-change-pulse {
+	0%,
+	100% {
+		box-shadow: inset 0 0 0 999px transparent;
+	}
+
+	50% {
+		box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--fill-pop-bg) 12%, transparent);
+	}
+}

@@ -1,15 +1,47 @@
 // TODO: all of these should go away.
 use gix::prelude::ObjectIdExt;
 
+use std::collections::HashMap;
+
+use bstr::ByteSlice;
+
 use crate::{
     Commit,
     commit::ConflictEntries,
-    ui::{TreeChanges, WorktreeChanges},
+    ui::{TreeChange, TreeChanges, WorktreeChanges},
 };
 
 /// See [`super::worktree_changes()`].
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
-    Ok(super::worktree_changes(repo)?.into())
+    let mut changes: WorktreeChanges = super::worktree_changes(repo)?.into();
+    changes.modification_times = modification_times(repo, &changes.changes);
+    Ok(changes)
+}
+
+/// The filesystem modification times of `changes`, one `symlink_metadata` per
+/// changed file, keyed as [`WorktreeChanges::modification_times`] describes.
+/// Paths that cannot be statted — deletions foremost — are absent.
+pub fn modification_times(repo: &gix::Repository, changes: &[TreeChange]) -> HashMap<String, u64> {
+    let Some(workdir) = repo.workdir() else {
+        return HashMap::new();
+    };
+    changes
+        .iter()
+        .filter_map(|change| {
+            let path = workdir.join(gix::path::from_bstr(change.path_bytes.as_bstr()));
+            let modified = path.symlink_metadata().ok()?.modified().ok()?;
+            let millis = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()?
+                .as_millis();
+            // The same lossy conversion the path serializes with, so the key
+            // always matches the change the frontend sees.
+            Some((
+                change.path.to_str_lossy().into_owned(),
+                u64::try_from(millis).ok()?,
+            ))
+        })
+        .collect()
 }
 
 /// See [`super::tree_changes_with_line_stats()`].

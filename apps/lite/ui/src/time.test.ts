@@ -7,7 +7,7 @@ vi.hoisted(() => {
 	});
 });
 
-import { formatCompactDurationWith, formatRelativeTimeWith } from "./time.ts";
+import { ageBadgeOpacity, formatAgeBadge, formatCompactDurationWith, formatRelativeTimeWith } from "./time.ts";
 
 describe("formatRelativeTime", () => {
 	const now = 1_800_000_000_000;
@@ -45,7 +45,6 @@ describe("formatRelativeTime", () => {
 		);
 	});
 });
-
 describe("formatCompactDuration", () => {
 	// Node lacks Intl.DurationFormat (see the stub above), so assert on the
 	// unit the formatter picks rather than on localised output.
@@ -75,5 +74,51 @@ describe("formatCompactDuration", () => {
 
 	it("carries a rounded-up minute into the next unit", () => {
 		expect(formatCompactDuration(59 * 60_000 + 59_000)).toMatchInlineSnapshot(`"{"hours":1}"`);
+	});
+});
+
+describe("formatAgeBadge", () => {
+	it("calls anything under a minute now", () => {
+		expect(formatAgeBadge(0)).toBe("now");
+		expect(formatAgeBadge(59_000)).toBe("now");
+	});
+
+	it("abbreviates minutes", () => {
+		expect(formatAgeBadge(3 * 60_000)).toBe("3m");
+		expect(formatAgeBadge(59 * 60_000)).toBe("59m");
+	});
+
+	it("abbreviates hours", () => {
+		expect(formatAgeBadge(60 * 60_000)).toBe("1h");
+		expect(formatAgeBadge(2.5 * 60 * 60_000)).toBe("2h");
+	});
+
+	it("abbreviates days and weeks", () => {
+		expect(formatAgeBadge(24 * 60 * 60_000)).toBe("1d");
+		expect(formatAgeBadge(6 * 24 * 60 * 60_000)).toBe("6d");
+		expect(formatAgeBadge(7 * 24 * 60 * 60_000)).toBe("1w");
+	});
+
+	it("labels every age, however old", () => {
+		expect(formatAgeBadge(3 * 60 * 60_000 + 1)).toBe("3h");
+		expect(formatAgeBadge(365 * 24 * 60 * 60_000)).toBe("52w");
+	});
+});
+
+describe("ageBadgeOpacity", () => {
+	it("gives a just-written change full contrast", () => {
+		expect(ageBadgeOpacity(0)).toBe(1);
+	});
+
+	it("fades monotonically as the change recedes", () => {
+		const ages = [0, 60_000, 60 * 60_000, 24 * 60 * 60_000].map(ageBadgeOpacity);
+		expect(ages).toEqual([...ages].sort((a, b) => b - a));
+		expect(new Set(ages).size).toBe(ages.length);
+	});
+
+	it("floors instead of fading to nothing", () => {
+		expect(ageBadgeOpacity(24 * 60 * 60_000)).toBeCloseTo(0.35, 5);
+		// A year old is no fainter than a day old, so the badge stays readable.
+		expect(ageBadgeOpacity(365 * 24 * 60 * 60_000)).toBeCloseTo(0.35, 5);
 	});
 });
