@@ -1,8 +1,14 @@
 name: Lite UI Screenshots
 
-# Reminds a pull request that touches Lite's UI to attach before/after
-# screenshots, tagging the designer so a visual change does not go by unseen.
-# It renders nothing itself.
+# Asks a pull request that touches Lite's UI for before/after screenshots:
+# applies `screenshots needed` and comments once, tagging the designer so a
+# visual change does not go by unseen. It renders nothing itself.
+#
+# Asking is a one-time event, deliberately. The label and the comment go up
+# together the first time, and neither comes back afterwards — so removing the
+# label sticks, and swapping it for `screenshots` sticks. It used to be applied
+# by pr-labeler, which runs on every push and only ever adds, so it returned on
+# the push that landed the screenshots and read as though they were never given.
 #
 # Capturing them in CI was tried and abandoned: under the bare X server on the
 # Linux runners this Electron build paints a frame on load and not reliably
@@ -15,7 +21,7 @@ name: Lite UI Screenshots
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -26,6 +32,9 @@ permissions:
 
 jobs:
   changes:
+    # Nobody is being asked to review a draft yet, so nothing asks it for
+    # screenshots. `ready_for_review` above is what picks it up later.
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
       css: ${{ steps.filter.outputs.css }}
@@ -42,12 +51,15 @@ jobs:
 
   remind:
     needs: changes
-    # The paths filter is not redundant with the label. pr-labeler applies
-    # `screenshots needed` using GITHUB_TOKEN, and GitHub does not start workflow runs
-    # from token-generated events — so an auto-applied label fires nothing. Only
-    # a human applying it does. The filter is what makes this run on its own.
+    # The paths filter is not redundant with the label. The label this job
+    # applies is applied with GITHUB_TOKEN, and GitHub does not start workflow
+    # runs from token-generated events, so it cannot trigger this workflow
+    # again. The filter is what makes the job run on its own; the label term
+    # covers a human applying it by hand to opt in a change the glob misses,
+    # such as a layout change with no CSS in it.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
       (contains(github.event.pull_request.labels.*.name, 'screenshots needed') ||
        needs.changes.outputs.css == 'true')
     runs-on: ubuntu-latest
@@ -63,8 +75,11 @@ jobs:
       # without putting the pull request in anyone's review queue.
       DESIGNER: PavelLaptev
     steps:
-      # One comment, posted once. Nothing here edits or re-posts on later pushes:
-      # a reminder that repeats is a reminder people mute.
+      # One label and one comment, both put up once. Nothing here edits, re-posts
+      # or re-labels on later pushes: a reminder that repeats is a reminder people
+      # mute, and a label that comes back is one nobody can answer.
+      #
+      # The comment is the record of having asked, so it guards the label too.
       - name: Ask for screenshots
         run: |
           marker="<!-- lite-screenshots-reminder -->"
@@ -74,6 +89,10 @@ jobs:
             echo "Already asked."
             exit 0
           fi
+          # Additive and idempotent: a label already there is not an error, and a
+          # human who applied it by hand to opt this change in keeps it.
+          gh api -X POST "repos/${REPO}/issues/${PR}/labels" \
+            -f "labels[]=screenshots needed" --silent
           cat > /tmp/comment.md <<EOF
           ${marker}
           This pull request changes Lite's UI, so it is labelled
@@ -85,7 +104,8 @@ jobs:
           this repository does it against seeded fixtures).
 
           Swap the label for \`screenshots\` once they are posted, or remove it if
-          this change is not visual.
+          this change is not visual. Either sticks — this is asked once per pull
+          request, so later pushes will not put it back.
           EOF
           # No point tagging them on their own pull request.
           if [ "${AUTHOR}" != "${DESIGNER}" ]; then

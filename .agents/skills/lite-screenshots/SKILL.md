@@ -203,9 +203,10 @@ Only after a comment with images actually went up. A pull request labelled
 reviewer the change has been shown when it has not. If you declined to post (an
 uncovered surface, a capture that failed), leave `screenshots needed` where it is.
 
-Seeing both labels later is expected, not a bug to tidy away: the labeler re-adds
-`screenshots needed` on the next push, which says a set exists and the code has
-moved since. Recapturing swaps it away again — the command above is idempotent.
+`screenshots needed` is asked for once per pull request and never re-applied, so
+the swap is final — a later push does not put it back, and a set posted here is
+not a claim about code pushed after it. Recapture when the surfaces move; the
+command above is idempotent either way.
 
 If you ever post images that are **not** captures of the running app — a page
 rendered from the branch's CSS, say, when the harness cannot be run — label them
