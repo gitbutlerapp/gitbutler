@@ -195,6 +195,10 @@ pub struct NewPlatform {
     )]
     pub below: Option<CliIdArg>,
 
+    /// Switch to the newly created branch instead of applying it to the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
+
     /// Name of the new branch.
     ///
     /// If omitted the new branch will get a generated name.

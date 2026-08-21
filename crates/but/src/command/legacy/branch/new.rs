@@ -60,6 +60,7 @@ fn resolve(
         anchor,
         name,
         allow_merged,
+        switch,
     } = args;
 
     let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
@@ -86,7 +87,7 @@ fn resolve(
 
     match (above, below) {
         (None, None) => Ok(NewOperation::NewUnstackedBranch(
-            NewUnstackedBranchOperation { name },
+            NewUnstackedBranchOperation { name, switch },
         )),
         (None, Some(target_below)) => {
             let target = resolve_above_below_target(&repo, id_map, target_below)?;
@@ -149,6 +150,7 @@ pub enum NewOperation {
 
 pub struct NewUnstackedBranchOperation {
     pub name: Option<FullName>,
+    pub switch: bool,
 }
 
 pub struct NewStackedBranchOperation {
@@ -196,7 +198,7 @@ impl NewUnstackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let Self { name } = self;
+        let Self { name, switch } = self;
 
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
@@ -219,6 +221,10 @@ impl NewUnstackedBranchOperation {
             },
         )?;
 
+        if switch {
+            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+        }
+
         Ok(NewOutcome {
             name: new_ref,
             target: None,
@@ -231,7 +237,7 @@ impl NewUnstackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let Self { name } = self;
+        let Self { name, switch } = self;
 
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
@@ -277,6 +283,30 @@ impl NewUnstackedBranchOperation {
                         anchor,
                         |_| StackId::generate(),
                         Some(0),
+                    )?;
+
+                    Ok(())
+                },
+            )?;
+
+            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+        } else if switch {
+            drop(repo);
+
+            let target_commit_id = project_meta.target_commit_id_or_err()?;
+
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                meta,
+                perm,
+                snapshot_details,
+                DryRun::No,
+                |tx| {
+                    tx.repo().reference(
+                        new_ref.as_ref(),
+                        target_commit_id,
+                        gix::refs::transaction::PreviousValue::MustNotExist,
+                        format!("create {new_ref}"),
                     )?;
 
                     Ok(())
