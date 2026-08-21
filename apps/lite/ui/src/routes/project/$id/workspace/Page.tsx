@@ -60,10 +60,10 @@ import {
 	addressEquals,
 	addressIdentityKey,
 	type BranchAddress,
-	type HunkAddress,
 	type Address,
 	uncommittedChangesFileParent,
 } from "#ui/addresses.ts";
+import type { DiffLineSelection } from "#ui/cursors.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
@@ -410,8 +410,8 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
-		(itemId: string, firstHunk: HunkAddress | null) => {
-			setCursor("diff", firstHunk);
+		(itemId: string, firstSelection: DiffLineSelection | null) => {
+			setCursor("diff", firstSelection);
 
 			if (renderAllFiles) {
 				didScrollToViaFileRef.current = true;
@@ -588,7 +588,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				: null;
 
 		setCursor("uncommitted", selection);
-		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
+		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstSelection);
 	};
 
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);

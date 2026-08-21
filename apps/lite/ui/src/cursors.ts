@@ -1,21 +1,26 @@
 import {
 	branchFileParent,
 	commitFileParent,
-	hunkAddress,
 	addressEquals,
 	addressIdentityKey,
+	weakFileIdentityKey,
 	type BranchAddress,
+	type FileAddress,
 	type FileParent,
-	type HunkAddress,
 	type Address,
 } from "#ui/addresses.ts";
+import type { SelectedLineRange } from "@pierre/diffs";
+
+export type DiffLineSelection = {
+	file: FileAddress;
+	range: SelectedLineRange;
+};
 
 /**
- * The app's named lists, each with one cursor. A cursor stores the identity
- * of the item the list rests on — never a position — and every read resolves
- * it against whatever the list currently shows. All but `diff` live in the
- * URL (see cursor-url.ts); `diff` lives in the store because its identity is
- * the exact selected line groups, which no legible string carries.
+ * The app's named lists, each with one cursor. The five URL-backed cursors store
+ * item identity and resolve it against what their list currently shows. `diff`
+ * is the exception: it stores a file identity plus Pierre's exact visual line
+ * range in Redux because that range does not belong in the URL.
  *
  * `uncommitted` and `files` stay path-keyed on purpose: a bare path survives
  * root changes (select the next commit, stay on the same file). Do not
@@ -27,7 +32,7 @@ export type CursorItem = {
 	unapplied: Address;
 	upstream: Address;
 	files: string;
-	diff: HunkAddress;
+	diff: DiffLineSelection;
 };
 
 export type CursorName = keyof CursorItem;
@@ -43,7 +48,7 @@ export type WorkspaceCursorSnapshot = {
 	applied?: string;
 	uncommitted?: string;
 	files?: string;
-	diff: HunkAddress | null;
+	diff: DiffLineSelection | null;
 };
 
 const pathKey = (path: string): string => path;
@@ -55,7 +60,8 @@ export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } =
 	upstream: addressIdentityKey,
 	uncommitted: pathKey,
 	files: pathKey,
-	diff: (address) => addressIdentityKey(hunkAddress(address)),
+	diff: ({ file, range }) =>
+		`${weakFileIdentityKey(file)}\u0000${range.start}\u0000${range.side ?? "additions"}\u0000${range.end}\u0000${range.endSide ?? range.side ?? "additions"}`,
 };
 
 /* The diff cursor is store-held, so history rewrites remap it in the store;
@@ -72,20 +78,20 @@ const remapFileParent = (parent: FileParent, replaced: Record<string, string>): 
 };
 
 export const remapDiffCursor = (
-	diff: HunkAddress,
+	diff: DiffLineSelection,
 	replacedCommits: Record<string, string>,
-): HunkAddress => {
-	const parent = remapFileParent(diff.parent.parent, replacedCommits);
-	return parent === diff.parent.parent ? diff : { ...diff, parent: { ...diff.parent, parent } };
+): DiffLineSelection => {
+	const parent = remapFileParent(diff.file.parent, replacedCommits);
+	return parent === diff.file.parent ? diff : { ...diff, file: { ...diff.file, parent } };
 };
 
 export const remapDiffCursorBranch = (
-	diff: HunkAddress,
+	diff: DiffLineSelection,
 	oldBranch: BranchAddress,
 	newBranch: BranchAddress,
-): HunkAddress => {
-	const parent = diff.parent.parent;
+): DiffLineSelection => {
+	const parent = diff.file.parent;
 	if (parent._tag !== "Branch" || !addressEquals(parent, branchFileParent(oldBranch))) return diff;
 
-	return { ...diff, parent: { ...diff.parent, parent: branchFileParent(newBranch) } };
+	return { ...diff, file: { ...diff.file, parent: branchFileParent(newBranch) } };
 };

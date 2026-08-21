@@ -19,8 +19,8 @@ import type { PageId, ActiveList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
-import { store, useAppSelector } from "#ui/store.ts";
-import { resolveAddressSpaceSelection, type AddressSpace } from "#ui/workspace/address-space.ts";
+import { store } from "#ui/store.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
@@ -30,8 +30,8 @@ import type { FocusScope } from "#ui/focus-scopes.ts";
 
 /**
  * The one way in and out of navigation state. The URL holds the page, the
- * active list and every addressable cursor; the store holds only the diff
- * cursor (see cursor-url.ts for why). Callers never see the split: reads are
+ * active list and the five item cursors; the store holds the exact diff line
+ * selection (see cursor-url.ts for why). Callers never see the split: reads are
  * hooks here, writes are plain calls — the router and the store are both
  * module-level, so moving a cursor needs no dispatch and no hook.
  */
@@ -94,37 +94,23 @@ const resolveCursorParam = <L extends UrlCursorName>(
 	null;
 
 /** The cursor resolved against what the list currently shows. */
-export const useSelection = <L extends CursorName>(
+export const useSelection = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 ): CursorItem[L] | null => {
-	// Both stores are subscribed unconditionally so hook order never depends
-	// on the list; every call site passes a literal list name anyway.
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) =>
-			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
+		select: (params: UrlQueryParams): string | undefined => params[list],
 	});
-	const storedDiff = useAppSelector((state) =>
-		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
-	);
 
-	return (
-		isUrlCursor(list)
-			? resolveCursorParam(list, param, addressSpace as never)
-			: resolveAddressSpaceSelection(
-					addressSpace as AddressSpace<CursorItem["diff"]>,
-					storedDiff,
-					cursorKey.diff,
-				)
-	) as CursorItem[L] | null;
+	return resolveCursorParam(list, param, addressSpace);
 };
 
 /**
  * Whether the resolved cursor rests on `item`. A primitive, so a cursor move
  * re-renders the two affected rows rather than the whole list.
  */
-export const useIsCursorAt = <L extends CursorName>(
+export const useIsCursorAt = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 	item: CursorItem[L],
@@ -436,28 +422,18 @@ export const remapSearchBranch = (oldRef: string, newRef: string): void => {
  * the index — the list stores the resolved value to keep the two in
  * agreement. One effect for every list.
  */
-export const useCursorWriteBack = <L extends CursorName>(
+export const useCursorWriteBack = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 ): void => {
 	const resolved = useSelection(list, addressSpace);
 	const storedParam = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) =>
-			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
+		select: (params: UrlQueryParams): string | undefined => params[list],
 	});
-	const storedDiff = useAppSelector((state) =>
-		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
-	);
 
 	const outOfSync =
-		resolved !== null &&
-		(isUrlCursor(list)
-			? storedParam !== encodeUnion(list, resolved as CursorItem[UrlCursorName])
-			: storedDiff === null ||
-				cursorKey.diff(storedDiff) !== cursorKey.diff(resolved as CursorItem["diff"]))
-			? resolved
-			: null;
+		resolved !== null && storedParam !== encodeUnion(list, resolved) ? resolved : null;
 
 	useEffect(() => {
 		if (outOfSync !== null) setCursor(list, outOfSync);

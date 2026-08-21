@@ -9,8 +9,8 @@ import type { Address } from "#ui/addresses.ts";
  * URL degrades to defaults rather than erroring, and defaults are left out
  * rather than written.
  *
- * The diff cursor has no param: its identity is the exact selected line
- * groups, which no legible string carries, so it stays in the store.
+ * There is intentionally no URL query parameter for the diff cursor: its exact
+ * visual line range stays in Redux instead.
  */
 export type UrlQueryParams = {
 	page?: Exclude<PageId, "workspace">;

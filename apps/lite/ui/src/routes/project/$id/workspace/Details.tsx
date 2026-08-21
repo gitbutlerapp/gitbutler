@@ -43,8 +43,10 @@ import {
 	type Address,
 	uncommittedChangesFileParent,
 	weakCommitIdentityKey,
+	weakFileIdentityKey,
 	weakFileParentIdentityKey,
 } from "#ui/addresses.ts";
+import type { DiffLineSelection } from "#ui/cursors.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import type { BranchTab } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -311,12 +313,10 @@ const withAnnotations = (
 
 const navigationHunkForSelectedLines = ({
 	selection,
-	fileParent,
 	fileByItemId,
 	hunkByKey,
 }: {
 	selection: CodeViewLineSelection | null;
-	fileParent: FileParent;
 	fileByItemId: DiffView["fileByItemId"];
 	hunkByKey: DiffView["hunkByKey"];
 }): HunkAddress | null => {
@@ -341,7 +341,7 @@ const navigationHunkForSelectedLines = ({
 	if (!cursorSelection) return null;
 
 	const address: HunkAddress = {
-		parent: { parent: fileParent, path: file.change.path },
+		parent: file.address,
 		...cursorSelection,
 		isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
 	};
@@ -453,10 +453,25 @@ const DiffContents: FC<{
 	);
 	const visibleAddressSpace = withoutFoldedHunks(addressSpace, hunkByKey, collapsedItems);
 
-	const diffSelection = useSelection("diff", visibleAddressSpace);
-	const hasStoredDiffSelection = useAppSelector(
-		(state) => projectSlice.selectors.selectDiffCursor(state, projectId) !== null,
+	const storedDiffSelection = useAppSelector((state) =>
+		projectSlice.selectors.selectDiffCursor(state, projectId),
 	);
+	const storedSelectedLines = useMemo((): CodeViewLineSelection | null => {
+		if (!storedDiffSelection) return null;
+		const file = fileByItemId.get(weakFileIdentityKey(storedDiffSelection.file));
+		return file ? { id: file.item.id, range: storedDiffSelection.range } : null;
+	}, [storedDiffSelection, fileByItemId]);
+	const storedSelectionHunk = useMemo(
+		() =>
+			navigationHunkForSelectedLines({
+				selection: storedSelectedLines,
+				fileByItemId,
+				hunkByKey,
+			}),
+		[storedSelectedLines, fileByItemId, hunkByKey],
+	);
+	const diffSelection = storedSelectionHunk ?? visibleAddressSpace.items[0] ?? null;
+	const hasStoredDiffSelection = storedDiffSelection !== null;
 	const canCheckHunks = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
 	);
@@ -465,7 +480,6 @@ const DiffContents: FC<{
 	);
 	const diffSelectionHunk =
 		diffSelection !== null ? hunkByKey.get(hunkAddressIdentityKey(diffSelection)) : null;
-	const diffSelectionKey = diffSelection === null ? null : hunkAddressIdentityKey(diffSelection);
 	const cursorSelectedHunk = diffSelection
 		? (hunkByKey.get(hunkAddressIdentityKey(diffSelection))?.selectedLines ?? null)
 		: null;
@@ -479,16 +493,8 @@ const DiffContents: FC<{
 				},
 			}
 		: null;
-	const [selectedLinesState, setSelectedLinesState] = useState<{
-		cursorKey: string | null;
-		selection: CodeViewLineSelection | null;
-	}>({ cursorKey: diffSelectionKey, selection: cursorSelectedRange });
-	// Cursor moves originating outside the diff replace the local line range. Mouse and arrow moves
-	// write both together, so arbitrary ranges survive while their containing hunk remains current.
-	const selectedLines =
-		selectedLinesState.cursorKey === diffSelectionKey
-			? selectedLinesState.selection
-			: cursorSelectedRange;
+	const selectedLines = storedSelectionHunk ? storedSelectedLines : cursorSelectedRange;
+
 	const minimapSelection = useMemo((): MinimapSelection | null => {
 		if (!selectedLines) return null;
 
@@ -501,16 +507,7 @@ const DiffContents: FC<{
 			end,
 		};
 	}, [selectedLines]);
-	const selectedLinesHunk = useMemo(
-		() =>
-			navigationHunkForSelectedLines({
-				selection: selectedLines,
-				fileParent,
-				fileByItemId,
-				hunkByKey,
-			}),
-		[selectedLines, fileByItemId, fileParent, hunkByKey],
-	);
+	const selectedLinesHunk = storedSelectionHunk ?? diffSelection;
 	const effectiveDiffStyle = diffStyle ?? defaultSettings.diffStyle;
 	// A primitive, null while the selection sits on a visible hunk, so the item
 	// list and header closures below only pick up new identities when a folded
@@ -535,14 +532,9 @@ const DiffContents: FC<{
 	}, []);
 
 	const selectDiff = (selection: HunkAddress) => {
-		setCursor("diff", selection);
-
 		const nextSelectedLines = hunkByKey.get(hunkAddressIdentityKey(selection))?.selectedLines;
 		if (!nextSelectedLines) return;
-		setSelectedLinesState({
-			cursorKey: hunkAddressIdentityKey(selection),
-			selection: nextSelectedLines,
-		});
+		setCursor("diff", { file: selection.parent, range: nextSelectedLines.range });
 
 		viewerRef.current?.scrollTo({
 			type: "range",
@@ -939,26 +931,10 @@ const DiffContents: FC<{
 	}
 
 	function applySelectedLines(selection: CodeViewLineSelection | null): void {
-		if (!selection) {
-			setSelectedLinesState({ cursorKey: null, selection: null });
-			return setCursor("diff", null);
-		}
-
-		const navigationHunk = navigationHunkForSelectedLines({
-			selection,
-			fileParent,
-			fileByItemId,
-			hunkByKey,
-		});
-		if (!navigationHunk) {
-			setSelectedLinesState({ cursorKey: diffSelectionKey, selection });
-			return;
-		}
-		setSelectedLinesState({
-			cursorKey: hunkAddressIdentityKey(navigationHunk),
-			selection,
-		});
-		setCursor("diff", navigationHunk);
+		if (!selection) return setCursor("diff", null);
+		const file = fileByItemId.get(selection.id);
+		if (!file) return;
+		setCursor("diff", { file: file.address, range: selection.range });
 	}
 
 	const handleLinesSelected = (selection: CodeViewLineSelection | null): void => {
@@ -1293,7 +1269,7 @@ const DiffContents: FC<{
 		// header in view. The stored selection is read off the store rather than
 		// captured, so this callback's identity does not churn with j/k moves.
 		const stored = projectSlice.selectors.selectDiffCursor(store.getState(), projectId);
-		const storedFile = stored && hunkByKey.get(hunkAddressIdentityKey(stored))?.file;
+		const storedFile = stored && fileByItemId.get(weakFileIdentityKey(stored.file));
 		if (storedFile?.item.id !== itemId) return;
 
 		selectDiff(assert(storedFile.hunks[0]).address);
@@ -1906,7 +1882,7 @@ const Diff: FC<{
 	manualConflicts?: Array<ManualConflict>;
 	/** True while `conflicts` still shows the replaced commit's hunks. */
 	conflictsStale?: boolean;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
+	onActiveFileSelection: (itemId: string, firstSelection: DiffLineSelection | null) => void;
 	onPassiveFileSelection: (selection: string) => void;
 	selection: Address;
 	projectId: string;
@@ -2110,7 +2086,11 @@ const Diff: FC<{
 		const file = path === null ? undefined : diffViewSansAnno.fileByPath.get(path);
 		if (!file) return;
 
-		onActiveFileSelection(file.item.id, file.hunks[0]?.address ?? null);
+		const firstHunk = file.hunks[0];
+		onActiveFileSelection(
+			file.item.id,
+			firstHunk ? { file: file.address, range: firstHunk.selectedLines.range } : null,
+		);
 	};
 
 	const filesPanelRef = useRef<HTMLDivElement>(null);
@@ -2480,7 +2460,7 @@ const CommitDetails: FC<{
 	projectId: string;
 	/** The merged review the commit landed, when known: adds a Pull Request tab. */
 	review?: TargetCommitReview | null;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
+	onActiveFileSelection: (itemId: string, firstSelection: DiffLineSelection | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
@@ -2848,7 +2828,7 @@ const ReviewView: FC<{
 /** What every details view threads through to its Diff. */
 type DetailsViewProps = {
 	projectId: string;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
+	onActiveFileSelection: (itemId: string, firstSelection: DiffLineSelection | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 };
@@ -3106,7 +3086,7 @@ const FileDetailsSkeleton: FC = () => {
 const FileDetails: FC<{
 	path: string;
 	projectId: string;
-	onActiveFileSelection: (itemId: string, firstHunk: HunkAddress | null) => void;
+	onActiveFileSelection: (itemId: string, firstSelection: DiffLineSelection | null) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ path, projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
