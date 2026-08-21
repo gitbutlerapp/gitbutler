@@ -5,6 +5,7 @@ import {
 	type ForgeReview,
 	type PullRequest,
 } from "$lib/forge/interface/types";
+import { catchUpOnReturn } from "$lib/forge/shared/catchUpOnReturn";
 import { invalidatesItem, invalidatesList, providesItem, ReduxTag } from "$lib/state/tags";
 import { sleep } from "$lib/utils/sleep";
 import { InjectionToken } from "@gitbutler/core/context";
@@ -118,15 +119,26 @@ export class PrService {
 			{
 				...options,
 				transform: (result) => mapForgeReviewToPullRequest(result),
+				subscriptionOptions: { ...catchUpOnReturn, ...options?.subscriptionOptions },
 			},
 		);
 	}
 
-	getMergeStatus(projectId: string, number: number) {
-		return this.backendApi.endpoints.getMergeStatus.useQuery({
-			projectId,
-			reviewId: number,
-		});
+	getMergeStatus(projectId: string, number: number, options?: QueryOptions) {
+		return this.backendApi.endpoints.getMergeStatus.useQuery(
+			{ projectId, reviewId: number },
+			{
+				...options,
+				subscriptionOptions: { ...catchUpOnReturn, ...options?.subscriptionOptions },
+			},
+		);
+	}
+
+	async fetchMergeStatus(projectId: string, number: number, options?: QueryOptions) {
+		return await this.backendApi.endpoints.getMergeStatus.fetch(
+			{ projectId, reviewId: number },
+			options,
+		);
 	}
 
 	getBaseRepoUrl(projectId: string, number: number) {

@@ -3,6 +3,7 @@ import {
 	type ForgeReview,
 	type PullRequest,
 } from "$lib/forge/interface/types";
+import { catchUpOnReturn } from "$lib/forge/shared/catchUpOnReturn";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
@@ -33,7 +34,7 @@ export class ListingService {
 	list(projectId: string, pollingInterval?: number) {
 		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
 			transform: (result) => prSelectors.selectAll(result),
-			subscriptionOptions: { pollingInterval },
+			subscriptionOptions: { ...catchUpOnReturn, pollingInterval },
 		});
 	}
 
