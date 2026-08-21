@@ -1,0 +1,7 @@
+.panel {
+	display: grid;
+	height: 100%;
+	min-height: 0;
+	background: var(--bg-1);
+	color: var(--text-1);
+}

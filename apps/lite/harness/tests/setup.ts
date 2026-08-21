@@ -1,0 +1,39 @@
+/**
+ * jsdom is structure-only; stub the layout-adjacent APIs the components touch.
+ * Anything needing real layout (CodeView) belongs on the CDP rig, not here.
+ */
+
+class ResizeObserverStub {
+	observe(): void {}
+	unobserve(): void {}
+	disconnect(): void {}
+}
+
+class WorkerStub {
+	postMessage(): void {}
+	terminate(): void {}
+	addEventListener(): void {}
+	removeEventListener(): void {}
+}
+
+const globals = globalThis as unknown as Record<string, unknown>;
+
+// Node 22 has no Intl.DurationFormat (the same gap ui/src/time.test.ts stubs);
+// components render durations, so the stand-in has to actually format.
+(Intl as unknown as Record<string, unknown>).DurationFormat ??= class {
+	format(): string {
+		return "a moment";
+	}
+};
+
+globals.ResizeObserver ??= ResizeObserverStub;
+globals.Worker ??= WorkerStub;
+// Node-environment tests (the watcher host) share this setup but have no DOM.
+if (typeof Element !== "undefined")
+	// jsdom's Element lacks scrollIntoView at runtime despite the DOM type.
+	Element.prototype.scrollIntoView = () => {};
+
+// hotkeys.ts reads `window.lite.platform` at module scope — before any test
+// can run `createPanel`, which installs the real api over this placeholder.
+// (The IIFE build has no such gap: the read is a compile-time define there.)
+globals.lite ??= { platform: "darwin" };

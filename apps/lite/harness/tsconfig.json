@@ -1,0 +1,30 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ESNext", "DOM"],
+		"jsx": "react-jsx",
+		"strict": true,
+		"erasableSyntaxOnly": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
+		"noEmit": true,
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"skipLibCheck": true,
+		"types": ["vite/client", "node"]
+	},
+	"include": [
+		"browser",
+		"node",
+		"tests",
+		"vite.config.ts",
+		"vite.host.config.ts",
+		"../ui/src",
+		"../electron/src/ipc.ts",
+		"../electron/src/lite-api.ts",
+		"../electron/src/endpoint-table.ts"
+	]
+}
