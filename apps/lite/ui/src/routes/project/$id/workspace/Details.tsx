@@ -1653,7 +1653,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				: "Not reviewed";
 
 	return (
-		<OperationSourceC projectId={p.projectId} source={fileAddress(p.address)} outline="inside">
+		<OperationSourceC
+			projectId={p.projectId}
+			source={fileAddress(p.address)}
+			outline="inside"
+			acceptOriginDrop
+		>
 			<header
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);

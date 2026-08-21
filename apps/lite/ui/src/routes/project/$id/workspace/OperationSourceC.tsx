@@ -8,7 +8,10 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import {
+	draggable,
+	dropTargetForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { mergeProps, useRender } from "@base-ui/react";
@@ -29,8 +32,14 @@ export const OperationSourceC: FC<
 		projectId: string;
 		source: Address;
 		outline: OperationSourceOutline;
+		/**
+		 * Accept dropping a drag back on its exact source element when it has no organic operation
+		 * target. Do not enable this when the element already mounts an `OperationTarget`, as Pragmatic
+		 * DnD only supports one element drop-target registration per element.
+		 */
+		acceptOriginDrop?: boolean;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, source, outline, render, ...props }) => {
+> = ({ projectId, source, outline, acceptOriginDrop = false, render, ...props }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -85,7 +94,7 @@ export const OperationSourceC: FC<
 		const element = dragRef.current;
 		if (!element) return;
 
-		return draggable({
+		const cleanupDraggable = draggable({
 			element,
 			// Prevent false positives when users drag to select text in the input field.
 			canDrag,
@@ -98,7 +107,19 @@ export const OperationSourceC: FC<
 				cancelPendingOperation();
 			},
 		});
-	}, [dispatch, projectId]);
+		const cleanupOriginDropTarget = acceptOriginDrop
+			? dropTargetForElements({
+					element,
+					canDrop: ({ source }) => source.element === element,
+					onDrop: cancelPendingOperation,
+				})
+			: undefined;
+
+		return () => {
+			cleanupDraggable();
+			cleanupOriginDropTarget?.();
+		};
+	}, [acceptOriginDrop, dispatch, projectId]);
 
 	const operationSources = getOperationSources(pendingOperation);
 	const isActiveSource = operationSources

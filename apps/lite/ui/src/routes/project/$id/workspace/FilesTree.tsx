@@ -564,6 +564,7 @@ export const FilesTree: FC<
 										projectId={projectId}
 										source={address}
 										outline="outside"
+										acceptOriginDrop
 										render={
 											<FileRow
 												item={item}
