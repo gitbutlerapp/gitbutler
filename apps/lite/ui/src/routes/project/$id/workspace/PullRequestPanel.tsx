@@ -88,13 +88,13 @@ const LabelsPlaceholder: FC = () => (
 );
 
 export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
-	<div className={classes("text-13", styles.user)} title={user.name ?? undefined}>
+	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
 		{user.avatarUrl !== null ? (
 			<img src={user.avatarUrl} className={styles.avatar} alt="" />
 		) : (
 			<span className={styles.avatar} />
 		)}
-		{user.login}
+		<span className={styles.userLogin}>{user.login}</span>
 	</div>
 );
 
@@ -323,10 +323,10 @@ const reviewerRows = (
 const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 	Match.value(verdict).pipe(
 		Match.withReturnType<[IconName, string, string]>(),
-		Match.when("approved", () => ["tick-circle", "var(--text-safe)", "Approved"]),
+		Match.when("approved", () => ["tick-circle", "var(--fill-safe-bg)", "Approved"]),
 		Match.when("changesRequested", () => [
 			"cross-circle",
-			"var(--text-danger)",
+			"var(--fill-danger-bg)",
 			"Requested changes",
 		]),
 		Match.when("commented", () => ["eye", "var(--text-3)", "Commented"]),
@@ -500,7 +500,7 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 						return (
 							<div key={user.id} className={styles.reviewerRow} title={label}>
 								<ReviewUser user={user} />
-								<Icon name={icon} style={{ color }} />
+								<Icon name={icon} style={{ color }} size={15} />
 							</div>
 						);
 					})

@@ -4,6 +4,9 @@
 	   the panel column (see --pr-panel-width in Details.module.css). */
 	flex: 0 0 var(--pr-panel-width, 315px);
 	flex-direction: column;
+	/* Without this the automatic minimum size lets wide content (a long
+	   reviewer login) push the panel past its basis instead of truncating. */
+	min-width: 0;
 	border: 1px solid var(--border-3);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
@@ -64,19 +67,35 @@
 .user {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	min-width: 0;
+	gap: 8px;
+	color: var(--text-1);
+}
+
+/* A long login truncates rather than wrapping the row to two lines; the row's
+   title carries the full name. */
+.userLogin {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .reviewerRow {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 6px;
+	padding-inline-end: 3px;
+	gap: 8px;
+
+	& > svg {
+		flex-shrink: 0;
+	}
 }
 
 .avatar {
-	width: 16px;
-	height: 16px;
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
 	border-radius: 50%;
 	background-color: lightgray;
 }
