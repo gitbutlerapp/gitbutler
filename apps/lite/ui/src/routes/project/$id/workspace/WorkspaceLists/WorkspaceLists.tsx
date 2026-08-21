@@ -1,11 +1,5 @@
 import rowStyles from "../Row.module.css";
-import {
-	setCursor,
-	setActiveList,
-	useIsCursorAt,
-	useSelection,
-	useActiveList,
-} from "#ui/use-cursor.ts";
+import { setCursor, useIsCursorAt, useSelection, useActiveList } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -322,7 +316,6 @@ const UncommittedChanges: FC<{
 					canUncommit={false}
 					data-preview-source={activeList === "uncommitted"}
 					focusScope="uncommitted-files"
-					onFocus={() => setActiveList("uncommitted")}
 					emptyLabel={
 						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
 							? "No matching files."
@@ -716,7 +709,6 @@ const Stacks: FC<{
 				className={classes(styles.tree, styles.stacks)}
 				data-focus-scope={"sidebar" satisfies FocusScope}
 				data-preview-source={activeList === "applied"}
-				onFocus={() => setActiveList("applied")}
 				ref={useMergedRefs(hotkeysRef, useAutofocusScope(activeList === "applied"))}
 			>
 				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (

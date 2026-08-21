@@ -6,7 +6,7 @@ import type { Placement } from "#ui/operations/operation.ts";
 import type { Address } from "#ui/addresses.ts";
 import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
-import { useRef } from "react";
+import { useRef, type DragEvent, type FocusEvent, type MouseEvent } from "react";
 
 export type FocusScope = "details" | "uncommitted-files" | "sidebar" | "files" | "diff" | "pr";
 const allFocusScopes: Set<string> = new Set([
@@ -72,6 +72,67 @@ const findFocusTarget = (parent: ParentNode, scope: FocusScope): HTMLElement | n
 
 export const focusScope = (scope: FocusScope) => {
 	findFocusTarget(document, scope)?.focus({ focusVisible: false });
+};
+
+/**
+ * Keeps selection styling on the last committed focus scope while a pointer gesture is unresolved.
+ * Native focus moves on mousedown, before the browser decides whether the gesture is a click or a
+ * drag, so selection visuals cannot follow `:focus` without flashing on the prospective drag source.
+ */
+export const useCommittedSelectionFocus = (onFocusScope: (scope: FocusScope) => void) => {
+	const committedFocus = useRef<HTMLElement | null>(null);
+	const pointerFocusPending = useRef(false);
+
+	const commitFocus = (container: HTMLElement, target: EventTarget | null) => {
+		committedFocus.current?.removeAttribute("data-selection-focused");
+
+		const targetElement = target instanceof Element ? target : null;
+		const scopeElement = targetElement?.closest<HTMLElement>("[data-focus-scope]") ?? null;
+		const focusedScope = getFocusedScope(targetElement);
+		committedFocus.current =
+			scopeElement !== null && container.contains(scopeElement) ? scopeElement : null;
+
+		if (committedFocus.current !== null) committedFocus.current.dataset.selectionFocused = "true";
+
+		if (focusedScope !== null) onFocusScope(focusedScope);
+	};
+
+	return {
+		onMouseDownCapture: (event: MouseEvent<HTMLElement>) => {
+			if (event.button !== 0) return;
+
+			pointerFocusPending.current = true;
+			setTimeout(() => {
+				pointerFocusPending.current = false;
+			}, 0);
+		},
+		onFocusCapture: (event: FocusEvent<HTMLElement>) => {
+			if (!pointerFocusPending.current) commitFocus(event.currentTarget, event.target);
+		},
+		onBlurCapture: (event: FocusEvent<HTMLElement>) => {
+			if (
+				!(event.relatedTarget instanceof Node) ||
+				!event.currentTarget.contains(event.relatedTarget)
+			)
+				commitFocus(event.currentTarget, null);
+		},
+		onClickCapture: (event: MouseEvent<HTMLElement>) => {
+			pointerFocusPending.current = false;
+			commitFocus(event.currentTarget, document.activeElement);
+		},
+		onDragStartCapture: (event: DragEvent<HTMLElement>) => {
+			pointerFocusPending.current = false;
+			if (
+				!(event.target instanceof Element) ||
+				event.target.closest("[data-preview-source]") === null
+			)
+				return;
+
+			const previousFocus = committedFocus.current;
+			if (previousFocus?.isConnected)
+				previousFocus.focus({ preventScroll: true, focusVisible: false });
+		},
+	};
 };
 
 export const focusHorizontalScope = ({
