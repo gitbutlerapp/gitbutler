@@ -11,7 +11,7 @@ import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
-import { type ComponentProps, type FC, useEffect, useRef, useState } from "react";
+import { type ComponentProps, type FC, useRef } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
@@ -73,38 +73,24 @@ export const FileRow: FC<
 		uncommit,
 	});
 
+	const hasConflictHint = item._tag === "Conflict" && fileParent._tag === "UncommittedChanges";
 	// An uncommitted conflict is a state to get out of, so the row says how.
-	const rowTooltip =
-		item._tag === "Conflict" && fileParent._tag === "UncommittedChanges"
-			? `${relativePath} — Resolve the conflict, then right-click → Mark as Resolved`
-			: relativePath;
+	const rowTooltip = hasConflictHint
+		? `${relativePath} — Resolve the conflict, then right-click → Mark as Resolved`
+		: relativePath;
 	const lastSepIdx = relativePath.lastIndexOf("/");
 	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
-
-	// The tooltip only repeats the label, so it opens only when the label is
-	// ellipsized and cannot say it all. Measured as it opens, never stale.
-	const [rowTooltipOpen, setRowTooltipOpen] = useState(false);
 	const rowLabelRef = useRef<HTMLDivElement>(null);
-	const labelIsTruncated = () => {
-		const label = rowLabelRef.current;
-		return label !== null && label.scrollWidth > label.clientWidth;
-	};
-
-	useEffect(() => {
-		if (!rowTooltipOpen) return;
-		// A tooltip does not follow the list, so any scroll dismisses it. The
-		// listener exists only while a tooltip is open: one per list, not row.
-		const dismiss = () => setRowTooltipOpen(false);
-		document.addEventListener("scroll", dismiss, true);
-		return () => document.removeEventListener("scroll", dismiss, true);
-	}, [rowTooltipOpen]);
 
 	return (
 		<Tooltip.Root
-			open={rowTooltipOpen}
-			onOpenChange={(open) => setRowTooltipOpen(open && labelIsTruncated())}
 			disableHoverablePopup
+			onOpenChange={(open, eventDetails) => {
+				const label = rowLabelRef.current;
+				if (open && !hasConflictHint && (label === null || label.scrollWidth <= label.clientWidth))
+					eventDetails.cancel();
+			}}
 		>
 			<Tooltip.Trigger
 				// We pass the ID here instead of including it with the other props as a
