@@ -281,8 +281,12 @@
 										isFork={pr.headRepoIsFork}
 										isMerged={!!pr.mergedAt}
 										onrefetch={() => {
-											if (args.prNumber)
+											if (args.prNumber) {
 												prService.fetch(projectId, args.prNumber, { forceRefetch: true });
+												prService.fetchMergeStatus(projectId, args.prNumber, {
+													forceRefetch: true,
+												});
+											}
 										}}
 									/>
 								{/if}

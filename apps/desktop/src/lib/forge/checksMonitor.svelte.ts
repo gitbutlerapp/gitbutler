@@ -1,3 +1,4 @@
+import { catchUpOnReturn } from "$lib/forge/shared/catchUpOnReturn";
 import { providesItem, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { ChecksStatus } from "$lib/forge/interface/types";
@@ -20,12 +21,7 @@ export class ChecksMonitor {
 			{
 				transform: (result) => parseChecks(result),
 				...options,
-				// Refresh checks when the user refocuses the window or reconnects.
-				subscriptionOptions: {
-					refetchOnFocus: true,
-					refetchOnReconnect: true,
-					...options?.subscriptionOptions,
-				},
+				subscriptionOptions: { ...catchUpOnReturn, ...options?.subscriptionOptions },
 			},
 		);
 	}

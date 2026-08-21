@@ -1,6 +1,5 @@
 <script lang="ts">
 	import PrStatusBadge from "$components/forge/PrStatusBadge.svelte";
-	import PrStatusPoller from "$components/forge/PrStatusPoller.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
@@ -8,6 +7,7 @@
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
+	import { createPollBackoff } from "$lib/forge/shared/pollErrorBackoff.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
@@ -79,10 +79,40 @@
 	const repoInfoEnabled = $derived(!!forgeInfo?.capabilities.repoInfo);
 	const checksEnabled = $derived(!!forgeInfo?.capabilities.checks);
 
-	const prQuery = $derived(prService.get(projectId, prNumber, { forceRefetch: true }));
+	// Backs polling off while the PR query is failing (offline, or the shared
+	// GitHub token is rate-limited) and restores the schedule on recovery.
+	let elapsedMs = $state<number>(0);
+	let isClosed = $state(false);
+	const backoff = createPollBackoff({
+		getResult: () => prQuery.result,
+		getElapsedMs: () => elapsedMs,
+		getShouldStop: () => isClosed,
+	});
+	const pollingInterval = $derived(poll ? backoff.pollingInterval : undefined);
+
+	const prQuery = $derived(
+		prService.get(projectId, prNumber, {
+			forceRefetch: true,
+			subscriptionOptions: { pollingInterval },
+		}),
+	);
 	const pr = $derived(prQuery.response);
-	const mergeStatusQuery = $derived(prService.getMergeStatus(projectId, prNumber));
+	// GitHub computes `mergeable_state` lazily: the first read after a push says
+	// `unknown`, so it needs re-reading or Merge stays disabled.
+	const mergeStatusQuery = $derived(
+		prService.getMergeStatus(projectId, prNumber, { subscriptionOptions: { pollingInterval } }),
+	);
 	const prMergeStatus = $derived(mergeStatusQuery.response);
+
+	$effect(() => {
+		// Reading the whole result, not just the data, restamps on every poll so
+		// the schedule widens while the PR sits untouched.
+		const polled = prQuery.result?.data;
+		if (!polled) return;
+
+		isClosed = !!polled.closedAt;
+		elapsedMs = Date.now() - Date.parse(polled.modifiedAt);
+	});
 	const repoQuery = $derived(repoInfoEnabled ? repoService.getInfo(projectId) : undefined);
 	const repoInfo = $derived(repoQuery?.response);
 
@@ -146,10 +176,6 @@
 
 <ReduxResult result={prQuery?.result} projectId="dummy">
 	{#snippet children(pr)}
-		{#if poll}
-			<PrStatusPoller {projectId} number={pr.number} />
-		{/if}
-
 		{#if contextMenuOpen}
 			<ContextMenu
 				target={contextMenuTarget}
@@ -177,6 +203,7 @@
 						onclick={() => {
 							contextMenuOpen = false;
 							prService.fetch(projectId, pr.number, { forceRefetch: true });
+							prService.fetchMergeStatus(projectId, pr.number, { forceRefetch: true });
 							if (hasChecks && checksEnabled) {
 								checksMonitor.fetch(projectId, pr.sourceBranch, { forceRefetch: true });
 							}
