@@ -3,9 +3,7 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 16px;
-	height: 16px;
-	padding-inline: 5px;
-	border-radius: 10px;
+	border-radius: 30px;
 	--badge-bg-opacity: 20%;
 
 	/* Selected rows set --selection-inverted; flipping to the opposite color
@@ -20,6 +18,24 @@
 			--badge-bg-opacity: 20%;
 		}
 	}
+}
+
+.regular {
+	height: 16px;
+	padding-inline: 5px;
+	gap: 2px;
+}
+
+.large {
+	height: 20px;
+	padding-inline: 6px;
+	gap: 3px;
+}
+
+/* Single-line labels only, so trimming to the cap/baseline box lets the fixed
+   badge height center the glyphs themselves instead of the line box. */
+.label {
+	text-box: trim-both cap alphabetic;
 }
 
 .fillGray {
