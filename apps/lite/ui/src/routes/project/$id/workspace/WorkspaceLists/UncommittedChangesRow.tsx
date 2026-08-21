@@ -17,7 +17,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { getLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
-import { useAppSelector, useAppStore } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
@@ -41,6 +41,10 @@ export const UncommittedChangesRow: FC<{
 
 	const address = uncommittedChangesAddress;
 	const store = useAppStore();
+	const dispatch = useAppDispatch();
+	const recentFirst = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
+	);
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -102,6 +106,16 @@ export const UncommittedChangesRow: FC<{
 		}),
 		nativeMenuSeparator,
 		...fileDisplayModeMenuItems,
+		nativeMenuSeparator,
+		// Apart from the two above: those are exclusive of each other, this is
+		// ordering and combines with either.
+		nativeMenuItem({
+			label: "Sort by Last Modified",
+			checked: recentFirst,
+			onSelect: () => {
+				dispatch(projectSlice.actions.toggleUncommittedFilesRecentFirst({ projectId }));
+			},
+		}),
 	];
 
 	return (

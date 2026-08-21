@@ -1,8 +1,12 @@
 // TODO: all of these should go away.
 use gix::prelude::ObjectIdExt;
 
+use std::collections::BTreeMap;
+
+use bstr::ByteSlice;
+
 use crate::{
-    Commit,
+    Commit, IgnoredWorktreeTreeChangeStatus,
     commit::ConflictEntries,
     ui::{TreeChanges, WorktreeChanges},
 };
@@ -10,6 +14,47 @@ use crate::{
 /// See [`super::worktree_changes()`].
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
     Ok(super::worktree_changes(repo)?.into())
+}
+
+/// Modification times for `changes`, one `symlink_metadata` per path, keyed as
+/// [`WorktreeChanges::modification_times`] describes. Conflicted ignored changes
+/// are statted too — a conflict is still a file whose recency the user can ask
+/// about. Paths that cannot be statted, deletions foremost, are absent.
+///
+/// Separate from [`worktree_changes()`] so only callers wanting the times pay
+/// for the stat pass; most take just the changes.
+pub fn modification_times(
+    repo: &gix::Repository,
+    changes: &WorktreeChanges,
+) -> BTreeMap<String, u64> {
+    let Some(workdir) = repo.workdir() else {
+        return BTreeMap::new();
+    };
+    let conflicts = changes
+        .ignored_changes
+        .iter()
+        .filter(|ignored| matches!(ignored.status, IgnoredWorktreeTreeChangeStatus::Conflict))
+        .map(|ignored| ignored.path.as_bstr());
+    changes
+        .changes
+        .iter()
+        .map(|change| change.path_bytes.as_bstr())
+        .chain(conflicts)
+        .filter_map(|path_bytes| {
+            let path = workdir.join(gix::path::from_bstr(path_bytes));
+            let modified = path.symlink_metadata().ok()?.modified().ok()?;
+            let millis = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()?
+                .as_millis();
+            // The same lossy conversion the paths serialize with, so the key
+            // always matches the change the frontend sees.
+            Some((
+                path_bytes.to_str_lossy().into_owned(),
+                u64::try_from(millis).ok()?,
+            ))
+        })
+        .collect()
 }
 
 /// See [`super::tree_changes_with_line_stats()`].

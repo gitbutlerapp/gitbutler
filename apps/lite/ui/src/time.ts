@@ -89,3 +89,36 @@ const stdAbsoluteTimeFormatter = new Intl.DateTimeFormat(undefined, {
 
 export const formatAbsoluteTime = (timestamp: number): string =>
 	stdAbsoluteTimeFormatter.format(timestamp);
+
+/**
+ * Abbreviated age for tight row badges: "now", "3m", "2h", "5d", "3w". Every age
+ * gets a label; how far back it is reads from {@link ageBadgeOpacity} instead.
+ */
+export const formatAgeBadge = (ageMs: number): string => {
+	const minutes = Math.floor(Math.max(0, ageMs) / 60_000);
+	if (minutes < 1) return "now";
+	if (minutes < 60) return `${minutes}m`;
+
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h`;
+
+	const days = Math.floor(hours / 24);
+	return days < 7 ? `${days}d` : `${Math.floor(days / 7)}w`;
+};
+
+/** How faint an old badge is allowed to get before it stops being readable. */
+const AGE_BADGE_MIN_OPACITY = 0.35;
+
+/** The age at which a badge reaches {@link AGE_BADGE_MIN_OPACITY}. */
+const AGE_BADGE_FADE_SPAN_MINUTES = 24 * 60;
+
+/**
+ * Contrast for an age badge, easing from full strength down to a legible floor.
+ * Logarithmic: five minutes versus an hour matters far more to someone scanning
+ * than five days versus a week.
+ */
+export const ageBadgeOpacity = (ageMs: number): number => {
+	const minutes = Math.max(0, ageMs) / 60_000;
+	const fade = Math.min(1, Math.log1p(minutes) / Math.log1p(AGE_BADGE_FADE_SPAN_MINUTES));
+	return 1 - (1 - AGE_BADGE_MIN_OPACITY) * fade;
+};

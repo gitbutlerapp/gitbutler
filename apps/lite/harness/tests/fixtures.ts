@@ -88,6 +88,8 @@ export const fixtureFileChange = (path: string): TreeChange => ({
 export const fixtureWorktreeChanges = (changes: Array<TreeChange>): WorktreeChanges => ({
 	changes,
 	ignoredChanges: [],
+	// Fixed mtimes so modifiedAtMs derivations are deterministic.
+	modificationTimes: Object.fromEntries(changes.map((change) => [change.path, AUTHORED_AT])),
 	assignments: [],
 	assignmentsError: null,
 	dependencies: null,

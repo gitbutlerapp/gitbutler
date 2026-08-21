@@ -149,7 +149,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  *
  * See [`assign_hunk_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:250}
+ * {@link ../../../../../crates/but-api/src/diff.rs:267}
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
@@ -289,7 +289,7 @@ export declare function branchRename(projectId: string, refName: FullNameBytes, 
 /**
  * See [`changes_in_worktree_with_perm()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:109}
+ * {@link ../../../../../crates/but-api/src/diff.rs:122}
  */
 export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -319,7 +319,7 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:149}
+ * {@link ../../../../../crates/but-api/src/diff.rs:162}
  */
 export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -4717,6 +4717,12 @@ export type WorktreeChanges = {
   changes: Array<TreeChange>;
   /** Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made. */
   ignoredChanges: Array<IgnoredWorktreeChange>;
+  /**
+   * Filesystem modification times in milliseconds since the Unix epoch, keyed by
+   * the same (lossy) path as [`TreeChange::path`]. A path with nothing on disk to
+   * stat — a deletion — is absent.
+   */
+  modificationTimes: Record<string, number>;
   assignments: Array<HunkAssignment>;
   assignmentsError: SerdeError | null;
   dependencies: HunkDependencies | null;

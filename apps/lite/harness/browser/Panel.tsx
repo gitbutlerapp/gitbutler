@@ -65,6 +65,8 @@ export const Panel: FC = () => {
 		filter: uncommittedFilesFilter,
 		mode: uncommittedFilesDisplayMode,
 		collapsedDirectories: uncommittedFilesCollapsedDirectories,
+		// The panel has no recency toggle, so it lists in path order.
+		recentFirst: false,
 	});
 	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
 

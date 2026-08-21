@@ -105,6 +105,19 @@ pub fn tree_change_diffs(
     change.unified_patch(&repo, ctx.settings.context_lines)
 }
 
+/// The UI's worktree changes, with the modification times the file lists show.
+///
+/// Composed here rather than in `but_core::diff::ui::worktree_changes()`, which
+/// leaves them out: the stat pass costs one syscall per changed file, and most
+/// of its callers want only the changes.
+fn worktree_changes_with_modification_times(
+    repo: &gix::Repository,
+) -> anyhow::Result<but_core::ui::WorktreeChanges> {
+    let mut changes: but_core::ui::WorktreeChanges = but_core::diff::worktree_changes(repo)?.into();
+    changes.modification_times = but_core::diff::ui::modification_times(repo, &changes);
+    Ok(changes)
+}
+
 /// See [`changes_in_worktree_with_perm()`].
 #[but_api(napi, provides = [WorktreeChanges])]
 #[instrument(err(Debug))]
@@ -157,12 +170,12 @@ pub fn changes_in_worktree_with_perm(
     let context_lines = ctx.settings.context_lines;
 
     if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
-        return Ok(but_core::diff::worktree_changes(&wt_repo)?.into());
+        return Ok(worktree_changes_with_modification_times(&wt_repo)?.into());
     }
 
     if !compute_deps_and_assignments {
         let repo = ctx.repo.get()?;
-        return Ok(but_core::diff::worktree_changes(&repo)?.into());
+        return Ok(worktree_changes_with_modification_times(&repo)?.into());
     }
 
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
@@ -187,10 +200,14 @@ pub fn changes_in_worktree_with_perm(
     };
 
     trans.commit()?;
+
+    let mut worktree_changes: but_core::ui::WorktreeChanges = changes.into();
+    worktree_changes.modification_times =
+        but_core::diff::ui::modification_times(&repo, &worktree_changes);
     drop((repo, ws, db));
 
     Ok(WorktreeChanges {
-        worktree_changes: changes.into(),
+        worktree_changes,
         assignments,
         assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
         dependencies: dependencies.as_ref().ok().cloned(),
