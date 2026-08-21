@@ -13,9 +13,11 @@ fn unapply_stack() {
 
     tui.input('j');
     tui.input('b');
+    tui.input('n');
 
     tui.input((KeyModifiers::SHIFT, 'G'));
     tui.input('b');
+    tui.input('n');
 
     tui.input('g')
         .assert_rendered_term_svg_eq(file!["snapshots/unapply_stack_001.svg"]);
@@ -42,9 +44,11 @@ fn unapply_stack_selects_base_branch_when_next_stack_has_commits() {
     tui.input('j');
     tui.input('b');
     tui.input('n');
+    tui.input('n');
 
     tui.input((KeyModifiers::SHIFT, 'G'));
     tui.input('b');
+    tui.input('n');
 
     tui.input('g');
     tui.input('s');
@@ -74,6 +78,7 @@ fn moving_stacks() {
     for name in ["one", "two", "three"] {
         tui.input('g');
         tui.input('b');
+        tui.input('n');
         tui.input(KeyCode::Enter);
         for _ in 0..100 {
             tui.input(KeyCode::Backspace);
@@ -114,6 +119,7 @@ fn applying_stacks() {
     for name in ["one", "two"] {
         tui.input('g');
         tui.input('b');
+        tui.input('n');
         tui.input(KeyCode::Enter);
         for _ in 0..100 {
             tui.input(KeyCode::Backspace);

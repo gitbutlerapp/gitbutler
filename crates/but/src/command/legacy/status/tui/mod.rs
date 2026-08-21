@@ -20,9 +20,9 @@ use crate::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
             tui::{
                 app::{
-                    CherryPickMessage, CommandMessage, CommandModeKind, CommitMessage, JumpMessage,
-                    MoveMessage, NormalMode, PickChangesMode, RewordMessage, SquashMessage,
-                    StackMessage, UpdateContext,
+                    BranchMessage, CherryPickMessage, CommandMessage, CommandModeKind,
+                    CommitMessage, JumpMessage, MoveMessage, NormalMode, PickChangesMode,
+                    RewordMessage, SquashMessage, StackMessage, UpdateContext,
                 },
                 backstack::{Backstack, BackstackEntry},
                 confirm::ConfirmMessage,
@@ -264,6 +264,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         | Mode::PickChanges(..)
                         | Mode::MoveStack(..)
                         | Mode::CherryPick(..)
+                        | Mode::Branch(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -300,6 +301,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                 | Mode::PickChanges(..)
                 | Mode::MoveStack(..)
                 | Mode::CherryPick(..)
+                | Mode::Branch(..)
                 | Mode::Move(..) => {
                     messages.push(Message::JustRender);
                 }
@@ -438,7 +440,7 @@ pub enum Message {
     Help(HelpMessage),
     Jump(JumpMessage),
     CherryPick(CherryPickMessage),
-    NewBranch,
+    Branch(BranchMessage),
     ToggleHelp,
     Mark,
     ClearMarks,
@@ -461,6 +463,9 @@ pub enum Message {
     OpenInProgram(ProgramSpec, Openable),
     OpenInDefaultProgram,
     PickProgramThenOpen,
+    // this message is useful to find tests that use a specific key bind
+    #[allow(dead_code)]
+    Crash,
 }
 
 #[test]
@@ -629,6 +634,10 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 CherryPickMessage::Confirm | CherryPickMessage::CherryPickToNewBranch => true,
                 CherryPickMessage::Start | CherryPickMessage::ToggleInsertSide => false,
             },
+            Message::Branch(message) => match message {
+                BranchMessage::Switch | BranchMessage::New => true,
+                BranchMessage::Start => false,
+            },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,
                 StackMessage::Enter | StackMessage::ShowApplyPicker | StackMessage::MoveStart => {
@@ -686,9 +695,10 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | Modal::ProgramPicker { .. }
                 | Modal::Help { .. } => false,
             },
-            Message::Undo | Message::Redo | Message::Discard | Message::NewBranch => true,
+            Message::Undo | Message::Redo | Message::Discard => true,
             Message::JustRender
             | Message::Quit
+            | Message::Crash
             | Message::ConfirmAndQuit
             | Message::EnterNormalModeAfterConfirmingOperation
             | Message::ShowError(..)

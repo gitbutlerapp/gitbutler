@@ -97,6 +97,7 @@ fn marking_section_edge_moves_only_when_neighbor_differs() {
     let mut tui = test_status_tui(env);
 
     tui.input('b');
+    tui.input('n');
     for message in ["one", "two"] {
         tui.input('n');
         tui.input(KeyCode::Enter);

@@ -16,7 +16,8 @@ fn branch_key_from_uncommitted_creates_new_branch() {
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 }
 
@@ -30,8 +31,9 @@ fn branch_key_from_commit_is_noop() {
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   lrm add B"]);
 
-    tui.input('b')
-        .assert_current_line_eq(str!["┊●   lrm add B"]);
+    tui.input('b');
+    tui.input('n')
+        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 }
 
 #[test]
@@ -44,7 +46,8 @@ fn branch_key_from_branch_creates_new_branch() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 }
 
@@ -62,7 +65,8 @@ fn branch_key_keeps_global_file_list_open() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
         .assert_rendered_contains("t:t A A");
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"])
         .assert_rendered_contains("t:t A A");
 }
@@ -98,7 +102,8 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
     tui.reload()
         .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 
     tui.input(KeyCode::Enter)
@@ -262,4 +267,57 @@ fn reload_moves_selection_off_merged_branch() {
         )],
     )
     .assert_current_line_eq(str!["┊╭┄ h0 [B]"]);
+}
+
+#[test]
+fn switch_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    // switch to a branch
+    tui.input('b')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_001.svg"]);
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_002.svg"]);
+    tui.input('s')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_003.svg"]);
+
+    // apply a different branch
+    tui.input('s');
+    tui.input('a')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_004.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_005.svg"]);
+
+    // switch to the newly applied branch
+    tui.input('b')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_006.svg"]);
+    tui.input('s')
+        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_007.svg"]);
+}
+
+#[test]
+fn create_new_branches_from_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/create_new_branches_from_branch_mode_001.svg"
+    ]);
+
+    tui.input('b');
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/create_new_branches_from_branch_mode_002.svg"
+    ]);
+
+    tui.input('j');
+    tui.input('b');
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/create_new_branches_from_branch_mode_003.svg"
+    ]);
 }

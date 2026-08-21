@@ -15,6 +15,7 @@ fn copying_change_id_doesnt_include_disambiguation() {
     tui.input('b');
     tui.input('n');
     tui.input('n');
+    tui.input('n');
 
     // Ideally this would include the disambiguation but the change id in CliId::Commit doesn't
     // include it. In the future it will.
@@ -65,6 +66,7 @@ fn copies_every_commit_value() {
 
     let mut tui = test_status_tui(env);
     tui.input('b');
+    tui.input('n');
     tui.input('n');
     tui.input(KeyCode::Enter);
     tui.input("Copy title");

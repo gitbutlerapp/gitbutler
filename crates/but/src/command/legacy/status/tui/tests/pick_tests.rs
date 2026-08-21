@@ -110,6 +110,7 @@ fn commits_are_cherry_picked_in_order() {
 
     tui.input(Shift('f'));
     tui.input('b');
+    tui.input('n');
     tui.input('g');
     tui.input('c');
     tui.input('j');

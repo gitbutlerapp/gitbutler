@@ -174,6 +174,7 @@ impl App {
             | Mode::MoveStack(..)
             | Mode::PickChanges(..)
             | Mode::CherryPick(..)
+            | Mode::Branch(..)
             | Mode::Jump(..)) => mode.clone(),
         };
         let backstack = self.backstack.clone();

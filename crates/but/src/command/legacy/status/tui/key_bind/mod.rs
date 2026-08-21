@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::HashMap};
 
+use but_settings::app_settings::FeatureFlags;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
@@ -8,7 +9,9 @@ use crate::{
     command::legacy::status::tui::{
         CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage,
         Message, StackMessage,
-        app::{CherryPickMessage, CommitMessageComposer, RewordMessage, SquashMessage},
+        app::{
+            BranchMessage, CherryPickMessage, CommitMessageComposer, RewordMessage, SquashMessage,
+        },
         details::DetailsMessage,
         help::HelpMessage,
         mode::{Mode, ModeDiscriminant},
@@ -22,7 +25,7 @@ use super::{
 #[cfg(test)]
 mod tests;
 
-pub fn default_key_binds() -> KeyBinds {
+pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     for mode in ModeDiscriminant::iter() {
@@ -88,6 +91,13 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.cherry_pick_confirm().register();
                 builder.cherry_pick_toggle_insert_side().register();
                 builder.cherry_pick_to_new_branch().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Branch => {
+                builder.branch_new().register();
+                if feature_flags.single_branch {
+                    builder.branch_switch().register();
+                }
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -722,9 +732,9 @@ impl KeyBindsBuilder<'_> {
 
     fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("branch", press().code(KeyCode::Char('b')), || {
-            Message::NewBranch
+            Message::Branch(BranchMessage::Start)
         })
-        .long_description("Create a new branch")
+        .long_description("Enter branch mode")
     }
 
     fn stack(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -979,6 +989,20 @@ impl KeyBindsBuilder<'_> {
             || Message::CherryPick(CherryPickMessage::CherryPickToNewBranch),
         )
         .long_description("Create a new branch, then pick to it")
+    }
+
+    fn branch_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("switch", press().code(KeyCode::Char('s')), || {
+            Message::Branch(BranchMessage::Switch)
+        })
+        .long_description("Switch to the selected branch")
+    }
+
+    fn branch_new(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("new", press().code(KeyCode::Char('n')), || {
+            Message::Branch(BranchMessage::New)
+        })
+        .long_description("Create a new branch")
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
