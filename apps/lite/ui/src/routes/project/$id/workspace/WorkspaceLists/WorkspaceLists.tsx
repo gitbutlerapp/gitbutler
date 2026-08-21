@@ -232,18 +232,20 @@ const AddressC: FC<
 	});
 };
 
-const UncommittedChanges: FC<{
-	addressSpace: AddressSpace<string>;
-	commitTarget: CommitTargetComboboxItem | null;
-	projectId: string;
-	targetComboboxItems: Array<CommitTargetComboboxItem>;
-	hasNoBranches: boolean;
-	onAmendCommit: (commitId: string) => void;
-	canAmendCommit: boolean;
-	onActiveFileSelection: (selection: string) => void;
-	onEdgeSpill: (offset: -1 | 1) => void;
-	worktreeChanges: WorktreeChanges | undefined;
-}> = ({
+const UncommittedChanges: FC<
+	{
+		addressSpace: AddressSpace<string>;
+		commitTarget: CommitTargetComboboxItem | null;
+		projectId: string;
+		targetComboboxItems: Array<CommitTargetComboboxItem>;
+		hasNoBranches: boolean;
+		onAmendCommit: (commitId: string) => void;
+		canAmendCommit: boolean;
+		onActiveFileSelection: (selection: string) => void;
+		onEdgeSpill: (offset: -1 | 1) => void;
+		worktreeChanges: WorktreeChanges | undefined;
+	} & Omit<ComponentProps<"div">, "children">
+> = ({
 	addressSpace,
 	commitTarget,
 	projectId,
@@ -254,6 +256,7 @@ const UncommittedChanges: FC<{
 	onActiveFileSelection,
 	onEdgeSpill,
 	worktreeChanges,
+	...props
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -294,7 +297,11 @@ const UncommittedChanges: FC<{
 	});
 
 	return (
-		<div className={styles.uncommittedChanges} ref={panelRef}>
+		<div
+			{...props}
+			className={classes(props.className, styles.uncommittedChanges)}
+			ref={useMergedRefs(props.ref, panelRef)}
+		>
 			{fileFilter.rowProps === null ? (
 				<UncommittedChangesRow
 					changes={worktreeChanges?.changes ?? []}
