@@ -1031,7 +1031,7 @@ fn render_hot_bar(app: &App, area: Rect, frame: &mut Frame) {
 
     frame.render_widget(" ", layout[1]);
 
-    if app.is_in_single_branch_mode {
+    if app.in_single_branch_mode {
         let content_layout =
             Layout::horizontal([Constraint::Min(1), Constraint::Length(5)]).split(layout[2]);
 

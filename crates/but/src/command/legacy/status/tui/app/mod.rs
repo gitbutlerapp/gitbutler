@@ -49,7 +49,7 @@ use crate::{
     id::{CommitId, CommittedFileId},
     theme::Theme,
     tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
-    utils::targeting::Side,
+    utils::{in_single_branch_mode, targeting::Side},
 };
 
 use super::{
@@ -139,7 +139,7 @@ pub struct App {
     pub head_sha: String,
     pub clipboard: Clipboard,
     pub operating_mode: OperatingMode,
-    pub is_in_single_branch_mode: bool,
+    pub in_single_branch_mode: bool,
 }
 
 pub(super) fn changed_paths_affect_uncommitted_details<'a>(
@@ -435,10 +435,10 @@ impl App {
             head_sha,
             clipboard,
             operating_mode,
-            is_in_single_branch_mode: false,
+            in_single_branch_mode: false,
         };
 
-        app.reload_is_in_single_branch_mode(ctx)?;
+        app.reload_in_single_branch_mode(ctx)?;
 
         Ok(app)
     }
@@ -1403,17 +1403,13 @@ impl App {
             }
         }
 
-        self.reload_is_in_single_branch_mode(ctx)?;
+        self.reload_in_single_branch_mode(ctx)?;
 
         Ok(())
     }
 
-    fn reload_is_in_single_branch_mode(&mut self, ctx: &Context) -> anyhow::Result<()> {
-        let guard = ctx.shared_worktree_access();
-
-        self.is_in_single_branch_mode = ctx.settings.feature_flags.single_branch
-            && gitbutler_operating_modes::in_outside_workspace_mode(ctx, guard.read_permission())?;
-
+    fn reload_in_single_branch_mode(&mut self, ctx: &Context) -> anyhow::Result<()> {
+        self.in_single_branch_mode = in_single_branch_mode(ctx)?;
         Ok(())
     }
 

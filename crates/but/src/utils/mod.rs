@@ -2,6 +2,8 @@ use std::io::Write;
 
 mod output_channel;
 use but_api::json::{ChangeIdString, HexHash};
+use but_core::sync::RepoShared;
+use but_ctx::Context;
 pub(crate) use output_channel::PromptLine;
 pub use output_channel::{
     CliOutput, CliOutputHuman, Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel,
@@ -106,4 +108,16 @@ impl From<CommitId> for CommitIdJson {
             change_id: value.change_id.map(Into::into),
         }
     }
+}
+
+#[cfg(feature = "legacy")]
+pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
+    let guard = ctx.shared_worktree_access();
+    in_single_branch_mode_with_perm(ctx, guard.read_permission())
+}
+
+#[cfg(feature = "legacy")]
+pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
+    Ok(ctx.settings.feature_flags.single_branch
+        && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm)?)
 }
