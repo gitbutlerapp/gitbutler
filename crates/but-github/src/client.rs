@@ -249,24 +249,41 @@ impl GitHubClient {
 
     /// Fetch the list of the open PRs on a repo.
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
-        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
+        let url = format!(
+            "{}/repos/{}/{}/pulls?state=open&sort=updated&direction=desc",
+            self.base_url, owner, repo
+        );
+        let mut previous_numbers = None;
+        let mut retried = false;
+        loop {
+            let pulls = self.get_all_pages::<GitHubPullRequest>(&url, 101).await?;
+            anyhow::ensure!(
+                pulls.len() <= 10_000,
+                "Open pull request listing exceeded 100 pages"
+            );
+            if pulls.len() < 100 {
+                return Ok(pulls.into_iter().map(Into::into).collect());
+            }
 
-        let response = self
-            .client
-            .get(&url)
-            .query(&[
-                ("state", "open"),
-                ("sort", "updated"),
-                ("direction", "desc"),
-                ("per_page", "100"),
-            ])
-            .send()
-            .await?;
-
-        let response = ensure_success(response).await?;
-
-        let pulls: Vec<GitHubPullRequest> = response.json().await?;
-        Ok(pulls.into_iter().map(Into::into).collect())
+            let mut seen = std::collections::HashSet::new();
+            let numbers = pulls.iter().map(|pull| pull.number).collect::<Vec<_>>();
+            let changed = numbers.iter().any(|number| !seen.insert(number))
+                || previous_numbers
+                    .as_ref()
+                    .is_some_and(|previous| previous != &numbers);
+            if changed {
+                anyhow::ensure!(
+                    !retried,
+                    "Open pull request listing changed while paginating"
+                );
+                retried = true;
+            } else if previous_numbers.is_some() {
+                return Ok(pulls.into_iter().map(Into::into).collect());
+            }
+            if seen.len() == numbers.len() {
+                previous_numbers = Some(numbers);
+            }
+        }
     }
 
     /// List the PRs for a given target.
