@@ -21,6 +21,7 @@ use crate::{
         atoms::{BranchOrCommit, CliIdArg, Priority, Purpose},
         branch::NewPlatform,
     },
+    bad_input,
     id::CommitId,
     print_deprecation_warning,
     theme::{self, Theme},
@@ -62,6 +63,14 @@ fn resolve(
         allow_merged,
         switch,
     } = args;
+
+    if switch && !ctx.settings.feature_flags.single_branch {
+        return Err(
+            bad_input("`--switch` requires the `single-branch` feature to be enabled")
+                .hint("Enable the feature with `but config feature single-branch enable`")
+                .into(),
+        );
+    }
 
     let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
 
