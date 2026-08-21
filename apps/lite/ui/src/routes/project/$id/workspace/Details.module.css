@@ -3,7 +3,7 @@
 	   align with the panel column's right edge. The panel consumes
 	   --pr-panel-width for its own flex-basis. */
 	--pr-main-max: 700px;
-	--pr-panel-width: 220px;
+	--pr-panel-width: 315px;
 	--pr-layout-gap: 16px;
 	--pr-content-max: calc(var(--pr-main-max) + var(--pr-layout-gap) + var(--pr-panel-width));
 

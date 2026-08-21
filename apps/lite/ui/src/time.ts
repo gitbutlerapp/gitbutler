@@ -55,6 +55,27 @@ const stdDurationFormatter = new Intl.DurationFormat(undefined, { style: "long" 
 
 export const formatDuration: (ms: number) => string = formatDurationWith(stdDurationFormatter);
 
+/**
+ * A duration rounded to its largest whole unit, for places with room for one
+ * number and nothing more ("12 min", "1 hr"). Sub-minute durations round up to
+ * a second so a fast job doesn't read as having taken no time at all.
+ *
+ * @public
+ */
+export const formatCompactDurationWith =
+	(df: Intl.DurationFormat) =>
+	(ms: number): string => {
+		if (ms < 60_000) return df.format({ seconds: Math.max(1, Math.round(ms / 1_000)) });
+		if (ms < 3_600_000) return df.format({ minutes: Math.round(ms / 60_000) });
+		return df.format({ hours: Math.round(ms / 3_600_000) });
+	};
+
+const stdCompactDurationFormatter = new Intl.DurationFormat(undefined, { style: "short" });
+
+export const formatCompactDuration: (ms: number) => string = formatCompactDurationWith(
+	stdCompactDurationFormatter,
+);
+
 const stdAbsoluteTimeFormatter = new Intl.DateTimeFormat(undefined, {
 	dateStyle: "medium",
 	timeStyle: "short",
