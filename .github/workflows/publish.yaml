@@ -257,6 +257,11 @@ jobs:
   sign-windows:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
+    # When the signing machine is offline, jobs queue for up to 24h; let each
+    # newer run cancel the previous stuck one instead of stacking behind it.
+    concurrency:
+      group: sign-windows-${{ github.event.inputs.channel || 'nightly' }}
+      cancel-in-progress: true
     strategy:
       matrix:
         platform:
@@ -378,8 +383,10 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
+  # macOS and Linux only; Windows is published separately in publish-windows so
+  # an offline Windows signing machine does not block the other platforms.
   publish-tauri:
-    needs: [sign-tauri, sign-but, build-tauri]
+    needs: [sign-but, build-tauri]
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     outputs:
@@ -397,10 +404,10 @@ jobs:
             target: ""
           - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ""
-          - platform: windows-latest # [windows, x64]
-            target: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set artifact name suffix
         shell: bash
         run: |
@@ -437,6 +444,61 @@ jobs:
           source_dir: "release-s3/"
           destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
+  publish-windows:
+    needs: [sign-tauri, build-tauri]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ env.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: "${{ needs.build-tauri.outputs.channel }}-windows-latest-${{ github.run_number }}"
+          path: release
+      - name: Extract version
+        shell: bash
+        run: |
+          VERSION="$(cat release/version)"
+          echo "version=$VERSION" >> $GITHUB_ENV
+      - name: Prepare S3 payload
+        shell: bash
+        run: |
+          rm -rf release-s3
+          mkdir -p release-s3
+          rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
+          bash scripts/normalize-spaces.sh ./release-s3
+      - uses: shallwefootball/s3-upload-action@0d261a6f15b3b2e209dfebdecace4b100c04f95b # commit 0d261a6
+        name: Upload To S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: "releases.gitbutler.com"
+          source_dir: "release-s3/"
+          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
+
+  # Turns a Windows-less release run red (nightlies may ship without Windows).
+  # Recovery: re-run the failed jobs once the signing machine is back.
+  require-windows-for-release:
+    needs: [build-tauri, publish-windows]
+    if: ${{ !cancelled() && github.event.inputs.channel == 'release' && github.event.inputs.dry_run == 'false' }}
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a published Windows build
+        shell: bash
+        env:
+          RESULT: ${{ needs.publish-windows.result }}
+        run: |
+          if [[ "$RESULT" != "success" ]]; then
+            echo "publish-windows did not succeed (result: $RESULT), which blocks a release."
+            exit 1
+          fi
+
   notify-gitbutler-api:
     needs: [build-tauri, publish-tauri]
     permissions: {}
@@ -457,6 +519,35 @@ jobs:
             '{channel: $channel, version: $version, sha: $sha}')
           curl 'https://app.gitbutler.com/api/releases' \
             --fail \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
+            --data "$payload"
+
+  # The API re-scans S3 on every notify, so this second notify adds the Windows
+  # build to the release whenever the Windows leg completes. Needing the first
+  # notify serializes the two API calls and skips this one if it never happened.
+  notify-gitbutler-api-windows:
+    needs: [build-tauri, publish-windows, notify-gitbutler-api]
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify GitButler API of the Windows build
+        shell: bash
+        env:
+          CHANNEL: ${{ needs.build-tauri.outputs.channel }}
+          VERSION: ${{ needs.publish-windows.outputs.version }}-${{ github.run_number }}
+          SHA: ${{ github.sha }}
+          BOT_AUTH_TOKEN: ${{ secrets.BOT_AUTH_TOKEN }}
+        run: |
+          payload=$(jq -n \
+            --arg channel "$CHANNEL" \
+            --arg version "$VERSION" \
+            --arg sha "$SHA" \
+            '{channel: $channel, version: $version, sha: $sha}')
+          curl 'https://app.gitbutler.com/api/releases' \
+            --fail \
+            --retry 3 \
             --request POST \
             --header 'Content-Type: application/json' \
             --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
