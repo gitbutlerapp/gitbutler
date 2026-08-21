@@ -28,7 +28,7 @@ export function buildProjectEndpoints(build: BackendEndpointBuilder) {
 		project: build.query<Project, { projectId: string; noValidation?: boolean }>({
 			extraOptions: { command: "get_project" },
 			query: (args) => args,
-			providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId),
+			providesTags: (_result, _error, args) => [{ type: ReduxTag.Project, id: args.projectId }],
 		}),
 		addProject: build.mutation<AddProjectOutcome, { path: string }>({
 			extraOptions: { command: "add_project" },

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
@@ -75,6 +76,8 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	async function deleteProjectAndGoBack() {
 		await projectsService.deleteProject(projectId);
+		await projectsService.fetchProjects();
+		await goto("/");
 	}
 
 	const itSmellsLikeGerrit = $derived(projectsService.areYouGerritKiddingMe(projectId));
