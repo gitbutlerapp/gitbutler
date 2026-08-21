@@ -42,7 +42,16 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
+import {
+	type FC,
+	Activity,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchAddress,
@@ -635,6 +644,24 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	]);
 
 	const deferredDetails = useDeferredValue(details);
+	const [focusRestoreRequest, setFocusRestoreRequest] = useState<{ scope: FocusScope } | null>(
+		null,
+	);
+	const consumedFocusRestoreRequest = useRef(focusRestoreRequest);
+	// The event callback cannot restore focus itself: the router settles before deferred details do.
+	// oxlint-disable react-you-might-not-need-an-effect/no-event-handler
+	useEffect(() => {
+		if (
+			focusRestoreRequest === null ||
+			consumedFocusRestoreRequest.current === focusRestoreRequest ||
+			deferredDetails !== details
+		)
+			return;
+
+		focusScope(focusRestoreRequest.scope);
+		consumedFocusRestoreRequest.current = focusRestoreRequest;
+	}, [deferredDetails, details, focusRestoreRequest]);
+	// oxlint-enable react-you-might-not-need-an-effect/no-event-handler
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((candidate) => candidate.id === projectId);
@@ -729,7 +756,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				</Panel>
 			</Group>
 
-			<OperationControls projectId={projectId} appliedAddressSpace={appliedAddressSpace} />
+			<OperationControls
+				projectId={projectId}
+				appliedAddressSpace={appliedAddressSpace}
+				onFocusRestore={(scope) => setFocusRestoreRequest({ scope })}
+			/>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

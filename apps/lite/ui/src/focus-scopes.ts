@@ -7,24 +7,15 @@ import type { Address } from "#ui/addresses.ts";
 import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { useRef, type DragEvent, type FocusEvent, type MouseEvent } from "react";
+import { isFocusScope } from "#ui/focus.ts";
 
 export type FocusScope = "details" | "uncommitted-files" | "sidebar" | "files" | "diff" | "pr";
-const allFocusScopes: Set<string> = new Set([
-	"details",
-	"uncommitted-files",
-	"sidebar",
-	"files",
-	"diff",
-	"pr",
-] satisfies Array<FocusScope>);
 
 // Supports arbitrarily nested scopes. Must share that ancestral relationship in the DOM. Tries from
 // left to right.
 const focusScopeChildren: Partial<Record<FocusScope, Set<FocusScope>>> = {
 	details: new Set(["diff", "pr", "files"]),
 };
-
-const isFocusScope = (id: string): id is FocusScope => allFocusScopes.has(id);
 
 export const getFocusedScope = (activeElement: Element | null): FocusScope | null => {
 	// closest() so focus on a control inside a pane (a row button, the diff

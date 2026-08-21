@@ -25,6 +25,8 @@ import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { isFocusScope } from "#ui/focus.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 
 /**
  * The one way in and out of navigation state. The URL holds the page, the
@@ -197,7 +199,10 @@ export const useSidebarFocusScope = (): "sidebar" | "uncommitted-files" =>
 let requestedParams: UrlQueryParams | null = null;
 
 /** Within-page state never creates history entries (ruled 2026-08-13). */
-const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void => {
+const navigateParams = (
+	update: (prev: UrlQueryParams) => UrlQueryParams,
+	onSettled?: () => void,
+): void => {
 	// Start from the pending request if one is in flight, else from the live
 	// params. Applied here rather than handed to the router as an updater: the
 	// router would call it with a `prev` snapshotted before the URL was parsed,
@@ -208,7 +213,10 @@ const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void 
 		// This write has landed, so the live params now hold everything it knew:
 		// clear the marker. Unless a newer write replaced it — that one is still
 		// in flight and stands on its own.
-		if (requestedParams === search) requestedParams = null;
+		if (requestedParams === search) {
+			requestedParams = null;
+			onSettled?.();
+		}
 		writeLastPlace(projectIdOf(), router.state.location.searchStr);
 	});
 };
@@ -272,6 +280,14 @@ export const setActiveList = (list: ActiveList): void => {
 
 /* -------------------------- pending operations with restoration */
 
+const snapshotWorkspaceFocus = (): FocusScope | null => {
+	const activeElement = document.activeElement;
+	if (!(activeElement instanceof Element)) return null;
+
+	const scope = activeElement.closest<HTMLElement>("[data-focus-scope]")?.dataset.focusScope;
+	return scope !== undefined && isFocusScope(scope) ? scope : null;
+};
+
 const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	const params = currentParams();
 	return {
@@ -284,15 +300,21 @@ const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	};
 };
 
-const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
-	navigateParams((prev) => ({
-		...prev,
-		page: snapshot.page,
-		active: snapshot.active,
-		applied: snapshot.applied,
-		uncommitted: snapshot.uncommitted,
-		files: snapshot.files,
-	}));
+const restoreWorkspaceCursors = (
+	snapshot: WorkspaceCursorSnapshot,
+	onSettled?: () => void,
+): void => {
+	navigateParams(
+		(prev) => ({
+			...prev,
+			page: snapshot.page,
+			active: snapshot.active,
+			applied: snapshot.applied,
+			uncommitted: snapshot.uncommitted,
+			files: snapshot.files,
+		}),
+		onSettled,
+	);
 	setDiffCursor(snapshot.diff);
 };
 
@@ -305,17 +327,20 @@ export const startKeyboardTransfer = ({
 	kind: TransferKind;
 	placement?: "above" | "below" | "into";
 }): void => {
+	const projectId = projectIdOf();
 	const restoreSelection = snapshotWorkspaceCursors();
+	const restoreFocus = snapshotWorkspaceFocus();
 	if (restoreSelection.page !== undefined)
 		navigateParams((prev) => ({ ...prev, page: undefined, active: undefined }));
 
 	store.dispatch(
 		projectSlice.actions.startKeyboardTransfer({
-			projectId: projectIdOf(),
+			projectId,
 			sources,
 			kind,
 			placement,
 			restoreSelection,
+			restoreFocus,
 		}),
 	);
 };
@@ -338,8 +363,9 @@ export const startAbsorb = ({
 };
 
 /** Cancel the pending operation and put every cursor back where it found them. */
-export const cancelPendingOperation = (): void => {
-	const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectIdOf());
+const cancelPendingOperation_ = (onFocusRestore?: (focusScope: FocusScope) => void): void => {
+	const projectId = projectIdOf();
+	const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectId);
 	const restore =
 		pending._tag === "Absorb"
 			? pending.restoreSelection
@@ -347,9 +373,23 @@ export const cancelPendingOperation = (): void => {
 				? pending.value.restoreSelection
 				: null;
 
-	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
-	if (restore) restoreWorkspaceCursors(restore);
+	const restoreFocus =
+		pending._tag === "Transfer" && pending.value._tag === "Keyboard"
+			? pending.value.restoreFocus
+			: null;
+	const requestFocusRestore = () => {
+		if (restoreFocus !== null) onFocusRestore?.(restoreFocus);
+	};
+	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
+	if (restore) restoreWorkspaceCursors(restore, requestFocusRestore);
+	else requestFocusRestore();
 };
+
+export const cancelPendingOperation = (): void => cancelPendingOperation_();
+
+export const cancelPendingOperationAndRestoreFocus = (
+	onFocusRestore: (focusScope: FocusScope) => void,
+): void => cancelPendingOperation_(onFocusRestore);
 
 export const startInlineEdit = (address: InlineEditAddress): void => {
 	setCursor("applied", address);

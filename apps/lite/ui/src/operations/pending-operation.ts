@@ -2,6 +2,7 @@ import { Match } from "effect";
 import { addressEquals, type Address, uncommittedChangesAddress } from "#ui/addresses.ts";
 import type { Placement, TransferKind } from "#ui/operations/operation.ts";
 import type { WorkspaceCursorSnapshot } from "#ui/cursors.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 
 /**
@@ -23,6 +24,7 @@ export type KeyboardTransfer = {
 	kind: TransferKind;
 	placement: Placement;
 	restoreSelection: WorkspaceCursorSnapshot;
+	restoreFocus: FocusScope | null;
 };
 
 /**
@@ -47,12 +49,14 @@ export const keyboardTransfer = ({
 	kind,
 	placement,
 	restoreSelection,
+	restoreFocus,
 }: KeyboardTransfer): PendingTransfer => ({
 	_tag: "Keyboard",
 	sources,
 	kind,
 	placement,
 	restoreSelection,
+	restoreFocus,
 });
 
 export const pointerTransfer = ({

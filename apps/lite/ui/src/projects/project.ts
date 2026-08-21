@@ -43,6 +43,7 @@ import {
 	type BranchesState,
 } from "./branches.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import {
 	createInitialUpstreamState,
 	getUpstreamSelectors,
@@ -205,11 +206,13 @@ export const projectReducers = {
 			kind,
 			placement,
 			restoreSelection,
+			restoreFocus,
 		}: {
 			sources: Array<Address>;
 			kind: TransferKind;
 			placement?: Placement;
 			restoreSelection: WorkspaceCursorSnapshot;
+			restoreFocus: FocusScope | null;
 		},
 	) => {
 		state.workspace.pendingOperation = pendingTransfer(
@@ -218,6 +221,7 @@ export const projectReducers = {
 				kind,
 				placement: placement ?? "into",
 				restoreSelection,
+				restoreFocus,
 			}),
 		);
 	},
@@ -271,6 +275,7 @@ export const projectReducers = {
 						kind: transfer.kind,
 						placement,
 						restoreSelection: transfer.restoreSelection,
+						restoreFocus: transfer.restoreFocus,
 					}),
 				);
 			}),
@@ -289,6 +294,7 @@ export const projectReducers = {
 						kind,
 						placement: transfer.placement,
 						restoreSelection: transfer.restoreSelection,
+						restoreFocus: transfer.restoreFocus,
 					}),
 				);
 			}),
