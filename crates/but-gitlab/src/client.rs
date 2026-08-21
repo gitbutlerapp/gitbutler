@@ -425,7 +425,9 @@ impl GitLabClient {
         let response = self.client.put(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            bail!("Failed to merge merge request: {}", response.status());
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            bail!("Failed to merge merge request: {status} - {error_text}");
         }
 
         Ok(())
