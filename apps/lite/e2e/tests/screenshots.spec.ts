@@ -15,6 +15,18 @@ import type { Page } from "@playwright/test";
 import { enabled, goToTab, openProject, outputDir, shoot } from "../screenshot-helpers.ts";
 import { expect, test } from "../test.ts";
 
+/** The preload calls the edit-mode surface is reached through. */
+type EditModeBridge = {
+	headInfo: (projectId: string) => Promise<{
+		stacks: Array<{ id: string; segments: Array<{ commits: Array<{ id: string }> }> }>;
+	}>;
+	enterEditMode: (payload: {
+		projectId: string;
+		commitId: string;
+		stackId: string;
+	}) => Promise<unknown>;
+};
+
 test.describe("screenshots", () => {
 	test.skip(!enabled, "set SCREENSHOT_OUT to capture screenshots");
 	// Each test launches Electron, seeds a repository with the `but` binary, and
@@ -49,6 +61,36 @@ test.describe("screenshots", () => {
 			await appWindow.getByRole("button", { name: "Pull Request" }).click();
 			await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 			await shoot(appWindow, "pr-form", "#details-panel");
+		});
+	});
+
+	test.describe("edit mode", () => {
+		test.use({ scenario: "project-with-conflicted-commit.sh" });
+
+		test("edit mode page", async ({ appWindow }) => {
+			await openProject(appWindow);
+
+			// Edit mode is repository state rather than a route, so it is entered
+			// through the same call the commit menu makes and then reloaded into:
+			// the surface has to be reached by a load, never by a click.
+			await appWindow.evaluate(async () => {
+				const lite = (window as unknown as { lite: EditModeBridge }).lite;
+				const projectId = location.pathname.split("/")[2];
+				if (projectId === undefined) throw new Error("No project in the URL");
+
+				const { stacks } = await lite.headInfo(projectId);
+				const stack = stacks[0];
+				const commit = stack?.segments.flatMap((segment) => segment.commits)[0];
+				if (!stack || !commit) throw new Error("The seeded project has no commit to edit");
+
+				await lite.enterEditMode({ projectId, commitId: commit.id, stackId: stack.id });
+			});
+			await appWindow.reload();
+			await expect(appWindow.getByRole("heading", { name: "Editing commit" })).toBeVisible();
+
+			// The page centres a 640px column in the whole outlet, so clipping the
+			// outlet would be mostly empty background: clip the column itself.
+			await shoot(appWindow, "edit-mode", '[class*="EditModePage-module_panel"]');
 		});
 	});
 
