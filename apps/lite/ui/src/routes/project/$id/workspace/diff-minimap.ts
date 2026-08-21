@@ -339,6 +339,13 @@ export const getMinimapFiles = ({
 };
 
 /**
+ * Windows of diff below which the native scrollbar says everything a map could:
+ * a couple of flicks of the wheel covers it, and a ruler is only worth its
+ * column once scrolling stops being enough to hold the whole shape in your head.
+ */
+const MIN_MAPPED_WINDOWS = 3;
+
+/**
  * File positions, or null when the diff is too short to be worth mapping.
  *
  * Tops are exact rather than sampled: CodeView lays out every item, including
@@ -352,6 +359,11 @@ export const getMinimapGeometry = (
 	const total = contentHeight(viewer);
 	const first = files[0];
 	if (first === undefined) return null;
+
+	// A window of zero is a pane that hasn't been laid out yet, not a short diff;
+	// the resize that gives it a height brings us back.
+	const window = viewer.getHeight();
+	if (window > 0 && total < window * MIN_MAPPED_WINDOWS) return null;
 
 	const blocks: Array<{ top: number; height: number }> = [];
 
