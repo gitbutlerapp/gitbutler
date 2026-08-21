@@ -46,6 +46,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { initLogging } from "./logging.js";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
+import { initMetrics, metricsOnLogin, shutdownMetrics, withApiCommandCapture } from "./metrics.js";
+import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 
 Object.assign(process.env, interactiveLoginShellEnvironment());
 
@@ -342,8 +344,14 @@ const registerIpcHandlers = (): void => {
 		ipcMain.handle(channel, senderValidatingListener);
 	};
 
-	for (const [name, handler] of createEndpointTable(electronHandlerOverrides))
-		senderValidatingHandle(name, (_e, params: unknown) => handler(params));
+	for (const [name, handler] of createEndpointTable(electronHandlerOverrides)) {
+		// Only but-api endpoints record `api_command`; the host's own members
+		// (clipboard, settings, dialogs) do not.
+		const captureWrapped = Object.hasOwn(apiParamNames, name)
+			? withApiCommandCapture(name, handler)
+			: handler;
+		senderValidatingHandle(name, (_e, params: unknown) => captureWrapped(params));
+	}
 	senderValidatingHandle("watcherUnsubscribe", (_e, { subscriptionId }: WatcherUnsubscribeParams) =>
 		WatcherManager.getInstance().removeSubscription(subscriptionId),
 	);
@@ -433,7 +441,8 @@ const completeLogin = async (url: URL): Promise<boolean> => {
 	if (accessToken === null) return true;
 
 	try {
-		await sdk.loginAndPersist(accessToken);
+		const profile = await sdk.loginAndPersist(accessToken);
+		void metricsOnLogin(profile);
 	} catch (error) {
 		// oxlint-disable-next-line no-console
 		console.error("Failed to sign in from a login link", error);
@@ -573,6 +582,10 @@ void app.whenReady().then(async () => {
 	configureAskpass();
 
 	if (app.isPackaged) {
+		// Packaged-only so dev builds send nothing, and awaited so the client
+		// exists before the IPC handlers and the launch-link login below run.
+		await initMetrics(app.getVersion());
+
 		registerLiteProtocolHandler();
 
 		// Basic non-Strict CSP based on https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html#basic-non-strict-csp-policy
@@ -682,12 +695,20 @@ void app.whenReady().then(async () => {
 	});
 });
 
-app.on("before-quit", () => {
-	WatcherManager.getInstance().destroy();
+app.on("before-quit", (event) => {
+	WatcherManager.destroyInstance();
+
+	// The metrics queue lives in memory, so hold the quit until it has
+	// flushed; the re-issued quit finds nothing to flush and goes through.
+	const flushing = shutdownMetrics();
+	if (flushing !== null) {
+		event.preventDefault();
+		void flushing.then(() => app.quit());
+	}
 });
 
 app.on("window-all-closed", () => {
-	WatcherManager.getInstance().destroy();
+	WatcherManager.destroyInstance();
 	if (process.platform !== "darwin") app.quit();
 });
 

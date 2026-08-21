@@ -1,6 +1,7 @@
 import { app, type BrowserWindow, dialog } from "electron";
 import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent } from "electron-updater";
 import { env } from "node:process";
+import { shutdownMetrics } from "./metrics.js";
 
 let updaterWindow: BrowserWindow | null = null;
 let updaterRegistered = false;
@@ -28,7 +29,12 @@ const showUpdateDownloadedDialog = async (event: UpdateDownloadedEvent): Promise
 		detail: "Restart GitButler to install the update, or keep working and it installs on quit.",
 	});
 
-	if (response === 0) getAutoUpdater().quitAndInstall(false);
+	if (response === 0) {
+		// Flush metrics here; left to the quit handler it would preventDefault
+		// the updater's own quit and break the restart-into-new-version flow.
+		await shutdownMetrics();
+		getAutoUpdater().quitAndInstall(false);
+	}
 };
 
 export const registerUpdater = (mainWindow: BrowserWindow): void => {
