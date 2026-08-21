@@ -13,10 +13,12 @@ test.describe("branches", () => {
 		await expect(secondCommit).toHaveCount(0);
 		await expect(firstCommit).toHaveCount(0);
 
-		await appWindow.keyboard.press("ControlOrMeta+Shift+A");
-
 		const picker = appWindow.getByRole("dialog", { name: "Apply branch" });
-		await expect(picker).toBeVisible();
+		// Hotkeys register in a passive effect, so retry the keypress if the workspace renders first.
+		await expect(async () => {
+			await appWindow.keyboard.press("ControlOrMeta+Shift+A");
+			await expect(picker).toBeVisible({ timeout: 500 });
+		}).toPass({ timeout: 5_000 });
 
 		const search = picker.getByRole("combobox", { name: /search for branches/i });
 		await search.fill("branch1");
