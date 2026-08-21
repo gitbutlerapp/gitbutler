@@ -31,6 +31,7 @@ use but_api::{
 };
 
 pub mod ai;
+pub mod logs;
 pub mod settings;
 
 type EventCallback = ThreadsafeFunction<WatcherEvent>;

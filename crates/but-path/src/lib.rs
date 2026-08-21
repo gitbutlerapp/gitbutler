@@ -71,17 +71,26 @@ pub fn app_data_dir_for_channel(channel: AppChannel) -> anyhow::Result<PathBuf> 
 /// this function returns `<E2E_TEST_APP_DATA_DIR>/logs` instead of the platform-specific
 /// default directories above. This override always ignores the compile-time channel.
 pub fn app_log_dir() -> anyhow::Result<PathBuf> {
+    app_log_dir_for_identifier(identifier())
+}
+
+/// Like [`app_log_dir()`], but for an explicit bundle `identifier`, for applications
+/// outside the desktop app's channels (like GitButler Lite).
+///
+/// Follows the same platform-specific locations and honors the same
+/// `E2E_TEST_APP_DATA_DIR` override, which ignores `identifier`.
+pub fn app_log_dir_for_identifier(identifier: &str) -> anyhow::Result<PathBuf> {
     if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("logs"));
     }
     if cfg!(target_os = "macos") {
         dirs::home_dir()
             .with_context(|| "Couldn't resolve home directory")
-            .map(|dir| dir.join("Library/Logs").join(identifier()))
+            .map(|dir| dir.join("Library/Logs").join(identifier))
     } else {
         dirs::data_local_dir()
             .with_context(|| "Couldn't resolve local data directory")
-            .map(|dir| dir.join(identifier()).join("logs"))
+            .map(|dir| dir.join(identifier).join("logs"))
     }
 }
 

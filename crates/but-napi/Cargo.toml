@@ -49,6 +49,8 @@ napi-derive = "3"
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+tracing-appender = "0.2.5"
+tracing-subscriber.workspace = true
 tokio.workspace = true
 
 [build-dependencies]
