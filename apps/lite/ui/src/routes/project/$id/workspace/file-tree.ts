@@ -136,12 +136,15 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	items,
 	mode,
 	collapsedDirectories,
+	compare,
 }: {
 	items: Array<T>;
 	mode: FileDisplayMode;
 	collapsedDirectories: Record<string, true>;
+	/** Row order; path order when absent. Tree mode still groups by directory around it. */
+	compare?: (a: T, b: T) => number;
 }): Array<FileTreeRow<T>> => {
-	const orderedItems = items.toSorted((a, b) => compareFilePaths(a.path, b.path));
+	const orderedItems = items.toSorted(compare ?? ((a, b) => compareFilePaths(a.path, b.path)));
 
 	if (mode === "list") {
 		return orderedItems.map((item, index) => ({

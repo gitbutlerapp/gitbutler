@@ -1,4 +1,6 @@
 #![allow(missing_docs)]
+use std::collections::BTreeMap;
+
 use bstr::BString;
 use but_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
@@ -81,6 +83,10 @@ pub struct WorktreeChanges {
     pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// Filesystem modification times in milliseconds since the Unix epoch, keyed by
+    /// the same (lossy) path as [`TreeChange::path`]. A path with nothing on disk to
+    /// stat — a deletion — is absent.
+    pub modification_times: BTreeMap<String, u64>,
 }
 
 impl WorktreeChanges {
@@ -105,6 +111,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
         WorktreeChanges {
             changes: changes.into_iter().map(Into::into).collect(),
             ignored_changes,
+            modification_times: BTreeMap::new(),
         }
     }
 }

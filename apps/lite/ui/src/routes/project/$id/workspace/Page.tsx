@@ -492,6 +492,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		projectSlice.selectors.selectUncommittedFilesFilter(state, projectId),
 	);
 	const uncommittedFilesDisplayMode = useFileDisplayMode();
+	const uncommittedFilesRecentFirst = useAppSelector((state) =>
+		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
+	);
 	const uncommittedFilesCollapsedDirectories = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesCollapsedDirectories(state, projectId),
 	);
@@ -500,6 +503,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		filter: uncommittedFilesFilter,
 		mode: uncommittedFilesDisplayMode,
 		collapsedDirectories: uncommittedFilesCollapsedDirectories,
+		recentFirst: uncommittedFilesRecentFirst,
 	});
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.

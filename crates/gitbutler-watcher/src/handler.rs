@@ -116,8 +116,12 @@ impl Handler {
             context_lines,
         )?;
 
+        let mut worktree_changes: but_core::ui::WorktreeChanges = wt_changes.clone().into();
+        worktree_changes.modification_times =
+            but_core::diff::ui::modification_times(&repo, &worktree_changes);
+
         let changes = but_hunk_assignment::WorktreeChanges {
-            worktree_changes: wt_changes.clone().into(),
+            worktree_changes,
             assignments: assignments.clone(),
             assignments_error: assignments_error.clone(),
             dependencies: dependencies.as_ref().ok().cloned(),
