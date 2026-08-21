@@ -1,11 +1,10 @@
+import { POSTHOG_API_KEY } from "$lib/analytics/posthogKey";
 import posthog from "posthog-js";
 import type { User } from "$lib/user/userService";
 
-const API_KEY = "phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG";
-
 export function initPostHog() {
 	if (location.hostname !== "gitbutler.com") return;
-	posthog.init(API_KEY, {
+	posthog.init(POSTHOG_API_KEY, {
 		api_host: "https://eu.posthog.com",
 		defaults: "2026-06-25",
 		cookie_persisted_properties: ["app_distinct_id"],
