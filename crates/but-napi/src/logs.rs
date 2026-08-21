@@ -55,9 +55,12 @@ fn init(identifier: &str, also_to_stderr: bool) -> anyhow::Result<String> {
         *slot = Some(guard);
     }
 
+    // An unset (or unparsable) LOG_LEVEL means `info`. Don't feed "" to the
+    // parser: `LevelFilter` parses the empty string as `ERROR`.
     let log_level = std::env::var("LOG_LEVEL")
-        .unwrap_or_default()
-        .parse::<LevelFilter>()
+        .ok()
+        .filter(|value| !value.is_empty())
+        .and_then(|value| value.parse::<LevelFilter>().ok())
         .unwrap_or(LevelFilter::INFO)
         .into_level();
     let filter = filter_fn(move |meta| should_log(log_level, meta));
