@@ -148,6 +148,7 @@
 		"atomically": "^2.1.1",
 		"effect": "^3.20.0",
 		"electron-devtools-installer": "^4.0.0",
+		"electron-log": "^5.4.4",
 		"electron-updater": "^6.8.4",
 		"fuse.js": "^7.1.0",
 		"idb-keyval": "^6.3.0",

@@ -44,6 +44,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { initLogging } from "./logging.js";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
 
 Object.assign(process.env, interactiveLoginShellEnvironment());
@@ -539,6 +540,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 void app.whenReady().then(async () => {
+	initLogging();
 	applyGUISettings(await readSettings());
 	await initApplicationNamespace(null);
 	configureAskpass();

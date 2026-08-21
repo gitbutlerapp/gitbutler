@@ -1267,6 +1267,18 @@ export const HORIZ_PARENT: number
 export const HORIZONTAL: number
 
 /**
+ * Initialize tracing for the process, writing daily-rotated `GitButler.<date>.log`
+ * files into the platform's log directory for the given bundle `identifier`
+ * (see `but_path::app_log_dir_for_identifier`), keeping at most 14 of them.
+ * Returns the resolved log directory so the host can write its own logs there too.
+ *
+ * Verbosity comes from the `LOG_LEVEL` environment variable (default `info`).
+ * With `also_to_stderr`, logs are additionally written to stderr, which is useful
+ * during development. Fails if a global tracing subscriber is already installed.
+ */
+export declare function initTracing(identifier: string, alsoToStderr: boolean): string
+
+/**
  * Return the interactive login shell environment for GUI launches.
  *
  * Returns an empty map when launched from a terminal or on Windows, where shell startup may block.
@@ -1308,6 +1320,13 @@ export const RIGHT_MERGE_ANCESTOR: number
 
 /** The child of this cell is linked to parents on the right. */
 export const RIGHT_MERGE_PARENT: number
+
+/**
+ * Flush and stop the log file writer. Call once at application shutdown:
+ * destructors of process statics never run at exit, so without this the most
+ * recently buffered log lines would be lost.
+ */
+export declare function shutdownTracing(): void
 
 /** Stream a text response from the configured provider. */
 export declare function streamAiResponse(systemMessage: string, prompt: string, onToken: ((err: Error | null, arg: string) => void)): Promise<string>
