@@ -26,6 +26,7 @@ use tauri_plugin_log::{Target, TargetKind};
 
 fn main() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
+    but_api::fd_limit::raise_soft_limit();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
