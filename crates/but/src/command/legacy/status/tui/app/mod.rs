@@ -1593,7 +1593,10 @@ impl App {
                     ctx,
                     &mut meta,
                     guard.write_permission(),
-                    NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation { name: None }),
+                    NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
+                        name: None,
+                        switch: false,
+                    }),
                 )?;
 
                 outcome.name.shorten().to_string()
