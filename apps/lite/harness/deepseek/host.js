@@ -46,7 +46,9 @@ return {
 
 		// Find the repo root: the client-forwarded workdir first, then every
 		// durable workspace path, then the sandbox root as a last resort. The
-		// first one containing apps/lite/harness/deepseek/cli.mjs wins.
+		// first one containing apps/lite/harness/deepseek/cli.mjs wins. The
+		// probe uses an absolute path (no cwd), matching the read path the fs
+		// service is proven to serve from the vm sandbox.
 		const findRepoRoot = async (workdir) => {
 			const candidates = [];
 			if (workdir) candidates.push(workdir);
@@ -66,11 +68,15 @@ return {
 			}
 			for (const candidate of candidates) {
 				try {
-					const target = await fs.resolve("apps/lite/harness/deepseek/cli.mjs", { cwd: candidate });
+					const absolute = candidate + "/apps/lite/harness/deepseek/cli.mjs";
+					const target = await fs.resolve(absolute);
 					const info = await fs.stat(target);
-					if (info) return candidate;
-				} catch (ignored) {
-					/* try next */
+					if (info && info.type === "file") return candidate;
+				} catch (error) {
+					console.error(
+						"GitButler panel: probe failed for " + candidate,
+						(error && error.message) || String(error),
+					);
 				}
 			}
 			throw new Error(
@@ -204,13 +210,13 @@ return {
 			harness.handle("but.bundle", async () => {
 				const b = await ensureBridge();
 				if (!b.bundle) {
-					const read = async (rel) => {
-						const target = await fs.resolve(rel, { cwd: b.root });
+					const read = async (absolute) => {
+						const target = await fs.resolve(absolute);
 						return fs.readText(target);
 					};
 					const [js, css] = await Promise.all([
-						read("apps/lite/dist/harness/browser.js"),
-						read("apps/lite/dist/harness/lite.css"),
+						read(b.root + "/apps/lite/dist/harness/browser.js"),
+						read(b.root + "/apps/lite/dist/harness/lite.css"),
 					]);
 					b.bundle = { js: js, css: css };
 				}
