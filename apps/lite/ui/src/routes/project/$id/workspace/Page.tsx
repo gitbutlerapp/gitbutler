@@ -42,7 +42,16 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Activity, useCallback, useDeferredValue, useMemo, useRef } from "react";
+import {
+	type FC,
+	Activity,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchAddress,
@@ -51,10 +60,10 @@ import {
 	addressEquals,
 	addressIdentityKey,
 	type BranchAddress,
-	type HunkAddress,
 	type Address,
 	uncommittedChangesFileParent,
 } from "#ui/addresses.ts";
+import type { DiffLineSelection } from "#ui/cursors.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
@@ -401,8 +410,8 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
-		(itemId: string, firstHunk: HunkAddress | null) => {
-			setCursor("diff", firstHunk);
+		(itemId: string, firstSelection: DiffLineSelection | null) => {
+			setCursor("diff", firstSelection);
 
 			if (renderAllFiles) {
 				didScrollToViaFileRef.current = true;
@@ -579,7 +588,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				: null;
 
 		setCursor("uncommitted", selection);
-		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstHunk);
+		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstSelection);
 	};
 
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
@@ -635,6 +644,24 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	]);
 
 	const deferredDetails = useDeferredValue(details);
+	const [focusRestoreRequest, setFocusRestoreRequest] = useState<{ scope: FocusScope } | null>(
+		null,
+	);
+	const consumedFocusRestoreRequest = useRef(focusRestoreRequest);
+	// The event callback cannot restore focus itself: the router settles before deferred details do.
+	// oxlint-disable react-you-might-not-need-an-effect/no-event-handler
+	useEffect(() => {
+		if (
+			focusRestoreRequest === null ||
+			consumedFocusRestoreRequest.current === focusRestoreRequest ||
+			deferredDetails !== details
+		)
+			return;
+
+		focusScope(focusRestoreRequest.scope);
+		consumedFocusRestoreRequest.current = focusRestoreRequest;
+	}, [deferredDetails, details, focusRestoreRequest]);
+	// oxlint-enable react-you-might-not-need-an-effect/no-event-handler
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((candidate) => candidate.id === projectId);
@@ -729,7 +756,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				</Panel>
 			</Group>
 
-			<OperationControls projectId={projectId} appliedAddressSpace={appliedAddressSpace} />
+			<OperationControls
+				projectId={projectId}
+				appliedAddressSpace={appliedAddressSpace}
+				onFocusRestore={(scope) => setFocusRestoreRequest({ scope })}
+			/>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

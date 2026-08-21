@@ -19,17 +19,19 @@ import type { PageId, ActiveList } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
-import { store, useAppSelector } from "#ui/store.ts";
-import { resolveAddressSpaceSelection, type AddressSpace } from "#ui/workspace/address-space.ts";
+import { store } from "#ui/store.ts";
+import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { isFocusScope } from "#ui/focus.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 
 /**
  * The one way in and out of navigation state. The URL holds the page, the
- * active list and every addressable cursor; the store holds only the diff
- * cursor (see cursor-url.ts for why). Callers never see the split: reads are
+ * active list and the five item cursors; the store holds the exact diff line
+ * selection (see cursor-url.ts for why). Callers never see the split: reads are
  * hooks here, writes are plain calls — the router and the store are both
  * module-level, so moving a cursor needs no dispatch and no hook.
  */
@@ -92,37 +94,23 @@ const resolveCursorParam = <L extends UrlCursorName>(
 	null;
 
 /** The cursor resolved against what the list currently shows. */
-export const useSelection = <L extends CursorName>(
+export const useSelection = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 ): CursorItem[L] | null => {
-	// Both stores are subscribed unconditionally so hook order never depends
-	// on the list; every call site passes a literal list name anyway.
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) =>
-			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
+		select: (params: UrlQueryParams): string | undefined => params[list],
 	});
-	const storedDiff = useAppSelector((state) =>
-		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
-	);
 
-	return (
-		isUrlCursor(list)
-			? resolveCursorParam(list, param, addressSpace as never)
-			: resolveAddressSpaceSelection(
-					addressSpace as AddressSpace<CursorItem["diff"]>,
-					storedDiff,
-					cursorKey.diff,
-				)
-	) as CursorItem[L] | null;
+	return resolveCursorParam(list, param, addressSpace);
 };
 
 /**
  * Whether the resolved cursor rests on `item`. A primitive, so a cursor move
  * re-renders the two affected rows rather than the whole list.
  */
-export const useIsCursorAt = <L extends CursorName>(
+export const useIsCursorAt = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 	item: CursorItem[L],
@@ -197,7 +185,10 @@ export const useSidebarFocusScope = (): "sidebar" | "uncommitted-files" =>
 let requestedParams: UrlQueryParams | null = null;
 
 /** Within-page state never creates history entries (ruled 2026-08-13). */
-const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void => {
+const navigateParams = (
+	update: (prev: UrlQueryParams) => UrlQueryParams,
+	onSettled?: () => void,
+): void => {
 	// Start from the pending request if one is in flight, else from the live
 	// params. Applied here rather than handed to the router as an updater: the
 	// router would call it with a `prev` snapshotted before the URL was parsed,
@@ -208,7 +199,10 @@ const navigateParams = (update: (prev: UrlQueryParams) => UrlQueryParams): void 
 		// This write has landed, so the live params now hold everything it knew:
 		// clear the marker. Unless a newer write replaced it — that one is still
 		// in flight and stands on its own.
-		if (requestedParams === search) requestedParams = null;
+		if (requestedParams === search) {
+			requestedParams = null;
+			onSettled?.();
+		}
 		writeLastPlace(projectIdOf(), router.state.location.searchStr);
 	});
 };
@@ -272,6 +266,14 @@ export const setActiveList = (list: ActiveList): void => {
 
 /* -------------------------- pending operations with restoration */
 
+const snapshotWorkspaceFocus = (): FocusScope | null => {
+	const activeElement = document.activeElement;
+	if (!(activeElement instanceof Element)) return null;
+
+	const scope = activeElement.closest<HTMLElement>("[data-focus-scope]")?.dataset.focusScope;
+	return scope !== undefined && isFocusScope(scope) ? scope : null;
+};
+
 const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	const params = currentParams();
 	return {
@@ -284,15 +286,21 @@ const snapshotWorkspaceCursors = (): WorkspaceCursorSnapshot => {
 	};
 };
 
-const restoreWorkspaceCursors = (snapshot: WorkspaceCursorSnapshot): void => {
-	navigateParams((prev) => ({
-		...prev,
-		page: snapshot.page,
-		active: snapshot.active,
-		applied: snapshot.applied,
-		uncommitted: snapshot.uncommitted,
-		files: snapshot.files,
-	}));
+const restoreWorkspaceCursors = (
+	snapshot: WorkspaceCursorSnapshot,
+	onSettled?: () => void,
+): void => {
+	navigateParams(
+		(prev) => ({
+			...prev,
+			page: snapshot.page,
+			active: snapshot.active,
+			applied: snapshot.applied,
+			uncommitted: snapshot.uncommitted,
+			files: snapshot.files,
+		}),
+		onSettled,
+	);
 	setDiffCursor(snapshot.diff);
 };
 
@@ -305,17 +313,20 @@ export const startKeyboardTransfer = ({
 	kind: TransferKind;
 	placement?: "above" | "below" | "into";
 }): void => {
+	const projectId = projectIdOf();
 	const restoreSelection = snapshotWorkspaceCursors();
+	const restoreFocus = snapshotWorkspaceFocus();
 	if (restoreSelection.page !== undefined)
 		navigateParams((prev) => ({ ...prev, page: undefined, active: undefined }));
 
 	store.dispatch(
 		projectSlice.actions.startKeyboardTransfer({
-			projectId: projectIdOf(),
+			projectId,
 			sources,
 			kind,
 			placement,
 			restoreSelection,
+			restoreFocus,
 		}),
 	);
 };
@@ -338,8 +349,9 @@ export const startAbsorb = ({
 };
 
 /** Cancel the pending operation and put every cursor back where it found them. */
-export const cancelPendingOperation = (): void => {
-	const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectIdOf());
+const cancelPendingOperation_ = (onFocusRestore?: (focusScope: FocusScope) => void): void => {
+	const projectId = projectIdOf();
+	const pending = projectSlice.selectors.selectPendingOperation(store.getState(), projectId);
 	const restore =
 		pending._tag === "Absorb"
 			? pending.restoreSelection
@@ -347,9 +359,23 @@ export const cancelPendingOperation = (): void => {
 				? pending.value.restoreSelection
 				: null;
 
-	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
-	if (restore) restoreWorkspaceCursors(restore);
+	const restoreFocus =
+		pending._tag === "Transfer" && pending.value._tag === "Keyboard"
+			? pending.value.restoreFocus
+			: null;
+	const requestFocusRestore = () => {
+		if (restoreFocus !== null) onFocusRestore?.(restoreFocus);
+	};
+	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId }));
+	if (restore) restoreWorkspaceCursors(restore, requestFocusRestore);
+	else requestFocusRestore();
 };
+
+export const cancelPendingOperation = (): void => cancelPendingOperation_();
+
+export const cancelPendingOperationAndRestoreFocus = (
+	onFocusRestore: (focusScope: FocusScope) => void,
+): void => cancelPendingOperation_(onFocusRestore);
 
 export const startInlineEdit = (address: InlineEditAddress): void => {
 	setCursor("applied", address);
@@ -396,28 +422,18 @@ export const remapSearchBranch = (oldRef: string, newRef: string): void => {
  * the index — the list stores the resolved value to keep the two in
  * agreement. One effect for every list.
  */
-export const useCursorWriteBack = <L extends CursorName>(
+export const useCursorWriteBack = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 ): void => {
 	const resolved = useSelection(list, addressSpace);
 	const storedParam = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) =>
-			isUrlCursor(list) ? params[list as UrlCursorName] : undefined,
+		select: (params: UrlQueryParams): string | undefined => params[list],
 	});
-	const storedDiff = useAppSelector((state) =>
-		projectSlice.selectors.selectDiffCursor(state, projectIdOf()),
-	);
 
 	const outOfSync =
-		resolved !== null &&
-		(isUrlCursor(list)
-			? storedParam !== encodeUnion(list, resolved as CursorItem[UrlCursorName])
-			: storedDiff === null ||
-				cursorKey.diff(storedDiff) !== cursorKey.diff(resolved as CursorItem["diff"]))
-			? resolved
-			: null;
+		resolved !== null && storedParam !== encodeUnion(list, resolved) ? resolved : null;
 
 	useEffect(() => {
 		if (outOfSync !== null) setCursor(list, outOfSync);

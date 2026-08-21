@@ -15,6 +15,7 @@ import {
 	weakFileIdentityKey,
 } from "#ui/addresses.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
+import type { DiffLineSelection } from "#ui/cursors.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	processFile,
@@ -132,7 +133,7 @@ export const parsePreparedDiffFile = (
 
 type DiffFileNavigation = {
 	itemId: string;
-	firstHunk: HunkAddress | null;
+	firstSelection: DiffLineSelection | null;
 };
 
 export const getDiffFileNavigation = ({
@@ -157,21 +158,18 @@ export const getDiffFileNavigation = ({
 			if (fstHunk) {
 				const fstSelection = contiguousSelectionsFromHunk(fstHunk).next().value;
 				if (fstSelection) {
+					const range = rangeFromLineGroups(fstSelection.lineGroups);
+					if (!range) return { itemId, firstSelection: null };
 					return {
 						itemId,
-						firstHunk: {
-							parent: file,
-							...fstSelection,
-							isResultOfBinaryToTextConversion:
-								treeChangeDiff.subject.isResultOfBinaryToTextConversion,
-						},
+						firstSelection: { file, range },
 					};
 				}
 			}
 		}
 	}
 
-	return { itemId, firstHunk: null };
+	return { itemId, firstSelection: null };
 };
 
 /** Build relationships between our SDK data and Pierre's view. */

@@ -1,5 +1,10 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { cancelPendingOperation, useSelection, useActiveList } from "#ui/use-cursor.ts";
+import {
+	cancelPendingOperation,
+	cancelPendingOperationAndRestoreFocus,
+	useSelection,
+	useActiveList,
+} from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -31,6 +36,7 @@ import {
 	type KeyboardTransfer,
 	keyboardTransfer,
 } from "#ui/operations/pending-operation.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
@@ -373,7 +379,8 @@ const TransferKeyboardOperationControls: FC<{
 	projectId: string;
 	transfer: KeyboardTransfer;
 	appliedAddressSpace: AddressSpace<Address>;
-}> = ({ headInfoIndex, projectId, transfer, appliedAddressSpace }) => {
+	onFocusRestore: (scope: FocusScope) => void;
+}> = ({ headInfoIndex, projectId, transfer, appliedAddressSpace, onFocusRestore }) => {
 	const activeList = useActiveList();
 	const selection = useSelection("applied", appliedAddressSpace);
 
@@ -397,7 +404,7 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		cancelPendingOperation();
+		cancelPendingOperationAndRestoreFocus(onFocusRestore);
 	};
 
 	return (
@@ -434,7 +441,8 @@ const TransferKeyboardOperationControls: FC<{
 export const OperationControls: FC<{
 	projectId: string;
 	appliedAddressSpace: AddressSpace<Address>;
-}> = ({ projectId, appliedAddressSpace }) => {
+	onFocusRestore: (scope: FocusScope) => void;
+}> = ({ projectId, appliedAddressSpace, onFocusRestore }) => {
 	const pendingOperation = useAppSelector((state) =>
 		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
@@ -473,6 +481,7 @@ export const OperationControls: FC<{
 									projectId={projectId}
 									transfer={transfer}
 									appliedAddressSpace={appliedAddressSpace}
+									onFocusRestore={onFocusRestore}
 								/>
 							),
 					}),

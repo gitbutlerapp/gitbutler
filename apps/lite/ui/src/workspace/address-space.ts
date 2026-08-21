@@ -34,12 +34,3 @@ export const addressSpaceIncludes = <T>(
 	item: T,
 	getKey: (item: T) => string,
 ): boolean => addressSpace.indexByKey.has(getKey(item));
-
-export const resolveAddressSpaceSelection = <T>(
-	addressSpace: AddressSpace<T>,
-	selection: T | null,
-	getKey: (item: T) => string,
-): T | null =>
-	selection !== null && addressSpaceIncludes(addressSpace, selection, getKey)
-		? selection
-		: (addressSpace.items[0] ?? null);

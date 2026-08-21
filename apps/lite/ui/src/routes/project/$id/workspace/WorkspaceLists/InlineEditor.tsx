@@ -4,6 +4,7 @@ import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type FC, useId, useRef } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import styles from "./InlineEditor.module.css";
 
 export const InlineEditor: FC<{
@@ -18,6 +19,11 @@ export const InlineEditor: FC<{
 	const name = useId();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+
+	// Don't open the containing row's context menu, allowing our input-native context menu to
+	// activate via Electron instead.
+	const stopContextMenuPropagation = (event: ReactMouseEvent): void => event.stopPropagation();
+
 	const submitAction = (formData: FormData) => {
 		onExit();
 		onSubmit(formData.get(name) as string);
@@ -50,9 +56,19 @@ export const InlineEditor: FC<{
 					className={styles.input}
 					render={
 						multiline ? (
-							<textarea ref={allTextFieldRefs} name={name} defaultValue={value} />
+							<textarea
+								ref={allTextFieldRefs}
+								name={name}
+								defaultValue={value}
+								onContextMenu={stopContextMenuPropagation}
+							/>
 						) : (
-							<input ref={allTextFieldRefs} name={name} defaultValue={value} />
+							<input
+								ref={allTextFieldRefs}
+								name={name}
+								defaultValue={value}
+								onContextMenu={stopContextMenuPropagation}
+							/>
 						)
 					}
 				/>

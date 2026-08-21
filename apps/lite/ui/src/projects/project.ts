@@ -30,6 +30,7 @@ import {
 	cursorKey,
 	remapDiffCursor,
 	remapDiffCursorBranch,
+	type DiffLineSelection,
 	type WorkspaceCursorSnapshot,
 } from "#ui/cursors.ts";
 import { createSelector } from "@reduxjs/toolkit";
@@ -43,6 +44,7 @@ import {
 	type BranchesState,
 } from "./branches.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import {
 	createInitialUpstreamState,
 	getUpstreamSelectors,
@@ -82,10 +84,9 @@ type WorkspaceState = {
 	selectedBranchTabs: Record<string, BranchTab>;
 	/**
 	 * The diff cursor. Its five siblings live in the URL (use-cursor.ts); this
-	 * one's identity is the exact selected line groups, which no legible param
-	 * carries, so it stays here behind the same seam.
+	 * one holds an exact visual line range in Redux instead of a URL query param.
 	 */
-	diffCursor: HunkAddress | null;
+	diffCursor: DiffLineSelection | null;
 	/**
 	 * File filter queries, or `null` while a filter is closed. An open but empty
 	 * filter is not the same as a closed one: it keeps the input in place and the
@@ -141,7 +142,10 @@ export const createInitialProjectState = (): ProjectState => ({
 });
 
 export const projectReducers = {
-	selectDiffCursor: (state: ProjectState, { selection }: { selection: HunkAddress | null }) => {
+	selectDiffCursor: (
+		state: ProjectState,
+		{ selection }: { selection: DiffLineSelection | null },
+	) => {
 		const current = state.workspace.diffCursor;
 		if (
 			selection !== null &&
@@ -205,11 +209,13 @@ export const projectReducers = {
 			kind,
 			placement,
 			restoreSelection,
+			restoreFocus,
 		}: {
 			sources: Array<Address>;
 			kind: TransferKind;
 			placement?: Placement;
 			restoreSelection: WorkspaceCursorSnapshot;
+			restoreFocus: FocusScope | null;
 		},
 	) => {
 		state.workspace.pendingOperation = pendingTransfer(
@@ -218,6 +224,7 @@ export const projectReducers = {
 				kind,
 				placement: placement ?? "into",
 				restoreSelection,
+				restoreFocus,
 			}),
 		);
 	},
@@ -271,6 +278,7 @@ export const projectReducers = {
 						kind: transfer.kind,
 						placement,
 						restoreSelection: transfer.restoreSelection,
+						restoreFocus: transfer.restoreFocus,
 					}),
 				);
 			}),
@@ -289,6 +297,7 @@ export const projectReducers = {
 						kind,
 						placement: transfer.placement,
 						restoreSelection: transfer.restoreSelection,
+						restoreFocus: transfer.restoreFocus,
 					}),
 				);
 			}),
