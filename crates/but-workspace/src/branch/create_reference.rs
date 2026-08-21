@@ -330,30 +330,29 @@ pub(super) mod function {
 
                 AnchorResolution::positioned(ref_target_id, validate_id, instruction)
             }
-            Some(Anchor::AtSegment { ref_name, position }) => {
+            Some(Anchor::AtSegment {
+                ref_name: anchor_ref,
+                position,
+            }) => {
                 let mut validate_id = true;
                 let ref_target_id = if workspace.has_metadata() {
                     let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
+                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
-                    let id = workspace
+                    workspace
                         .tip_commit_by_segment_id(segment.id)
                         .map(|commit| position.resolve_commit(commit.into(), ws_base))
                         .context(
                             "BUG: we should always see through to the base or eligible commits",
-                        )??;
-                    if Some(id) == ws_base {
-                        validate_id = false
-                    }
-                    id
+                        )??
                 } else {
                     let Some((_stack, segment)) =
-                        workspace.find_segment_and_stack_by_refname(ref_name.as_ref())
+                        workspace.find_segment_and_stack_by_refname(anchor_ref.as_ref())
                     else {
                         bail!(
                             "Could not find a segment named '{}' in workspace",
-                            ref_name.shorten()
+                            anchor_ref.shorten()
                         );
                     };
                     position.resolve_commit(
@@ -365,11 +364,42 @@ pub(super) mod function {
                         ws_base,
                     )?
                 };
-                AnchorResolution::positioned(
+                let points_to_workspace_base = Some(ref_target_id) == ws_base;
+                if points_to_workspace_base {
+                    validate_id = false;
+                }
+                // The lower bound owns no commits, so an ad-hoc workspace needs explicit ref
+                // ordering to project the new empty segment at that boundary.
+                let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
+                    if !meta.can_persist_branch_stack_order() {
+                        bail_precondition!(
+                            "Cannot position '{new}' relative to local reference '{anchor}' at the workspace base without branch order metadata",
+                            new = ref_name.shorten(),
+                            anchor = anchor_ref.shorten()
+                        );
+                    }
+                    let existing_order = meta
+                        .branch_stack_order(anchor_ref.as_ref())?
+                        .unwrap_or_default();
+                    Some(insert_into_branch_stack_order(
+                        existing_order,
+                        anchor_ref.as_ref(),
+                        ref_name,
+                        position,
+                    ))
+                } else {
+                    None
+                };
+                let mut resolution = AnchorResolution::positioned(
                     ref_target_id,
                     validate_id,
-                    Some(Instruction::Dependent { ref_name, position }),
-                )
+                    Some(Instruction::Dependent {
+                        ref_name: anchor_ref,
+                        position,
+                    }),
+                );
+                resolution.branch_stack_order = branch_stack_order;
+                resolution
             }
             // Position relative to another *reference* on the same commit. Managed workspaces
             // order these in workspace metadata; ad-hoc workspaces record the order in the

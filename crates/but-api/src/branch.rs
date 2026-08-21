@@ -843,6 +843,7 @@ pub fn apply_only_with_perm(
             workspace_reference_naming: WorkspaceReferenceNaming::default(),
             order: None,
             new_stack_id: None,
+            allow_applying_already_applied_branch_when_outside_workspace: false,
         },
     )?;
 

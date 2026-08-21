@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use anyhow::Context as _;
+use anyhow::{Context as _, bail};
 use but_core::{
     DryRun, RefMetadata,
-    ref_metadata::StackId,
+    ref_metadata::{ProjectMeta, StackId},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -36,7 +36,6 @@ pub fn new(
     args: NewPlatform,
 ) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let operation = {
@@ -44,6 +43,7 @@ pub fn new(
         resolve(ctx, guard.read_permission(), args, &head_info, &id_map)?
     };
 
+    let mut meta = ctx.meta()?;
     Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
 }
 
@@ -85,7 +85,9 @@ fn resolve(
     };
 
     match (above, below) {
-        (None, None) => Ok(NewOperation::NewUnstackedBranch { name }),
+        (None, None) => Ok(NewOperation::NewUnstackedBranch(
+            NewUnstackedBranchOperation { name },
+        )),
         (None, Some(target_below)) => {
             let target = resolve_above_below_target(&repo, id_map, target_below)?;
 
@@ -98,19 +100,19 @@ fn resolve(
                 }
             }
 
-            Ok(NewOperation::NewStackedBranch {
+            Ok(NewOperation::NewStackedBranch(NewStackedBranchOperation {
                 name,
                 target,
                 side: Side::Below,
-            })
+            }))
         }
         (Some(target_above), None) => {
             let target = resolve_above_below_target(&repo, id_map, target_above)?;
-            Ok(NewOperation::NewStackedBranch {
+            Ok(NewOperation::NewStackedBranch(NewStackedBranchOperation {
                 name,
                 target,
                 side: Side::Above,
-            })
+            }))
         }
         (Some(_), Some(_)) => {
             unreachable!("--above and --below are mutually exclusive in the clap args")
@@ -141,14 +143,18 @@ fn resolve_above_below_target(
 }
 
 pub enum NewOperation {
-    NewUnstackedBranch {
-        name: Option<FullName>,
-    },
-    NewStackedBranch {
-        name: Option<FullName>,
-        target: NewStackedBranchTarget,
-        side: Side,
-    },
+    NewUnstackedBranch(NewUnstackedBranchOperation),
+    NewStackedBranch(NewStackedBranchOperation),
+}
+
+pub struct NewUnstackedBranchOperation {
+    pub name: Option<FullName>,
+}
+
+pub struct NewStackedBranchOperation {
+    pub name: Option<FullName>,
+    pub target: NewStackedBranchTarget,
+    pub side: Side,
 }
 
 pub enum NewStackedBranchTarget {
@@ -162,89 +168,270 @@ pub fn run(
     perm: &mut RepoExclusive,
     operation: NewOperation,
 ) -> anyhow::Result<NewOutcome> {
-    let in_single_branch_mode = ctx.settings.feature_flags.single_branch
-        && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?;
-    let mut checkout_after_create = false;
+    match operation {
+        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, meta, perm),
+        NewOperation::NewStackedBranch(op) => op.execute(ctx, meta, perm),
+    }
+}
 
-    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
-    let (name, _ws) = but_transaction::with_transaction_with_perm(
-        ctx,
-        meta,
-        perm,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            let new_ref = match &operation {
-                NewOperation::NewStackedBranch { name, .. }
-                | NewOperation::NewUnstackedBranch { name } => {
-                    if let Some(name) = name {
-                        name.clone()
-                    } else {
-                        but_core::branch::unique_canned_refname(tx.repo())?
-                    }
-                }
-            };
+impl NewUnstackedBranchOperation {
+    fn execute(
+        self,
+        ctx: &mut Context,
+        meta: &mut impl RefMetadata,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<NewOutcome> {
+        let in_single_branch_mode = ctx.settings.feature_flags.single_branch
+            && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?;
 
-            let anchor = match &operation {
-                NewOperation::NewUnstackedBranch { name: _ } => None,
-                NewOperation::NewStackedBranch {
-                    name: _,
-                    target,
-                    side,
-                } => Some(match target {
-                    NewStackedBranchTarget::Commit(commit_target) => Anchor::AtCommit {
-                        commit_id: commit_target.commit_id,
-                        position: (*side).into(),
-                    },
-                    NewStackedBranchTarget::Branch(branch_target) => {
-                        Anchor::at_segment(branch_target.as_ref(), (*side).into())
-                    }
-                }),
-            };
-
-            let anchor = if let Some(anchor) = anchor {
-                match anchor {
-                    Anchor::AtSegment { position, ref_name }
-                        if matches!(position, Position::Above) && in_single_branch_mode =>
-                    {
-                        let head_name = head_name(tx.repo())?;
-                        if &*ref_name == head_name.as_ref() {
-                            Some(single_branch_mode_anchor(
-                                head_name,
-                                &mut checkout_after_create,
-                            )?)
-                        } else {
-                            Some(Anchor::AtReference { ref_name, position })
-                        }
-                    }
-                    _ => Some(anchor),
-                }
-            } else if in_single_branch_mode {
-                let head_name = head_name(tx.repo())?;
-                Some(single_branch_mode_anchor(
-                    head_name,
-                    &mut checkout_after_create,
-                )?)
-            } else {
-                None
-            };
-
-            tx.create_reference(new_ref.as_ref(), anchor, |_| StackId::generate(), Some(0))?;
-
-            Ok(but_transaction::Commit(new_ref))
-        },
-    )?;
-
-    if checkout_after_create {
-        but_api::branch::branch_checkout_with_perm(ctx, name.clone(), perm)?;
+        if in_single_branch_mode {
+            self.execute_single_branch_mode(ctx, meta, perm)
+        } else {
+            self.execute_workspace_mode(ctx, meta, perm)
+        }
     }
 
-    let target = match operation {
-        NewOperation::NewUnstackedBranch { .. } => None,
-        NewOperation::NewStackedBranch { target, side, .. } => Some((target, side)),
-    };
+    fn execute_workspace_mode(
+        self,
+        ctx: &mut Context,
+        meta: &mut impl RefMetadata,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<NewOutcome> {
+        let Self { name } = self;
 
-    Ok(NewOutcome { name, target })
+        let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+
+        let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
+            ctx,
+            meta,
+            perm,
+            snapshot_details,
+            DryRun::No,
+            |mut tx| {
+                let new_ref = if let Some(name) = name {
+                    name.clone()
+                } else {
+                    but_core::branch::unique_canned_refname(tx.repo())?
+                };
+
+                tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
+
+                Ok(but_transaction::Commit(new_ref))
+            },
+        )?;
+
+        Ok(NewOutcome {
+            name: new_ref,
+            target: None,
+        })
+    }
+
+    fn execute_single_branch_mode(
+        self,
+        ctx: &mut Context,
+        meta: &mut impl RefMetadata,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<NewOutcome> {
+        let Self { name } = self;
+
+        let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+
+        let repo = ctx.repo.get()?;
+        let project_meta = ProjectMeta::resolve(&repo)?;
+        let head_name = head_name(&repo)?;
+
+        let new_ref = if let Some(name) = name {
+            name.clone()
+        } else {
+            but_core::branch::unique_canned_refname(&repo)?
+        };
+
+        let target_ref = project_meta
+            .target_ref
+            .as_ref()
+            .context("BUG: target ref is missing")?;
+
+        let is_on_target =
+            but_core::branch::resolve_tracking_branch_ref_name(head_name.as_ref(), &repo)
+                .is_ok_and(|upstream| &*upstream == target_ref.as_ref());
+
+        if is_on_target {
+            // we're directly on the target then we haven't created any branches yet so
+            // create the branch on top of the target then check it out
+
+            drop(repo);
+
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                meta,
+                perm,
+                snapshot_details,
+                DryRun::No,
+                |mut tx| {
+                    let anchor = Some(Anchor::AtReference {
+                        ref_name: Cow::Owned(head_name),
+                        position: Side::Above.into(),
+                    });
+
+                    tx.create_reference(
+                        new_ref.as_ref(),
+                        anchor,
+                        |_| StackId::generate(),
+                        Some(0),
+                    )?;
+
+                    Ok(())
+                },
+            )?;
+
+            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+        } else {
+            // if we're not on the target then enter a workspace and create the branch
+
+            if repo
+                .try_find_reference(but_core::WORKSPACE_REF_NAME)?
+                .is_none()
+            {
+                // the workspace doesn't exist, create it
+                drop(repo);
+                let target_ref = target_ref.to_string().parse()?;
+                gitbutler_branch_actions::set_base_branch(ctx, &target_ref, perm)?;
+            } else {
+                drop(repo);
+            }
+
+            // make sure the previous branch is applied
+            // if the branch had no commits `set_base_branch` doesn't apply it
+            //
+            // this also has the effect of entering the workspace with one branch applied
+            {
+                let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+                let outcome = but_workspace::branch::apply(
+                    head_name.as_ref(),
+                    ws.clone(),
+                    &repo,
+                    meta,
+                    but_workspace::branch::apply::Options {
+                        allow_applying_already_applied_branch_when_outside_workspace: true,
+                        ..Default::default()
+                    },
+                )?;
+                if outcome.status.persisted_mutation() {
+                    *ws = outcome.workspace.clone();
+                } else {
+                    bail!(
+                        "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
+                        outcome.status
+                    )
+                }
+            };
+
+            but_transaction::with_transaction_with_perm(
+                ctx,
+                meta,
+                perm,
+                snapshot_details,
+                DryRun::No,
+                |mut tx| {
+                    tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
+
+                    Ok(())
+                },
+            )?;
+        }
+
+        Ok(NewOutcome {
+            name: new_ref,
+            target: None,
+        })
+    }
+}
+
+impl NewStackedBranchOperation {
+    fn execute(
+        self,
+        ctx: &mut Context,
+        meta: &mut impl RefMetadata,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<NewOutcome> {
+        let Self { name, target, side } = self;
+
+        let in_single_branch_mode = ctx.settings.feature_flags.single_branch
+            && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm.read_permission())?;
+
+        let mut checkout_after_create = false;
+
+        let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+
+        let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
+            ctx,
+            meta,
+            perm,
+            snapshot_details,
+            DryRun::No,
+            |mut tx| {
+                let new_ref = if let Some(name) = name {
+                    name.clone()
+                } else {
+                    but_core::branch::unique_canned_refname(tx.repo())?
+                };
+
+                let anchor = match &target {
+                    NewStackedBranchTarget::Commit(commit_target) => Anchor::AtCommit {
+                        commit_id: commit_target.commit_id,
+                        position: side.into(),
+                    },
+                    NewStackedBranchTarget::Branch(branch_target) => {
+                        Anchor::at_segment(branch_target.as_ref(), side.into())
+                    }
+                };
+
+                let anchor = if in_single_branch_mode
+                    && let Anchor::AtSegment {
+                        position: position @ Position::Above,
+                        ref_name,
+                    } = anchor
+                {
+                    // creating a new branch above HEAD works differently in single branch mode
+                    // have to use a different anchor type and manually checkout the newly created
+                    // branch
+                    let head_name = head_name(tx.repo())?;
+                    if &*ref_name == head_name.as_ref() {
+                        checkout_after_create = true;
+                        Anchor::AtReference {
+                            ref_name: Cow::Owned(head_name),
+                            position: Side::Above.into(),
+                        }
+                    } else {
+                        Anchor::AtReference { ref_name, position }
+                    }
+                } else {
+                    anchor
+                };
+
+                tx.create_reference(
+                    new_ref.as_ref(),
+                    anchor.clone(),
+                    |_| StackId::generate(),
+                    Some(0),
+                )
+                .with_context(|| {
+                    format!("failed to create reference. anchor={anchor:?}; new_ref={new_ref:?}")
+                })?;
+
+                Ok(but_transaction::Commit(new_ref))
+            },
+        )?;
+
+        if checkout_after_create {
+            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+        }
+
+        Ok(NewOutcome {
+            name: new_ref,
+            target: Some((target, side)),
+        })
+    }
 }
 
 fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
@@ -254,18 +441,6 @@ fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
         .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
         .context("single-branch branch creation requires HEAD to be a local branch")?
         .to_owned())
-}
-
-fn single_branch_mode_anchor(
-    head_name: FullName,
-    checkout_after_create: &mut bool,
-) -> anyhow::Result<Anchor<'static>> {
-    *checkout_after_create = true;
-
-    Ok(Anchor::AtReference {
-        ref_name: Cow::Owned(head_name),
-        position: Side::Above.into(),
-    })
 }
 
 #[must_use]

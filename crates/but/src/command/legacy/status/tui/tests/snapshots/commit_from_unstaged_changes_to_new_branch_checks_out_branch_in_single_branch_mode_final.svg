@@ -2,6 +2,7 @@
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
   <rect x="10" y="64" width="800" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
+  <rect x="770" y="352" width="40" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
     <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
@@ -61,13 +62,11 @@
     <text x="506" y="366" style="fill:#0000AA;">b</text>
     <text x="522 530 538 546 554 562" y="366" style="fill:#CCCCCC;opacity:0.75;">branch</text>
     <text x="578" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="594" y="366" style="fill:#0000AA;">s</text>
-    <text x="610 618 626 634 642" y="366" style="fill:#CCCCCC;opacity:0.75;">stack</text>
-    <text x="658" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="674" y="366" style="fill:#0000AA;">?</text>
-    <text x="690 698 706 714" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
-    <text x="730" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="746" y="366" style="fill:#0000AA;">q</text>
-    <text x="762 770 778 786" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="594" y="366" style="fill:#0000AA;">?</text>
+    <text x="610 618 626 634" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="650" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="666" y="366" style="fill:#0000AA;">q</text>
+    <text x="682 690 698 706" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="778 786 794" y="366" style="fill:#CCCCCC;">SBM</text>
   </g>
 </svg>

@@ -327,6 +327,5 @@ Error: Branch 'A' is merged upstream
 
 Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
 
-
 "#]]);
 }
