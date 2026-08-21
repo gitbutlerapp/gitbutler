@@ -15,6 +15,10 @@ use crate::{
 struct TeardownResult {
     snapshot_id: String,
     checked_out_branch: String,
+    /// Hook cleanup problems; when non-empty, some GitButler hooks are still
+    /// installed and may keep affecting git operations.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    hook_warnings: Vec<String>,
 }
 
 pub(crate) fn teardown(
@@ -156,17 +160,27 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    // Uninstall managed hooks before checking out
-    if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            t.attention
-                .paint(format!("Warning: Failed to uninstall Git hooks: {e}"))
-        )?;
+    // Uninstall managed hooks before checking out. `uninstall_managed_hooks`
+    // reports removal failures as PartialSuccess warnings rather than Err, so
+    // surface those too -- they mean GitButler hooks are still active.
+    let mut hook_warnings = Vec::new();
+    if let Ok(repo) = ctx.repo.get() {
+        hook_warnings = match gitbutler_repo::managed_hooks::uninstall_managed_hooks(&repo) {
+            Ok(gitbutler_repo::managed_hooks::HookInstallationResult::PartialSuccess {
+                warnings,
+            }) => warnings,
+            Ok(_) => Vec::new(),
+            Err(e) => vec![format!("Failed to uninstall Git hooks: {e}")],
+        };
+        if let Some(out) = out.for_human() {
+            for problem in &hook_warnings {
+                writeln!(
+                    out,
+                    "  {}",
+                    t.attention.paint(format!("Warning: {problem}"))
+                )?;
+            }
+        }
     }
 
     // Check out the target branch using Git directly
@@ -228,11 +242,21 @@ pub(crate) fn teardown(
 
     // Final success message
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            t.success.paint("✓ Successfully exited GitButler mode!")
-        )?;
+        if hook_warnings.is_empty() {
+            writeln!(
+                out,
+                "{}",
+                t.success.paint("✓ Successfully exited GitButler mode!")
+            )?;
+        } else {
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint(
+                    "⚠ Exited GitButler mode, but some GitButler hooks could not be removed (see warnings above)."
+                )
+            )?;
+        }
         writeln!(out)?;
         writeln!(
             out,
@@ -251,6 +275,7 @@ pub(crate) fn teardown(
         out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
+            hook_warnings: hook_warnings.clone(),
         })?;
     }
 
