@@ -223,7 +223,8 @@ fn discard_branch_confirm_yes_removes_branch() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 
     tui.input('x')
@@ -255,7 +256,8 @@ fn discard_branch_cancel_keeps_branch() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 
     tui.input('x')
@@ -284,7 +286,8 @@ fn discard_multiple_commits() {
 
     let mut tui = test_status_tui(env);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 
     for msg in ["one", "two", "three"] {
@@ -568,9 +571,11 @@ fn marking_and_discarding_multiple_branches() {
     tui.input('j');
     tui.input('b');
     tui.input('n');
+    tui.input('n');
 
     tui.input('g');
     tui.input('b');
+    tui.input('n');
     tui.input('n').assert_rendered_term_svg_eq(file![
         "snapshots/marking_and_discarding_multiple_branches_001.svg"
     ]);
@@ -616,6 +621,7 @@ fn marking_and_discarding_multiple_branches_fails_with_dependencies() {
     // create a new branch without any dependencies
     tui.input('g');
     tui.input('b');
+    tui.input('n');
     tui.input('n');
 
     tui.input(Shift('f')).assert_rendered_term_svg_eq(file![

@@ -12,14 +12,14 @@ use crate::{
         tui::{
             Mode, NormalMode, PickChangesMode, SelectAfterReload,
             app::{
-                CommitSource, SquashMode,
+                BranchMode, CommitSource, SquashMode,
                 mark::{MarkableRef, Marks, hunk_is_child_of},
                 prefix_match,
             },
             mode::ModeRef,
             render::{
-                cherry_pick_operation_display, commit_operation_display, move_operation_display,
-                reorder_operation_display, stack_operation_display,
+                branch_operation_display, cherry_pick_operation_display, commit_operation_display,
+                move_operation_display, reorder_operation_display, stack_operation_display,
             },
         },
     },
@@ -899,6 +899,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Jump(..)
         | Mode::Squash(..)
         | Mode::CherryPick(..)
+        | Mode::Branch(..)
         | Mode::Details(..) => {
             matches!(
                 line.data,
@@ -1003,6 +1004,7 @@ pub fn is_selectable_in_mode(
                 return true;
             }
         }
+        ModeRef::Branch(BranchMode {}) => {}
         ModeRef::Command(..)
         | ModeRef::InlineReword(..)
         | ModeRef::Normal(..)
@@ -1067,6 +1069,7 @@ pub fn is_selectable_in_mode(
                 return false;
             }
         }
+        ModeRef::Branch(BranchMode {}) => {}
         ModeRef::Squash(..)
         | ModeRef::InlineReword(..)
         | ModeRef::Command(..)
@@ -1109,6 +1112,7 @@ pub fn is_selectable_in_mode(
         ModeRef::CherryPick(cherry_pick_mode) => {
             cherry_pick_operation_display(&line.data, cherry_pick_mode).is_some()
         }
+        ModeRef::Branch(branch_mode) => branch_operation_display(&line.data, branch_mode).is_some(),
         ModeRef::PickChanges(..) => {
             if let Some(cli_id) = line.data.cli_id() {
                 match &**cli_id {

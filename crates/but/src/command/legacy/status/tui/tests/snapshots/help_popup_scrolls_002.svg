@@ -35,10 +35,9 @@
     <text x="10" y="114" style="fill:#555555;">│</text>
     <text x="114" y="114" style="fill:#0000AA;">b</text>
     <text x="130 138 146 154 162 170" y="114" style="fill:#CCCCCC;">branch</text>
-    <text x="314 322 330 338 346 354" y="114" style="fill:#CCCCCC;opacity:0.75;">Create</text>
-    <text x="370" y="114" style="fill:#CCCCCC;opacity:0.75;">a</text>
-    <text x="386 394 402" y="114" style="fill:#CCCCCC;opacity:0.75;">new</text>
-    <text x="418 426 434 442 450 458" y="114" style="fill:#CCCCCC;opacity:0.75;">branch</text>
+    <text x="314 322 330 338 346" y="114" style="fill:#CCCCCC;opacity:0.75;">Enter</text>
+    <text x="362 370 378 386 394 402" y="114" style="fill:#CCCCCC;opacity:0.75;">branch</text>
+    <text x="418 426 434 442" y="114" style="fill:#CCCCCC;opacity:0.75;">mode</text>
     <text x="802" y="114" style="fill:#555555;">║</text>
     <text x="10" y="132" style="fill:#555555;">│</text>
     <text x="114" y="132" style="fill:#0000AA;">s</text>

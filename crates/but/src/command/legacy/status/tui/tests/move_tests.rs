@@ -217,6 +217,7 @@ fn moving_multiple_commits() {
     let mut tui = test_status_tui(env);
 
     tui.input('b');
+    tui.input('n');
     tui.input('g')
         .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_001.svg"]);
 

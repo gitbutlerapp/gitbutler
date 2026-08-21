@@ -20,13 +20,6 @@ use crate::{
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::{
-            branch::{
-                self,
-                new::{
-                    NewOperation, NewStackedBranchOperation, NewStackedBranchTarget,
-                    NewUnstackedBranchOperation,
-                },
-            },
             commit::{
                 self, CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitSelection,
             },
@@ -108,6 +101,9 @@ pub use stack_mode::*;
 
 mod squash_mode;
 pub use squash_mode::*;
+
+mod branch_mode;
+pub use branch_mode::*;
 
 #[derive(Debug)]
 pub struct App {
@@ -375,7 +371,7 @@ impl App {
         let is_details_visible = launch_options.show_diff || initial_hunk.is_some();
 
         let app_key_binds = AppKeyBinds {
-            key_binds: default_key_binds(),
+            key_binds: default_key_binds(&ctx.settings.feature_flags),
             normal_with_marks_key_binds: normal_with_marks_key_binds(),
             confirm_key_binds: confirm_key_binds(),
         };
@@ -502,6 +498,9 @@ impl App {
             }
             Message::ConfirmAndQuit => {
                 self.handle_confirm_and_quit();
+            }
+            Message::Crash => {
+                panic!("Intentional crash caused by Message::Crash");
             }
             Message::JustRender => {}
             Message::DebugScrollUp(count) => self.debug_scroll.up(count),
@@ -635,9 +634,7 @@ impl App {
             Message::CherryPick(cherry_pick_message) => {
                 self.handle_cherry_pick(cherry_pick_message, ctx, messages)?
             }
-            Message::NewBranch => {
-                self.handle_new_branch(ctx, messages)?;
-            }
+            Message::Branch(branch_message) => self.handle_branch(branch_message, ctx, messages)?,
             Message::CopySelection => {
                 self.handle_copy_selection()?;
             }
@@ -819,6 +816,7 @@ impl App {
                 | Mode::Move(..)
                 | Mode::Stack(..)
                 | Mode::Jump(..)
+                | Mode::Branch(..)
                 | Mode::CherryPick(..)
                 | Mode::MoveStack(..) => return,
                 Mode::Details(details_mode) => match &details_mode.return_mode {
@@ -930,6 +928,7 @@ impl App {
                 | Mode::Stack(..)
                 | Mode::MoveStack(..)
                 | Mode::CherryPick(..)
+                | Mode::Branch(..)
                 | Mode::Jump(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
@@ -1546,80 +1545,6 @@ impl App {
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => {}
         }
-
-        Ok(())
-    }
-
-    fn handle_new_branch(
-        &mut self,
-        ctx: &mut Context,
-        messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()> {
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return Ok(());
-        };
-
-        let new_name = match &selection.data {
-            StatusOutputLineData::Branch { cli_id, .. } => {
-                let CliId::Branch(branch) = &**cli_id else {
-                    return Ok(());
-                };
-
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let outcome = branch::new::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    NewOperation::NewStackedBranch(NewStackedBranchOperation {
-                        name: None,
-                        target: NewStackedBranchTarget::Branch(
-                            Category::LocalBranch.to_full_name(&*branch.name)?,
-                        ),
-                        side: Side::Above,
-                    }),
-                )?;
-
-                outcome.name.shorten().to_string()
-            }
-            StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UncommittedFile { .. } => {
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let outcome = branch::new::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
-                        name: None,
-                        switch: false,
-                    }),
-                )?;
-
-                outcome.name.shorten().to_string()
-            }
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::Commit { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
-        };
-
-        messages.push(Message::Reload(
-            Some(SelectAfterReload::Branch(new_name)),
-            ReloadCause::Mutation,
-        ));
 
         Ok(())
     }

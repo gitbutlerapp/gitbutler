@@ -22,8 +22,8 @@ use crate::{
             BranchLineContent, StatusOutputContent, StatusOutputLineData, UncommittedLineContent,
         },
         tui::app::{
-            CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode, MoveSource,
-            MoveStackMode, StackMode, find_jump_match,
+            BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode,
+            MoveSource, MoveStackMode, StackMode, find_jump_match,
         },
     },
     id::{CommitId, CommittedFileId},
@@ -322,11 +322,13 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
         let stack_highlight = stack_highlight_rows
             .as_ref()
             .is_some_and(|rows| rows.get(idx).copied().unwrap_or_default());
+        let mode_highlight = stack_highlight;
+
         if !render_status_list_item(
             app,
             tui_line,
             app.cursor.index() == idx,
-            stack_highlight,
+            mode_highlight,
             &mut areas,
             frame,
         ) {
@@ -480,7 +482,7 @@ fn render_status_list_item(
     app: &App,
     tui_line: &StatusOutputLine,
     is_selected: bool,
-    stack_highlight: bool,
+    mode_highlight: bool,
     areas: &mut dyn Iterator<Item = Rect>,
     frame: &mut Frame,
 ) -> bool {
@@ -527,7 +529,7 @@ fn render_status_list_item(
         render_operation_extension_line(app, data, connector.as_deref(), area, extension, frame);
     }
 
-    if (is_selected || stack_highlight) && highlight_current_line {
+    if (is_selected || mode_highlight) && highlight_current_line {
         frame
             .buffer_mut()
             .set_style(area, app.selection_highlight_color());
@@ -1426,6 +1428,31 @@ pub fn cherry_pick_operation_display(
     }
 }
 
+pub fn branch_operation_display(
+    data: &StatusOutputLineData,
+    _mode: &BranchMode,
+) -> Option<&'static str> {
+    match data {
+        StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::Branch { .. }
+        | StatusOutputLineData::MergeBase => Some("branch"),
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::StagedFile { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
+        | StatusOutputLineData::Commit { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::File { .. }
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
+    }
+}
+
 pub(crate) fn source_span(theme: &'static Theme) -> Span<'static> {
     Span::raw("<< source >>").mode_colors(ModeDiscriminant::Normal, theme)
 }
@@ -1551,6 +1578,7 @@ impl Mode {
             Mode::PickChanges(mode) => mode,
             Mode::Jump(mode) => mode,
             Mode::CherryPick(mode) => mode,
+            Mode::Branch(mode) => mode,
         }
     }
 }

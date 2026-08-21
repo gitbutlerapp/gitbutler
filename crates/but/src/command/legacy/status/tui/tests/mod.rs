@@ -749,7 +749,8 @@ fn key_b_creates_new_branch_from_selected_branch() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
-    tui.input('b')
+    tui.input('b');
+    tui.input('n')
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
 }
 
@@ -1070,6 +1071,7 @@ fn consistent_commit_shas_in_tests() {
     let mut tui = test_status_tui(env);
 
     tui.input('b');
+    tui.input('n');
     tui.input('n')
         .assert_current_line_eq(str!["┊●   1 (no commit message) (no changes)"]);
 }
@@ -1153,6 +1155,7 @@ fn maintains_selection_using_change_id() {
 
     // create a new branch with a commit
     tui.input('b');
+    tui.input('n');
     tui.input('n');
 
     // reword the commit

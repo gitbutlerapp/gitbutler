@@ -359,15 +359,29 @@ impl App {
     }
 
     fn handle_stack_show_apply_picker(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let current_branch = {
+            let repo = ctx.repo.get()?;
+            repo.head_ref()?
+                .map(|head_ref| head_ref.name().shorten().to_owned())
+        };
         let branch_listings = but_api::legacy::virtual_branches::list_branches(
             ctx,
             Some(BranchListingFilter {
                 local: None,
-                applied: Some(false),
+                applied: if self.in_single_branch_mode {
+                    None
+                } else {
+                    Some(false)
+                },
             }),
         )
         .context("Failed to list branches available to apply")?
-        .into_iter();
+        .into_iter()
+        .filter(|listing| {
+            current_branch
+                .as_ref()
+                .is_none_or(|current_branch| current_branch.as_bstr() != &*listing.name)
+        });
 
         let now = SystemTime::now();
         let mut branches = branch_listings

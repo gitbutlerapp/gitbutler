@@ -4,8 +4,8 @@ use crate::{
     command::legacy::status::tui::{
         InlineRewordMode,
         app::{
-            CherryPickMode, CommandMode, CommandReturnMode, CommitMode, CommitSource, JumpMode,
-            MoveMode, MoveSource, MoveStackMode, NormalMode, PickChangesMode, SquashMode,
+            BranchMode, CherryPickMode, CommandMode, CommandReturnMode, CommitMode, CommitSource,
+            JumpMode, MoveMode, MoveSource, MoveStackMode, NormalMode, PickChangesMode, SquashMode,
             StackMode,
             mark::{Marks, MarksRef},
         },
@@ -32,6 +32,7 @@ pub enum Mode {
     PickChanges(PickChangesMode),
     Jump(JumpMode),
     CherryPick(CherryPickMode),
+    Branch(BranchMode),
 }
 
 impl Default for Mode {
@@ -69,6 +70,7 @@ impl Mode {
             Mode::PickChanges(inner) => ModeRef::PickChanges(inner),
             Mode::Jump(inner) => ModeRef::Jump(inner),
             Mode::CherryPick(inner) => ModeRef::CherryPick(inner),
+            Mode::Branch(inner) => ModeRef::Branch(inner),
         }
     }
 }
@@ -82,7 +84,7 @@ impl ModeDiscriminant {
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
             }
-            Self::Command => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
+            Self::Command | Self::Branch => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
             Self::Move | Self::MoveStack | Self::CherryPick => {
                 theme.tui_mode_move.bg.unwrap_or(Color::Cyan)
             }
@@ -101,7 +103,7 @@ impl ModeDiscriminant {
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
             }
-            Self::Command => theme.tui_mode_command.fg.unwrap_or(Color::Black),
+            Self::Command | Self::Branch => theme.tui_mode_command.fg.unwrap_or(Color::Black),
             Self::Move | Self::MoveStack | Self::CherryPick => {
                 theme.tui_mode_move.fg.unwrap_or(Color::Black)
             }
@@ -123,6 +125,7 @@ impl ModeDiscriminant {
             Self::MoveStack => "  move stack  ",
             Self::Jump => "  jump  ",
             Self::CherryPick => "  pick  ",
+            Self::Branch => "  branch  ",
         }
     }
 }
@@ -142,6 +145,7 @@ pub enum ModeRef<'a> {
     PickChanges(&'a PickChangesMode),
     Jump(&'a JumpMode),
     CherryPick(&'a CherryPickMode),
+    Branch(&'a BranchMode),
 }
 
 impl<'a> ModeRef<'a> {
@@ -179,6 +183,7 @@ impl<'a> ModeRef<'a> {
             ModeRef::InlineReword(..)
             | ModeRef::Stack(..)
             | ModeRef::MoveStack(..)
+            | ModeRef::Branch(BranchMode {})
             | ModeRef::Jump(..) => MarksRef::Empty,
         }
     }
