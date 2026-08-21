@@ -1,0 +1,104 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	height: 100%;
+	overflow: auto;
+	background: var(--bg-1);
+	color: var(--text-1);
+}
+
+.panel {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	/* The column carries its own gutters rather than taking them from the page,
+	   so it keeps them wherever it is rendered. 688 = the same 640 of content
+	   the page used to leave, plus this padding. */
+	max-width: 688px;
+	padding: 48px 24px;
+	gap: 16px;
+}
+
+.title {
+	font-weight: 600;
+	font-size: 16px;
+}
+
+.explainer {
+	color: var(--text-2);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.commitRef {
+	color: var(--text-2);
+	font-size: 12px;
+	font-family: var(--font-mono, monospace);
+}
+
+.sectionTitle {
+	margin-top: 8px;
+	color: var(--text-2);
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.files {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-m, 6px);
+}
+
+.fileRow {
+	display: flex;
+	align-items: center;
+	padding: 6px 10px;
+	gap: 8px;
+	border-top: 1px solid var(--border-2);
+	font-size: 12px;
+}
+
+.fileRow:first-child {
+	border-top: none;
+}
+
+.filePath {
+	overflow: hidden;
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.conflictHint {
+	flex: none;
+	margin-left: auto;
+	color: var(--text-2);
+}
+
+.resolvedHint {
+	flex: none;
+	margin-left: auto;
+	color: var(--clr-scale-succ-40, var(--text-2));
+}
+
+.empty {
+	padding: 10px;
+	color: var(--text-2);
+	font-size: 12px;
+}
+
+.buttons {
+	display: flex;
+	flex-wrap: wrap;
+	margin-top: 8px;
+	gap: 8px;
+}
+
+/* Opening the conflicts is a step towards saving, not one of the two exits. */
+.openAll {
+	margin-right: auto;
+}

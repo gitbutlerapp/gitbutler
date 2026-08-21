@@ -428,6 +428,7 @@ const BranchSegment: FC<{
 				<SegmentContent
 					projectId={projectId}
 					segment={segment}
+					stackId={stack.id}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
@@ -467,10 +468,11 @@ const EmptySegmentContent: FC<{
 const SegmentContent: FC<{
 	projectId: string;
 	segment: Segment;
+	stackId: string | null;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-}> = ({ projectId, segment, checkCommit, onAmendCommit, canAmendCommit }) => {
+}> = ({ projectId, segment, stackId, checkCommit, onAmendCommit, canAmendCommit }) => {
 	// A plain boolean, so this re-renders only when this segment's own fold
 	// state changes rather than on every fold anywhere.
 	const isFolded = useAppSelector(
@@ -513,6 +515,7 @@ const SegmentContent: FC<{
 								render={
 									<CommitRow
 										commit={commit}
+										stackId={stackId}
 										checkCommit={checkCommit}
 										amendCommit={() => onAmendCommit(commit.id)}
 										canAmendCommit={canAmendCommit}
@@ -631,6 +634,7 @@ const StackC: FC<{
 								<SegmentContent
 									projectId={projectId}
 									segment={segment}
+									stackId={stack.id}
 									checkCommit={checkCommit}
 									onAmendCommit={onAmendCommit}
 									canAmendCommit={canAmendCommit}

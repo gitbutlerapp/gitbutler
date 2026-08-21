@@ -7,6 +7,7 @@ import {
 	useCommitInsertBlank,
 	useCommitReword,
 	useCommitUncommit,
+	useEnterEditMode,
 } from "#ui/api/mutations.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -50,6 +51,8 @@ export const CommitRow: FC<
 	{
 		commit: Commit;
 		projectId: string;
+		/** `null` on a stack without an id, where edit mode cannot be offered. */
+		stackId: string | null;
 		dryRunCommit: Commit | null;
 		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 		amendCommit: () => void;
@@ -58,6 +61,7 @@ export const CommitRow: FC<
 > = ({
 	commit,
 	projectId,
+	stackId,
 	dryRunCommit,
 	checkCommit,
 	amendCommit,
@@ -110,6 +114,7 @@ export const CommitRow: FC<
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
 	const { isPending: isCommitUncommitPending, mutate: commitUncommit } = useCommitUncommit();
 	const { mutateAsync: commitReword } = useCommitReword();
+	const { mutate: enterEditMode } = useEnterEditMode();
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const insertBlankCommit = (side: "above" | "below") => {
@@ -281,6 +286,13 @@ export const CommitRow: FC<
 			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
 			enabled: noOperationPending && canAmendCommit,
 			onSelect: amendCommit,
+		}),
+		nativeMenuItem({
+			label: "Edit Commit",
+			enabled: noOperationPending && stackId !== null,
+			onSelect: () => {
+				if (stackId !== null) enterEditMode({ projectId, commitId: commit.id, stackId });
+			},
 		}),
 		nativeMenuItem({
 			label: "Copy Commit",

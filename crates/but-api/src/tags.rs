@@ -87,4 +87,7 @@ cache_tags! {
     Projects,
     /// The app's AI provider configuration.
     AiConfiguration,
+    /// Which mode the repository is in (open workspace, edit mode, ...) and
+    /// the edit session's own state.
+    OperatingMode,
 }
