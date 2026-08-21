@@ -423,8 +423,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 3.12.4
-        version: 3.12.4
+        specifier: 3.12.5
+        version: 3.12.5
       '@pierre/diffs':
         specifier: ^1.3.5
         version: 1.3.5(@shikijs/themes@4.3.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2057,8 +2057,8 @@ packages:
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
 
-  '@gitbutler/design-core@3.12.4':
-    resolution: {integrity: sha512-eboUWo+N/6iGRkpZvTjCN1MwQC6SGEEMmgU0e4DkZAh+vNO1UJleFMk793yKf2GcGVxvIxulopZBw2EnXNLtww==}
+  '@gitbutler/design-core@3.12.5':
+    resolution: {integrity: sha512-gLUlsSj9HayNxADej97RMK7TvySo5we025/AfA3F/dmqZJcl2+s0srHqkrMOc6v6NoLbS5yBgoa2/49ORqQ4Dw==}
 
   '@gitbutler/design-core@3.9.1':
     resolution: {integrity: sha512-kLkZ1+pqeqpBntBOSV53kYVCmY/ZFemjxsWc78GTGLgn1Op8p7bWCNxCUSU822MKLJrzmjUg99MpqdHpXGcNAQ==}
@@ -11371,7 +11371,7 @@ snapshots:
 
   '@gitbutler/design-core@2.2.2': {}
 
-  '@gitbutler/design-core@3.12.4': {}
+  '@gitbutler/design-core@3.12.5': {}
 
   '@gitbutler/design-core@3.9.1': {}
 

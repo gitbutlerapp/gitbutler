@@ -2941,9 +2941,9 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	// so a selection change remounts this component and resets the mode.
 	const [prEditing, setPrEditing] = useState(false);
 
-	const togglePrEdit = () => {
-		if (!prEditing) setBranchTab("pr");
-		setPrEditing(!prEditing);
+	const startPrEdit = () => {
+		setBranchTab("pr");
+		setPrEditing(true);
 	};
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -2984,11 +2984,9 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 										<div className={styles.tabsRowRight}>
 											<PullRequestPrimaryAction
 												projectId={projectId}
-												reviewId={review.number}
-												isDraft={review.draft}
-												autoMergeEnabled={review.autoMergeEnabled}
+												review={review}
 												isEditing={prEditing}
-												onToggleEdit={togglePrEdit}
+												onStartEdit={startPrEdit}
 											/>
 										</div>
 									);

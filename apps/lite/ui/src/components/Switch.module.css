@@ -1,11 +1,13 @@
 .switch {
 	--disabled-opacity: 50%;
+	--switch-width: 24px;
+	--switch-height: 14px;
 
 	display: inline-flex;
 	position: relative;
 	flex-shrink: 0;
-	width: 26px;
-	height: 16px;
+	width: var(--switch-width);
+	height: var(--switch-height);
 	padding: 0;
 	border: none;
 	border-radius: 100px;
@@ -28,13 +30,15 @@
 	position: absolute;
 	top: 2px;
 	left: 2px;
-	width: 12px;
-	height: 12px;
+	width: calc(var(--switch-height) - 4px);
+	height: calc(var(--switch-height) - 4px);
 	border-radius: 50%;
 	background-color: var(--bg-1);
 	transition: left 120ms ease;
 
+	/* Mirror of the 2px resting inset: width − thumb − 2, and the thumb is
+	   itself height − 4. Spelled out so a resize carries the travel with it. */
 	&[data-checked] {
-		left: 12px;
+		left: calc(var(--switch-width) - var(--switch-height) + 2px);
 	}
 }

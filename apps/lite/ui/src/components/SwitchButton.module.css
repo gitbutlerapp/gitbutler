@@ -1,0 +1,30 @@
+.switchButton {
+	/* Regular button metrics, with the roomier inline padding and wider gap
+	   the design gives the switch pill. Button exposes its metrics at zero
+	   specificity so a consumer can restate them. */
+	--button-padding-inline: 10px;
+	--button-gap: 8px;
+
+	cursor: pointer;
+
+	/* base-ui renders the switch as a <span role="switch"> plus a hidden
+	   checkbox, never a <button>, so these match the role rather than the tag.
+	   It also calls preventDefault on the switch's own click, which is what
+	   stops the label from forwarding a second one. */
+
+	/* Focus lands on the switch, but the pill is what reads as the control. */
+	&:has([role="switch"]:focus-visible) {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
+
+	/* Fade the pair together; the switch's own fade is neutralized via its
+	   opacity variable so the two don't compound. base-ui disables via
+	   data-disabled, never the native attribute. */
+	&:has([role="switch"][data-disabled]) {
+		--disabled-opacity: 100%;
+		cursor: default;
+
+		opacity: 0.5;
+	}
+}

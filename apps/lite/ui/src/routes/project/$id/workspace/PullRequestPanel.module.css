@@ -2,21 +2,32 @@
 	display: flex;
 	/* Width is set by the details container so the header can align with
 	   the panel column (see --pr-panel-width in Details.module.css). */
-	flex: 0 0 var(--pr-panel-width, 220px);
+	flex: 0 0 var(--pr-panel-width, 315px);
 	flex-direction: column;
+	/* Without this the automatic minimum size lets wide content (a long
+	   reviewer login) push the panel past its basis instead of truncating. */
+	min-width: 0;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
 }
 
 .section {
 	display: flex;
-	row-gap: 6px;
+	row-gap: 8px;
 	flex-direction: column;
-	padding: 10px 12px;
+	padding: 12px 12px 12px 14px;
 
 	& + & {
 		border-top: 1px solid var(--border-section);
 	}
+}
+
+/* Sections that read as one block with the section above it — no divider,
+   no gap between the two (Created and Updated). */
+.section + .sectionJoined {
+	padding-top: 0;
+	border-top: none;
 }
 
 .sectionHeader {
@@ -29,12 +40,12 @@
 }
 
 .heading {
-	color: var(--text-2);
-	font-weight: 600;
+	color: var(--text-3);
 }
 
 .statusRow {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px;
 }
@@ -42,26 +53,49 @@
 .link {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4px;
 	color: var(--text-2);
+}
+
+/* Sits in the Status section's header, opposite the heading. */
+.prLink {
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
+	text-underline-position: from-font;
 }
 
 .user {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	min-width: 0;
+	gap: 8px;
+	color: var(--text-1);
+}
+
+/* A long login truncates rather than wrapping the row to two lines; the row's
+   title carries the full name. */
+.userLogin {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .reviewerRow {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 6px;
+	padding-inline-end: 3px;
+	gap: 8px;
+
+	& > svg {
+		flex-shrink: 0;
+	}
 }
 
 .avatar {
-	width: 16px;
-	height: 16px;
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
 	border-radius: 50%;
 	background-color: lightgray;
 }
@@ -72,40 +106,215 @@
 	gap: 4px;
 }
 
-.label {
-	display: inline-flex;
-	align-items: center;
-	padding: 1px 8px;
-	gap: 5px;
-	border: 1px solid var(--border-2);
-	border-radius: 100px;
+/* Badge owns the pill itself; forge label colors are arbitrary hex, so only the
+   tint is overridden here — descendant-scoped so it beats Badge's own variant
+   colors regardless of stylesheet order. Colorless labels keep the lightGray
+   variant untouched. */
+.labels .label {
+	background-color: color-mix(in srgb, var(--label-color) 20%, transparent);
+	color: color-mix(in oklab, var(--label-color) 60%, var(--text-1));
 }
 
-.labelDot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
+/* Empty Reviewers and Labels keep their shape with muted stand-ins, so a
+   freshly opened pull request doesn't read as a broken panel. */
+.placeholderShape {
+	border-radius: 30px;
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 6%, transparent);
 }
 
-.checksSummary {
+.placeholderPeople {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Fades the last stand-in row out, hinting the list is a suggestion of
+   content rather than content. */
+.placeholderPeople::after {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 20px;
+	background: linear-gradient(to bottom, transparent, var(--bg-1));
+	content: "";
+}
+
+.placeholderRow {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 }
 
-.checksProblems {
+.placeholderAvatar {
+	width: 16px;
+	height: 16px;
+}
+
+.placeholderBar {
+	height: 16px;
+}
+
+.placeholderLabels {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.placeholderLabel {
+	height: 16px;
+}
+
+.checks {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 12px;
+}
+
+.checksSummary {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+/* Segments are apportioned by check count, so the bar reads as the run's
+   makeup rather than as progress. */
+.checksBar {
+	display: flex;
+	height: 6px;
+	gap: 2px;
+}
+
+.barSegment {
+	flex-basis: 0;
+	border-radius: 5px;
+}
+
+.barPassed {
+	background-color: var(--fill-safe-bg);
+}
+
+.barPending {
+	background-color: var(--scale-gray-70);
+}
+
+.barFailed {
+	background-color: var(--fill-danger-bg);
+}
+
+.checksCounts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.countFailed {
+	color: var(--text-danger);
+}
+
+.countPassed {
+	color: var(--text-safe);
+}
+
+.countPending {
 	color: var(--text-2);
+}
+
+.countSkipped {
+	color: var(--text-3);
+}
+
+.checksDivider {
+	height: 1px;
+	background-color: var(--border-section);
+}
+
+.checksList {
+	display: flex;
+	flex-direction: column;
+}
+
+/* Inset by its own padding so the hover background reads as a row. */
+.checkRow {
+	display: flex;
+	align-items: center;
+	padding: 4px;
+	gap: 8px;
+	border-radius: var(--radius-button);
+	color: var(--text-1);
+
+	&:hover {
+		background-color: var(--list-item-hover-bg);
+	}
+}
+
+.checkDot {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+.checkDotDanger {
+	background-color: var(--fill-danger-bg);
+}
+
+.checkDotWarn {
+	background-color: var(--fill-warn-bg);
+}
+
+.checkDotMuted {
+	background-color: var(--scale-gray-70);
+}
+
+.checkName {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.checkMeta {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-3);
 }
 
 .branches {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	color: var(--text-2);
 	word-break: break-all;
+}
+
+/* Dotted underline is the app's copy-a-reference affordance, as on the commit
+   SHA in the details header. */
+.sourceBranch {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-1);
+	font: inherit;
+	text-align: start;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-position: from-font;
+
+	&:hover {
+		color: var(--text-2);
+	}
+}
+
+.branchArrow {
+	color: var(--text-3);
+}
+
+.targetBranch {
+	color: var(--text-2);
 }
 
 .created {

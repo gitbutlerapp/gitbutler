@@ -18,21 +18,22 @@ import {
 	type ReactorsByKind,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "#ui/components/classes.ts";
-import {
-	FieldControlStyles,
-	FieldLabelStyles,
-	FieldRootStyles,
-	FieldTextareaStyles,
-} from "#ui/components/Field.tsx";
+import { DropdownButton } from "#ui/components/DropdownButton.tsx";
+import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
+import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
+import { SwitchButton } from "#ui/components/SwitchButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
-import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import {
+	nativeMenuItem,
+	nativeMenuItemsFromGroups,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
 import {
 	draftPRQueryOptions,
 	mergeMethodQueryOptions,
@@ -43,6 +44,7 @@ import {
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Field, Tooltip } from "@base-ui/react";
 import type {
+	ForgeReview,
 	ForgeReviewReaction,
 	ForgeReviewReactionCount,
 	ReviewMergeMethod,
@@ -50,7 +52,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEventHandler, Suspense, useId, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, Suspense, useRef, useState } from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -60,8 +62,8 @@ import styles from "./PullRequestForm.module.css";
  *   branches without a PR yet)
  * - {@link PullRequestDescription} — the rendered title/body view that
  *   flips into the form when edit mode is on
- * - {@link PullRequestPrimaryAction} — the Edit/draft/auto-merge/Merge
- *   button row; note it mounts in the details *header*, not the tab body
+ * - {@link PullRequestPrimaryAction} — the Edit/auto-merge/Merge button
+ *   row; note it mounts in the details *header*, not the tab body
  *
  * `BranchDetails` (Details.tsx) owns the tab switching and edit-mode state
  * and composes these with `PullRequestPanel` and `PullRequestComments`.
@@ -71,10 +73,11 @@ import styles from "./PullRequestForm.module.css";
  * Title/description form for creating a PR or editing an existing one.
  *
  * Unsubmitted input persists to idb per project+branch (survives restarts,
- * follows renames) and is cleared on Reset/Cancel. When the remote PR
- * changes underneath an *untouched* form, the fields follow the remote;
- * once locally edited, local wins until Reset. With `onCancel` set, Reset
- * becomes Cancel: discard edits and leave edit mode.
+ * follows renames), and is dropped again once the fields match the remote —
+ * clearing them by hand is what discards a draft. When the remote PR changes
+ * underneath an *untouched* form, the fields follow the remote; once locally
+ * edited, local wins. With `onCancel` set, the footer gains a Cancel button
+ * that discards edits and leaves edit mode.
  */
 export const PullRequestForm: FC<{
 	projectId: string;
@@ -84,12 +87,15 @@ export const PullRequestForm: FC<{
 	body: string | null;
 	canSubmit: boolean;
 	onAfterSubmit?: () => void;
-	/** Replaces Reset with a Cancel button that discards edits and calls this. */
+	/** Adds a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
 }> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, onAfterSubmit, onCancel }) => {
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
+	const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+	/** Drives the rule under the toolbar, so text never slides under it bare. */
+	const [bodyScrolled, setBodyScrolled] = useState(false);
 
 	const remoteOrEmptyDocument = {
 		title: title ?? "",
@@ -188,80 +194,131 @@ export const PullRequestForm: FC<{
 	return (
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
 		<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
+			{/* Both fields name themselves in the placeholder, as designed, so
+			    they carry an aria-label instead of a visible one. */}
 			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Title</Field.Label>
 				<Field.Control
 					render={<FieldControlStyles />}
-					className="text-15 text-semibold"
+					aria-label="Pull request title"
 					data-focus-scope={"pr" satisfies FocusScope}
 					ref={useAutofocusScope()}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
-					placeholder="Title"
+					placeholder="PR title"
 					required
 					value={localDocument.title}
 				/>
 			</Field.Root>
 
-			<Field.Root render={<FieldRootStyles />}>
-				<Field.Label render={<FieldLabelStyles />}>Description</Field.Label>
-				<Field.Control
-					render={<FieldTextareaStyles />}
-					className="text-14 text-body text-monospace"
+			<div className={styles.descriptionEditor} data-body-scrolled={bodyScrolled || undefined}>
+				<MarkdownToolbar
+					className={styles.descriptionToolbar}
+					disabled={isAnyPending}
+					onInput={(nextBody) => setLocalDocument({ ...localDocument, body: nextBody })}
+					targetRef={bodyRef}
+				/>
+
+				<textarea
+					aria-label="Pull request description"
+					className={classes("text-13", "text-body", styles.descriptionInput)}
 					name="body"
 					onChange={(evt) => setLocalDocument({ ...localDocument, body: evt.currentTarget.value })}
-					placeholder="Description"
+					// Only the flip re-renders: React bails out of an unchanged state.
+					onScroll={(evt) => setBodyScrolled(evt.currentTarget.scrollTop > 0)}
+					placeholder="PR description"
+					ref={bodyRef}
 					value={localDocument.body}
 				/>
-			</Field.Root>
 
-			{isNew && (
-				<Field.Root render={<FieldRootStyles />}>
-					<Field.Label render={<FieldLabelStyles />}>Draft</Field.Label>
-					<Checkbox
-						checked={localDocument.isDraft}
-						name="isDraft"
-						onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
-					/>
-				</Field.Root>
-			)}
+				<div className={styles.descriptionFooter}>
+					<div className={styles.footerRow}>
+						{/* Neither action has a backend yet; they are shown disabled so
+						    the composer's shape matches the design. */}
+						<div className={styles.footerStart}>
+							<UnavailableAction
+								icon="paperclip"
+								label="Attach a file"
+								reason="Attaching files isn't supported yet"
+							/>
+							<div aria-hidden className={styles.footerSeparator} />
+							<UnavailableAction
+								icon="ai-text"
+								label="Generate a description"
+								reason="Generating a description isn't supported yet"
+							/>
+						</div>
 
-			<div className={styles.prFormActions}>
-				{onCancel !== undefined ? (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending}
-						onClick={() => {
-							handleReset();
-							onCancel();
-						}}
-						type="button"
-					>
-						Cancel
-					</button>
-				) : (
-					<button
-						className={getButtonClassName({})}
-						disabled={isAnyPending || !hasChanges}
-						onClick={handleReset}
-						type="button"
-					>
-						Reset
-					</button>
-				)}
+						<div className={styles.footerEnd}>
+							{isNew && (
+								<>
+									<SwitchButton
+										label="Draft"
+										checked={localDocument.isDraft}
+										disabled={isAnyPending}
+										name="isDraft"
+										onCheckedChange={(isDraft) => setLocalDocument({ ...localDocument, isDraft })}
+									/>
+									<div aria-hidden className={styles.footerSeparator} />
+								</>
+							)}
 
-				<button
-					className={getButtonClassName({ variant: "pop" })}
-					disabled={!canSubmit || isAnyPending || !hasChanges}
-					type="submit"
-				>
-					{isAnyPending && <Icon name="spinner" />}
-					{isNew ? "Submit" : "Update"}
-				</button>
+							<div className={styles.footerButtons}>
+								{/* Only edit mode offers a way out: clearing the fields by hand
+								    already drops the persisted draft on blur, so a Reset button
+								    would just be a destructive shortcut for that. */}
+								{onCancel !== undefined && (
+									<button
+										className={getButtonClassName({})}
+										disabled={isAnyPending}
+										onClick={() => {
+											handleReset();
+											onCancel();
+										}}
+										type="button"
+									>
+										Cancel
+									</button>
+								)}
+
+								<button
+									className={getButtonClassName({ variant: "gray" })}
+									disabled={!canSubmit || isAnyPending || !hasChanges}
+									type="submit"
+								>
+									{isNew ? "Create a PR" : "Save changes"}
+									{/* Creating opens a PR; saving only confirms an edit. */}
+									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</form>
 	);
 };
+
+/** A designed action whose backing feature does not exist yet. */
+const UnavailableAction: FC<{ icon: IconName; label: string; reason: string }> = (p) => (
+	<Tooltip.Root>
+		{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
+		<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
+			<button
+				aria-label={p.label}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+				disabled
+				type="button"
+			>
+				<Icon name={p.icon} />
+			</button>
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>{p.reason}</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
 
 /** Fold the raw reaction list into chip tallies plus who-reacted names. */
 const reviewReactionsSelect = (
@@ -378,19 +435,22 @@ const mergeMethodLabels: Record<ReviewMergeMethod, string> = {
 };
 
 /**
- * Edit / draft-toggle / auto-merge / merge-with-method / overflow actions.
+ * Edit / auto-merge / merge-with-method / overflow actions. Draft toggling
+ * and closing live in the overflow menu.
  * Rendered in the details header row (next to the Diff|PR tab toggle),
  * only while the PR tab is showing.
  */
 export const PullRequestPrimaryAction: FC<{
 	projectId: string;
-	reviewId: number;
-	isDraft: boolean;
-	autoMergeEnabled: boolean;
+	review: ForgeReview;
 	isEditing: boolean;
-	onToggleEdit: () => void;
-}> = ({ projectId, reviewId, isDraft, autoMergeEnabled, isEditing, onToggleEdit }) => {
-	const autoMergeSwitchId = useId();
+	onStartEdit: () => void;
+}> = ({ projectId, review, isEditing, onStartEdit }) => {
+	const { number: reviewId, draft: isDraft, autoMergeEnabled } = review;
+	// A merged review is closed too, so merge wins when both timestamps are set.
+	const isMerged = review.mergedAt !== null;
+	const isClosed = !isMerged && review.closedAt !== null;
+
 	const { data: mergeStatus } = useQuery({
 		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
 		// Minimise API calls.
@@ -415,119 +475,110 @@ export const PullRequestPrimaryAction: FC<{
 
 	const blockedReason = mergeBlockedReason(mergeStatus);
 
+	// A merged review can be neither drafted nor reopened, so its menu is the
+	// browser link alone; `nativeMenuItemsFromGroups` would otherwise trail a
+	// separator after an empty group.
+	const stateItems = isMerged
+		? []
+		: [
+				...(isClosed
+					? []
+					: [
+							nativeMenuItem({
+								label: isDraft ? "Mark as ready for review" : "Convert to draft",
+								onSelect: () => setReviewDraftiness({ projectId, reviewId, draft: !isDraft }),
+							}),
+						]),
+				nativeMenuItem({
+					label: isClosed ? "Reopen pull request" : "Close pull request",
+					onSelect: () =>
+						updateReview({
+							projectId,
+							reviewId,
+							state: isClosed ? "open" : "closed",
+							title: null,
+							body: null,
+							targetBase: null,
+						}),
+				}),
+			];
+
+	const menuItems = nativeMenuItemsFromGroups(
+		[
+			[
+				nativeMenuItem({
+					label: "Open pull request in browser",
+					onSelect: () => window.lite.openInWebBrowser(review.htmlUrl),
+				}),
+			],
+			stateItems,
+		].filter((group) => group.length > 0),
+	);
+
 	return (
 		<div className={styles.prActions}>
+			{/* One-way: the form's own Cancel and Save leave edit mode. */}
 			<button
-				aria-pressed={isEditing}
-				className={getButtonClassName({ variant: isEditing ? "gray" : "outline" })}
-				disabled={isAnyPending}
-				onClick={onToggleEdit}
+				className={getButtonClassName({ variant: "ghost" })}
+				disabled={isAnyPending || isEditing}
+				onClick={onStartEdit}
 				type="button"
 			>
-				<Icon name="edit" />
 				Edit
-			</button>
-
-			<button
-				className={getButtonClassName({ variant: !isDraft ? "outline" : "pop" })}
-				disabled={isAnyPending}
-				onClick={() => setReviewDraftiness({ projectId, reviewId, draft: !isDraft })}
-				type="button"
-			>
-				{isSetReviewDraftinessPending && <Icon name="spinner" />}
-				{isDraft ? "Mark as Ready" : "Convert to draft"}
+				<Icon name="edit" />
 			</button>
 
 			{!isDraft && (
 				<>
-					<span className={classes("text-13", styles.autoMerge)}>
-						{/* Optimistic: the cache patch flips `checked` instantly, so no
-						    spinner — but like its neighbors it locks while any of the
-						    row's mutations are in flight. */}
-						<Switch
-							id={autoMergeSwitchId}
-							checked={autoMergeEnabled}
-							disabled={isAnyPending}
-							onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
-						/>
-						{/* A wrapping label would forward clicks back to the switch
-						    button and double-toggle; the for-association doesn't. */}
-						<label htmlFor={autoMergeSwitchId}>Auto-merge</label>
-					</span>
+					{/* Optimistic: the cache patch flips `checked` instantly, so no
+					    spinner — but like its neighbors it locks while any of the
+					    row's mutations are in flight. */}
+					<SwitchButton
+						label="Auto-merge"
+						variant="outline"
+						checked={autoMergeEnabled}
+						disabled={isAnyPending}
+						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
+					/>
 
-					<div className={styles.splitButton}>
-						{/* The trigger span always wraps the button so its tree position
-						    is stable — a conditional wrapper would remount the button
-						    (dropping focus) whenever blockedReason flips. */}
-						<Tooltip.Root>
-							{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-							<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
-								<button
-									className={getButtonClassName({ variant: "pop" })}
-									disabled={isAnyPending || blockedReason !== null}
-									onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
-									type="button"
-								>
-									{isMergeReviewPending && <Icon name="spinner" />}
-									{mergeMethodLabels[mergeMethod]}
-								</button>
-							</Tooltip.Trigger>
-							{!isAnyPending && blockedReason !== null && (
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>{blockedReason}</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							)}
-						</Tooltip.Root>
-
-						<button
-							aria-label="Merge method"
-							className={getButtonClassName({ variant: "pop", iconOnly: true })}
-							disabled={isAnyPending}
-							onClick={(evt) =>
-								void showNativeMenuFromTrigger(
-									evt.currentTarget,
-									mergeMethods.map((method) =>
-										nativeMenuItem({
-											label: mergeMethodLabels[method],
-											checked: method === mergeMethod,
-											onSelect: () => persistMergeMethod({ projectId, method }),
-										}),
-									),
-								)
-							}
-							type="button"
-						>
-							<Icon name="chevron-down" />
-						</button>
-					</div>
+					<DropdownButton
+						variant="pop"
+						disabled={isAnyPending || blockedReason !== null}
+						onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
+						actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
+						menuLabel="Merge method"
+						menuDisabled={isAnyPending}
+						onMenuTrigger={(trigger) =>
+							void showNativeMenuFromTrigger(
+								trigger,
+								mergeMethods.map((method) =>
+									nativeMenuItem({
+										label: mergeMethodLabels[method],
+										checked: method === mergeMethod,
+										onSelect: () => persistMergeMethod({ projectId, method }),
+									}),
+								),
+							)
+						}
+					>
+						{isMergeReviewPending && <Icon name="spinner" />}
+						{mergeMethodLabels[mergeMethod]}
+					</DropdownButton>
 				</>
 			)}
 
 			<button
 				aria-label="More pull request actions"
-				className={styles.moreActions}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 				disabled={isAnyPending}
-				onClick={(evt) =>
-					void showNativeMenuFromTrigger(evt.currentTarget, [
-						nativeMenuItem({
-							label: "Close pull request",
-							onSelect: () =>
-								updateReview({
-									projectId,
-									reviewId,
-									state: "closed",
-									title: null,
-									body: null,
-									targetBase: null,
-								}),
-						}),
-					])
-				}
+				onClick={(evt) => void showNativeMenuFromTrigger(evt.currentTarget, menuItems)}
 				type="button"
 			>
-				{isUpdateReviewPending ? <Icon name="spinner" /> : <Icon name="kebab" />}
+				{isUpdateReviewPending || isSetReviewDraftinessPending ? (
+					<Icon name="spinner" />
+				) : (
+					<Icon name="kebab" />
+				)}
 			</button>
 		</div>
 	);

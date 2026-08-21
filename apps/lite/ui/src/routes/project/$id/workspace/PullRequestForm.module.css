@@ -1,55 +1,6 @@
 .prActions {
 	display: flex;
-	gap: 6px;
-}
-
-.splitButton {
-	display: flex;
-	gap: 2px;
-}
-
-/* The design's auto-merge control: a switch and label in outline-button
-   chrome, sitting between Edit and Merge. */
-.autoMerge {
-	display: flex;
-	align-items: center;
-	height: 28px;
-	padding-inline: 8px;
-	gap: 6px;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-button);
-
-	label {
-		cursor: pointer;
-	}
-
-	/* Fade the whole pill like a disabled button; the switch's own fade is
-	   neutralized via its opacity variable so the two don't compound.
-	   base-ui disables via data-disabled, never the native attribute. */
-	&:has(button[data-disabled]) {
-		--disabled-opacity: 100%;
-
-		opacity: 0.5;
-
-		label {
-			cursor: default;
-		}
-	}
-}
-
-/* The design's kebab is chromeless, unlike its outlined neighbors. */
-.moreActions {
-	display: flex;
-	align-items: center;
-	padding: 0 4px;
-	border: none;
-	background: none;
-	color: var(--text-2);
-	cursor: pointer;
-
-	&:hover:not(:disabled) {
-		color: var(--text-1);
-	}
+	gap: 7px;
 }
 
 .disabledActionWrap {
@@ -63,9 +14,112 @@
 
 .prForm {
 	display: flex;
-	row-gap: 12px;
+	row-gap: 8px;
 	flex-direction: column;
 	max-width: 700px;
+}
+
+/* The description composer: toolbar, source textarea, and action footer all
+   share one card surface, so the focus ring belongs to the card. */
+.descriptionEditor {
+	display: flex;
+	flex-direction: column;
+	border-radius: var(--radius-card);
+	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
+	background-color: var(--bg-1);
+	transition: outline-color var(--transition-fast);
+
+	&:hover:not(:focus-within) {
+		outline-color: var(--border-1);
+	}
+
+	&:focus-within {
+		outline: var(--focus-ring);
+		outline-offset: -1.5px;
+	}
+}
+
+.descriptionToolbar {
+	padding: 8px;
+	/* Transparent until the body scrolls, so revealing it shifts no layout. */
+	border-bottom: 1px solid transparent;
+	transition: border-color var(--transition-fast);
+
+	[data-body-scrolled] > & {
+		border-bottom-color: var(--border-3);
+	}
+}
+
+.descriptionInput {
+	/* The composer is its own surface, so the scrollbar rides on it rather
+	   than in the app's gutter. */
+	--scrollbar-track-bg: transparent;
+	--scrollbar-track-border: transparent;
+	padding: 4px 16px 16px;
+	border: none;
+	background: none;
+	color: var(--text-1);
+	field-sizing: content;
+	min-height: 5lh;
+	max-height: 20lh;
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+}
+
+/* The rule above the controls is inset from the card edge, so it is drawn
+   inside the footer's padding rather than as a border on the card itself. */
+.descriptionFooter {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+	padding: 0 12px 12px;
+
+	&::before {
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
+	}
+}
+
+.footerRow {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.footerStart {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.footerEnd {
+	display: flex;
+	column-gap: 12px;
+	align-items: center;
+}
+
+/* Cancel and submit read as one control pair, tighter than the row's rhythm. */
+.footerButtons {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+}
+
+.footerSeparator {
+	flex-shrink: 0;
+	width: 1px;
+	height: 18px;
+	background-color: var(--border-3);
 }
 
 .prView {
@@ -76,10 +130,4 @@
 
 .prViewEmptyBody {
 	color: var(--text-3);
-}
-
-.prFormActions {
-	display: flex;
-	column-gap: 4px;
-	justify-content: flex-end;
 }
