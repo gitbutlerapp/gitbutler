@@ -106,23 +106,13 @@
 	gap: 4px;
 }
 
-.label {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 16px;
-	padding: 2px 6px;
-	border-radius: 30px;
-	/* Forge label colors are arbitrary hex, so tint the pill with the color
-	   and pull the text towards the foreground to keep light hues readable. */
+/* Badge owns the pill itself; forge label colors are arbitrary hex, so only the
+   tint is overridden here — descendant-scoped so it beats Badge's own variant
+   colors regardless of stylesheet order. Colorless labels keep the lightGray
+   variant untouched. */
+.labels .label {
 	background-color: color-mix(in srgb, var(--label-color) 20%, transparent);
 	color: color-mix(in oklab, var(--label-color) 60%, var(--text-1));
-}
-
-/* Colorless labels fall back to the neutral pill. */
-.labelPlain {
-	background-color: color-mix(in srgb, var(--fill-gray-bg) 20%, transparent);
-	color: var(--text-1);
 }
 
 /* Empty Reviewers and Labels keep their shape with muted stand-ins, so a
@@ -173,7 +163,7 @@
 }
 
 .placeholderLabel {
-	height: 18px;
+	height: 16px;
 }
 
 .checks {

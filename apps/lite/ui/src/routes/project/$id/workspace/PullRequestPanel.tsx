@@ -104,18 +104,14 @@ const Label: FC<{ label: ForgeReviewLabel }> = ({ label }) => {
 		label.color === null ? null : label.color.startsWith("#") ? label.color : `#${label.color}`;
 
 	return (
-		<span
-			className={classes(
-				"text-11",
-				"text-semibold",
-				styles.label,
-				color === null && styles.labelPlain,
-			)}
+		<Badge
+			variant="lightGray"
+			className={color === null ? undefined : styles.label}
 			style={color === null ? undefined : { "--label-color": color }}
 			title={label.description ?? undefined}
 		>
 			{label.name}
-		</span>
+		</Badge>
 	);
 };
 
@@ -430,12 +426,12 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 		</button>
 	);
 
-	const [statusLabel, statusVariant] = Match.value(reviewStatus(review)).pipe(
-		Match.withReturnType<[string, BadgeVariant]>(),
-		Match.when("open", () => ["Open", "safe"]),
-		Match.when("draft", () => ["Draft", "lightGray"]),
-		Match.when("merged", () => ["Merged", "purple"]),
-		Match.when("closed", () => ["Closed", "danger"]),
+	const [statusLabel, statusVariant, statusIcon] = Match.value(reviewStatus(review)).pipe(
+		Match.withReturnType<[string, BadgeVariant, IconName]>(),
+		Match.when("open", () => ["Open", "safe", "pr"]),
+		Match.when("draft", () => ["Draft", "lightGray", "pr-draft"]),
+		Match.when("merged", () => ["Merged", "purple", "branch-merge"]),
+		Match.when("closed", () => ["Closed", "danger", "pr-close"]),
 		Match.exhaustive,
 	);
 
@@ -468,7 +464,10 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 				}
 			>
 				<div className={styles.statusRow}>
-					<Badge variant={statusVariant}>{statusLabel}</Badge>
+					<Badge variant={statusVariant} size="large">
+						<Icon name={statusIcon} size={12} />
+						{statusLabel}
+					</Badge>
 					{canToggleDraft && (
 						<button
 							className={getButtonClassName({ variant: "outline", size: "small" })}
