@@ -1,4 +1,5 @@
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 
 use crate::{
     command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
@@ -891,4 +892,84 @@ Discarded uncommitted changes from src/discard-me.ts
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn discards_checked_out_empty_top_branch_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    let main_before = env.invoke_git("rev-parse main");
+
+    env.but("branch new top --anchor main").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "top",
+        "creating an empty dependent top branch should check it out"
+    );
+
+    env.but("discard top").assert().success();
+
+    let repo = env.open_repo();
+    assert!(
+        repo.try_find_reference("refs/heads/top").unwrap().is_none(),
+        "discard should remove only the selected branch"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "HEAD should move to the surviving branch below"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        main_before,
+        "discarding an empty branch should preserve commits"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "",
+        "discard should leave a clean worktree"
+    );
+
+    let ctx = env.context();
+    let main = gix::refs::FullName::try_from("refs/heads/main").unwrap();
+    assert_eq!(
+        ctx.meta()
+            .unwrap()
+            .branch_stack_order(main.as_ref())
+            .unwrap(),
+        None,
+        "discard should remove the obsolete branch-order entry"
+    );
+    env.but("status").assert().success();
+}
+
+#[test]
+fn discards_checked_out_empty_branches_regardless_of_argument_order() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.but("branch new middle --anchor main")
+        .assert()
+        .success();
+    env.but("branch new top --anchor middle").assert().success();
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "top");
+
+    env.but("discard middle top").assert().success();
+
+    let repo = env.open_repo();
+    for branch in ["middle", "top"] {
+        let ref_name = format!("refs/heads/{branch}");
+        assert!(
+            repo.try_find_reference(ref_name.as_str())
+                .unwrap()
+                .is_none(),
+            "discard should remove {branch}"
+        );
+    }
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "main");
+    assert_eq!(env.invoke_git("status --porcelain"), "");
+    env.but("status").assert().success();
 }

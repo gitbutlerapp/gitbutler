@@ -341,6 +341,7 @@ where
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
+            editor.retarget_head_checkout_to_parent_reference(ref_selector)?;
 
             let must_disconnect_child = 'must_disconnect: {
                 let Some(target_selector) = editor.target_selector() else {

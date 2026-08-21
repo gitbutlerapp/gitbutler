@@ -8,7 +8,7 @@ use gix::prelude::ObjectIdExt;
 use crate::{
     commit::{DateMode, create},
     graph_rebase::{
-        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
+        Editor, LookupStep as _, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
         util::collect_ordered_parents,
     },
 };
@@ -33,6 +33,52 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 super::Checkout::Worktree { .. } => {}
             }
         }
+    }
+
+    /// Move this editor's `HEAD` checkout to the first surviving parent reference.
+    pub fn retarget_head_checkout_to_parent_reference(
+        &mut self,
+        from: impl ToReferenceSelector,
+    ) -> Result<()> {
+        let from = self
+            .history
+            .normalize_selector(from.to_reference_selector(self)?)?;
+        let Some((head_checkout_idx, head_selector)) =
+            self.checkouts
+                .iter()
+                .enumerate()
+                .find_map(|(idx, checkout)| match checkout {
+                    super::Checkout::Head { selector, .. } => Some((idx, *selector)),
+                    super::Checkout::Worktree { .. } => None,
+                })
+        else {
+            return Ok(());
+        };
+        if self.history.normalize_selector(head_selector)? != from {
+            return Ok(());
+        }
+
+        let mut candidates = self.direct_parents(from)?;
+        candidates.sort_by_key(|(_, order)| std::cmp::Reverse(*order));
+        while let Some((candidate, _)) = candidates.pop() {
+            match self.lookup_step(candidate)? {
+                Step::Reference { .. } => {
+                    if let super::Checkout::Head { selector, .. } =
+                        &mut self.checkouts[head_checkout_idx]
+                    {
+                        *selector = candidate;
+                    }
+                    return Ok(());
+                }
+                Step::None => {
+                    let mut parents = self.direct_parents(candidate)?;
+                    parents.sort_by_key(|(_, order)| std::cmp::Reverse(*order));
+                    candidates.extend(parents);
+                }
+                Step::Pick(_) => {}
+            }
+        }
+        Ok(())
     }
 
     /// Like [`Self::set_merge_base_override()`], but for the checkout of the linked
