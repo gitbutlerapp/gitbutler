@@ -890,6 +890,7 @@ dependencies = [
  "gix",
  "indexmap 2.14.0",
  "itertools",
+ "libc",
  "machine-uid",
  "minus",
  "nonempty",

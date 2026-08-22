@@ -446,6 +446,10 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Unapply(unapply::Platform),
 
+    /// Create linked git worktrees that GitButler recognizes.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Worktree(worktree::Platform),
+
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply(apply::Platform),
@@ -1097,6 +1101,7 @@ pub mod uncommit;
 #[cfg(feature = "legacy")]
 pub mod undo;
 pub mod update;
+pub mod worktree;
 
 pub mod actions {
     #[derive(Debug, clap::Parser)]

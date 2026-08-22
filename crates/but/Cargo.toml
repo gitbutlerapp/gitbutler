@@ -112,6 +112,7 @@ rmcp.workspace = true
 url.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 gix = { workspace = true, features = ["tracing", "tracing-detail"] }
+libc.workspace = true
 colored = "3.0.0"
 serde_json.workspace = true
 boolean-enums.workspace = true

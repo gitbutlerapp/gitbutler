@@ -1,6 +1,7 @@
 //! A place for each command, i.e. `but foo` as `pub mod foo` here.
-#[cfg(feature = "legacy")]
 pub mod legacy;
+#[cfg(feature = "legacy")]
+pub mod worktree;
 
 pub mod agent;
 pub mod alias;
