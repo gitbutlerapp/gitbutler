@@ -38,6 +38,22 @@ fn upsert_and_get() -> anyhow::Result<()> {
 }
 
 #[test]
+fn delete() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+    db.worktree_meta_mut().upsert(WorktreeMeta {
+        name: b"wt".to_vec(),
+        archived: true,
+    })?;
+
+    db.worktree_meta_mut().delete(b"wt")?;
+    assert_eq!(db.worktree_meta().get(b"wt")?, None);
+
+    // Deleting an unknown name is not an error.
+    db.worktree_meta_mut().delete(b"wt")?;
+    Ok(())
+}
+
+#[test]
 fn list_is_sorted_by_name() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 

@@ -47,6 +47,8 @@ cache_tags! {
     Diffs,
     /// Uncommitted file changes with their assignments.
     WorktreeChanges,
+    /// The linked-worktree listing with its archived state.
+    Worktrees,
     /// Where uncommitted changes would absorb into existing commits.
     AbsorptionPlan,
     /// GitButler's own diff comments.

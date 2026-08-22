@@ -36,6 +36,7 @@ export const apiProvides = {
 	workspaceFetchFromRemotes: [],
 	workspaceFetchStatus: ["FetchStatus"],
 	workspaceTargetCommits: ["TargetCommits"],
+	worktreesList: ["Worktrees"],
 };
 
 export const apiInvalidates = {
@@ -72,12 +73,14 @@ export const apiInvalidates = {
 	updateReviewComment: ["ReviewComments"],
 	withdrawReviewRequest: ["Reviews"],
 	workspaceBranchAndAncestorsPush: ["Workspace", "Reviews", "MergeStatus", "Checks", "ReviewTimeline"],
+	worktreeRemove: ["Worktrees", "Workspace"],
+	worktreeSetArchived: ["Worktrees", "Workspace"],
 };
 
 export const watcherInvalidates = {
-	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
+	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
 	gitHead: ["OperatingMode"],
-	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
+	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

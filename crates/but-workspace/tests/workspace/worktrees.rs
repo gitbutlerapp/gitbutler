@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 use but_graph::Graph;
 use but_workspace::ref_info::LocalCommitRelation;
 use but_workspace::worktrees::WorktreeBase;
@@ -174,6 +174,51 @@ fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Resul
     assert_eq!(
         wt.base, None,
         "unrelated history has no base, no matter how deep its own chain is"
+    );
+    Ok(())
+}
+
+/// Seconds since the epoch of `2000-01-<day> 00:00:00 +0000`, the committer dates the
+/// `worktree-listing` fixture stamps its reflog entries with.
+fn day(day: i64) -> i64 {
+    946_684_800 + (day - 1) * 86_400
+}
+
+#[test]
+fn updated_at_is_the_newest_entry_of_the_head_and_branch_reflogs() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let at = |name: &str| {
+        but_workspace::worktrees::updated_at(&repo, BStr::new(name)).map(|t| t.map(|t| t.seconds))
+    };
+
+    // The day-5 commit inside the worktree is newer than its day-3 checkout.
+    assert_eq!(at("wt-a")?, Some(day(5)));
+    // The branch was moved from the main checkout on day 6 - only the branch log sees that,
+    // the worktree's own HEAD log stops at the day-4 checkout.
+    assert_eq!(at("wt-b")?, Some(day(6)));
+    // Detached: only the HEAD log exists, written with the default fixture committer date.
+    assert_eq!(at("wt-detached")?, Some(day(2)));
+    assert_eq!(at("wt-nolog")?, None);
+    Ok(())
+}
+
+#[test]
+fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo
+        .worktree_proxy_by_id(BStr::new("wt-a"))
+        .expect("fixture worktree")
+        .base()?;
+
+    let err = but_workspace::worktrees::remove(&repo, &path, false).unwrap_err();
+    assert!(err.to_string().contains("--force"), "{err}");
+    assert!(path.is_dir(), "a refused removal leaves the checkout alone");
+
+    but_workspace::worktrees::remove(&repo, &path, true)?;
+    assert!(!path.exists());
+    assert!(
+        repo.worktree_proxy_by_id(BStr::new("wt-a")).is_none(),
+        "the administrative files are gone too"
     );
     Ok(())
 }
