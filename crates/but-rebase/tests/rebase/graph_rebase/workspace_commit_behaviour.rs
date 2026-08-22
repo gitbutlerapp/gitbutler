@@ -57,14 +57,14 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·8795f47 (⌂|1)
-    └── ·dd72792 (⌂|1) ►c, ►main
+    ├── ·8795f47 (⌂)
+    └── ·dd72792 (⌂) ►c, ►main
         └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂|1)
+            └── ·e5aa7b5 (⌂)
                 └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂|1)
+                    └── ·3bfeb52 (⌂)
                         └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂|1)
+                            └── 🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -134,11 +134,11 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·badca2f (⌂|1)
-    ├── ·06106c2 (⌂|1) ►c, ►main
-    └── ·3bfeb52 (⌂|1) ►a, ►b
+    ├── ·badca2f (⌂)
+    ├── ·06106c2 (⌂) ►c, ►main
+    └── ·3bfeb52 (⌂) ►a, ►b
         └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂|1)
+            └── 🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -249,10 +249,10 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·120e3a9 (⌂)
+    ├── ·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
