@@ -17,6 +17,7 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
     ("c", "commit"),
     ("s", "squash"),
     ("m", "move"),
+    ("wt", "worktree"),
 ];
 
 /// Attempts to expand `potential_alias`.
@@ -145,6 +146,8 @@ mod tests {
         assert!(!is_known_subcommand("unknown"));
         assert!(!is_known_subcommand("co"));
         assert!(!is_known_subcommand("st"));
+        assert!(is_known_subcommand("worktree"));
+        assert!(!is_known_subcommand("wt"));
     }
 
     #[test]

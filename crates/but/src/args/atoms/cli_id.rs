@@ -196,9 +196,7 @@ impl CliIdArg {
         repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<Option<BString>> {
-        let Some(id) =
-            try_resolve_cli_id(self, repo, id_map, Purpose::Branch, Some(Priority::Branch))?
-        else {
+        let Some(id) = try_resolve_cli_id(self, repo, id_map, Purpose::Worktree, None)? else {
             return Ok(None);
         };
         match id {
@@ -460,6 +458,8 @@ pub enum Purpose {
     #[expect(missing_docs)]
     Branch,
     #[expect(missing_docs)]
+    Worktree,
+    #[expect(missing_docs)]
     Commit,
     #[expect(missing_docs)]
     Target,
@@ -475,6 +475,7 @@ impl std::fmt::Display for Purpose {
         match self {
             Purpose::Anchor => f.write_str("anchor"),
             Purpose::Branch => f.write_str("branch"),
+            Purpose::Worktree => f.write_str("worktree"),
             Purpose::Target => f.write_str("target"),
             Purpose::Source => f.write_str("source"),
             Purpose::Commit => f.write_str("commit"),

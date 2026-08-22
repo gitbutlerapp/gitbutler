@@ -67,6 +67,7 @@ Default aliases (overridable):
   c        →  commit
   s        →  squash
   m        →  move
+  wt       →  worktree
 
 "#]]);
 }

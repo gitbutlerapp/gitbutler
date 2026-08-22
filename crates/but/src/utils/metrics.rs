@@ -102,7 +102,7 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{agent, alias as alias_args, branch, forge, skill, update};
+        use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             // Unreachable: the comments experiment opts out of metrics in `to_metrics_context`.
             Subcommands::_Comment(_) => Unknown,
@@ -132,6 +132,12 @@ impl Subcommands {
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
                 Some(branch::Subcommands::Update { .. }) => BranchUpdate,
                 Some(branch::Subcommands::Move { .. }) => BranchMove,
+            },
+            Subcommands::Worktree(worktree::Platform { cmd }) => match cmd {
+                None | Some(worktree::Subcommands::List { .. }) => WorktreeList,
+                Some(worktree::Subcommands::Archive { .. }) => WorktreeArchive,
+                Some(worktree::Subcommands::Unarchive { .. }) => WorktreeUnarchive,
+                Some(worktree::Subcommands::Remove { .. }) => WorktreeRemove,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Unapply { .. } => BranchUnapply,
