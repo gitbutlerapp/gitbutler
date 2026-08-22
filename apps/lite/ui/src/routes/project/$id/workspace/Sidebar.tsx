@@ -45,6 +45,14 @@ const adjacentPage = (tab: PageId, offset: -1 | 1): PageId => {
 	return assert(pageOrder[(index + offset + pageOrder.length) % pageOrder.length]);
 };
 
+/**
+ * Counts past this are shown as `99+`: the badge sits inside a tab, where a
+ * third digit takes width from the tab labels, and at that size the number is
+ * a rough sense of how far behind the workspace is rather than a figure to
+ * read. The upstream page states the exact count.
+ */
+const maxBadgeCount = 99;
+
 export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	branchesList: BranchesListData;
@@ -246,7 +254,11 @@ export const Sidebar: FC<{
 						<Icon name="inbox" />
 						<span className={styles.tabLabel}>Upstream</span>
 						{upstreamList.incomingCount > 0 && (
-							<Badge variant="fillGray">{upstreamList.incomingCount}</Badge>
+							<Badge variant="fillGray">
+								{upstreamList.incomingCount > maxBadgeCount
+									? `${maxBadgeCount}+`
+									: upstreamList.incomingCount}
+							</Badge>
 						)}
 					</Toggle>
 					<Toggle
