@@ -1,27 +1,19 @@
-import {
-	useDiscardFileChanges,
-	useOpenInProgram,
-	useResolveWorktreeConflicts,
-} from "#ui/api/mutations.ts";
+import { useDiscardFileChanges, useResolveWorktreeConflicts } from "#ui/api/mutations.ts";
 import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
-import {
-	changesInWorktreeQueryOptions,
-	guiSettingsQueryOptions,
-	listEditorsQueryOptions,
-	listProjectsQueryOptions,
-} from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import {
 	changesFileHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
+import { usePathMenuItems } from "./usePathMenuItems.ts";
 import { fileAddress, type FileAddress } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 
 export const useFileMenuItems = ({
@@ -41,15 +33,7 @@ export const useFileMenuItems = ({
 }): Array<NativeMenuItem> => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
-
-	const selectedProject = projects.find((project) => project.id === projectId);
-	if (!selectedProject) throw new Error("Could not find selected project");
+	const pathMenuItems = usePathMenuItems({ projectId, path });
 
 	const { canDiscard, discard } = useDiscardFileChanges({
 		projectId,
@@ -67,7 +51,6 @@ export const useFileMenuItems = ({
 	);
 	const discardLabel =
 		discardFileCount > 1 ? `Discard Changes in ${discardFileCount} Files` : "Discard Changes";
-	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
 	const { isPending: isResolvePending, mutate: resolveWorktreeConflicts } =
 		useResolveWorktreeConflicts();
 	// A file listed under uncommitted changes without a change is a conflicted one.
@@ -84,54 +67,7 @@ export const useFileMenuItems = ({
 	};
 
 	const menuItemGroups: Array<Array<NativeMenuItem>> = [
-		[
-			preferredEditor
-				? nativeMenuItem({
-						label: `Open in ${preferredEditor.name}`,
-						enabled: !isOpenInProgramPending,
-						accelerator: toElectronAccelerator(changesFileHotkeys.openInEditor.hotkey),
-						onSelect: () =>
-							openInProgram({
-								projectId,
-								programId: preferredEditor.id,
-								path,
-								lineNr: null,
-							}),
-					})
-				: nativeMenuItem({
-						label: "Open In Editor",
-						submenu:
-							editors?.map((editor) =>
-								nativeMenuItem({
-									label: editor.name,
-									enabled: !isOpenInProgramPending,
-									onSelect: () =>
-										openInProgram({
-											projectId,
-											programId: editor.id,
-											path,
-											lineNr: null,
-										}),
-								}),
-							) ?? [],
-					}),
-			nativeMenuItem({
-				label: "Copy Path",
-				submenu: [
-					nativeMenuItem({
-						label: "Absolute Path",
-						onSelect: async () => {
-							const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
-							await window.lite.clipboardWriteText(absolutePath);
-						},
-					}),
-					nativeMenuItem({
-						label: "Relative Path",
-						onSelect: () => window.lite.clipboardWriteText(path),
-					}),
-				],
-			}),
-		],
+		pathMenuItems,
 		...(isWorktreeConflict
 			? [
 					[

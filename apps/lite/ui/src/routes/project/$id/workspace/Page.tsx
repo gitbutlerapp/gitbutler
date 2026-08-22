@@ -12,8 +12,10 @@ import {
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	operatingModeQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
+import { EditModePage } from "./EditModePage.tsx";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusHorizontalScope,
@@ -714,8 +716,15 @@ export const Page: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const { data: headAndMode } = useQuery(operatingModeQueryOptions(projectId));
 	const project = projects.find((project) => project.id === projectId);
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
+
+	// Edit mode is repository state, not navigation: the whole surface swaps
+	// while HEAD is parked on the edit ref, and swaps back when it returns —
+	// including when the transition happened in a terminal.
+	if (headAndMode?.operatingMode.type === "Edit")
+		return <EditModePage projectId={projectId} metadata={headAndMode.operatingMode.subject} />;
 
 	return (
 		<QueryErrorResetBoundary>

@@ -12,6 +12,8 @@ export const apiProvides = {
 	commitConflicts: [],
 	commitDetailsWithLineStats: ["Commits"],
 	currentForgeLogin: ["ForgeLogin"],
+	editChangesFromInitial: ["WorktreeChanges"],
+	editInitialIndexState: ["OperatingMode"],
 	forgeInfo: ["ForgeInfo"],
 	getAiConfiguration: ["AiConfiguration"],
 	getBlobFile: [],
@@ -29,6 +31,7 @@ export const apiProvides = {
 	listReviewTimelineEvents: ["ReviewTimeline"],
 	listReviewerCandidates: ["ReviewerCandidates"],
 	listReviews: ["Reviews"],
+	operatingMode: ["OperatingMode"],
 	treeChangeDiffs: ["Diffs"],
 	workspaceFetchFromRemotes: [],
 	workspaceFetchStatus: ["FetchStatus"],
@@ -36,6 +39,7 @@ export const apiProvides = {
 };
 
 export const apiInvalidates = {
+	abortEditAndReturnToWorkspace: ["OperatingMode"],
 	addCommentReaction: ["CommentReactions", "ReviewComments"],
 	addProject: ["Projects"],
 	addReviewLabels: ["Reviews"],
@@ -44,6 +48,7 @@ export const apiInvalidates = {
 	deleteAllData: ["Projects"],
 	deleteProject: ["Projects"],
 	deleteReviewComment: ["ReviewComments"],
+	enterEditMode: ["OperatingMode"],
 	forgetBitbucketAccount: ["ForgeAccounts", "ForgeLogin"],
 	forgetGithubAccount: ["ForgeAccounts", "ForgeLogin"],
 	forgetGitlabAccount: ["ForgeAccounts", "ForgeLogin"],
@@ -54,6 +59,7 @@ export const apiInvalidates = {
 	removeReviewReaction: ["ReviewReactions"],
 	requestReview: ["Reviews", "ReviewTimeline"],
 	resetAiConfiguration: ["AiConfiguration"],
+	saveEditAndReturnToWorkspace: ["OperatingMode"],
 	setGbConfig: ["GbConfig", "SigningSettings"],
 	setReviewAutoMerge: ["Reviews"],
 	setReviewDraftiness: ["Reviews", "MergeStatus"],
@@ -71,7 +77,7 @@ export const apiInvalidates = {
 export const watcherInvalidates = {
 	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
-	gitHead: [],
+	gitHead: ["OperatingMode"],
 	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

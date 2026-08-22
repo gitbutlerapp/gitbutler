@@ -19,7 +19,7 @@ pub struct HeadAndMode {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HeadAndMode);
 
-#[but_api]
+#[but_api(napi, provides = [OperatingMode])]
 #[instrument(err(Debug))]
 pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
     let guard = ctx.shared_worktree_access();
@@ -70,7 +70,11 @@ pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
     Ok(HeadSha { head_sha })
 }
 
-#[but_api]
+// The mode is derived from HEAD plus a metadata file the watcher cannot see,
+// so these three declare their invalidation instead of relying on the
+// `gitHead` event alone; the event still covers transitions made outside
+// the app (e.g. `but resolve`).
+#[but_api(napi, invalidates = [OperatingMode])]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
     ctx: &mut but_ctx::Context,
@@ -86,7 +90,7 @@ pub fn enter_edit_mode(
     )
 }
 
-#[but_api]
+#[but_api(napi, invalidates = [OperatingMode])]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: bool) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -100,7 +104,7 @@ pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: boo
 }
 
 // GUI-facing API that returns () for serialization compatibility
-#[but_api]
+#[but_api(napi, invalidates = [OperatingMode])]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -117,7 +121,10 @@ pub fn save_edit_and_return_to_workspace_with_output(ctx: &mut but_ctx::Context)
     Ok(())
 }
 
-#[but_api]
+// The initial state is fixed for the length of an edit session, so it is
+// made of the mode's tag: it refreshes when the session changes, never on
+// worktree noise.
+#[but_api(napi, provides = [OperatingMode])]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
     ctx: &but_ctx::Context,
@@ -126,7 +133,7 @@ pub fn edit_initial_index_state(
     gitbutler_edit_mode::commands::starting_index_state(ctx, guard.read_permission())
 }
 
-#[but_api]
+#[but_api(napi, provides = [WorktreeChanges])]
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChange>> {
     let guard = ctx.shared_worktree_access();
