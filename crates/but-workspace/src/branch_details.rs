@@ -38,7 +38,10 @@ pub fn branch_details(
         .context("The branch to integrate with must be present")?;
     let integration_branch_id = integration_branch.peel_to_id()?;
 
-    let mut branch = repo.find_reference(name)?;
+    let Some(mut branch) = repo.try_find_reference(name)? else {
+        return Err(anyhow::anyhow!("The reference '{name}' did not exist")
+            .context(but_error::Code::BranchNotFound));
+    };
     let branch_id = branch.peel_to_id()?;
 
     let mut remote_tracking_branch = repo
