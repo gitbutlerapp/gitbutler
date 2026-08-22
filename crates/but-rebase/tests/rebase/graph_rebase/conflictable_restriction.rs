@@ -50,10 +50,10 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·04d1892 (⌂|1) ►c
-    └── ·5e0ba46 (⌂|1) ►a, ►b
+    ├── ·04d1892 (⌂) ►c
+    └── ·5e0ba46 (⌂) ►a, ►b
         └── ►:1[1]:base
-            └── 🏁·6155f21 (⌂|1)
+            └── 🏁·6155f21 (⌂)
 
 "#]]
     );
@@ -197,14 +197,14 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·8b4d335 (⌂|1) ►c
+    └── ·8b4d335 (⌂) ►c
         └── ►:1[1]:b
-            ├── ·7762cf9 (⌂|1)
-            └── ·3b3bd41 (⌂|1)
+            ├── ·7762cf9 (⌂)
+            └── ·3b3bd41 (⌂)
                 └── ►:2[2]:a
-                    └── ·5e0ba46 (⌂|1)
+                    └── ·5e0ba46 (⌂)
                         └── ►:3[3]:base
-                            └── 🏁·6155f21 (⌂|1)
+                            └── 🏁·6155f21 (⌂)
 
 "#]]
     );

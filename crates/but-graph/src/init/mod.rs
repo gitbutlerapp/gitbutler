@@ -1195,7 +1195,13 @@ impl Graph {
         }
 
         ctx.hard_limit = next.hard_limit_hit();
-        graph.post_processed(meta, tip, ctx)
+        let mut graph = graph.post_processed(meta, tip, ctx)?;
+        for segment in graph.node_weights_mut() {
+            for commit in segment.commits.iter_mut() {
+                commit.flags = commit.flags.intersection(CommitFlags::all());
+            }
+        }
+        Ok(graph)
     }
 
     /// Take the ref-info from a named segment and put it back onto the first commit

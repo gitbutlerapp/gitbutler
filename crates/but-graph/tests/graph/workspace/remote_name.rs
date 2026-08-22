@@ -88,7 +88,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
 │ ├─╯
 │ ◎  📙A
 ├─╯
-●  ✂·bce0c5e (⌂|🏘|✓|1)
+●  ✂·bce0c5e (⌂|🏘|✓)
 "#]]
     );
 
