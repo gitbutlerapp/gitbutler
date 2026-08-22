@@ -7,19 +7,25 @@ fn main() {
         mcp_app_dir.join("workspace.html"),
         mcp_app_dir.join("review.html"),
     ];
-    for path in &mcp_app_files {
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
     println!("cargo:rerun-if-env-changed=GITBUTLER_REQUIRE_MCP_APP");
     println!("cargo:rustc-check-cfg=cfg(but_mcp_app_built)");
 
     if mcp_app_files.iter().all(|path| path.is_file()) {
+        for path in &mcp_app_files {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
         println!("cargo:rustc-cfg=but_mcp_app_built");
-    } else if std::env::var_os("GITBUTLER_REQUIRE_MCP_APP").is_some() {
-        panic!(
-            "packaged CLI builds require the generated MCP apps; run \
-             `pnpm --filter @gitbutler/but-mcp-app build` before building `but`"
-        );
+    } else {
+        // Watching a missing file makes Cargo consider the package dirty on every build. Watch the
+        // containing directory instead so creating a generated MCP app still triggers a rebuild.
+        println!("cargo:rerun-if-changed={}", mcp_app_dir.display());
+
+        if std::env::var_os("GITBUTLER_REQUIRE_MCP_APP").is_some() {
+            panic!(
+                "packaged CLI builds require the generated MCP apps; run \
+                 `pnpm --filter @gitbutler/but-mcp-app build` before building `but`"
+            );
+        }
     }
 
     let identifier = if let Ok(channel) = std::env::var("CHANNEL") {
