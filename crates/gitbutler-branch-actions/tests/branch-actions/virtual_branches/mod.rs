@@ -168,6 +168,15 @@ impl TestRepo {
             },
         )
         .unwrap();
+        // A real `git commit` leaves `.git/index` matching the new commit. Without
+        // this the index keeps looking like the paths were never tracked, which shows
+        // up as staged deletions the moment the index isn't ignored.
+        let mut index = repo
+            .index_from_tree(&gix::prelude::ObjectIdExt::attach(tree_id, &repo))
+            .expect("index can be built from the committed tree");
+        index
+            .write(Default::default())
+            .expect("index can be written");
         update_current_head(&repo, commit_id, "commit");
         commit_id
     }
