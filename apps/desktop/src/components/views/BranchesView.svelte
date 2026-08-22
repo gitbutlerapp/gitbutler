@@ -33,7 +33,7 @@
 	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
-	import { untrack } from "svelte";
+	import { tick, untrack } from "svelte";
 	import type { BranchFilterOption, SidebarEntrySubject } from "$lib/branches/branchListing";
 	type Props = {
 		projectId: string;
@@ -122,12 +122,28 @@
 	}
 
 	async function deleteLocalBranch(branchName: string) {
-		await stackService.deleteLocalBranch({
-			projectId,
-			refname: `refs/heads/${branchName}`,
-			givenName: branchName,
-		});
-		// Unselect branch
+		const selectionToRestore =
+			selection.type === "branch" &&
+			selection.branchName === branchName &&
+			selection.remote === undefined
+				? selection
+				: undefined;
+		let temporarySelection: BranchesSelection | undefined;
+		if (selectionToRestore) {
+			selection = { type: "target" };
+			temporarySelection = selection;
+			await tick();
+		}
+		try {
+			await stackService.deleteLocalBranch({
+				projectId,
+				refname: `refs/heads/${branchName}`,
+				givenName: branchName,
+			});
+		} catch (error) {
+			if (selectionToRestore && selection === temporarySelection) selection = selectionToRestore;
+			throw error;
+		}
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
 
