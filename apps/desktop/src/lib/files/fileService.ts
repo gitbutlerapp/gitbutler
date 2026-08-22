@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { FileInfo } from "$lib/files/file";
 import type { BackendApi } from "$lib/state/backendApi";
+import type { FileInfo } from "@gitbutler/but-sdk";
 
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 
@@ -62,6 +62,6 @@ export class FileService {
 	}
 }
 
-function isLarge(size: number | undefined) {
+function isLarge(size: number | null | undefined) {
 	return size && size > 5 * 1024 * 1024 ? true : false;
 }
