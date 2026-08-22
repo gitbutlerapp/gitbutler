@@ -62,16 +62,16 @@ fn insert_below_merge_commit() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂|1)
-    └── ·16b7c68 (⌂|1)
+    ├── ·f699c45 (⌂)
+    └── ·16b7c68 (⌂)
         └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂|1)
+            └── ·8ca0053 (⌂)
                 ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
+                │   └── ·add59d2 (⌂)
                 │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                │           └── 🏁·8f0d338 (⌂) ►tags/base
                 └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
+                    └── ·984fd1c (⌂)
                         └── →:4: (main)
 
 "#]]
@@ -169,16 +169,16 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂|1)
-    └── ·16b7c68 (⌂|1)
+    ├── ·f699c45 (⌂)
+    └── ·16b7c68 (⌂)
         └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂|1)
+            └── ·8ca0053 (⌂)
                 ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
+                │   └── ·add59d2 (⌂)
                 │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                │           └── 🏁·8f0d338 (⌂) ►tags/base
                 └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
+                    └── ·984fd1c (⌂)
                         └── →:4: (main)
 
 "#]]
@@ -271,16 +271,16 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·42f9ff4 (⌂|1)
+    └── ·42f9ff4 (⌂)
         └── ►:1[1]:anon:
-            └── ·5219d30 (⌂|1)
+            └── ·5219d30 (⌂)
                 ├── ►:2[2]:A
-                │   └── ·72d9d9b (⌂|1)
+                │   └── ·72d9d9b (⌂)
                 │       └── ►:4[3]:main
-                │           ├── ·3dc4e45 (⌂|1)
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                │           ├── ·3dc4e45 (⌂)
+                │           └── 🏁·8f0d338 (⌂) ►tags/base
                 └── ►:3[2]:B
-                    └── ·df0cf44 (⌂|1)
+                    └── ·df0cf44 (⌂)
                         └── →:4: (main)
 
 "#]]

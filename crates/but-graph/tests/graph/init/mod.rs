@@ -125,9 +125,9 @@ fn detached() -> anyhow::Result<()> {
 ├─╯
 │ ◎  tags/release/v1
 ├─╯
-●  👉·541396b (⌂|1)
+●  👉·541396b (⌂)
 ◎  other
-●  🏁·fafd9d0 (⌂|1)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -148,7 +148,7 @@ Graph {
                 sibling_segment_id: None,
                 remote_tracking_branch_segment_id: None,
                 commits: [
-                    Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
+                    Commit(541396b, ⌂►annotated, ►release/v1, ►main),
                 ],
                 metadata: "None",
             },
@@ -160,7 +160,7 @@ Graph {
                 sibling_segment_id: None,
                 remote_tracking_branch_segment_id: None,
                 commits: [
-                    Commit(fafd9d0, ⌂|1),
+                    Commit(fafd9d0, ⌂),
                 ],
                 metadata: "None",
             },
@@ -297,8 +297,8 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         snapbox::str![[r#"
 ◎  origin/main
 ◎  👉main[🌳] <> origin/main
-●  ·71a64f3 (⌂|1)
-●  ⛰·62d65ed (⌂|⛰|1)
+●  ·71a64f3 (⌂)
+●  ⛰·62d65ed (⌂|⛰)
 "#]]
     );
     let (boundary_sidx, boundary_cidx) = graph
@@ -385,19 +385,19 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉first-parent[🌳]
-●  ·738ea18 (⌂|1)
-●    ·408ca26 (⌂|1)
+●  ·738ea18 (⌂)
+●    ·408ca26 (⌂)
 ├─╮
-● │  ·2854fa2 (⌂|1)
+● │  ·2854fa2 (⌂)
 │ ◎  second-parent
-│ ●  ·75369b0 (⌂|1)
-│ ●  ·553bbf7 (⌂|1)
-│ ●  ·72614bb (⌂|1)
+│ ●  ·75369b0 (⌂)
+│ ●  ·553bbf7 (⌂)
+│ ●  ·72614bb (⌂)
 ├─╯
 ◎  main
 │ ◎  tags/base
 ├─╯
-●  🏁·793a434 (⌂|1)
+●  🏁·793a434 (⌂)
 "#]]
     );
 
@@ -446,12 +446,12 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂|01)
+●  ·971953d (⌂)
 │ ◎  origin/main
-│ ●  🟣5d29d62 (0x0|10)
+│ ●  🟣5d29d62 (0x0)
 ├─╯
-●  ·ce09734 (⌂|11)
-●  🏁·fafd9d0 (⌂|11)
+●  ·ce09734 (⌂)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -496,13 +496,13 @@ fn only_remote_advanced() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  origin/main
-●  🟣085535d (0x0|10)
+●  🟣085535d (0x0)
 ◎  origin/split-segment
-●  🟣dd9f8d9 (0x0|10)
+●  🟣dd9f8d9 (0x0)
 ◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂|11)
-●  ·ce09734 (⌂|11)
-●  🏁·fafd9d0 (⌂|11)
+●  ·971953d (⌂)
+●  ·ce09734 (⌂)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -550,14 +550,14 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  origin/main
-●  🟣085535d (0x0|10)
+●  🟣085535d (0x0)
 ◎  origin/split-segment
-●  🟣dd9f8d9 (0x0|10)
+●  🟣dd9f8d9 (0x0)
 ◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂|11)
+●  ·971953d (⌂)
 ◎  gitbutler/target
-●  ·ce09734 (⌂|11)
-●  🏁·fafd9d0 (⌂|11)
+●  ·ce09734 (⌂)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -610,19 +610,19 @@ fn multi_root() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉main[🌳]
-●    ·c6c8c05 (⌂|1)
+●    ·c6c8c05 (⌂)
 ├─╮
-● │    ·76fc5c4 (⌂|1)
+● │    ·76fc5c4 (⌂)
 ├───╮
-● │ │  🏁·e5d0542 (⌂|1)
+● │ │  🏁·e5d0542 (⌂)
   │ ◎  B
-  │ ●  🏁·366d496 (⌂|1)
+  │ ●  🏁·366d496 (⌂)
   ◎  C
-  ●  ·8631946 (⌂|1)
+  ●  ·8631946 (⌂)
 ╭─┤
-│ ●  🏁·00fab2a (⌂|1)
+│ ●  🏁·00fab2a (⌂)
 ◎  D
-●  🏁·f4955b6 (⌂|1)
+●  🏁·f4955b6 (⌂)
 "#]]
     );
     assert_eq!(
@@ -686,25 +686,25 @@ fn four_diamond() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -794,9 +794,9 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
 │ ◎  tags/release/v1
 │ ◎  👉main
 ├─╯
-●  ·541396b (⌂|1)
+●  ·541396b (⌂)
 ◎  other
-●  🏁·fafd9d0 (⌂|1)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
     Ok(())
@@ -850,25 +850,25 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|✓|1)
+●  🏁·965998b (⌂|✓)
 "#]]
     );
     Ok(())
@@ -1046,25 +1046,25 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|✓|1)
+● │    ·62b409a (⌂|✓)
 ├───╮
-● │ │  ·592abec (⌂|✓|1)
+● │ │  ·592abec (⌂|✓)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|✓|1)
+│ │ ●  ·f16dddf (⌂|✓)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|✓|1)
+●  🏁·965998b (⌂|✓)
 "#]]
     );
 
@@ -1133,16 +1133,16 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂|0001)
+●  ·312f819 (⌂)
 ◎  A <> origin/A
-●  ·e255adc (⌂|0101)
+●  ·e255adc (⌂)
 │ ◎  origin/B
-│ ●  🟣682be32 (0x0|0010)
+│ ●  🟣682be32 (0x0)
 │ ◎  origin/A
-│ ●  🟣e29c23d (0x0|1010)
+│ ●  🟣e29c23d (0x0)
 ├─╯
 ◎  main
-●  🏁·fafd9d0 (⌂|1111)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -1176,16 +1176,16 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂|001)
+●  ·312f819 (⌂)
 ◎  A <> origin/A
-●  ❌·e255adc (⌂|101)
+●  ❌·e255adc (⌂)
 │ ◎  origin/B
-│ ●  🟣682be32 (0x0|010)
+│ ●  🟣682be32 (0x0)
 │ ◎  origin/A
-│ ●  🟣e29c23d (0x0|010)
+│ ●  🟣e29c23d (0x0)
 │ ◎  main
 ├─╯
-●  🏁🟣fafd9d0 (0x0|010)
+●  🏁🟣fafd9d0 (0x0)
 "#]]
     );
     assert!(
@@ -1216,16 +1216,16 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂|0001)
+●  ·312f819 (⌂)
 ◎  A <> origin/A
-●  ·e255adc (⌂|0101)
+●  ·e255adc (⌂)
 │ ◎  origin/B
-│ ●  🟣682be32 (0x0|0010)
+│ ●  🟣682be32 (0x0)
 │ ◎  origin/A
-│ ●  🟣e29c23d (0x0|1010)
+│ ●  🟣e29c23d (0x0)
 ├─╯
 ◎  main
-●  🏁·fafd9d0 (⌂|1111)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -1244,12 +1244,12 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉A <> origin/A
-●  ·e255adc (⌂|01)
+●  ·e255adc (⌂)
 │ ◎  origin/A
-│ ●  🟣e29c23d (0x0|10)
+│ ●  🟣e29c23d (0x0)
 ├─╯
 ◎  main
-●  🏁·fafd9d0 (⌂|11)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -1308,27 +1308,27 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ·6861158 (⌂|1)
-● │ │  ·4f1f248 (⌂|1)
-● │ │  ·487ffce (⌂|1)
+● │ │  ·6861158 (⌂)
+● │ │  ·4f1f248 (⌂)
+● │ │  ·487ffce (⌂)
 │ ◎ │  A
-│ ● │  ·20a823c (⌂|1)
-│ ● │  ·442a12f (⌂|1)
-│ ● │  ·686706b (⌂|1)
+│ ● │  ·20a823c (⌂)
+│ ● │  ·442a12f (⌂)
+│ ● │  ·686706b (⌂)
 ├─╯ │
 │   ◎  B
-│   ●  ·9908c99 (⌂|1)
-│   ●  ·60d9a56 (⌂|1)
-│   ●  ·9d171ff (⌂|1)
+│   ●  ·9908c99 (⌂)
+│   ●  ·60d9a56 (⌂)
+│   ●  ·9d171ff (⌂)
 ├───╯
 ◎  main
-●  ·edc4dee (⌂|1)
-●  ·01d0e1e (⌂|1)
-●  ·4b3e5a8 (⌂|1)
-●  ·34d0715 (⌂|1)
-●  🏁·eb5f731 (⌂|1)
+●  ·edc4dee (⌂)
+●  ·01d0e1e (⌂)
+●  ·4b3e5a8 (⌂)
+●  ·34d0715 (⌂)
+●  🏁·eb5f731 (⌂)
 "#]]
     );
     // No limits list the first parent everywhere.
@@ -1366,7 +1366,7 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●  ✂·2a95729 (⌂|1)
+●  ✂·2a95729 (⌂)
 "#]]
     );
     // The cut by limit is also represented here.
@@ -1394,13 +1394,13 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ✂·6861158 (⌂|1)
+● │ │  ✂·6861158 (⌂)
   ◎ │  A
-  ● │  ✂·20a823c (⌂|1)
+  ● │  ✂·20a823c (⌂)
     ◎  B
-    ●  ✂·9908c99 (⌂|1)
+    ●  ✂·9908c99 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -1433,13 +1433,13 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ❌·6861158 (⌂|1)
+● │ │  ❌·6861158 (⌂)
   ◎ │  A
-  ● │  ❌·20a823c (⌂|1)
+  ● │  ❌·20a823c (⌂)
     ◎  B
-    ●  ❌·9908c99 (⌂|1)
+    ●  ❌·9908c99 (⌂)
 "#]]
     );
 
@@ -1456,16 +1456,16 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ·6861158 (⌂|1)
-● │ │  ✂·4f1f248 (⌂|1)
+● │ │  ·6861158 (⌂)
+● │ │  ✂·4f1f248 (⌂)
   ◎ │  A
-  ● │  ·20a823c (⌂|1)
-  ● │  ✂·442a12f (⌂|1)
+  ● │  ·20a823c (⌂)
+  ● │  ✂·442a12f (⌂)
     ◎  B
-    ●  ·9908c99 (⌂|1)
-    ●  ✂·60d9a56 (⌂|1)
+    ●  ·9908c99 (⌂)
+    ●  ✂·60d9a56 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -1497,17 +1497,17 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ·6861158 (⌂|1)
-● │ │  ✂·4f1f248 (⌂|1)
+● │ │  ·6861158 (⌂)
+● │ │  ✂·4f1f248 (⌂)
   ◎ │  A
-  ● │  ·20a823c (⌂|1)
-  ● │  ·442a12f (⌂|1)
-  ● │  ✂·686706b (⌂|1)
+  ● │  ·20a823c (⌂)
+  ● │  ·442a12f (⌂)
+  ● │  ✂·686706b (⌂)
     ◎  B
-    ●  ·9908c99 (⌂|1)
-    ●  ✂·60d9a56 (⌂|1)
+    ●  ·9908c99 (⌂)
+    ●  ✂·60d9a56 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -1539,24 +1539,24 @@ fn with_limits() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ·6861158 (⌂|1)
-● │ │  ·4f1f248 (⌂|1)
-● │ │  ✂·487ffce (⌂|1)
+● │ │  ·6861158 (⌂)
+● │ │  ·4f1f248 (⌂)
+● │ │  ✂·487ffce (⌂)
 │ ◎ │  A
-│ ● │  ·20a823c (⌂|1)
-│ ● │  ·442a12f (⌂|1)
-│ ● │  ·686706b (⌂|1)
+│ ● │  ·20a823c (⌂)
+│ ● │  ·442a12f (⌂)
+│ ● │  ·686706b (⌂)
 │ ◎ │  main
 ├─╯ │
 │   ◎  B
-│   ●  ·9908c99 (⌂|1)
-│   ●  ·60d9a56 (⌂|1)
-│   ●  ✂·9d171ff (⌂|1)
+│   ●  ·9908c99 (⌂)
+│   ●  ·60d9a56 (⌂)
+│   ●  ✂·9d171ff (⌂)
 ├───╯
-●  ·edc4dee (⌂|1)
-●  ✂·01d0e1e (⌂|1)
+●  ·edc4dee (⌂)
+●  ✂·01d0e1e (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -1640,27 +1640,27 @@ Statistics {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉C[🌳]
-●      ·2a95729 (⌂|1)
+●      ·2a95729 (⌂)
 ├─┬─╮
-● │ │  ·6861158 (⌂|1)
-● │ │  ·4f1f248 (⌂|1)
-● │ │  ·487ffce (⌂|1)
+● │ │  ·6861158 (⌂)
+● │ │  ·4f1f248 (⌂)
+● │ │  ·487ffce (⌂)
 │ ◎ │  A
-│ ● │  ·20a823c (⌂|1)
-│ ● │  ·442a12f (⌂|1)
-│ ● │  ·686706b (⌂|1)
+│ ● │  ·20a823c (⌂)
+│ ● │  ·442a12f (⌂)
+│ ● │  ·686706b (⌂)
 ├─╯ │
 │   ◎  B
-│   ●  ·9908c99 (⌂|1)
-│   ●  ·60d9a56 (⌂|1)
-│   ●  ·9d171ff (⌂|1)
+│   ●  ·9908c99 (⌂)
+│   ●  ·60d9a56 (⌂)
+│   ●  ·9d171ff (⌂)
 ├───╯
 ◎  main
-●  ·edc4dee (⌂|✓|1)
-●  ·01d0e1e (⌂|✓|1)
-●  ·4b3e5a8 (⌂|✓|1)
-●  ·34d0715 (⌂|✓|1)
-●  🏁·eb5f731 (⌂|✓|1)
+●  ·edc4dee (⌂|✓)
+●  ·01d0e1e (⌂|✓)
+●  ·4b3e5a8 (⌂|✓)
+●  ·34d0715 (⌂|✓)
+●  🏁·eb5f731 (⌂|✓)
 "#]]
     );
 
@@ -1706,11 +1706,11 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉main[🌳]
-●  ·3686017 (⌂|1)
+●  ·3686017 (⌂)
 ◎  gitbutler/edit
-●  ·9725482 (⌂|1)
+●  ·9725482 (⌂)
 ◎  gitbutler/target
-●  🏁·fafd9d0 (⌂|1)
+●  🏁·fafd9d0 (⌂)
 "#]]
     );
 
@@ -1757,7 +1757,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 ├─╯
 │ ◎  wt-outside-ambiguous-worktree[📁]
 ├─╯
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]]
     );
 
@@ -1797,7 +1797,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 ├─╯
 │ ◎  wt-outside-ambiguous-worktree[📁]
 ├─╯
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]]
     );
 
@@ -1843,7 +1843,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉main[🌳]
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]]
     );
 
@@ -1871,7 +1871,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
 │ ●  ·9175ab3 (⌂)
 ├─╯
 ◎  👉main[🌳@repo]
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]]
     );
     assert_eq!(
@@ -1904,7 +1904,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
 ◎  wt-feature[📁worktree-ahead-feature]
 ●  ·9175ab3 (⌂)
 ◎  👉main[🌳@repo]
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]];
     snapbox::assert_data_eq!(graph_dag(&graph), feature_only.clone());
 
@@ -1943,7 +1943,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
             graph_dag(&redone),
             snapbox::str![[r#"
 ◎  👉main[🌳]
-●  🏁·85efbe4 (⌂|1)
+●  🏁·85efbe4 (⌂)
 "#]]
         );
     }
@@ -2027,7 +2027,7 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
 ◎  wt-feature[📁]
 ●  ·88cbbc5 (⌂)
 ◎  👉main[🌳@repo]
-●  🏁·7dfaa8f (⌂|1)
+●  🏁·7dfaa8f (⌂)
 "#]]
     );
     assert!(
@@ -2093,8 +2093,8 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉main[🌳]
-●  ·06470d7 (⌂|1)
-●  🏁·86719d5 (⌂|1)
+●  ·06470d7 (⌂)
+●  🏁·86719d5 (⌂)
 "#]]
     );
     Ok(())
@@ -2122,7 +2122,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
 │ ◎  👉top
 │ ◎  bottom
 ├─╯
-●  🏁·960152d (⌂|1)
+●  🏁·960152d (⌂)
 "#]]
     );
     assert_eq!(
@@ -2166,7 +2166,7 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 │ ◎  top
 │ ◎  👉bottom
 ├─╯
-●  🏁·960152d (⌂|1)
+●  🏁·960152d (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -2209,7 +2209,7 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
 │ ◎  middle
 │ ◎  bottom
 ├─╯
-●  🏁·960152d (⌂|1)
+●  🏁·960152d (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -2249,7 +2249,7 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 │ ◎  👉top
 │ ◎  bottom
 ├─╯
-●  🏁·960152d (⌂|1)
+●  🏁·960152d (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -2290,9 +2290,9 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
 │ ◎  main[🌳]
 ├─╯
 │ ◎  👉top
-│ ●  ·5cd63e5 (⌂|1)
+│ ●  ·5cd63e5 (⌂)
 ├─╯
-●  🏁·fa91c94 (⌂|1)
+●  🏁·fa91c94 (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -2443,7 +2443,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 │ ◎  👉top
 │ ◎  bottom
 ├─╯
-●  🏁·960152d (⌂|1)
+●  🏁·960152d (⌂)
 "#]]
     );
     snapbox::assert_data_eq!(

@@ -170,7 +170,6 @@ fn commit_label(
         is_entrypoint,
         stop_condition,
         graph.hard_limit_hit(),
-        graph.max_goals(),
     )
 }
 

@@ -125,16 +125,8 @@ impl Graph {
         is_entrypoint: bool,
         stop_condition: Option<StopCondition>,
         hard_limit: bool,
-        max_goals: Option<usize>,
     ) -> String {
-        Self::commit_debug_string_inner(
-            commit,
-            is_entrypoint,
-            stop_condition,
-            hard_limit,
-            max_goals,
-            false,
-        )
+        Self::commit_debug_string_inner(commit, is_entrypoint, stop_condition, hard_limit, false)
     }
 
     /// Like [`Self::commit_debug_string()`], but includes graph-contextual worktree ownership markers.
@@ -144,14 +136,12 @@ impl Graph {
         is_entrypoint: bool,
         stop_condition: Option<StopCondition>,
         hard_limit: bool,
-        max_goals: Option<usize>,
     ) -> String {
         Self::commit_debug_string_inner(
             commit,
             is_entrypoint,
             stop_condition,
             hard_limit,
-            max_goals,
             self.has_multiple_worktrees(),
         )
     }
@@ -161,7 +151,6 @@ impl Graph {
         is_entrypoint: bool,
         stop_condition: Option<StopCondition>,
         hard_limit: bool,
-        max_goals: Option<usize>,
         show_owned_by_repo: bool,
     ) -> String {
         format!(
@@ -176,7 +165,7 @@ impl Graph {
                 "·"
             },
             flags = if !commit.flags.is_empty() {
-                format!(" ({})", commit.flags.debug_string(max_goals))
+                format!(" ({})", commit.flags.debug_string())
             } else {
                 "".to_string()
             },
@@ -444,7 +433,6 @@ impl Graph {
     fn dot_graph_unpruned(&self) -> String {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint_location();
-        let max_goals = self.max_goals();
         let show_owned_by_repo = self.has_multiple_worktrees();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
@@ -475,7 +463,6 @@ impl Graph {
                             self.stop_condition(sidx)
                         },
                         self.hard_limit_hit,
-                        max_goals,
                         show_owned_by_repo,
                     )
                 })

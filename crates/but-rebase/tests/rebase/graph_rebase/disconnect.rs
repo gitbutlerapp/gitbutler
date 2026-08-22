@@ -62,9 +62,9 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·b4fd8ee (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·b4fd8ee (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -142,8 +142,8 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·19f8134 (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·19f8134 (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -219,13 +219,13 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·4023659 (⌂|1)
+    └── ·4023659 (⌂)
         └── ►:1[1]:anon:
-            └── ·01c4df0 (⌂|1)
+            └── ·01c4df0 (⌂)
                 ├── ►:2[3]:anon:
-                │   └── 🏁·8f0d338 (⌂|1) ►A, ►main, ►tags/base
+                │   └── 🏁·8f0d338 (⌂) ►A, ►main, ►tags/base
                 └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
+                    └── ·984fd1c (⌂)
                         └── →:2:
 
 "#]]
@@ -315,18 +315,18 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·87269f1 (⌂|1)
+    └── ·87269f1 (⌂)
         ├── ►:1[1]:C1
-        │   └── ·3e50be4 (⌂|1)
+        │   └── ·3e50be4 (⌂)
         │       ├── ►:3[2]:anon:
-        │       │   └── ·bc0e772 (⌂|1) ►M, ►P1
+        │       │   └── ·bc0e772 (⌂) ►M, ►P1
         │       │       └── ►:5[3]:main
-        │       │           └── 🏁·7674a5e (⌂|1) ►tags/base
+        │       │           └── 🏁·7674a5e (⌂) ►tags/base
         │       └── ►:4[2]:P2
-        │           └── ·392a8f8 (⌂|1)
+        │           └── ·392a8f8 (⌂)
         │               └── →:5: (main)
         └── ►:2[1]:C2
-            └── ·c291781 (⌂|1)
+            └── ·c291781 (⌂)
                 ├── →:3:
                 └── →:4: (P2)
 
@@ -461,19 +461,19 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·9de031b (⌂|1)
+    └── ·9de031b (⌂)
         ├── ►:1[1]:C1
-        │   └── ·54d0b0d (⌂|1)
+        │   └── ·54d0b0d (⌂)
         │       └── ►:3[2]:P1
-        │           └── ·bc0e772 (⌂|1)
+        │           └── ·bc0e772 (⌂)
         │               └── ►:5[4]:main
-        │                   └── 🏁·7674a5e (⌂|1) ►tags/base
+        │                   └── 🏁·7674a5e (⌂) ►tags/base
         └── ►:2[1]:C2
-            └── ·41cb528 (⌂|1)
+            └── ·41cb528 (⌂)
                 └── ►:4[2]:M
-                    └── ·9f6b11a (⌂|1)
+                    └── ·9f6b11a (⌂)
                         └── ►:6[3]:P2
-                            └── ·392a8f8 (⌂|1)
+                            └── ·392a8f8 (⌂)
                                 └── →:5: (main)
 
 "#]]
@@ -599,17 +599,17 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·b87b6c9 (⌂|1)
+    └── ·b87b6c9 (⌂)
         ├── ►:1[1]:C1
-        │   └── ·76ecfed (⌂|1)
+        │   └── ·76ecfed (⌂)
         │       └── ►:3[2]:M
-        │           └── ·9f6b11a (⌂|1)
+        │           └── ·9f6b11a (⌂)
         │               └── ►:4[3]:P2
-        │                   └── ·392a8f8 (⌂|1)
+        │                   └── ·392a8f8 (⌂)
         │                       └── ►:5[4]:main
-        │                           └── 🏁·7674a5e (⌂|1) ►tags/base
+        │                           └── 🏁·7674a5e (⌂) ►tags/base
         └── ►:2[1]:C2
-            └── ·41cb528 (⌂|1)
+            └── ·41cb528 (⌂)
                 └── →:3: (M)
 
 "#]]
@@ -750,20 +750,20 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂|1)
+    └── ·d1cc4c7 (⌂)
         ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂|1)
+        │   └── ·f94f259 (⌂)
         │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂|1)
+        │           └── ·c5d1178 (⌂)
         │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂|1)
+        │               │   └── ·bc0e772 (⌂)
         │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂|1) ►tags/base
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
         │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂|1)
+        │                   └── ·392a8f8 (⌂)
         │                       └── →:6: (main)
         └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂|1)
+            └── ·ce6aca9 (⌂)
                 └── →:3: (M)
 
 "#]]
@@ -833,20 +833,20 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂|1)
+    └── ·d1cc4c7 (⌂)
         ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂|1)
+        │   └── ·f94f259 (⌂)
         │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂|1)
+        │           └── ·c5d1178 (⌂)
         │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂|1)
+        │               │   └── ·bc0e772 (⌂)
         │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂|1) ►tags/base
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
         │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂|1)
+        │                   └── ·392a8f8 (⌂)
         │                       └── →:6: (main)
         └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂|1)
+            └── ·ce6aca9 (⌂)
                 └── →:3: (M)
 
 "#]]
@@ -916,20 +916,20 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         snapbox::str![[r#"
 
 └── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂|1)
+    └── ·d1cc4c7 (⌂)
         ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂|1)
+        │   └── ·f94f259 (⌂)
         │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂|1)
+        │           └── ·c5d1178 (⌂)
         │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂|1)
+        │               │   └── ·bc0e772 (⌂)
         │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂|1) ►tags/base
+        │               │           └── 🏁·7674a5e (⌂) ►tags/base
         │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂|1)
+        │                   └── ·392a8f8 (⌂)
         │                       └── →:6: (main)
         └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂|1)
+            └── ·ce6aca9 (⌂)
                 └── →:3: (M)
 
 "#]]
