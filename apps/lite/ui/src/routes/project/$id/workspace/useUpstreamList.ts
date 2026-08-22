@@ -84,10 +84,10 @@ export type UpstreamListData = {
 	/** The target's display label, like `origin/main`, or `null` without a target. */
 	targetLabel: string | null;
 	/**
-	 * How many listed commits an update would bring in. Counted from the
-	 * first-parent rows once the listing is loaded so the label always agrees
-	 * with them; before that, the graph's all-commits count approximates it
-	 * for the page badge.
+	 * How many listed commits an update would bring in, counted from the
+	 * first-parent rows. The page label and the sidebar badge both read it, so
+	 * they always agree with the rows and with each other, whichever page is
+	 * shown.
 	 */
 	incomingCount: number;
 	/** Whether any workspace branch was detected as integrated upstream. */
@@ -299,7 +299,12 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 	// on unrelated renders.
 	return useQueries({
 		queries: [
-			{ ...workspaceTargetCommitsQueryOptions(projectId), enabled: active },
+			// Kept enabled while another page is shown: the sidebar badge counts
+			// the same rows the tab lists, so the listing has to stay current
+			// even when nothing renders it. Disabling it would leave the badge
+			// on whatever was cached the last time the tab was open, with the
+			// invalidations that follow a fetch reaching no observer.
+			workspaceTargetCommitsQueryOptions(projectId),
 			{ ...headInfoQueryOptions(projectId), enabled: active },
 		],
 		combine: ([targetResult, headInfoResult]): UpstreamListData => {
@@ -307,9 +312,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 			const targetCommits = targetPage?.commits ?? [];
 			const headInfo = headInfoResult.data;
 
-			const incomingCount = targetPage
-				? targetCommits.filter((commit) => !commit.inWorkspace).length
-				: (headInfo?.target?.commitsAhead ?? 0);
+			const incomingCount = targetCommits.filter((commit) => !commit.inWorkspace).length;
 			const targetLabel = headInfo?.target
 				? `${headInfo.target.remoteTrackingRef.remoteName}/${headInfo.target.remoteTrackingRef.displayName}`
 				: null;
