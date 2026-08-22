@@ -600,3 +600,53 @@ Some(
 
     Ok(())
 }
+
+/// The `save_with_unmergeable_workspace` fixture holds two stacks based on
+/// two different rewrites of `shared`, so recomputing a workspace tree from
+/// its heads against the stored target conflicts — the exact failure that
+/// used to abort a save halfway and strand the stash.
+#[test]
+fn stashed_changes_survive_a_failing_workspace_recomputation() -> Result<()> {
+    use gitbutler_workspace::branch_trees::WorkspaceState;
+
+    let (mut ctx, _tempdir) = command_ctx("save_with_unmergeable_workspace")?;
+    let repo = ctx.repo.get()?;
+    let worktree_dir = repo.workdir().unwrap().to_owned();
+
+    let branchy = repo.rev_parse_single("refs/heads/branchy")?.detach();
+    let other = repo.rev_parse_single("refs/heads/other")?.detach();
+    let target = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
+
+    // The stash: the workspace tree plus one file that must not be lost.
+    let head_tree_id = repo.head_commit()?.tree_id()?.detach();
+    let mut tree = repo.find_tree(head_tree_id)?.edit()?;
+    tree.upsert(
+        "notes.md",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(b"do not lose me\n")?.detach(),
+    )?;
+    let stash = tree.write()?.detach();
+
+    let old = WorkspaceState::create_from_heads_and_target(&repo, &[branchy, other], target)?;
+    let new = WorkspaceState::create_from_heads_and_target(&repo, &[branchy, other], target)?;
+    drop(repo);
+
+    let mut guard = ctx.exclusive_worktree_access();
+    // The transplant fails on this workspace; the fallback restores verbatim.
+    gitbutler_edit_mode::restore_uncommitted_changes(
+        &ctx,
+        old,
+        new,
+        stash,
+        guard.write_permission(),
+    )?;
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(worktree_dir.join("notes.md"))?,
+        snapbox::str![[r#"
+do not lose me
+
+"#]]
+    );
+    Ok(())
+}
