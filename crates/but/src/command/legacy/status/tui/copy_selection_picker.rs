@@ -79,6 +79,22 @@ pub fn committed_file_picker(
     )
 }
 
+pub fn worktree_picker(
+    name: BString,
+    id: ShortId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::ShortId(id),
+            CopySelectionItem::WorktreePath(name.clone()),
+            CopySelectionItem::WorktreeName(name),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
 fn picker(
     items: NonEmpty<CopySelectionItem>,
     theme: &'static Theme,
@@ -118,6 +134,10 @@ pub enum CopySelectionItem {
 
     // uncommitted files/hunks
     HunkDiff(Box<UncommittedHunkOrFile>),
+
+    // worktrees
+    WorktreeName(BString),
+    WorktreePath(BString),
 }
 
 impl CopySelectionItem {
@@ -136,6 +156,8 @@ impl CopySelectionItem {
             CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
             CopySelectionItem::ShortId(_) => "Short ID",
             CopySelectionItem::FilePath(_) => "File path",
+            CopySelectionItem::WorktreeName(_) => "Worktree name",
+            CopySelectionItem::WorktreePath(_) => "Worktree path",
         }
     }
 
@@ -228,6 +250,15 @@ impl CopySelectionItem {
                 uncommitted_hunk_or_file_to_diff(ctx, uncommitted_hunk_or_file)
             }
             CopySelectionItem::FilePath(path) => Ok(path.to_owned()),
+            CopySelectionItem::WorktreePath(name) => {
+                let entry = ctx
+                    .worktrees_with_state()?
+                    .into_iter()
+                    .find(|entry| entry.name == *name)
+                    .context("worktree no longer exists")?;
+                Ok(entry.path.display().to_string())
+            }
+            CopySelectionItem::WorktreeName(name) => Ok(name.to_string()),
         }
     }
 }
