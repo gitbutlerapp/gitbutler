@@ -1245,7 +1245,14 @@ fn print_worktree_status(
             .is_none_or(|base| !commits_in_lanes.contains(&base.commit_id()))
     }) {
         // Every stack already ends with a blank lane line, so the separator goes below.
-        print_worktree_lane(ctx, status_ctx, worktree, 0, LaneSeparator::Below, output)?;
+        print_worktree_lane(
+            ctx,
+            status_ctx,
+            worktree,
+            0,
+            Some(LaneSeparator::Below),
+            output,
+        )?;
     }
 
     Ok(has_merged_upstream_branch)
@@ -1292,7 +1299,7 @@ fn ci_map(
 /// Where a worktree lane draws its blank separator line: nested lanes above the heading,
 /// standalone lanes below the closing connector, where the caller's next section expects one.
 /// The lane draws it itself so a lane skipped for lack of IDs leaves no stray separator.
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum LaneSeparator {
     Above,
     Below,
@@ -1307,21 +1314,21 @@ fn print_worktree_lanes_on(
     status_ctx: &StatusContext<'_>,
     base: gix::ObjectId,
     depth: usize,
+    lane_separator_for_first_child_worktree: Option<LaneSeparator>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
-    for worktree in status_ctx
+    for (idx, worktree) in status_ctx
         .worktrees
         .iter()
         .filter(|wt| wt.base.map(|base| base.commit_id()) == Some(base))
+        .enumerate()
     {
-        print_worktree_lane(
-            ctx,
-            status_ctx,
-            worktree,
-            depth,
-            LaneSeparator::Above,
-            output,
-        )?;
+        let separator = if idx == 0 {
+            lane_separator_for_first_child_worktree
+        } else {
+            Some(LaneSeparator::Above)
+        };
+        print_worktree_lane(ctx, status_ctx, worktree, depth, separator, output)?;
     }
     Ok(())
 }
@@ -1333,7 +1340,7 @@ fn print_worktree_lane(
     status_ctx: &StatusContext<'_>,
     worktree: &but_workspace::worktrees::WorktreeInfo,
     depth: usize,
-    separator: LaneSeparator,
+    separator: Option<LaneSeparator>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let repo = ctx.repo.get()?;
@@ -1348,9 +1355,10 @@ fn print_worktree_lane(
         return Ok(());
     };
 
-    if separator == LaneSeparator::Above {
+    if separator == Some(LaneSeparator::Above) {
         output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
     }
+
     let source = with_id.source();
     let files = UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
     print_uncommitted_group(
@@ -1373,10 +1381,28 @@ fn print_worktree_lane(
         output,
     )?;
 
+    let mut show_uncommitted_files_and_commit_separator =
+        !files.is_empty() && !with_id.commits.is_empty();
+    if show_uncommitted_files_and_commit_separator {
+        output.connector(in_lane(depth, [Span::raw("┊"), Span::raw("┊")]))?;
+    }
+
     for commit in &with_id.commits {
         // Worktrees stack on each other too; base assignment follows tip order, so the
         // resting-on relation cannot cycle and this recursion terminates.
-        print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+        print_worktree_lanes_on(
+            ctx,
+            status_ctx,
+            commit.commit_id(),
+            depth + 1,
+            if std::mem::take(&mut show_uncommitted_files_and_commit_separator) {
+                None
+            } else {
+                Some(LaneSeparator::Above)
+            },
+            output,
+        )?;
+
         let inner = status_ctx
             .local_commits_by_id
             .get(&commit.commit_id())
@@ -1397,7 +1423,7 @@ fn print_worktree_lane(
         )?;
     }
     output.connector(in_lane(depth, [Span::raw("├╯")]))?;
-    if separator == LaneSeparator::Below {
+    if separator == Some(LaneSeparator::Below) {
         output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
     }
     Ok(())
@@ -1716,7 +1742,14 @@ fn print_group(
             for commit in segment.workspace_commits.iter() {
                 // Commits are listed newest first, so a worktree branching off this commit
                 // opens its lane just above it and closes back onto it.
-                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), 1, output)?;
+                print_worktree_lanes_on(
+                    ctx,
+                    status_ctx,
+                    commit.commit_id(),
+                    1,
+                    Some(LaneSeparator::Above),
+                    output,
+                )?;
                 let inner = status_ctx
                     .local_commits_by_id
                     .get(&commit.commit_id())

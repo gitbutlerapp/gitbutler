@@ -28,26 +28,27 @@
     <text x="58 66" y="132" style="fill:#0000AA;font-weight:bold;">ok</text>
     <text x="82" y="132" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130 138 146 154 162 170 178" y="132" style="fill:#00AA00;">wt-file.txt</text>
-    <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊●</text>
-    <text x="58 66" y="150" style="fill:#AA00AA;">nl</text>
-    <text x="74" y="150" style="fill:#CCCCCC;opacity:0.75;">l</text>
-    <text x="90 98 106" y="150" style="fill:#CCCCCC;">add</text>
-    <text x="122" y="150" style="fill:#CCCCCC;">W</text>
-    <text x="10 18 26" y="168" style="fill:#CCCCCC;">┊├╯</text>
-    <text x="10 18" y="186" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="186" style="fill:#AA00AA;">t</text>
-    <text x="58 66" y="186" style="fill:#CCCCCC;opacity:0.75;">pm</text>
-    <text x="82 90 98" y="186" style="fill:#CCCCCC;">add</text>
-    <text x="114" y="186" style="fill:#CCCCCC;">A</text>
-    <text x="10 18" y="204" style="fill:#CCCCCC;">├╯</text>
-    <text x="10" y="222" style="fill:#CCCCCC;">┊</text>
-    <text x="10" y="240" style="fill:#CCCCCC;">┴</text>
-    <text x="26 34 42 50 58 66 74" y="240" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
-    <text x="90 98 106 114 122 130 138" y="240" style="fill:#CCCCCC;">(common</text>
-    <text x="154 162 170 178 186" y="240" style="fill:#CCCCCC;">base)</text>
-    <text x="202 210 218 226 234 242 250 258 266 274" y="240" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="240" style="fill:#CCCCCC;">add</text>
-    <text x="322" y="240" style="fill:#CCCCCC;">M</text>
+    <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊┊</text>
+    <text x="10 18 26" y="168" style="fill:#CCCCCC;">┊┊●</text>
+    <text x="58 66" y="168" style="fill:#AA00AA;">nl</text>
+    <text x="74" y="168" style="fill:#CCCCCC;opacity:0.75;">l</text>
+    <text x="90 98 106" y="168" style="fill:#CCCCCC;">add</text>
+    <text x="122" y="168" style="fill:#CCCCCC;">W</text>
+    <text x="10 18 26" y="186" style="fill:#CCCCCC;">┊├╯</text>
+    <text x="10 18" y="204" style="fill:#CCCCCC;">┊●</text>
+    <text x="50" y="204" style="fill:#AA00AA;">t</text>
+    <text x="58 66" y="204" style="fill:#CCCCCC;opacity:0.75;">pm</text>
+    <text x="82 90 98" y="204" style="fill:#CCCCCC;">add</text>
+    <text x="114" y="204" style="fill:#CCCCCC;">A</text>
+    <text x="10 18" y="222" style="fill:#CCCCCC;">├╯</text>
+    <text x="10" y="240" style="fill:#CCCCCC;">┊</text>
+    <text x="10" y="258" style="fill:#CCCCCC;">┴</text>
+    <text x="26 34 42 50 58 66 74" y="258" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
+    <text x="90 98 106 114 122 130 138" y="258" style="fill:#CCCCCC;">(common</text>
+    <text x="154 162 170 178 186" y="258" style="fill:#CCCCCC;">base)</text>
+    <text x="202 210 218 226 234 242 250 258 266 274" y="258" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
+    <text x="290 298 306" y="258" style="fill:#CCCCCC;">add</text>
+    <text x="322" y="258" style="fill:#CCCCCC;">M</text>
     <text x="218 226 234 242 250 258 266 274 282 290 298 306 314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794" y="294" style="fill:#AA0000;">┌───────────────────────────────────────────────────────────────────────┐</text>
     <text x="218" y="312" style="fill:#AA0000;">│</text>
     <text x="234 242 250 258 266 274" y="312" style="fill:#CCCCCC;">Cannot</text>
