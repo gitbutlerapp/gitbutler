@@ -757,36 +757,42 @@ fn first_selectable_in_section(
 
 /// Short IDs are recomputed on reload, so compare the underlying entity instead.
 pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool {
-    match (previous, current) {
-        (CliId::UncommittedHunkOrFile(previous), CliId::UncommittedHunkOrFile(current)) => {
-            if previous.is_entire_file != current.is_entire_file {
-                return false;
-            }
-            if previous.is_entire_file {
-                let previous = previous.hunks.first();
-                let current = current.hunks.first();
-                previous.hunk.path == current.hunk.path
+    match previous {
+        CliId::UncommittedHunkOrFile(previous) => {
+            if let CliId::UncommittedHunkOrFile(current) = current {
+                if previous.is_entire_file != current.is_entire_file {
+                    return false;
+                }
+                if previous.is_entire_file {
+                    let previous = previous.hunks.first();
+                    let current = current.hunks.first();
+                    previous.hunk.path == current.hunk.path
+                } else {
+                    previous == current
+                }
             } else {
-                previous == current
+                false
             }
         }
-        (
-            CliId::PathPrefix {
-                hunks: previous, ..
-            },
-            CliId::PathPrefix { hunks: current, .. },
-        ) => previous == current,
-        (
-            CliId::CommittedFile {
-                committed_file:
-                    CommittedFileId {
-                        commit_id: previous_commit_id,
-                        path: previous_path,
-                        change_id: previous_change_id,
-                    },
-                id: _,
-            },
-            CliId::CommittedFile {
+        CliId::PathPrefix {
+            hunks: previous, ..
+        } => {
+            if let CliId::PathPrefix { hunks: current, .. } = current {
+                previous == current
+            } else {
+                false
+            }
+        }
+        CliId::CommittedFile {
+            committed_file:
+                CommittedFileId {
+                    commit_id: previous_commit_id,
+                    path: previous_path,
+                    change_id: previous_change_id,
+                },
+            id: _,
+        } => {
+            if let CliId::CommittedFile {
                 committed_file:
                     CommittedFileId {
                         commit_id: current_commit_id,
@@ -794,28 +800,36 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                         change_id: current_change_id,
                     },
                 id: _,
-            },
-        ) => {
-            previous_path == current_path
-                && match (previous_change_id, current_change_id) {
-                    (Some(previous), Some(current)) => previous == current,
-                    (Some(_), None) | (None, Some(_)) | (None, None) => {
-                        previous_commit_id == current_commit_id
+            } = current
+            {
+                previous_path == current_path
+                    && match (previous_change_id, current_change_id) {
+                        (Some(previous), Some(current)) => previous == current,
+                        (Some(_), None) | (None, Some(_)) | (None, None) => {
+                            previous_commit_id == current_commit_id
+                        }
                     }
-                }
+            } else {
+                false
+            }
         }
-        (CliId::Branch(previous), CliId::Branch(current)) => previous == current,
-        (
-            CliId::Commit {
-                commit:
-                    CommitId {
-                        commit_id: previous_commit_id,
-                        change_id: previous_change_id,
-                        ..
-                    },
-                id: _,
-            },
-            CliId::Commit {
+        CliId::Branch(previous) => {
+            if let CliId::Branch(current) = current {
+                previous == current
+            } else {
+                false
+            }
+        }
+        CliId::Commit {
+            commit:
+                CommitId {
+                    commit_id: previous_commit_id,
+                    change_id: previous_change_id,
+                    ..
+                },
+            id: _,
+        } => {
+            if let CliId::Commit {
                 commit:
                     CommitId {
                         commit_id: current_commit_id,
@@ -823,23 +837,45 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                         ..
                     },
                 id: _,
-            },
-        ) => match (previous_change_id, current_change_id) {
-            (Some(previous), Some(current)) => previous == current,
-            (Some(_), None) | (None, Some(_)) | (None, None) => {
-                previous_commit_id == current_commit_id
+            } = current
+            {
+                match (previous_change_id, current_change_id) {
+                    (Some(previous), Some(current)) => previous == current,
+                    (Some(_), None) | (None, Some(_)) | (None, None) => {
+                        previous_commit_id == current_commit_id
+                    }
+                }
+            } else {
+                false
             }
-        },
-        (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
-        (
-            CliId::Stack {
-                stack_id: previous, ..
-            },
-            CliId::Stack {
+        }
+        CliId::Uncommitted { id: _ } => matches!(current, CliId::Uncommitted { id: _ }),
+        CliId::Worktree {
+            id: _,
+            name: previous,
+        } => {
+            if let CliId::Worktree {
+                id: _,
+                name: current,
+            } = current
+            {
+                previous == current
+            } else {
+                false
+            }
+        }
+        CliId::Stack {
+            stack_id: previous, ..
+        } => {
+            if let CliId::Stack {
                 stack_id: current, ..
-            },
-        ) => previous == current,
-        _ => false,
+            } = current
+            {
+                previous == current
+            } else {
+                false
+            }
+        }
     }
 }
 
