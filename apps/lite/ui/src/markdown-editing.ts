@@ -122,6 +122,23 @@ export const link: MarkdownCommand = ({ text, start, end }) => {
 	};
 };
 
+/**
+ * Drop literal markdown at the caret, replacing any selection, and leave the
+ * caret after it. Unlike the other commands this takes its text from the
+ * caller, because what gets inserted (an uploaded file's link) is not
+ * derivable from the selection.
+ */
+export const insert =
+	(snippet: string): MarkdownCommand =>
+	({ text, start, end }) => {
+		const after = start + snippet.length;
+		return {
+			text: `${text.slice(0, start)}${snippet}${text.slice(end)}`,
+			start: after,
+			end: after,
+		};
+	};
+
 export const bulletList = linePrefix(() => "- ", LIST_PREFIX);
 export const numberList = linePrefix((index) => `${index + 1}. `, LIST_PREFIX);
 export const taskList = linePrefix(() => "- [ ] ", LIST_PREFIX);

@@ -25,6 +25,7 @@ import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
+import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
 import { SwitchButton } from "#ui/components/SwitchButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -232,15 +233,15 @@ export const PullRequestForm: FC<{
 
 				<div className={styles.descriptionFooter}>
 					<div className={styles.footerRow}>
-						{/* Neither action has a backend yet; they are shown disabled so
-						    the composer's shape matches the design. */}
 						<div className={styles.footerStart}>
-							<UnavailableAction
-								icon="paperclip"
-								label="Attach a file"
-								reason="Attaching files isn't supported yet"
+							<MarkdownAttachments
+								disabled={isAnyPending}
+								onInput={(nextBody) => setLocalDocument({ ...localDocument, body: nextBody })}
+								targetRef={bodyRef}
 							/>
 							<div aria-hidden className={styles.footerSeparator} />
+							{/* Description generation has no backend yet; it is shown disabled
+							    so the composer's shape matches the design. */}
 							<UnavailableAction
 								icon="ai-text"
 								label="Generate a description"

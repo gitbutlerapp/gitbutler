@@ -1,0 +1,43 @@
+/* Kept in the layout rather than `display: none` so the button's click still
+   reaches it; the wrapper's own size is what stays out of the way. */
+.picker {
+	position: absolute;
+	width: 0;
+	height: 0;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.triggerWrap {
+	display: inline-flex;
+}
+
+.popup {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+	width: min(420px, calc(100vw - 32px));
+}
+
+.description {
+	color: var(--text-2);
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.files {
+	max-height: 140px;
+	margin: 0;
+	padding-left: 18px;
+	overflow-y: auto;
+	color: var(--text-2);
+	font-size: 12px;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.actions {
+	display: flex;
+	column-gap: 8px;
+	justify-content: flex-end;
+}

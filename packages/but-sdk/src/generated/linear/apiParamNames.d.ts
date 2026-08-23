@@ -139,6 +139,7 @@ export declare const apiParamNames: {
 	readonly updateReview: readonly ["projectId", "reviewId", "title", "body", "state", "targetBase"];
 	readonly updateReviewComment: readonly ["projectId", "commentId", "body"];
 	readonly updateReviewFooters: readonly ["projectId", "reviews"];
+	readonly uploadFile: readonly ["params"];
 	readonly warmCiChecksCache: readonly ["projectId"];
 	readonly withdrawReviewRequest: readonly ["projectId", "reviewId", "logins"];
 	readonly workspaceBranchAndAncestorsPush: readonly ["projectId", "withForce", "skipForcePushProtection", "branch", "runHooks", "pushOpts"];

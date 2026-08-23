@@ -3,6 +3,7 @@ import {
 	bulletList,
 	heading2,
 	heading3,
+	insert,
 	link,
 	numberList,
 	plainText,
@@ -94,5 +95,15 @@ describe("block commands", () => {
 
 	test("re-applying the same heading removes it", () => {
 		expect(apply(heading2, "## tit|le")).toBe("[title]");
+	});
+});
+
+describe("insert", () => {
+	test("drops the snippet at the caret and lands after it", () => {
+		expect(apply(insert("![shot](url)"), "see: |")).toBe("see: ![shot](url)|");
+	});
+
+	test("replaces the selection", () => {
+		expect(apply(insert("![shot](url)"), "see: [placeholder]!")).toBe("see: ![shot](url)|!");
 	});
 });
