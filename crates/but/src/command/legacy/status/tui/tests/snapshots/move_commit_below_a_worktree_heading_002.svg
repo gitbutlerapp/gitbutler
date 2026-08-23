@@ -18,10 +18,10 @@
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊┊</text>
     <text x="10 18 26 34" y="96" style="fill:#CCCCCC;">┊┊╭┄</text>
-    <text x="50" y="96" style="fill:#0000AA;font-weight:bold;">v</text>
-    <text x="66" y="96" style="fill:#CCCCCC;">{</text>
-    <text x="74 82 90 98 106 114 122 130 138" y="96" style="fill:#00AAAA;">wt-branch</text>
-    <text x="146" y="96" style="fill:#CCCCCC;">}</text>
+    <text x="50 58" y="96" style="fill:#0000AA;font-weight:bold;">wt</text>
+    <text x="74" y="96" style="fill:#CCCCCC;">{</text>
+    <text x="82 90 98 106 114 122 130 138 146" y="96" style="fill:#00AAAA;">wt-branch</text>
+    <text x="154" y="96" style="fill:#CCCCCC;">}</text>
     <text x="10 18 26" y="114" style="fill:#CCCCCC;">┊┊┊</text>
     <text x="58 66" y="114" style="fill:#0000AA;font-weight:bold;">ok</text>
     <text x="82" y="114" style="fill:#CCCCCC;">A</text>

@@ -359,7 +359,7 @@ Amended tpm
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-feature} (no changes)
+┊┊╭┄ wt {wt-feature} (no changes)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -388,7 +388,7 @@ fn amend_a_worktrees_whole_uncommitted_area() {
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
-    env.but("amend m --target lrm")
+    env.but("amend wt --target lrm")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -406,7 +406,7 @@ Amended lrm
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-feature} (no changes)
+┊┊╭┄ wt {wt-feature} (no changes)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -474,7 +474,7 @@ fn amend_a_clean_worktree_has_nothing_to_amend() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ n {wt-clean} (no changes)
+┊┊╭┄ wt {wt-clean} (no changes)
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -489,7 +489,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("amend n --target tpm")
+    env.but("amend wt --target tpm")
         .assert()
         .failure()
         .stdout_eq(str![])

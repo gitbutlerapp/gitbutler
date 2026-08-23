@@ -70,7 +70,7 @@ fn worktree_lane_is_navigable() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
     tui.input(KeyCode::Down)
@@ -96,12 +96,12 @@ fn remember_selection_on_worktree_heading() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
     tui.input('q');
 
     let mut tui = test_status_tui_with_options(tui.into_env(), options());
     tui.reload()
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 }
 
 /// A worktree heading names that checkout's uncommitted area, the way `zz` names the main
@@ -112,11 +112,11 @@ fn commit_source_from_a_worktree_heading() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 
     // The heading claims the source inline; its extension line advertises the destination.
     tui.input('c')
-        .assert_current_line_eq(str!["┊┊╭┄ << source >> v {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊╭┄ << source >> wt {wt-branch}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_source_from_a_worktree_heading_final.svg"
         ]);
@@ -130,7 +130,7 @@ fn commit_all_changes_of_a_worktree() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 
     tui.input('c');
     with_var("GIT_EDITOR", Some(editor), || {
@@ -169,7 +169,7 @@ fn commit_one_worktree_file_onto_its_own_branch() {
     // Up onto the worktree's own lane heading, which offers itself as the destination via the
     // `<< commit to worktree >>` extension line.
     tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_one_worktree_file_onto_its_own_branch_001.svg"
         ]);
@@ -207,7 +207,7 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> zz [uncommitted]"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
@@ -251,7 +251,7 @@ fn marks_spanning_checkouts_are_refused() {
 
     tui.input('c');
     tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 
     // The refusal shows as an error and nothing was committed.
     tui.input(KeyCode::Enter)
@@ -286,10 +286,10 @@ fn commit_to_a_detached_worktree_heading_is_refused() {
     // Detached, the heading falls back to the worktree's name.
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt}"]);
 
     tui.input('c')
-        .assert_current_line_eq(str!["┊┊╭┄ << source >> v {wt}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ << source >> wt {wt}"]);
 
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/commit_to_a_detached_worktree_heading_is_refused.svg"
@@ -316,7 +316,7 @@ fn empty_commit_on_a_worktree_heading() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 
     tui.input('n')
         .assert_rendered_term_svg_eq(file![
@@ -341,7 +341,7 @@ fn move_commit_below_a_worktree_heading() {
     tui.input('m');
     // Past the worktree's own commit, onto its heading.
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊┊╭┄ v {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_heading_001.svg"
         ]);
