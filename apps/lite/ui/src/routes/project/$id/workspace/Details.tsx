@@ -3,11 +3,14 @@ import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-c
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
+	useAddReviewLabels,
 	useCommitUncommitChanges,
 	useOpenInProgram,
+	useRequestReview,
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
+import { type DraftPRExtras, draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
 import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
@@ -59,7 +62,10 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
-import { PullRequestPanel } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
+import {
+	NewPullRequestPanel,
+	PullRequestPanel,
+} from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
 import {
 	PullRequestDescription,
 	PullRequestForm,
@@ -2831,6 +2837,70 @@ const ReviewView: FC<{
 	);
 };
 
+/**
+ * The Pull Request tab for a branch that has no PR yet: the create form, with
+ * the panel beside it summarizing what would be published.
+ */
+const NewPullRequestView: FC<{
+	projectId: string;
+	branchName: string;
+	targetBranch: string | undefined;
+	canSubmit: boolean;
+}> = ({ projectId, branchName, targetBranch, canSubmit }) => {
+	// Same record the form persists its title and body to, read here for the
+	// fields the panel owns. Both writers merge, so neither wipes the other.
+	const { data: draft } = useSuspenseQuery(draftPRQueryOptions({ projectId, branchName }));
+	const { mutate: persistDraftPR } = usePersistDraftPR();
+	const [extras, setExtras] = useState<DraftPRExtras>({
+		labels: draft?.labels ?? [],
+		reviewers: draft?.reviewers ?? [],
+	});
+
+	const changeExtras = (next: DraftPRExtras) => {
+		setExtras(next);
+		persistDraftPR({ projectId, branchName, draft: { ...draft, ...next } });
+	};
+
+	const { mutate: addReviewLabels } = useAddReviewLabels();
+	const { mutate: requestReview } = useRequestReview();
+
+	// The forge takes none of these when a PR is created — GitHub's create
+	// endpoint accepts neither labels nor reviewers — so they are applied the
+	// moment the PR exists. Each mutation toasts its own failure and the PR
+	// stands regardless; the real panel replaces this one and can set by hand
+	// whatever did not land.
+	const applyExtras = (reviewId: number) => {
+		if (extras.labels.length > 0) addReviewLabels({ projectId, reviewId, labels: extras.labels });
+		if (extras.reviewers.length > 0)
+			requestReview({ projectId, reviewId, logins: extras.reviewers });
+	};
+
+	return (
+		<div className={styles.prLayout}>
+			<div className={styles.prMain}>
+				<PullRequestForm
+					key={branchName}
+					body={null}
+					projectId={projectId}
+					reviewId={null}
+					sourceBranch={branchName}
+					title={null}
+					canSubmit={canSubmit}
+					afterPublish={applyExtras}
+				/>
+			</div>
+
+			<NewPullRequestPanel
+				projectId={projectId}
+				sourceBranch={branchName}
+				targetBranch={targetBranch}
+				extras={extras}
+				onExtrasChange={changeExtras}
+			/>
+		</div>
+	);
+};
+
 /** What every details view threads through to its Diff. */
 type DetailsViewProps = {
 	projectId: string;
@@ -3007,13 +3077,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				{branchTab === "pr" ? (
 					<div className={styles.prTab}>
 						{!forgeInfo?.capabilities.prService ? (
-							<PullRequestForm
-								key={branchName}
-								body={null}
+							<NewPullRequestView
 								projectId={projectId}
-								reviewId={null}
-								sourceBranch={branchName}
-								title={null}
+								branchName={branchName}
+								targetBranch={targetBranch}
 								canSubmit={false}
 							/>
 						) : (
@@ -3030,13 +3097,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 										branchCtx?.segment.pushStatus !== "completelyUnpushed";
 
 									return !review || !canSubmit ? (
-										<PullRequestForm
-											key={branchName}
-											body={null}
+										<NewPullRequestView
 											projectId={projectId}
-											reviewId={null}
-											sourceBranch={branchName}
-											title={null}
+											branchName={branchName}
+											targetBranch={targetBranch}
 											canSubmit={canSubmit}
 										/>
 									) : (

@@ -226,7 +226,7 @@
 
 .prTab {
 	width: 100%;
-	max-width: 1200px;
+	max-width: 1000px;
 	margin: 0 auto;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: 12px var(--panel-padding-block);
