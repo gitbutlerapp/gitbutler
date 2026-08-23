@@ -15,10 +15,10 @@ const OURS_DELETED: ConflictEntryPresence = {
 	theirs: true,
 };
 
-function mockFileService(contentByPath: Record<string, string>): FileService {
+function mockFileService(contentByPath: Record<string, string | null>): FileService {
 	return {
 		readFromWorkspace: vi.fn(async (path: string) => ({
-			data: { content: contentByPath[path] ?? "" },
+			data: { content: path in contentByPath ? contentByPath[path] : "" },
 			isLarge: false,
 		})),
 	} as unknown as FileService;
@@ -57,6 +57,22 @@ describe("hasUnresolvedConflictsOnDisk", () => {
 		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
 
 		expect(result).toBe(true);
+	});
+
+	test("treats a conflicted binary file, which has no content, as not blocking", async () => {
+		const files = [
+			{
+				path: "image.png",
+				conflictEntryPresence: BOTH_SIDES_PRESENT,
+			},
+		];
+		// Binary files come back with `content: null`, which used to reach
+		// `looksConflicted` and throw "null is not an object (evaluating 's.split')".
+		const fileService = mockFileService({ "image.png": null });
+
+		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
+
+		expect(result).toBe(false);
 	});
 
 	test("short-circuits on first conflicted file", async () => {

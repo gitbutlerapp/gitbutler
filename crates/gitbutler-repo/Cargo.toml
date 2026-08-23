@@ -9,11 +9,16 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+## Generate JSON schemas for TypeScript type generation via schemars.
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [dependencies]
 but-core = { workspace = true, features = ["legacy"] }
 but-gerrit.workspace = true
 but-oxidize.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
+but-schemars = { workspace = true, optional = true }
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
@@ -26,6 +31,7 @@ bstr.workspace = true
 tracing.workspace = true
 tempfile.workspace = true
 serde.workspace = true
+schemars = { workspace = true, optional = true }
 itertools.workspace = true
 base64 = "0.22.1"
 infer = "0.19.0"
