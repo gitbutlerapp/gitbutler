@@ -19,6 +19,7 @@ import {
 	streamCommitMessage,
 } from "#ui/commit-message-generation.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { toBase64 } from "#ui/uploads.ts";
 import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
@@ -208,6 +209,28 @@ export const usePublishReview = () =>
 	useMutation({
 		mutationFn: window.lite.publishReview,
 		meta: { failureTitle: "Failed to create pull request" },
+	});
+
+/**
+ * Upload files and return them in the order given, so the markdown they turn
+ * into matches the order they were picked or dropped in.
+ *
+ * One failure fails the batch: a body half-linking a set of screenshots is
+ * worse than one the user retries.
+ */
+export const useUploadFiles = () =>
+	useMutation({
+		mutationFn: async (files: Array<File>) =>
+			Promise.all(
+				files.map(async (file) =>
+					window.lite.uploadFile({
+						filename: file.name,
+						content_type: file.type === "" ? null : file.type,
+						data_base64: await toBase64(file),
+					}),
+				),
+			),
+		meta: { failureTitle: "Failed to upload files" },
 	});
 
 export const useUpdateReview = () =>
