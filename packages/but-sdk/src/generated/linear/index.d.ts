@@ -1147,6 +1147,15 @@ export declare function updateReviewComment(projectId: string, commentId: number
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
 
 /**
+ * Upload a file to gitbutler.com so it can be linked from a review body.
+ *
+ * The upload is public, so callers should confirm that with the user first. Runs
+ * here rather than in the frontend because the account token never leaves this
+ * process, so a renderer cannot make the authenticated call itself.
+ */
+export declare function uploadFile(params: UploadFileParams): Promise<Upload>
+
+/**
  * Warm up the CI checks cache for all applied branches with PRs.
  * This function fetches CI check data from the forge and caches it in the database
  * without returning any data. It only processes branches that have associated pull requests.
@@ -4061,6 +4070,29 @@ export type UpdateUserParams = {
   avatar_base64: string | null;
   /** Original filename of the avatar (e.g. "photo.png"). */
   avatar_filename: string | null;
+};
+
+/** A file uploaded to gitbutler.com, ready to be linked from markdown. */
+export type Upload = {
+  uuid: string;
+  filename: string;
+  contentType: string;
+  /** Publicly reachable URL of the uploaded file. */
+  url: string;
+  public: boolean;
+  createdAt: string;
+  /** Whether the file should be embedded (`![]()`) rather than linked (`[]()`). */
+  isImage: boolean;
+};
+
+/** Parameters for uploading a file to the GitButler API. */
+export type UploadFileParams = {
+  /** Original filename, used as the multipart part's filename. */
+  filename: string;
+  /** MIME type of the file, when the caller knows it. */
+  content_type: string | null;
+  /** Base64-encoded file bytes. */
+  data_base64: string;
 };
 
 /**

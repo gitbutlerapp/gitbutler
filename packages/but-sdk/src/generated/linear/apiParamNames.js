@@ -139,6 +139,7 @@ export const apiParamNames = {
 	updateReview: ["projectId", "reviewId", "title", "body", "state", "targetBase"],
 	updateReviewComment: ["projectId", "commentId", "body"],
 	updateReviewFooters: ["projectId", "reviews"],
+	uploadFile: ["params"],
 	warmCiChecksCache: ["projectId"],
 	withdrawReviewRequest: ["projectId", "reviewId", "logins"],
 	workspaceBranchAndAncestorsPush: ["projectId", "withForce", "skipForcePushProtection", "branch", "runHooks", "pushOpts"],

@@ -5,7 +5,7 @@ use tracing::instrument;
 
 mod json {
     use gitbutler_user::User;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize)]
     pub struct UserWithSecretsSensitive {
@@ -33,6 +33,17 @@ mod json {
         /// operations on behalf of the user.
         pub github_access_token: Option<String>,
         pub github_username: Option<String>,
+    }
+
+    /// The uploads endpoint's response, whose fields are snake_case on the wire.
+    #[derive(Debug, Deserialize)]
+    pub struct ApiUpload {
+        pub uuid: String,
+        pub filename: String,
+        pub content_type: String,
+        pub url: String,
+        pub public: bool,
+        pub created_at: String,
     }
 
     impl TryFrom<User> for UserWithSecretsSensitive {
@@ -131,6 +142,50 @@ pub fn update_profile_and_persist(
     stored.picture = updated.picture;
     gitbutler_user::set_user(&stored)?;
     Ok(stored.into())
+}
+
+/// A file uploaded to gitbutler.com, ready to be linked from markdown.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Upload {
+    pub uuid: String,
+    pub filename: String,
+    pub content_type: String,
+    /// Publicly reachable URL of the uploaded file.
+    pub url: String,
+    pub public: bool,
+    pub created_at: String,
+    /// Whether the file should be embedded (`![]()`) rather than linked (`[]()`).
+    pub is_image: bool,
+}
+but_schemars::register_sdk_type!(Upload);
+
+impl From<json::ApiUpload> for Upload {
+    fn from(value: json::ApiUpload) -> Self {
+        let is_image = value.content_type.starts_with("image/");
+        Upload {
+            uuid: value.uuid,
+            filename: value.filename,
+            content_type: value.content_type,
+            url: value.url,
+            public: value.public,
+            created_at: value.created_at,
+            is_image,
+        }
+    }
+}
+
+/// Upload a file to gitbutler.com so it can be linked from a review body.
+///
+/// The upload is public, so callers should confirm that with the user first. Runs
+/// here rather than in the frontend because the account token never leaves this
+/// process, so a renderer cannot make the authenticated call itself.
+#[but_api(napi)]
+#[instrument(skip(params), err(Debug))]
+pub fn upload_file(params: gitbutler_user::api::UploadFileParams) -> Result<Upload> {
+    let value = gitbutler_user::api::upload_file(params)?;
+    let upload: json::ApiUpload = serde_json::from_value(value)?;
+    Ok(upload.into())
 }
 
 /// Complete a login and persist the account, so the token never leaves this process.
