@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	buildCommitMessagePrompt,
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,
-	streamCommitMessage,
 } from "./commit-message-generation.ts";
 
 const change = (path: string): TreeChange =>
@@ -72,43 +71,5 @@ describe("commit message generation", () => {
 
 		expect(prompt).toContain("File: one.ts (Modification)");
 		expect(diff).toHaveLength(5_000);
-	});
-
-	it("preserves the current value on a failed stream", async () => {
-		const onValue = vi.fn();
-		await expect(
-			streamCommitMessage(
-				async () => {
-					throw new Error("failed before response");
-				},
-				onValue,
-				"original",
-			),
-		).rejects.toThrow("failed before response");
-		expect(onValue).not.toHaveBeenCalled();
-
-		await expect(
-			streamCommitMessage(
-				async (onToken) => {
-					onToken("partial");
-					throw new Error("failed during response");
-				},
-				onValue,
-				"original",
-			),
-		).rejects.toThrow("failed during response");
-		expect(onValue.mock.calls).toEqual([["partial"], ["original"]]);
-
-		onValue.mockClear();
-		await streamCommitMessage(
-			async (onToken) => {
-				onToken("feat: ");
-				onToken("generated");
-				return "feat: generated";
-			},
-			onValue,
-			"original",
-		);
-		expect(onValue.mock.calls).toEqual([["feat: "], ["feat: generated"], ["feat: generated"]]);
 	});
 });

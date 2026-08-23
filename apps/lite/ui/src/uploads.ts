@@ -9,6 +9,17 @@
 
 import type { Upload } from "@gitbutler/but-sdk";
 
+/**
+ * The backend enforces this too, but only after the bytes have crossed IPC —
+ * checking here keeps a doomed file from being read and base64-encoded (~1.4x
+ * its size) just to be rejected.
+ */
+export const UPLOAD_SIZE_LIMIT = 10 * 1024 * 1024;
+
+/** The first file too large to upload, if any. */
+export const oversizedFile = (files: ReadonlyArray<File>): File | undefined =>
+	files.find((file) => file.size > UPLOAD_SIZE_LIMIT);
+
 /** What the file picker offers, matching what the desktop app accepts. */
 export const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
