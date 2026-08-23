@@ -2,6 +2,7 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
+	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
@@ -16,10 +17,16 @@ import { shortCommitId } from "#ui/commit.ts";
 import {
 	buildCommitMessagePrompt,
 	COMMIT_MESSAGE_SYSTEM_PROMPT,
-	streamCommitMessage,
 } from "#ui/commit-message-generation.ts";
+import { streamGeneratedText } from "#ui/ai-streaming.ts";
+import { branchDetailsParams } from "#ui/branch.ts";
+import {
+	buildPrDescriptionPrompt,
+	PR_DESCRIPTION_SYSTEM_PROMPT,
+	splitGeneratedDescription,
+} from "#ui/pr-description-generation.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { toBase64 } from "#ui/uploads.ts";
+import { oversizedFile, toBase64, UPLOAD_SIZE_LIMIT } from "#ui/uploads.ts";
 import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
@@ -87,10 +94,10 @@ export const useGenerateCommitMessage = () => {
 				),
 			]);
 			const prompt = buildCommitMessagePrompt(settings.commitMessagePrompt, input.changes, patches);
-			return streamCommitMessage(
+			return streamGeneratedText(
 				(onToken) => window.lite.streamAiResponse(COMMIT_MESSAGE_SYSTEM_PROMPT, prompt, onToken),
 				input.onValue,
-				input.previousMessage,
+				() => input.onValue(input.previousMessage),
 			);
 		},
 		meta: { failureTitle: "Failed to generate commit message" },
@@ -211,6 +218,44 @@ export const usePublishReview = () =>
 		meta: { failureTitle: "Failed to create pull request" },
 	});
 
+type GeneratePrDescriptionInput = {
+	projectId: string;
+	sourceBranch: string;
+	previousTitle: string;
+	previousBody: string;
+	/** Receives the body only; the title lands once the answer is complete. */
+	onBody: (body: string) => void;
+};
+
+/** Loads the branch's commits and streams a generated PR title and description. */
+export const useGeneratePrDescription = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: GeneratePrDescriptionInput) => {
+			const details = await queryClient.ensureQueryData(
+				branchDetailsQueryOptions({
+					projectId: input.projectId,
+					...branchDetailsParams(input.sourceBranch),
+				}),
+			);
+			const prompt = buildPrDescriptionPrompt(
+				input.previousTitle,
+				input.previousBody,
+				details.commits,
+			);
+			// Only the body is ever written mid-stream, so only the body is put
+			// back — the title is not touched until the answer is complete.
+			const response = await streamGeneratedText(
+				(onToken) => window.lite.streamAiResponse(PR_DESCRIPTION_SYSTEM_PROMPT, prompt, onToken),
+				(partial) => input.onBody(splitGeneratedDescription(partial).body),
+				() => input.onBody(input.previousBody),
+			);
+			return splitGeneratedDescription(response);
+		},
+		meta: { failureTitle: "Failed to generate description" },
+	});
+};
+
 /**
  * Upload files and return them in the order given, so the markdown they turn
  * into matches the order they were picked or dropped in.
@@ -220,8 +265,16 @@ export const usePublishReview = () =>
  */
 export const useUploadFiles = () =>
 	useMutation({
-		mutationFn: async (files: Array<File>) =>
-			Promise.all(
+		mutationFn: async (files: Array<File>) => {
+			const tooLarge = oversizedFile(files);
+			if (tooLarge !== undefined) {
+				throw new Error(
+					`${tooLarge.name} is ${(tooLarge.size / (1024 * 1024)).toFixed(1)} MB, over the ${
+						UPLOAD_SIZE_LIMIT / (1024 * 1024)
+					} MB upload limit`,
+				);
+			}
+			return Promise.all(
 				files.map(async (file) =>
 					window.lite.uploadFile({
 						filename: file.name,
@@ -229,7 +282,8 @@ export const useUploadFiles = () =>
 						data_base64: await toBase64(file),
 					}),
 				),
-			),
+			);
+		},
 		meta: { failureTitle: "Failed to upload files" },
 	});
 

@@ -1,5 +1,6 @@
 import {
 	useAddReviewReaction,
+	useGeneratePrDescription,
 	useMergeReview,
 	usePublishReview,
 	useRemoveReviewReaction,
@@ -8,6 +9,8 @@ import {
 	useUpdateReview,
 } from "#ui/api/mutations.ts";
 import {
+	aiConfigurationQueryOptions,
+	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	listReviewReactionsQueryOptions,
@@ -23,13 +26,15 @@ import { classes } from "#ui/components/classes.ts";
 import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
+import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
 import { SwitchButton } from "#ui/components/SwitchButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
+import { prDescriptionGenerationButtonState } from "#ui/pr-description-generation.ts";
+import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import {
 	nativeMenuItem,
 	nativeMenuItemsFromGroups,
@@ -53,7 +58,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEventHandler, Suspense, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, Suspense, useEffect, useRef, useState } from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -110,6 +115,27 @@ export const PullRequestForm: FC<{
 		body: persistedDocument?.body ?? body ?? "",
 		isDraft: persistedDocument?.isDraft ?? false,
 	});
+	const { data: isAiConfigured = false } = useQuery({
+		...aiConfigurationQueryOptions,
+		select: (configuration) => configuration.isConfigured,
+	});
+	const { data: isProjectAiEnabled = false } = useQuery({
+		...projectAiSettingsQueryOptions(projectId),
+		select: (settings) => settings.enabled,
+	});
+	const { data: branchDetails } = useQuery(
+		branchDetailsQueryOptions({ projectId, ...branchDetailsParams(sourceBranch) }),
+	);
+	const { isPending: isGenerating, mutate: generateDescriptionMutation } =
+		useGeneratePrDescription();
+	/**
+	 * The document as of the latest render, for callbacks that fire long after
+	 * the render that created them — an upload or a generated answer landing.
+	 */
+	const latestDocument = useRef(localDocument);
+	useEffect(() => {
+		latestDocument.current = localDocument;
+	});
 	const { mutate: persistDraftPR } = usePersistDraftPR();
 	const { mutate: deleteDraftPR } = useDeleteDraftPR();
 
@@ -154,6 +180,61 @@ export const PullRequestForm: FC<{
 		const resetDocument = { ...remoteOrEmptyDocument, isDraft: false };
 		setLocalDocument(resetDocument);
 		deleteDraftPR({ projectId, branchName: sourceBranch });
+	};
+
+	const generationButton = prDescriptionGenerationButtonState({
+		enabled: isProjectAiEnabled,
+		configured: isAiConfigured,
+		busy: isGenerating || isAnyPending,
+		commitCount: branchDetails?.commits.length,
+	});
+
+	const generateDescription = () => {
+		if (isGenerating) return;
+
+		generateDescriptionMutation(
+			{
+				projectId,
+				sourceBranch,
+				previousTitle: localDocument.title,
+				previousBody: localDocument.body,
+				// Streamed straight into the DOM: routing every token through state
+				// would re-render the form, and that render would overwrite the
+				// textarea from the state the DOM is deliberately running ahead of.
+				// The title is held back until the end for the same reason — it is
+				// one line, so it costs nothing to wait.
+				onBody: (body) => {
+					if (bodyRef.current !== null) bodyRef.current.value = body;
+				},
+			},
+			{
+				onSuccess: ({ title, body }) => {
+					if (bodyRef.current !== null) bodyRef.current.value = body;
+					// Built from the document as it stands now, not as it was at click
+					// time: the Draft switch and the title stay live while the answer
+					// streams, and this both overwrites state and persists it.
+					const current = latestDocument.current;
+					const generated = {
+						...current,
+						// An answer with no title at all leaves the typed one alone.
+						title: title === "" ? current.title : title,
+						body,
+					};
+					setLocalDocument(generated);
+					// Persisted here rather than left to the form's blur: generating
+					// takes no focus that could later leave the form — the button
+					// disables itself while it runs, which drops focus outright — so
+					// switching tabs would unmount the form having saved nothing.
+					persistDraftPR({
+						projectId,
+						branchName: sourceBranch,
+						draft: { ...persistedDocument, ...generated },
+					});
+				},
+				// A failed stream restores the previous body in the DOM only;
+				// state never moved, so there is nothing to put back here.
+			},
+		);
 	};
 
 	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {
@@ -236,17 +317,33 @@ export const PullRequestForm: FC<{
 						<div className={styles.footerStart}>
 							<MarkdownAttachments
 								disabled={isAnyPending}
-								onInput={(nextBody) => setLocalDocument({ ...localDocument, body: nextBody })}
+								// An upload can land long after the click, so this updates from
+								// the current document, not the one captured at click time.
+								onInput={(nextBody) => setLocalDocument((prev) => ({ ...prev, body: nextBody }))}
 								targetRef={bodyRef}
 							/>
 							<div aria-hidden className={styles.footerSeparator} />
-							{/* Description generation has no backend yet; it is shown disabled
-							    so the composer's shape matches the design. */}
-							<UnavailableAction
-								icon="ai-text"
-								label="Generate a description"
-								reason="Generating a description isn't supported yet"
-							/>
+							<Tooltip.Root>
+								{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
+								<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
+									<button
+										aria-label="Generate title and description"
+										className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+										disabled={generationButton.disabled}
+										onClick={generateDescription}
+										type="button"
+									>
+										<Icon name={isGenerating ? "spinner" : "ai-text"} />
+									</button>
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup render={<TooltipPopup />}>
+											{generationButton.hint ?? "Generate title and description"}
+										</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
 						</div>
 
 						<div className={styles.footerEnd}>
@@ -300,27 +397,6 @@ export const PullRequestForm: FC<{
 };
 
 /** A designed action whose backing feature does not exist yet. */
-const UnavailableAction: FC<{ icon: IconName; label: string; reason: string }> = (p) => (
-	<Tooltip.Root>
-		{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-		<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
-			<button
-				aria-label={p.label}
-				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-				disabled
-				type="button"
-			>
-				<Icon name={p.icon} />
-			</button>
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{p.reason}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
-
 /** Fold the raw reaction list into chip tallies plus who-reacted names. */
 const reviewReactionsSelect = (
 	reactions: Array<ForgeReviewReaction>,
