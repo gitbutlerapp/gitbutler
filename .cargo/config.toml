@@ -1,3 +1,10 @@
 [build]
 rustflags = ["--cfg", "tokio_unstable"]
 target-dir = "target" # Needs to be the default directory as this assumption is used by some of the TypeScript files
+
+# Without this `SNAPSHOTS=overwrite cargo test` run from worktrees will update
+# snapshot files in the root repo rather than the worktree. This fixes that
+#
+# See https://github.com/assert-rs/snapbox/blob/snapbox-v0.6.24/crates/snapbox/src/macros.rs#L50-L58
+[env]
+CARGO_RUSTC_CURRENT_DIR = { value = "", relative = true }
