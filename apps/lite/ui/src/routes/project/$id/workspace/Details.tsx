@@ -2224,7 +2224,6 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<Group
 				id={layoutId}
-				className={styles.panels}
 				defaultLayout={diffLayout.defaultLayout}
 				onLayoutChanged={diffLayout.onLayoutChanged}
 			>
@@ -2621,7 +2620,7 @@ const CommitDetails: FC<{
 				</div>
 
 				{review && (
-					<div className={classes(styles.tabsRow, tab === "pr" && styles.tabsRowPrCap)}>
+					<div className={styles.tabsRow}>
 						<BranchTabToggle branchTab={tab} setBranchTab={setTab} />
 					</div>
 				)}
@@ -2721,17 +2720,24 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
 			<div className={styles.title}>
 				<FocusScopeKbd hotkey="0" scope="details" />
 				<Icon name="branch" />
-				<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
+				<h3 className={classes(styles.titleContent, "text-15", "text-semibold")}>{branchName}</h3>
 			</div>
 		</div>
 	);
 };
 
-/** The Diff / Pull Request toggle, for a branch with both to show. */
-const BranchTabToggle: FC<{ branchTab: BranchTab; setBranchTab: (tab: BranchTab) => void }> = ({
-	branchTab,
-	setBranchTab,
-}) => (
+/**
+ * The Diff / Pull Request toggle. A branch with no review keeps the toggle —
+ * the tab goes disabled and says so, where dropping the toggle would instead
+ * read as the control having gone missing. The reason rides in the label
+ * because a disabled button takes no pointer events, so a tooltip on it would
+ * never open.
+ */
+const BranchTabToggle: FC<{
+	branchTab: BranchTab;
+	setBranchTab: (tab: BranchTab) => void;
+	prDisabled?: boolean;
+}> = ({ branchTab, setBranchTab, prDisabled = false }) => (
 	<ToggleGroup
 		render={<ToggleGroupStyles />}
 		value={[branchTab]}
@@ -2745,8 +2751,8 @@ const BranchTabToggle: FC<{ branchTab: BranchTab; setBranchTab: (tab: BranchTab)
 		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
 			Diff
 		</Toggle>
-		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
-			Pull Request
+		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
+			{prDisabled ? "No pull request" : "Pull Request"}
 		</Toggle>
 	</ToggleGroup>
 );
@@ -2879,8 +2885,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			<div className={styles.headerWrap}>
 				<BranchTitleRow branchName={branchName} />
 
-				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
-					{review && <BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />}
+				<div className={styles.tabsRow}>
+					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} prDisabled={!review} />
 
 					<div className={styles.tabsRowRight}>
 						<button
@@ -2965,7 +2971,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 			<div className={styles.headerWrap}>
 				<BranchTitleRow branchName={branchName} />
 
-				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
+				<div className={styles.tabsRow}>
 					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
