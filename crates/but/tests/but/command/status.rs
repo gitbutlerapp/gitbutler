@@ -1555,6 +1555,7 @@ fn worktree_lanes() {
 ┊┊
 ┊┊╭┄ po {wt-inside}
 ┊┊┊   wx A note.txt
+┊┊┊
 ┊┊●   pwn worktree work (no changes)
 ┊├╯
 ┊●   tpm add A

@@ -35,6 +35,31 @@ fn worktree_tui() -> (TestTui<App>, String) {
     (tui, editor_command)
 }
 
+/// Sibling worktrees nested below a dirty worktree's first commit keep a blank lane between them.
+#[test]
+fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    env.invoke_git(
+        "worktree add -b wt-child-one .git/gitbutler/test-worktrees/zz-child-one wt-branch",
+    );
+    env.invoke_git(
+        "worktree add -b wt-child-two .git/gitbutler/test-worktrees/zz-child-two wt-branch",
+    );
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/sibling_worktree_lanes_are_separated_after_uncommitted_files_001.svg"
+    ]);
+}
+
 /// The lane, its heading, its uncommitted file and its commit are all reachable with the cursor.
 #[test]
 fn worktree_lane_is_navigable() {

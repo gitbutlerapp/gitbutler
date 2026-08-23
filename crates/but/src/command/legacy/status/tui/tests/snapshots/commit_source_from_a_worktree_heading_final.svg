@@ -40,26 +40,27 @@
     <text x="58 66" y="132" style="fill:#0000AA;font-weight:bold;opacity:0.75;">ok</text>
     <text x="82" y="132" style="fill:#CCCCCC;opacity:0.75;">A</text>
     <text x="98 106 114 122 130 138 146 154 162 170 178" y="132" style="fill:#00AA00;opacity:0.75;">wt-file.txt</text>
-    <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊●</text>
-    <text x="58" y="150" style="fill:#AA00AA;">n</text>
-    <text x="66 74" y="150" style="fill:#CCCCCC;opacity:0.75;">ll</text>
-    <text x="90 98 106" y="150" style="fill:#CCCCCC;">add</text>
-    <text x="122" y="150" style="fill:#CCCCCC;">W</text>
-    <text x="10 18 26" y="168" style="fill:#CCCCCC;">┊├╯</text>
-    <text x="10 18" y="186" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="186" style="fill:#AA00AA;">t</text>
-    <text x="58 66" y="186" style="fill:#CCCCCC;opacity:0.75;">pm</text>
-    <text x="82 90 98" y="186" style="fill:#CCCCCC;">add</text>
-    <text x="114" y="186" style="fill:#CCCCCC;">A</text>
-    <text x="10 18" y="204" style="fill:#CCCCCC;">├╯</text>
-    <text x="10" y="222" style="fill:#CCCCCC;">┊</text>
-    <text x="10" y="240" style="fill:#CCCCCC;">┴</text>
-    <text x="26 34 42 50 58 66 74" y="240" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
-    <text x="90 98 106 114 122 130 138" y="240" style="fill:#CCCCCC;opacity:0.75;">(common</text>
-    <text x="154 162 170 178 186" y="240" style="fill:#CCCCCC;opacity:0.75;">base)</text>
-    <text x="202 210 218 226 234 242 250 258 266 274" y="240" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="240" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="322" y="240" style="fill:#CCCCCC;opacity:0.75;">M</text>
+    <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊┊</text>
+    <text x="10 18 26" y="168" style="fill:#CCCCCC;">┊┊●</text>
+    <text x="58" y="168" style="fill:#AA00AA;">n</text>
+    <text x="66 74" y="168" style="fill:#CCCCCC;opacity:0.75;">ll</text>
+    <text x="90 98 106" y="168" style="fill:#CCCCCC;">add</text>
+    <text x="122" y="168" style="fill:#CCCCCC;">W</text>
+    <text x="10 18 26" y="186" style="fill:#CCCCCC;">┊├╯</text>
+    <text x="10 18" y="204" style="fill:#CCCCCC;">┊●</text>
+    <text x="50" y="204" style="fill:#AA00AA;">t</text>
+    <text x="58 66" y="204" style="fill:#CCCCCC;opacity:0.75;">pm</text>
+    <text x="82 90 98" y="204" style="fill:#CCCCCC;">add</text>
+    <text x="114" y="204" style="fill:#CCCCCC;">A</text>
+    <text x="10 18" y="222" style="fill:#CCCCCC;">├╯</text>
+    <text x="10" y="240" style="fill:#CCCCCC;">┊</text>
+    <text x="10" y="258" style="fill:#CCCCCC;">┴</text>
+    <text x="26 34 42 50 58 66 74" y="258" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
+    <text x="90 98 106 114 122 130 138" y="258" style="fill:#CCCCCC;opacity:0.75;">(common</text>
+    <text x="154 162 170 178 186" y="258" style="fill:#CCCCCC;opacity:0.75;">base)</text>
+    <text x="202 210 218 226 234 242 250 258 266 274" y="258" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
+    <text x="290 298 306" y="258" style="fill:#CCCCCC;opacity:0.75;">add</text>
+    <text x="322" y="258" style="fill:#CCCCCC;opacity:0.75;">M</text>
     <text x="26 34 42 50 58 66" y="366" style="fill:#000000;">commit</text>
     <text x="98 106 114 122 130" y="366" style="fill:#0000AA;">enter</text>
     <text x="146 154 162 170 178 186 194" y="366" style="fill:#CCCCCC;opacity:0.75;">confirm</text>
