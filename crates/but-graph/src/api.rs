@@ -759,7 +759,7 @@ impl Graph {
                 s.commits.iter().find_map(|c| {
                     c.refs
                         .iter()
-                        .any(|ri| ri.ref_name.as_ref() == name)
+                        .any(|ri| ri.ref_name == name)
                         .then_some((s, c))
                 })
             }

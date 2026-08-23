@@ -28,7 +28,7 @@ pub const EDIT_BRANCH_REF: &str = "refs/heads/gitbutler/edit";
 pub fn is_well_known_workspace_ref(ref_name: &gix::refs::FullNameRef) -> bool {
     OPEN_WORKSPACE_REFS
         .iter()
-        .any(|workspace_ref| ref_name.as_bstr() == *workspace_ref)
+        .any(|workspace_ref| ref_name == *workspace_ref)
 }
 
 fn edit_mode_metadata_path(ctx: &Context) -> PathBuf {
@@ -131,7 +131,7 @@ pub fn operating_mode(ctx: &Context, perm: &RepoShared) -> Result<OperatingMode>
     };
     if is_well_known_workspace_ref(head_ref_name) {
         Ok(OperatingMode::OpenWorkspace)
-    } else if head_ref_name.as_bstr() == EDIT_BRANCH_REF {
+    } else if head_ref_name == EDIT_BRANCH_REF {
         let edit_mode_metadata = read_edit_mode_metadata(ctx);
 
         match edit_mode_metadata {

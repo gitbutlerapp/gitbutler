@@ -175,7 +175,7 @@ pub fn list(
                 // If the merge-base equals the branch head, the branch is already fully contained
                 // in the target and has no commits ahead to show.
                 repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
-                    .map(|merge_base| merge_base.detach() != branch.head)
+                    .map(|merge_base| merge_base != branch.head)
                     .unwrap_or(true)
             })
             .take(num_branches_to_take)
@@ -416,7 +416,7 @@ fn check_branches_merge_cleanly(
                     match repo.merge_base_with_graph(target_commit_id, branch.tip, &mut graph) {
                         Ok(merge_base) => {
                             let merge_base_tree_id =
-                                repo.find_commit(merge_base.detach())?.tree_id()?.detach();
+                                repo.find_commit(merge_base)?.tree_id()?.detach();
 
                             // Check if branch merges cleanly into target
                             let merges_cleanly = repo
@@ -450,8 +450,7 @@ fn check_branches_merge_cleanly(
                 // Find merge base
                 match repo.merge_base_with_graph(target_commit_id, branch.head, &mut graph) {
                     Ok(merge_base) => {
-                        let merge_base_tree_id =
-                            repo.find_commit(merge_base.detach())?.tree_id()?.detach();
+                        let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
 
                         // Check if branch merges cleanly into target
                         let merges_cleanly = repo

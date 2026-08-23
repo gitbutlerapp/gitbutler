@@ -272,7 +272,7 @@ pub fn apply(
         WorkspaceKind::Managed { ref_info }
         | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => head_ref_name
             .as_ref()
-            .is_some_and(|head| head.as_ref() == ref_info.ref_name.as_ref()),
+            .is_some_and(|head| head == &ref_info.ref_name),
         WorkspaceKind::AdHoc => false,
     };
     let branch_has_applied_metadata =
@@ -451,12 +451,10 @@ pub fn apply(
                 .iter()
                 .any(|b| projected_refs.contains(b.ref_name.as_ref().as_bstr()));
             let stack_is_kept = stack.branches.iter().any(|b| {
-                branches_to_apply
-                    .iter()
-                    .any(|rn| rn.as_ref() == b.ref_name.as_ref())
+                branches_to_apply.iter().any(|rn| rn == &b.ref_name)
                     || head_ref_name
                         .as_ref()
-                        .is_some_and(|head| head.as_ref() == b.ref_name.as_ref())
+                        .is_some_and(|head| head == &b.ref_name)
             });
             if dropped_from_projection || (head_branch_in_workspace && !stack_is_kept) {
                 stack.workspacecommit_relation = Outside;

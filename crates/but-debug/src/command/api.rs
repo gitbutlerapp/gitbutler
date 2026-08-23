@@ -67,8 +67,7 @@ fn resolve_stack_id(ctx: &but_ctx::Context, stack: &str) -> Result<StackId> {
     fn stack_matches(stack: &but_graph::workspace::Stack, name: &str) -> bool {
         stack.segments.iter().any(|segment| {
             segment.ref_name().is_some_and(|ref_name| {
-                ref_name.as_bstr() == name.as_bytes()
-                    || ref_name.shorten().as_bstr() == name.as_bytes()
+                ref_name == name || ref_name.shorten().as_bstr() == name.as_bytes()
             })
         })
     }

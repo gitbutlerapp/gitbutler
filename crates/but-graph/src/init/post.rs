@@ -1988,7 +1988,7 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
             )?;
             graph.insert_segment(new_segment)
         };
-        if ref_name.as_ref() == entrypoint_ref {
+        if ref_name == entrypoint_ref {
             entrypoint_segment_id = Some(segment_id);
         }
         ordered_segment_ids.push(segment_id);

@@ -81,7 +81,7 @@ fn cherry_pick_materializes_multiple_deduped_commits_and_returns_new_commit_ids(
     let new_tip = result.new_commits[1];
     let repo = ctx.repo.get()?;
     assert_eq!(
-        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        repo.rev_parse_single(main_ref.as_ref())?,
         new_tip,
         "materialization should move the destination reference"
     );
@@ -89,8 +89,7 @@ fn cherry_pick_materializes_multiple_deduped_commits_and_returns_new_commit_ids(
         repo.find_commit(new_first)?
             .parent_ids()
             .next()
-            .expect("the copied commit has the old branch tip as parent")
-            .detach(),
+            .expect("the copied commit has the old branch tip as parent"),
         main_tip
     );
 
@@ -136,7 +135,7 @@ fn cherry_pick_dry_run_does_not_persist_commits_or_move_the_reference() -> anyho
 
     let repo = ctx.repo.get()?;
     assert_eq!(
-        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        repo.rev_parse_single(main_ref.as_ref())?,
         main_tip,
         "dry-run should not move the destination reference"
     );
@@ -189,7 +188,7 @@ fn cherry_pick_from_a_branch_outside_the_workspace() -> anyhow::Result<()> {
     assert_eq!(result.new_commits.len(), 1);
     let repo = ctx.repo.get()?;
     assert_eq!(
-        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        repo.rev_parse_single(main_ref.as_ref())?,
         result.new_commits[0],
         "the copy becomes the new branch tip"
     );
@@ -197,8 +196,7 @@ fn cherry_pick_from_a_branch_outside_the_workspace() -> anyhow::Result<()> {
         repo.find_commit(result.new_commits[0])?
             .parent_ids()
             .next()
-            .expect("the copy is stacked onto the previous tip")
-            .detach(),
+            .expect("the copy is stacked onto the previous tip"),
         main_tip
     );
     assert_ne!(
@@ -233,7 +231,7 @@ fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<(
     assert_eq!(result.new_commits.len(), 2);
     let repo = ctx.repo.get()?;
     assert_eq!(
-        repo.rev_parse_single(main_ref.as_ref())?.detach(),
+        repo.rev_parse_single(main_ref.as_ref())?,
         result.new_commits[1],
         "the last source given ends up as the branch tip"
     );
@@ -241,8 +239,7 @@ fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<(
         repo.find_commit(result.new_commits[1])?
             .parent_ids()
             .next()
-            .expect("the copies are stacked in the order given")
-            .detach(),
+            .expect("the copies are stacked in the order given"),
         result.new_commits[0]
     );
     let titles = result

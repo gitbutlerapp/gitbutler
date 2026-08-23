@@ -221,7 +221,7 @@ pub(crate) mod function {
         }
 
         if let Some(workspace_ref_name) = workspace_ref_name.as_ref()
-            && workspace_ref_name.as_ref() == branch
+            && workspace_ref_name == branch
         {
             return unapply_workspace_reference(
                 ws,
@@ -338,7 +338,7 @@ pub(crate) mod function {
                 && stack
                     .branches
                     .iter()
-                    .any(|stack_branch| stack_branch.ref_name.as_ref() == branch)
+                    .any(|stack_branch| stack_branch.ref_name == branch)
         }) {
             bail!(
                 "BUG: branch '{}' is still present in rebuilt workspace metadata after unapply",

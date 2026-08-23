@@ -40,6 +40,6 @@ pub fn signature_gix(purpose: SignaturePurpose) -> gix::actor::Signature {
 fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
     std::env::var(overriding_variable_name)
         .ok()
-        .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
+        .and_then(|time| gix::date::parse(&time, Some(gix::date::Zoned::now())).ok())
         .unwrap_or_else(gix::date::Time::now_local_or_utc)
 }

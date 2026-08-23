@@ -1558,7 +1558,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
         entrypoint_stack_segment
             .commits
             .iter()
-            .any(|commit| commit.id == id.detach()),
+            .any(|commit| commit.id == id),
         "the entrypoint stack segment must contain the custom traversal commit"
     );
     snapbox::assert_data_eq!(

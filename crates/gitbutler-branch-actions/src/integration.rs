@@ -77,7 +77,7 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let workspace_filepath = repo.path().join("workspace");
     let mut prev_branch = read_workspace_file(&workspace_filepath)?;
     if let Some(branch) = &prev_branch
-        && branch.head != GITBUTLER_WORKSPACE_REFERENCE.to_string()
+        && branch.head != but_core::WORKSPACE_REF_NAME
     {
         // we are moving from a regular branch to our gitbutler workspace branch, write a file to
         // .git/workspace with the previous head and name

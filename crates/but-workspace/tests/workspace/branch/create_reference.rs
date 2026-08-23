@@ -2147,7 +2147,7 @@ Single commit, target, no ws commit, but ws-reference
         let new_tip = repo.find_reference(new_ref)?.peel_to_id()?.detach();
         assert_eq!(
             new_tip,
-            repo.rev_parse_single("main~1")?.detach(),
+            repo.rev_parse_single("main~1")?,
             "the new branch must be anchored at M1, inside the workspace"
         );
         Ok(())
@@ -3253,7 +3253,7 @@ mod ad_hoc_at_reference {
             "reusing an existing ref that points at a different commit must be rejected"
         );
         // The failure must be atomic: the ref is untouched and no order was persisted.
-        assert_eq!(repo.find_reference(existing_ref)?.id().detach(), older);
+        assert_eq!(repo.find_reference(existing_ref)?.id(), older);
         assert_eq!(meta.branch_stack_order(main_ref)?, None);
         Ok(())
     }

@@ -138,7 +138,7 @@ impl MergedUpstream {
             }
             if repo
                 .merge_base(remote_tip, target_tip)
-                .is_ok_and(|merge_base| merge_base.detach() == remote_tip)
+                .is_ok_and(|merge_base| merge_base == remote_tip)
             {
                 self.merged_branches.insert(ref_info.ref_name.clone());
             }

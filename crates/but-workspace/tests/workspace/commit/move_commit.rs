@@ -11,11 +11,11 @@ use crate::ref_info::with_workspace_commit::utils::{
 };
 
 fn parent_subjects(repo: &gix::Repository, rev: &str) -> anyhow::Result<Vec<String>> {
-    let commit = repo.find_commit(repo.rev_parse_single(rev)?.detach())?;
+    let commit = repo.find_commit(repo.rev_parse_single(rev)?)?;
     commit
         .parent_ids()
         .map(|parent_id| {
-            let parent = repo.find_commit(parent_id.detach())?;
+            let parent = repo.find_commit(parent_id)?;
             Ok(parent.message_raw()?.trim_end().to_str_lossy().to_string())
         })
         .collect()

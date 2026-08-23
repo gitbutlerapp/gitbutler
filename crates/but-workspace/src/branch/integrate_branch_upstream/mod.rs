@@ -258,7 +258,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .target_ref
         .as_ref()
         .map(|target| target.ref_name.clone())
-        .filter(|target_ref_name| target_ref_name.as_ref() != upstream_ref_name.as_ref());
+        .filter(|target_ref_name| *target_ref_name != *upstream_ref_name);
 
     let editor = Editor::create(workspace, meta, repo, db)?;
 

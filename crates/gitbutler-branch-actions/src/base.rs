@@ -164,7 +164,7 @@ pub(crate) fn set_base_branch(
         let target_ref_matches = project_meta
             .target_ref
             .as_ref()
-            .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string());
+            .is_some_and(|target_ref| target_branch_ref == target_ref.as_ref());
         (
             workspace_ref_exists && project_meta.target_commit_id.is_some() && target_ref_matches,
             project_meta.target_ref,
@@ -212,18 +212,17 @@ pub(crate) fn set_base_branch(
     project_meta.remote_url_with_fallback(&repo)?;
 
     // TODO: make sure this is a real branch
-    let head_name: Refname = current_head
+    let head_ref_name = current_head
         .referent_name()
-        .map(|name| {
-            name.to_string()
-                .parse()
-                .expect("BUG: we have to avoid using these legacy types")
-        })
         .context("Failed to get HEAD reference name")?;
+    let head_is_workspace = head_ref_name == WORKSPACE_REF_NAME;
+    let head_name: Refname = head_ref_name
+        .to_string()
+        .parse()
+        .expect("BUG: we have to avoid using these legacy types");
     if workspace_ref_exists
-        && !head_name.to_string().eq(WORKSPACE_REF_NAME)
-        && existing_target_ref
-            .is_none_or(|target_ref| target_ref.to_string() != target_branch_ref.to_string())
+        && !head_is_workspace
+        && existing_target_ref.is_none_or(|target_ref| target_branch_ref != target_ref.as_ref())
     {
         bail_precondition!(
             "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first"
@@ -232,7 +231,7 @@ pub(crate) fn set_base_branch(
     ctx.set_project_meta(project_meta)?;
 
     let mut workspace_to_initialize = None;
-    if !head_name.to_string().eq(WORKSPACE_REF_NAME) {
+    if !head_is_workspace {
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 

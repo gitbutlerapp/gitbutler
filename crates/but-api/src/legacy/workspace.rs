@@ -139,7 +139,7 @@ fn handle_gerrit(
             if matches!(commit.state, but_workspace::ui::CommitState::Integrated) {
                 return Ok(());
             }
-            if commit.id.to_string() == meta.commit_id {
+            if commit.id == meta.commit_id {
                 // Pushed, and identical at the remote
                 commit.state = but_workspace::ui::CommitState::LocalAndRemote(commit.id);
             } else {

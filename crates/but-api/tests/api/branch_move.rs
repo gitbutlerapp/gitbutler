@@ -111,14 +111,8 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
 
     let repo = ctx.repo.get()?;
     assert_eq!(repo.head_name()?.as_ref(), Some(&head_before));
-    assert_eq!(
-        repo.rev_parse_single(subject.as_ref())?.detach(),
-        subject_tip_before
-    );
-    assert_eq!(
-        repo.rev_parse_single(target.as_ref())?.detach(),
-        target_tip_before
-    );
+    assert_eq!(repo.rev_parse_single(subject.as_ref())?, subject_tip_before);
+    assert_eq!(repo.rev_parse_single(target.as_ref())?, target_tip_before);
     drop(repo);
     assert_eq!(
         ctx.meta()?.branch_stack_order(target.as_ref())?,
@@ -232,10 +226,7 @@ fn move_empty_top_branch_below_middle_preserves_commit_ownership() -> anyhow::Re
     let empty_top: gix::refs::FullName = "refs/heads/C".try_into()?;
     let middle_tip_before = ctx.repo.get()?.rev_parse_single(middle.as_ref())?.detach();
     assert_eq!(
-        ctx.repo
-            .get()?
-            .rev_parse_single(empty_top.as_ref())?
-            .detach(),
+        ctx.repo.get()?.rev_parse_single(empty_top.as_ref())?,
         middle_tip_before,
         "the top branch starts empty"
     );
@@ -251,12 +242,12 @@ fn move_empty_top_branch_below_middle_preserves_commit_ownership() -> anyhow::Re
     let repo = ctx.repo.get()?;
     let bottom_tip = repo.rev_parse_single(bottom.as_ref())?.detach();
     assert_eq!(
-        repo.rev_parse_single(middle.as_ref())?.detach(),
+        repo.rev_parse_single(middle.as_ref())?,
         middle_tip_before,
         "the middle branch keeps owning its commit"
     );
     assert_eq!(
-        repo.rev_parse_single(empty_top.as_ref())?.detach(),
+        repo.rev_parse_single(empty_top.as_ref())?,
         bottom_tip,
         "the moved branch stays empty at its new position"
     );

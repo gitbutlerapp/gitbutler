@@ -501,10 +501,7 @@ fn restore_reconstitutes_missing_commit() -> anyhow::Result<()> {
         "restore recreates the missing commit"
     );
     assert_eq!(
-        gix_repo
-            .find_reference("refs/heads/A")?
-            .peel_to_id()?
-            .detach(),
+        gix_repo.find_reference("refs/heads/A")?.peel_to_id()?,
         second,
         "restore moves the branch back to the recreated commit"
     );
@@ -574,8 +571,7 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
     assert_eq!(
         gix_repo
             .find_reference(but_core::WORKSPACE_REF_NAME)?
-            .peel_to_id()?
-            .detach(),
+            .peel_to_id()?,
         original_workspace,
         "restore repoints the workspace ref to the snapshotted commit"
     );
@@ -644,7 +640,7 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
         "undoing a transition to ad-hoc mode must check out the managed workspace"
     );
     assert_eq!(
-        repo.find_reference(workspace_ref)?.peel_to_id()?.detach(),
+        repo.find_reference(workspace_ref)?.peel_to_id()?,
         original_workspace,
         "undoing a transition to ad-hoc mode must recreate the original workspace ref"
     );
@@ -660,7 +656,7 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
         "redoing the transition must return to the ad-hoc branch"
     );
     assert_eq!(
-        repo.head_id()?.detach(),
+        repo.head_id()?,
         ad_hoc_commit,
         "redoing the transition must restore the ad-hoc commit"
     );
