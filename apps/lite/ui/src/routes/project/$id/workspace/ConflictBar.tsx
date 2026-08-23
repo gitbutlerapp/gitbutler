@@ -1,9 +1,12 @@
+import { useEnterEditMode } from "#ui/api/mutations.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Dialog } from "@base-ui/react";
+import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import styles from "./ConflictBar.module.css";
 import { ConflictedFiles } from "#ui/routes/project/$id/workspace/ConflictedFiles.tsx";
@@ -43,6 +46,21 @@ export const ConflictBar: FC<Props> = (p) => {
 		projectSlice.selectors.selectCheckedConflicts(state, p.projectId, p.commitId),
 	);
 
+	// Edit mode wants the commit's stack; the bar finds it itself rather than
+	// threading it through the details pane. Derived in `select` so the walk
+	// runs when the head info changes rather than on every render, and the bar
+	// subscribes to the id alone.
+	const { data: stackId = null } = useQuery({
+		...headInfoQueryOptions(p.projectId),
+		select: (headInfo) =>
+			headInfo.stacks.find((stack) =>
+				stack.segments.some((segment) =>
+					segment.commits.some((commit) => commit.id === p.commitId),
+				),
+			)?.id ?? null,
+	});
+	const { mutate: enterEditMode } = useEnterEditMode();
+
 	const total = p.conflicts.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (total === 0 && p.manual.length === 0) return null;
 
@@ -75,6 +93,19 @@ export const ConflictBar: FC<Props> = (p) => {
 					{p.manual.length} file{p.manual.length === 1 ? "" : "s"} can only be resolved in edit mode
 				</span>
 			)}
+
+			<button
+				type="button"
+				className={classes(getButtonClassName({ variant: "outline", size: "small" }))}
+				disabled={p.busy || stackId === null}
+				title="Check the commit out into your working directory and edit its files directly"
+				onClick={() => {
+					if (stackId !== null)
+						enterEditMode({ projectId: p.projectId, commitId: p.commitId, stackId });
+				}}
+			>
+				Open Edit Mode
+			</button>
 
 			{total > 0 && (
 				<Dialog.Root>

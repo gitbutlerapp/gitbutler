@@ -56,6 +56,8 @@ const handledSeparately: Partial<Record<ProjectEvent, ReadonlySet<ProjectQueryKe
 	// Pushes instead: the event carries the new changes, so invalidating would
 	// spend a round trip fetching what is already in hand.
 	worktreeChanges: new Set(["changesInWorktree"]),
+	// Pushes instead: the event carries the new head and mode.
+	gitHead: new Set(["operatingMode"]),
 	// Invalidates later instead: re-reading before the review refresh lands
 	// returns commits without their annotations.
 	gitFetch: new Set(["workspaceTargetCommits"]),
@@ -86,6 +88,9 @@ export const handleProjectEvent = (
 
 	if (payload.type === "worktreeChanges")
 		client.setQueryData(["changesInWorktree", projectId], () => payload.subject.changes);
+
+	if (payload.type === "gitHead")
+		client.setQueryData(["operatingMode", projectId], () => payload.subject);
 
 	for (const query of invalidateOn.get(payload.type) ?? [])
 		void client.invalidateQueries({ queryKey: [query, projectId] });

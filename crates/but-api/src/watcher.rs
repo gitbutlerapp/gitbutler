@@ -79,7 +79,7 @@ impl WatcherEventKind {
             WatcherEventKind::GitFetch => {
                 &[T::Branches, T::TargetCommits, T::FetchStatus, T::Reviews]
             }
-            WatcherEventKind::GitHead => &[],
+            WatcherEventKind::GitHead => &[T::OperatingMode],
             WatcherEventKind::GitActivity | WatcherEventKind::WorkspaceActivity => &[
                 T::Branches,
                 T::TargetCommits,

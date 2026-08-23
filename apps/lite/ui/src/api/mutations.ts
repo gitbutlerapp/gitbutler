@@ -754,6 +754,24 @@ export const useResolveWorktreeConflicts = () =>
 		meta: { failureTitle: "Failed to mark conflict as resolved" },
 	});
 
+export const useEnterEditMode = () =>
+	useMutation({
+		mutationFn: window.lite.enterEditMode,
+		meta: { failureTitle: "Failed to enter edit mode" },
+	});
+
+export const useSaveEditAndReturnToWorkspace = () =>
+	useMutation({
+		mutationFn: window.lite.saveEditAndReturnToWorkspace,
+		meta: { failureTitle: "Failed to save the edited commit" },
+	});
+
+export const useAbortEditAndReturnToWorkspace = () =>
+	useMutation({
+		mutationFn: window.lite.abortEditAndReturnToWorkspace,
+		meta: { failureTitle: "Failed to leave edit mode" },
+	});
+
 /** Discards a file's changes, whichever of the two discards its parent calls for. */
 export const useDiscardFileChanges = ({
 	projectId,

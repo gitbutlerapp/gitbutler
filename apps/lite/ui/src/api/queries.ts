@@ -154,6 +154,32 @@ export const forgeInfoOptions = (projectId: string) =>
 		queryFn: () => window.lite.forgeInfo(projectId),
 	});
 
+/**
+ * Which mode the repository is in. Kept fresh two ways: the edit-mode
+ * mutations declare they invalidate it, and the `gitHead` watcher event
+ * pushes the mode it carries — so entering edit mode from a terminal
+ * flips the app too.
+ */
+export const operatingModeQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["operatingMode", projectId],
+		queryFn: () => window.lite.operatingMode(projectId),
+	});
+
+/** The edited commit's files as the edit session started, with their conflict states. */
+export const editInitialIndexStateQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["editInitialIndexState", projectId],
+		queryFn: () => window.lite.editInitialIndexState(projectId),
+	});
+
+/** What the user has changed since entering edit mode. */
+export const editChangesFromInitialQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["editChangesFromInitial", projectId],
+		queryFn: () => window.lite.editChangesFromInitial(projectId),
+	});
+
 export const headInfoQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["headInfo", projectId],
