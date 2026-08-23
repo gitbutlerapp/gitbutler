@@ -363,27 +363,12 @@ impl Details {
                     },
                 )
             }
-            // A worktree header has no detail view of its own yet; its files do.
-            CliId::Worktree { .. } | CliId::Stack { .. } => {
-                self.reset_line_reader();
-                self.clear_lines();
-                self.reset_scroll();
-                let section_added = push_line(
-                    &mut self.lines,
-                    &mut self.sections,
-                    DetailsLine::Text {
-                        id: None,
-                        cli_id: None,
-                        line: Line::from("(stack assignments are not supported)")
-                            .style(self.theme.hint),
-                        skip_when_copying_hunk: false,
-                    },
-                );
-                if section_added {
-                    self.select_first_section_if_pending();
-                } else {
-                    self.clear_pending_first_section_selection();
-                }
+            CliId::Worktree { .. } => {
+                self.diff_not_supported("(viewing diffs for worktrees is not supported)");
+                Ok(true)
+            }
+            CliId::Stack { .. } => {
+                self.diff_not_supported("(viewing diffs for stacks is not supported)");
                 Ok(true)
             }
             CliId::PathPrefix { .. } => {
@@ -393,6 +378,27 @@ impl Details {
                 self.clear_pending_first_section_selection();
                 Ok(true)
             }
+        }
+    }
+
+    fn diff_not_supported(&mut self, msg: &'static str) {
+        self.reset_line_reader();
+        self.clear_lines();
+        self.reset_scroll();
+        let section_added = push_line(
+            &mut self.lines,
+            &mut self.sections,
+            DetailsLine::Text {
+                id: None,
+                cli_id: None,
+                line: Line::from(msg).style(self.theme.hint),
+                skip_when_copying_hunk: false,
+            },
+        );
+        if section_added {
+            self.select_first_section_if_pending();
+        } else {
+            self.clear_pending_first_section_selection();
         }
     }
 
