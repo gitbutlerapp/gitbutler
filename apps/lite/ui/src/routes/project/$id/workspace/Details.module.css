@@ -234,6 +234,7 @@
 
 .prLayout {
 	display: flex;
+	align-items: flex-start;
 	gap: var(--pr-layout-gap);
 }
 
