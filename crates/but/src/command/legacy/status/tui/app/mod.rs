@@ -1575,10 +1575,8 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
-            CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
-            | CliId::Stack { .. } => {
+            CliId::Worktree { name, .. } => name.to_str_lossy(),
+            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
             }
         };
@@ -1628,10 +1626,10 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
-            | CliId::Stack { .. } => {
+            CliId::Worktree { id, name } => {
+                copy_selection_picker::worktree_picker(name.to_owned(), id.to_owned(), self.theme)
+            }
+            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
             }
         };
