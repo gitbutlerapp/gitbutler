@@ -8,13 +8,20 @@ import type * as sdk from "@gitbutler/but-sdk";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import type { GUISettings } from "./settings.js";
 
+type SDK = Pick<
+	{
+		// Keep this homomorphic so TypeScript preserves each SDK member's definition target. Filtering
+		// directly in the mapped key breaks go-to-definition, hence filtering on the outside with Pick.
+		[K in keyof typeof sdk]: K extends Endpoint ? EndpointFn<K> : (typeof sdk)[K];
+	},
+	Endpoint
+>;
+
 /**
  * What the renderer can call: every SDK endpoint, whose signatures are the
  * SDK's, plus the members electron implements itself.
  */
-export type LiteElectronApi = {
-	[K in Endpoint]: EndpointFn<K>;
-} & {
+export type LiteElectronApi = SDK & {
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	clipboardWriteText: (text: string) => Promise<void>;
