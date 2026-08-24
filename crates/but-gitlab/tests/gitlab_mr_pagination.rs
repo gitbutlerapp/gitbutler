@@ -83,8 +83,17 @@ fn mock_client(responses: Vec<MockResponse>) -> (GitLabClient, MockServer) {
 }
 
 fn mr(iid: i64, source_branch: &str) -> String {
+    mr_with_sha(
+        iid,
+        source_branch,
+        Some("0123456789abcdef0123456789abcdef01234567"),
+    )
+}
+
+fn mr_with_sha(iid: i64, source_branch: &str, sha: Option<&str>) -> String {
+    let sha_json = sha.map_or("null".to_string(), |sha| format!("\"{sha}\""));
     format!(
-        r#"{{"web_url":"https://gitlab.example/mr/{iid}","iid":{iid},"title":"MR {iid}","description":null,"author":null,"labels":[],"draft":false,"source_branch":"{source_branch}","target_branch":"main","sha":"0123456789abcdef0123456789abcdef01234567","merge_commit_sha":null,"squash_commit_sha":null,"created_at":null,"updated_at":null,"merged_at":null,"closed_at":null,"project_id":7,"source_project_id":7,"target_project_id":7,"assignees":[],"reviewers":[],"merge_when_pipeline_succeeds":false}}"#
+        r#"{{"web_url":"https://gitlab.example/mr/{iid}","iid":{iid},"title":"MR {iid}","description":null,"author":null,"labels":[],"draft":false,"source_branch":"{source_branch}","target_branch":"main","sha":{sha_json},"merge_commit_sha":null,"squash_commit_sha":null,"created_at":null,"updated_at":null,"merged_at":null,"closed_at":null,"project_id":7,"source_project_id":7,"target_project_id":7,"assignees":[],"reviewers":[],"merge_when_pipeline_succeeds":false}}"#
     )
 }
 
@@ -249,6 +258,42 @@ fn list_mrs_for_commit_includes_page_two() {
             &server.finish(),
             "/api/v4/projects/group%2Frepo/repository/commits/0123456789abcdef0123456789abcdef01234567/merge_requests",
             &[],
+            &["1", "2"],
+        );
+    });
+}
+
+#[test]
+fn list_open_mrs_keeps_a_paginated_mr_with_null_sha() {
+    run(async {
+        let (client, server) = mock_client(vec![
+            MockResponse {
+                body: page(&[mr(1, "first")]),
+                next_page: Some("2"),
+            },
+            MockResponse {
+                body: page(&[mr_with_sha(2, "transitional", None), mr(3, "third")]),
+                next_page: None,
+            },
+        ]);
+
+        let mrs = client
+            .list_open_mrs(GitLabProjectId::new("group", "repo"))
+            .await
+            .expect("an open MR without a head sha must not abort the listing");
+        assert_eq!(
+            mrs.iter().map(|mr| mr.iid).collect::<Vec<_>>(),
+            vec![1, 2, 3],
+            "a null-sha row should not discard its page or earlier pages"
+        );
+        assert!(
+            mrs.iter().any(|mr| mr.iid == 2 && mr.sha.is_empty()),
+            "a null head sha should map to an empty sha, never a placeholder that parses as a commit id"
+        );
+        assert_requests(
+            &server.finish(),
+            "/api/v4/projects/group%2Frepo/merge_requests",
+            &[("state", "opened"), ("order_by", "created_at")],
             &["1", "2"],
         );
     });
