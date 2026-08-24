@@ -1,7 +1,10 @@
 .container {
+	--sidebar-surface-bg: color-mix(in srgb, var(--bg-1) 70%, transparent);
+
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
+	background-color: color-mix(in srgb, var(--bg-2) 70%, transparent);
 }
 
 .top {

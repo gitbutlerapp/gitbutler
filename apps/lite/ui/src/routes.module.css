@@ -13,5 +13,4 @@
 	flex-direction: column;
 	height: 100dvh;
 	overflow: auto;
-	background: var(--bg-1);
 }

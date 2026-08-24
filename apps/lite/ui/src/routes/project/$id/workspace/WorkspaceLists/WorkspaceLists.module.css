@@ -18,6 +18,7 @@
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
+	background-color: var(--sidebar-surface-bg);
 
 	/* react-resizable-panels styles the panel element with an inline
 	   `overflow: auto`, which would scroll the whole section — header, file
@@ -61,7 +62,7 @@
 		/* Pulled back by its own height so it claims no flow space and leaves no
 		   gap under the last row; it overlays the content instead. */
 		margin-block-start: calc(-1 * var(--scroll-gradient-height));
-		background: linear-gradient(to top, var(--bg-1) 20%, transparent);
+		background: linear-gradient(to top, var(--sidebar-surface-bg) 20%, transparent);
 		content: "";
 		opacity: 0;
 		pointer-events: none;
@@ -82,7 +83,6 @@
 .stacksPanel {
 	display: flex;
 	flex-direction: column;
-	background-color: var(--bg-2);
 }
 
 .stacksHeader {

@@ -1,6 +1,11 @@
 .page {
 	flex-grow: 1;
 	min-height: 0;
+
+	/* Must live here instead of in details CSS for when there's nothing being rendered. */
+	> [id="details-panel"] {
+		background: var(--bg-1);
+	}
 }
 
 .notFound {
