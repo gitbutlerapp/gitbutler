@@ -782,7 +782,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 └── ≡:0:three[🌳] {1}
     ├── :0:three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
+    ├── :1:two <> origin/two
     │   └── ❄️16fd221
     └── :3:one
         └── ❄8b426d0
@@ -1033,7 +1033,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 └── ≡:0:three[🌳] {1}
     ├── :0:three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
+    ├── :1:two <> origin/two
     │   └── ❄️16fd221
     └── :3:one
         └── ❄8b426d0

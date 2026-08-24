@@ -694,8 +694,8 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:0:main[🌳] <> origin/main →:1: on e5d0542 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on e5d0542 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
         );
@@ -750,8 +750,8 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:0:main[🌳] <> origin/main →:1: on e5d0542 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on e5d0542 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
         );
@@ -1120,8 +1120,8 @@ fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:3:B <> origin/B →:5: on 85efbe4 {42}
-    └── 📙:3:B <> origin/B →:5:
+└── ≡📙:3:B <> origin/B on 85efbe4 {42}
+    └── 📙:3:B <> origin/B
         ├── ❄️f084d61 (🏘️) ►A, ►C
         └── ❄️7076dee (🏘️) ►D, ►E
 
@@ -1166,8 +1166,8 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:0:main[🌳] <> origin/main →:1: on 85efbe4 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 85efbe4 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -1808,8 +1808,8 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:0:main[🌳] <> origin/main →:1: on e5d0542 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on e5d0542 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -1940,8 +1940,8 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:0:main[🌳] <> origin/main →:1: on e5d0542 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on e5d0542 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -3446,8 +3446,8 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:0:main[🌳] <> origin/main →:1: on 3183e43 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 3183e43 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -4318,8 +4318,8 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:0:main[🌳] <> origin/main →:1: on 85efbe4 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 85efbe4 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -4452,8 +4452,8 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:0:main[🌳] <> origin/main →:1: on 85efbe4 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 85efbe4 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -4931,8 +4931,8 @@ Outcome {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:0:main[🌳] <> origin/main →:1: on 85efbe4 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 85efbe4 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );

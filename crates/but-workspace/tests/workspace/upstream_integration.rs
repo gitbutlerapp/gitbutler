@@ -2862,8 +2862,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5: on 563a7fc {1}
-    └── 📙:4:topic <> origin/topic →:5:
+└── ≡📙:4:topic <> origin/topic on 563a7fc {1}
+    └── 📙:4:topic <> origin/topic
         └── ❄️6ba217e (🏘️|✓)
 
 "#]]
@@ -2897,8 +2897,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡:2:main <> origin/main →:1: on 563a7fc
-    └── :2:main <> origin/main →:1:
+└── ≡:2:main <> origin/main on 563a7fc
+    └── :2:main <> origin/main
         └── ❄️364a08f (🏘️|✓)
 
 "#]]
@@ -2961,8 +2961,8 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-    └── 📙:4:topic <> origin/topic →:5:⇡1
+└── ≡📙:4:topic <> origin/topic⇡1 on 563a7fc {1}
+    └── 📙:4:topic <> origin/topic⇡1
         ├── ·f1a3cba (🏘️)
         └── ❄️6ba217e (🏘️|✓)
 
@@ -2998,10 +2998,10 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-    ├── 📙:4:topic <> origin/topic →:5:⇡1
+└── ≡📙:4:topic <> origin/topic⇡1 on 563a7fc {1}
+    ├── 📙:4:topic <> origin/topic⇡1
     │   └── ·f3ceb3d (🏘️)
-    └── :2:main <> origin/main →:1:
+    └── :2:main <> origin/main
         └── ❄️364a08f (🏘️|✓)
 
 "#]]
@@ -3063,9 +3063,9 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:7:top <> origin/top →:6: on 563a7fc {1}
-    ├── 📙:7:top <> origin/top →:6:
-    └── 📙:8:bottom <> origin/bottom →:5:
+└── ≡📙:7:top <> origin/top on 563a7fc {1}
+    ├── 📙:7:top <> origin/top
+    └── 📙:8:bottom <> origin/bottom
         └── ❄️141de4f (🏘️|✓)
 
 "#]]
@@ -3108,8 +3108,8 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡📙:2:top <> origin/top →:4: on 563a7fc {1}
-    └── 📙:2:top <> origin/top →:4:
+└── ≡📙:2:top <> origin/top on 563a7fc {1}
+    └── 📙:2:top <> origin/top
         └── ·334227d (🏘️|✓)
 
 "#]]

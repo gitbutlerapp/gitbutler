@@ -420,7 +420,6 @@ impl StackSegment {
         self.debug_string_with_ref_name_remote(Graph::ref_and_remote_debug_string(
             self.ref_info.as_ref(),
             self.remote_tracking_ref_name.as_ref(),
-            self.remote_tracking_branch_segment_id,
         ))
     }
 
@@ -430,7 +429,6 @@ impl StackSegment {
             graph.ref_and_remote_debug_string_with_graph_context(
                 self.ref_info.as_ref(),
                 self.remote_tracking_ref_name.as_ref(),
-                self.remote_tracking_branch_segment_id,
             ),
         )
     }

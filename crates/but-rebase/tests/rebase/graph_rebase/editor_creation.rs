@@ -417,7 +417,7 @@ fn workspace_with_empty_stack() -> Result<()> {
 │       └── 📙►:5[1]:stack-2
 │           └── →:4:
 └── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main →:1:
+    └── ►:2[1]:main <> origin/main
         └── ·a0f2ac5 (⌂|✓)
             └── →:4:
 
@@ -487,7 +487,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 │       └── 📙►:6[1]:stack-3
 │           └── →:3:
 └── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main →:1:
+    └── ►:2[1]:main <> origin/main
         └── ·1cf9cf4 (⌂|✓)
             └── →:3:
 

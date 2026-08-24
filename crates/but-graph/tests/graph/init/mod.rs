@@ -341,8 +341,8 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
-└── ≡:0:main[🌳] <> origin/main →:1: on 71a64f3 {1}
-    └── :0:main[🌳] <> origin/main →:1:
+└── ≡:0:main[🌳] <> origin/main on 71a64f3 {1}
+    └── :0:main[🌳] <> origin/main
 
 "#]]
     );
@@ -459,8 +459,8 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
-└── ≡:0:main[🌳] <> origin/main →:1:⇡1⇣1 on ce09734 {1}
-    └── :0:main[🌳] <> origin/main →:1:⇡1⇣1
+└── ≡:0:main[🌳] <> origin/main⇡1⇣1 on ce09734 {1}
+    └── :0:main[🌳] <> origin/main⇡1⇣1
         ├── 🟣5d29d62
         └── ·971953d
 
@@ -513,8 +513,8 @@ fn only_remote_advanced() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:1:⇣1 on 971953d {1}
-    └── :0:main[🌳] <> origin/main →:1:⇣1
+└── ≡:0:main[🌳] <> origin/main⇣1 on 971953d {1}
+    └── :0:main[🌳] <> origin/main⇣1
         └── 🟣085535d
 
 "#]]
@@ -568,8 +568,8 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:1:⇣1 on 971953d {1}
-    └── :0:main[🌳] <> origin/main →:1:⇣1
+└── ≡:0:main[🌳] <> origin/main⇣1 on 971953d {1}
+    └── :0:main[🌳] <> origin/main⇣1
         └── 🟣085535d
 
 "#]]
@@ -1151,11 +1151,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
-└── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1 on fafd9d0 {1}
-    ├── :0:B[🌳] <> origin/B →:1:⇡1⇣1
+└── ≡:0:B[🌳] <> origin/B⇡1⇣1 on fafd9d0 {1}
+    ├── :0:B[🌳] <> origin/B⇡1⇣1
     │   ├── 🟣682be32
     │   └── ·312f819
-    └── :2:A <> origin/A →:3:⇡1⇣1
+    └── :2:A <> origin/A⇡1⇣1
         ├── 🟣e29c23d
         └── ·e255adc
 
@@ -1196,8 +1196,8 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-└── ≡:0:B[🌳] <> origin/B →:1:⇣1 on 312f819 {1}
-    └── :0:B[🌳] <> origin/B →:1:⇣1
+└── ≡:0:B[🌳] <> origin/B⇣1 on 312f819 {1}
+    └── :0:B[🌳] <> origin/B⇣1
         └── 🟣682be32
 
 "#]]
@@ -1256,8 +1256,8 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:0:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
-└── ≡:0:A <> origin/A →:1:⇡1⇣1 on fafd9d0 {1}
-    └── :0:A <> origin/A →:1:⇡1⇣1
+└── ≡:0:A <> origin/A⇡1⇣1 on fafd9d0 {1}
+    └── :0:A <> origin/A⇡1⇣1
         ├── 🟣e29c23d
         └── ·e255adc
 
