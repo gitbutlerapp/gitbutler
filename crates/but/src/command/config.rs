@@ -25,7 +25,6 @@ use but_settings::{
     api::{FeatureFlagsUpdate, TelemetryUpdate},
 };
 use cfg_if::cfg_if;
-use gix::bstr::ByteSlice as _;
 use serde::Serialize;
 
 use super::git_config::edit_git_config;
@@ -34,7 +33,7 @@ use crate::args::config::GitHubStacksStatus;
 use crate::{
     args::config::{
         AiKeyOption, AiSubcommand, FeatureFlag, FeatureStatus, ForgeSubcommand, MetricsStatus,
-        Subcommands, UiSubcommand, UserSubcommand,
+        Subcommands, UserSubcommand,
     },
     theme::{self, Paint},
     tui,
@@ -101,7 +100,6 @@ pub async fn exec(
         Some(Subcommands::Ai { local, global, cmd }) => {
             ai_config_with_repo(ctx, out, cmd, local, global)
         }
-        Some(Subcommands::Ui { cmd }) => ui_config(ctx, out, cmd),
         None => show_overview(ctx, out).await,
     }
 }
@@ -205,25 +203,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
-        // UI section
-        {
-            let repo = ctx.repo.get()?;
-            let config = repo.config_snapshot();
-            let tui_enabled = get_tui_enabled(&config);
-            writeln!(out, "{}:", t.important.paint("UI"))?;
-            writeln!(
-                out,
-                "  {}: {}",
-                t.hint.paint("TUI mode"),
-                if tui_enabled {
-                    t.success.paint("enabled")
-                } else {
-                    t.hint.paint("disabled")
-                }
-            )?;
-            writeln!(out)?;
-        }
-
         // Hints
         writeln!(out, "{}", t.hint.paint("Available subcommands:"))?;
         writeln!(
@@ -255,11 +234,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
             out,
             "  {}      - AI provider settings",
             t.command_suggestion.paint("but config ai")
-        )?;
-        writeln!(
-            out,
-            "  {}      - UI preferences (TUI mode)",
-            t.command_suggestion.paint("but config ui")
         )?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!(ConfigOverview {
@@ -2023,124 +1997,6 @@ fn push_remote_config(
         }
     }
     Ok(())
-}
-
-/// Handle UI config subcommand
-fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcommand>) -> Result<()> {
-    let t = theme::get();
-    let repo = ctx.repo.get()?;
-
-    match cmd {
-        None => {
-            let config = repo.config_snapshot();
-            let tui_enabled = get_tui_enabled(&config);
-            let tui_scope = get_config_scope(&config, "but.ui.tui");
-
-            if let Some(out) = out.for_human() {
-                writeln!(out, "{}:", t.important.paint("\nUI Configuration"))?;
-                writeln!(out)?;
-                writeln!(
-                    out,
-                    "  {}: {} {}",
-                    t.hint.paint("Prefer TUI mode"),
-                    if tui_enabled {
-                        t.success.paint("enabled")
-                    } else {
-                        t.error.paint("disabled")
-                    },
-                    format_scope(tui_scope)
-                )?;
-                writeln!(out)?;
-                writeln!(out, "{}:", t.hint.paint("To change"))?;
-                writeln!(
-                    out,
-                    "  {}",
-                    t.command_suggestion.paint("but config ui set tui true")
-                )?;
-                writeln!(
-                    out,
-                    "  {}",
-                    t.command_suggestion.paint("but config ui set tui false")
-                )?;
-            } else if let Some(out) = out.for_json() {
-                out.write_value(serde_json::json!({ "tui": tui_enabled }))?;
-            }
-        }
-        Some(UiSubcommand::Set { key, value, global }) => {
-            let git_key = key.to_git_key();
-            let bool_value = gix::config::Boolean::try_from(value.as_bytes().as_bstr())
-                .with_context(|| {
-                    anyhow::anyhow!("Invalid value '{value}'. Use true/false or 1/0.")
-                })?
-                .0;
-            let serialized = if bool_value { "true" } else { "false" };
-            edit_git_config(&repo, global.into(), |config| {
-                set_config_value(config, git_key, serialized)?;
-                Ok(())
-            })?;
-
-            if let Some(out) = out.for_human() {
-                writeln!(
-                    out,
-                    "{} Set {} {} {}",
-                    t.sym().success,
-                    t.config_key.paint(git_key),
-                    t.hint.paint("→"),
-                    if bool_value {
-                        t.config_value.paint("true")
-                    } else {
-                        t.config_value.paint("false")
-                    }
-                )?;
-                if global {
-                    writeln!(out, "  (configured globally)")?;
-                }
-            } else if let Some(out) = out.for_json() {
-                out.write_value(serde_json::json!({
-                    "key": git_key,
-                    "value": bool_value,
-                    "scope": if global { "global" } else { "local" }
-                }))?;
-            }
-        }
-        Some(UiSubcommand::Unset { key, global }) => {
-            let git_key = key.to_git_key();
-            edit_git_config(&repo, global.into(), |config| {
-                remove_config_value(config, git_key)?;
-                Ok(())
-            })?;
-
-            if let Some(out) = out.for_human() {
-                writeln!(
-                    out,
-                    "{} Removed {}",
-                    t.sym().success,
-                    t.config_key.paint(git_key)
-                )?;
-                if global {
-                    writeln!(out, "  (removed from global config)")?;
-                }
-            } else if let Some(out) = out.for_json() {
-                out.write_value(serde_json::json!({
-                    "key": git_key,
-                    "action": "unset",
-                    "scope": if global { "global" } else { "local" }
-                }))?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Check if TUI mode is enabled in git config. Defaults to false.
-pub(crate) fn get_tui_enabled(config: &gix::config::Snapshot<'_>) -> bool {
-    config.boolean("but.ui.tui").unwrap_or(false)
-}
-
-/// Get the scope (local/global) where a config key is set
-fn get_config_scope(config: &gix::config::Snapshot<'_>, key: &str) -> Option<gix::config::Source> {
-    get_config_string_and_scope(config, key).1
 }
 
 fn get_config_string_and_scope(

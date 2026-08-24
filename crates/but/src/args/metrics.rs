@@ -14,7 +14,6 @@ pub enum CommandName {
     Squash,
     Move,
     Diff,
-    Diff2,
     Edit,
     Show,
     Commit,

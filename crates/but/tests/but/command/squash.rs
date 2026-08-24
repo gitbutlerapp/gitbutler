@@ -1053,21 +1053,28 @@ fn amend_uncommitted_hunks_into_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-qs:9 file│
-─────────╯
-     1│+topline
-   1 2│ line
-   2 3│ line
-   3 4│ line
-─────────╮
-qs:d file│
-─────────╯
-    7  8│ line
-    8  9│ line
-    9 10│ line
-   10   │-line
-      11│+bottom
+───────────╮
+ qs:9 file │
+───────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +topline
+1 ┊ 2 │  line
+2 ┊ 3 │  line
+3 ┊ 4 │  line
+
+───────────╮
+ qs:d file │
+───────────╯
+
+@@ -7,4 +8,4 @@
+───────────────
+ 7 ┊  8 │  line
+ 8 ┊  9 │  line
+ 9 ┊ 10 │  line
+10 ┊    │ -line
+   ┊ 11 │ +bottom
 
 "#]]);
 
@@ -1083,14 +1090,17 @@ Amended 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-qs:d file│
-─────────╯
-    8  8│ line
-    9  9│ line
-   10 10│ line
-   11   │-line
-      11│+bottom
+───────────╮
+ qs:d file │
+───────────╯
+
+@@ -8,4 +8,4 @@
+───────────────
+ 8 ┊  8 │  line
+ 9 ┊  9 │  line
+10 ┊ 10 │  line
+11 ┊    │ -line
+   ┊ 11 │ +bottom
 
 "#]]);
 }

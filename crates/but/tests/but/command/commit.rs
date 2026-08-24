@@ -1527,20 +1527,27 @@ fn hunks_within_file_are_not_order_dependent() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-qs:5 file│
-─────────╯
-     1│+first hunk
-   1 2│ enough
-   2 3│ lines
-   3 4│ to
-─────────╮
-qs:2 file│
-─────────╯
-    6  7│ hunks
-    7  8│ when
-    8  9│ editing
-      10│+last hunk
+───────────╮
+ qs:5 file │
+───────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +first hunk
+1 ┊ 2 │  enough
+2 ┊ 3 │  lines
+3 ┊ 4 │  to
+
+───────────╮
+ qs:2 file │
+───────────╯
+
+@@ -6,3 +7,4 @@
+───────────────
+6 ┊  7 │  hunks
+7 ┊  8 │  when
+8 ┊  9 │  editing
+  ┊ 10 │ +last hunk
 
 "#]]);
 
@@ -1610,20 +1617,27 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-qs:5 file│
-─────────╯
-     1│+first hunk
-   1 2│ enough
-   2 3│ lines
-   3 4│ to
-─────────╮
-qs:2 file│
-─────────╯
-    6  7│ hunks
-    7  8│ when
-    8  9│ editing
-      10│+last hunk
+───────────╮
+ qs:5 file │
+───────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +first hunk
+1 ┊ 2 │  enough
+2 ┊ 3 │  lines
+3 ┊ 4 │  to
+
+───────────╮
+ qs:2 file │
+───────────╯
+
+@@ -6,3 +7,4 @@
+───────────────
+6 ┊  7 │  hunks
+7 ┊  8 │  when
+8 ┊  9 │  editing
+  ┊ 10 │ +last hunk
 
 "#]]);
 
@@ -1831,19 +1845,30 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────╮
-D dir/to_delete.txt│
-───────────────────╯
-   1  │-second
-──────────────────╮
-M dir/to_empty.txt│
-──────────────────╯
-   1  │-third
-───────────────────╮
-M dir/to_modify.txt│
-───────────────────╯
-   1 1│ first
-     2│+new line
+───────────────────────────╮
+ deleted dir/to_delete.txt │
+───────────────────────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -second
+
+───────────────────────────╮
+ modified dir/to_empty.txt │
+───────────────────────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -third
+
+────────────────────────────╮
+ modified dir/to_modify.txt │
+────────────────────────────╯
+
+@@ -1,1 +1,2 @@
+───────────────
+1 ┊ 1 │  first
+  ┊ 2 │ +new line
 
 "#]]);
 }
@@ -2127,10 +2152,13 @@ fn can_overspecify_hunk_id() {
         .success()
         // Full ID is qs:3c81ccd4449094b2becf2b846fc69cfdfcaa613c
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-qs:3 file│
-─────────╯
-     1│+hello
+───────────╮
+ qs:3 file │
+───────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +hello
 
 "#]]);
 
@@ -2205,26 +2233,33 @@ hellooooo
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-qs:79 file│
-──────────╯
-   2 2│ 1
-   3 3│ 2
-   4 4│ 3
-     5│+hellooo
-   5 6│ 4
-   6 7│ 5
-   7 8│ 6
-──────────╮
-qs:78 file│
-──────────╯
-    9 10│ 1
-   10 11│ 2
-   11 12│ 3
-      13│+hellooooo
-   12 14│ 4
-   13 15│ 5
-   14 16│ 6
+────────────╮
+ qs:79 file │
+────────────╯
+
+@@ -2,6 +2,7 @@
+───────────────
+2 ┊ 2 │  1
+3 ┊ 3 │  2
+4 ┊ 4 │  3
+  ┊ 5 │ +hellooo
+5 ┊ 6 │  4
+6 ┊ 7 │  5
+7 ┊ 8 │  6
+
+────────────╮
+ qs:78 file │
+────────────╯
+
+@@ -9,6 +10,7 @@
+────────────────
+ 9 ┊ 10 │  1
+10 ┊ 11 │  2
+11 ┊ 12 │  3
+   ┊ 13 │ +hellooooo
+12 ┊ 14 │  4
+13 ┊ 15 │  5
+14 ┊ 16 │  6
 
 "#]]);
 

@@ -118,8 +118,6 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Diff => Group::Inspection,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::_Diff2 => Group::Inspection,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Show => Group::Inspection,
                 SubcommandDiscriminant::_Comment => Group::Inspection,
 

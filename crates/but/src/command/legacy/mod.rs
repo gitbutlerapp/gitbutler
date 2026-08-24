@@ -14,8 +14,6 @@ pub mod commit;
 pub mod commit_message_prep;
 pub(crate) mod conflict_notice;
 pub mod diff;
-#[cfg(feature = "legacy")]
-pub mod diff2;
 pub mod discard;
 pub mod forge;
 pub mod land;

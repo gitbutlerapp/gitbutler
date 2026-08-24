@@ -21,8 +21,6 @@ mod config;
 #[cfg(feature = "legacy")]
 mod diff;
 #[cfg(feature = "legacy")]
-mod diff2;
-#[cfg(feature = "legacy")]
 mod discard;
 #[cfg(feature = "legacy")]
 mod expand;

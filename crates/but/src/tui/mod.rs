@@ -12,7 +12,6 @@ pub mod event_polling;
 
 pub mod get_text;
 
-pub(crate) mod diff_viewer;
 pub mod editor;
 
 mod picker;

@@ -142,48 +142,67 @@ fn open_uncommitted_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────────────────╮
-rn:7 file-with-additions.txt│
-────────────────────────────╯
-     1│+new first
-   1 2│ this
-   2 3│ is
-   3 4│ some
-────────────────────────────╮
-rn:4 file-with-additions.txt│
-────────────────────────────╯
-    7  8│ with
-    8  9│ added
-    9 10│ lines
-      11│+new last
-────────────────────────────╮
-rw:b file-with-deletions.txt│
-────────────────────────────╯
-   1  │-this
-   2 1│ is
-   3 2│ some
-   4 3│ content
-────────────────────────────╮
-rw:6 file-with-deletions.txt│
-────────────────────────────╯
-    6  5│ diff
-    7  6│ with
-    8  7│ added
-    9   │-lines
-────────────────────────╮
-lp:6 file-with-mixed.txt│
-────────────────────────╯
-    1  1│ this
-    2   │-is
-       2│+IS
-    3  3│ some
-    4  4│ content
-    5  5│ to
-    6  6│ diff
-    7  7│ with
-    8   │-added
-    9   │-lines
-       8│+ADDED
+──────────────────────────────╮
+ rn:7 file-with-additions.txt │
+──────────────────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +new first
+1 ┊ 2 │  this
+2 ┊ 3 │  is
+3 ┊ 4 │  some
+
+──────────────────────────────╮
+ rn:4 file-with-additions.txt │
+──────────────────────────────╯
+
+@@ -7,3 +8,4 @@
+───────────────
+ 7 ┊  8 │  with
+ 8 ┊  9 │  added
+ 9 ┊ 10 │  lines
+   ┊ 11 │ +new last
+
+──────────────────────────────╮
+ rw:b file-with-deletions.txt │
+──────────────────────────────╯
+
+@@ -1,4 +1,3 @@
+───────────────
+1 ┊   │ -this
+2 ┊ 1 │  is
+3 ┊ 2 │  some
+4 ┊ 3 │  content
+
+──────────────────────────────╮
+ rw:6 file-with-deletions.txt │
+──────────────────────────────╯
+
+@@ -6,4 +5,3 @@
+───────────────
+ 6 ┊ 5 │  diff
+ 7 ┊ 6 │  with
+ 8 ┊ 7 │  added
+ 9 ┊   │ -lines
+
+──────────────────────────╮
+ lp:6 file-with-mixed.txt │
+──────────────────────────╯
+
+@@ -1,9 +1,8 @@
+───────────────
+ 1 ┊ 1 │  this
+ 2 ┊   │ -is
+   ┊ 2 │ +IS
+ 3 ┊ 3 │  some
+ 4 ┊ 4 │  content
+ 5 ┊ 5 │  to
+ 6 ┊ 6 │  diff
+ 7 ┊ 7 │  with
+ 8 ┊   │ -added
+ 9 ┊   │ -lines
+   ┊ 8 │ +ADDED
 
 "#]]);
 
@@ -403,20 +422,27 @@ Test Program - Open File: filepath='/[..]/file with some $meta; cat A > new-file
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────────────────────────────────────────────────╮
-pv:7 file with some $meta; cat A > new-file.txt; spaces in it.txt│
-─────────────────────────────────────────────────────────────────╯
-     1│+new first
-   1 2│ this
-   2 3│ is
-   3 4│ some
-─────────────────────────────────────────────────────────────────╮
-pv:4 file with some $meta; cat A > new-file.txt; spaces in it.txt│
-─────────────────────────────────────────────────────────────────╯
-    7  8│ with
-    8  9│ added
-    9 10│ lines
-      11│+new last
+───────────────────────────────────────────────────────────────────╮
+ pv:7 file with some $meta; cat A > new-file.txt; spaces in it.txt │
+───────────────────────────────────────────────────────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +new first
+1 ┊ 2 │  this
+2 ┊ 3 │  is
+3 ┊ 4 │  some
+
+───────────────────────────────────────────────────────────────────╮
+ pv:4 file with some $meta; cat A > new-file.txt; spaces in it.txt │
+───────────────────────────────────────────────────────────────────╯
+
+@@ -7,3 +8,4 @@
+───────────────
+ 7 ┊  8 │  with
+ 8 ┊  9 │  added
+ 9 ┊ 10 │  lines
+   ┊ 11 │ +new last
 
 "#]]);
 
@@ -500,20 +526,27 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────╮
-uv:7 file.txt│
-─────────────╯
-     1│+new first
-   1 2│ this
-   2 3│ is
-   3 4│ some
-─────────────╮
-uv:4 file.txt│
-─────────────╯
-    7  8│ with
-    8  9│ added
-    9 10│ lines
-      11│+new last
+───────────────╮
+ uv:7 file.txt │
+───────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +new first
+1 ┊ 2 │  this
+2 ┊ 3 │  is
+3 ┊ 4 │  some
+
+───────────────╮
+ uv:4 file.txt │
+───────────────╯
+
+@@ -7,3 +8,4 @@
+───────────────
+ 7 ┊  8 │  with
+ 8 ┊  9 │  added
+ 9 ┊ 10 │  lines
+   ┊ 11 │ +new last
 
 "#]]);
 

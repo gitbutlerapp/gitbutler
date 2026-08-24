@@ -306,13 +306,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
-        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff { tui: false, .. })
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff(..))
     ) {
-        out.request_pager();
-    }
-
-    #[cfg(feature = "legacy")]
-    if matches!(&args.cmd, Some(Subcommands::_Diff2(_))) {
         out.request_pager();
     }
 
@@ -829,12 +824,11 @@ async fn match_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Clean { .. }
         | Subcommands::Status { .. }
-        | Subcommands::Diff { .. }
+        | Subcommands::Diff(..)
         | Subcommands::Show { .. }
         | Subcommands::Commit(..)
         | Subcommands::Squash(..)
         | Subcommands::Move(..)
-        | Subcommands::_Diff2(..)
         | Subcommands::_Reword2(..)
         | Subcommands::Reword { .. }
         | Subcommands::Absorb { .. }
@@ -1200,43 +1194,14 @@ async fn match_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Diff {
-            target,
-            tui,
-            no_tui,
-        } => {
-            if tui && !out.format().allows_human_ui() {
-                return Err(bad_input(
-                    "Interactive terminal UI is not available for this output format.",
-                )
-                .into());
-            }
-            let use_tui = if tui {
-                true
-            } else if no_tui || !out.format().allows_human_ui() {
-                false
-            } else {
-                // Check git config for but.ui.tui
-                ctx.repo
-                    .get()
-                    .ok()
-                    .map(|repo| command::config::get_tui_enabled(&repo.config_snapshot()))
-                    .unwrap_or(false)
-            };
-            if use_tui {
-                print_deprecation_warning(
-                    "`--tui` and `but.ui.tui` are deprecated and will be removed in a future release. \
-                        Use `but tui --diff ID` instead",
-                );
+        Subcommands::Diff(diff_args) => {
+            use crate::utils::IntermediateChannel;
 
-                command::legacy::diff::handle_tui(&mut ctx, target.as_deref())
-                    .emit_metrics(metrics_ctx)
-                    .show_root_cause_error_then_exit_without_destructors(output)
-            } else {
-                command::legacy::diff::handle(&mut ctx, out, target.as_deref())
-                    .emit_metrics(metrics_ctx)
-                    .show_root_cause_error_then_exit_without_destructors(output)
-            }
+            let outcome =
+                command::legacy::diff::diff(&mut ctx, IntermediateChannel::new(out), diff_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
@@ -1294,16 +1259,6 @@ async fn match_subcommand(
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
             Some(ws)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::_Diff2(diff_args) => {
-            use crate::utils::IntermediateChannel;
-
-            let outcome =
-                command::legacy::diff2::diff(&mut ctx, IntermediateChannel::new(out), diff_args)
-                    .emit_metrics(metrics_ctx)?;
-            out.print_cli_output(outcome)?;
-            None
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
