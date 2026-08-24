@@ -231,6 +231,7 @@ pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Resul
         cmd.arg("--force");
     }
     let output = cmd
+        .arg("--")
         .arg(path)
         .output()
         .context("Failed to run `git worktree remove`")?;
