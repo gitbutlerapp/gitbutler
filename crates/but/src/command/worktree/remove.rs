@@ -1,4 +1,6 @@
+use anyhow::Result;
 use bstr::BString;
+use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
 use serde::Serialize;
 
@@ -12,14 +14,32 @@ use crate::{
 
 pub fn remove(ctx: &mut Context, worktree: &CliIdArg, force: bool) -> CliResult<RemoveOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let name = resolve(ctx, worktree, guard.read_permission())?;
-    but_api::worktrees::worktree_remove_with_perm(
-        ctx,
-        name.as_ref(),
-        force,
-        guard.write_permission(),
-    )?;
-    Ok(RemoveOutcome { name })
+    let op = RemoveOperation::resolve(ctx, guard.read_permission(), worktree, force)?;
+    Ok(run(ctx, guard.write_permission(), op)?)
+}
+
+pub(crate) struct RemoveOperation {
+    pub worktree: BString,
+    pub force: bool,
+}
+
+impl RemoveOperation {
+    pub(crate) fn resolve(
+        ctx: &Context,
+        perm: &RepoShared,
+        worktree: &CliIdArg,
+        force: bool,
+    ) -> CliResult<Self> {
+        Ok(Self {
+            worktree: resolve(ctx, worktree, perm)?,
+            force,
+        })
+    }
+}
+
+pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: RemoveOperation) -> Result<RemoveOutcome> {
+    but_api::worktrees::worktree_remove_with_perm(ctx, op.worktree.as_ref(), op.force, perm)?;
+    Ok(RemoveOutcome { name: op.worktree })
 }
 
 #[must_use]

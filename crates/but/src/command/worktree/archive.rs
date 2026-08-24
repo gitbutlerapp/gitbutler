@@ -1,4 +1,6 @@
+use anyhow::Result;
 use bstr::BString;
+use but_core::sync::RepoShared;
 use but_ctx::Context;
 use serde::Serialize;
 
@@ -16,14 +18,42 @@ pub fn set_archived(
     archived: bool,
 ) -> CliResult<ArchiveOutcome> {
     let guard = ctx.shared_worktree_access();
-    let name = resolve(ctx, worktree, guard.read_permission())?;
+    let perm = guard.read_permission();
+    let op = ArchivalOperation::resolve(ctx, perm, worktree, archived)?;
+    Ok(run(ctx, perm, op)?)
+}
+
+pub(crate) struct ArchivalOperation {
+    pub worktree: BString,
+    /// The state of archival that the worktree should take on.
+    pub archived: bool,
+}
+
+impl ArchivalOperation {
+    pub(crate) fn resolve(
+        ctx: &Context,
+        perm: &RepoShared,
+        worktree: &CliIdArg,
+        archived: bool,
+    ) -> CliResult<Self> {
+        Ok(Self {
+            worktree: resolve(ctx, worktree, perm)?,
+            archived,
+        })
+    }
+}
+
+pub fn run(ctx: &Context, perm: &RepoShared, op: ArchivalOperation) -> Result<ArchiveOutcome> {
     but_api::worktrees::worktree_set_archived_with_perm(
         ctx,
-        name.as_ref(),
-        archived,
-        guard.read_permission(),
+        op.worktree.as_ref(),
+        op.archived,
+        perm,
     )?;
-    Ok(ArchiveOutcome { name, archived })
+    Ok(ArchiveOutcome {
+        name: op.worktree,
+        archived: op.archived,
+    })
 }
 
 #[must_use]

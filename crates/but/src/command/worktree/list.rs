@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
+use anyhow::Result;
 use bstr::BString;
 use but_api::worktrees::{ListedWorktree, WorktreeListing};
+use but_core::sync::RepoShared;
 use but_ctx::Context;
 use serde::Serialize;
 
@@ -16,8 +18,19 @@ const ARCHIVED_PREVIEW: usize = 3;
 
 pub fn list(ctx: &Context, archived: bool, active: bool) -> CliResult<ListOutcome> {
     let guard = ctx.shared_worktree_access();
-    let listing = but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let op = ListingOperation { archived, active };
+    Ok(run(ctx, guard.read_permission(), op)?)
+}
+
+pub(crate) struct ListingOperation {
+    pub archived: bool,
+    pub active: bool,
+}
+
+pub fn run(ctx: &Context, perm: &RepoShared, op: ListingOperation) -> Result<ListOutcome> {
+    let ListingOperation { archived, active } = op;
+    let listing = but_api::worktrees::worktrees_list_with_perm(ctx, perm)?;
+    let id_map = IdMap::new_from_context(ctx, perm)?;
     let short_id = |worktree: &ListedWorktree| {
         id_map
             .worktrees
