@@ -1164,6 +1164,7 @@ impl App {
                                     | StatusOutputLineData::StagedChanges { .. }
                                     | StatusOutputLineData::StagedFile { .. }
                                     | StatusOutputLineData::UncommittedChanges { .. }
+                                    | StatusOutputLineData::WorktreeUncommittedChanges { .. }
                                     | StatusOutputLineData::Branch { .. }
                                     | StatusOutputLineData::Commit { .. }
                                     | StatusOutputLineData::CommitMessage
@@ -1500,7 +1501,7 @@ impl App {
                     ReloadCause::Mutation,
                 ));
             }
-            StatusOutputLineData::UncommittedChanges { cli_id } => {
+            StatusOutputLineData::WorktreeUncommittedChanges { cli_id } => {
                 // A worktree heading is the top of its lane, so the empty commit goes to the tip
                 // of the branch checked out there. The main `zz` heading names no branch, so it
                 // stays a no-op.
@@ -1533,6 +1534,7 @@ impl App {
                 ));
             }
             StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }

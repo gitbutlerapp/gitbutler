@@ -37,6 +37,13 @@ fn uncommitted_area(id: &str) -> Arc<CliId> {
     Arc::new(CliId::Uncommitted { id: id.into() })
 }
 
+fn worktree_area(name: &str, id: &str) -> Arc<CliId> {
+    Arc::new(CliId::Worktree {
+        id: id.into(),
+        name: name.into(),
+    })
+}
+
 fn commit_id(hex: &str) -> CommitId {
     CommitId {
         commit_id: gix::ObjectId::from_hex(hex.as_bytes()).unwrap(),
@@ -1664,6 +1671,49 @@ fn move_next_section_moves_to_next_jump_target() {
 }
 
 #[test]
+fn section_navigation_stops_on_worktree_headings() {
+    let lines = vec![
+        branch_line("main", "b0"),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::WorktreeUncommittedChanges {
+            cli_id: worktree_area("worktree", "w0"),
+        }),
+        uncommitted_file_line("worktree-file", "u0"),
+        branch_line("other", "b1"),
+    ];
+
+    let cursor = Cursor(0)
+        .move_next_section(
+            &lines,
+            &Mode::Normal(NormalMode::default()),
+            FilesStatusFlag::All,
+        )
+        .expect("the worktree heading is the next section");
+    assert_eq!(
+        cursor,
+        Cursor(2),
+        "next-section navigation stops on the worktree heading"
+    );
+
+    let cursor = Cursor(4)
+        .move_previous_section(
+            &lines,
+            &Mode::Normal(NormalMode::default()),
+            FilesStatusFlag::All,
+        )
+        .expect("the worktree heading is the previous section");
+    assert_eq!(
+        cursor,
+        Cursor(2),
+        "previous-section navigation stops on the worktree heading"
+    );
+}
+
+#[test]
 fn move_next_section_does_not_move_when_no_jump_target_below() {
     let lines = vec![
         line(StatusOutputLineData::UncommittedChanges {
@@ -2013,6 +2063,22 @@ fn move_stack_skips_noop_target_below_source() {
     assert_eq!(
         Cursor(3).move_down(&lines, &mode, FilesStatusFlag::All),
         Some(Cursor(6))
+    );
+}
+
+#[test]
+fn worktree_heading_remains_selectable_with_uncommitted_marks() {
+    let marked_file = uncommitted_file_line("marked.txt", "u0");
+    let mode = Mode::Normal(NormalMode {
+        marks: marks([markable(marked_file.data.cli_id().unwrap())]),
+    });
+    let worktree_heading = line(StatusOutputLineData::WorktreeUncommittedChanges {
+        cli_id: worktree_area("worktree", "w0"),
+    });
+
+    assert!(
+        is_selectable_in_mode(&worktree_heading, mode.as_ref(), FilesStatusFlag::All,),
+        "linked-worktree headings remain selectable while uncommitted changes are marked",
     );
 }
 

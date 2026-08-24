@@ -1834,7 +1834,11 @@ fn print_uncommitted_group(
             Vec::new()
         },
     };
-    output.unstaged_changes(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
+    if matches!(cli_id, CliId::Worktree { .. }) {
+        output.uncommitted_changes_in_worktree(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
+    } else {
+        output.uncommitted_changes(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
+    }
     if !files.is_empty() {
         print_files(
             repo, status_ctx, None, None, files, changes, true, depth, output,

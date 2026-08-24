@@ -489,6 +489,7 @@ impl Cursor {
                 StatusOutputLineData::Commit { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::StagedChanges { .. }
+                | StatusOutputLineData::WorktreeUncommittedChanges { .. }
                 | StatusOutputLineData::UncommittedChanges { .. } => line.data.cli_id(),
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
@@ -904,6 +905,7 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::MergeBase => true,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
@@ -941,6 +943,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
                 line.data,
                 StatusOutputLineData::Branch { .. }
                     | StatusOutputLineData::UncommittedChanges { .. }
+                    | StatusOutputLineData::WorktreeUncommittedChanges { .. }
                     | StatusOutputLineData::MergeBase
             )
         }
@@ -1058,6 +1061,7 @@ pub fn is_selectable_in_mode(
                 if !matches!(
                     &line.data,
                     StatusOutputLineData::UncommittedChanges { .. }
+                        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
                         | StatusOutputLineData::UncommittedFile { .. },
                 ) {
                     return false;

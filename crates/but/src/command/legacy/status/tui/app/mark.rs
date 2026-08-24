@@ -865,6 +865,7 @@ fn handle_mark_uncommitted(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
