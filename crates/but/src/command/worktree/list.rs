@@ -2,20 +2,16 @@ use std::path::PathBuf;
 
 use bstr::BString;
 use but_api::worktrees::{ListedWorktree, WorktreeListing};
-use but_core::sync::RepoShared;
 use but_ctx::Context;
 use serde::Serialize;
 
 use crate::{
     CliResult, IdMap,
-    args::atoms::CliIdArg,
-    bad_input,
     id::ShortId,
-    theme::{Paint, Theme},
+    theme::{Paint as _, Theme},
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
-/// How many archived worktrees a plain `but wt list` shows.
 const ARCHIVED_PREVIEW: usize = 3;
 
 pub fn list(ctx: &Context, archived: bool, active: bool) -> CliResult<ListOutcome> {
@@ -52,55 +48,6 @@ pub fn list(ctx: &Context, archived: bool, active: bool) -> CliResult<ListOutcom
     })
 }
 
-pub fn set_archived(
-    ctx: &Context,
-    worktree: &CliIdArg,
-    archived: bool,
-) -> CliResult<ArchiveOutcome> {
-    let guard = ctx.shared_worktree_access();
-    let name = resolve(ctx, worktree, guard.read_permission())?;
-    but_api::worktrees::worktree_set_archived_with_perm(
-        ctx,
-        name.as_ref(),
-        archived,
-        guard.read_permission(),
-    )?;
-    Ok(ArchiveOutcome { name, archived })
-}
-
-pub fn remove(ctx: &mut Context, worktree: &CliIdArg, force: bool) -> CliResult<RemoveOutcome> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let name = resolve(ctx, worktree, guard.read_permission())?;
-    but_api::worktrees::worktree_remove_with_perm(
-        ctx,
-        name.as_ref(),
-        force,
-        guard.write_permission(),
-    )?;
-    Ok(RemoveOutcome { name })
-}
-
-/// The stable name of the worktree `arg` refers to: its exact name first, as archived
-/// worktrees have no CLI ID, then the CLI ID of an active one.
-fn resolve(ctx: &Context, arg: &CliIdArg, perm: &RepoShared) -> CliResult<BString> {
-    but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
-    if let Some(worktree) = ctx
-        .worktrees_with_state()?
-        .into_iter()
-        .find(|worktree| worktree.name == arg.0.as_bytes())
-    {
-        return Ok(worktree.name);
-    }
-    let repo = ctx.repo.get()?;
-    let id_map = IdMap::new_from_context(ctx, perm)?;
-    if let Some(name) = arg.try_resolve_worktree(&repo, &id_map)? {
-        return Ok(name);
-    }
-    Err(bad_input(format!("Could not find worktree: '{arg}'"))
-        .hint("Run `but worktree list` for the worktrees and their IDs.")
-        .into())
-}
-
 struct Row {
     /// Only active worktrees with a usable `HEAD` have one.
     id: Option<ShortId>,
@@ -134,7 +81,6 @@ pub struct ListOutcome {
     archived: Option<Vec<Row>>,
     archived_limit: Option<usize>,
 }
-
 fn write_section(
     out: &mut dyn WriteWithUtils,
     theme: &Theme,
@@ -217,72 +163,6 @@ impl CliOutput for ListOutcome {
         Output {
             active: self.active.map(rows),
             archived: self.archived.map(rows),
-        }
-    }
-}
-
-#[must_use]
-pub struct ArchiveOutcome {
-    name: BString,
-    archived: bool,
-}
-
-impl CliOutputHuman for ArchiveOutcome {
-    fn on_human(
-        self,
-        out: &mut dyn WriteWithUtils,
-        _agent: bool,
-        _theme: &'static Theme,
-    ) -> anyhow::Result<()> {
-        let verb = if self.archived {
-            "archived"
-        } else {
-            "unarchived"
-        };
-        writeln!(out, "Successfully {verb} {}", self.name)?;
-        Ok(())
-    }
-}
-
-impl CliOutput for ArchiveOutcome {
-    fn on_json(self) -> impl Serialize {
-        #[derive(Serialize)]
-        struct Output {
-            name: String,
-            archived: bool,
-        }
-        Output {
-            name: self.name.to_string(),
-            archived: self.archived,
-        }
-    }
-}
-
-#[must_use]
-pub struct RemoveOutcome {
-    name: BString,
-}
-
-impl CliOutputHuman for RemoveOutcome {
-    fn on_human(
-        self,
-        out: &mut dyn WriteWithUtils,
-        _agent: bool,
-        _theme: &'static Theme,
-    ) -> anyhow::Result<()> {
-        writeln!(out, "Removed worktree {}", self.name)?;
-        Ok(())
-    }
-}
-
-impl CliOutput for RemoveOutcome {
-    fn on_json(self) -> impl Serialize {
-        #[derive(Serialize)]
-        struct Output {
-            name: String,
-        }
-        Output {
-            name: self.name.to_string(),
         }
     }
 }

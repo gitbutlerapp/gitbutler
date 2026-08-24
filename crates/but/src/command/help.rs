@@ -379,7 +379,7 @@ Inspection:
 Branching and Committing:
   commit       Create a commit
   branch       Commands for managing branches
-  worktree     Manage linked worktrees (experimental)
+  worktree     Manage linked worktrees (experimental, requires the worktreeMan…
   discard      Discard branches, commits, or changes
   resolve      Resolve conflicts in a commit or in uncommitted files
   unapply      Unapply a branch

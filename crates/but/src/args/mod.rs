@@ -337,8 +337,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
-    /// Manage linked worktrees (experimental).
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Worktree(worktree::Platform),
 
     /// Land a branch directly onto the target branch.

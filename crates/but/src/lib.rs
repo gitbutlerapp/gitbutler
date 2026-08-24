@@ -930,22 +930,22 @@ async fn match_subcommand(
                 active: false,
             }) {
                 worktree::Subcommands::List { archived, active } => {
-                    let outcome = command::worktree::list(&ctx, archived, active)
+                    let outcome = command::worktree::list::list(&ctx, archived, active)
                         .emit_metrics(metrics_ctx)?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Archive { worktree } => {
-                    let outcome = command::worktree::set_archived(&ctx, &worktree, true)
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, true)
                         .emit_metrics(metrics_ctx)?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Unarchive { worktree } => {
-                    let outcome = command::worktree::set_archived(&ctx, &worktree, false)
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, false)
                         .emit_metrics(metrics_ctx)?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Remove { force, worktree } => {
-                    let outcome = command::worktree::remove(&mut ctx, &worktree, force)
+                    let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)
                         .emit_metrics(metrics_ctx)?;
                     out.print_cli_output(outcome)?;
                 }
