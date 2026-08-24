@@ -651,6 +651,28 @@ const DiffContents: FC<{
 		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
 	}
 
+	const handleCreateComment = (
+		line: Pick<DiffLineTarget, "itemId" | "lineNumber" | "side">,
+	): void => {
+		const file = fileByItemId.get(line.itemId);
+		if (!file) return;
+
+		const id = crypto.randomUUID();
+		newFocusableAnnotationIdRef.current = id;
+
+		createComment({
+			projectId,
+			comment: {
+				id,
+				path: file.address.path,
+				commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
+				side: annotationSideToDiffSide(line.side),
+				lineNumber: line.lineNumber,
+				payload: "",
+			},
+		});
+	};
+
 	useHotkeys([
 		{
 			hotkey: "ArrowUp",
@@ -797,6 +819,24 @@ const DiffContents: FC<{
 				conflictBehavior: "allow",
 				target: focusScopeRef,
 				meta: diffHotkeys.absorb.meta,
+			},
+		},
+		{
+			hotkey: diffHotkeys.addComment.hotkey,
+			callback: () => {
+				if (!selectedLines) return;
+
+				handleCreateComment({
+					itemId: selectedLines.id,
+					lineNumber: selectedLines.range.end,
+					side: selectedLines.range.endSide ?? selectedLines.range.side ?? "additions",
+				});
+			},
+			options: {
+				enabled: fileParent._tag !== "Branch" && noOperationPending && selectedLines !== null,
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.addComment.meta,
 			},
 		},
 		{
@@ -1226,25 +1266,6 @@ const DiffContents: FC<{
 		viewerRef,
 		onContextMenu: handleLineContextMenu,
 	});
-	const handleCreateComment = (line: DiffLineTarget): void => {
-		const file = fileByItemId.get(line.itemId);
-		if (!file) return;
-
-		const id = crypto.randomUUID();
-		newFocusableAnnotationIdRef.current = id;
-
-		createComment({
-			projectId,
-			comment: {
-				id,
-				path: file.address.path,
-				commitChangeId: fileParent._tag === "Commit" ? fileParent.changeId : null,
-				side: annotationSideToDiffSide(line.side),
-				lineNumber: line.lineNumber,
-				payload: "",
-			},
-		});
-	};
 
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,

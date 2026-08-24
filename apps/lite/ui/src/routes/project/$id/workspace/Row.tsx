@@ -96,6 +96,9 @@ export const Row: FC<
 				if (event.shiftKey && onShiftSelect && !isFromNonRowBody(event)) onShiftSelect();
 				else onSelect?.();
 			}}
+			onDoubleClick={(event) => {
+				if (!isFromNonRowBody(event)) props.onDoubleClick?.(event);
+			}}
 		/>
 	);
 };

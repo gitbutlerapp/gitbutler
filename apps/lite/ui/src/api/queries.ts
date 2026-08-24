@@ -2,56 +2,8 @@ import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview } from "@gitbutler/but-sdk";
-import { apiProvides } from "@gitbutler/but-sdk/cache-tags";
-import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import * as ms from "ms";
-
-/**
- * The project queries are the endpoints declaring `provides` in Rust — using a
- * name the backend doesn't declare is a type error. Keyed `[key, projectId,
- * ...]`; the fixed position is what lets an invalidation reach a whole query
- * root holding nothing but a project id.
- */
-export type ProjectQueryKey = keyof typeof apiProvides;
-
-// `Object.keys` erases key types; the record's keys are exactly these.
-export const projectQueryKeys = Object.keys(apiProvides) as ReadonlyArray<ProjectQueryKey>;
-
-/** Keyed without a project id, so no project event can invalidate them. */
-type GlobalQueryKey =
-	| "aiConfiguration"
-	| "editors"
-	| "terminals"
-	| "forgeAccounts"
-	| "userProfile"
-	| "projects"
-	| "guiSettings";
-
-/**
- * Client state kept in the query cache, so nothing declares for them. `dryRun`
- * memoizes an imperative preview: its key carries the operation and changes it
- * was measured against, and nothing refreshes it in place.
- */
-type LocalQueryKey =
-	| "commitMessageDraft"
-	| "dryRun"
-	| "prMergeMethod"
-	| "prDraft"
-	| "projectAiSettings"
-	| "reviewedFiles";
-
-export type QueryKey = ProjectQueryKey | GlobalQueryKey | LocalQueryKey;
-
-declare module "@tanstack/react-query" {
-	interface Register {
-		/**
-		 * Every query key in the app starts with one of ours, so a typo is a type
-		 * error wherever a key is written — building one, invalidating it, or
-		 * reading it back — without each site having to say so.
-		 */
-		queryKey: readonly [QueryKey, ...ReadonlyArray<unknown>];
-	}
-}
 
 /**
  * The name the backend would generate for a branch created right now. Used to
@@ -231,38 +183,6 @@ export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: 
 		getNextPageParam: (lastPage) =>
 			lastPage.hasMore ? lastPage.commits.at(-1)?.commit.id : undefined,
 	});
-
-/**
- * A fetch can turn a reviewed branch into an integrated one while the backend
- * forge cache still holds the pre-merge review, leaving the branch unmatched
- * to the commit that landed it in the Upstream tab. Refresh those reviews
- * (repopulating the backend cache) so the target-commit listing can be
- * re-read afterwards. Runs from the fetch watcher, so a review that never
- * resolves is retried at most once per fetch, and the listing itself stays a
- * purely local call. Failures degrade to unannotated commits.
- */
-export const refreshIntegratedReviews = async (
-	client: QueryClient,
-	projectId: string,
-): Promise<void> => {
-	const headInfo = await client.fetchQuery({ ...headInfoQueryOptions(projectId), staleTime: 0 });
-	const reviewIds = new Set(
-		headInfo.stacks.flatMap((stack) =>
-			stack.segments.flatMap((segment) => {
-				const reviewId = segment.metadata?.review.pullRequest;
-				return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
-			}),
-		),
-	);
-	await Promise.allSettled(
-		[...reviewIds].flatMap((reviewId) => {
-			const options = getReviewQueryOptions({ projectId, reviewId });
-			return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
-				? []
-				: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
-		}),
-	);
-};
 
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
