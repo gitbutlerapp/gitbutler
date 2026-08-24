@@ -229,11 +229,10 @@
 }
 
 /* A referenced object — actor, branch, sha — set apart from the connective
-   prose by a dotted rule rather than by weight or colour. */
+   prose by contrast. Not underlined: none of these are interactive, and an
+   underline would advertise a link that isn't there. */
 .eventRef {
-	text-decoration: underline dotted;
-	text-decoration-skip-ink: none;
-	text-underline-position: from-font;
+	color: var(--text-1);
 }
 
 .eventMono {

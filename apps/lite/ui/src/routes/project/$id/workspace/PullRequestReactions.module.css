@@ -17,8 +17,6 @@
 }
 
 .reactionChipButton {
-	cursor: pointer;
-
 	&:hover:not(:disabled) {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) 12%, var(--bg-2));
 	}

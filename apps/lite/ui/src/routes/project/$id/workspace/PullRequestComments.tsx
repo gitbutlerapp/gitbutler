@@ -331,7 +331,7 @@ const FeedEvent: FC<{ icon: IconName; timestamp: number | null; children: ReactN
 			{timestamp !== null && (
 				<>
 					{" "}
-					<span aria-hidden>•</span> <RelativeTime timestamp={timestamp} />
+					<span aria-hidden>·</span> <RelativeTime timestamp={timestamp} />
 				</>
 			)}
 		</div>

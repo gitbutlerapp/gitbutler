@@ -32,7 +32,6 @@
 	/* The designed link treatment: dotted, on the font's own underline. */
 	text-decoration: underline dotted;
 	text-underline-position: from-font;
-	cursor: pointer;
 	opacity: 0.7;
 
 	&:hover {
