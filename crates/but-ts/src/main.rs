@@ -104,31 +104,38 @@ fn main() -> anyhow::Result<()> {
         final_output = format!("{prefix}{ts_output}");
     }
 
+    let entries = api_entries(&final_output)?;
+    final_output = api_declarations_with_source_links(&final_output, &entries);
+
     std::fs::write(output_path, &final_output)?;
     eprintln!("Written to {}", output_path.display());
 
-    write_api_param_names(output_path, &final_output)?;
+    write_api_param_names(output_path, &entries)?;
 
     Ok(())
 }
 
-/// Emit the parameter names of every napi endpoint as data.
+type ApiEntry = (&'static str, &'static [&'static str], &'static str, u32);
+
+/// Collect every napi endpoint present in these declarations.
 ///
-/// The names are checked against the declarations they will be paired with,
-/// and a disagreement fails the build. That check is the reason this can be
-/// trusted: the names come from the Rust signature, and parsing the
-/// declaration only ever confirms them.
-fn write_api_param_names(output_path: &Path, declarations: &str) -> anyhow::Result<()> {
-    let mut entries: Vec<(&str, &[&str])> = Vec::new();
+/// Parameter names are checked against the declaration they will be paired
+/// with. A disagreement fails generation rather than wiring an object field
+/// into the wrong positional argument.
+fn api_entries(declarations: &str) -> anyhow::Result<Vec<ApiEntry>> {
+    let mut entries: Vec<(&str, &[&str], &str, u32)> = Vec::new();
     let mut mismatches: Vec<String> = Vec::new();
 
     for entry in inventory::iter::<but_schemars::ApiFnEntry> {
         match declared_param_names(declarations, entry.js_name) {
             // Absent from this build: feature-gated out of this SDK variant.
             None => continue,
-            Some(declared) if declared == entry.params => {
-                entries.push((entry.js_name, entry.params))
-            }
+            Some(declared) if declared == entry.params => entries.push((
+                entry.js_name,
+                entry.params,
+                entry.source_file,
+                entry.source_line,
+            )),
             Some(declared) => mismatches.push(format!(
                 "  {}: registered {:?}, declared {:?}",
                 entry.js_name, entry.params, declared
@@ -142,12 +149,89 @@ fn write_api_param_names(output_path: &Path, declarations: &str) -> anyhow::Resu
         mismatches.join("\n")
     );
 
-    entries.sort_by_key(|(name, _)| *name);
+    entries.sort_by_key(|(name, _, _, _)| *name);
+    Ok(entries)
+}
+
+/// Add a repository-relative Rust callsite link to each SDK function.
+///
+/// napi-rs owns these declarations and already carries the Rust documentation;
+/// the link belongs there too. Existing generated links are removed first so
+/// running but-ts repeatedly, or after a source line moves, stays idempotent.
+fn api_declarations_with_source_links(declarations: &str, entries: &[ApiEntry]) -> String {
+    let mut declarations: String = declarations
+        .split_inclusive('\n')
+        .filter(|line| {
+            !line
+                .trim_start()
+                .starts_with("* {@link ../../../../../crates/")
+        })
+        .collect();
+
+    for (name, _, source_file, source_line) in entries {
+        let needle = format!("export declare function {name}(");
+        let Some(declaration_start) = declarations.find(&needle) else {
+            continue;
+        };
+        let source_file = source_file.replace('\\', "/");
+        let link = format!(" * {{@link ../../../../../{source_file}:{source_line}}}\n");
+        let before = &declarations[..declaration_start];
+
+        let before_trimmed = before.trim_end();
+        let doc_range = before_trimmed.strip_suffix("*/").and_then(|before_close| {
+            let comment_start = before_close.rfind("/*")?;
+            before_close[comment_start..]
+                .starts_with("/**")
+                .then_some(comment_start..before_trimmed.len())
+        });
+
+        match doc_range {
+            Some(doc_range) if declarations[doc_range.clone()].contains('\n') => {
+                let doc_end = doc_range.end - 2;
+                let closing_line = declarations[..doc_end]
+                    .rfind('\n')
+                    .map_or(doc_range.start, |line_end| line_end + 1);
+                let doc_body = &declarations[doc_range.start + 3..doc_end];
+                let has_documentation = doc_body
+                    .lines()
+                    .any(|line| !line.trim().trim_start_matches('*').trim().is_empty());
+                let has_separator = declarations[doc_range.start..closing_line]
+                    .lines()
+                    .last()
+                    .is_some_and(|line| line.trim() == "*");
+                let separator = if has_documentation && !has_separator {
+                    " *\n"
+                } else {
+                    ""
+                };
+                declarations.insert_str(closing_line, &format!("{separator}{link}"));
+            }
+            Some(doc_range) => {
+                let documentation = declarations[doc_range.clone()]
+                    .trim_start_matches("/**")
+                    .trim_end_matches("*/")
+                    .trim();
+                let documentation = if documentation.is_empty() {
+                    String::new()
+                } else {
+                    format!(" * {documentation}\n *\n")
+                };
+                declarations.replace_range(doc_range, &format!("/**\n{documentation}{link} */"));
+            }
+            None => declarations.insert_str(declaration_start, &format!("/**\n{link} */\n")),
+        }
+    }
+
+    declarations
+}
+
+/// Emit the parameter names of every napi endpoint as data.
+fn write_api_param_names(output_path: &Path, entries: &[ApiEntry]) -> anyhow::Result<()> {
     let mut js = String::from("// Auto-generated by but-ts. Do not edit manually.\n\n");
     let mut dts = js.clone();
     writeln!(js, "export const apiParamNames = {{")?;
     writeln!(dts, "export declare const apiParamNames: {{")?;
-    for (name, params) in &entries {
+    for (name, params, _, _) in entries {
         let quoted: Vec<String> = params.iter().map(|p| format!("\"{p}\"")).collect();
         writeln!(js, "\t{name}: [{}],", quoted.join(", "))?;
         writeln!(dts, "\treadonly {name}: readonly [{}];", quoted.join(", "))?;
@@ -160,7 +244,7 @@ fn write_api_param_names(output_path: &Path, declarations: &str) -> anyhow::Resu
     std::fs::write(dir.join("apiParamNames.d.ts"), dts)?;
     eprintln!("Wrote parameter names for {} endpoints", entries.len());
 
-    let in_this_variant: Vec<&str> = entries.iter().map(|(name, _)| *name).collect();
+    let in_this_variant: Vec<&str> = entries.iter().map(|(name, _, _, _)| *name).collect();
     write_cache_tags(dir, &in_this_variant)?;
     Ok(())
 }
@@ -756,6 +840,59 @@ mod tests {
         let schema = schemars::schema_for!(T);
         let json = serde_json::to_value(&schema).unwrap();
         schema_to_ts(&json, 0)
+    }
+
+    #[test]
+    fn api_declarations_have_rust_source_links() {
+        let entries: [(&str, &[&str], &str, u32); 3] = [
+            ("nothing", &[], "crates/but-api/src/nothing.rs", 10),
+            ("one", &["projectId"], "crates/but-api/src/one.rs", 20),
+            (
+                "many",
+                &["projectId", "commitId"],
+                "crates/but-api/src/many.rs",
+                30,
+            ),
+        ];
+
+        let declarations = r#"/**
+ * Existing documentation.
+ */
+export declare function nothing(): void
+/** One-line documentation. */
+export declare function one(projectId: string): void
+/* Ordinary generated comment. */
+export declare function many(projectId: string, commitId: string): void
+"#;
+        let linked = api_declarations_with_source_links(declarations, &entries);
+        snapbox::assert_data_eq!(
+            &linked,
+            snapbox::str![[r#"
+/**
+ * Existing documentation.
+ *
+ * {@link ../../../../../crates/but-api/src/nothing.rs:10}
+ */
+export declare function nothing(): void
+/**
+ * One-line documentation.
+ *
+ * {@link ../../../../../crates/but-api/src/one.rs:20}
+ */
+export declare function one(projectId: string): void
+/* Ordinary generated comment. */
+/**
+ * {@link ../../../../../crates/but-api/src/many.rs:30}
+ */
+export declare function many(projectId: string, commitId: string): void
+
+"#]]
+        );
+        assert_eq!(
+            api_declarations_with_source_links(&linked, &entries),
+            linked,
+            "regenerating source links is idempotent"
+        );
     }
 
     #[derive(Serialize, JsonSchema)]
