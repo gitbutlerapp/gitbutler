@@ -1,7 +1,7 @@
 import { hasUnresolvedConflictsOnDisk } from "$lib/files/conflictCheck";
 import { describe, expect, test, vi } from "vitest";
 import type { FileService } from "$lib/files/fileService";
-import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
+import type { ConflictEntryPresence, FileInfo } from "@gitbutler/but-sdk";
 
 const BOTH_SIDES_PRESENT: ConflictEntryPresence = {
 	ancestor: true,
@@ -15,12 +15,16 @@ const OURS_DELETED: ConflictEntryPresence = {
 	theirs: true,
 };
 
-function mockFileService(contentByPath: Record<string, string>): FileService {
+function mockFileService(contentByPath: Record<string, string | null>): FileService {
 	return {
-		readFromWorkspace: vi.fn(async (path: string) => ({
-			data: { content: contentByPath[path] ?? "" },
-			isLarge: false,
-		})),
+		readFromWorkspace: vi.fn(async (path: string): Promise<FileInfo> => {
+			return {
+				content: contentByPath[path] ?? null,
+				fileName: path,
+				size: null,
+				mimeType: null,
+			};
+		}),
 	} as unknown as FileService;
 }
 
@@ -53,6 +57,40 @@ describe("hasUnresolvedConflictsOnDisk", () => {
 		const fileService = mockFileService({
 			"deleted.txt": "clean content\n",
 		});
+
+		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
+
+		expect(result).toBe(true);
+	});
+
+	test("treats unjudgeable content (non-UTF-8/binary) as unresolved", async () => {
+		const files = [
+			{
+				path: "utf16.txt",
+				conflictEntryPresence: BOTH_SIDES_PRESENT,
+			},
+		];
+		const fileService = mockFileService({
+			"utf16.txt": null,
+		});
+
+		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
+
+		expect(result).toBe(true);
+	});
+
+	test("treats a failed read as unresolved instead of throwing", async () => {
+		const files = [
+			{
+				path: "gone.txt",
+				conflictEntryPresence: BOTH_SIDES_PRESENT,
+			},
+		];
+		const fileService = {
+			readFromWorkspace: vi.fn(async () => {
+				throw new Error("file is ignored");
+			}),
+		} as unknown as FileService;
 
 		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
 

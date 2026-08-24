@@ -1,4 +1,4 @@
-import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
+import type { ConflictEntryPresence, FileInfo } from "@gitbutler/but-sdk";
 
 export function emptyConflictEntryPresence(): ConflictEntryPresence {
 	return {
@@ -44,15 +44,17 @@ export type ConflictState = "conflicted" | "resolved" | "unknown";
 
 export function getConflictState(
 	conflictEntryPresence: ConflictEntryPresence,
-	file: string,
+	file: FileInfo | undefined,
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
 		return "conflicted";
 	}
 
-	if (looksConflicted(file)) {
-		return "conflicted";
+	// No content (the file could not be read or is not valid UTF-8), or
+	// base64 content (mimeType is set): we cannot scan for conflict markers.
+	if (file === undefined || file.content === null || file.mimeType !== null) {
+		return "unknown";
 	}
 
-	return "resolved";
+	return looksConflicted(file.content) ? "conflicted" : "resolved";
 }

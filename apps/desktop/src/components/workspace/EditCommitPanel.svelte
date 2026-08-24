@@ -5,8 +5,8 @@
 	import EditModeFileListItem from "$components/workspace/EditModeFileListItem.svelte";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { splitMessage } from "$lib/commits/commitMessage";
-	import { hasUnresolvedConflictsOnDisk } from "$lib/files/conflictCheck";
-	import { conflictEntryHint, getConflictState } from "$lib/files/conflictEntryPresence";
+	import { hasUnresolvedConflictsOnDisk, refreshConflictStates } from "$lib/files/conflictCheck";
+	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -135,14 +135,7 @@
 		// Subscribe to uncommittedFiles so we re-read when files change on disk.
 		void uncommittedFiles.response;
 
-		for (const file of files) {
-			if (!file.conflictEntryPresence) continue;
-			const presence = file.conflictEntryPresence;
-			const path = file.path;
-			fileService.readFromWorkspace(path, projectId).then((result) => {
-				conflictStates.set(path, getConflictState(presence, result.data.content));
-			});
-		}
+		refreshConflictStates(files, fileService, projectId, conflictStates);
 	});
 
 	async function abort(force: boolean) {

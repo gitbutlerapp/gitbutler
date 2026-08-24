@@ -1,11 +1,10 @@
 <script lang="ts">
 	/**
 	 * Test harness that mirrors the conflict-tracking $effect from
-	 * EditCommitPanel. It reads conflicted files via fileService and
-	 * maintains a reactive conflictStates map, exactly like the real
-	 * component does.
+	 * EditCommitPanel: an effect re-runs refreshConflictStates whenever
+	 * the watched response changes, exactly like the real component does.
 	 */
-	import { getConflictState } from "$lib/files/conflictEntryPresence";
+	import { refreshConflictStates } from "$lib/files/conflictCheck";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { ConflictState } from "$lib/files/conflictEntryPresence";
 	import type { FileService } from "$lib/files/fileService";
@@ -29,15 +28,7 @@
 
 	$effect(() => {
 		void uncommittedResponse;
-
-		for (const file of files) {
-			if (!file.conflictEntryPresence) continue;
-			const presence = file.conflictEntryPresence;
-			const path = file.path;
-			fileService.readFromWorkspace(path, projectId).then((result) => {
-				conflictStates.set(path, getConflictState(presence, result.data.content));
-			});
-		}
+		refreshConflictStates(files, fileService, projectId, conflictStates);
 	});
 </script>
 

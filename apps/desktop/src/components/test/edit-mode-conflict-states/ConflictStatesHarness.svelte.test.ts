@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/svelte";
 import { tick } from "svelte";
 import { describe, expect, test, vi } from "vitest";
 import type { FileService } from "$lib/files/fileService";
-import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
+import type { ConflictEntryPresence, FileInfo } from "@gitbutler/but-sdk";
 
 const BOTH_SIDES: ConflictEntryPresence = { ancestor: true, ours: true, theirs: true };
 
@@ -17,10 +17,14 @@ function resolvedContent() {
 
 function createFileService(contentByPath: Record<string, string>): FileService {
 	return {
-		readFromWorkspace: vi.fn(async (path: string) => ({
-			data: { content: contentByPath[path] ?? "" },
-			isLarge: false,
-		})),
+		readFromWorkspace: vi.fn(async (path: string): Promise<FileInfo> => {
+			return {
+				content: contentByPath[path] ?? null,
+				fileName: path,
+				size: null,
+				mimeType: null,
+			};
+		}),
 	} as unknown as FileService;
 }
 
@@ -98,7 +102,7 @@ describe("conflict state tracking", () => {
 		expect(fileService.readFromWorkspace).toHaveBeenCalledTimes(2);
 	});
 
-	test("does not re-read when only non-conflicted files change", async () => {
+	test("never reads files without conflict presence, even when the effect re-runs", async () => {
 		const fileService = createFileService({
 			"conflict.txt": conflictContent(),
 		});
