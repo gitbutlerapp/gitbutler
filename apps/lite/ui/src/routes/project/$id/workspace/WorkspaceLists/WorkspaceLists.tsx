@@ -604,14 +604,16 @@ const StackC: FC<{
 			role="group"
 			aria-label="Stack"
 		>
-			{stack.segments.map((segment, index) => {
+			{stack.segments.flatMap((segment, index) => {
 				const downstackPushStatus = assert(downstackPushStatuses[index]);
 
 				const key = segment.refName
 					? JSON.stringify(segment.refName.fullNameBytes)
-					: // A segment should always either have a branch reference or at
-						// least one commit.
-						assert(segment.commits[0]).id;
+					: segment.commits[0]?.id;
+
+				// A segment is supposed to always either have a branch reference or at least one commit,
+				// however with the current API this may not be the case e.g. detached HEAD.
+				if (key === undefined) return [];
 
 				return (
 					<Fragment key={key}>
