@@ -582,10 +582,21 @@ pub fn render_uncommitted(
     options: Options,
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
+    render_uncommitted_source(ctx, ChangeSourceId::Head, theme, id_gen, options, out)
+}
+
+pub fn render_uncommitted_source(
+    ctx: &Context,
+    source: ChangeSourceId,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    options: Options,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("uncommitted");
 
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |_| true)?;
+    let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk| hunk.source == source)?;
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
@@ -1147,12 +1158,12 @@ fn filter_uncommitted_hunks<'a, F>(
     mut filter: F,
 ) -> anyhow::Result<Vec<(&'a str, Arc<CliId>, &'a UncommittedHunk)>>
 where
-    F: FnMut(&but_core::SingleHunk) -> bool,
+    F: FnMut(&UncommittedHunk) -> bool,
 {
     let mut uncommitted_hunks = id_map
         .uncommitted_hunks
         .iter()
-        .filter(move |(_, hunk)| filter(&hunk.hunk))
+        .filter(move |(_, hunk)| filter(hunk))
         .map(|(raw_id, hunk)| {
             let mut cli_ids = id_map.parse_using_context(raw_id, ctx)?;
             if cli_ids.len() == 1 {
