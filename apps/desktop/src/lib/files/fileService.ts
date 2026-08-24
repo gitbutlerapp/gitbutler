@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { FileInfo } from "$lib/files/file";
 import type { BackendApi } from "$lib/state/backendApi";
+import type { FileInfo } from "@gitbutler/but-sdk";
 
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 
@@ -11,15 +11,11 @@ export class FileService {
 		private backendApi: BackendApi,
 	) {}
 
-	async readFromWorkspace(filePath: string, projectId: string) {
-		const data: FileInfo = await this.backend.invoke("get_workspace_file", {
+	async readFromWorkspace(filePath: string, projectId: string): Promise<FileInfo> {
+		return await this.backend.invoke("get_workspace_file", {
 			relativePath: filePath,
 			projectId: projectId,
 		});
-		return {
-			data,
-			isLarge: isLarge(data.size),
-		};
 	}
 
 	async readFromCommit(filePath: string, projectId: string, commitId: string): Promise<FileInfo> {
@@ -60,8 +56,4 @@ export class FileService {
 			limit,
 		});
 	}
-}
-
-function isLarge(size: number | undefined) {
-	return size && size > 5 * 1024 * 1024 ? true : false;
 }

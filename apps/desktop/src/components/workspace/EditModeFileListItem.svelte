@@ -28,8 +28,10 @@
 		oncontextmenu,
 	}: Props = $props();
 
+	// "unknown" counts as conflicted: better to offer "Mark resolved" for a
+	// file we cannot judge than to falsely present it as resolved.
 	const conflicted = $derived(
-		conflictEntryPresence !== undefined && conflictState === "conflicted" && !manuallyResolved,
+		conflictEntryPresence !== undefined && conflictState !== "resolved" && !manuallyResolved,
 	);
 </script>
 

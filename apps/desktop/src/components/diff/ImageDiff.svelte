@@ -22,8 +22,8 @@
 	};
 
 	function buildImageDataUrl(
-		content: string | undefined,
-		mimeType: string | undefined,
+		content: string | null | undefined,
+		mimeType: string | null | undefined,
 		path: string,
 	): string | null {
 		if (!content) return null;
@@ -127,8 +127,7 @@
 			let fileInfo;
 
 			if (source.type === "workspace") {
-				const { data } = await fileService.readFromWorkspace(source.path, projectId);
-				fileInfo = data;
+				fileInfo = await fileService.readFromWorkspace(source.path, projectId);
 			} else if (source.type === "blob") {
 				fileInfo = await fileService.readFromBlob(source.path, projectId, source.blobId);
 			}
