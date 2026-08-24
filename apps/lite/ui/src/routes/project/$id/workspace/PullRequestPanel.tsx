@@ -107,7 +107,7 @@ const LabelsPlaceholder: FC = () => (
 	</div>
 );
 
-export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
+const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
 		{user.avatarUrl !== null ? (
 			<img src={user.avatarUrl} className={styles.avatar} alt="" />

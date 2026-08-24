@@ -60,14 +60,25 @@ export const Clamped: FC<{
 				className={classes(isFolded && styles.clamped, isFolded && styles.overflowing)}
 			>
 				<div ref={innerRef}>{children}</div>
+				{/* Folded, the trigger rides on the fade instead of sitting under it,
+				    so it costs the clamp no extra row. */}
+				{isFolded && (
+					<button
+						className={classes("text-13", "text-body", styles.toggle, styles.toggleOverlay)}
+						onClick={() => setExpanded(true)}
+						type="button"
+					>
+						Show more
+					</button>
+				)}
 			</div>
-			{(folded || expanded) && (
+			{expanded && (
 				<button
-					className={classes("text-12", styles.toggle)}
-					onClick={() => setExpanded(!expanded)}
+					className={classes("text-13", "text-body", styles.toggle, styles.toggleInline)}
+					onClick={() => setExpanded(false)}
 					type="button"
 				>
-					{expanded ? "Show less" : "Show more"}
+					Show less
 				</button>
 			)}
 		</>
