@@ -345,6 +345,10 @@ export const diffHotkeys = {
 		hotkey: "A",
 		meta: { group: "Diff", name: "Absorb hunk" },
 	},
+	addComment: {
+		hotkey: "C",
+		meta: { group: "Diff", name: "Add comment" },
+	},
 	checkHunk: {
 		hotkey: "Space",
 		meta: { group: "Diff", name: "Check selected lines" },
