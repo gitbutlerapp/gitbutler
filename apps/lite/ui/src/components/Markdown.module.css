@@ -81,6 +81,10 @@
 	}
 
 	blockquote {
+		/* The UA default is `margin-inline: 40px`, which the `margin-block`
+		   rule above leaves standing — it would indent the quote bar well
+		   past the surrounding prose. */
+		margin-inline: 0;
 		padding-inline-start: 12px;
 		border-inline-start: 3px solid var(--border-2);
 		color: var(--text-2);
