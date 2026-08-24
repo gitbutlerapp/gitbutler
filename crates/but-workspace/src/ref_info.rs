@@ -795,7 +795,6 @@ impl crate::ref_info::Segment {
             base,
             base_segment_id: _,
             remote_tracking_ref_name,
-            sibling_segment_id: _,
             remote_tracking_branch_segment_id,
             id,
             commits,

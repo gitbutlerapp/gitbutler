@@ -1209,8 +1209,8 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
 ├── ≡:4:anon: on 3183e43
 │   └── :4:anon:
 │       └── ·d6bdeab (🏘️)
-└── ≡📙:5:outside →:3: on 3183e43 {1}
-    └── 📙:5:outside →:3:
+└── ≡📙:5:outside on 3183e43 {1}
+    └── 📙:5:outside
         ├── ·5121eb9*
         └── ·67c6397 (🏘️)
 

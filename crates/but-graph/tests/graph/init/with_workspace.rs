@@ -286,8 +286,8 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:5:B →:3: on 85efbe4 {1}
-    ├── 📙:5:B →:3:
+└── ≡📙:5:B on 85efbe4 {1}
+    ├── 📙:5:B
     │   ├── ·cc0bf57*
     │   └── ·d69fe94 (🏘️)
     └── 📙:4:A
@@ -7319,9 +7319,9 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
 │                               └── ►:2[4]:gitbutler/target <> origin/gitbutler/target →:1:
 │                                   ├── ·ce09734 (⌂|🏘|✓)
 │                                   └── 🏁·fafd9d0 (⌂|🏘|✓)
-├── ►:1[0]:origin/gitbutler/target →:2:
+├── ►:1[0]:origin/gitbutler/target
 │   └── →:2: (gitbutler/target →:1:)
-└── ►:6[0]:origin/main →:5:
+└── ►:6[0]:origin/main
     └── →:5: (main →:6:)
 
 "#]]
@@ -7534,17 +7534,17 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on fafd9d0
-├── ≡📙:19:A →:4: on fafd9d0 {0}
-│   ├── 📙:19:A →:4:
+├── ≡📙:19:A on fafd9d0 {0}
+│   ├── 📙:19:A
 │   │   ├── ·c83f258*
 │   │   └── ·a62b0de (🏘️|✓)
-│   └── 📙:21:A-middle <> origin/A-middle →:5:
+│   └── 📙:21:A-middle <> origin/A-middle
 │       ├── ·27c2545*
 │       └── ·120a217 (🏘️|✓)
 ├── ≡📙:6:B on fafd9d0 {1}
 │   ├── 📙:6:B
 │   │   └── ·2f8f06d (🏘️)
-│   └── 📙:15:B-middle <> origin/B-middle →:7:
+│   └── 📙:15:B-middle <> origin/B-middle
 │       ├── ·c8f73c7*
 │       ├── ·ff75b80*
 │       ├── ·91bc3fc (🏘️|✓)
@@ -7552,7 +7552,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 ├── ≡📙:8:C on fafd9d0 {2}
 │   ├── 📙:8:C
 │   │   └── ·3f7c4e6 (🏘️)
-│   └── 📙:20:C-bottom →:9:
+│   └── 📙:20:C-bottom
 │       ├── ·790a17d*
 │       ├── ·969aaec*
 │       ├── ·631be19*
