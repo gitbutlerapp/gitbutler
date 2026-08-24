@@ -1,11 +1,13 @@
 import { useUnapplyStack, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import { operatingModeQueryOptions } from "#ui/api/queries.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
+import { useQuery } from "@tanstack/react-query";
 
 /**
  * The actions that operate on a whole stack rather than one of its branches.
@@ -16,6 +18,10 @@ import type { BottomUpdate, Stack } from "@gitbutler/but-sdk";
  */
 export const useStackMenuItems = (projectId: string, stack: Stack): Array<NativeMenuItem> => {
 	const dispatch = useAppDispatch();
+	const { data: isOpenWorkspace } = useQuery({
+		...operatingModeQueryOptions(projectId),
+		select: (headAndMode) => headAndMode.operatingMode.type === "OpenWorkspace",
+	});
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -76,7 +82,7 @@ export const useStackMenuItems = (projectId: string, stack: Stack): Array<Native
 		}),
 		nativeMenuItem({
 			label: "Unapply Whole Stack",
-			enabled: noOperationPending && !isUnapplyStackPending,
+			enabled: isOpenWorkspace === true && noOperationPending && !isUnapplyStackPending,
 			onSelect: () => {
 				// In the future we should have an unapply API that doesn't require an ID.
 				if (stack.id === null) throw new Error("Require stack ID in order to unapply");
