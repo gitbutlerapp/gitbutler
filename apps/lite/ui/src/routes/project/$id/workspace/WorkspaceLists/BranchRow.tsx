@@ -428,6 +428,7 @@ export const BranchRow: FC<
 		<ItemRow
 			{...restProps}
 			address={address}
+			onDoubleClick={noOperationPending ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

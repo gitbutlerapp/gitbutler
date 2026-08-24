@@ -371,6 +371,7 @@ export const CommitRow: FC<
 			address={address}
 			isChecked={isChecked}
 			isHighlighted={isHighlighted}
+			onDoubleClick={noOperationPending ? startEditing : undefined}
 			onShiftSelect={
 				noOperationPending && canCheck
 					? () => checkCommit({ commitId: commit.id, shiftKey: true })
