@@ -3,7 +3,8 @@ use crossterm::event::*;
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::{
-    Message, ReloadCause, SelectAfterReload, tests::utils::test_status_tui,
+    Message, ReloadCause, SelectAfterReload, backstack::BackstackEntry,
+    tests::utils::test_status_tui,
 };
 
 #[test]
@@ -320,4 +321,111 @@ fn create_new_branches_from_branch_mode() {
     tui.input('n').assert_rendered_term_svg_eq(file![
         "snapshots/create_new_branches_from_branch_mode_003.svg"
     ]);
+}
+
+#[test]
+fn discard_branches_from_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('b');
+    tui.input('x')
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_branches_from_branch_mode_001.svg"]);
+    tui.input('y')
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_branches_from_branch_mode_002.svg"]);
+}
+
+#[test]
+fn discard_marked_branches_from_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    // we can enter branch mode on `zz [uncommitted]` so ensure it isn't markable
+    tui.input('b');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_marked_branches_from_branch_mode_001.svg"
+    ]);
+
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_marked_branches_from_branch_mode_002.svg"
+    ]);
+
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_marked_branches_from_branch_mode_003.svg"
+    ]);
+    tui.input('y').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_marked_branches_from_branch_mode_004.svg"
+    ]);
+}
+
+#[test]
+fn marks_carry_from_normal_mode_to_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ')
+        .assert_backstack_eq([BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_carry_from_normal_mode_to_branch_mode_001.svg"
+        ]);
+    tui.input('b')
+        .assert_backstack_eq([BackstackEntry::LeaveNormalMode, BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_carry_from_normal_mode_to_branch_mode_002.svg"
+        ]);
+
+    tui.input(KeyCode::Esc)
+        .assert_backstack_eq([BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marks_carry_from_normal_mode_to_branch_mode_003.svg"
+        ]);
+}
+
+#[test]
+fn cannot_enter_branch_mode_with_non_branch_marks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/cannot_enter_branch_mode_with_non_branch_marks_001.svg"
+    ]);
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/cannot_enter_branch_mode_with_non_branch_marks_001.svg"
+    ]);
+}
+
+#[test]
+fn clearing_marks_from_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ')
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::LeaveNormalMode])
+        .assert_rendered_term_svg_eq(file!["snapshots/clearing_marks_from_branch_mode_001.svg"]);
+    tui.input(KeyCode::Esc)
+        .assert_backstack_eq([BackstackEntry::LeaveNormalMode])
+        .assert_rendered_term_svg_eq(file!["snapshots/clearing_marks_from_branch_mode_002.svg"]);
+    tui.input(KeyCode::Esc)
+        .assert_backstack_eq([])
+        .assert_rendered_term_svg_eq(file!["snapshots/clearing_marks_from_branch_mode_003.svg"]);
 }

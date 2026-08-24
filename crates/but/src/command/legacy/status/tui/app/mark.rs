@@ -771,6 +771,12 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
             };
             toggle_markables(&mut pick_uncommitted_mode.marks, [markable.to_owned()])?;
         }
+        Mode::Branch(branch_mode) => {
+            let MarkableRef::Branch(..) = markable else {
+                return Ok(false);
+            };
+            toggle_markables(&mut branch_mode.marks, [markable.to_owned()])?;
+        }
         Mode::InlineReword(..)
         | Mode::Squash(..)
         | Mode::Command(..)
@@ -780,7 +786,6 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
         | Mode::MoveStack(..)
         | Mode::Jump(..)
         | Mode::CherryPick(..)
-        | Mode::Branch(..)
         | Mode::Details(..) => {
             return Ok(false);
         }

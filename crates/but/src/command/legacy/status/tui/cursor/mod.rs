@@ -12,7 +12,7 @@ use crate::{
         tui::{
             Mode, NormalMode, PickChangesMode, SelectAfterReload,
             app::{
-                BranchMode, CommitSource, SquashMode,
+                CommitSource, SquashMode,
                 mark::{MarkableRef, Marks, hunk_is_child_of},
                 prefix_match,
             },
@@ -1040,8 +1040,8 @@ pub fn is_selectable_in_mode(
                 return true;
             }
         }
-        ModeRef::Branch(BranchMode {}) => {}
         ModeRef::Command(..)
+        | ModeRef::Branch(..)
         | ModeRef::InlineReword(..)
         | ModeRef::Normal(..)
         | ModeRef::PickChanges(..)
@@ -1105,7 +1105,10 @@ pub fn is_selectable_in_mode(
                 return false;
             }
         }
-        ModeRef::Branch(BranchMode {}) => {}
+        ModeRef::Branch(..) => {
+            // the cursor can only select branch lines in branch mode which makes it impossible to
+            // mix marks
+        }
         ModeRef::Squash(..)
         | ModeRef::InlineReword(..)
         | ModeRef::Command(..)

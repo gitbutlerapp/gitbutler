@@ -180,10 +180,10 @@ impl<'a> ModeRef<'a> {
                 CherryPickSource::Marks(marks) => marks.as_ref(),
                 CherryPickSource::Commit(..) => MarksRef::Empty,
             },
+            ModeRef::Branch(branch_mode) => branch_mode.marks.as_ref(),
             ModeRef::InlineReword(..)
             | ModeRef::Stack(..)
             | ModeRef::MoveStack(..)
-            | ModeRef::Branch(BranchMode {})
             | ModeRef::Jump(..) => MarksRef::Empty,
         }
     }

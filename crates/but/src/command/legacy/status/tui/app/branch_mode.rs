@@ -16,7 +16,10 @@ use crate::{
             output::StatusOutputLineData,
             tui::{
                 Message, ReloadCause, SelectAfterReload,
-                app::App,
+                app::{
+                    App,
+                    mark::{Marks, MarksRef},
+                },
                 mode::Mode,
                 render::{
                     ModeRender, RenderSingleLineSpans, SpanExt as _, branch_operation_display,
@@ -30,7 +33,9 @@ use crate::{
 use super::MoveCursorDiration;
 
 #[derive(Debug, Clone)]
-pub struct BranchMode {}
+pub struct BranchMode {
+    pub marks: Marks,
+}
 
 impl ModeRender for BranchMode {
     fn render_operation_target_marker(
@@ -75,9 +80,18 @@ impl App {
     }
 
     fn handle_branch_start(&mut self, _messages: &mut Vec<Message>) {
+        if !matches!(
+            self.mode.marks_ref(),
+            MarksRef::Branches { .. } | MarksRef::Empty
+        ) {
+            return;
+        }
+
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
-                *mode = Mode::Branch(BranchMode {});
+                *mode = Mode::Branch(BranchMode {
+                    marks: mode.marks_ref().to_owned(),
+                });
             });
 
         self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Up);

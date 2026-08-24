@@ -169,8 +169,10 @@ impl App {
                                 anyhow::bail!("BUG: branch discard returned an unexpected outcome")
                             };
 
-                            messages
-                                .push(Message::Reload(select_after_reload, ReloadCause::Mutation));
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(select_after_reload, ReloadCause::Mutation),
+                            ]);
                             drop(drop_to_be_discarded);
                             Ok(())
                         },
@@ -238,11 +240,24 @@ impl App {
     }
 
     pub fn handle_discard_marks(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
-        let Mode::Normal(normal_mode) = &*self.mode else {
-            return Ok(());
+        let marks = match &*self.mode {
+            Mode::Normal(normal_mode) => &normal_mode.marks,
+            Mode::Branch(branch_mode) => &branch_mode.marks,
+
+            Mode::Squash(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Commit(..)
+            | Mode::Move(..)
+            | Mode::Details(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..)
+            | Mode::PickChanges(..)
+            | Mode::Jump(..)
+            | Mode::CherryPick(..) => return Ok(()),
         };
 
-        let operation = match &normal_mode.marks {
+        let operation = match marks {
             Marks::Empty => return Ok(()),
             Marks::Commits(commits) => DiscardOperation::Commits(commits.clone()),
             Marks::Branches(branches) => {
@@ -275,15 +290,14 @@ impl App {
             }
         };
 
-        self.to_be_discarded = normal_mode
-            .marks
+        self.to_be_discarded = marks
             .iter()
             .map(|mark| mark.to_owned().into_selectable())
             .collect::<Vec<_>>();
 
         let select_after_reload = self
             .cursor
-            .select_after_discarded_marks(&self.status_lines, &normal_mode.marks);
+            .select_after_discarded_marks(&self.status_lines, marks);
 
         let drop_to_be_discarded =
             message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
@@ -322,6 +336,7 @@ impl App {
 
                 messages.extend([
                     Message::ClearMarks,
+                    Message::EnterNormalModeAfterConfirmingOperation,
                     Message::Reload(select_after_reload, ReloadCause::Mutation),
                 ]);
 
