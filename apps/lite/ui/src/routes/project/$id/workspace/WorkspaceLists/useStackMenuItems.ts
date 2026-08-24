@@ -81,7 +81,7 @@ export const useStackMenuItems = (projectId: string, stack: Stack): Array<Native
 			},
 		}),
 		nativeMenuItem({
-			label: "Unapply Whole Stack",
+			label: "Unapply Stack",
 			enabled: isOpenWorkspace === true && noOperationPending && !isUnapplyStackPending,
 			onSelect: () => {
 				// In the future we should have an unapply API that doesn't require an ID.
