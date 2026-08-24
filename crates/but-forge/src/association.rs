@@ -68,14 +68,22 @@ pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, 
 /// `source_branch` (a closed PR plus a freshly opened one, or a same-named
 /// branch on a fork). Higher is preferred:
 ///
-/// 1. an open review over a merged/closed one, and
-/// 2. a review whose head is in the base repo over one in a fork — a local
+/// 1. an open review over a merged/closed one,
+/// 2. a merged review over a closed-without-merging one — the merged review
+///    is the branch's landed fate; an abandoned closed twin must not shadow
+///    it, and
+/// 3. a review whose head is in the base repo over one in a fork — a local
 ///    branch normally pushes to the base repo, so this avoids latching onto a
 ///    fork's same-named branch when a base-repo review also exists.
-/// 3. the highest review number, which is deterministic and usually the newest
+/// 4. the highest review number, which is deterministic and usually the newest
 ///    review among otherwise equivalent matches.
-fn preference(review: &ForgeReview) -> (bool, bool, i64) {
-    (review.is_open(), !review.head_repo_is_fork, review.number)
+fn preference(review: &ForgeReview) -> (bool, bool, bool, i64) {
+    (
+        review.is_open(),
+        review.is_merged(),
+        !review.head_repo_is_fork,
+        review.number,
+    )
 }
 
 /// Pick the preferred review from an already-associated set using the same
@@ -144,6 +152,11 @@ mod tests {
         review
     }
 
+    fn closed(mut review: ForgeReview) -> ForgeReview {
+        review.closed_at = Some("2026-01-01T00:00:00Z".to_string());
+        review
+    }
+
     #[test]
     fn matches_by_source_branch() {
         let reviews = vec![review(1, "other"), review(2, "feature")];
@@ -165,6 +178,14 @@ mod tests {
     fn prefers_open_over_merged() {
         let reviews = vec![merged(review(1, "feature")), review(2, "feature")];
         assert_eq!(best_match(&reviews, "feature").map(|r| r.number), Some(2));
+    }
+
+    #[test]
+    fn prefers_merged_over_closed_without_merging() {
+        // The higher number must not win here: the abandoned closed review
+        // would otherwise shadow the branch's actual landed fate.
+        let reviews = vec![closed(review(9, "feature")), merged(review(1, "feature"))];
+        assert_eq!(best_match(&reviews, "feature").map(|r| r.number), Some(1));
     }
 
     #[test]

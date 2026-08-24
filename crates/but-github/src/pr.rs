@@ -17,6 +17,22 @@ pub async fn list(
         Ok(vec![])
     }
 }
+pub async fn list_recently_closed(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::PullRequest>> {
+    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
+        gh.list_recently_closed_pulls(owner, repo)
+            .await
+            .map_err(classify_forge_error)
+            .context("Failed to list recently closed pull requests")
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn list_all_for_branch(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,

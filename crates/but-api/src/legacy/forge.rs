@@ -1111,7 +1111,7 @@ pub fn list_ci_checks_for_ref(
     )
 }
 
-#[but_api(napi, invalidates = [Reviews])]
+#[but_api(napi, invalidates = [Reviews, Branches])]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -1204,7 +1204,7 @@ pub async fn publish_review_only(
 }
 
 /// Merge a review on the forge.
-#[but_api(napi, invalidates = [Reviews, MergeStatus, Checks])]
+#[but_api(napi, invalidates = [Reviews, MergeStatus, Checks, Branches])]
 #[instrument(err(Debug))]
 pub async fn merge_review(
     ctx: ThreadSafeContext,

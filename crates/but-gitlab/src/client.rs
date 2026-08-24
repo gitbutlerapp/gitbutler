@@ -225,6 +225,51 @@ impl GitLabClient {
             .collect())
     }
 
+    /// Fetch the single page of the most recently updated merged or closed
+    /// merge requests, one page per state.
+    ///
+    /// This is the fate sweep for the review cache: everything that left the
+    /// open listing since the last sync appears here, unless more than a
+    /// page's worth of settled merge requests were updated in between — the
+    /// leftovers then fall back to cache deletion, the pre-sweep behavior.
+    /// GitLab's `state` filter accepts a single state, and `all` would let
+    /// open merge requests crowd the settled ones out of the page.
+    pub async fn list_recently_closed_mrs(
+        &self,
+        project_id: GitLabProjectId,
+    ) -> Result<Vec<MergeRequest>> {
+        let mut mrs = self.recently_updated_mr_page(&project_id, "merged").await?;
+        mrs.extend(self.recently_updated_mr_page(&project_id, "closed").await?);
+        Ok(mrs.into_iter().map(Into::into).collect())
+    }
+
+    async fn recently_updated_mr_page(
+        &self,
+        project_id: &GitLabProjectId,
+        state: &str,
+    ) -> Result<Vec<GitLabMergeRequest>> {
+        let url = format!("{}/projects/{}/merge_requests", self.base_url, project_id);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("state", state),
+                ("order_by", "updated_at"),
+                ("sort", "desc"),
+                ("per_page", "100"),
+                ("page", "1"),
+            ])
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            bail!(
+                "Failed to list recently {state} merge requests: {}",
+                response.status()
+            );
+        }
+        Ok(response.json().await?)
+    }
+
     pub async fn create_merge_request(
         &self,
         params: &CreateMergeRequestParams<'_>,

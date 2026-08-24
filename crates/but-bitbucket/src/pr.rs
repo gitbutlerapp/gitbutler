@@ -17,6 +17,21 @@ pub async fn list(
     }
 }
 
+pub async fn list_recently_closed(
+    preferred_account: Option<&crate::BitbucketAccountIdentifier>,
+    workspace: &str,
+    repo_slug: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::BitbucketPullRequest>> {
+    if let Ok(bb) = BitbucketClient::from_storage(storage, preferred_account) {
+        bb.list_recently_closed_prs(workspace, repo_slug)
+            .await
+            .context("Failed to list recently closed pull requests")
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn list_all_for_target(
     preferred_account: Option<&crate::BitbucketAccountIdentifier>,
     workspace: &str,
