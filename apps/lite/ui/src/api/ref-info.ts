@@ -88,6 +88,16 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	return index;
 };
 
+/**
+ * The review number recorded on an integrated segment, whatever became of
+ * that review. `pushStatus` gates it because only an integrated segment's
+ * stored number is worth surfacing; the number alone cannot say whether the
+ * review actually merged, so callers needing that must check the review's
+ * own state.
+ */
+export const landedPullRequest = (segment: Segment): number | null =>
+	segment.pushStatus === "integrated" ? (segment.metadata?.review.pullRequest ?? null) : null;
+
 export const resolveRelativeTo = ({
 	headInfoIndex,
 	relativeTo,

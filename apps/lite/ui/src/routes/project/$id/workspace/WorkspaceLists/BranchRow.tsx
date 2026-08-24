@@ -126,6 +126,8 @@ export const BranchRow: FC<
 		canRemoveBranch: boolean;
 		downstackPushStatus: DownstackPushStatus;
 		pushStatus: PushStatus;
+		/** The integrated segment's recorded review number, if any. */
+		landedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
@@ -140,6 +142,7 @@ export const BranchRow: FC<
 	canRemoveBranch,
 	downstackPushStatus,
 	pushStatus,
+	landedPullRequest,
 	graphStatus,
 	bottomRelativeTo,
 	isTopSegment,
@@ -156,19 +159,27 @@ export const BranchRow: FC<
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
 	});
-	const pullRequest = reviews?.reviewsBySourceBranch.get(refName.displayName)?.number ?? null;
+	const openPullRequest = reviews?.reviewsBySourceBranch.get(refName.displayName)?.number ?? null;
+	// A merged review is absent from the open listing; an integrated segment's
+	// recorded number keeps the chip and link alive.
+	const pullRequest = openPullRequest ?? landedPullRequest;
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
-	const { data: ciChecks } = useQuery({
+	const { data: ciChecksData } = useQuery({
 		...listCIChecksQueryOptions({
 			projectId,
 			reference: refName.displayName,
 			polling: "passive",
 		}),
-		enabled: pullRequest !== null && forgeInfo?.capabilities.checks,
+		// Open reviews only: the checks endpoint rejects merged branches, so
+		// polling for a landed review's number would fail every time.
+		enabled: openPullRequest !== null && forgeInfo?.capabilities.checks,
 	});
+	// A disabled query keeps serving its last (pre-merge) data, so the checks
+	// of a landed review are dropped here rather than at each use.
+	const ciChecks = openPullRequest === null ? undefined : ciChecksData;
 	const ciURL =
-		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
+		openPullRequest !== null ? forgeInfo && ciChecksSummaryUrl(openPullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
 	const branchAddressV: BranchAddress = {
