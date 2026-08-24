@@ -2963,7 +2963,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 					<div className={styles.tabsRowRight}>
 						<button
 							type="button"
-							className={getButtonClassName({ variant: "pop" })}
+							className={getButtonClassName({ variant: "gray" })}
 							disabled={isApplyPending}
 							onClick={() => apply(decodeBytes(branch.branchRef))}
 						>
