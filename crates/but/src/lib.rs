@@ -35,7 +35,7 @@ use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 pub mod args;
 use args::{
     Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
-    update as update_args,
+    update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use gix::date::time::CustomFormat;
@@ -813,7 +813,9 @@ async fn match_subcommand(
             },
             out,
         )?,
-        Subcommands::_Comment(..) => setup::init_ctx(&args, InitCtxOptions::default(), out)?,
+        Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
+            setup::init_ctx(&args, InitCtxOptions::default(), out)?
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
@@ -920,6 +922,34 @@ async fn match_subcommand(
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id).emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            None
+        }
+        Subcommands::Worktree(worktree::Platform { cmd }) => {
+            match cmd.unwrap_or(worktree::Subcommands::List {
+                archived: false,
+                active: false,
+            }) {
+                worktree::Subcommands::List { archived, active } => {
+                    let outcome = command::worktree::list::list(&ctx, archived, active)
+                        .emit_metrics(metrics_ctx)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Archive { worktree } => {
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, true)
+                        .emit_metrics(metrics_ctx)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Unarchive { worktree } => {
+                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, false)
+                        .emit_metrics(metrics_ctx)?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Remove { force, worktree } => {
+                    let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)
+                        .emit_metrics(metrics_ctx)?;
+                    out.print_cli_output(outcome)?;
+                }
+            }
             None
         }
         Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {

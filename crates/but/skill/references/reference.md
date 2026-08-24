@@ -10,7 +10,7 @@ Agent-focused reference for useful `but` commands.
 - [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
-- [Workspace Maintenance](#workspace-maintenance) - `clean`
+- [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
@@ -495,6 +495,20 @@ but clean --include-upstream # Also remove branches with upstream-only commits
 A branch is considered empty if it has no local commits and no assigned changes. Branches with upstream-only commits are preserved by default unless `--include-upstream` is used.
 
 The entire operation is a single oplog entry — use `but undo` to restore all deleted branches.
+
+### `but worktree`
+
+Manage linked git worktrees (experimental worktree flag). `but wt` is a default alias.
+
+```bash
+but worktree list                 # Active worktrees with IDs, plus the 3 most recent archived ones
+but worktree list --archived      # All archived worktrees (`--active` for all active ones)
+but worktree archive <id|name>    # Hide a worktree from the workspace
+but worktree unarchive <name>     # Show it again; archived worktrees have no ID
+but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncommitted changes
+```
+
+Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 
 ## History & Undo
 

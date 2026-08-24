@@ -5,6 +5,8 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
+use std::path::Path;
+
 use anyhow::Context as _;
 use bstr::{BStr, BString};
 
@@ -182,4 +184,59 @@ pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result
         .find(|proxy| proxy.id() == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     proxy.into_repo().map_err(Into::into)
+}
+
+/// The time of the newest reflog entry of the linked worktree named `name`, across its own
+/// `HEAD` log and the log of the branch it has checked out, or `None` if neither has one.
+///
+/// The branch log sees updates made from any checkout, while the `HEAD` log sees checkouts and
+/// commits made inside the worktree and is all a detached worktree has.
+pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<gix::date::Time>> {
+    let wt_repo = open_worktree_repo(repo, name)?;
+    let mut newest: Option<gix::date::Time> = None;
+    for ref_name in std::iter::once("HEAD".try_into()?).chain(wt_repo.head_name()?) {
+        let Some(reference) = wt_repo.try_find_reference(ref_name.as_ref())? else {
+            continue;
+        };
+        let mut log = reference.log_iter();
+        let Some(mut lines) = log.rev()? else {
+            continue;
+        };
+        let Some(line) = lines.next().transpose()? else {
+            continue;
+        };
+        let time = line.signature.time;
+        if newest.is_none_or(|newest| time.seconds > newest.seconds) {
+            newest = Some(time);
+        }
+    }
+    Ok(newest)
+}
+
+/// Remove the linked worktree checked out at `path` the way `git worktree remove` does, which
+/// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
+///
+/// Git is invoked directly as it has the only implementation of this, and its own error
+/// message is surfaced on failure.
+pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
+    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
+    // These would override `-C`.
+    for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
+        cmd.env_remove(var);
+    }
+    cmd.arg("-C")
+        .arg(repo.workdir().unwrap_or(repo.common_dir()))
+        .args(["worktree", "remove"]);
+    if force {
+        cmd.arg("--force");
+    }
+    let output = cmd
+        .arg("--")
+        .arg(path)
+        .output()
+        .context("Failed to run `git worktree remove`")?;
+    if !output.status.success() {
+        anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
 }

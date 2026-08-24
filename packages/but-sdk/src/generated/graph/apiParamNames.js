@@ -148,4 +148,7 @@ export const apiParamNames = {
 	workspaceFetchStatus: ["projectId"],
 	workspaceIntegrateUpstream: ["projectId", "updates", "dryRun"],
 	workspaceTargetCommits: ["projectId", "from", "limit"],
+	worktreeRemove: ["projectId", "name", "force"],
+	worktreeSetArchived: ["projectId", "name", "archived"],
+	worktreesList: ["projectId"],
 };

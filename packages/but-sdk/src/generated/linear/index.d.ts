@@ -1233,6 +1233,28 @@ export declare function workspaceIntegrateUpstream(projectId: string, updates: A
  * to unannotated commits.
  */
 export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
+
+/**
+ * Remove the linked worktree named `name` from disk the way `git worktree remove` does,
+ * which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
+ * forget its archived state so a worktree created under the same name later starts out
+ * active.
+ *
+ * This works on archived worktrees as well.
+ */
+export declare function worktreeRemove(projectId: string, name: string, force: boolean): Promise<void>
+
+/**
+ * Persist the archived state of the linked worktree named `name`.
+ *
+ * Archived worktrees are hidden from graph traversal and only minimally listed,
+ * which is how projects that predate GitButler's worktree support avoid showing
+ * every worktree ever created.
+ */
+export declare function worktreeSetArchived(projectId: string, name: string, archived: boolean): Promise<void>
+
+/** List all usable linked worktrees, split by archived state. */
+export declare function worktreesList(projectId: string): Promise<WorktreeListing>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -3158,6 +3180,21 @@ export type ListedStack = {
 /** JSON transport type for how a branch stack relates to the workspace. */
 export type ListedStackStatus = "applied" | "unapplied" | "target" | "standalone";
 
+/** A linked worktree as listed by [`worktrees_list()`]. */
+export type ListedWorktree = {
+  /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
+  name: string;
+  /** The worktree checkout directory. */
+  path: string;
+  /** The branch the worktree has checked out, or `None` for a detached `HEAD`. */
+  refName: string | null;
+  /**
+   * When the worktree or its branch was last updated according to their reflogs, in
+   * milliseconds since the epoch, or `None` without any reflog.
+   */
+  updatedAtMs: number | null;
+};
+
 /** Response from `POST /api/login/token.json`. */
 export type LoginToken = {
   /**
@@ -4249,5 +4286,16 @@ export type WorktreeChanges = {
   assignmentsError: SerdeError | null;
   dependencies: HunkDependencies | null;
   dependenciesError: SerdeError | null;
+};
+
+/**
+ * All listable linked worktrees, separated by archived state, each most recently
+ * updated first and otherwise by name.
+ */
+export type WorktreeListing = {
+  /** Non-archived worktrees. */
+  active: Array<ListedWorktree>;
+  /** Archived worktrees, hidden from the workspace but still on disk. */
+  archived: Array<ListedWorktree>;
 };
 

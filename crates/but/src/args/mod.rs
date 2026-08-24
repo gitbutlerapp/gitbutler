@@ -337,6 +337,8 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
+    Worktree(worktree::Platform),
+
     /// Land a branch directly onto the target branch.
     ///
     /// Lands the branch onto the configured target (for example `origin/master`) without going
@@ -1133,6 +1135,7 @@ pub mod push;
 pub mod resolve;
 
 pub mod branch;
+pub mod worktree;
 
 /// Find the subcommand token and its index in raw argv, skipping root options.
 pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &std::ffi::OsString)> {

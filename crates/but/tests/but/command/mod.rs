@@ -65,6 +65,8 @@ mod uncommit;
 #[cfg(feature = "legacy")]
 mod undo;
 #[cfg(feature = "legacy")]
+mod worktree;
+#[cfg(feature = "legacy")]
 mod util {
     use crate::utils::{CommandExt as _, Sandbox};
 

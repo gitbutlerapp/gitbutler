@@ -122,6 +122,14 @@ impl WorktreeMetaHandleMut<'_> {
         Ok(())
     }
 
+    /// Forget the linked worktree named `name`, so a worktree created under that
+    /// name later starts out active. No-op for an unknown name.
+    pub fn delete(&mut self, name: &[u8]) -> rusqlite::Result<()> {
+        self.conn
+            .execute("DELETE FROM worktree_meta WHERE name = ?1", [name])?;
+        Ok(())
+    }
+
     /// Record that the one-time adoption of pre-existing worktrees has run.
     ///
     /// Idempotent - marking again has no effect. The row's `adopted_at` column is

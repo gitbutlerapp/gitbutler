@@ -126,6 +126,7 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Commit => Group::BranchingAndCommitting,
                 SubcommandDiscriminant::Branch => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::Worktree => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Discard => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
@@ -378,6 +379,7 @@ Inspection:
 Branching and Committing:
   commit       Create a commit
   branch       Commands for managing branches
+  worktree     Manage linked worktrees (experimental, requires the worktreeMan…
   discard      Discard branches, commits, or changes
   resolve      Resolve conflicts in a commit or in uncommitted files
   unapply      Unapply a branch
@@ -480,6 +482,7 @@ Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Branching and Committing:
   branch       Commands for managing branches
+  worktree     Manage linked worktrees (experimental, requires the worktreeMan…
 
 Other Commands:
   gui          Open the GitButler GUI for the current project

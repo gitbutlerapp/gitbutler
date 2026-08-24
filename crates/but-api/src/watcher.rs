@@ -87,6 +87,7 @@ impl WatcherEventKind {
                 T::Commits,
                 T::Diffs,
                 T::WorktreeChanges,
+                T::Worktrees,
                 T::AbsorptionPlan,
                 T::Comments,
             ],
