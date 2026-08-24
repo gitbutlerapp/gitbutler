@@ -204,8 +204,6 @@ fn recurse_segment(
         ref_name_and_remote = graph.ref_and_remote_debug_string_with_graph_context(
             segment.ref_info.as_ref(),
             segment.remote_tracking_ref_name.as_ref(),
-            segment.sibling_segment_id,
-            segment.remote_tracking_branch_segment_id,
         ),
     ));
     for (cidx, commit) in segment.commits.iter().enumerate() {

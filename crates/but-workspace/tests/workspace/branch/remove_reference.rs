@@ -40,7 +40,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );
@@ -87,7 +87,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );
@@ -125,11 +125,11 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    ├── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
     │   └── ·c2878fb (🏘️) ►A2
-    └── :4:A1
+    └── :A1
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -156,9 +156,9 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:3:anon: on 3183e43
-    └── :3:anon:
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡:anon: on 3183e43
+    └── :anon:
         ├── ·c2878fb (🏘️)
         └── ·49d4b34 (🏘️)
 
@@ -206,16 +206,16 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:A on bce0c5e {0}
-    ├── 📙:5:A
-    ├── 📙:6:A2-3
-    ├── 📙:7:A2-2
-    ├── 📙:8:A2-1
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A on bce0c5e {0}
+    ├── 📙:A
+    ├── 📙:A2-3
+    ├── 📙:A2-2
+    ├── 📙:A2-1
     │   └── ·43f9472 (🏘️)
-    ├── 📙:9:A1-1
-    ├── 📙:10:A1-2
-    └── 📙:11:A1-3
+    ├── 📙:A1-1
+    ├── 📙:A1-2
+    └── 📙:A1-3
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -240,12 +240,12 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A1-1 on bce0c5e {0}
-    ├── 📙:3:A1-1
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A1-1 on bce0c5e {0}
+    ├── 📙:A1-1
     │   └── ·43f9472 (🏘️)
-    ├── 📙:5:A1-2
-    └── 📙:6:A1-3
+    ├── 📙:A1-2
+    └── 📙:A1-3
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -269,9 +269,9 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A1-3 on bce0c5e {0}
-    └── 📙:3:A1-3
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A1-3 on bce0c5e {0}
+    └── 📙:A1-3
         ├── ·43f9472 (🏘️)
         └── ·6fdab32 (🏘️)
 
@@ -328,14 +328,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:A on 3183e43 {0}
-│   ├── 📙:2:A
-│   ├── 📙:3:B
-│   └── 📙:4:C
-└── ≡📙:5:D on 3183e43 {1}
-    ├── 📙:5:D
-    └── 📙:6:E
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
 
 "#]]
     );
@@ -356,13 +356,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:B on 3183e43 {0}
-│   ├── 📙:2:B
-│   └── 📙:3:C
-└── ≡📙:4:D on 3183e43 {1}
-    ├── 📙:4:D
-    └── 📙:5:E
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:B on 3183e43 {0}
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
 
 "#]]
     );
@@ -379,14 +379,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:A on 3183e43 {0}
-│   ├── 📙:2:A
-│   ├── 📙:3:B
-│   └── 📙:4:C
-└── ≡📙:5:D on 3183e43 {1}
-    ├── 📙:5:D
-    └── 📙:6:E
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
 
 "#]]
     );
@@ -409,13 +409,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:B on 3183e43 {0}
-│   ├── 📙:2:B
-│   └── 📙:3:C
-└── ≡📙:4:D on 3183e43 {1}
-    ├── 📙:4:D
-    └── 📙:5:E
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:B on 3183e43 {0}
+│   ├── 📙:B
+│   └── 📙:C
+└── ≡📙:D on 3183e43 {1}
+    ├── 📙:D
+    └── 📙:E
 
 "#]]
     );
@@ -466,7 +466,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );

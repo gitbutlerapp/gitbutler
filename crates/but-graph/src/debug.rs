@@ -233,21 +233,12 @@ impl Graph {
         )
     }
 
-    /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
-    /// they are linked with `sibling_id` and `remote_tracking_branch_id`.
+    /// Return a useful one-line string showing the relationship between `ref_name` and `remote_ref_name`.
     pub fn ref_and_remote_debug_string(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
-        sibling_id: Option<SegmentIndex>,
-        remote_tracking_branch_id: Option<SegmentIndex>,
     ) -> String {
-        Self::ref_and_remote_debug_string_inner(
-            ref_info,
-            remote_ref_name,
-            sibling_id,
-            remote_tracking_branch_id,
-            false,
-        )
+        Self::ref_and_remote_debug_string_inner(ref_info, remote_ref_name, false)
     }
 
     /// Like [`Self::ref_and_remote_debug_string()`], but includes graph-contextual worktree ownership markers.
@@ -255,14 +246,10 @@ impl Graph {
         &self,
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
-        sibling_id: Option<SegmentIndex>,
-        remote_tracking_branch_id: Option<SegmentIndex>,
     ) -> String {
         Self::ref_and_remote_debug_string_inner(
             ref_info,
             remote_ref_name,
-            sibling_id,
-            remote_tracking_branch_id,
             self.has_multiple_worktrees(),
         )
     }
@@ -270,41 +257,23 @@ impl Graph {
     fn ref_and_remote_debug_string_inner(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
-        sibling_id: Option<SegmentIndex>,
-        remote_tracking_branch_id: Option<SegmentIndex>,
         show_owned_by_repo: bool,
     ) -> String {
         format!(
             "{ref_name}{remote}",
             ref_name = ref_info
                 .as_ref()
-                .map(|ri| format!(
-                    "{}{maybe_id}",
-                    Graph::ref_debug_string_inner(
-                        ri.ref_name.as_ref(),
-                        ri.worktree.as_ref(),
-                        show_owned_by_repo,
-                    ),
-                    maybe_id = sibling_id
-                        .filter(|_| remote_ref_name.is_none())
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                .map(|ri| Graph::ref_debug_string_inner(
+                    ri.ref_name.as_ref(),
+                    ri.worktree.as_ref(),
+                    show_owned_by_repo,
                 ))
-                .unwrap_or_else(|| format!(
-                    "anon:{maybe_id}",
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
-                )),
+                .unwrap_or_else(|| "anon:".to_string()),
             remote = remote_ref_name
                 .as_ref()
                 .map(|remote_ref_name| format!(
-                    " <> {remote_name}{maybe_id}",
+                    " <> {remote_name}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = remote_tracking_branch_id
-                        .or(sibling_id)
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
                 ))
                 .unwrap_or_default()
         )
@@ -440,8 +409,6 @@ impl Graph {
                 ref_name_and_remote = Self::ref_and_remote_debug_string_inner(
                     s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
-                    s.sibling_segment_id,
-                    s.remote_tracking_branch_segment_id,
                     show_owned_by_repo,
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
@@ -557,10 +524,7 @@ impl Graph {
                     {
                         continue;
                     }
-                    if s.metadata.is_some()
-                        || s.sibling_segment_id.is_some()
-                        || s.remote_tracking_branch_segment_id.is_some()
-                    {
+                    if s.metadata.is_some() || s.sibling_segment_id.is_some() {
                         continue;
                     }
                 }

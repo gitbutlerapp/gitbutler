@@ -111,13 +111,13 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         crate::support::workspace_graph(&ctx)?,
-        snapbox::str![[r"
-⌂:0:feature[🌳] <> ✓refs/remotes/origin/main on 5374caf
-└── ≡:0:feature[🌳] on 5374caf {1}
-    └── :0:feature[🌳]
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓refs/remotes/origin/main on 5374caf
+└── ≡:feature[🌳] on 5374caf {1}
+    └── :feature[🌳]
         └── ·edd8381
 
-"]]
+"#]]
     );
 
     #[cfg(feature = "graph-workspace")]
@@ -258,9 +258,9 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
     snapbox::assert_data_eq!(
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
-⌂:0:new-branch[🌳] <> ✓refs/remotes/origin/main on 5374caf
-└── ≡:0:new-branch[🌳] on 5374caf {1}
-    └── :0:new-branch[🌳]
+⌂:new-branch[🌳] <> ✓refs/remotes/origin/main on 5374caf
+└── ≡:new-branch[🌳] on 5374caf {1}
+    └── :new-branch[🌳]
 
 "#]]
     );

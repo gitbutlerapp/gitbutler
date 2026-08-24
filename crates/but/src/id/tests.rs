@@ -3456,7 +3456,6 @@ mod util {
         StackSegment {
             ref_info,
             remote_tracking_ref_name: None,
-            sibling_segment_id: None,
             remote_tracking_branch_segment_id: None,
             id: Default::default(),
             commits,

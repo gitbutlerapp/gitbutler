@@ -50,14 +50,14 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -114,14 +114,14 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       ├── ·f2cc60d (🏘️)
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:5:C on 85efbe4 {2}
-    ├── 📙:5:C
-    └── 📙:6:B
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -159,14 +159,14 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -225,15 +225,15 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       ├── ·f9061ed (🏘️)
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·8e00332 (🏘️)
-    └── 📙:5:B
+    └── 📙:B
 
 "#]]
     );
@@ -270,14 +270,14 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -334,14 +334,14 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       ├── ·2506923 (🏘️)
 │       └── ·8e00332 (🏘️)
-└── ≡📙:5:C on 85efbe4 {2}
-    ├── 📙:5:C
-    └── 📙:6:B
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -379,14 +379,14 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -445,15 +445,15 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       ├── ·4dfe841 (🏘️)
 │       └── ·c813d8d (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·8e00332 (🏘️)
-    └── 📙:5:B
+    └── 📙:B
 
 "#]]
     );
@@ -490,14 +490,14 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -547,14 +547,14 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:5:A on 85efbe4 {1}
-│   └── 📙:5:A
-└── ≡📙:3:C on 85efbe4 {2}
-    ├── 📙:3:C
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   ├── ·148f8f3 (🏘️)
     │   └── ·09bc93e (🏘️)
-    └── 📙:4:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -592,14 +592,14 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -658,13 +658,13 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:5:A on 85efbe4 {1}
-│   └── 📙:5:A
-└── ≡📙:3:C on 85efbe4 {2}
-    ├── 📙:3:C
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·ad476a8 (🏘️)
-    └── 📙:4:B
+    └── 📙:B
         ├── ·f9061ed (🏘️)
         └── ·09d8e52 (🏘️)
 
@@ -698,12 +698,12 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:B on 85efbe4 {2}
-    └── 📙:4:B
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
 
 "#]]
     );
@@ -746,11 +746,11 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:4:A on 85efbe4 {1}
-│   └── 📙:4:A
-└── ≡📙:3:B on 85efbe4 {2}
-    └── 📙:3:B
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -778,13 +778,13 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
+    ├── :two <> origin/two
     │   └── ❄️16fd221
-    └── :3:one
+    └── :one
         └── ❄8b426d0
 
 "#]]
@@ -831,12 +831,12 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
     │   ├── ·c9f444c ►two
     │   └── ·16fd221
-    └── :3:one
+    └── :one
         └── ·8b426d0
 
 "#]]
@@ -872,13 +872,13 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:[..]:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:[..]:child-stack[🌳] on aa67ae0 {1}
-    ├── :[..]:child-stack[🌳]
+⌂:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡:child-stack[🌳] on aa67ae0 {1}
+    ├── :child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :[..]:C1
+    ├── :C1
     │   └── ·64dace5
-    └── :[..]:M
+    └── :M
         └── ·197bdf1
 
 "#]]
@@ -955,13 +955,13 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:[..]:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:[..]:child-stack[🌳] on aa67ae0 {1}
-    ├── :[..]:child-stack[🌳]
+⌂:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡:child-stack[🌳] on aa67ae0 {1}
+    ├── :child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :[..]:C1
+    ├── :C1
     │   └── ·64dace5
-    └── :[..]:M
+    └── :M
         └── ·197bdf1
 
 "#]]
@@ -1029,13 +1029,13 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
+    ├── :two <> origin/two
     │   └── ❄️16fd221
-    └── :3:one
+    └── :one
         └── ❄8b426d0
 
 "#]]
@@ -1092,12 +1092,12 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:three[🌳] <> ✓!
+└── ≡:three[🌳] {1}
+    ├── :three[🌳]
     │   ├── ·09ad3ca ►two
     │   └── ·0c38dd9
-    └── :2:one
+    └── :one
         └── ·8b426d0
 
 "#]]
