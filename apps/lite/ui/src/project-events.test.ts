@@ -1,4 +1,4 @@
-import { projectQueryKeys } from "#ui/api/queries.ts";
+import { projectQueryKeys } from "#ui/api/query-keys.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
 import type { WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates } from "@gitbutler/but-sdk/cache-tags";

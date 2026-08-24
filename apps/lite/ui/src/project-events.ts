@@ -8,12 +8,8 @@
  * are handled separately below.
  */
 
-import {
-	projectQueryKeys,
-	refreshIntegratedReviews,
-	type ProjectQueryKey,
-} from "#ui/api/queries.ts";
-import type { WatcherEvent } from "@gitbutler/but-sdk";
+import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
+import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -78,6 +74,41 @@ for (const query of projectQueryKeys) {
 		}
 	}
 }
+
+/**
+ * A fetch can turn a reviewed branch into an integrated one while the backend
+ * forge cache still holds the pre-merge review. Refresh those reviews before
+ * re-reading the target commits so their annotations can be matched.
+ */
+const refreshIntegratedReviews = async (client: QueryClient, projectId: string): Promise<void> => {
+	const headInfo = await client.fetchQuery({
+		queryKey: ["headInfo", projectId],
+		queryFn: () => window.lite.headInfo(projectId),
+		staleTime: 0,
+	});
+	const reviewIds = new Set(
+		headInfo.stacks.flatMap((stack) =>
+			stack.segments.flatMap((segment) => {
+				const reviewId = segment.metadata?.review.pullRequest;
+				return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
+			}),
+		),
+	);
+	await Promise.allSettled(
+		[...reviewIds].flatMap((reviewId) => {
+			const queryKey = ["getReview", projectId, reviewId] as const;
+			return client.getQueryData<ForgeReview>(queryKey)?.mergedAt != null
+				? []
+				: [
+						client.fetchQuery({
+							queryKey,
+							queryFn: () => window.lite.getReview({ projectId, reviewId }),
+							staleTime: Number.POSITIVE_INFINITY,
+						}),
+					];
+		}),
+	);
+};
 
 export const handleProjectEvent = (
 	event: WatcherEvent,

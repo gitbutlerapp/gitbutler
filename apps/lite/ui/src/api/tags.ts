@@ -7,7 +7,7 @@
  * actually caches, so "which caches to drop" is derived, never guessed.
  */
 
-import { projectQueryKeys, type QueryKey } from "#ui/api/queries.ts";
+import { projectQueryKeys, type QueryKey } from "#ui/api/query-keys.ts";
 import { apiInvalidates, apiProvides, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 
