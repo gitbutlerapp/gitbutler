@@ -35,7 +35,7 @@ use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 pub mod args;
 use args::{
     Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
-    update as update_args,
+    update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use gix::date::time::CustomFormat;
@@ -791,6 +791,7 @@ async fn match_subcommand(
         Subcommands::_Expand { .. } | Subcommands::Alias(..) => {
             but_ctx::Context::discover(&args.current_dir)?
         }
+        Subcommands::Worktree(..) => setup::init_ctx(&args, InitCtxOptions::default(), out)?,
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
             match cmd {
@@ -939,6 +940,12 @@ async fn match_subcommand(
             Some(alias_args::Subcommands::Remove { name, global }) => {
                 command::alias::remove(&mut ctx, out, &name, global.into())
                     .emit_metrics(metrics_ctx)?;
+                None
+            }
+        },
+        Subcommands::Worktree(worktree::Platform { cmd }) => match cmd {
+            worktree::Subcommands::New { path, cow } => {
+                command::worktree::new(&ctx, out, &path, cow)?;
                 None
             }
         },

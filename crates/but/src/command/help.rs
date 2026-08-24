@@ -130,6 +130,7 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Discard => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Unapply => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::Worktree => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Apply => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
