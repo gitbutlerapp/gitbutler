@@ -40,7 +40,8 @@
 
 .fieldControlTextarea {
 	height: auto;
-	padding-block: 6px;
+	padding-inline: 12px;
+	padding-block: 12px;
 	field-sizing: content;
 	min-height: 6lh;
 	max-height: 20lh;
