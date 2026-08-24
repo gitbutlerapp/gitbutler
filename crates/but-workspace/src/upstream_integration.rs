@@ -1180,31 +1180,40 @@ pub fn fast_forward_local_tracking_branch(
             let target_short_name =
                 but_core::extract_remote_name_and_short_name(target_ref, &repo.remote_names())
                     .map(|(_, short_name)| short_name);
-            let mut fallback = None;
-            for reference in repo.references()?.prefixed("refs/heads/")? {
-                let Ok(reference) = reference else {
-                    continue;
-                };
-                let tracks_target = repo
-                    .branch_remote_tracking_ref_name(
-                        reference.name(),
-                        gix::remote::Direction::Fetch,
-                    )
+            let tracks_target = |name: &gix::refs::FullNameRef| -> Result<bool> {
+                Ok(repo
+                    .branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch)
                     .transpose()?
-                    .is_some_and(|name| name.as_bstr() == target_ref.as_bstr());
-                if !tracks_target {
-                    continue;
-                }
-                if target_short_name
-                    .as_ref()
-                    .is_some_and(|name| name.as_bstr() == reference.name().shorten())
+                    .is_some_and(|name| name.as_bstr() == target_ref.as_bstr()))
+            };
+            let preferred = if let Some(short_name) = target_short_name.as_ref() {
+                let preferred =
+                    gix::refs::Category::LocalBranch.to_full_name(short_name.as_bstr())?;
+                if let Some(reference) = repo.try_find_reference(&preferred)?
+                    && tracks_target(reference.name())?
                 {
-                    fallback = Some(reference.name().to_owned());
-                    break;
+                    Some(preferred)
+                } else {
+                    None
                 }
-                fallback.get_or_insert_with(|| reference.name().to_owned());
+            } else {
+                None
+            };
+            if preferred.is_some() {
+                preferred
+            } else {
+                let mut fallback = None;
+                for reference in repo.references()?.prefixed("refs/heads/")? {
+                    let Ok(reference) = reference else {
+                        continue;
+                    };
+                    if !tracks_target(reference.name())? {
+                        continue;
+                    }
+                    fallback.get_or_insert_with(|| reference.name().to_owned());
+                }
+                fallback
             }
-            fallback
         }
         _ => None,
     };

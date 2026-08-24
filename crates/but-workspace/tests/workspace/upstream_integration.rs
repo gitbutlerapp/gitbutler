@@ -3961,34 +3961,7 @@ fn remove_managed_workspace_ref(repo: &gix::Repository) -> Result<()> {
 }
 
 fn repo_with_local_target_branches() -> Result<(gix::Repository, tempfile::TempDir)> {
-    let tmp = tempfile::tempdir()?;
-    git_at_dir(tmp.path()).args(["init", "-b", "main"]).run();
-    git_at_dir(tmp.path())
-        .args(["config", "user.name", "GitButler"])
-        .run();
-    git_at_dir(tmp.path())
-        .args(["config", "user.email", "gitbutler@example.com"])
-        .run();
-    std::fs::write(tmp.path().join("file.txt"), "one\n")?;
-    git_at_dir(tmp.path()).args(["add", "file.txt"]).run();
-    git_at_dir(tmp.path()).args(["commit", "-m", "one"]).run();
-    git_at_dir(tmp.path()).args(["branch", "feature"]).run();
-    git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
-        .run();
-    git_at_dir(tmp.path())
-        .args([
-            "config",
-            "remote.origin.fetch",
-            "+refs/heads/*:refs/remotes/origin/*",
-        ])
-        .run();
-    git_at_dir(tmp.path())
-        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
-        .run();
-    std::fs::write(tmp.path().join("file.txt"), "two\n")?;
-    git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
-    Ok((open_repo(tmp.path())?, tmp))
+    Ok(crate::utils::writable_scenario("local-target-tracking"))
 }
 
 fn configure_tracking(tmp: &tempfile::TempDir, branch: &str) {

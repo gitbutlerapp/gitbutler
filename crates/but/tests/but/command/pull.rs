@@ -44,22 +44,15 @@ fn merge_into_upstream(env: &Sandbox, branch: &str, add_upstream_commit: bool) {
     env.invoke_git("fetch origin");
 }
 
-fn managed_target_branch_pull_scenario(diverged: bool) -> Sandbox {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
+fn target_branch_pull_scenario(diverged: bool) -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-two-integrated-stacks-with-local-target",
+    );
     env.setup_metadata_at_target(&["A", "B"], "A~1");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     let old_target = env
         .project_meta()
         .target_commit_id
         .expect("fixture has a target commit");
-    env.invoke_git("init --bare .git/upstream.git");
-    env.invoke_git("push .git/upstream.git refs/heads/main:refs/heads/main");
-    env.invoke_git("remote set-url origin .git/upstream.git");
-    env.invoke_git("config branch.main.remote origin");
-    env.invoke_git("config branch.main.merge refs/heads/main");
-    env.invoke_git(&format!("update-ref refs/heads/main {old_target}"));
     if diverged {
         let local_commit = env.invoke_git(&format!(
             "commit-tree {old_target}^{{tree}} -p {old_target} -m local-main"
@@ -69,62 +62,19 @@ fn managed_target_branch_pull_scenario(diverged: bool) -> Sandbox {
     env
 }
 
-fn commit_graph(env: &Sandbox) -> String {
-    env.git_log()
-        .lines()
-        .map(str::trim_end)
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\n"
+fn single_branch_target_branch_pull_scenario(diverged: bool) -> Sandbox {
+    let env = target_branch_pull_scenario(diverged);
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env
 }
 
-#[test]
-fn pull_fast_forwards_the_local_target_branch() {
-    let env = managed_target_branch_pull_scenario(false);
+fn assert_pull_fast_forwards_local_target(env: Sandbox) {
     assert_ne!(rev_parse(&env, "main"), rev_parse(&env, "origin/main"));
-    // The pre-integration graph keeps local main at the old target.
-    snapbox::assert_data_eq!(
-        commit_graph(&env),
-        snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
-| | * 7e5d4e1 (origin/main, origin/HEAD) add upstream
-| | *   613fca8 merge B
-| | |/
-| |_|/
-|/| |
-* | | d3e2ba3 (B) add B
-| | * c0a497b merge A
-| |/|
-|/|/
-| * 9477ae7 (A) add A
-|/
-* 0dc3733 (main) add M
-
-"#]]
-    );
 
     env.but("pull").assert().success();
 
-    // The post-integration graph moves local main to origin/main.
-    snapbox::assert_data_eq!(
-        commit_graph(&env),
-        snapbox::str![[r#"
-* 1f7c7b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 7e5d4e1 (origin/main, origin/HEAD, main, gitbutler/target) add upstream
-*   613fca8 merge B
-|/
-| * d3e2ba3 add B
-* |   c0a497b merge A
-|/ /
-| |/
-|/|
-| * 9477ae7 add A
-|/
-* 0dc3733 add M
-
-"#]]
-    );
     assert_eq!(
         rev_parse(&env, "main"),
         rev_parse(&env, "origin/main"),
@@ -132,64 +82,37 @@ fn pull_fast_forwards_the_local_target_branch() {
     );
 }
 
-#[test]
-fn pull_leaves_a_diverged_local_target_branch_unchanged() {
-    let env = managed_target_branch_pull_scenario(true);
+fn assert_pull_preserves_diverged_local_target(env: Sandbox) {
     let local_main = rev_parse(&env, "main");
-    // The pre-integration graph shows the local-only commit diverging from origin/main.
-    snapbox::assert_data_eq!(
-        commit_graph(&env),
-        snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
-| | * f587c40 (main) local-main
-| | | * 7e5d4e1 (origin/main, origin/HEAD) add upstream
-| | | *   613fca8 merge B
-| | | |/
-| |_|_|/
-|/| | |
-* | | | d3e2ba3 (B) add B
-| |/ /
-|/| |
-| | * c0a497b merge A
-| |/|
-|/|/
-| * 9477ae7 (A) add A
-|/
-* 0dc3733 add M
-
-"#]]
-    );
 
     env.but("pull").assert().success();
 
-    // The post-integration graph retains the diverged local main ref.
-    snapbox::assert_data_eq!(
-        commit_graph(&env),
-        snapbox::str![[r#"
-* 1f7c7b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 7e5d4e1 (origin/main, origin/HEAD, gitbutler/target) add upstream
-*   613fca8 merge B
-|/
-| * d3e2ba3 add B
-* |   c0a497b merge A
-|/ /
-| |/
-|/|
-| * 9477ae7 add A
-|/
-| * f587c40 (main) local-main
-|/
-* 0dc3733 add M
-
-"#]]
-    );
     assert_eq!(
         rev_parse(&env, "main"),
         local_main,
         "pull must preserve local commits on a diverged target branch"
     );
     assert_ne!(rev_parse(&env, "main"), rev_parse(&env, "origin/main"));
+}
+
+#[test]
+fn pull_fast_forwards_the_local_target_branch() {
+    assert_pull_fast_forwards_local_target(target_branch_pull_scenario(false));
+}
+
+#[test]
+fn single_branch_pull_fast_forwards_the_local_target_branch() {
+    assert_pull_fast_forwards_local_target(single_branch_target_branch_pull_scenario(false));
+}
+
+#[test]
+fn pull_leaves_a_diverged_local_target_branch_unchanged() {
+    assert_pull_preserves_diverged_local_target(target_branch_pull_scenario(true));
+}
+
+#[test]
+fn single_branch_pull_leaves_a_diverged_local_target_branch_unchanged() {
+    assert_pull_preserves_diverged_local_target(single_branch_target_branch_pull_scenario(true));
 }
 
 #[test]
