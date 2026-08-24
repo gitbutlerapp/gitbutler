@@ -2,9 +2,12 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{
-    Message, ReloadCause, SelectAfterReload, backstack::BackstackEntry,
-    tests::utils::test_status_tui,
+use crate::{
+    command::legacy::status::tui::{
+        Message, ReloadCause, SelectAfterReload, backstack::BackstackEntry,
+        tests::utils::test_status_tui,
+    },
+    tui::test_utils::Shift,
 };
 
 #[test]
@@ -428,4 +431,53 @@ fn clearing_marks_from_branch_mode() {
     tui.input(KeyCode::Esc)
         .assert_backstack_eq([])
         .assert_rendered_term_svg_eq(file!["snapshots/clearing_marks_from_branch_mode_003.svg"]);
+}
+
+#[test]
+fn create_and_switch_to_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input(Shift('n'))
+        .assert_rendered_term_svg_eq(file!["snapshots/create_and_switch_to_branch_001.svg"]);
+
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        snapbox::str![[r#"
+*   cc54560 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (HEAD -> c-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn create_and_switch_to_stacked_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('b');
+    tui.input(Shift('n'));
+
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        snapbox::str![[r#"
+*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (HEAD -> c-branch-1, A) add A
+* | d3e2ba3 (B) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
 }

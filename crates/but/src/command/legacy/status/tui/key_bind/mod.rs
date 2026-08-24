@@ -96,6 +96,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Branch => {
                 builder.branch_new().register();
                 if feature_flags.single_branch {
+                    builder.branch_new_and_switch().register();
                     builder.branch_switch().register();
                 }
                 builder.discard().register();
@@ -1002,9 +1003,18 @@ impl KeyBindsBuilder<'_> {
 
     fn branch_new(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("new", press().code(KeyCode::Char('n')), || {
-            Message::Branch(BranchMessage::New)
+            Message::Branch(BranchMessage::New { switch: false })
         })
         .long_description("Create a new branch")
+    }
+
+    fn branch_new_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "new and switch",
+            press().shift().code(KeyCode::Char('N')),
+            || Message::Branch(BranchMessage::New { switch: true }),
+        )
+        .long_description("Create a new branch and switch to it")
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
