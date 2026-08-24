@@ -40,25 +40,25 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -91,25 +91,25 @@ fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::R
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -212,25 +212,25 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -272,25 +272,25 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|✓|1)
+●  🏁·965998b (⌂|✓)
 "#]]
     );
 

@@ -799,7 +799,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── 🏁·85efbe4 (⌂|1)
+    └── 🏁·85efbe4 (⌂)
 
 "#]]
     );
@@ -814,7 +814,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── 🏁·85efbe4 (⌂|1)
+    └── 🏁·85efbe4 (⌂)
 
 "#]]
     );
@@ -857,7 +857,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     └── ►:1[1]:anon:
         └── ·7d7d38f (⌂)
             └── 👉►:0[2]:main[🌳@repo]
-                └── 🏁·85efbe4 (⌂|1)
+                └── 🏁·85efbe4 (⌂)
 
 "#]]
     );

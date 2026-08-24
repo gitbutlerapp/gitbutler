@@ -107,9 +107,9 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -194,9 +194,9 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -292,9 +292,9 @@ fn both_methods_update_references_identically() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -341,10 +341,10 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
         snapbox::str![[r#"
 
 └── 👉►:0[0]:replacement[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+    ├── ·120e3a9 (⌂)
+    ├── ·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
 
 "#]]
     );

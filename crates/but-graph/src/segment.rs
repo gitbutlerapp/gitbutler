@@ -26,7 +26,7 @@ impl Commit {
 
     /// Return information about the reference that matches `name`.
     pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
-        self.refs.iter().find(|ri| ri.ref_name == name)
+        self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
     }
 }
 
@@ -143,7 +143,7 @@ impl std::fmt::Debug for Commit {
             f,
             "Commit({hash}, {flags}{refs})",
             hash = self.id.to_hex_with_len(7),
-            flags = self.flags.debug_string(None)
+            flags = self.flags.debug_string()
         )
     }
 }
@@ -250,29 +250,21 @@ impl CommitFlags {
             (Self::all().bits().leading_zeros() - goals.leading_zeros()) as usize
         }
     }
-    /// Return a less verbose debug string, with `max_goals` marking the highest amount of goals we have to display.
-    pub fn debug_string(&self, max_goals: Option<usize>) -> String {
+    /// Return a less verbose debug string.
+    pub fn debug_string(&self) -> String {
         if self.is_empty() {
             "".into()
         } else {
             let flags = *self & Self::all();
-            let extra = (self.bits() & !Self::all().bits()) >> Self::all().iter().count();
             let string = format!("{flags:?}");
             let out = &string["CommitFlags(".len()..];
-            let mut out = out[..out.len() - 1]
+            out[..out.len() - 1]
                 .to_string()
                 .replace("NotInRemote", "⌂")
                 .replace("InWorkspace", "🏘")
                 .replace("Integrated", "✓")
                 .replace("ShallowBoundary", "⛰")
-                .replace(" ", "");
-            if extra != 0 {
-                out.push_str(&format!(
-                    "|{extra:>0width$b}",
-                    width = max_goals.unwrap_or(0)
-                ));
-            }
-            out
+                .replace(" ", "")
         }
     }
 
