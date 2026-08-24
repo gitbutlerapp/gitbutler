@@ -1067,7 +1067,7 @@ fn worktree_container_id() -> anyhow::Result<()> {
         snapbox::str![[r#"
 [
     Worktree {
-        id: "y",
+        id: "wt",
         name: "wt-a",
     },
 ]
@@ -1076,8 +1076,21 @@ fn worktree_container_id() -> anyhow::Result<()> {
     );
 
     // The short ID resolves to the same worktree.
-    let by_id = id_map.parse(&by_name[0].to_short_string(), Box::new(changed_paths_fn))?;
+    let short_id = by_name[0].to_short_string();
+    let by_id = id_map.parse(&short_id, Box::new(changed_paths_fn))?;
     assert_eq!(by_id, by_name, "name and short ID name the same worktree");
+
+    let one_char_prefix = short_id
+        .chars()
+        .next()
+        .expect("worktree short IDs are non-empty")
+        .to_string();
+    assert!(
+        id_map
+            .parse(&one_char_prefix, Box::new(changed_paths_fn))?
+            .is_empty(),
+        "worktree short IDs require an exact match"
+    );
 
     // `<worktree>:<path>` disambiguates a path that is dirty in several checkouts.
     let scoped = id_map.parse("wt-a:file", Box::new(changed_paths_fn))?;
@@ -1106,6 +1119,86 @@ fn worktree_container_id() -> anyhow::Result<()> {
             .is_empty(),
         "a clean worktree expands to nothing"
     );
+
+    Ok(())
+}
+
+/// Branches and worktrees draw from the same name-derived short-ID namespace.
+#[test]
+fn branch_and_worktree_short_ids_do_not_collide() -> anyhow::Result<()> {
+    let id_map = IdMap::new(
+        vec![stack([segment("work-branch", [], None, [])])],
+        vec![source_changes(
+            ChangeSourceId::Worktree("worktree-01".into()),
+            Vec::new(),
+        )],
+        gix::hashtable::HashMap::default(),
+        Default::default(),
+    )?;
+
+    snapbox::assert_data_eq!(
+        id_map.debug_state().to_debug(),
+        snapbox::str![[r#"
+workspace_and_remote_commits_count: 0
+branches: [ wo ]
+worktrees: [ or worktree-01 ]
+
+
+"#]]
+    );
+
+    Ok(())
+}
+
+/// Generated IDs for named and anonymous branch segments remain reserved when
+/// worktree IDs are allocated later.
+#[test]
+fn generated_branch_ids_do_not_collide_with_worktree_names() -> anyhow::Result<()> {
+    let mut anonymous_segment = segment("unused", [], None, []);
+    anonymous_segment.ref_info = None;
+    let id_map = IdMap::new(
+        vec![stack([segment("ab", [], None, []), anonymous_segment])],
+        vec![
+            source_changes(ChangeSourceId::Worktree("g0-worktree".into()), Vec::new()),
+            source_changes(ChangeSourceId::Worktree("h0-worktree".into()), Vec::new()),
+        ],
+        gix::hashtable::HashMap::default(),
+        Default::default(),
+    )?;
+
+    let branch_ids = id_map.branch_ids();
+    assert_eq!(
+        branch_ids,
+        ["g0", "h0"],
+        "the named fallback and anonymous segment use generated IDs"
+    );
+    let worktree_ids: Vec<_> = id_map
+        .worktrees
+        .values()
+        .map(|worktree| worktree.short_id.as_str())
+        .collect();
+    for branch_id in &branch_ids {
+        assert!(
+            !worktree_ids.contains(&branch_id.as_str()),
+            "generated branch ID {branch_id} remains reserved"
+        );
+    }
+
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+    for worktree in id_map.worktrees.values() {
+        assert_eq!(
+            id_map.parse(&worktree.short_id, Box::new(changed_paths_fn))?,
+            [CliId::Worktree {
+                id: worktree.short_id.clone(),
+                name: worktree.name.clone(),
+            }],
+            "each displayed worktree ID resolves to its worktree"
+        );
+    }
 
     Ok(())
 }

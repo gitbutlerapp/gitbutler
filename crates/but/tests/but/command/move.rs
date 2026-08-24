@@ -2952,7 +2952,7 @@ fn move_commit_below_a_worktree() {
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
-    env.but("move lrm --below po")
+    env.but("move lrm --below wt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2988,12 +2988,12 @@ fn move_commit_above_a_worktree_is_refused() {
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
-    env.but("move lrm --above po")
+    env.but("move lrm --above wt")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Bad input 'po' for '--above'
+Error: Bad input 'wt' for '--above'
 
 Cannot place a commit above a worktree
 

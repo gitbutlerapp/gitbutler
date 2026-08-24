@@ -26,10 +26,10 @@
     <text x="50 58" y="96" style="fill:#FFFFFF;font-weight:bold;">&lt;&lt;</text>
     <text x="74 82 90 98 106 114" y="96" style="fill:#FFFFFF;font-weight:bold;">source</text>
     <text x="130 138" y="96" style="fill:#FFFFFF;font-weight:bold;">&gt;&gt;</text>
-    <text x="154" y="96" style="fill:#0000AA;font-weight:bold;">v</text>
-    <text x="170" y="96" style="fill:#FFFFFF;font-weight:bold;">{</text>
-    <text x="178 186 194 202 210 218 226 234 242" y="96" style="fill:#00AAAA;font-weight:bold;">wt-branch</text>
-    <text x="250" y="96" style="fill:#FFFFFF;font-weight:bold;">}</text>
+    <text x="154 162" y="96" style="fill:#0000AA;font-weight:bold;">wt</text>
+    <text x="178" y="96" style="fill:#FFFFFF;font-weight:bold;">{</text>
+    <text x="186 194 202 210 218 226 234 242 250" y="96" style="fill:#00AAAA;font-weight:bold;">wt-branch</text>
+    <text x="258" y="96" style="fill:#FFFFFF;font-weight:bold;">}</text>
     <text x="10 18 26" y="114" style="fill:#FFFFFF;font-weight:bold;">┊┊│</text>
     <text x="50 58" y="114" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
     <text x="74 82 90 98 106 114" y="114" style="fill:#000000;font-weight:bold;">commit</text>

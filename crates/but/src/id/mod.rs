@@ -141,17 +141,6 @@ fn create_reverse_hex_id(source: &ChangeSourceId, path_bytes: &[u8]) -> anyhow::
     Ok(change_id)
 }
 
-/// Create a CLI ID for the linked worktree named `name`.
-///
-/// Hashed in its own domain so a worktree never collides with a file that happens
-/// to be named after it.
-fn create_worktree_reverse_hex_id(name: &BStr) -> anyhow::Result<ChangeId> {
-    let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
-    hasher.update(b"worktree\0");
-    hasher.update(name);
-    Ok(ChangeId::from_bytes(hasher.try_finalize()?.as_bytes()))
-}
-
 /// Assign short IDs to each `Some` entry such that they are unambiguous with respect to every other
 /// entry.
 ///
@@ -600,15 +589,15 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
-    /// Maps full reverse hex IDs to the linked worktrees that have CLI IDs.
-    pub worktrees: BTreeMap<ChangeId, WorktreeWithId>,
+    /// Maps stable worktree names to the linked worktrees that have CLI IDs.
+    pub worktrees: BTreeMap<BString, WorktreeWithId>,
 }
 
 /// A linked worktree with its short ID, naming that checkout's uncommitted area
 /// the way `zz` names the main worktree's.
 #[derive(Debug, Clone)]
 pub struct WorktreeWithId {
-    /// The short CLI ID for this worktree (typically 2 characters).
+    /// The name-derived short CLI ID for this worktree (at least 2 characters).
     pub short_id: ShortId,
     /// The stable worktree name, i.e. the directory name under
     /// `$GIT_COMMON_DIR/worktrees/`.
@@ -652,7 +641,7 @@ impl IdMap {
         let StacksInfo {
             mut stacks,
             mut id_usage,
-            non_hex_used_short_ids,
+            mut non_hex_used_short_ids,
         } = StacksInfo::new(
             stacks,
             &uncommitted_short_filenames,
@@ -695,16 +684,13 @@ impl IdMap {
             id_usage = fallback_id_usage;
         }
 
-        let mut worktrees: BTreeMap<ChangeId, WorktreeWithId> = BTreeMap::new();
+        let mut worktrees: BTreeMap<BString, WorktreeWithId> = BTreeMap::new();
         for name in worktree_names {
-            let reverse_hex = create_worktree_reverse_hex_id(name.as_ref())?;
-            // Ensure that worktrees do not collide with CLI IDs generated after
-            if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
-                id_usage.mark_used(uint_id);
-            }
-            if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
-                id_usage.mark_used(uint_id);
-            }
+            let short_id = stacks_info::allocate_name_short_id(
+                name.as_ref(),
+                &mut id_usage,
+                &mut non_hex_used_short_ids,
+            )?;
             let commits = worktree_commits
                 .remove(&name)
                 .unwrap_or_default()
@@ -719,9 +705,9 @@ impl IdMap {
                 })
                 .collect();
             worktrees.insert(
-                reverse_hex,
+                name.clone(),
                 WorktreeWithId {
-                    short_id: ShortId::default(),
+                    short_id,
                     name,
                     commits,
                 },
@@ -762,11 +748,9 @@ impl IdMap {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }
 
-        // Worktrees share the uncommitted namespace, so they disambiguate against
-        // files and commit change IDs like everything else in it. Their commits share the
-        // change ID namespace with workspace commits, so both are disambiguated together.
-        for (reverse_hex, worktree) in worktrees.iter_mut() {
-            reverse_hex_short_ids.push((reverse_hex.clone(), Some(&mut worktree.short_id)));
+        // Worktree commits share the change ID namespace with workspace commits, so both are
+        // disambiguated together.
+        for worktree in worktrees.values_mut() {
             for change_id in worktree
                 .commits
                 .iter_mut()
@@ -1143,13 +1127,12 @@ impl IdMap {
             .collect()
     }
 
-    /// All linked worktrees whose full reverse-hex ID starts with `element`.
-    fn worktree_id_prefix_matches<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
-        let element_bstring = BString::from(element);
+    /// The linked worktree whose short ID exactly matches `element`, if any.
+    fn parse_worktree_short_id<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
         self.worktrees
-            .range(ChangeId::from(element_bstring.clone())..)
-            .take_while(|(reverse_hex, _)| reverse_hex.starts_with(&element_bstring))
-            .map(|(_, worktree)| Box::new(worktree) as Box<dyn Node<'a> + 'a>)
+            .values()
+            .filter(|worktree| worktree.short_id == element)
+            .map(|worktree| Box::new(worktree) as Box<dyn Node<'a> + 'a>)
             .collect()
     }
 
@@ -1235,6 +1218,8 @@ impl IdMap {
 
         if scope == SourceScope::Any {
             self.push_generated_id_matches(element, &mut matches);
+        } else {
+            matches.extend(self.parse_worktree_short_id(element));
         }
 
         // We only match against uncommitted files if there are no other matches. The reason for
@@ -1242,8 +1227,8 @@ impl IdMap {
         // shortening". However, as the reverse hex IDs of uncommitted files may collide with branch
         // names and/or branch short IDs, we only match against uncommitted files if there are no
         // other matches. This allows branch name short IDs to be prefixes of uncommitted file short
-        // IDs — and in the uncommitted scope, where container IDs never match, an element that
-        // exactly equals a displayed branch or stack ID deliberately matches nothing rather than
+        // IDs — and in the uncommitted scope, where branch and stack IDs never match, an element
+        // that exactly equals one of their displayed IDs deliberately matches nothing rather than
         // resolving to a file it was never shown for.
         if matches.is_empty() {
             if scope == SourceScope::UncommittedOnly
@@ -1252,14 +1237,13 @@ impl IdMap {
                 return Ok(vec![]);
             }
             matches = self.uncommitted_file_id_prefix_matches(element);
-            matches.extend(self.worktree_id_prefix_matches(element));
         }
 
         Ok(matches)
     }
 
-    /// Commit, stack-ID, and branch-short-ID matches for `element`, appended
-    /// to `matches`. Only meaningful in the full namespace.
+    /// Commit, stack, branch, and worktree short-ID matches for `element`, appended to
+    /// `matches`. Only meaningful in the full namespace.
     fn push_generated_id_matches<'a>(
         &'a self,
         element: &str,
@@ -1275,6 +1259,16 @@ impl IdMap {
                     return;
                 }
             }
+        }
+
+        // Worktree short IDs use the same exact-match semantics and allocator as branch short IDs.
+        if let Some(worktree) = self
+            .worktrees
+            .values()
+            .find(|worktree| worktree.short_id == element)
+        {
+            matches.push(Box::new(worktree));
+            return;
         }
 
         // Match against commits
@@ -1749,7 +1743,7 @@ pub enum CliId {
     /// A linked worktree, naming that checkout's uncommitted area the way
     /// [`Self::Uncommitted`] names the main worktree's.
     Worktree {
-        /// The short CLI ID for this worktree (typically 2 characters).
+        /// The name-derived short CLI ID for this worktree (at least 2 characters).
         id: ShortId,
         /// The stable worktree name, i.e. the directory name under
         /// `$GIT_COMMON_DIR/worktrees/`.

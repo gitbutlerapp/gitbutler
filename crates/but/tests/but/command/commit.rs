@@ -2695,7 +2695,7 @@ fn commit_a_file_from_a_linked_worktree() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-feature}
+┊┊╭┄ wt {wt-feature}
 ┊┊┊   nl A note.txt
 ┊├╯
 ┊●   tpm add A
@@ -2732,7 +2732,7 @@ Created commit 1 on branch 'A'
 ┊●   1 note from worktree
 ┊│     1:u A note.txt
 ┊┊
-┊┊╭┄ m {wt-feature} (no changes)
+┊┊╭┄ wt {wt-feature} (no changes)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -2760,7 +2760,7 @@ fn commit_a_worktrees_whole_uncommitted_area() {
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
-    env.but("commit m -b B -m 'everything from the worktree'")
+    env.but("commit wt -b B -m 'everything from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2778,7 +2778,7 @@ Created commit 1 on branch 'B'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-feature} (no changes)
+┊┊╭┄ wt {wt-feature} (no changes)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -2886,7 +2886,7 @@ fn commit_below_a_worktree_targets_its_branch_tip() {
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
 
-    env.but("commit --below po -m 'onto the worktree branch'")
+    env.but("commit --below wt -m 'onto the worktree branch'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2927,12 +2927,12 @@ fn commit_above_a_worktree_is_refused() {
     env.but("status").assert().success();
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
-    env.but("commit --above po -m 'nope'")
+    env.but("commit --above wt -m 'nope'")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Bad input 'po' for '--above'
+Error: Bad input 'wt' for '--above'
 
 Cannot place a commit above a worktree
 
@@ -2951,7 +2951,7 @@ fn commit_b_targets_a_worktree_by_id() {
     crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
 
-    env.but("commit -b po -m 'by worktree id'")
+    env.but("commit -b wt -m 'by worktree id'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -3002,7 +3002,7 @@ fn commit_from_a_worktree_defaults_to_its_own_branch() {
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-feature", "A");
     std::fs::write(wt_dir.join("note.txt"), "dirty\n").unwrap();
 
-    env.but("commit m -m 'note from the worktree'")
+    env.but("commit wt -m 'note from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -3038,7 +3038,7 @@ Created commit 1 on branch 'wt-feature'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-feature} (no changes)
+┊┊╭┄ wt {wt-feature} (no changes)
 ┊┊●   1 note from the worktree
 ┊┊│     1:u A note.txt
 ┊┊●   nsn add W
@@ -3074,7 +3074,7 @@ fn commit_from_a_worktree_sharing_its_branch_tip_advances_only_the_worktree() {
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
-    env.but("commit m -m 'note from the worktree'")
+    env.but("commit wt -m 'note from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])

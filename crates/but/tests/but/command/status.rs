@@ -1553,7 +1553,7 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ po {wt-inside}
+┊┊╭┄ in {wt-inside}
 ┊┊┊   wx A note.txt
 ┊┊┊
 ┊┊●   pwn worktree work (no changes)
@@ -1563,12 +1563,12 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ h0 [B]
 ┊┊
-┊┊╭┄ zn {wt-at} (no changes)
+┊┊╭┄ wt {wt-at} (no changes)
 ┊├╯
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ o {wt-outside} (no changes)
+┊╭┄ ou {wt-outside} (no changes)
 ┊●   zum off the target (no changes)
 ├╯
 ┊
@@ -1617,7 +1617,7 @@ wx:a note.txt│
     );
     // The worktree ID names that checkout's whole uncommitted area, and a filename
     // scoped by worktree name reaches into that checkout only.
-    env.but("diff po").assert().success().stdout_eq(
+    env.but("diff in").assert().success().stdout_eq(
         snapbox::str![[r#"
 ─────────────╮
 wx:a note.txt│
@@ -1648,7 +1648,7 @@ wx:a note.txt│
         snapbox::str![[r#"
 [
   {
-    "cliId": "zn",
+    "cliId": "wt",
     "name": "wt-at",
     "reference": null,
     "base": {
@@ -1659,7 +1659,7 @@ wx:a note.txt│
     "commits": []
   },
   {
-    "cliId": "po",
+    "cliId": "in",
     "name": "wt-inside",
     "reference": "refs/heads/wt-inside",
     "base": {
@@ -1689,7 +1689,7 @@ wx:a note.txt│
     ]
   },
   {
-    "cliId": "o",
+    "cliId": "ou",
     "name": "wt-outside",
     "reference": "refs/heads/wt-outside",
     "base": {
@@ -1754,9 +1754,9 @@ fn stacked_worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ m {wt-first} (no changes)
+┊┊╭┄ wt {wt-first} (no changes)
 ┊┊┊
-┊┊┊╭┄ p {wt-second} (no changes)
+┊┊┊╭┄ se {wt-second} (no changes)
 ┊┊┊●   zzk second work (no changes)
 ┊┊├╯
 ┊┊●   tlr first work (no changes)
