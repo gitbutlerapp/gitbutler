@@ -509,6 +509,9 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		minWidth: 545,
 		minHeight: 400,
 		icon,
+		backgroundColor: process.platform === "darwin" ? "#00000000" : undefined,
+		vibrancy: process.platform === "darwin" ? "menu" : undefined,
+		visualEffectState: process.platform === "darwin" ? "followWindow" : undefined,
 		titleBarStyle: process.platform === "darwin" ? "hidden" : "default",
 		trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 19 } : undefined,
 		webPreferences: {
