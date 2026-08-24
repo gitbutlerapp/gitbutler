@@ -25,6 +25,8 @@ jobs:
           - platform: windows-latest # [windows, x64]
     env:
       CARGO_TERM_COLOR: always
+      CHANNEL: nightly
+      VERSION: "0.0.${{ github.run_number }}"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,15 +39,14 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - name: Set version
         working-directory: apps/lite
-        run: pnpm version "0.0.${{ github.run_number }}" --no-git-tag-version
+        shell: bash
+        run: pnpm version "$VERSION" --no-git-tag-version
       - name: Fetch Rust dependencies
         run: cargo fetch --locked
       - name: Build MCP app
         run: pnpm --filter @gitbutler/but-mcp-app build
       - name: Build but CLI
         env:
-          CHANNEL: nightly
-          VERSION: "0.0.${{ github.run_number }}"
           CARGO_PROFILE_RELEASE_LTO: fat
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
@@ -69,28 +70,22 @@ jobs:
       - name: Build but SDK
         env:
           CARGO_NET_OFFLINE: "true"
-          CHANNEL: nightly
-          VERSION: "0.0.${{ github.run_number }}"
           CARGO_PROFILE_RELEASE_LTO: fat
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
         run: pnpm --filter @gitbutler/but-sdk build:release
       - name: Build Lite
-        env:
-          CHANNEL: nightly
-          VERSION: "0.0.${{ github.run_number }}"
         run: pnpm --filter @gitbutler/lite build
       - name: Prepare askpass
         env:
           CARGO_NET_OFFLINE: "true"
-          CHANNEL: nightly
-          VERSION: "0.0.${{ github.run_number }}"
+          CARGO_PROFILE_RELEASE_LTO: fat
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
         run: pnpm --filter @gitbutler/lite prepare-askpass
       - name: Package and publish Lite
         working-directory: apps/lite
         env:
-          CHANNEL: nightly
-          VERSION: "0.0.${{ github.run_number }}"
           CSC_LINK: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE || '' }}
           CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
           APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
