@@ -106,7 +106,6 @@ export const FileRow: FC<
 								? () => checkFile({ path: relativePath, shiftKey: true })
 								: undefined
 						}
-						className={classes(restProps.className, treeStyles.row)}
 						onContextMenu={(event) => {
 							// Hand the file path along so a plugin host can add its own
 							// actions (the app's native menus ignore it).
