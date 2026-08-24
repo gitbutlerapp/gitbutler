@@ -703,6 +703,9 @@ pub fn get_branch_listing_details(
 /// target is configured to judge by). An unreachable unrelated remote (an old fork, a deleted
 /// mirror) must not block operations that only need the target refreshed, like `pull` or a
 /// dry-run push. Every remote's error is still recorded on the project's fetch status.
+///
+/// The modern equivalent with the same policy (which additionally treats the push remote as
+/// depended-on) is [`crate::workspace::workspace_fetch_from_remotes()`]; keep them aligned.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseBranch> {

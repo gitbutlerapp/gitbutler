@@ -1177,8 +1177,11 @@ export declare function workspaceCheckout(projectId: string): Promise<BranchChec
  * Fetch all configured remotes and persist the outcome for [`workspace_fetch_status()`].
  *
  * Fetching continues after an individual remote fails so every configured remote gets an attempt.
- * If any fetch fails, all errors are persisted and returned together. Credential prompts are
- * associated with `action`, which defaults to `"unknown"`.
+ * Failures of remotes the workspace does not depend on are tolerated: the call fails only when
+ * the target branch's remote or the configured push remote failed (or when no target is
+ * configured to judge by), so an unreachable unrelated remote (an old fork, a deleted mirror)
+ * does not block syncing. Every remote's error is still persisted on the fetch status.
+ * Credential prompts are associated with `action`, which defaults to `"unknown"`.
  *
  * The network fetch runs without any repository lock so other operations stay responsive while
  * remotes are contacted; exclusive access is only acquired afterwards for the bookkeeping that
@@ -4220,9 +4223,15 @@ export type WatcherWorktreeChangesPayload = {
 export type WorkspaceFetchStatus = {
   /** When the most recent fetch attempt finished, in milliseconds since the Unix epoch. */
   lastAttemptedMs: number | null;
-  /** When the most recent successful fetch finished, in milliseconds since the Unix epoch. */
+  /**
+   * When the most recent successful fetch finished, in milliseconds since the Unix epoch.
+   * Partial successes count; see [`workspace_fetch_from_remotes()`].
+   */
   lastSuccessfulMs: number | null;
-  /** The error produced by the most recent attempt, or `None` if it succeeded. */
+  /**
+   * The per-remote errors produced by the most recent attempt, or `None` if every remote
+   * fetched successfully.
+   */
   lastError: string | null;
 };
 
