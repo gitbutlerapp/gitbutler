@@ -15,6 +15,7 @@ use crate::{
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        change_source::ChangeSourceId,
         diff_rendering::{
             self, DetailsLine, DiffLineWriter, IdGen, WithSyntaxHighlighting, load_syntax_set,
         },
@@ -56,6 +57,16 @@ impl CliOutputHuman for DiffOutcome<'_> {
         match target {
             DiffOperation::Uncommitted => {
                 diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, &mut writer)?;
+            }
+            DiffOperation::Worktree { name } => {
+                diff_rendering::render_uncommitted_source(
+                    ctx,
+                    ChangeSourceId::Worktree(name),
+                    theme,
+                    &mut id_gen,
+                    options,
+                    &mut writer,
+                )?;
             }
             DiffOperation::Commit { commit } => {
                 diff_rendering::render_commit(
@@ -279,6 +290,19 @@ impl CliOutput for DiffOutcome<'_> {
                         id_map
                             .uncommitted_hunks
                             .iter()
+                            .filter(|(_, hunk)| hunk.source == ChangeSourceId::Head)
+                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
+                            .collect(),
+                    )
+                }
+                DiffOperation::Worktree { name } => {
+                    let id_map = IdMap::legacy_new_from_context(ctx)?;
+                    let source = ChangeSourceId::Worktree(name.clone());
+                    hunk_changes(
+                        id_map
+                            .uncommitted_hunks
+                            .iter()
+                            .filter(|(_, hunk)| hunk.source == source)
                             .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
                             .collect(),
                     )
@@ -441,11 +465,7 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             path,
         }),
         ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
-        ResolvedCliIdArg::Worktree(name) => Err(bad_input(format!(
-            "viewing diffs for worktree {name} as a whole is not supported"
-        ))
-        .hint("Pass one of its file or hunk CLI IDs instead")
-        .into()),
+        ResolvedCliIdArg::Worktree(name) => Ok(DiffOperation::Worktree { name }),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }
@@ -459,6 +479,9 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 #[derive(Debug)]
 enum DiffOperation {
     Uncommitted,
+    Worktree {
+        name: BString,
+    },
     Commit {
         commit: CommitId,
     },

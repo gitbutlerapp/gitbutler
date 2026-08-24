@@ -1,6 +1,9 @@
 use std::fs;
 
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util::{add_dirty_worktree, enable_worktree_manipulation},
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn uncommitted() {
@@ -72,6 +75,61 @@ fn path_prefix() {
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +content of d
+
+"#]]);
+}
+
+#[test]
+fn worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("_diff2 wt-feature")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+───────────────╮
+[..] note.txt │
+───────────────╯
+[..]
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +dirty
+
+"#]]);
+
+    env.but("_diff2 --json wt-feature")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "changes": [
+    {
+      "id": "[..]",
+      "path": "note.txt",
+      "status": "modified",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@/n+dirty/n"
+          }
+        ]
+      }
+    }
+  ]
+}
 
 "#]]);
 }
