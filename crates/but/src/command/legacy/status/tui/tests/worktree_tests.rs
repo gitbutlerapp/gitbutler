@@ -79,6 +79,18 @@ fn worktree_lane_is_navigable() {
 }
 
 #[test]
+fn stack_highlighting_with_a_nested_worktree_lane() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/stack_highlighting_with_a_nested_worktree_lane_001.svg"
+    ]);
+}
+
+#[test]
 fn remember_selection_on_worktree_heading() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
