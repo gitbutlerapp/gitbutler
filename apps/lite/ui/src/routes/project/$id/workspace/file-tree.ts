@@ -17,6 +17,8 @@ export type FileTreeRow<T> = {
 	path: string;
 	/** Indent depth, counted from zero. Every list-mode row sits at zero. */
 	depth: number;
+	positionInSet: number;
+	setSize: number;
 } & (
 	| {
 			_tag: "Directory";
@@ -91,6 +93,8 @@ const collectRows = <T extends { path: string }>({
 }): Collected<T> => {
 	const rows: Array<FileTreeRow<T>> = [];
 	const filePaths: Array<string> = [];
+	const setSize = directory.directories.size + directory.items.length;
+	let positionInSet = 1;
 
 	for (const [name, child] of directory.directories) {
 		const folded = foldSoleChildren(name, child);
@@ -105,13 +109,23 @@ const collectRows = <T extends { path: string }>({
 			collapsedDirectories,
 		});
 
-		rows.push({ _tag: "Directory", path, name: foldedName, depth, filePaths: below.filePaths });
+		rows.push({
+			_tag: "Directory",
+			path,
+			name: foldedName,
+			depth,
+			positionInSet,
+			setSize,
+			filePaths: below.filePaths,
+		});
+		positionInSet++;
 		if (collapsedDirectories[path] !== true) rows.push(...below.rows);
 		filePaths.push(...below.filePaths);
 	}
 
 	for (const item of directory.items) {
-		rows.push({ _tag: "File", path: item.path, item, depth });
+		rows.push({ _tag: "File", path: item.path, item, depth, positionInSet, setSize });
+		positionInSet++;
 		filePaths.push(item.path);
 	}
 
@@ -129,8 +143,16 @@ export const buildFileTreeRows = <T extends { path: string }>({
 }): Array<FileTreeRow<T>> => {
 	const orderedItems = items.toSorted((a, b) => compareFilePaths(a.path, b.path));
 
-	if (mode === "list")
-		return orderedItems.map((item) => ({ _tag: "File", path: item.path, item, depth: 0 }));
+	if (mode === "list") {
+		return orderedItems.map((item, index) => ({
+			_tag: "File",
+			path: item.path,
+			item,
+			depth: 0,
+			positionInSet: index + 1,
+			setSize: orderedItems.length,
+		}));
+	}
 
 	const root = emptyDirectory<T>();
 	for (const item of orderedItems) insert(root, item);

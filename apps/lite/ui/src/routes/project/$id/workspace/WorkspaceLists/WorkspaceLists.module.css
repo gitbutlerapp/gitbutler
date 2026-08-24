@@ -41,13 +41,10 @@
 }
 
 .uncommittedChangesTree {
+	/* Matches FilesTree virtualised scroll padding. */
 	--scroll-gradient-height: 14px;
 
 	flex-grow: 1;
-
-	/* The ramp below overlays the last rows rather than taking flow space, so
-	   keep rows scrolled into view (e.g. arrow-key navigation) clear of it. */
-	scroll-padding-block-end: var(--scroll-gradient-height);
 
 	/* Gradient ramp that fades out the scrolling items, shown only once the
 	   list has been scrolled away from the top and there is still more content

@@ -42,6 +42,7 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Match } from "effect";
 import {
 	type FC,
@@ -77,6 +78,7 @@ import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
 	setActiveList,
+	cancelPendingOperation,
 	useCanShowFiles,
 	useSidebarFocusScope,
 	usePage,
@@ -84,6 +86,7 @@ import {
 	useActiveList,
 } from "#ui/use-cursor.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import { parseDragData } from "./DragData.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -298,6 +301,18 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
+
+	// A virtualised drag source may unmount before the drag ends, leaving us stuck in a pending
+	// operation state. This monitor is essentially a finally block for this scenario; its onDrop runs
+	// after those of valid drop targets, in which case it's a no-op.
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDrop: cancelPendingOperation,
+			}),
+		[],
+	);
 
 	const dispatch = useAppDispatch();
 

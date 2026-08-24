@@ -23,46 +23,37 @@ import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
-export const FileRow: FC<
-	{
-		item: FileRowItem;
-		projectId: string;
-		fileParent: FileParent;
-		branchNameByCommitId: (commitId: string) => string | undefined;
-		canCheck: boolean;
-		canUncommit: boolean;
-		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
-		isChecked: boolean;
-		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
-		/** How many directories this row sits inside. Zero in list mode. */
-		depth: number;
-		/**
-		 * Where the directory goes: leading the file name, trailing it, or nowhere
-		 * — the tree already says which directory this is. Resolved by the list.
-		 */
-		pathDisplay: "lead" | "trail" | "hidden";
-		focusScope: FocusScope;
-	} & Omit<ComponentProps<typeof Row>, "projectId">
-> = ({
-	item,
-	projectId,
-	fileParent,
-	branchNameByCommitId,
-	canCheck,
-	canUncommit,
-	uncommit,
-	isChecked,
-	checkFile,
-	depth,
-	pathDisplay,
-	focusScope,
-	id,
-	...restProps
-}) => {
+type FileRowProps = {
+	item: FileRowItem;
+	projectId: string;
+	fileParent: FileParent;
+	branchNameByCommitId: (commitId: string) => string | undefined;
+	canCheck: boolean;
+	canUncommit: boolean;
+	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
+	isChecked: boolean;
+	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
+	/** How many directories this row sits inside. Zero in list mode. */
+	depth: number;
+	/**
+	 * Where the directory goes: leading the file name, trailing it, or nowhere
+	 * — the tree already says which directory this is. Resolved by the list.
+	 */
+	pathDisplay: "lead" | "trail" | "hidden";
+	focusScope: FocusScope;
+} & Omit<ComponentProps<typeof Row>, "projectId">;
+
+type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
+	anyOperationPending: boolean;
+	menuItems: ReturnType<typeof useFileMenuItems>;
+};
+
+export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
+	const { item, projectId, fileParent } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
-	const noOperationPending = useAppSelector(
-		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
+	const anyOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag !== "None",
 	);
 	const menuItems = useFileMenuItems({
 		projectId,
@@ -72,6 +63,33 @@ export const FileRow: FC<
 		canUncommit,
 		uncommit,
 	});
+
+	return (
+		<FileRowPresentational
+			{...props}
+			anyOperationPending={anyOperationPending}
+			menuItems={menuItems}
+		/>
+	);
+};
+
+export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
+	item,
+	projectId,
+	fileParent,
+	branchNameByCommitId,
+	canCheck,
+	isChecked,
+	checkFile,
+	depth,
+	pathDisplay,
+	focusScope,
+	anyOperationPending,
+	menuItems,
+	id,
+	...restProps
+}) => {
+	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const hasConflictHint = item._tag === "Conflict" && fileParent._tag === "UncommittedChanges";
 	// An uncommitted conflict is a state to get out of, so the row says how.
@@ -102,7 +120,7 @@ export const FileRow: FC<
 						{...restProps}
 						isChecked={isChecked}
 						onShiftSelect={
-							noOperationPending && canCheck
+							!anyOperationPending && canCheck
 								? () => checkFile({ path: relativePath, shiftKey: true })
 								: undefined
 						}
@@ -128,7 +146,7 @@ export const FileRow: FC<
 						disableHoverablePopup
 					>
 						<RowCheckbox
-							disabled={!noOperationPending || !canCheck}
+							disabled={anyOperationPending || !canCheck}
 							aria-label={`Check file ${relativePath}`}
 							checked={isChecked}
 							className={treeStyles.leadingCheckbox}
@@ -176,7 +194,7 @@ export const FileRow: FC<
 					</RowLabel>
 				</RowLabelContainer>
 
-				{noOperationPending && (
+				{!anyOperationPending && (
 					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
 						<Toolbar.Button
 							aria-label="File menu"
@@ -194,7 +212,7 @@ export const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
-				{noOperationPending &&
+				{!anyOperationPending &&
 					item._tag === "Change" &&
 					fileParent._tag === "UncommittedChanges" &&
 					item.dependencyCommitIds.length > 0 && (

@@ -4,9 +4,32 @@
  */
 
 class ResizeObserverStub {
-	observe(): void {}
+	private readonly callback: ResizeObserverCallback;
+
+	constructor(callback: ResizeObserverCallback) {
+		this.callback = callback;
+	}
+
+	observe(target: Element): void {
+		queueMicrotask(() => {
+			if (!target.isConnected) return;
+			const blockSize = target.hasAttribute("data-index") ? 28 : 800;
+			this.callback(
+				[
+					{
+						target,
+						borderBoxSize: [{ inlineSize: 800, blockSize }],
+					} as unknown as ResizeObserverEntry,
+				],
+				this,
+			);
+		});
+	}
 	unobserve(): void {}
 	disconnect(): void {}
+	takeRecords(): Array<ResizeObserverEntry> {
+		return [];
+	}
 }
 
 class WorkerStub {

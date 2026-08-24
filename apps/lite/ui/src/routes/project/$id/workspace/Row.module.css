@@ -1,4 +1,5 @@
 .container {
+	/* Keep in sync with virtualisation estimates. */
 	--single-line-row-height: 28px;
 	--single-line-row-label-line-height: 16px;
 	--single-line-row-label-padding-block: calc(
