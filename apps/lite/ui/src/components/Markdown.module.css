@@ -46,13 +46,73 @@
 		margin-block: 8px;
 	}
 
+	/* The design-core reset drops `list-style` app-wide, which suits the
+	   navigational lists the UI is built from but leaves authored prose with
+	   no markers at all. Markdown is the one place a list is content rather
+	   than layout, so the markers come back — and nesting alternates the
+	   glyph the way the UA would. */
 	ul,
 	ol {
 		padding-inline-start: 24px;
+		list-style-position: outside;
+	}
+
+	ul {
+		list-style-type: disc;
+	}
+
+	ul ul {
+		list-style-type: circle;
+	}
+
+	ul ul ul {
+		list-style-type: square;
+	}
+
+	ol {
+		list-style-type: decimal;
+	}
+
+	/* A marker is punctuation around the prose, not part of it. */
+	li::marker {
+		color: var(--text-2);
 	}
 
 	li + li {
 		margin-block-start: 2px;
+	}
+
+	/* A nested list belongs to its parent item, so it keeps the item-to-item
+	   rhythm instead of the 8px that separates top-level blocks. */
+	li > ul,
+	li > ol {
+		margin-block: 2px;
+	}
+
+	/* A loose list wraps every item in a paragraph; those inherit the 8px
+	   block margin and blow the list open. Interior paragraphs keep it, so a
+	   genuinely multi-paragraph item still reads as one. */
+	li > p:first-child {
+		margin-block-start: 0;
+	}
+
+	li > p:last-child {
+		margin-block-end: 0;
+	}
+
+	/* A GFM task item brings its own checkbox glyph, so it drops the marker
+	   and hangs the box in the marker's gutter instead. Sanitization strips
+	   the `task-list-item` class, so the checkbox is what identifies them. */
+	li:has(> input[type="checkbox"]) {
+		list-style: none;
+
+		> input[type="checkbox"] {
+			width: 13px;
+			height: 13px;
+			/* -19 + 13 + 6 = 0: the text lines up with plain items above. */
+			margin-inline: -19px 6px;
+			vertical-align: -2px;
+		}
 	}
 
 	code {
@@ -81,6 +141,10 @@
 	}
 
 	blockquote {
+		/* The UA default is `margin-inline: 40px`, which the `margin-block`
+		   rule above leaves standing — it would indent the quote bar well
+		   past the surrounding prose. */
+		margin-inline: 0;
 		padding-inline-start: 12px;
 		border-inline-start: 3px solid var(--border-2);
 		color: var(--text-2);
@@ -116,9 +180,30 @@
 		overflow-wrap: normal;
 	}
 
+	th {
+		background-color: var(--bg-2);
+		font-weight: 600;
+		text-align: start;
+	}
+
 	hr {
 		margin-block: 12px;
 		border: none;
 		border-top: 1px solid var(--border-3);
+	}
+
+	/* `kbd` and `details` are in the sanitizer's allowlist, so both reach the
+	   page — a keycap needs to read as one, and a fold needs to look clickable. */
+	kbd {
+		padding: 1px 5px;
+		border: 1px solid var(--border-3);
+		border-radius: var(--radius-button);
+		background-color: var(--bg-2);
+		font-size: 12px;
+		font-family: var(--text-fontfamily-mono);
+	}
+
+	summary {
+		cursor: pointer;
 	}
 }

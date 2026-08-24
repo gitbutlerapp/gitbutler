@@ -3,11 +3,14 @@ import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-c
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
+	useAddReviewLabels,
 	useCommitUncommitChanges,
 	useOpenInProgram,
+	useRequestReview,
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
+import { type DraftPRExtras, draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
 import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
@@ -59,7 +62,10 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
-import { PullRequestPanel } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
+import {
+	NewPullRequestPanel,
+	PullRequestPanel,
+} from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
 import {
 	PullRequestDescription,
 	PullRequestForm,
@@ -2224,7 +2230,6 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<Group
 				id={layoutId}
-				className={styles.panels}
 				defaultLayout={diffLayout.defaultLayout}
 				onLayoutChanged={diffLayout.onLayoutChanged}
 			>
@@ -2621,15 +2626,17 @@ const CommitDetails: FC<{
 				</div>
 
 				{review && (
-					<div className={classes(styles.tabsRow, tab === "pr" && styles.tabsRowPrCap)}>
+					<div className={styles.tabsRow}>
 						<BranchTabToggle branchTab={tab} setBranchTab={setTab} />
 					</div>
 				)}
 			</div>
 
 			{review && tab === "pr" ? (
-				<div className={styles.prTab}>
-					<LandedReviewView projectId={projectId} reviewId={review.number} />
+				<div className={styles.prTabScroll}>
+					<div className={styles.prTab}>
+						<LandedReviewView projectId={projectId} reviewId={review.number} />
+					</div>
 				</div>
 			) : (
 				<Diff
@@ -2721,17 +2728,24 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
 			<div className={styles.title}>
 				<FocusScopeKbd hotkey="0" scope="details" />
 				<Icon name="branch" />
-				<h3 className={classes("text-15", "text-semibold")}>{branchName}</h3>
+				<h3 className={classes(styles.titleContent, "text-15", "text-semibold")}>{branchName}</h3>
 			</div>
 		</div>
 	);
 };
 
-/** The Diff / Pull Request toggle, for a branch with both to show. */
-const BranchTabToggle: FC<{ branchTab: BranchTab; setBranchTab: (tab: BranchTab) => void }> = ({
-	branchTab,
-	setBranchTab,
-}) => (
+/**
+ * The Diff / Pull Request toggle. A branch with no review keeps the toggle —
+ * the tab goes disabled and says so, where dropping the toggle would instead
+ * read as the control having gone missing. The reason rides in the label
+ * because a disabled button takes no pointer events, so a tooltip on it would
+ * never open.
+ */
+const BranchTabToggle: FC<{
+	branchTab: BranchTab;
+	setBranchTab: (tab: BranchTab) => void;
+	prDisabled?: boolean;
+}> = ({ branchTab, setBranchTab, prDisabled = false }) => (
 	<ToggleGroup
 		render={<ToggleGroupStyles />}
 		value={[branchTab]}
@@ -2745,8 +2759,8 @@ const BranchTabToggle: FC<{ branchTab: BranchTab; setBranchTab: (tab: BranchTab)
 		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
 			Diff
 		</Toggle>
-		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
-			Pull Request
+		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
+			{prDisabled ? "No pull request" : "Pull Request"}
 		</Toggle>
 	</ToggleGroup>
 );
@@ -2825,6 +2839,70 @@ const ReviewView: FC<{
 	);
 };
 
+/**
+ * The Pull Request tab for a branch that has no PR yet: the create form, with
+ * the panel beside it summarizing what would be published.
+ */
+const NewPullRequestView: FC<{
+	projectId: string;
+	branchName: string;
+	targetBranch: string | undefined;
+	canSubmit: boolean;
+}> = ({ projectId, branchName, targetBranch, canSubmit }) => {
+	// Same record the form persists its title and body to, read here for the
+	// fields the panel owns. Both writers merge, so neither wipes the other.
+	const { data: draft } = useSuspenseQuery(draftPRQueryOptions({ projectId, branchName }));
+	const { mutate: persistDraftPR } = usePersistDraftPR();
+	const [extras, setExtras] = useState<DraftPRExtras>({
+		labels: draft?.labels ?? [],
+		reviewers: draft?.reviewers ?? [],
+	});
+
+	const changeExtras = (next: DraftPRExtras) => {
+		setExtras(next);
+		persistDraftPR({ projectId, branchName, draft: { ...draft, ...next } });
+	};
+
+	const { mutate: addReviewLabels } = useAddReviewLabels();
+	const { mutate: requestReview } = useRequestReview();
+
+	// The forge takes none of these when a PR is created — GitHub's create
+	// endpoint accepts neither labels nor reviewers — so they are applied the
+	// moment the PR exists. Each mutation toasts its own failure and the PR
+	// stands regardless; the real panel replaces this one and can set by hand
+	// whatever did not land.
+	const applyExtras = (reviewId: number) => {
+		if (extras.labels.length > 0) addReviewLabels({ projectId, reviewId, labels: extras.labels });
+		if (extras.reviewers.length > 0)
+			requestReview({ projectId, reviewId, logins: extras.reviewers });
+	};
+
+	return (
+		<div className={styles.prLayout}>
+			<div className={styles.prMain}>
+				<PullRequestForm
+					key={branchName}
+					body={null}
+					projectId={projectId}
+					reviewId={null}
+					sourceBranch={branchName}
+					title={null}
+					canSubmit={canSubmit}
+					afterPublish={applyExtras}
+				/>
+			</div>
+
+			<NewPullRequestPanel
+				projectId={projectId}
+				sourceBranch={branchName}
+				targetBranch={targetBranch}
+				extras={extras}
+				onExtrasChange={changeExtras}
+			/>
+		</div>
+	);
+};
+
 /** What every details view threads through to its Diff. */
 type DetailsViewProps = {
 	projectId: string;
@@ -2879,13 +2957,13 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			<div className={styles.headerWrap}>
 				<BranchTitleRow branchName={branchName} />
 
-				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
-					{review && <BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />}
+				<div className={styles.tabsRow}>
+					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} prDisabled={!review} />
 
 					<div className={styles.tabsRowRight}>
 						<button
 							type="button"
-							className={getButtonClassName({ variant: "pop" })}
+							className={getButtonClassName({ variant: "gray" })}
 							disabled={isApplyPending}
 							onClick={() => apply(decodeBytes(branch.branchRef))}
 						>
@@ -2898,8 +2976,10 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{review && branchTab === "pr" ? (
-					<div className={styles.prTab}>
-						<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+					<div className={styles.prTabScroll}>
+						<div className={styles.prTab}>
+							<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+						</div>
 					</div>
 				) : (
 					<BranchDiff
@@ -2965,7 +3045,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 			<div className={styles.headerWrap}>
 				<BranchTitleRow branchName={branchName} />
 
-				<div className={classes(styles.tabsRow, branchTab === "pr" && styles.tabsRowPrCap)}>
+				<div className={styles.tabsRow}>
 					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
@@ -2999,51 +3079,47 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
-					<div className={styles.prTab}>
-						{!forgeInfo?.capabilities.prService ? (
-							<PullRequestForm
-								key={branchName}
-								body={null}
-								projectId={projectId}
-								reviewId={null}
-								sourceBranch={branchName}
-								title={null}
-								canSubmit={false}
-							/>
-						) : (
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(branchName);
-									const canSubmit =
-										targetBranch !== undefined &&
-										branchCtx?.segment.pushStatus !== "completelyUnpushed";
+					<div className={styles.prTabScroll}>
+						<div className={styles.prTab}>
+							{!forgeInfo?.capabilities.prService ? (
+								<NewPullRequestView
+									projectId={projectId}
+									branchName={branchName}
+									targetBranch={targetBranch}
+									canSubmit={false}
+								/>
+							) : (
+								<SuspenseQuery
+									{...listReviewsQueryOptions({
+										projectId,
+										cacheConfig: "noCache",
+									})}
+								>
+									{({ data }) => {
+										const review = data.reviewsBySourceBranch.get(branchName);
+										const canSubmit =
+											targetBranch !== undefined &&
+											branchCtx?.segment.pushStatus !== "completelyUnpushed";
 
-									return !review || !canSubmit ? (
-										<PullRequestForm
-											key={branchName}
-											body={null}
-											projectId={projectId}
-											reviewId={null}
-											sourceBranch={branchName}
-											title={null}
-											canSubmit={canSubmit}
-										/>
-									) : (
-										<ReviewView
-											projectId={projectId}
-											sourceBranch={branchName}
-											review={review}
-											editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						)}
+										return !review || !canSubmit ? (
+											<NewPullRequestView
+												projectId={projectId}
+												branchName={branchName}
+												targetBranch={targetBranch}
+												canSubmit={canSubmit}
+											/>
+										) : (
+											<ReviewView
+												projectId={projectId}
+												sourceBranch={branchName}
+												review={review}
+												editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
+											/>
+										);
+									}}
+								</SuspenseQuery>
+							)}
+						</div>
 					</div>
 				) : (
 					<BranchDiff

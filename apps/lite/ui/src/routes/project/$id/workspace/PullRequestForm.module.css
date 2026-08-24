@@ -16,7 +16,6 @@
 	display: flex;
 	row-gap: 8px;
 	flex-direction: column;
-	max-width: 700px;
 }
 
 /* The description composer: toolbar, source textarea, and action footer all

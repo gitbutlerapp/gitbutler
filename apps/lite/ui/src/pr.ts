@@ -22,10 +22,25 @@ export const usePersistMergeMethod = () =>
 			ctx.client.setQueryData(mergeMethodQueryOptions(input.projectId).queryKey, input.method),
 	});
 
+/**
+ * All fields optional so a record written by an older build still reads.
+ *
+ * `labels` and `reviewers` are settings for a PR that does not exist yet: the
+ * forge takes neither when creating one, so they are held here until there is
+ * a review to apply them to.
+ */
 type DraftPR = {
 	title?: string;
 	body?: string;
 	isDraft?: boolean;
+	labels?: Array<string>;
+	reviewers?: Array<string>;
+};
+
+/** The part of a draft the panel beside the create form owns. */
+export type DraftPRExtras = {
+	labels: Array<string>;
+	reviewers: Array<string>;
 };
 
 // Branch name isn't stable identity. Ideally in the future this'd be written to Git metadata.

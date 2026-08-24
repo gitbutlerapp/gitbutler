@@ -6,6 +6,7 @@ import {
 	useWithdrawReviewRequest,
 } from "#ui/api/mutations.ts";
 import {
+	currentForgeLoginQueryOptions,
 	forgeInfoOptions,
 	listCIChecksQueryOptions,
 	listReviewSubmissionsQueryOptions,
@@ -18,7 +19,8 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import { type NativeMenuItem, nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import type {
 	CiCheck,
@@ -60,6 +62,24 @@ const Section: FC<{
 	</div>
 );
 
+/**
+ * A native menu with no items opens as an empty rectangle, which reads as a
+ * broken button rather than an empty list — say why instead.
+ */
+const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<NativeMenuItem> =>
+	items.length > 0 ? items : [nativeMenuItem({ label: notice, enabled: false })];
+
+const pickerButton = (label: string, onClick: (evt: MouseEvent<HTMLButtonElement>) => void) => (
+	<button
+		aria-label={label}
+		className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+		onClick={onClick}
+		type="button"
+	>
+		<Icon name="plus" />
+	</button>
+);
+
 /** Muted stand-ins shown while a section has nothing in it yet. */
 const PeoplePlaceholder: FC = () => (
 	<div className={styles.placeholderPeople}>
@@ -87,7 +107,7 @@ const LabelsPlaceholder: FC = () => (
 	</div>
 );
 
-export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
+const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
 		{user.avatarUrl !== null ? (
 			<img src={user.avatarUrl} className={styles.avatar} alt="" />
@@ -149,6 +169,142 @@ const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
+	);
+};
+
+/**
+ * The side panel while a PR is still being drafted: what the PR would be made
+ * of, so the summary the form asks for can be written against something.
+ *
+ * Reviewers and labels are absent rather than shown empty — `publish_review`
+ * takes neither, so there would be nothing to set until the PR exists.
+ */
+export const NewPullRequestPanel: FC<{
+	projectId: string;
+	sourceBranch: string;
+	/** Unknown while the branch is completely unpushed, which also blocks submit. */
+	targetBranch: string | undefined;
+	/** Held here until the PR exists; see {@link DraftPRExtras}. */
+	extras: DraftPRExtras;
+	onExtrasChange: (extras: DraftPRExtras) => void;
+}> = ({ projectId, sourceBranch, targetBranch, extras, onExtrasChange }) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const canManage = forgeInfo?.capabilities.reviewManagement === true;
+	const { data: repoLabels } = useQuery({
+		...repoLabelsQueryOptions(projectId),
+		enabled: canManage,
+	});
+	const { data: reviewerCandidates } = useQuery({
+		...reviewerCandidatesQueryOptions(projectId),
+		enabled: canManage,
+	});
+	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
+
+	// Cached data still reads after the capability flips off, so gate on the
+	// capability rather than on the cache being populated.
+	const canPickLabels = canManage && repoLabels !== undefined;
+	const canPickReviewers = canManage && reviewerCandidates !== undefined;
+
+	const toggle = (list: Array<string>, value: string): Array<string> =>
+		list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+
+	const openLabelMenu = (evt: MouseEvent<HTMLButtonElement>) => {
+		if (!canPickLabels) return;
+		void showNativeMenuFromTrigger(
+			evt.currentTarget,
+			orEmptyNotice(
+				repoLabels.map((label) =>
+					nativeMenuItem({
+						label: label.name,
+						checked: extras.labels.includes(label.name),
+						onSelect: () =>
+							onExtrasChange({ ...extras, labels: toggle(extras.labels, label.name) }),
+					}),
+				),
+				"This repository has no labels",
+			),
+		);
+	};
+
+	const openReviewerMenu = (evt: MouseEvent<HTMLButtonElement>) => {
+		if (!canPickReviewers) return;
+		void showNativeMenuFromTrigger(
+			evt.currentTarget,
+			orEmptyNotice(
+				reviewerCandidates
+					// The author can't review their own PR, so a solo repository
+					// leaves nothing to pick.
+					.filter((candidate) => candidate.login !== currentLogin)
+					.map((candidate) =>
+						nativeMenuItem({
+							label: candidate.login,
+							checked: extras.reviewers.includes(candidate.login),
+							onSelect: () =>
+								onExtrasChange({ ...extras, reviewers: toggle(extras.reviewers, candidate.login) }),
+						}),
+					),
+				"No one else can be asked to review",
+			),
+		);
+	};
+
+	const pickedReviewers = extras.reviewers.map((login) => ({
+		login,
+		user: reviewerCandidates?.find((candidate) => candidate.login === login),
+	}));
+	const pickedLabels = extras.labels.map(
+		(name) =>
+			repoLabels?.find((label) => label.name === name) ?? { name, color: null, description: null },
+	);
+
+	return (
+		<aside className={styles.panel}>
+			<Section
+				heading="Reviewers"
+				action={canPickReviewers && pickerButton("Request a review", openReviewerMenu)}
+			>
+				{pickedReviewers.length === 0 ? (
+					<PeoplePlaceholder />
+				) : (
+					pickedReviewers.map(({ login, user }) =>
+						user === undefined ? (
+							<span key={login} className="text-13">
+								{login}
+							</span>
+						) : (
+							<ReviewUser key={login} user={user} />
+						),
+					)
+				)}
+			</Section>
+
+			<Section
+				heading="Labels"
+				action={canPickLabels && pickerButton("Edit labels", openLabelMenu)}
+			>
+				{pickedLabels.length === 0 ? (
+					<LabelsPlaceholder />
+				) : (
+					<div className={styles.labels}>
+						{pickedLabels.map((label) => (
+							<Label key={label.name} label={label} />
+						))}
+					</div>
+				)}
+			</Section>
+
+			<Section heading="Branches">
+				<div className={classes("text-13", styles.branches)}>
+					<CopyableBranch name={sourceBranch} />
+					{targetBranch !== undefined && (
+						<>
+							<span className={styles.branchArrow}>→</span>
+							<span className={styles.targetBranch}>{targetBranch}</span>
+						</>
+					)}
+				</div>
+			</Section>
+		</aside>
 	);
 };
 
@@ -414,17 +570,6 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 				}),
 		);
 	};
-
-	const pickerButton = (label: string, onClick: (evt: MouseEvent<HTMLButtonElement>) => void) => (
-		<button
-			aria-label={label}
-			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
-			onClick={onClick}
-			type="button"
-		>
-			<Icon name="plus" />
-		</button>
-	);
 
 	const [statusLabel, statusVariant, statusIcon] = Match.value(reviewStatus(review)).pipe(
 		Match.withReturnType<[string, BadgeVariant, IconName]>(),

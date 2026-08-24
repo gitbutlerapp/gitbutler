@@ -1,3 +1,4 @@
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -102,7 +103,8 @@ export const Reactions: FC<{
 								chip.mine !== undefined && styles.reactionChipMine,
 							)}
 						>
-							{glyph} {chip.count}
+							<span>{glyph}</span>
+							<span className="text-semibold">{chip.count}</span>
 						</span>
 					) : (
 						<button
@@ -117,7 +119,8 @@ export const Reactions: FC<{
 							)}
 							onClick={() => toggle(chip.kind, chip.mine)}
 						>
-							{glyph} {chip.count}
+							<span>{glyph}</span>
+							<span className="text-semibold">{chip.count}</span>
 						</button>
 					);
 				if (chip.who === undefined || chip.who.length === 0) return chipNode;
@@ -140,7 +143,11 @@ export const Reactions: FC<{
 				<Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
 					<Popover.Trigger
 						render={
-							<button aria-label="Add reaction" className={styles.addReaction} type="button" />
+							<button
+								aria-label="Add reaction"
+								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								type="button"
+							/>
 						}
 					>
 						<Icon name="smiley" />

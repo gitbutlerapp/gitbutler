@@ -1,15 +1,14 @@
 .container {
-	/* Shared by the PR layout and the header so the primary-action buttons
-	   align with the panel column's right edge. The panel consumes
-	   --pr-panel-width for its own flex-basis. */
-	--pr-main-max: 700px;
+	/* The PR layout's columns. They live up here because .prLayout caps itself
+	   at their sum, and because the panel — a separate module, so no literal to
+	   share — reads --pr-panel-width for its own flex-basis. */
+	--pr-main-max: 900px;
 	--pr-panel-width: 315px;
 	--pr-layout-gap: 16px;
-	--pr-content-max: calc(var(--pr-main-max) + var(--pr-layout-gap) + var(--pr-panel-width));
 
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-	row-gap: 12px;
+	row-gap: 0;
 }
 
 .containerLone {
@@ -24,7 +23,11 @@
 	/* Symmetric so the header actions share a right edge with the content
 	   columns below, which all inset by the same token. */
 	padding-inline: var(--panel-padding-inline);
-	padding-block-start: var(--panel-padding-block);
+	padding-block: var(--panel-padding-block) 12px;
+	/* The header draws its own bottom edge, so the tab row reads as a strip
+	   spanning the pane rather than a control floating in empty space. Every
+	   view below it — diff, PR, loading — starts flush under this line. */
+	border-bottom: 1px solid var(--border-section);
 }
 
 .titleRow {
@@ -44,6 +47,8 @@
 	grid-template-columns: auto auto 1fr;
 	column-gap: 8px;
 	align-items: center;
+	/* Long names ellipsize rather than shove the row's actions off the edge. */
+	min-width: 0;
 }
 
 .titleContentWrapper {
@@ -81,15 +86,6 @@
 	gap: 6px;
 }
 
-.panels {
-	border-top: 1px solid var(--border-section);
-
-	/* No header above in the lone layout; the border would shift content down 1px. */
-	.containerLone & {
-		border-top: none;
-	}
-}
-
 .panel {
 	/* Stretch/shrink single child element to fit this element. */
 	display: grid;
@@ -99,7 +95,9 @@
 
 .loadingTab {
 	padding-inline: var(--panel-padding-inline);
-	padding-block-end: var(--panel-padding-block);
+	/* Deeper than the panel's own block padding: the tab ends on the comment
+	   composer, which needs room under it rather than the viewport edge. */
+	padding-block: 12px 24px;
 }
 
 .diffTab {
@@ -224,39 +222,35 @@
 	column-gap: 12px;
 }
 
-/* While the PR tab is showing, cap the row to the PR content width so the
-   primary actions align with the panel column instead of the pane edge. */
-.tabsRowPrCap {
-	max-width: var(--pr-content-max);
-}
-
 .tabsRowRight {
 	margin-inline-start: auto;
 }
 
+/* The tab owns its scrolling, the way the diff tab does. Without this the
+   content overflows all the way up to the page pane, which carries the
+   details header out of view with it. */
+.prTabScroll {
+	overflow-y: auto;
+}
+
 .prTab {
-	/* The container grid clamps this row to the pane height while the pane
-	   scrolls the overflow; size to content instead so the end padding lands
-	   after the composer rather than mid-content. */
-	align-self: start;
+	width: 100%;
+	max-width: 1000px;
+	margin: 0 auto;
 	padding-inline: var(--panel-padding-inline);
-	padding-block-end: var(--panel-padding-block);
+	/* Deeper than the panel's own block padding: the tab ends on the comment
+	   composer, which needs room under it rather than the viewport edge. */
+	padding-block: 12px 24px;
 }
 
 .prLayout {
 	display: flex;
-	flex-wrap: wrap;
 	align-items: flex-start;
-	/* Cap the whole row so the panel sits just right of the main column
-	   instead of drifting to the pane's far edge at wide widths. */
-	max-width: var(--pr-content-max);
 	gap: var(--pr-layout-gap);
 }
 
 .prMain {
-	flex: 1 1 400px;
-	min-width: 0;
-	max-width: var(--pr-main-max);
+	flex: 1;
 }
 
 .fileHeader {

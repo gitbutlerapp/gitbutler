@@ -95,7 +95,23 @@ export const PullRequestForm: FC<{
 	onAfterSubmit?: () => void;
 	/** Adds a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
-}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, onAfterSubmit, onCancel }) => {
+	/**
+	 * Called with the new PR's number right after it is created, for the
+	 * settings the forge cannot take at creation time (labels, reviewers,
+	 * auto-merge). Never called when editing an existing PR.
+	 */
+	afterPublish?: (reviewId: number) => void;
+}> = ({
+	projectId,
+	sourceBranch,
+	reviewId,
+	title,
+	body,
+	canSubmit,
+	onAfterSubmit,
+	onCancel,
+	afterPublish,
+}) => {
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -169,7 +185,9 @@ export const PullRequestForm: FC<{
 			persistDraftPR({
 				projectId,
 				branchName: sourceBranch,
-				draft: localDocument,
+				// Merged, not replaced: the panel beside this form owns the
+				// record's other fields and would otherwise be wiped.
+				draft: { ...persistedDocument, ...localDocument },
 			});
 		} else if (persistedDocument) {
 			deleteDraftPR({ projectId, branchName: sourceBranch });
@@ -242,16 +260,19 @@ export const PullRequestForm: FC<{
 		if (!canSubmit || isAnyPending || localDocument.title.trim() === "") return;
 
 		if (reviewId === null) {
-			publishReview({
-				projectId,
-				params: {
-					title: localDocument.title,
-					body: localDocument.body,
-					draft: localDocument.isDraft,
-					localBranch: sourceBranch,
-					sourceBranch,
+			publishReview(
+				{
+					projectId,
+					params: {
+						title: localDocument.title,
+						body: localDocument.body,
+						draft: localDocument.isDraft,
+						localBranch: sourceBranch,
+						sourceBranch,
+					},
 				},
-			});
+				{ onSuccess: (outcome) => afterPublish?.(outcome.review.number) },
+			);
 		} else {
 			updateReview(
 				{

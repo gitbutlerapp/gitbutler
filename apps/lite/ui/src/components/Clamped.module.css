@@ -12,8 +12,13 @@
 	right: 0;
 	bottom: 0;
 	left: 0;
-	height: 32px;
-	background: linear-gradient(to bottom, transparent, var(--bg-1));
+	/* Sized as a ~31px ramp plus a solid band just deep enough to seat the
+	   trigger's line. */
+	height: 56px;
+	/* Reaching full opacity at 55% is what clears the text: a straight ramp to
+	   the bottom stays translucent under the label, so it would read as
+	   printed over the prose. */
+	background: linear-gradient(to bottom, transparent, var(--bg-1) 55%);
 	content: "";
 	pointer-events: none;
 }
@@ -23,11 +28,27 @@
 	padding: 0;
 	border: none;
 	background: none;
-	color: var(--text-2);
-	font: inherit;
-	cursor: pointer;
+	color: var(--text-1);
+	/* The designed link treatment: dotted, on the font's own underline. */
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	opacity: 0.7;
 
 	&:hover {
-		color: var(--text-1);
+		opacity: 1;
 	}
+}
+
+.toggleOverlay {
+	/* Above the fade, which is itself above the clipped content. */
+	z-index: 2;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+}
+
+/* Unfolded there is no fade to seat the trigger, and the content's last child
+   has no bottom margin of its own, so the gap is this rule's job. */
+.toggleInline {
+	margin-block-start: 8px;
 }

@@ -1,152 +1,334 @@
+/* The feed is its own section under the description, so a rule separates
+   the two rather than distance alone. */
 .comments {
-	margin-block-start: 48px;
-}
-
-.commentsHeading {
-	margin-block-end: 8px;
-	color: var(--text-2);
-	font-weight: 600;
+	/* The rule needs air on both sides: the margin clears the description's
+	   reactions above it, the padding clears the first feed row below. */
+	margin-block-start: 24px;
+	padding-block: 24px;
+	border-block-start: 1px solid var(--border-section);
 }
 
 .commentsEmpty {
 	color: var(--text-3);
 }
 
+/* Spacing is per-pair rather than one uniform gap: comments cluster tightly,
+   events cluster tighter still, and a change of kind opens the list up. */
 .commentList {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
 }
 
-.comment {
+.card + .card {
+	margin-block-start: 6px;
+}
+
+.event + .event {
+	margin-block-start: 4px;
+}
+
+.card + .event,
+.event + .card {
+	margin-block-start: 14px;
+}
+
+/* ---- Card (comments and review submissions) ---------------------------- */
+
+.card {
 	display: flex;
 	flex-direction: column;
-	padding: 10px 12px;
-	gap: 4px;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
 }
 
 /* An optimistic comment still in flight to the forge. */
-.commentSending {
+.cardSending {
 	opacity: 0.6;
 }
 
-.commentMeta {
+.cardBody {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
+	padding: 14px;
 	gap: 8px;
 }
 
-.commentTime {
+.cardHeader {
+	display: flex;
+	align-items: flex-start;
+	min-height: 20px;
+	gap: 8px;
+}
+
+.cardIdentity {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+	gap: 6px;
+}
+
+.avatar {
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
+	object-fit: cover;
+	border-radius: 50%;
+	background-color: var(--bg-2);
+}
+
+.authorLogin {
+	overflow: hidden;
+	color: var(--text-1);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cardTime {
+	flex-shrink: 0;
+	color: var(--text-2);
+}
+
+.cardEdited {
+	flex-shrink: 0;
 	color: var(--text-3);
 }
 
-.commentActions {
-	display: flex;
-	align-items: center;
-	margin-inline-start: auto;
-	padding: 0;
-	border: none;
-	background: none;
-	color: var(--text-2);
-	cursor: pointer;
-	/* Quiet until the comment is hovered; keyboard focus and an in-flight
-	   delete keep it visible. */
+/* Quiet until the card is hovered; keyboard focus and an in-flight delete
+   keep it visible. */
+.kebab {
+	flex-shrink: 0;
 	opacity: 0;
-	transition: opacity 120ms ease;
+	transition: opacity var(--transition-fast);
 
-	&:hover {
-		color: var(--text-1);
-	}
-
-	.comment:hover &,
+	.card:hover &,
 	&:focus-visible,
 	&:disabled {
 		opacity: 1;
 	}
 }
 
-/* Timeline rows that are events (opened, reviewed) rather than comments:
- * no card chrome, just the meta line and an optional indented body. */
-.event {
-	display: flex;
-	position: relative;
-	flex-direction: column;
-	padding-inline: 12px;
-	gap: 4px;
-
-	/* Short connector dashes in the gaps around event rows, centered on the
-	   icon column. Adjacent events' below/above stubs coincide, so each gap
-	   shows exactly one dash; the comment cards stay dash-free. */
-	&:not(:first-child)::before,
-	&:not(:last-child)::after {
-		position: absolute;
-		left: 20px;
-		width: 1px;
-		background-color: var(--border-2);
-		content: "";
-	}
-
-	&::before {
-		top: -12px;
-		height: 8px;
-	}
-
-	&::after {
-		bottom: -12px;
-		height: 8px;
-	}
-}
-
-.eventText {
-	color: var(--text-2);
-}
-
-.eventBody {
-	padding: 10px 12px;
-	border: 1px solid var(--border-3);
-	border-radius: var(--radius-lg);
-}
-
-.eventActor {
+.cardContent {
 	color: var(--text-1);
 }
 
-.eventSha {
-	font-family: var(--text-fontfamily-mono);
-}
-
-.commentFooter {
+/* The rule above the footer is inset from the card edge, so it is drawn
+   inside the footer's padding rather than as a border on the card. */
+.cardFooter {
 	display: flex;
+	position: relative;
 	align-items: center;
-	margin-block-start: 4px;
-	padding-block-start: 8px;
-	gap: 8px;
-	border-top: 1px solid var(--border-section);
-}
+	padding: 12px 14px;
+	gap: 4px;
 
-.replyButton {
-	margin-inline-start: auto;
-	padding: 0;
-	border: none;
-	background: none;
-	color: var(--text-2);
-	cursor: pointer;
-
-	&:hover {
-		color: var(--text-1);
+	&::before {
+		position: absolute;
+		top: 0;
+		right: 14px;
+		left: 14px;
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
 	}
 }
 
+/* ---- In-card editor ---------------------------------------------------- */
+
+.editor {
+	display: flex;
+	flex-direction: column;
+	border-radius: var(--radius-button);
+	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
+	transition: outline-color var(--transition-fast);
+
+	&:focus-within {
+		outline: var(--focus-ring);
+		outline-offset: -1.5px;
+	}
+}
+
+.editorInput {
+	--scrollbar-track-bg: transparent;
+	--scrollbar-track-border: transparent;
+	padding: 12px 14px;
+	border: none;
+	background: none;
+	color: var(--text-1);
+	field-sizing: content;
+	min-height: 3lh;
+	max-height: 20lh;
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.editorActions {
+	display: flex;
+	position: relative;
+	justify-content: flex-end;
+	padding: 12px;
+	gap: 4px;
+
+	&::before {
+		position: absolute;
+		top: 0;
+		right: 12px;
+		left: 12px;
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
+	}
+}
+
+/* ---- Feed event rows --------------------------------------------------- */
+
+/* No card chrome: a 12px glyph column, then one line of muted meta. */
+.event {
+	display: flex;
+	position: relative;
+	/* Rows wrap, so the glyph pins to the first line rather than centring on
+	   the whole block. */
+	align-items: flex-start;
+	padding-inline-start: 12px;
+	/* Reserves the trailing connector: a 4px gap, then the 7.5px stub. */
+	padding-block-end: 11.5px;
+	gap: 10px;
+
+	/* Every event trails a dash, centred on the glyph column (12px inset plus
+	   half the 12px glyph) — including the last one before a card or the
+	   composer, which is what carries the feed's rhythm across a change of
+	   kind. Cards themselves stay dash-free. It hangs from 4px under the first
+	   line down to the row's bottom edge, so a summary that wraps grows the
+	   dash rather than opening a hole in the column beside the extra lines. */
+	&::after {
+		position: absolute;
+		top: calc(1lh + 4px);
+		bottom: 0;
+		left: 18px;
+		width: 1px;
+		background-color: var(--border-3);
+		content: "";
+		opacity: 0.8;
+	}
+}
+
+.eventIcon {
+	flex-shrink: 0;
+	/* Centred on the first line's box, not on the row. */
+	margin-block-start: calc((1lh - 12px) / 2);
+	color: var(--text-2);
+}
+
+/* Plain text flow, not a flex row: a long summary wraps to the next line with
+   a hanging indent under itself, and the trailing time rides along with it
+   instead of being pushed against the right edge. */
+.eventMeta {
+	min-width: 0;
+	color: var(--text-2);
+}
+
+/* A referenced object — actor, branch, sha — set apart from the connective
+   prose by contrast. Not underlined: none of these are interactive, and an
+   underline would advertise a link that isn't there. */
+.eventRef {
+	color: var(--text-1);
+}
+
+.eventMono {
+	font-family: var(--text-fontfamily-mono);
+}
+
+/* ---- Composer ---------------------------------------------------------- */
+
+/* Toolbar, source, and action footer share one card surface, so the focus
+   ring belongs to the card. */
 .composer {
 	display: flex;
 	flex-direction: column;
-	margin-block-start: 16px;
-	gap: 8px;
+	margin-block-start: 14px;
+	border-radius: var(--radius-card);
+	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
+	background-color: var(--bg-1);
+	transition: outline-color var(--transition-fast);
+
+	&:hover:not(:focus-within) {
+		outline-color: var(--border-1);
+	}
+
+	&:focus-within {
+		outline: var(--focus-ring);
+		outline-offset: -1.5px;
+	}
 }
 
-.composerActions {
+.composerToolbar {
+	padding: 8px 8px 2px;
+	/* Transparent until the body scrolls, so revealing it shifts no layout. */
+	border-bottom: 1px solid transparent;
+	transition: border-color var(--transition-fast);
+
+	[data-body-scrolled] > & {
+		border-bottom-color: var(--border-3);
+	}
+}
+
+.composerBody {
 	display: flex;
-	justify-content: flex-end;
+	align-items: flex-start;
+	padding: 16px;
+	gap: 12px;
+}
+
+.composerInput {
+	--scrollbar-track-bg: transparent;
+	--scrollbar-track-border: transparent;
+	flex: 1;
+	min-width: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-1);
+	field-sizing: content;
+	min-height: 2lh;
+	max-height: 20lh;
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+}
+
+.composerFooter {
+	display: flex;
+	position: relative;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px;
+	gap: 12px;
+
+	&::before {
+		position: absolute;
+		top: 0;
+		right: 12px;
+		left: 12px;
+		height: 1px;
+		background-color: var(--border-3);
+		content: "";
+	}
+}
+
+.composerFooterStart {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	gap: 2px;
 }
