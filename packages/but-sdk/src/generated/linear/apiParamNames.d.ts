@@ -101,6 +101,7 @@ export declare const apiParamNames: {
 	readonly listReviewerCandidates: readonly ["projectId"];
 	readonly listReviews: readonly ["projectId", "cacheConfig"];
 	readonly listReviewsForBranch: readonly ["projectId", "branch", "filter"];
+	readonly listSnapshots: readonly ["projectId", "limit", "sha", "excludeKind", "includeKind"];
 	readonly loginAndPersist: readonly ["token"];
 	readonly mergeReview: readonly ["projectId", "reviewId", "mergeMethod"];
 	readonly moveBranch: readonly ["projectId", "subjectBranch", "targetBranch", "dryRun"];

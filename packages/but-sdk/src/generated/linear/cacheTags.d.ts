@@ -33,6 +33,7 @@ export declare const apiProvides: {
 	readonly listReviewTimelineEvents: readonly ["ReviewTimeline"];
 	readonly listReviewerCandidates: readonly ["ReviewerCandidates"];
 	readonly listReviews: readonly ["Reviews"];
+	readonly listSnapshots: readonly ["Workspace"];
 	readonly operatingMode: readonly ["OperatingMode"];
 	readonly treeChangeDiffs: readonly ["Diffs"];
 	readonly workspaceFetchFromRemotes: readonly [];

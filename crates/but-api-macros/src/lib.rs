@@ -1051,6 +1051,16 @@ fn build_json_type_mapping<'a>(
                     json_ident: None,
                 },
             )
+        } else if let Some(inner_ty) = single_generic_type_arg(path, "Option")
+            && is_object_id_type(inner_ty)
+        {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("Option<crate::json::HexHash>")?,
+                    json_ident: None,
+                },
+            )
         } else if let Some(inner_ty) = single_generic_type_arg(path, "Vec")
             && is_object_id_type(inner_ty)
         {
@@ -1463,6 +1473,25 @@ fn build_napi_params<'a>(
                     _ => quote! { #ident },
                 };
                 call_arg_idents.push(call_ident);
+            } else if *last_ident == "Option"
+                && is_hex_hash_container_path(&mapping.json_ty, "Option")
+            {
+                // Option<ObjectId> via Option<HexHash> → Option<String>, then parse when present.
+                params.push(quote! { #param_name: Option<String> });
+                names.push(param_name.to_string());
+                conversions.push(quote! {
+                    let #ident: Option<gix::ObjectId> = #param_name
+                        .map(|value| {
+                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                                napi::Error::new(
+                                    napi::Status::InvalidArg,
+                                    format!("invalid '{}': {e}", stringify!(#param_name)),
+                                )
+                            })
+                        })
+                        .transpose()?;
+                });
+                call_arg_idents.push(quote! { #ident });
             } else if *last_ident == "Vec" && is_hex_hash_container_path(&mapping.json_ty, "Vec") {
                 // Vec<ObjectId> via Vec<HexHash> → Vec<String>, then parse each entry
                 params.push(quote! { #param_name: Vec<String> });
@@ -1869,7 +1898,19 @@ mod tests {
     }
 
     #[test]
-    fn maps_vec_object_id_to_vec_hex_hash_in_json_mapping() {
+    fn maps_option_and_vec_object_id_to_hex_hash_in_json_mapping() {
+        let arg: FnArg = parse_quote!(cursor: Option<gix::ObjectId>);
+        let mapping = build_json_type_mapping([&arg]).unwrap();
+        let option_mapping = mapping
+            .get("cursor")
+            .expect("Option<ObjectId> should be present in json mapping");
+        let json_ty = &option_mapping.json_ty;
+
+        assert_eq!(
+            quote!(#json_ty).to_string(),
+            quote!(Option<crate::json::HexHash>).to_string()
+        );
+
         let arg: FnArg = parse_quote!(commit_ids: Vec<gix::ObjectId>);
         let mapping = build_json_type_mapping([&arg]).unwrap();
         let vec_mapping = mapping
@@ -1915,6 +1956,41 @@ mod tests {
                         })
                     })
                     .collect::<std::result::Result<Vec<_>, napi::Error>>()?;
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn maps_option_object_id_to_option_string_napi_param_and_parser() {
+        let arg: FnArg = parse_quote!(cursor: Option<gix::ObjectId>);
+        let json_mapping = build_json_type_mapping([&arg]).unwrap();
+        let napi_info = build_napi_params([&arg], &json_mapping).unwrap();
+        let params = &napi_info.params;
+        let call_arg_idents = &napi_info.call_arg_idents;
+        let conversions = &napi_info.conversions;
+
+        assert_eq!(
+            quote!(#(#params),*).to_string(),
+            quote!(cursor: Option<String>).to_string()
+        );
+        assert_eq!(
+            quote!(#(#call_arg_idents),*).to_string(),
+            quote!(cursor).to_string()
+        );
+        assert_eq!(
+            quote!(#(#conversions)*).to_string(),
+            quote! {
+                let cursor: Option<gix::ObjectId> = cursor
+                    .map(|value| {
+                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                            napi::Error::new(
+                                napi::Status::InvalidArg,
+                                format!("invalid '{}': {e}", stringify!(cursor)),
+                            )
+                        })
+                    })
+                    .transpose()?;
             }
             .to_string()
         );

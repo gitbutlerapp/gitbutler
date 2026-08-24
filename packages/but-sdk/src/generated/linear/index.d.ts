@@ -813,6 +813,23 @@ export declare function listReviewSubmissions(projectId: string, reviewId: numbe
 /** List the pushed commits and review requests on a review's timeline. */
 export declare function listReviewTimelineEvents(projectId: string, reviewId: number): Promise<Array<ForgeReviewTimelineEvent>>
 
+/**
+ * List snapshots in the oplog.
+ *
+ * - `limit`: Maximum number of snapshots to return.
+ * - `sha`: Optional SHA to filter snapshots starting after a specific commit.
+ * - `exclude_kind`: Optional list of operation kinds to exclude from the results.
+ * - `include_kind`: Optional list of operation kinds to include (if set, only these kinds are returned).
+ *
+ * Returns a vector of `Snapshot` entries.
+ *
+ * Prefer using [`snapshots_iter`] if possible.
+ *
+ * # Errors
+ * Returns an error if the project cannot be found or if there is an issue accessing the oplog.
+ */
+export declare function listSnapshots(projectId: string, limit: number, sha: string | undefined | null, excludeKind: Array<OperationKind> | null, includeKind: Array<OperationKind> | null): Promise<Array<Snapshot>>
+
 /** Complete a login and persist the account, so the token never leaves this process. */
 export declare function loginAndPersist(token: string): Promise<UserProfile>
 

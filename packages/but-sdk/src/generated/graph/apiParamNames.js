@@ -101,6 +101,7 @@ export const apiParamNames = {
 	listReviewerCandidates: ["projectId"],
 	listReviews: ["projectId", "cacheConfig"],
 	listReviewsForBranch: ["projectId", "branch", "filter"],
+	listSnapshots: ["projectId", "limit", "sha", "excludeKind", "includeKind"],
 	loginAndPersist: ["token"],
 	mergeReview: ["projectId", "reviewId", "mergeMethod"],
 	moveBranch: ["projectId", "subjectBranch", "targetBranch", "dryRun"],
