@@ -201,15 +201,18 @@
 	/* Every event trails a dash, centred on the glyph column (12px inset plus
 	   half the 12px glyph) — including the last one before a card or the
 	   composer, which is what carries the feed's rhythm across a change of
-	   kind. Cards themselves stay dash-free. */
+	   kind. Cards themselves stay dash-free. It hangs from 4px under the first
+	   line down to the row's bottom edge, so a summary that wraps grows the
+	   dash rather than opening a hole in the column beside the extra lines. */
 	&::after {
 		position: absolute;
+		top: calc(1lh + 4px);
 		bottom: 0;
 		left: 18px;
 		width: 1px;
-		height: 7.5px;
-		background-color: var(--border-2);
+		background-color: var(--border-3);
 		content: "";
+		opacity: 0.8;
 	}
 }
 
