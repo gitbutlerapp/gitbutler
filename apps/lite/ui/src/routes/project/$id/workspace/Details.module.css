@@ -95,7 +95,9 @@
 
 .loadingTab {
 	padding-inline: var(--panel-padding-inline);
-	padding-block: 12px var(--panel-padding-block);
+	/* Deeper than the panel's own block padding: the tab ends on the comment
+	   composer, which needs room under it rather than the viewport edge. */
+	padding-block: 12px 24px;
 }
 
 .diffTab {
@@ -224,12 +226,21 @@
 	margin-inline-start: auto;
 }
 
+/* The tab owns its scrolling, the way the diff tab does. Without this the
+   content overflows all the way up to the page pane, which carries the
+   details header out of view with it. */
+.prTabScroll {
+	overflow-y: auto;
+}
+
 .prTab {
 	width: 100%;
 	max-width: 1000px;
 	margin: 0 auto;
 	padding-inline: var(--panel-padding-inline);
-	padding-block: 12px var(--panel-padding-block);
+	/* Deeper than the panel's own block padding: the tab ends on the comment
+	   composer, which needs room under it rather than the viewport edge. */
+	padding-block: 12px 24px;
 }
 
 .prLayout {

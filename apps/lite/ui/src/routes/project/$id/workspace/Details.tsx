@@ -2633,8 +2633,10 @@ const CommitDetails: FC<{
 			</div>
 
 			{review && tab === "pr" ? (
-				<div className={styles.prTab}>
-					<LandedReviewView projectId={projectId} reviewId={review.number} />
+				<div className={styles.prTabScroll}>
+					<div className={styles.prTab}>
+						<LandedReviewView projectId={projectId} reviewId={review.number} />
+					</div>
 				</div>
 			) : (
 				<Diff
@@ -2974,8 +2976,10 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{review && branchTab === "pr" ? (
-					<div className={styles.prTab}>
-						<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+					<div className={styles.prTabScroll}>
+						<div className={styles.prTab}>
+							<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+						</div>
 					</div>
 				) : (
 					<BranchDiff
@@ -3075,45 +3079,47 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
-					<div className={styles.prTab}>
-						{!forgeInfo?.capabilities.prService ? (
-							<NewPullRequestView
-								projectId={projectId}
-								branchName={branchName}
-								targetBranch={targetBranch}
-								canSubmit={false}
-							/>
-						) : (
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(branchName);
-									const canSubmit =
-										targetBranch !== undefined &&
-										branchCtx?.segment.pushStatus !== "completelyUnpushed";
+					<div className={styles.prTabScroll}>
+						<div className={styles.prTab}>
+							{!forgeInfo?.capabilities.prService ? (
+								<NewPullRequestView
+									projectId={projectId}
+									branchName={branchName}
+									targetBranch={targetBranch}
+									canSubmit={false}
+								/>
+							) : (
+								<SuspenseQuery
+									{...listReviewsQueryOptions({
+										projectId,
+										cacheConfig: "noCache",
+									})}
+								>
+									{({ data }) => {
+										const review = data.reviewsBySourceBranch.get(branchName);
+										const canSubmit =
+											targetBranch !== undefined &&
+											branchCtx?.segment.pushStatus !== "completelyUnpushed";
 
-									return !review || !canSubmit ? (
-										<NewPullRequestView
-											projectId={projectId}
-											branchName={branchName}
-											targetBranch={targetBranch}
-											canSubmit={canSubmit}
-										/>
-									) : (
-										<ReviewView
-											projectId={projectId}
-											sourceBranch={branchName}
-											review={review}
-											editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						)}
+										return !review || !canSubmit ? (
+											<NewPullRequestView
+												projectId={projectId}
+												branchName={branchName}
+												targetBranch={targetBranch}
+												canSubmit={canSubmit}
+											/>
+										) : (
+											<ReviewView
+												projectId={projectId}
+												sourceBranch={branchName}
+												review={review}
+												editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
+											/>
+										);
+									}}
+								</SuspenseQuery>
+							)}
+						</div>
 					</div>
 				) : (
 					<BranchDiff

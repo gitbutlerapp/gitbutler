@@ -1,5 +1,10 @@
 .panel {
 	display: flex;
+	/* Holds its place while the description and feed scroll past. The tab's
+	   own padding is what `top` matches, so it neither jumps nor drifts as it
+	   pins. */
+	position: sticky;
+	top: 12px;
 	/* Width is set by the details container so the header can align with
 	   the panel column (see --pr-panel-width in Details.module.css). */
 	flex: 0 0 var(--pr-panel-width, 315px);
