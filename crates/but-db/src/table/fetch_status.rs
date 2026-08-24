@@ -70,16 +70,23 @@ impl FetchStatusHandle<'_> {
 }
 
 impl FetchStatusHandleMut<'_> {
-    pub fn record_success(&mut self, attempted_ms: i64) -> rusqlite::Result<()> {
+    /// Record an attempt that counts as successful. `error` carries failures that were
+    /// tolerated (e.g. from remotes the caller does not depend on): the success timestamp
+    /// still advances while the errors are kept for diagnostics.
+    pub fn record_success(
+        &mut self,
+        attempted_ms: i64,
+        error: Option<&str>,
+    ) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO fetch_status (
                 singleton, last_attempted_ms, last_successful_ms, last_error
-             ) VALUES (1, ?1, ?1, NULL)
+             ) VALUES (1, ?1, ?1, ?2)
              ON CONFLICT(singleton) DO UPDATE SET
                 last_attempted_ms = excluded.last_attempted_ms,
                 last_successful_ms = excluded.last_successful_ms,
-                last_error = NULL",
-            [attempted_ms],
+                last_error = excluded.last_error",
+            rusqlite::params![attempted_ms, error],
         )?;
         Ok(())
     }

@@ -84,7 +84,16 @@ test.describe("manual workspace fetch", () => {
 		const expectedOriginMaster = git(remoteProject, ["rev-parse", "master"]);
 		expect(git(localClone, ["rev-parse", "origin/master"])).not.toBe(expectedOriginMaster);
 
+		const fetchResponse = page.waitForResponse(
+			(response) =>
+				response.url().endsWith("/workspace_fetch_from_remotes") &&
+				response.request().method() === "POST",
+		);
 		await clickByTestId(page, "sync-button");
+
+		// The target's remote (origin) is healthy, so the broken unrelated remote must not
+		// fail the operation (a failure response is what triggers the error toast).
+		expect(await (await fetchResponse).json()).toMatchObject({ type: "success" });
 
 		await expect
 			.poll(() => git(localClone, ["rev-parse", "origin/master"]), {
