@@ -223,30 +223,9 @@ pub enum Subcommands {
         short: bool,
     },
 
-    /// Displays the diff of changes in the repo.
-    ///
-    /// Without any arguments, it shows the diff of all uncommitted changes.
-    /// Optionally, provide one CLI ID to show the diff specific to:
-    /// - an uncommitted file
-    /// - a branch
-    /// - an entire stack
-    /// - a commit
-    /// - a file change within a commit
-    ///
-    /// `TARGET` accepts at most one entity. To show several entities, run this command once per
-    /// entity.
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Diff {
-        /// The CLI ID of one entity to show the diff for
-        target: Option<String>,
-        /// Open an interactive TUI diff viewer
-        #[clap(long = "tui", conflicts_with = "no_tui")]
-        tui: bool,
-        /// Disable the interactive TUI diff viewer (overrides but.ui.tui config)
-        #[clap(long = "no-tui", conflicts_with = "tui")]
-        no_tui: bool,
-    },
+    Diff(diff::Platform),
 
     /// Shows detailed information about a commit or branch.
     ///
@@ -303,11 +282,6 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Move(r#move::Platform),
-
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true, name = "_diff2")]
-    _Diff2(diff2::Platform),
 
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -1073,7 +1047,7 @@ pub mod comment;
 pub mod commit;
 pub mod config;
 #[cfg(feature = "legacy")]
-pub mod diff2;
+pub mod diff;
 #[cfg(feature = "legacy")]
 pub mod discard;
 pub mod mcp;

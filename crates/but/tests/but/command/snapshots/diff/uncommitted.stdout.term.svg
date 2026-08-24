@@ -29,7 +29,7 @@
 </tspan>
     <tspan x="10px" y="64px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╯</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan> </tspan>
+    <tspan x="10px" y="82px">
 </tspan>
     <tspan x="10px" y="100px"><tspan class="dimmed">@@ -1,0 +1,17 @@</tspan>
 </tspan>

@@ -111,9 +111,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Tui { .. } => Tui,
             #[cfg(feature = "legacy")]
-            Subcommands::Diff { .. } => Diff,
-            #[cfg(feature = "legacy")]
-            Subcommands::_Diff2(..) => Diff2,
+            Subcommands::Diff(..) => Diff,
             #[cfg(feature = "legacy")]
             Subcommands::Show { .. } => Show,
             #[cfg(feature = "legacy")]

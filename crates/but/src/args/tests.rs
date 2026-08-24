@@ -3,6 +3,8 @@ use super::*;
 #[cfg(feature = "legacy")]
 mod amend;
 #[cfg(feature = "legacy")]
+mod diff;
+#[cfg(feature = "legacy")]
 mod reword;
 
 mod find_subcommand {

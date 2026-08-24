@@ -775,22 +775,29 @@ fn discard_an_uncommitted_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
-lw:2 hunks.txt│
-──────────────╯
-   1  │-first
-     1│+firsta
-   2 2│ line
-   3 3│ line
-   4 4│ line
-──────────────╮
-lw:e hunks.txt│
-──────────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-last
-       9│+lasta
+────────────────╮
+ lw:2 hunks.txt │
+────────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -first
+  ┊ 1 │ +firsta
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
+
+────────────────╮
+ lw:e hunks.txt │
+────────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
 
 "#]]);
 
@@ -803,14 +810,17 @@ lw:e hunks.txt│
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
-lw:e hunks.txt│
-──────────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-last
-       9│+lasta
+────────────────╮
+ lw:e hunks.txt │
+────────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
 
 "#]]);
 

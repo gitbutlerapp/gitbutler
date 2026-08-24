@@ -141,22 +141,29 @@ fn uncommitted_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-nk:2 a.txt│
-──────────╯
-   1  │-first
-     1│+firsta
-   2 2│ line
-   3 3│ line
-   4 4│ line
-──────────╮
-nk:e a.txt│
-──────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-last
-       9│+lasta
+────────────╮
+ nk:2 a.txt │
+────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -first
+  ┊ 1 │ +firsta
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
+
+────────────╮
+ nk:e a.txt │
+────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
 
 "#]]);
     env.but("absorb nk:2")
@@ -226,22 +233,29 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-nk:2 a.txt│
-──────────╯
-   1  │-first
-     1│+firsta
-   2 2│ line
-   3 3│ line
-   4 4│ line
-──────────╮
-nk:e a.txt│
-──────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-last
-       9│+lasta
+────────────╮
+ nk:2 a.txt │
+────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -first
+  ┊ 1 │ +firsta
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
+
+────────────╮
+ nk:e a.txt │
+────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +lasta
 
 "#]]);
 
@@ -263,14 +277,17 @@ nk:e a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-nk:f a.txt│
-──────────╯
-   1  │-firsta
-     1│+first
-   2 2│ line
-   3 3│ line
-   4 4│ line
+────────────╮
+ nk:f a.txt │
+────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -firsta
+  ┊ 1 │ +first
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
 
 "#]]);
 
@@ -290,14 +307,17 @@ nk:f a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-nk:1 a.txt│
-──────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-lasta
-       9│+last
+────────────╮
+ nk:1 a.txt │
+────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -lasta
+   ┊  9 │ +last
 
 "#]]);
 
@@ -317,22 +337,29 @@ nk:1 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-──────────╮
-nk:b a.txt│
-──────────╯
-   1  │-first
-     1│+first new
-   2 2│ line
-   3 3│ line
-   4 4│ line
-──────────╮
-nk:5 a.txt│
-──────────╯
-    6  6│ line
-    7  7│ line
-    8  8│ line
-    9   │-last
-       9│+last new
+────────────╮
+ nk:b a.txt │
+────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -first
+  ┊ 1 │ +first new
+2 ┊ 2 │  line
+3 ┊ 3 │  line
+4 ┊ 4 │  line
+
+────────────╮
+ nk:5 a.txt │
+────────────╯
+
+@@ -6,4 +6,4 @@
+───────────────
+ 6 ┊  6 │  line
+ 7 ┊  7 │  line
+ 8 ┊  8 │  line
+ 9 ┊    │ -last
+   ┊  9 │ +last new
 
 "#]]);
 

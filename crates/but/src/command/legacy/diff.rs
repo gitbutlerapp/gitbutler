@@ -8,7 +8,7 @@ use crate::{
     CliResult, IdMap,
     args::{
         atoms::{Purpose, ResolvedCliIdArg},
-        diff2::Platform,
+        diff::Platform,
     },
     bad_input,
     id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
@@ -413,7 +413,7 @@ impl DiffLineWriter for DiffWriter<'_> {
                 }
                 writeln!(self.out, "{}", self.theme.border.paint("╯"))?;
 
-                writeln!(self.out, " ")?;
+                writeln!(self.out)?;
             }
         }
 
