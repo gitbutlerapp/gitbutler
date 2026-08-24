@@ -123,6 +123,29 @@ fn undo_and_redo_restore_the_local_target_branch() {
 }
 
 #[test]
+fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
+    let env = target_branch_pull_scenario(false);
+    env.but("pull").assert().success();
+    let target = rev_parse(&env, "main");
+    let workspace_head = rev_parse(&env, "HEAD");
+    let worktree = env.app_data_dir().join("linked-main");
+    env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
+
+    env.but("undo").assert().failure();
+
+    assert_eq!(
+        rev_parse(&env, "main"),
+        target,
+        "undo must not move a branch checked out in a linked worktree"
+    );
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        workspace_head,
+        "a refused undo must not change the managed workspace"
+    );
+}
+
+#[test]
 fn single_branch_pull_fast_forwards_the_local_target_branch() {
     assert_pull_fast_forwards_local_target(single_branch_target_branch_pull_scenario(false));
 }

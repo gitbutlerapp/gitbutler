@@ -1023,6 +1023,18 @@ fn restore_snapshot(
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
+    if let Some(reference) = restored_reference.as_ref()
+        && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
+        && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
+        && let Some(dirs) =
+            but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
+    {
+        bail!(
+            "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
+            reference.ref_name.shorten()
+        );
+    }
+
     let before_restore_snapshot_tree_id = match restored_reference.as_ref() {
         Some(reference) => {
             prepare_snapshot_with_target_and_ref(
