@@ -920,6 +920,9 @@ impl App {
                 Mode::Details(details_mode) => {
                     details_mode.return_mode.marks_mut().clear();
                 }
+                Mode::Branch(branch_mode) => {
+                    branch_mode.marks.clear();
+                }
                 Mode::InlineReword(..)
                 | Mode::Squash(..)
                 | Mode::Command(..)
@@ -928,7 +931,6 @@ impl App {
                 | Mode::Stack(..)
                 | Mode::MoveStack(..)
                 | Mode::CherryPick(..)
-                | Mode::Branch(..)
                 | Mode::Jump(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {

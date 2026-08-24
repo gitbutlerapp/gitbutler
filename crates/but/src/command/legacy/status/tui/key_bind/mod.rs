@@ -98,6 +98,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 if feature_flags.single_branch {
                     builder.branch_switch().register();
                 }
+                builder.discard().register();
+                builder.mark().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -1130,8 +1132,8 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
 
     builder.move_mode().register();
 
+    builder.branch().register();
     if without_marks {
-        builder.branch().register();
         builder.stack().register();
     }
 
