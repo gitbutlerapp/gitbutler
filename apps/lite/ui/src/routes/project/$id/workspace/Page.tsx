@@ -32,7 +32,7 @@ import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
@@ -94,11 +94,9 @@ type PanelId = "sidebar-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
-	const filesVisibleState = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
 	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
 	const focusedFocusScope = getFocusedScope(activeElement);
@@ -106,8 +104,9 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const sidebarFocusScope = useSidebarFocusScope();
-	const filesVisible = canShowFiles && filesVisibleState;
 	const page = usePage();
+	const getFilesVisible = () =>
+		canShowFiles && projectSlice.selectors.selectFilesVisible(store.getState(), projectId);
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -116,7 +115,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	// Shared by the arrow keys and their h/l aliases so the pairs cannot diverge.
 	const focusPane = (offset: -1 | 1) => {
 		focusHorizontalScope({
-			filesVisible,
+			filesVisible: getFilesVisible(),
 			offset,
 			sidebarFocusScope,
 			detailsFullWindow,
@@ -161,7 +160,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				if (focusedFocusScope === "files" && filesVisible)
+				if (focusedFocusScope === "files" && getFilesVisible())
 					focusScope(detailsFullWindow ? "diff" : "sidebar");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
