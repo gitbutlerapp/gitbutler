@@ -36,14 +36,14 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -83,15 +83,15 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-├── ≡📙:4:B on 85efbe4 {2}
-│   └── 📙:4:B
+├── ≡📙:B on 85efbe4 {2}
+│   └── 📙:B
 │       └── ·c813d8d (🏘️)
-└── ≡📙:5:C on 85efbe4 {3}
-    └── 📙:5:C
+└── ≡📙:C on 85efbe4 {3}
+    └── 📙:C
         └── ·8e00332 (🏘️)
 
 "#]]
@@ -129,14 +129,14 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -176,15 +176,15 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-├── ≡📙:4:C on 85efbe4 {2}
-│   └── 📙:4:C
+├── ≡📙:C on 85efbe4 {2}
+│   └── 📙:C
 │       └── ·8e00332 (🏘️)
-└── ≡📙:5:B on 85efbe4 {3}
-    └── 📙:5:B
+└── ≡📙:B on 85efbe4 {3}
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -222,14 +222,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -268,14 +268,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -306,11 +306,11 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:4:B on 85efbe4 {2}
-    ├── 📙:4:B
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {2}
+    ├── 📙:B
     │   └── ·d69fe94 (🏘️)
-    └── 📙:3:A
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -348,12 +348,12 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:B on 85efbe4 {2}
-    └── 📙:4:B
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
         └── ·1273ba9 (🏘️)
 
 "#]]
@@ -384,11 +384,11 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:4:B on 85efbe4 {2}
-    ├── 📙:4:B
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {2}
+    ├── 📙:B
     │   └── ·d69fe94 (🏘️)
-    └── 📙:3:A
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -426,12 +426,12 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:B on 85efbe4 {2}
-│   └── 📙:3:B
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:B on 85efbe4 {2}
+│   └── 📙:B
 │       └── ·1273ba9 (🏘️)
-└── ≡📙:4:A on 85efbe4 {1}
-    └── 📙:4:A
+└── ≡📙:A on 85efbe4 {1}
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -463,10 +463,10 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:4:B on 85efbe4 {1}
-    ├── 📙:4:B
-    └── 📙:5:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {1}
+    ├── 📙:B
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -503,12 +503,12 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:B on 85efbe4 {3}
-    └── 📙:4:B
+└── ≡📙:B on 85efbe4 {3}
+    └── 📙:B
 
 "#]]
     );
@@ -539,10 +539,10 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:4:B on 85efbe4 {1}
-    ├── 📙:4:B
-    └── 📙:5:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {1}
+    ├── 📙:B
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -579,11 +579,11 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:4:B on 85efbe4 {1}
-│   └── 📙:4:B
-└── ≡📙:3:A on 85efbe4 {3}
-    └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:B on 85efbe4 {1}
+│   └── 📙:B
+└── ≡📙:A on 85efbe4 {3}
+    └── 📙:A
         └── ·09d8e52 (🏘️)
 
 "#]]

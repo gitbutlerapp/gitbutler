@@ -447,10 +447,9 @@ impl StackSegment {
             0
         };
         format!(
-            "{ep}{meta}:{id}:{ref_name_remote}{local_commits}{remote_commits}",
+            "{ep}{meta}:{ref_name_remote}{local_commits}{remote_commits}",
             ep = if self.is_entrypoint { "👉" } else { "" },
             meta = if self.metadata.is_some() { "📙" } else { "" },
-            id = self.id.index(),
             local_commits = if num_local_commits == 0 {
                 "".into()
             } else {

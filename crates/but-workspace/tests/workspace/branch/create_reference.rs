@@ -77,7 +77,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
         );
@@ -91,9 +91,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡:1:main
-    └── :1:main
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+└── ≡:main
+    └── :main
         └── ·3183e43 (🏘️)
 
 "#]]
@@ -151,7 +151,7 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
 
 "#]]
         );
@@ -170,9 +170,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {41}
-    └── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {41}
+    └── 📙:A
 
 "#]]
         );
@@ -196,11 +196,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {41}
-│   └── 📙:3:A
-└── ≡📙:4:B on 3183e43 {42}
-    └── 📙:4:B
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {41}
+│   └── 📙:A
+└── ≡📙:B on 3183e43 {42}
+    └── 📙:B
 
 "#]]
         );
@@ -218,11 +218,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {41}
-│   └── 📙:3:A
-└── ≡📙:4:B on 3183e43 {42}
-    └── 📙:4:B
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {41}
+│   └── 📙:A
+└── ≡📙:B on 3183e43 {42}
+    └── 📙:B
 
 "#]]
         );
@@ -243,12 +243,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:above-A on 3183e43 {41}
-│   ├── 📙:3:above-A
-│   └── 📙:4:A
-└── ≡📙:5:B on 3183e43 {42}
-    └── 📙:5:B
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {41}
+│   ├── 📙:above-A
+│   └── 📙:A
+└── ≡📙:B on 3183e43 {42}
+    └── 📙:B
 
 "#]]
         );
@@ -269,13 +269,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:above-A on 3183e43 {41}
-│   ├── 📙:3:above-A
-│   └── 📙:4:A
-└── ≡📙:5:B on 3183e43 {42}
-    ├── 📙:5:B
-    └── 📙:6:below-B
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {41}
+│   ├── 📙:above-A
+│   └── 📙:A
+└── ≡📙:B on 3183e43 {42}
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -295,13 +295,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:above-A on 3183e43 {41}
-│   ├── 📙:3:above-A
-│   └── 📙:4:A
-└── ≡📙:5:B on 3183e43 {42}
-    ├── 📙:5:B
-    └── 📙:6:below-B
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {41}
+│   ├── 📙:above-A
+│   └── 📙:A
+└── ≡📙:B on 3183e43 {42}
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -344,9 +344,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:3:A on bce0c5e
-    └── :3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡:A on bce0c5e
+    └── :A
         ├── ·43f9472 (🏘️)
         └── ·6fdab32 (🏘️)
 
@@ -372,11 +372,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:4:A on bce0c5e {4cf}
-    ├── :4:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡:A on bce0c5e {4cf}
+    ├── :A
     │   └── ·43f9472 (🏘️)
-    └── 📙:3:above-bottom
+    └── 📙:above-bottom
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -399,13 +399,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:4:A on bce0c5e {4cf}
-    ├── :4:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡:A on bce0c5e {4cf}
+    ├── :A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:3:above-bottom
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:5:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -431,13 +431,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:above-A-commit on bce0c5e {4cf}
-    ├── 📙:3:above-A-commit
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A-commit on bce0c5e {4cf}
+    ├── 📙:above-A-commit
     │   └── ·43f9472 (🏘️) ►A
-    ├── 📙:4:above-bottom
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:5:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -461,14 +461,14 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A-commit on bce0c5e {4cf}
-    ├── 📙:5:above-A-commit
-    ├── 📙:6:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A-commit on bce0c5e {4cf}
+    ├── 📙:above-A-commit
+    ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:4:above-bottom
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:7:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -492,15 +492,15 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A-commit on bce0c5e {4cf}
-    ├── 📙:5:above-A-commit
-    ├── 📙:6:above-A
-    ├── 📙:7:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A-commit on bce0c5e {4cf}
+    ├── 📙:above-A-commit
+    ├── 📙:above-A
+    ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:4:above-bottom
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:8:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -522,16 +522,16 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A-commit on bce0c5e {4cf}
-    ├── 📙:5:above-A-commit
-    ├── 📙:6:above-A
-    ├── 📙:7:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A-commit on bce0c5e {4cf}
+    ├── 📙:above-A-commit
+    ├── 📙:above-A
+    ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:8:below-A-commit
-    ├── 📙:9:above-bottom
+    ├── 📙:below-A-commit
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:10:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -552,17 +552,17 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A-commit on bce0c5e {4cf}
-    ├── 📙:5:above-A-commit
-    ├── 📙:6:above-A
-    ├── 📙:7:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A-commit on bce0c5e {4cf}
+    ├── 📙:above-A-commit
+    ├── 📙:above-A
+    ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:8:below-A
-    ├── 📙:9:below-A-commit
-    ├── 📙:10:above-bottom
+    ├── 📙:below-A
+    ├── 📙:below-A-commit
+    ├── 📙:above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:11:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -581,19 +581,19 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-├── ≡📙:6:above-A-commit on bce0c5e {4cf}
-│   ├── 📙:6:above-A-commit
-│   ├── 📙:7:above-A
-│   ├── 📙:8:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+├── ≡📙:above-A-commit on bce0c5e {4cf}
+│   ├── 📙:above-A-commit
+│   ├── 📙:above-A
+│   ├── 📙:A
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:9:below-A
-│   ├── 📙:10:below-A-commit
-│   ├── 📙:11:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:12:bottom
-└── ≡📙:5:B on bce0c5e {42}
-    └── 📙:5:B
+│   └── 📙:bottom
+└── ≡📙:B on bce0c5e {42}
+    └── 📙:B
 
 "#]]
         );
@@ -615,20 +615,20 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-├── ≡📙:7:above-A-commit on bce0c5e {4cf}
-│   ├── 📙:7:above-A-commit
-│   ├── 📙:8:above-A
-│   ├── 📙:9:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+├── ≡📙:above-A-commit on bce0c5e {4cf}
+│   ├── 📙:above-A-commit
+│   ├── 📙:above-A
+│   ├── 📙:A
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:10:below-A
-│   ├── 📙:11:below-A-commit
-│   ├── 📙:12:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:13:bottom
-└── ≡📙:5:above-B on bce0c5e {42}
-    ├── 📙:5:above-B
-    └── 📙:6:B
+│   └── 📙:bottom
+└── ≡📙:above-B on bce0c5e {42}
+    ├── 📙:above-B
+    └── 📙:B
 
 "#]]
         );
@@ -652,21 +652,21 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-├── ≡📙:8:above-A-commit on bce0c5e {4cf}
-│   ├── 📙:8:above-A-commit
-│   ├── 📙:9:above-A
-│   ├── 📙:10:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+├── ≡📙:above-A-commit on bce0c5e {4cf}
+│   ├── 📙:above-A-commit
+│   ├── 📙:above-A
+│   ├── 📙:A
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:11:below-A
-│   ├── 📙:12:below-A-commit
-│   ├── 📙:13:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:14:bottom
-└── ≡📙:5:above-B on bce0c5e {42}
-    ├── 📙:5:above-B
-    ├── 📙:6:B
-    └── 📙:7:below-B
+│   └── 📙:bottom
+└── ≡📙:above-B on bce0c5e {42}
+    ├── 📙:above-B
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -686,21 +686,21 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-├── ≡📙:8:above-A-commit on bce0c5e {4cf}
-│   ├── 📙:8:above-A-commit
-│   ├── 📙:9:above-A
-│   ├── 📙:10:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+├── ≡📙:above-A-commit on bce0c5e {4cf}
+│   ├── 📙:above-A-commit
+│   ├── 📙:above-A
+│   ├── 📙:A
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:11:below-A
-│   ├── 📙:12:below-A-commit
-│   ├── 📙:13:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:14:bottom
-└── ≡📙:5:above-B on bce0c5e {42}
-    ├── 📙:5:above-B
-    ├── 📙:6:B
-    └── 📙:7:below-B
+│   └── 📙:bottom
+└── ≡📙:above-B on bce0c5e {42}
+    ├── 📙:above-B
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -747,9 +747,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    └── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    └── 📙:A
         ├── ·c2878fb (🏘️)
         └── ·49d4b34 (🏘️)
 
@@ -773,11 +773,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:4:A on 3183e43 {0}
-    ├── 📙:4:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
     │   └── ·c2878fb (🏘️)
-    └── 📙:3:above-bottom
+    └── 📙:above-bottom
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -802,13 +802,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:4:A on 3183e43 {0}
-    ├── 📙:4:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
     │   └── ·c2878fb (🏘️)
-    ├── 📙:3:above-bottom
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:5:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -832,14 +832,14 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:5:A on 3183e43 {0}
-    ├── 📙:5:A
-    ├── 📙:6:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
+    ├── 📙:above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:3:above-bottom
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:7:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -863,15 +863,15 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:5:above-A on 3183e43 {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:above-A on 3183e43 {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:3:above-bottom
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:8:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -895,15 +895,15 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:5:above-A on 3183e43 {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:above-A on 3183e43 {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:3:above-bottom
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:8:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -925,16 +925,16 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:5:above-A on 3183e43 {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:above-A on 3183e43 {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:8:below-A-commit
-    ├── 📙:9:above-bottom
+    ├── 📙:below-A-commit
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:10:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -955,17 +955,17 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:5:above-A on 3183e43 {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:above-A on 3183e43 {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:8:below-A
-    ├── 📙:9:below-A-commit
-    ├── 📙:10:above-bottom
+    ├── 📙:below-A
+    ├── 📙:below-A-commit
+    ├── 📙:above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:11:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -984,19 +984,19 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:6:above-A on 3183e43 {0}
-│   ├── 📙:6:above-A
-│   ├── 📙:7:A
-│   ├── 📙:8:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {0}
+│   ├── 📙:above-A
+│   ├── 📙:A
+│   ├── 📙:above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:9:below-A
-│   ├── 📙:10:below-A-commit
-│   ├── 📙:11:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:12:bottom
-└── ≡📙:5:B on 3183e43 {42}
-    └── 📙:5:B
+│   └── 📙:bottom
+└── ≡📙:B on 3183e43 {42}
+    └── 📙:B
 
 "#]]
         );
@@ -1018,20 +1018,20 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:7:above-A on 3183e43 {0}
-│   ├── 📙:7:above-A
-│   ├── 📙:8:A
-│   ├── 📙:9:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {0}
+│   ├── 📙:above-A
+│   ├── 📙:A
+│   ├── 📙:above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:10:below-A
-│   ├── 📙:11:below-A-commit
-│   ├── 📙:12:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:13:bottom
-└── ≡📙:5:above-B on 3183e43 {42}
-    ├── 📙:5:above-B
-    └── 📙:6:B
+│   └── 📙:bottom
+└── ≡📙:above-B on 3183e43 {42}
+    ├── 📙:above-B
+    └── 📙:B
 
 "#]]
         );
@@ -1055,21 +1055,21 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:8:above-A on 3183e43 {0}
-│   ├── 📙:8:above-A
-│   ├── 📙:9:A
-│   ├── 📙:10:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {0}
+│   ├── 📙:above-A
+│   ├── 📙:A
+│   ├── 📙:above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:11:below-A
-│   ├── 📙:12:below-A-commit
-│   ├── 📙:13:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:14:bottom
-└── ≡📙:5:above-B on 3183e43 {42}
-    ├── 📙:5:above-B
-    ├── 📙:6:B
-    └── 📙:7:below-B
+│   └── 📙:bottom
+└── ≡📙:above-B on 3183e43 {42}
+    ├── 📙:above-B
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -1089,21 +1089,21 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:8:above-A on 3183e43 {0}
-│   ├── 📙:8:above-A
-│   ├── 📙:9:A
-│   ├── 📙:10:above-A-commit
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:above-A on 3183e43 {0}
+│   ├── 📙:above-A
+│   ├── 📙:A
+│   ├── 📙:above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:11:below-A
-│   ├── 📙:12:below-A-commit
-│   ├── 📙:13:above-bottom
+│   ├── 📙:below-A
+│   ├── 📙:below-A-commit
+│   ├── 📙:above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:14:bottom
-└── ≡📙:5:above-B on 3183e43 {42}
-    ├── 📙:5:above-B
-    ├── 📙:6:B
-    └── 📙:7:below-B
+│   └── 📙:bottom
+└── ≡📙:above-B on 3183e43 {42}
+    ├── 📙:above-B
+    ├── 📙:B
+    └── 📙:below-B
 
 "#]]
         );
@@ -1148,9 +1148,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    └── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    └── 📙:A
         ├── ·c2878fb (🏘️)
         └── ·49d4b34 (🏘️)
 
@@ -1175,12 +1175,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    ├── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
     │   ├── ·c2878fb (🏘️)
     │   └── ·49d4b34 (🏘️)
-    └── 📙:4:bottom
+    └── 📙:bottom
 
 "#]]
         );
@@ -1220,12 +1220,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   └── 📙:A
 │       └── ·49d4b34 (🏘️)
-└── ≡📙:4:B on 3183e43 {1}
-    └── 📙:4:B
+└── ≡📙:B on 3183e43 {1}
+    └── 📙:B
         └── ·f57c528 (🏘️)
 
 "#]]
@@ -1248,13 +1248,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   ├── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:5:a-bottom
-└── ≡📙:4:B on 3183e43 {1}
-    └── 📙:4:B
+│   └── 📙:a-bottom
+└── ≡📙:B on 3183e43 {1}
+    └── 📙:B
         └── ·f57c528 (🏘️)
 
 "#]]
@@ -1278,15 +1278,15 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   ├── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   ├── 📙:A
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:6:a-bottom
-└── ≡📙:4:B on 3183e43 {1}
-    ├── 📙:4:B
+│   └── 📙:a-bottom
+└── ≡📙:B on 3183e43 {1}
+    ├── 📙:B
     │   └── ·f57c528 (🏘️)
-    └── 📙:5:b-bottom
+    └── 📙:b-bottom
 
 "#]]
         );
@@ -1321,9 +1321,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A on bce0c5e {0}
-    └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A on bce0c5e {0}
+    └── 📙:A
         ├── ·43f9472 (🏘️)
         └── ·6fdab32 (🏘️)
 
@@ -1348,11 +1348,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A on bce0c5e {0}
-    ├── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A on bce0c5e {0}
+    ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1377,12 +1377,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:A on bce0c5e {0}
-    ├── 📙:5:A
-    ├── 📙:6:new
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:A on bce0c5e {0}
+    ├── 📙:A
+    ├── 📙:new
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1405,13 +1405,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A on bce0c5e {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:new
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A on bce0c5e {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:new
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1434,14 +1434,14 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A on bce0c5e {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:below-empty-A
-    ├── 📙:8:new
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A on bce0c5e {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:below-empty-A
+    ├── 📙:new
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1463,14 +1463,14 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A on bce0c5e {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:below-empty-A
-    ├── 📙:8:new
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A on bce0c5e {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:below-empty-A
+    ├── 📙:new
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1491,14 +1491,14 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:above-A on bce0c5e {0}
-    ├── 📙:5:above-A
-    ├── 📙:6:A
-    ├── 📙:7:below-empty-A
-    ├── 📙:8:new
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:above-A on bce0c5e {0}
+    ├── 📙:above-A
+    ├── 📙:A
+    ├── 📙:below-empty-A
+    ├── 📙:new
     │   └── ·43f9472 (🏘️)
-    └── 📙:4:foo
+    └── 📙:foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1551,9 +1551,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {41}
-    └── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {41}
+    └── 📙:A
 
 "#]]
         );
@@ -1575,10 +1575,10 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {41}
-    ├── 📙:3:A
-    └── 📙:4:below-A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {41}
+    ├── 📙:A
+    └── 📙:below-A
 
 "#]]
         );
@@ -1599,11 +1599,11 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:above-A on 3183e43 {41}
-    ├── 📙:3:above-A
-    ├── 📙:4:A
-    └── 📙:5:below-A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:above-A on 3183e43 {41}
+    ├── 📙:above-A
+    ├── 📙:A
+    └── 📙:below-A
 
 "#]]
         );
@@ -1633,9 +1633,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:1:main {0}
-    └── 📙:1:main
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+└── ≡📙:main {0}
+    └── 📙:main
         └── ·3183e43 (🏘️)
 
 "#]]
@@ -1680,10 +1680,10 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:2:main {0}
-    ├── 📙:2:main
-    └── 📙:3:new
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+└── ≡📙:main {0}
+    ├── 📙:main
+    └── 📙:new
         └── ·3183e43 (🏘️)
 
 "#]]
@@ -1709,12 +1709,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   └── 📙:A
 │       └── ·49d4b34 (🏘️)
-└── ≡📙:4:B on 3183e43 {1}
-    └── 📙:4:B
+└── ≡📙:B on 3183e43 {1}
+    └── 📙:B
         └── ·f57c528 (🏘️)
 
 "#]]
@@ -1738,13 +1738,13 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   └── 📙:A
 │       └── ·49d4b34 (🏘️)
-└── ≡📙:5:B on 3183e43 {1}
-    ├── 📙:5:B
-    └── 📙:6:new
+└── ≡📙:B on 3183e43 {1}
+    ├── 📙:B
+    └── 📙:new
         └── ·f57c528 (🏘️)
 
 "#]]
@@ -1859,7 +1859,7 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
 
 "#]]
         );
@@ -1935,9 +1935,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    └── 📙:3:A
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    └── 📙:A
         ├── ·c2878fb (🏘️)
         └── ·49d4b34 (🏘️)
 
@@ -2097,9 +2097,9 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    └── 📙:A
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -2132,12 +2132,12 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             graph_workspace(&updated_ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡📙:3:A on 3183e43 {0}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+├── ≡📙:A on 3183e43 {0}
+│   └── 📙:A
 │       └── ·49d4b34 (🏘️)
-└── ≡📙:5:new-branch on 3183e43 {3e5}
-    └── 📙:5:new-branch
+└── ≡📙:new-branch on 3183e43 {3e5}
+    └── 📙:new-branch
 
 "#]]
         );
@@ -2168,9 +2168,9 @@ fn errors() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    └── :main[🌳]
 
 "#]]
     );
@@ -2216,9 +2216,9 @@ fn errors() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:[..]:main[🌳] <> ✓! on c166d42
-└── ≡:[..]:main[🌳] on c166d42 {1}
-    └── :[..]:main[🌳]
+⌂:main[🌳] <> ✓! on c166d42
+└── ≡:main[🌳] on c166d42 {1}
+    └── :main[🌳]
 
 "#]]
     );
@@ -2330,12 +2330,12 @@ fn errors() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:A <> ✓!
-└── ≡:0:A {1}
-    ├── :0:A
+⌂:A <> ✓!
+└── ≡:A {1}
+    ├── :A
     │   ├── ·89cc2d3
     │   └── ·d79bba9
-    └── :1:main[🌳]
+    └── :main[🌳]
         └── ·c166d42
 
 "#]]
@@ -2388,9 +2388,9 @@ fn errors() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:A <> ✓! on 89cc2d3
-└── ≡:0:A on 89cc2d3 {1}
-    └── :0:A
+⌂:A <> ✓! on 89cc2d3
+└── ≡:A on 89cc2d3 {1}
+    └── :A
 
 "#]]
     );
@@ -2456,9 +2456,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    └── :main[🌳]
         ├── ·281da94
         ├── ·12995d7
         └── ·3d57fc1
@@ -2483,11 +2483,11 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    ├── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
     │   └── ·281da94
-    └── 📙:1:below-main
+    └── 📙:below-main
         ├── ·12995d7
         └── ·3d57fc1
 
@@ -2519,11 +2519,11 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    ├── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
     │   └── ·281da94
-    └── 📙:1:below-main
+    └── 📙:below-main
         ├── ·12995d7
         └── ·3d57fc1
 
@@ -2543,13 +2543,13 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    ├── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
     │   └── ·281da94
-    ├── 📙:1:below-main
+    ├── 📙:below-main
     │   └── ·12995d7
-    └── 📙:2:two-below-main
+    └── 📙:two-below-main
         └── ·3d57fc1
 
 "#]]
@@ -2592,13 +2592,13 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    ├── :0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
     │   └── ·281da94
-    ├── 📙:1:below-main
+    ├── 📙:below-main
     │   └── ·12995d7
-    └── 📙:2:two-below-main
+    └── 📙:two-below-main
         └── ·3d57fc1
 
 "#]]
@@ -2626,13 +2626,13 @@ fn journey_with_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡📙:0:main[🌳] {1}
-    ├── 📙:0:main[🌳]
+⌂:main[🌳] <> ✓!
+└── ≡📙:main[🌳] {1}
+    ├── 📙:main[🌳]
     │   └── ·281da94
-    ├── 📙:1:below-main
+    ├── 📙:below-main
     │   └── ·12995d7
-    └── 📙:2:two-below-main
+    └── 📙:two-below-main
         └── ·3d57fc1
 
 "#]]
@@ -2686,11 +2686,11 @@ fn existing_git_ref_inside_workspace_is_adopted() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:4:A on bce0c5e {632}
-    ├── :4:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡:A on bce0c5e {632}
+    ├── :A
     │   └── ·43f9472 (🏘️)
-    └── 📙:3:created-with-git
+    └── 📙:created-with-git
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -2726,9 +2726,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:DETACHED <> ✓!
-└── ≡:0:anon: {1}
-    └── :0:anon:
+⌂:DETACHED <> ✓!
+└── ≡:anon: {1}
+    └── :anon:
         ├── ·12995d7
         └── ·3d57fc1
 
@@ -2752,11 +2752,11 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:DETACHED <> ✓!
-└── ≡:0:anon: {1}
-    ├── :0:anon:
+⌂:DETACHED <> ✓!
+└── ≡:anon: {1}
+    ├── :anon:
     │   └── ·12995d7
-    └── 📙:1:first
+    └── 📙:first
         └── ·3d57fc1
 
 "#]]
@@ -2797,11 +2797,11 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:second <> ✓!
-└── ≡📙:0:second {1}
-    ├── 📙:0:second
+⌂:second <> ✓!
+└── ≡📙:second {1}
+    ├── 📙:second
     │   └── ·12995d7
-    └── 📙:1:first
+    └── 📙:first
         └── ·3d57fc1
 
 "#]]
@@ -2842,9 +2842,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:second <> ✓! on 3d57fc1
-└── ≡📙:0:second on 3d57fc1 {1}
-    └── 📙:0:second
+⌂:second <> ✓! on 3d57fc1
+└── ≡📙:second on 3d57fc1 {1}
+    └── 📙:second
         └── ·12995d7
 
 "#]]
@@ -2929,9 +2929,9 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:[..]:main[🌳] <> ✓! on 281da94
-└── ≡:[..]:main[🌳] on 281da94 {1}
-    └── :[..]:main[🌳]
+⌂:main[🌳] <> ✓! on 281da94
+└── ≡:main[🌳] on 281da94 {1}
+    └── :main[🌳]
 
 "#]]
         );
@@ -3021,10 +3021,10 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:[..]:main[🌳] <> ✓! on 281da94
-└── ≡:[..]:main[🌳] {1}
-    ├── :[..]:main[🌳]
-    └── 📙:[..]:empty-bottom
+⌂:main[🌳] <> ✓! on 281da94
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
+    └── 📙:empty-bottom
         ├── ·281da94 (✓)
         ├── ·12995d7 (✓)
         └── ·3d57fc1 (✓)
@@ -3075,12 +3075,12 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:[..]:main[🌳] <> ✓! on 281da94
-└── ≡:[..]:main[🌳] {1}
-    ├── :[..]:main[🌳]
-    ├── 📙:[..]:empty-middle
-    ├── 📙:[..]:inserted-below-middle
-    └── 📙:[..]:empty-bottom
+⌂:main[🌳] <> ✓! on 281da94
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
+    ├── 📙:empty-middle
+    ├── 📙:inserted-below-middle
+    └── 📙:empty-bottom
         ├── ·281da94 (✓)
         ├── ·12995d7 (✓)
         └── ·3d57fc1 (✓)
@@ -3103,10 +3103,10 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:[..]:empty-top[🌳] <> ✓! on 281da94
-└── ≡📙:[..]:empty-top[🌳] {1}
-    ├── 📙:[..]:empty-top[🌳]
-    └── :[..]:main
+⌂:empty-top[🌳] <> ✓! on 281da94
+└── ≡📙:empty-top[🌳] {1}
+    ├── 📙:empty-top[🌳]
+    └── :main
         ├── ·281da94 (✓)
         ├── ·12995d7 (✓)
         └── ·3d57fc1 (✓)
@@ -3188,11 +3188,11 @@ mod ad_hoc_at_reference {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:[..]:main[🌳] <> ✓! on 281da94
-└── ≡:[..]:main[🌳] {1}
-    ├── :[..]:main[🌳]
-    ├── 📙:[..]:empty-middle
-    └── 📙:[..]:empty-bottom
+⌂:main[🌳] <> ✓! on 281da94
+└── ≡:main[🌳] {1}
+    ├── :main[🌳]
+    ├── 📙:empty-middle
+    └── 📙:empty-bottom
         ├── ·281da94 (✓)
         ├── ·12995d7 (✓)
         └── ·3d57fc1 (✓)
