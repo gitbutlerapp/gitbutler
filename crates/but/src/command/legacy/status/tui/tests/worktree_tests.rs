@@ -25,13 +25,14 @@ fn worktree_tui() -> (TestTui<App>, String) {
     )
     .expect("app data dir is writable");
     let editor_command = format!("sh {}", editor_script.display());
-    let tui = test_status_tui_with_options(
+    let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             worktree_manipulation: true,
             ..Default::default()
         },
     );
+    tui.reload();
     (tui, editor_command)
 }
 
@@ -376,4 +377,23 @@ fn move_commit_below_a_worktree_heading() {
 "#]]
         .raw()
     );
+}
+
+#[test]
+fn cherry_picking_commits_into_worktrees() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('b');
+    tui.input('n');
+    tui.input('n');
+
+    tui.input('p');
+    tui.input('j');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/cherry_picking_commits_into_worktrees_001.svg"
+    ]);
+
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/cherry_picking_commits_into_worktrees_002.svg"
+    ]);
 }

@@ -661,6 +661,7 @@ impl CommitSelection {
     }
 }
 
+#[derive(Debug)]
 pub enum CommitOperation {
     CommitToNewBranch(CommitToNewBranchOperation),
     CommitAt(CommitAtOperation),
@@ -704,6 +705,7 @@ impl CommitOperation {
     }
 }
 
+#[derive(Debug)]
 pub struct CommitToNewBranchOperation {
     pub branch_name: Option<FullName>,
 }
@@ -771,6 +773,7 @@ impl CommitToNewBranchOperation {
     }
 }
 
+#[derive(Debug)]
 pub struct CommitAtOperation {
     pub target: CommitRelativeToTarget,
 }
@@ -824,7 +827,7 @@ impl CommitAtOperation {
 }
 
 /// Place a commit relative to something in the workspace.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.
     Commit { commit: CommitId, side: Side },

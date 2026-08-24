@@ -5,7 +5,7 @@ use std::fmt::Display;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::branch::create_reference::Position;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum Side {
     Above,
     Below,

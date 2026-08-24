@@ -232,6 +232,7 @@ fn resolve(
     })
 }
 
+#[derive(Debug)]
 pub struct PickOperation {
     pub sources: Vec<ObjectId>,
     pub commit_op: CommitOperation,

@@ -1421,12 +1421,18 @@ pub fn cherry_pick_operation_display(
             InsertSide::Above => Some("pick above"),
             InsertSide::Below => Some("pick below"),
         },
+        StatusOutputLineData::UncommittedChanges { cli_id } => {
+            if let CliId::Worktree { .. } = &**cli_id {
+                Some("pick to worktree")
+            } else {
+                None
+            }
+        }
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
