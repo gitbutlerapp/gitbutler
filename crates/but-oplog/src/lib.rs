@@ -94,11 +94,26 @@ mod oplog_snapshot {
             perm: &RepoShared,
             dry_run: DryRun,
         ) -> Option<Self> {
+            Self::from_details_with_ref_and_perm(ctx, details, None, perm, dry_run)
+        }
+
+        /// Create a snapshot that also preserves `ref_name` for undo and redo.
+        pub fn from_details_with_ref_and_perm(
+            ctx: &but_ctx::Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_name: Option<&gix::refs::FullNameRef>,
+            perm: &RepoShared,
+            dry_run: DryRun,
+        ) -> Option<Self> {
             if dry_run.into() {
                 return None;
             }
 
-            let tree_id = match ctx.prepare_snapshot(perm) {
+            let tree_id = match ref_name {
+                Some(ref_name) => ctx.prepare_snapshot_with_ref(ref_name, perm),
+                None => ctx.prepare_snapshot(perm),
+            };
+            let tree_id = match tree_id {
                 Ok(tree_id) => tree_id,
                 Err(err) => {
                     tracing::warn!(?err, "Failed to prepare unmaterialized oplog snapshot");

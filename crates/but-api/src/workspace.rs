@@ -530,9 +530,35 @@ pub fn workspace_integrate_upstream_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    let local_target_ref = (|| -> anyhow::Result<Option<gix::refs::FullName>> {
+        let project_meta = ctx.project_meta()?;
+        let Some(target_ref) = project_meta.target_ref.as_ref() else {
+            return Ok(None);
+        };
+        let repo = ctx.repo.get()?;
+        let Some(target_reference) = repo.try_find_reference(target_ref)? else {
+            return Ok(None);
+        };
+        but_workspace::local_tracking_branch_to_fast_forward(
+            &repo,
+            target_reference.name(),
+            target_reference.id().detach(),
+        )
+    })();
+    let local_target_ref = match local_target_ref {
+        Ok(local_target_ref) => local_target_ref,
+        Err(err) => {
+            warn!(
+                ?err,
+                "failed to identify local target branch for undo snapshot"
+            );
+            None
+        }
+    };
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::MergeUpstream),
+        local_target_ref.as_ref().map(|name| name.as_ref()),
         perm.read_permission(),
         dry_run,
     );

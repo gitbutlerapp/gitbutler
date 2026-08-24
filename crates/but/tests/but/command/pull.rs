@@ -101,6 +101,28 @@ fn pull_fast_forwards_the_local_target_branch() {
 }
 
 #[test]
+fn undo_and_redo_restore_the_local_target_branch() {
+    let env = target_branch_pull_scenario(false);
+    let old_target = rev_parse(&env, "main");
+    let new_target = rev_parse(&env, "origin/main");
+
+    env.but("pull").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "undo should restore the local target branch"
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        new_target,
+        "redo should fast-forward the local target branch again"
+    );
+}
+
+#[test]
 fn single_branch_pull_fast_forwards_the_local_target_branch() {
     assert_pull_fast_forwards_local_target(single_branch_target_branch_pull_scenario(false));
 }

@@ -4051,6 +4051,7 @@ fn prefers_same_named_local_target_branch() -> Result<()> {
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
         .run();
+    git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/heads/main", "refs/heads/feature"])
         .run();
@@ -4070,6 +4071,42 @@ fn prefers_same_named_local_target_branch() -> Result<()> {
         repo.find_reference("refs/heads/feature")?.id().detach(),
         feature_id,
         "the same-named main branch should be preferred over another tracker"
+    );
+    Ok(())
+}
+
+#[test]
+fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
+    let (_repo, tmp) = repo_with_local_target_branches()?;
+    configure_tracking(&tmp, "main");
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/heads/main", "refs/heads/feature"])
+        .run();
+    let linked = tempfile::tempdir()?;
+    let linked_path = linked.path().join("main");
+    git_at_dir(tmp.path())
+        .args([
+            "worktree",
+            "add",
+            linked_path.to_str().expect("utf-8 path"),
+            "main",
+        ])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    let target_id = repo.find_reference(&target_ref)?.id().detach();
+    let local_id = repo.find_reference("refs/heads/main")?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
+
+    assert_eq!(
+        repo.find_reference("refs/heads/main")?.id().detach(),
+        local_id,
+        "a checked-out target branch must stay aligned with its worktree"
     );
     Ok(())
 }

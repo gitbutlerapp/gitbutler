@@ -1169,12 +1169,36 @@ fn preserve_pick_parents<M: RefMetadata>(
 
 /// Fast-forward the local branch that tracks a remote `target_ref`, preferring the same name.
 ///
-/// Local target refs, missing tracking branches, and non-fast-forward updates are left unchanged.
+/// Local target refs, missing tracking branches, checked-out branches, and non-fast-forward updates
+/// are left unchanged.
 pub fn fast_forward_local_tracking_branch(
     repo: &gix::Repository,
     target_ref: &gix::refs::FullNameRef,
     target_id: gix::ObjectId,
 ) -> Result<()> {
+    let Some(local_ref_name) = local_tracking_branch_to_fast_forward(repo, target_ref, target_id)?
+    else {
+        return Ok(());
+    };
+    let local_id = repo.find_reference(&local_ref_name)?.id().detach();
+
+    repo.reference(
+        local_ref_name,
+        target_id,
+        gix::refs::transaction::PreviousValue::ExistingMustMatch(gix::refs::Target::Object(
+            local_id,
+        )),
+        "integrate upstream: fast-forward local target",
+    )?;
+    Ok(())
+}
+
+/// Return the local tracking branch that can safely be fast-forwarded to `target_id`.
+pub fn local_tracking_branch_to_fast_forward(
+    repo: &gix::Repository,
+    target_ref: &gix::refs::FullNameRef,
+    target_id: gix::ObjectId,
+) -> Result<Option<gix::refs::FullName>> {
     let local_ref_name = match target_ref.category() {
         Some(gix::refs::Category::RemoteBranch) => {
             let target_short_name =
@@ -1218,7 +1242,7 @@ pub fn fast_forward_local_tracking_branch(
         _ => None,
     };
     let Some(local_ref_name) = local_ref_name else {
-        return Ok(());
+        return Ok(None);
     };
     let mut local_ref = repo.find_reference(&local_ref_name)?;
     let local_id = local_ref.peel_to_id()?.detach();
@@ -1227,16 +1251,14 @@ pub fn fast_forward_local_tracking_branch(
             .merge_base(local_id, target_id)
             .is_ok_and(|base| base.detach() == local_id)
     {
-        return Ok(());
+        return Ok(None);
+    }
+    if but_core::branch::SafeDelete::new(repo)?
+        .worktree_dirs_with_ref(&local_ref)
+        .is_some()
+    {
+        return Ok(None);
     }
 
-    repo.reference(
-        local_ref_name,
-        target_id,
-        gix::refs::transaction::PreviousValue::ExistingMustMatch(gix::refs::Target::Object(
-            local_id,
-        )),
-        "integrate upstream: fast-forward local target",
-    )?;
-    Ok(())
+    Ok(Some(local_ref_name))
 }
