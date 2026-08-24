@@ -7,7 +7,6 @@ fn swapping_commits_also_swaps_incident_connections() {
     let b = graph.add_node(Segment::default());
     let before = graph.add_node(Segment::default());
     let after = graph.add_node(Segment::default());
-    let other_parent = graph.add_node(Segment::default());
     let edge = Edge {
         src: None,
         src_id: None,
@@ -15,15 +14,7 @@ fn swapping_commits_also_swaps_incident_connections() {
         dst_id: None,
         parent_order: 0,
     };
-    graph.add_edge(
-        before,
-        a,
-        Edge {
-            parent_order: 1,
-            ..edge
-        },
-    );
-    graph.add_edge(before, other_parent, edge);
+    graph.add_edge(before, a, edge);
     graph.add_edge(a, after, edge);
     graph.add_edge(b, before, edge);
     graph.add_edge(a, b, edge);
@@ -58,13 +49,41 @@ fn swapping_commits_also_swaps_incident_connections() {
         graph.find_edge(b, before).is_none(),
         "b no longer owns its old outgoing connection"
     );
+}
+
+#[test]
+fn swapping_connections_preserves_untouched_sibling_parent_order() {
+    let mut graph = PetGraph::default();
+    let a = graph.add_node(Segment::default());
+    let b = graph.add_node(Segment::default());
+    let source = graph.add_node(Segment::default());
+    let other_parent = graph.add_node(Segment::default());
+    let edge = Edge {
+        src: None,
+        src_id: None,
+        dst: None,
+        dst_id: None,
+        parent_order: 0,
+    };
+    graph.add_edge(
+        source,
+        a,
+        Edge {
+            parent_order: 1,
+            ..edge
+        },
+    );
+    graph.add_edge(source, other_parent, edge);
+
+    swap_commits_and_connections(&mut graph, a, b);
+
     assert_eq!(
         graph
-            .edges_directed(before, Direction::Outgoing)
-            .map(|edge| edge.weight().parent_order)
+            .edges_directed(source, Direction::Outgoing)
+            .map(|edge| (edge.target(), edge.weight().parent_order))
             .collect::<Vec<_>>(),
-        [0, 1],
-        "outgoing connections remain in parent traversal order"
+        [(other_parent, 0), (b, 1)],
+        "the swapped connection stays after its untouched sibling"
     );
 }
 
