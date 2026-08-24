@@ -25,6 +25,9 @@ jobs:
           - platform: windows-latest # [windows, x64]
     env:
       CARGO_TERM_COLOR: always
+      CARGO_PROFILE_RELEASE_LTO: fat
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
       CHANNEL: nightly
       VERSION: "0.0.${{ github.run_number }}"
     steps:
@@ -47,9 +50,6 @@ jobs:
         run: pnpm --filter @gitbutler/but-mcp-app build
       - name: Build but CLI
         env:
-          CARGO_PROFILE_RELEASE_LTO: fat
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
-          CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
           GITBUTLER_REQUIRE_MCP_APP: "1"
         run: cargo build --release --locked --offline -p but --features "packaged-but-distribution"
       - name: Copy but CLI into Lite resources
@@ -70,18 +70,12 @@ jobs:
       - name: Build but SDK
         env:
           CARGO_NET_OFFLINE: "true"
-          CARGO_PROFILE_RELEASE_LTO: fat
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
-          CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
         run: pnpm --filter @gitbutler/but-sdk build:release
       - name: Build Lite
         run: pnpm --filter @gitbutler/lite build
       - name: Prepare askpass
         env:
           CARGO_NET_OFFLINE: "true"
-          CARGO_PROFILE_RELEASE_LTO: fat
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
-          CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
         run: pnpm --filter @gitbutler/lite prepare-askpass
       - name: Package and publish Lite
         working-directory: apps/lite
