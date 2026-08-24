@@ -114,6 +114,7 @@ fn resolve(
                 name,
                 target,
                 side: Side::Below,
+                switch,
             }))
         }
         (Some(target_above), None) => {
@@ -122,6 +123,7 @@ fn resolve(
                 name,
                 target,
                 side: Side::Above,
+                switch,
             }))
         }
         (Some(_), Some(_)) => {
@@ -166,6 +168,7 @@ pub struct NewStackedBranchOperation {
     pub name: Option<FullName>,
     pub target: NewStackedBranchTarget,
     pub side: Side,
+    pub switch: bool,
 }
 
 pub enum NewStackedBranchTarget {
@@ -392,7 +395,12 @@ impl NewStackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let Self { name, target, side } = self;
+        let Self {
+            name,
+            target,
+            side,
+            switch,
+        } = self;
 
         let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
 
@@ -460,7 +468,7 @@ impl NewStackedBranchOperation {
             },
         )?;
 
-        if checkout_after_create {
+        if checkout_after_create || switch {
             but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
         }
 

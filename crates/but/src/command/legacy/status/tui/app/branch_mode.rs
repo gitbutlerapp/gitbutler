@@ -60,7 +60,7 @@ impl ModeRender for BranchMode {
 pub enum BranchMessage {
     Start,
     Switch,
-    New,
+    New { switch: bool },
 }
 
 impl App {
@@ -73,7 +73,7 @@ impl App {
         match branch_message {
             BranchMessage::Start => self.handle_branch_start(messages),
             BranchMessage::Switch => self.handle_branch_switch(ctx, messages)?,
-            BranchMessage::New => self.handle_branch_new(ctx, messages)?,
+            BranchMessage::New { switch } => self.handle_branch_new(ctx, messages, switch)?,
         }
 
         Ok(())
@@ -136,6 +136,7 @@ impl App {
         &mut self,
         ctx: &mut Context,
         messages: &mut Vec<Message>,
+        switch: bool,
     ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
@@ -160,6 +161,7 @@ impl App {
                             Category::LocalBranch.to_full_name(&*branch.name)?,
                         ),
                         side: Side::Above,
+                        switch,
                     }),
                 )?;
 
@@ -177,7 +179,7 @@ impl App {
                     guard.write_permission(),
                     NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
                         name: None,
-                        switch: false,
+                        switch,
                     }),
                 )?;
 
