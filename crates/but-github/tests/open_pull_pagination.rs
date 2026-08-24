@@ -8,7 +8,6 @@ use but_github::GitHubClient;
 use but_secret::Sensitive;
 use serde_json::json;
 
-#[derive(Clone)]
 struct MockResponse {
     page: usize,
     status: reqwest::StatusCode,
@@ -62,6 +61,9 @@ fn fixture(responses: Vec<MockResponse>) -> (GitHubClient, std::thread::JoinHand
                     Err(error) => panic!("failed to accept request: {error}"),
                 }
             };
+            // Accepted streams inherit non-blocking from the listener on some
+            // platforms; reads below expect to block until data arrives.
+            stream.set_nonblocking(false).unwrap();
             let mut request = Vec::new();
             while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
                 let mut buffer = [0; 1024];
@@ -82,10 +84,10 @@ fn fixture(responses: Vec<MockResponse>) -> (GitHubClient, std::thread::JoinHand
             assert_eq!(
                 query,
                 vec![
-                    ("direction".to_string(), "desc".to_string()),
+                    ("direction".to_string(), "asc".to_string()),
                     ("page".to_string(), response.page.to_string()),
                     ("per_page".to_string(), "100".to_string()),
-                    ("sort".to_string(), "updated".to_string()),
+                    ("sort".to_string(), "created".to_string()),
                     ("state".to_string(), "open".to_string()),
                 ],
                 "every page keeps the open pull request query parameters"
@@ -111,10 +113,7 @@ fn fixture(responses: Vec<MockResponse>) -> (GitHubClient, std::thread::JoinHand
 
 #[tokio::test(flavor = "current_thread")]
 async fn list_open_pulls_fetches_more_than_one_page() {
-    let first_page = (1..=100).map(pull).collect();
     let (client, server) = fixture(vec![
-        MockResponse::ok(1, first_page),
-        MockResponse::ok(2, vec![pull(101)]),
         MockResponse::ok(1, (1..=100).map(pull).collect()),
         MockResponse::ok(2, vec![pull(101)]),
     ]);
@@ -129,11 +128,22 @@ async fn list_open_pulls_fetches_more_than_one_page() {
     server.join().unwrap();
 }
 
+fn full_pages(count: usize) -> Vec<MockResponse> {
+    (0..count)
+        .map(|page| {
+            MockResponse::ok(
+                page + 1,
+                (page * 100 + 1..=(page + 1) * 100)
+                    .map(|number| pull(number as i64))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
 #[tokio::test(flavor = "current_thread")]
-async fn list_open_pulls_checks_after_an_exact_page() {
+async fn list_open_pulls_stops_after_an_empty_second_page() {
     let (client, server) = fixture(vec![
-        MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, Vec::new()),
         MockResponse::ok(1, (1..=100).map(pull).collect()),
         MockResponse::ok(2, Vec::new()),
     ]);
@@ -149,14 +159,12 @@ async fn list_open_pulls_checks_after_an_exact_page() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn list_open_pulls_retries_after_insertion_drift() {
+async fn list_open_pulls_deduplicates_a_page_boundary_shift() {
+    let mut repeated = pull(100);
+    repeated["title"] = "PR 100 refetched".into();
     let (client, server) = fixture(vec![
         MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, vec![pull(100), pull(102)]),
-        MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, vec![pull(101), pull(102)]),
-        MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, vec![pull(101), pull(102)]),
+        MockResponse::ok(2, vec![repeated, pull(102)]),
     ]);
 
     let pulls = client.list_open_pulls("o", "r").await.unwrap();
@@ -164,27 +172,22 @@ async fn list_open_pulls_retries_after_insertion_drift() {
 
     assert_eq!(
         numbers,
-        (1..=102).collect::<Vec<_>>(),
-        "the retry returns the complete listing rather than stale first-scan data"
+        (1..=100).chain([102]).collect::<Vec<_>>(),
+        "a pull repeated by a mid-scan page shift appears once"
+    );
+    let boundary = pulls.iter().find(|pull| pull.number == 100).unwrap();
+    assert_eq!(
+        boundary.title, "PR 100 refetched",
+        "the later fetch of a duplicated pull is fresher and wins"
     );
     server.join().unwrap();
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn list_open_pulls_retries_after_removal_page_drift() {
-    let current_first_page = (1..=100).map(pull).collect::<Vec<_>>();
-    let current_second_page = (102..=201).map(pull).collect::<Vec<_>>();
-    let current_third_page = vec![pull(202), pull(203)];
+async fn list_open_pulls_tolerates_a_skipped_pull_after_a_mid_scan_close() {
     let (client, server) = fixture(vec![
         MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, (101..=200).map(pull).collect()),
-        MockResponse::ok(3, current_third_page.clone()),
-        MockResponse::ok(1, current_first_page.clone()),
-        MockResponse::ok(2, current_second_page),
-        MockResponse::ok(3, current_third_page.clone()),
-        MockResponse::ok(1, current_first_page),
-        MockResponse::ok(2, (102..=201).map(pull).collect()),
-        MockResponse::ok(3, current_third_page),
+        MockResponse::ok(2, vec![pull(102), pull(103)]),
     ]);
 
     let pulls = client.list_open_pulls("o", "r").await.unwrap();
@@ -192,29 +195,35 @@ async fn list_open_pulls_retries_after_removal_page_drift() {
 
     assert_eq!(
         numbers,
-        (1..=100).chain(102..=203).collect::<Vec<_>>(),
-        "the retry drops the closed pull and restores the shifted pull"
+        (1..=100).chain([102, 103]).collect::<Vec<_>>(),
+        "a pull shifted across an already-fetched boundary is absent until the next refresh instead of failing the listing"
     );
     server.join().unwrap();
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn list_open_pulls_fails_after_repeated_page_drift() {
-    let responses = vec![
-        MockResponse::ok(1, (1..=100).map(pull).collect()),
-        MockResponse::ok(2, vec![pull(100), pull(102)]),
-    ];
-    let mut repeated = responses.clone();
-    repeated.extend(responses);
-    let (client, server) = fixture(repeated);
+async fn list_open_pulls_returns_most_recently_updated_first() {
+    let updated = |number: i64, timestamp: &str| {
+        let mut pull = pull(number);
+        pull["updated_at"] = timestamp.into();
+        pull
+    };
+    let (client, server) = fixture(vec![MockResponse::ok(
+        1,
+        vec![
+            updated(1, "2026-08-20T00:00:00Z"),
+            updated(2, "2026-08-24T00:00:00Z"),
+            updated(3, "2026-08-22T00:00:00Z"),
+        ],
+    )]);
 
-    let error = client.list_open_pulls("o", "r").await.unwrap_err();
+    let pulls = client.list_open_pulls("o", "r").await.unwrap();
+    let numbers: Vec<_> = pulls.iter().map(|pull| pull.number).collect();
 
-    assert!(
-        error
-            .to_string()
-            .contains("Open pull request listing changed while paginating"),
-        "repeated drift must error instead of returning a partial listing: {error:#}"
+    assert_eq!(
+        numbers,
+        vec![2, 3, 1],
+        "consumers picking one review per branch rely on the freshest pull coming first"
     );
     server.join().unwrap();
 }
@@ -231,19 +240,8 @@ async fn list_open_pulls_stops_after_a_short_first_page() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn list_open_pulls_accepts_exactly_the_page_limit() {
-    let mut scan = (0..100)
-        .map(|page| {
-            MockResponse::ok(
-                page + 1,
-                (page * 100 + 1..=(page + 1) * 100)
-                    .map(|number| pull(number as i64))
-                    .collect(),
-            )
-        })
-        .collect::<Vec<_>>();
-    scan.push(MockResponse::ok(101, Vec::new()));
-    let mut responses = scan.clone();
-    responses.extend(scan);
+    let mut responses = full_pages(100);
+    responses.push(MockResponse::ok(101, Vec::new()));
     let (client, server) = fixture(responses);
 
     let pulls = client.list_open_pulls("o", "r").await.unwrap();
@@ -257,19 +255,24 @@ async fn list_open_pulls_accepts_exactly_the_page_limit() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn list_open_pulls_fails_when_page_101_is_nonempty() {
-    let mut responses = (0..100)
-        .map(|page| {
-            MockResponse::ok(
-                page + 1,
-                (page * 100 + 1..=(page + 1) * 100)
-                    .map(|number| pull(number as i64))
-                    .collect(),
-            )
-        })
-        .collect::<Vec<_>>();
+async fn list_open_pulls_accepts_a_short_page_past_the_limit() {
+    let mut responses = full_pages(100);
     responses.push(MockResponse::ok(101, vec![pull(10_001)]));
     let (client, server) = fixture(responses);
+
+    let pulls = client.list_open_pulls("o", "r").await.unwrap();
+
+    assert_eq!(
+        pulls.len(),
+        10_001,
+        "a short page 101 completes the listing instead of tripping the bound"
+    );
+    server.join().unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn list_open_pulls_fails_when_page_101_is_full() {
+    let (client, server) = fixture(full_pages(101));
 
     let error = client.list_open_pulls("o", "r").await.unwrap_err();
 
@@ -277,7 +280,7 @@ async fn list_open_pulls_fails_when_page_101_is_nonempty() {
         error
             .to_string()
             .contains("Open pull request listing exceeded 100 pages"),
-        "a nonempty page 101 exceeds the safety bound: {error:#}"
+        "101 full pages mean the listing may extend past the safety bound: {error:#}"
     );
     server.join().unwrap();
 }

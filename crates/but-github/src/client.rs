@@ -202,7 +202,9 @@ impl GitHubClient {
 
     /// Fetch every page of a GitHub list endpoint, 100 items per page,
     /// stopping at the first short page or after `max_pages` (a silent
-    /// truncation bound for pathological list sizes).
+    /// truncation bound for pathological list sizes; callers that must
+    /// detect overflow pass one page beyond their limit and check the
+    /// returned item count).
     async fn get_all_pages<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -247,43 +249,38 @@ impl GitHubClient {
         Ok(response)
     }
 
-    /// Fetch the list of the open PRs on a repo.
+    /// Fetch the list of the open PRs on a repo, most recently updated first.
+    ///
+    /// Pages are fetched in ascending creation-time order so offset
+    /// pagination stays stable while the repository is active: updates never
+    /// move a PR and new PRs only append. A close or reopen racing the scan
+    /// can still shift a page boundary, duplicating a boundary PR (the
+    /// freshest copy is kept) or omitting one (a later refresh restores it,
+    /// though the review cache may briefly drop its row in between).
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
+        const MAX_PAGES: usize = 100;
         let url = format!(
-            "{}/repos/{}/{}/pulls?state=open&sort=updated&direction=desc",
+            "{}/repos/{}/{}/pulls?state=open&sort=created&direction=asc",
             self.base_url, owner, repo
         );
-        let mut previous_numbers = None;
-        let mut retried = false;
-        loop {
-            let pulls = self.get_all_pages::<GitHubPullRequest>(&url, 101).await?;
-            anyhow::ensure!(
-                pulls.len() <= 10_000,
-                "Open pull request listing exceeded 100 pages"
-            );
-            if pulls.len() < 100 {
-                return Ok(pulls.into_iter().map(Into::into).collect());
-            }
-
-            let mut seen = std::collections::HashSet::new();
-            let numbers = pulls.iter().map(|pull| pull.number).collect::<Vec<_>>();
-            let changed = numbers.iter().any(|number| !seen.insert(number))
-                || previous_numbers
-                    .as_ref()
-                    .is_some_and(|previous| previous != &numbers);
-            if changed {
-                anyhow::ensure!(
-                    !retried,
-                    "Open pull request listing changed while paginating"
-                );
-                retried = true;
-            } else if previous_numbers.is_some() {
-                return Ok(pulls.into_iter().map(Into::into).collect());
-            }
-            if seen.len() == numbers.len() {
-                previous_numbers = Some(numbers);
-            }
-        }
+        let pulls = self
+            .get_all_pages::<GitHubPullRequest>(&url, MAX_PAGES + 1)
+            .await?;
+        // Every fetched page being full means the listing may extend past
+        // what was fetched; a short final page is complete however far past
+        // the nominal bound it runs.
+        anyhow::ensure!(
+            pulls.len() < (MAX_PAGES + 1) * 100,
+            "Open pull request listing exceeded {MAX_PAGES} pages"
+        );
+        // Later duplicates overwrite earlier ones, keeping the freshest copy.
+        let pulls: std::collections::BTreeMap<_, _> =
+            pulls.into_iter().map(|pull| (pull.number, pull)).collect();
+        let mut pulls = pulls.into_values().collect::<Vec<_>>();
+        // RFC 3339 timestamps compare chronologically as strings; consumers
+        // that pick one PR per branch rely on the freshest coming first.
+        pulls.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        Ok(pulls.into_iter().map(Into::into).collect())
     }
 
     /// List the PRs for a given target.
