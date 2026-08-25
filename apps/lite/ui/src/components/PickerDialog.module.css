@@ -101,7 +101,7 @@
 
 .list {
 	box-sizing: border-box;
-	padding: 0.5rem;
+	position: relative;
 
 	&:empty {
 		padding: 0;
@@ -112,8 +112,8 @@
 	min-width: 100%;
 }
 
-.group:not(:last-child) {
-	margin-block-end: 0.25rem;
+.virtualContainer {
+	position: relative;
 }
 
 .groupLabel {
