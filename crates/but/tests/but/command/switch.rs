@@ -248,6 +248,28 @@ Created branch 'my-feature'
 }
 
 #[test]
+fn creates_named_branch_with_json_output() {
+    let env = switch_env();
+
+    env.but("--json switch --new my-feature")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![[r#"
+⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
+
+"#]])
+        .stdout_eq(str![[r#"
+{
+  "branch": "my-feature"
+}
+
+"#]]);
+
+    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "my-feature");
+}
+
+#[test]
 fn creates_generated_branch_and_switches_to_it() {
     let env = switch_env();
 

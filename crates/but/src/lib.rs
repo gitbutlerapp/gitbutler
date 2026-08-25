@@ -801,7 +801,7 @@ async fn match_subcommand(
             out,
         )?,
         #[cfg(feature = "legacy")]
-        Subcommands::Switch { .. } => setup::init_ctx(
+        Subcommands::Switch(..) => setup::init_ctx(
             &args,
             InitCtxOptions {
                 workspace_check: setup::WorkspaceCheck::Disabled,
@@ -1072,13 +1072,16 @@ async fn match_subcommand(
             }
         },
         #[cfg(feature = "legacy")]
-        Subcommands::Switch {
-            target,
-            workspace,
-            new,
-        } => {
-            command::legacy::r#switch::handle(&mut ctx, out, target, workspace, new)
-                .emit_metrics(metrics_ctx)?;
+        Subcommands::Switch(switch_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome = command::legacy::r#switch::switch(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                switch_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
             None
         }
         #[cfg(feature = "legacy")]
