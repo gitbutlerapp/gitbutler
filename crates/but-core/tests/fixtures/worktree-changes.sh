@@ -204,6 +204,15 @@ git init modified-in-index-and-worktree-rename-add
   echo $'initial\nwt-change' >file
 )
 
+git init renamed-in-index-source-recreated-and-neighbor-modified
+(cd renamed-in-index-source-recreated-and-neighbor-modified
+  echo content >z && echo neighbor >b
+  git add . && git commit -m "init"
+  git mv z a
+  echo staged >>b && git add b
+  echo recreated >z
+)
+
 git init modified-in-index-and-worktree-add-rename
 (cd modified-in-index-and-worktree-add-rename
   echo initial >file && git add .

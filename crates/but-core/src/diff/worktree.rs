@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, io::Read, path::PathBuf};
+use std::{io::Read, path::PathBuf};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
@@ -22,7 +22,6 @@ use crate::{
 };
 
 /// Identify where a [`TreeChange`] is from.
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 enum Origin {
     /// The change was detected when doing a diff between a tree (`HEAD^{tree}`) and an index (`.git/index`).
     TreeIndex,
@@ -98,7 +97,8 @@ fn worktree_changes_inner(
         .into_iter(None)?;
 
     let work_dir = repo.workdir().context("need non-bare repository")?;
-    let mut tmp = Vec::new();
+    let mut tree_index_changes = Vec::new();
+    let mut index_worktree_changes = Vec::new();
     let mut ignored_changes = Vec::new();
     let mut index_conflicts = Vec::new();
     let mut index_changes = Vec::new();
@@ -489,71 +489,116 @@ fn worktree_changes_inner(
                 )
             }
         };
-        tmp.push(change);
+        let (origin, change) = change;
+        match origin {
+            Origin::TreeIndex => tree_index_changes.push(change),
+            Origin::IndexWorktree => index_worktree_changes.push(change),
+        }
     }
 
-    tmp.sort_by(|(a_origin, a), (b_origin, b)| {
-        cmp_prefer_overlapping(a, b).then(a_origin.cmp(b_origin).reverse())
-    });
+    // Pairing and merge order decide the output, and gix emits index/worktree status in
+    // thread-pool completion order, so sort both sides by path to stay deterministic.
+    tree_index_changes.sort_unstable_by(|a, b| a.path.cmp(&b.path));
+    index_worktree_changes.sort_unstable_by(|a, b| a.path.cmp(&b.path));
+    let mut rename_sources_by_path: Vec<(&BStr, usize)> = tree_index_changes
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, change)| change.previous_path().map(|path| (path, idx)))
+        .collect();
+    rename_sources_by_path.sort_unstable();
 
-    let mut last_change = None::<&TreeChange>;
-    let mut changes = Vec::<TreeChange>::with_capacity(tmp.len());
+    let mut changes =
+        Vec::<TreeChange>::with_capacity(tree_index_changes.len() + index_worktree_changes.len());
+    let mut partners: Vec<Option<TreeChange>> = tree_index_changes.iter().map(|_| None).collect();
+    // Pair each index/worktree change with the tree/index change that describes the same file.
+    // An index/worktree change at a tree/index change's own path continues that index entry,
+    // so those pairs form first; only afterwards may an untracked file claim the source path
+    // a tree/index rename left behind.
+    let mut source_path_claimants = Vec::new();
+    for index_wt_change in index_worktree_changes {
+        let claimed = [
+            index_wt_change.previous_path(),
+            Some(index_wt_change.path.as_bstr()),
+        ]
+        .into_iter()
+        .flatten()
+        .find_map(|path| {
+            tree_index_changes
+                .binary_search_by(|change| change.path.as_bstr().cmp(path))
+                .ok()
+        })
+        .filter(|&idx| partners[idx].is_none());
+        match claimed {
+            Some(idx) => partners[idx] = Some(index_wt_change),
+            None => source_path_claimants.push(index_wt_change),
+        }
+    }
+    for index_wt_change in source_path_claimants {
+        let claimed = rename_sources_by_path
+            .binary_search_by(|(source, _)| (*source).cmp(index_wt_change.path.as_bstr()))
+            .ok()
+            .map(|pos| rename_sources_by_path[pos].1)
+            .filter(|&idx| partners[idx].is_none());
+        match claimed {
+            Some(idx) => partners[idx] = Some(index_wt_change),
+            None => changes.push(index_wt_change),
+        }
+    }
+
     let (mut filter, index) = repo.filter_pipeline(None)?;
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(
         repo.workdir().map(ToOwned::to_owned).context("non-bare")?,
     );
-    for (_origin, change) in tmp {
-        // At this point we know that the current `change` is the tree/index variant
-        // of a prior change between index/worktree.
-        if last_change
-            .as_ref()
-            .is_some_and(|last_change| cmp_prefer_overlapping(last_change, &change).is_eq())
-        {
-            last_change = None;
-            // This is usually two modifications, but it's also possible that
-            // This one is a rename. In that case, we want the rename, combined
-            // with the current state pointing to the worktree,
-            // which we expect to be a modification
-            let index_wt_change = changes
-                .pop()
-                .expect("the reason we are here is the previous change");
-            let change_path = change.path.clone();
-            let tree_index_change = change;
-            let status = match merge_changes(
-                tree_index_change,
-                index_wt_change,
-                &mut filter,
-                &index,
-                &mut path_check,
-            )? {
-                [None, None] => IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
-                [Some(merged), None] | [None, Some(merged)] => {
-                    changes.push(merged);
-                    IgnoredWorktreeTreeChangeStatus::TreeIndex
-                }
-                [Some(first), Some(second)] => {
-                    ignored_changes.push(IgnoredWorktreeChange {
-                        path: first.path.clone(),
-                        status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
-                    });
-                    changes.push(first);
-                    ignored_changes.push(IgnoredWorktreeChange {
-                        path: second.path.clone(),
-                        status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
-                    });
-                    changes.push(second);
-                    continue;
-                }
-            };
-            ignored_changes.push(IgnoredWorktreeChange {
-                path: change_path,
-                status,
-            });
+    let mut deferred_deletions = Vec::new();
+    for (tree_index_change, index_wt_change) in tree_index_changes.into_iter().zip(partners) {
+        let Some(index_wt_change) = index_wt_change else {
+            if matches!(tree_index_change.status, TreeStatus::Deletion { .. }) {
+                deferred_deletions.push(tree_index_change);
+            } else {
+                changes.push(tree_index_change);
+            }
             continue;
-        }
-        changes.push(change);
-        last_change = changes.last();
+        };
+        merge_pair(
+            tree_index_change,
+            index_wt_change,
+            &mut changes,
+            &mut ignored_changes,
+            &mut filter,
+            &index,
+            &mut path_check,
+        )?;
     }
+    changes.sort_by(|a, b| a.path.cmp(&b.path));
+    // A worktree rename can move a file onto a path whose staged deletion found no partner
+    // above; fold the deletion into that rename so each path keeps a single change.
+    let must_resort = !deferred_deletions.is_empty();
+    for deletion in deferred_deletions {
+        let renamed_onto_deleted_path = changes
+            .binary_search_by(|change| change.path.cmp(&deletion.path))
+            .ok()
+            .filter(|&pos| matches!(changes[pos].status, TreeStatus::Rename { .. }));
+        match renamed_onto_deleted_path {
+            Some(pos) => {
+                let rename = changes.remove(pos);
+                merge_pair(
+                    deletion,
+                    rename,
+                    &mut changes,
+                    &mut ignored_changes,
+                    &mut filter,
+                    &index,
+                    &mut path_check,
+                )?;
+            }
+            None => changes.push(deletion),
+        }
+    }
+    if must_resort {
+        changes.sort_by(|a, b| a.path.cmp(&b.path));
+    }
+    ignored_changes.sort_unstable_by(|a, b| (&a.path, a.status).cmp(&(&b.path, b.status)));
+    ignored_changes.dedup();
 
     Ok(WorktreeChanges {
         changes,
@@ -563,15 +608,49 @@ fn worktree_changes_inner(
     })
 }
 
-fn cmp_prefer_overlapping(a: &TreeChange, b: &TreeChange) -> Ordering {
-    if a.path == b.path
-        || a.previous_path() == Some(b.path.as_bstr())
-        || Some(a.path.as_bstr()) == b.previous_path()
-    {
-        Ordering::Equal
-    } else {
-        a.path.cmp(&b.path)
-    }
+/// Merge the pair into a tree/worktree change appended to `changes`, recording what was
+/// absorbed in `ignored_changes`.
+fn merge_pair(
+    tree_index_change: TreeChange,
+    index_wt_change: TreeChange,
+    changes: &mut Vec<TreeChange>,
+    ignored_changes: &mut Vec<IgnoredWorktreeChange>,
+    filter: &mut gix::filter::Pipeline<'_>,
+    index: &gix::index::State,
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+) -> anyhow::Result<()> {
+    let change_path = tree_index_change.path.clone();
+    let status = match merge_changes(
+        tree_index_change,
+        index_wt_change,
+        filter,
+        index,
+        path_check,
+    )? {
+        [None, None] => IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
+        [Some(merged), None] | [None, Some(merged)] => {
+            changes.push(merged);
+            IgnoredWorktreeTreeChangeStatus::TreeIndex
+        }
+        [Some(first), Some(second)] => {
+            ignored_changes.push(IgnoredWorktreeChange {
+                path: first.path.clone(),
+                status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+            });
+            changes.push(first);
+            ignored_changes.push(IgnoredWorktreeChange {
+                path: second.path.clone(),
+                status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+            });
+            changes.push(second);
+            return Ok(());
+        }
+    };
+    ignored_changes.push(IgnoredWorktreeChange {
+        path: change_path,
+        status,
+    });
+    Ok(())
 }
 
 /// Merge changes from tree/index into changes of `index_wt` and assure the merged result isn't a no-op,

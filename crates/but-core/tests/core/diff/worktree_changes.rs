@@ -2044,20 +2044,20 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
 WorktreeChanges {
     changes: [
         TreeChange {
-            path: "file-renamed-in-index",
+            path: "file",
             status: Addition {
                 state: ChangeState {
-                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
+                    id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
                 is_untracked: true,
             },
         },
         TreeChange {
-            path: "file",
+            path: "file-renamed-in-index",
             status: Addition {
                 state: ChangeState {
-                    id: Sha1(0000000000000000000000000000000000000000),
+                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                     kind: Blob,
                 },
                 is_untracked: true,
@@ -2093,17 +2093,82 @@ WorktreeChanges {
     snapbox::assert_data_eq!(
         hunks1[0].diff.to_string(),
         snapbox::str![[r#"
-@@ -1,0 +1,1 @@
+@@ -1,0 +1,2 @@
 +initial
++wt-change
 
 "#]]
     );
     snapbox::assert_data_eq!(
         hunks2[0].diff.to_string(),
         snapbox::str![[r#"
-@@ -1,0 +1,2 @@
+@@ -1,0 +1,1 @@
 +initial
-+wt-change
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn overlapping_changes_at_three_paths_group_deterministically() -> Result<()> {
+    // An index rename `z` → `a`, a recreated `z` in the worktree, and an unrelated staged
+    // change at `b` used to be sorted with a comparator whose overlap-equality was not
+    // transitive, panicking with "comparison function does not implement a total order"
+    // on unlucky input orders.
+    let repo = repo("renamed-in-index-source-recreated-and-neighbor-modified")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "a",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                    kind: Blob,
+                },
+                is_untracked: true,
+            },
+        },
+        TreeChange {
+            path: "b",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(0a5dc9c0e656cd31f81f9d40fe6f58dbad39cb72),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(050a45de5f26e3ad0a0dbb34d8b522854bf2730a),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+        TreeChange {
+            path: "z",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                is_untracked: true,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "a",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "z",
+            status: TreeIndex,
+        },
+    ],
+}
 
 "#]]
     );
