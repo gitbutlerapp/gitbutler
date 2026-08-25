@@ -48,8 +48,29 @@
 	}
 }
 
+/* Three tiers, because a row can be selected in three different senses. Every
+   selected row keeps a fill: the lists are navigated with the keyboard, so
+   where each one's cursor sits has to stay legible from the other one. What
+   separates them is the rail below and the focused fill further down. */
 .containerSelected {
 	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+
+	/* Only one row in the window is the source of what the details pane shows.
+	   A rail on its leading edge says so even when focus has moved away — into
+	   the other list, or into the pane itself — so two tinted rows never read
+	   as equals. */
+	&:is([data-preview-source="true"] *) {
+		position: relative;
+
+		&::before {
+			position: absolute;
+			width: 4px;
+			inset-block: 0;
+			inset-inline-start: 0;
+			background-color: var(--fill-gray-bg);
+			content: "";
+		}
+	}
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-focus-scope][data-selection-focused="true"] & {
