@@ -5,6 +5,7 @@ pub enum Subcommands {
     /// Each conflict is shown with its ours side (the new base the commit was
     /// rebased onto), the common ancestor, and its theirs side (the commit's
     /// own version), numbered per file for use with `but resolve apply`.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Conflicts {
         /// A conflicted commit, or a branch (meaning its oldest conflicted commit).
         /// Defaults to the first conflicted branch's oldest conflicted commit.
@@ -19,6 +20,7 @@ pub enum Subcommands {
     /// Resolving only some conflicts keeps the commit conflicted with the rest,
     /// so conflicts can be worked off incrementally; the commit id changes with
     /// every apply. Undo with `but undo`.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply {
         /// The conflicted file, optionally with a 1-based conflict number (`<path>:<N>`).
         target: String,
@@ -42,18 +44,21 @@ pub enum Subcommands {
     },
 
     /// Show the status of conflict resolution, listing remaining conflicted files.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Status,
 
     /// Finalize conflict resolution and return to workspace mode.
     ///
     /// This commits the resolved changes, rebases any commits on top of the
     /// resolved commit, and returns to the normal workspace.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Finish,
 
     /// Cancel conflict resolution and return to workspace mode.
     ///
     /// This discards all changes made during resolution and restores
     /// the workspace to its pre-resolution state.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Cancel {
         /// Forcibly remove any changes made
         #[clap(short = 'f', long)]
