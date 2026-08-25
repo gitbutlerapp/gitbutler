@@ -7,6 +7,8 @@ pub struct AppSettings {
     pub context_lines: u32,
     /// Whether the user has passed the onboarding flow.
     pub onboarding_complete: bool,
+    /// Whether the CLI shows agent skill installation and freshness notices.
+    pub agent_skill_notices: bool,
     /// Telemetry settings
     pub telemetry: app_settings::TelemetrySettings,
     /// Client ID for the GitHub OAuth application.

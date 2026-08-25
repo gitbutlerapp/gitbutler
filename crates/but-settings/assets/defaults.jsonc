@@ -3,6 +3,8 @@
 	"contextLines": 3,
 	// Whether the user has passed the onboarding flow.
 	"onboardingComplete": false,
+	// Whether the CLI shows agent skill installation and freshness notices.
+	"agentSkillNotices": true,
 	"telemetry": {
 		// Whether the anonymous metrics are enabled.
 		"appMetricsEnabled": true,

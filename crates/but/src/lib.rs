@@ -555,7 +555,8 @@ async fn match_subcommand(
                 | Subcommands::Completions { .. }
                 | Subcommands::Metrics { .. }
         );
-    let show_agent_skill_notice = out.format().is_human_text() && notice_worthy_command;
+    let show_agent_skill_notice =
+        app_settings.agent_skill_notices && out.format().is_human_text() && notice_worthy_command;
     let agent_skill_notice = show_agent_skill_notice
         .then(|| command::skill::agent_skill_notice(&args.current_dir))
         .flatten();
@@ -1563,7 +1564,12 @@ async fn match_subcommand(
             let result = command::legacy::resolve::handle(&mut ctx, out, cmd, targets, ai)
                 .context("Failed to handle conflict resolution.");
             if result.is_ok() {
-                run_status_after_if_requested(status_after, &mut ctx, out);
+                run_status_after_if_requested(
+                    status_after,
+                    app_settings.agent_skill_notices,
+                    &mut ctx,
+                    out,
+                );
             }
             result
                 .emit_metrics(metrics_ctx)
@@ -1693,7 +1699,12 @@ async fn match_subcommand(
     }
     #[cfg(feature = "legacy")]
     if let Some(status_after) = status_after_data {
-        run_status_after_if_requested(status_after, &mut ctx, out);
+        run_status_after_if_requested(
+            status_after,
+            app_settings.agent_skill_notices,
+            &mut ctx,
+            out,
+        );
     }
 
     Ok(())
@@ -1746,11 +1757,13 @@ fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
 #[cfg(feature = "legacy")]
 fn run_status_after_if_requested(
     status_after: bool,
+    agent_skill_notices: bool,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
 ) {
     if !status_after {
-        if out.is_json()
+        if agent_skill_notices
+            && out.is_json()
             && let Some(notice) = command::skill::agent_skill_update_notice()
         {
             eprintln!("{notice}");
@@ -1758,7 +1771,7 @@ fn run_status_after_if_requested(
         return;
     }
     let mutation_json = out.take_json_buffer();
-    run_status_after(ctx, out, mutation_json);
+    run_status_after(agent_skill_notices, ctx, out, mutation_json);
 }
 
 /// Run workspace status output after a mutation command when explicitly requested.
@@ -1775,15 +1788,14 @@ fn run_status_after_if_requested(
 /// a warning is printed to stderr.
 #[cfg(feature = "legacy")]
 fn run_status_after(
+    agent_skill_notices: bool,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
 ) {
     use crate::command::legacy::status::StatusFlags;
 
-    let agent_skill_notice = out
-        .format()
-        .is_json()
+    let agent_skill_notice = (agent_skill_notices && out.format().is_json())
         .then(command::skill::agent_skill_update_notice)
         .flatten();
 
