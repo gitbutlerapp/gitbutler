@@ -494,6 +494,7 @@ impl Sandbox {
         let settings = AppSettings {
             context_lines: 3,
             onboarding_complete: true,
+            agent_skill_notices: true,
             telemetry: TelemetrySettings {
                 app_metrics_enabled: false,
                 app_error_reporting_enabled: false,

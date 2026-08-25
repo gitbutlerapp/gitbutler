@@ -8,6 +8,17 @@ fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
         .join("gitbutler")
 }
 
+#[cfg(feature = "legacy")]
+fn disable_agent_skill_notices(env: &Sandbox) {
+    let settings_path = env.app_data_dir().join("gitbutler/settings.json");
+    let mut settings: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(&settings_path).expect("settings were written"),
+    )
+    .expect("settings are valid JSON");
+    settings["agentSkillNotices"] = false.into();
+    std::fs::write(settings_path, settings.to_string()).expect("settings are writable");
+}
+
 fn path_ends_with_gitbutler_agents_dir(path: &str) -> bool {
     let normalized = path.replace('\\', "/");
     normalized.ends_with("/.agents/skills/gitbutler")
@@ -164,6 +175,72 @@ fn agent_skill_notice_gating() {
         String::from_utf8_lossy(&failed.stdout).starts_with("⚠ AGENT ACTION REQUIRED"),
         "failed normal commands receive the same pre-dispatch notice"
     );
+}
+
+#[test]
+#[cfg(feature = "legacy")]
+fn agent_skill_notices_can_be_disabled_in_persisted_settings() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    disable_agent_skill_notices(&env);
+
+    for _ in 0..2 {
+        env.but("status")
+            .env("AI_AGENT", "codex")
+            .assert()
+            .success()
+            // Repeated status output remains normal while notices are disabled.
+            .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    }
+
+    env.but("alias list")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success()
+        // Other notice-worthy human commands also retain their normal output.
+        .stdout_eq(snapbox::str![[r#"
+Default aliases (overridable):
+
+  default  →  status
+  st       →  status
+  stf      →  status --files
+  c        →  commit
+  s        →  squash
+  m        →  move
+  wt       →  worktree
+
+"#]]);
+
+    env.but("--json alias list")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .assert()
+        .success()
+        // JSON output keeps its existing command-specific shape.
+        .stdout_eq(snapbox::str![[r#"
+{
+  "user": [],
+  "default": {
+    "default": "status",
+    "st": "status",
+    "stf": "status --files",
+    "c": "commit",
+    "s": "squash",
+    "m": "move",
+    "wt": "worktree"
+  }
+}
+
+"#]]);
 }
 
 #[test]
@@ -368,7 +445,8 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
 
     let claude_skill_path = env.home_dir().join(".claude/skills/gitbutler/SKILL.md");
     let expected = std::fs::read_to_string(&claude_skill_path).unwrap();
-    std::fs::write(&claude_skill_path, "---\nname: but\nversion: old\n---\n").unwrap();
+    let stale_skill = "---\nname: but\nversion: old\n---\n";
+    std::fs::write(&claude_skill_path, stale_skill).unwrap();
     env.file("file.txt", "Some text");
 
     let output = env
@@ -398,6 +476,59 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
         std::fs::read_to_string(&claude_skill_path).unwrap(),
         expected,
         "a JSON agent command should still refresh other agents' global skill installations"
+    );
+
+    disable_agent_skill_notices(&env);
+    std::fs::write(&claude_skill_path, stale_skill).unwrap();
+    env.file("another-file.txt", "More text");
+
+    let output = env
+        .but("commit --no-message --json --status-after")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "the opted-out JSON mutation succeeds"
+    );
+    let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        stdout.get("status").is_some() && stdout.get("agent_skill_notice").is_none(),
+        "the opted-out JSON result includes status without a skill notice: {stdout}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&claude_skill_path).unwrap(),
+        stale_skill,
+        "disabling notices also skips the freshness work that produces them"
+    );
+
+    env.file("third-file.txt", "Even more text");
+    let output = env
+        .but("commit --no-message --json")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "the opted-out JSON mutation without status-after succeeds"
+    );
+    let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        stdout.get("commitId").is_some()
+            && stdout.get("changeId").is_some()
+            && stdout.get("status").is_none(),
+        "the opted-out JSON mutation remains native: {stdout}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stderr).contains("was out of date and was updated"),
+        "the opted-out JSON mutation must not emit a freshness notice"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&claude_skill_path).unwrap(),
+        stale_skill,
+        "the no-status-after path must also skip skill freshness work"
     );
 }
 

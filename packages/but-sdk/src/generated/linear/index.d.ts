@@ -1507,6 +1507,8 @@ export type AppSettings = {
   contextLines: number;
   /** Whether the user has passed the onboarding flow. */
   onboardingComplete: boolean;
+  /** Whether the CLI shows agent skill installation and freshness notices. */
+  agentSkillNotices: boolean;
   /** Telemetry settings */
   telemetry: TelemetrySettings;
   /** Client ID for the GitHub OAuth application. */
