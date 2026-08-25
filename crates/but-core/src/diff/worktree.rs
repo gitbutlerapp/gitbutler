@@ -638,18 +638,17 @@ fn merge_changes(
             return Ok(single(index_wt));
         }
         (
-            TreeStatus::Deletion { previous_state, .. },
+            TreeStatus::Deletion { .. },
             TreeStatus::Addition {
-                is_untracked: true,
-                state,
+                is_untracked: true, ..
             },
         ) => {
-            index_wt.status = TreeStatus::Modification {
-                previous_state: *previous_state,
-                state: *state,
-                flags: None,
-            };
-            index_wt
+            // The index says the path isn't tracked anymore, so what remains on disk is
+            // an untracked file rather than a modification of the one that was removed.
+            // Merging the two into a modification instead makes them cancel out whenever
+            // the file still matches `HEAD`, which is what makes `git rm --cached` look
+            // like it did nothing and silently re-tracks the file on the next commit.
+            return Ok(single(tree_index));
         }
         (
             TreeStatus::Modification { previous_state, .. },

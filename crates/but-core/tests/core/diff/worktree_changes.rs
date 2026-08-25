@@ -1738,16 +1738,11 @@ WorktreeChanges {
     changes: [
         TreeChange {
             path: "file",
-            status: Modification {
+            status: Deletion {
                 previous_state: ChangeState {
                     id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                     kind: Blob,
                 },
-                state: ChangeState {
-                    id: Sha1(0000000000000000000000000000000000000000),
-                    kind: Blob,
-                },
-                flags: None,
             },
         },
     ],
@@ -1768,9 +1763,8 @@ WorktreeChanges {
     snapbox::assert_data_eq!(
         hunks[0].diff.to_string(),
         snapbox::str![[r#"
-@@ -1,1 +1,2 @@
- initial
-+wt-changed
+@@ -1,1 +1,0 @@
+-initial
 
 "#]]
     );
@@ -1780,11 +1774,21 @@ WorktreeChanges {
         diff::worktree_changes(&repo)?.to_debug(),
         snapbox::str![[r#"
 WorktreeChanges {
-    changes: [],
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
+                    kind: Blob,
+                },
+            },
+        },
+    ],
     ignored_changes: [
         IgnoredWorktreeChange {
             path: "file",
-            status: TreeIndexWorktreeChangeIneffective,
+            status: TreeIndex,
         },
     ],
 }
