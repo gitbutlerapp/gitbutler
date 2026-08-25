@@ -18,6 +18,5 @@ pub mod onboarding;
 pub mod open;
 pub mod push;
 pub mod skill;
-pub mod r#switch;
 pub mod update;
 pub mod worktree;
