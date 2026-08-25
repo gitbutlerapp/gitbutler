@@ -2556,8 +2556,11 @@ const CommitDetails: FC<{
 
 	// The tab is per selection: selecting another commit remounts this
 	// component, and a landed review is read, not worked on, so nothing needs
-	// to remember the choice.
-	const [tab, setTab] = useState<BranchTab>("diff");
+	// to remember the choice. The review is what the commit is listed for, so
+	// it opens on the review — derived rather than seeded into the state, as
+	// the review can resolve after mount.
+	const [chosenTab, setTab] = useState<BranchTab | null>(null);
+	const tab = chosenTab ?? (review ? "pr" : "diff");
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab: tab, setBranchTab: setTab, target: ref, enabled: !!review });
 
@@ -2959,9 +2962,12 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 		select: (reviews) => reviews.find((review) => review.sourceBranch === branchName) ?? null,
 	});
 
-	const branchTab = useAppSelector((state) =>
+	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
+	// The review is what the branch is judged by, so a branch that has one
+	// opens on it; without one only the diff is on offer.
+	const branchTab = chosenTab ?? (review ? "pr" : "diff");
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
 	};
@@ -3030,9 +3036,13 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const dispatch = useAppDispatch();
 	const branchRef = decodeBytes(branch.branchRef);
 	const branchName = branchDetailsParams(branchRef).branchName;
-	const branchTab = useAppSelector((state) =>
+	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
+	// The review is where an applied branch is headed, so a forge that serves
+	// pull requests opens on that tab — the create form when none exists yet.
+	// Without such a forge the tab is a dead form, so the diff leads.
+	const branchTab = chosenTab ?? (forgeInfo?.capabilities.prService ? "pr" : "diff");
 
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));

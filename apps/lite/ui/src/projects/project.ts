@@ -132,8 +132,6 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 
 export type PageId = "workspace" | "upstream" | "branches";
 
-const defaultBranchTab: BranchTab = "diff";
-
 export type ProjectState = {
 	filesVisible: boolean;
 	branches: BranchesState;
@@ -596,8 +594,13 @@ const selectCheckedAddressCount = createSelector(
 
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
-	selectBranchTab: (state: ProjectState, branchName: string): BranchTab =>
-		state.workspace.selectedBranchTabs[branchName] ?? defaultBranchTab,
+	/**
+	 * The explicitly chosen tab, or `undefined` when none was picked — the
+	 * caller supplies the default, since whether the Pull Request tab is worth
+	 * opening on depends on forge data the store does not hold.
+	 */
+	selectBranchTab: (state: ProjectState, branchName: string): BranchTab | undefined =>
+		state.workspace.selectedBranchTabs[branchName],
 
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectFilesFilter: (state: ProjectState) => state.workspace.filesFilter,
