@@ -1257,7 +1257,7 @@ fn format_with_dot_thousands(value: u64) -> String {
 }
 
 pub fn load_syntax_set() -> SyntaxSet {
-    SyntaxSet::load_defaults_nonewlines()
+    two_face::syntax::extra_no_newlines()
 }
 
 #[cfg(test)]
@@ -1269,7 +1269,8 @@ mod tests {
 
     use super::{
         DetailsLine, DiffLineWriter, IdGen, Options, compute_line_stats_from_uncommitted_hunks,
-        expand_tabs_for_display, format_with_dot_thousands, render_uncommitted_hunk,
+        expand_tabs_for_display, format_with_dot_thousands, load_syntax_set,
+        render_uncommitted_hunk,
     };
     use crate::{
         CliId,
@@ -1299,6 +1300,16 @@ mod tests {
                 diff: None,
             },
         }
+    }
+
+    #[test]
+    fn bundled_syntaxes_include_swift() {
+        let syntax_set = load_syntax_set();
+        let syntax = syntax_set
+            .find_syntax_by_extension("swift")
+            .expect("Swift syntax should be bundled");
+
+        assert_eq!(syntax.name, "Swift", "the .swift extension selects Swift");
     }
 
     #[test]
