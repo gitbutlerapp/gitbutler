@@ -8,6 +8,7 @@ import {
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName, type ButtonSize, type ButtonVariant } from "#ui/components/Button.tsx";
+import { ChipToast } from "#ui/components/ChipToast.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -38,7 +39,7 @@ import { Button, Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import type { FC, ReactNode } from "react";
+import { useEffect, type FC, type ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import {
 	type PendingAbsorb,
@@ -48,6 +49,9 @@ import {
 } from "#ui/operations/pending-operation.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
+
+/** How long a notice stands before it takes itself away. */
+const NOTICE_TIMEOUT_MS = 5_000;
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={styles.container}>
@@ -143,9 +147,9 @@ const useControlHotkeys = ({
  * The way out of a toolbox that has nothing pending to abandon: a close affordance rather than a
  * peer of the acts beside it, with its chord stated in the strip above.
  */
-const CloseButton: FC<{ onCancel: () => void }> = ({ onCancel }) => (
+const CloseButton: FC<{ onCancel: () => void; size?: ButtonSize }> = ({ onCancel, size }) => (
 	<Button
-		className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+		className={getButtonClassName({ variant: "ghost", iconOnly: true, size })}
 		aria-label="Cancel"
 		onMouseDown={(event) => {
 			// Prevent stealing focus from the tree.
@@ -210,33 +214,31 @@ const CheckedAddressOperationControls: FC<{
 	);
 
 	return (
-		<Container>
-			<Toolbox>
-				<ToolboxMeta icon={icon}>
-					<span>
-						{new Intl.NumberFormat().format(checkedAddressCount)} {noun}
-						{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
-					</span>
-					<ToolboxMetaHint>
-						{formatForDisplaySorted(operationHotkeys.cancel.hotkey)} to close
-					</ToolboxMetaHint>
-				</ToolboxMeta>
-				<ToolboxSection>
-					{actions.map((action) => (
-						<ToolboxButton
-							key={action.label}
-							label={action.label}
-							hotkey={action.hotkey}
-							variant={action.variant}
-							enabled={action.enabled}
-							onClick={action.run}
-						/>
-					))}
-					{actions.length > 0 && <ToolboxSeparator />}
-					<CloseButton onCancel={cancel} />
-				</ToolboxSection>
-			</Toolbox>
-		</Container>
+		<Toolbox>
+			<ToolboxMeta icon={icon}>
+				<span>
+					{new Intl.NumberFormat().format(checkedAddressCount)} {noun}
+					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
+				</span>
+				<ToolboxMetaHint>
+					{formatForDisplaySorted(operationHotkeys.cancel.hotkey)} to close
+				</ToolboxMetaHint>
+			</ToolboxMeta>
+			<ToolboxSection>
+				{actions.map((action) => (
+					<ToolboxButton
+						key={action.label}
+						label={action.label}
+						hotkey={action.hotkey}
+						variant={action.variant}
+						enabled={action.enabled}
+						onClick={action.run}
+					/>
+				))}
+				{actions.length > 0 && <ToolboxSeparator />}
+				<CloseButton onCancel={cancel} />
+			</ToolboxSection>
+		</Toolbox>
 	);
 };
 
@@ -267,21 +269,38 @@ const AbsorbOperationControls: FC<{
 	const confirm: Confirm = { label: "Absorb", canRun: canAbsorb, onRun: run };
 	useControlHotkeys({ onCancel: cancel, confirm });
 
+	const sourcesLabel = addressesLabel({ headInfoIndex, addresses: pending.sources });
+
+	// The plan answers where these changes belong. With no answer — because nothing owns them, or
+	// because working it out failed — there is nothing left to aim, and an operation that cannot be
+	// aimed must not hold the workspace open: it stands down and leaves a notice saying why.
+	const refusal = isAbsorptionPlanPending
+		? null
+		: isAbsorptionPlanError
+			? `Couldn’t work out where to absorb ${sourcesLabel}`
+			: canAbsorb
+				? null
+				: `Nothing to absorb ${sourcesLabel} into`;
+
+	useEffect(() => {
+		if (refusal === null) return;
+
+		dispatch(projectSlice.actions.refusePendingOperation({ projectId, notice: refusal }));
+	}, [dispatch, projectId, refusal]);
+
+	if (refusal !== null) return null;
+
 	return (
 		<Container>
 			<Toolbox>
 				<ToolboxMeta icon={isAbsorptionPlanPending ? "spinner" : "absorb"}>
 					{isAbsorptionPlanPending ? (
 						<span>Loading absorb plan</span>
-					) : isAbsorptionPlanError ? (
-						<span>Failed to load absorb plan</span>
 					) : (
 						<>
 							<strong>Absorb</strong>
-							<ToolboxMetaText>
-								{addressesLabel({ headInfoIndex, addresses: pending.sources })}
-							</ToolboxMetaText>
-							<strong>into {absorptionPlan.length} commits</strong>
+							<ToolboxMetaText>{sourcesLabel}</ToolboxMetaText>
+							<strong>into {absorptionPlan?.length ?? 0} commits</strong>
 						</>
 					)}
 				</ToolboxMeta>
@@ -514,16 +533,43 @@ export const OperationControls: FC<{
 	const checkedAddressCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
+	const notice = useAppSelector((state) => projectSlice.selectors.selectNotice(state, projectId));
+	const dispatch = useAppDispatch();
+	const clearNotice = () => dispatch(projectSlice.actions.clearNotice({ projectId }));
+
+	// A notice is the end of something, not a thing to attend to: it carries no way out of its own
+	// and leaves on a click or on its own, so the only close button on screen belongs to whatever
+	// the workspace still has in hand.
+	useEffect(() => {
+		if (notice === null) return;
+
+		const timer = setTimeout(
+			() => dispatch(projectSlice.actions.clearNotice({ projectId })),
+			NOTICE_TIMEOUT_MS,
+		);
+		return () => clearTimeout(timer);
+	}, [dispatch, notice, projectId]);
 
 	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () =>
-				checkedAddressCount > 0 && (
-					<CheckedAddressOperationControls
-						checkedAddressCount={checkedAddressCount}
-						projectId={projectId}
-						appliedAddressSpace={appliedAddressSpace}
-					/>
+				(notice !== null || checkedAddressCount > 0) && (
+					<div className={styles.container}>
+						<ToolboxStack>
+							{notice !== null && (
+								<ChipToast variant="danger" className={styles.notice} onClick={clearNotice}>
+									{notice}
+								</ChipToast>
+							)}
+							{checkedAddressCount > 0 && (
+								<CheckedAddressOperationControls
+									checkedAddressCount={checkedAddressCount}
+									projectId={projectId}
+									appliedAddressSpace={appliedAddressSpace}
+								/>
+							)}
+						</ToolboxStack>
+					</div>
 				),
 			Absorb: (pending) =>
 				headInfoIndex && (

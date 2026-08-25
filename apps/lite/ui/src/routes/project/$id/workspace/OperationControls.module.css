@@ -1,4 +1,7 @@
-/* The toolbox floats over the workspace; the card itself is `components/Toolbox.tsx`. */
+.notice {
+	align-self: center;
+}
+
 .container {
 	z-index: 1;
 	position: fixed;
