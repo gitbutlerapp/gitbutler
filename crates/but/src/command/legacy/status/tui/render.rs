@@ -1273,6 +1273,7 @@ pub fn move_operation_display(
             StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
                 Some("move commit to worktree")
             }
+            StatusOutputLineData::MergeBase => Some("move commit to new branch"),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -1283,7 +1284,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
@@ -1310,6 +1310,13 @@ pub fn move_operation_display(
                     Some("move commits to worktree")
                 }
             }
+            StatusOutputLineData::MergeBase => {
+                if marks.len() == 1 {
+                    Some("move commit to new branch")
+                } else {
+                    Some("move commits to new branch")
+                }
+            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -1320,7 +1327,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint

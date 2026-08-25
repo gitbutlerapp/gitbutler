@@ -10,7 +10,7 @@ use crate::{
     CliId,
     command::legacy::{
         r#move::{
-            self, MoveCommitsRelativeToOperation, MoveOperation,
+            self, MoveCommitsRelativeToOperation, MoveCommitsToNewBranchOperation, MoveOperation,
             MoveOutcome as MoveOperationOutcome, StackBranchOnOperation, UnstackBranchOperation,
         },
         status::{
@@ -340,16 +340,10 @@ impl App {
 
         let move_op = match &**source {
             MoveSource::Commit(commit) => {
-                MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
-                    sources: NonEmpty::new(commit.clone()),
-                    target: move_target(target, *insert_side)?,
-                })
+                move_commits_operation(NonEmpty::new(commit.clone()), target, *insert_side)?
             }
             MoveSource::Marks(commits) => {
-                MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
-                    sources: commits.clone(),
-                    target: move_target(target, *insert_side)?,
-                })
+                move_commits_operation(commits.clone(), target, *insert_side)?
             }
             MoveSource::Branch(source) => {
                 let source_branch = Category::LocalBranch.to_full_name(source.name.as_str())?;
@@ -379,11 +373,12 @@ impl App {
     }
 }
 
-fn move_target(
+fn move_commits_operation(
+    sources: NonEmpty<CommitId>,
     target: MoveTarget<'_>,
     insert_side: InsertSide,
-) -> anyhow::Result<r#move::MoveTarget> {
-    Ok(match target {
+) -> anyhow::Result<MoveOperation> {
+    let target = match target {
         MoveTarget::Branch { name } => r#move::MoveTarget::BranchTip {
             name: Category::LocalBranch.to_full_name(name)?,
         },
@@ -392,8 +387,19 @@ fn move_target(
             side: targeting::Side::from(insert_side),
         },
         MoveTarget::WorktreeTip(name) => r#move::MoveTarget::BranchTip { name },
-        MoveTarget::MergeBase => anyhow::bail!("commits cannot be moved to the merge base"),
-    })
+        MoveTarget::MergeBase => {
+            return Ok(MoveOperation::CommitsToNewBranch(
+                MoveCommitsToNewBranchOperation {
+                    sources,
+                    branch_name: None,
+                },
+            ));
+        }
+    };
+
+    Ok(MoveOperation::CommitsRelativeTo(
+        MoveCommitsRelativeToOperation { sources, target },
+    ))
 }
 
 fn move_with(

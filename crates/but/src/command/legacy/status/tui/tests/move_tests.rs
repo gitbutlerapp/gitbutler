@@ -210,6 +210,51 @@ fn move_branch_to_merge_base_tears_off_branch() {
 }
 
 #[test]
+fn move_commit_to_merge_base_creates_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   ywx add second"]);
+
+    tui.input('m')
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> ywx add second"]);
+
+    tui.input([KeyCode::Down, KeyCode::Down])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_commit_to_merge_base_creates_new_branch_001.svg"
+        ]);
+
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_commit_to_merge_base_creates_new_branch_final.svg"
+    ]);
+}
+
+#[test]
+fn move_marked_commits_to_merge_base_creates_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input(' ');
+    tui.input(KeyCode::Down);
+    tui.input(' ');
+    tui.input('m');
+
+    tui.input(KeyCode::Down).assert_rendered_term_svg_eq(file![
+        "snapshots/move_marked_commits_to_merge_base_creates_new_branch_001.svg"
+    ]);
+
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_marked_commits_to_merge_base_creates_new_branch_final.svg"
+    ]);
+}
+
+#[test]
 fn moving_multiple_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

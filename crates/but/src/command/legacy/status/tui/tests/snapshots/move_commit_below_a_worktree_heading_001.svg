@@ -63,11 +63,11 @@
     <text x="10" y="258" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="276" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="276" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
-    <text x="90 98 106 114 122 130 138" y="276" style="fill:#CCCCCC;opacity:0.75;">(common</text>
-    <text x="154 162 170 178 186" y="276" style="fill:#CCCCCC;opacity:0.75;">base)</text>
+    <text x="90 98 106 114 122 130 138" y="276" style="fill:#CCCCCC;">(common</text>
+    <text x="154 162 170 178 186" y="276" style="fill:#CCCCCC;">base)</text>
     <text x="202 210 218 226 234 242 250 258 266 274" y="276" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="276" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="322" y="276" style="fill:#CCCCCC;opacity:0.75;">M</text>
+    <text x="290 298 306" y="276" style="fill:#CCCCCC;">add</text>
+    <text x="322" y="276" style="fill:#CCCCCC;">M</text>
     <text x="26 34 42 50" y="366" style="fill:#000000;">move</text>
     <text x="82 90 98 106 114" y="366" style="fill:#0000AA;">enter</text>
     <text x="130 138 146 154 162 170 178" y="366" style="fill:#CCCCCC;opacity:0.75;">confirm</text>
