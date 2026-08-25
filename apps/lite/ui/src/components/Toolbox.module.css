@@ -1,0 +1,107 @@
+/* A type selector rides above the toolbox it qualifies as its own card, so the choice reads as
+   something asked before the operation rather than a step within it. */
+.stack {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.toolbox {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	/* The design names `--radius-m`; the token set spells that size `--radius-lg`. */
+	border-radius: var(--radius-lg);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-md);
+}
+
+.meta {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+
+	/* Trimming leaves the runs cap-tall, so the strip has to state the height the line box used
+	   to give it — otherwise a meta without an icon collapses around its caps. */
+	min-block-size: calc(1lh + 8px + 8px + 1px);
+	padding: 8px 10px;
+	overflow: hidden;
+	border-bottom: 1px solid var(--border-2);
+	background-color: var(--bg-2);
+	color: var(--text-2);
+	white-space: nowrap;
+
+	/* Centre the strip on the cap band rather than on the line box, so the row reads evenly
+	   however the font distributes its ascent and descent around the caps. Bare text would land
+	   in an anonymous flex item nothing can target, so every run comes wrapped. */
+	& > * {
+		text-box-trim: trim-both;
+		text-box-edge: cap alphabetic;
+	}
+
+	/* The sentence a transfer states — "Move <source> below <target>" — leans on
+	   the surrounding mute to pick its own words out. */
+	& strong {
+		flex-shrink: 0;
+		color: var(--text-1);
+		font-weight: inherit;
+	}
+}
+
+.metaIcon {
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+/* Each stretch of the sentence takes the width it needs and gives it back before the words around
+   it do, so a short subject leaves no gap. The cap keeps a long branch name or commit subject from
+   widening the card to hold it: past a readable run the sentence ellipsises instead. */
+.metaText {
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 16ch;
+	/* This run clips to its box for the ellipsis, and the trimmed box ends at the baseline — so
+	   descenders get room inside the clip, taken straight back off the box that gets centred. */
+	margin-block-end: -0.25em;
+	padding-block-end: 0.25em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Pinned to the end of the strip: the chord that closes the toolbox, stated where the button used
+   to say it. */
+.metaHint {
+	flex-shrink: 0;
+	margin-inline-start: auto;
+	padding-inline-start: 8px;
+	color: var(--text-3);
+}
+
+.section {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	padding: 10px;
+
+	& + & {
+		border-top: 1px solid var(--border-3);
+	}
+
+	&:where(.confirm) {
+		justify-content: end;
+	}
+
+	&:where(.stretch) > * {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+.separator {
+	align-self: stretch;
+	width: 1px;
+	margin-inline: 4px;
+	background-color: var(--border-3);
+}

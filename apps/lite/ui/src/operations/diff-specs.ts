@@ -22,14 +22,25 @@ export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader
 		change.status.type === "Addition" || change.status.type === "Deletion" ? [] : hunkHeaders,
 });
 
+/**
+ * Which form a hunk's headers take. `commit` names only the selected lines, which is what keeping
+ * them somewhere else — committing, moving, absorbing — asks for; `discard` names them within the
+ * whole hunk, which is what taking them away — discarding, uncommitting — asks for. Left unsaid it
+ * follows from the parent, the form moving a hunk wants: uncommitted lines are being committed,
+ * committed ones taken back out of their commit.
+ */
+type HunkAction = "commit" | "discard";
+
 const resolvedDiffSpecsFromAddress = ({
 	address,
 	worktreeChanges,
 	commitDetails,
+	hunkAction,
 }: {
 	address: Address;
 	worktreeChanges: WorktreeChanges | undefined;
 	commitDetails: CommitDetails | undefined;
+	hunkAction: HunkAction | undefined;
 }) =>
 	Match.value(address).pipe(
 		Match.withReturnType<Array<DiffSpec> | null>(),
@@ -75,7 +86,7 @@ const resolvedDiffSpecsFromAddress = ({
 
 				const hunkHeaders = diffSpecHunkHeadersForLineSelection(
 					lineSelection,
-					parent.parent._tag === "UncommittedChanges" ? "commit" : "discard",
+					hunkAction ?? (parent.parent._tag === "UncommittedChanges" ? "commit" : "discard"),
 				);
 
 				return [createDiffSpec(change, hunkHeaders)];
@@ -98,7 +109,7 @@ const commitIdFromParent = (parent: FileParent) =>
  * Gets the file parent from an array of sibling sources, if any. Disparate file parents are not
  * currently supported.
  */
-const fileParentFromSources = (sources: Array<Address>): FileParent | null => {
+export const fileParentFromSources = (sources: Array<Address>): FileParent | null => {
 	const [source, ...rest] = sources;
 	if (!source) return null;
 
@@ -120,10 +131,12 @@ const resolvedDiffSpecsFromSources = ({
 	sources,
 	worktreeChanges,
 	commitDetails,
+	hunkAction,
 }: {
 	sources: Array<Address>;
 	worktreeChanges: WorktreeChanges | undefined;
 	commitDetails: CommitDetails | undefined;
+	hunkAction: HunkAction | undefined;
 }): Array<DiffSpec> | null => {
 	const diffSpecsByPath = new Map<string, DiffSpec>();
 
@@ -132,6 +145,7 @@ const resolvedDiffSpecsFromSources = ({
 			address,
 			worktreeChanges,
 			commitDetails,
+			hunkAction,
 		});
 		if (!resolvedDiffSpecs) return null;
 
@@ -158,10 +172,12 @@ export const resolveDiffSpecs = async ({
 	sources,
 	projectId,
 	queryClient,
+	hunkAction,
 }: {
 	sources: Array<Address>;
 	projectId: string;
 	queryClient: QueryClient;
+	hunkAction?: HunkAction;
 }) => {
 	const fileParent = fileParentFromSources(sources);
 	if (!fileParent) return null;
@@ -178,15 +194,18 @@ export const resolveDiffSpecs = async ({
 		sources,
 		worktreeChanges,
 		commitDetails,
+		hunkAction,
 	});
 };
 
 export const useResolveDiffSpecs = ({
 	sources,
 	projectId,
+	hunkAction,
 }: {
 	sources?: Array<Address>;
 	projectId: string;
+	hunkAction?: HunkAction;
 }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -205,5 +224,6 @@ export const useResolveDiffSpecs = ({
 		sources,
 		worktreeChanges,
 		commitDetails,
+		hunkAction,
 	});
 };

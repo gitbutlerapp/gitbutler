@@ -7,13 +7,23 @@ import {
 } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { getButtonClassName, type ButtonSize, type ButtonVariant } from "#ui/components/Button.tsx";
+import { Snackbar } from "#ui/components/Snackbar.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { operationHotkeys } from "#ui/hotkeys.ts";
-import type { Address } from "#ui/addresses.ts";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import {
+	Toolbox,
+	ToolboxMeta,
+	ToolboxMetaHint,
+	ToolboxMetaText,
+	ToolboxSection,
+	ToolboxSeparator,
+	ToolboxStack,
+} from "#ui/components/Toolbox.tsx";
+import { formatForDisplaySorted, operationHotkeys } from "#ui/hotkeys.ts";
+import { addressEquals, addressFileParent, type Address } from "#ui/addresses.ts";
 import {
 	getOperations,
 	useExecuteOperation,
@@ -23,12 +33,13 @@ import {
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
+import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Button, Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import type { FC, ReactNode } from "react";
+import { useEffect, type FC, type ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import {
 	type PendingAbsorb,
@@ -39,28 +50,70 @@ import {
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
 
+/** How long a notice stands before it takes itself away. */
+const NOTICE_TIMEOUT_MS = 5_000;
+
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes("text-14", styles.container)}>{children}</div>
+	<div className={styles.container}>
+		<ToolboxStack>{children}</ToolboxStack>
+	</div>
 );
 
-const ControlsRow: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={styles.controlsRow}>{children}</div>
+/** The kind of thing an operation is holding, so its toolbox can say so at a glance. */
+const iconForAddress = (address: Address | undefined): IconName | undefined => {
+	switch (address?._tag) {
+		case "Commit":
+			return "commit";
+		case "File":
+			return "file-diff";
+		case "Hunk":
+			return "diff";
+		default:
+			return undefined;
+	}
+};
+
+/**
+ * Every act in a toolbox wears the chord that runs it, so the toolbox teaches the keyboard rather
+ * than standing in for it.
+ */
+const ToolboxButton: FC<{
+	label: string;
+	hotkey?: string;
+	variant?: ButtonVariant;
+	size?: ButtonSize;
+	enabled?: boolean;
+	onClick: () => void;
+}> = ({ label, hotkey, variant, size, enabled = true, onClick }) => (
+	<Button
+		className={getButtonClassName({ variant, size })}
+		disabled={!enabled}
+		focusableWhenDisabled
+		onMouseDown={(event) => {
+			// Prevent stealing focus from the tree.
+			if (!event.defaultPrevented) event.preventDefault();
+		}}
+		onClick={onClick}
+	>
+		{label}
+		{hotkey !== undefined && <Kbd hotkey={hotkey} variant="button" />}
+	</Button>
 );
 
-const Label: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes(styles.label, "text-bold", "text-13")}>{children}</div>
-);
+type Confirm = {
+	label: string;
+	canRun: boolean;
+	onRun: () => void;
+	extraHotkeys?: Array<Omit<UseHotkeyDefinition, "callback">>;
+};
 
-const Separator: FC = () => <div className={styles.separator} />;
-
-const Controls: FC<{
+const useControlHotkeys = ({
+	onCancel,
+	confirm,
+}: {
 	onCancel: () => void;
-	confirm?: {
-		canRun: boolean;
-		onRun: () => void;
-		extraHotkeys?: Array<Omit<UseHotkeyDefinition, "callback">>;
-	};
-}> = ({ onCancel, confirm }) => {
+	confirm?: Confirm;
+}): void => {
 	const confirmHotkeys: Array<Omit<UseHotkeyDefinition, "callback">> = [
 		...(confirm?.extraHotkeys ?? []),
 		{ hotkey: operationHotkeys.confirm.hotkey },
@@ -88,91 +141,104 @@ const Controls: FC<{
 			},
 		},
 	]);
-
-	return (
-		<div className={styles.controls}>
-			{confirm && (
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						className={getButtonClassName({ variant: "gray" })}
-						onMouseDown={(event) => {
-							// Prevent stealing focus from the tree.
-							if (!event.defaultPrevented) event.preventDefault();
-						}}
-						onClick={confirm.onRun}
-						// We pass `disabled` here because we want to disable the button, not
-						// the tooltip. Other props should be passed above.
-						render={<Button focusableWhenDisabled disabled={!confirm.canRun} />}
-					>
-						Confirm
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.confirm.hotkey} />}>
-								Confirm
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			)}
-
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={getButtonClassName({})}
-					onMouseDown={(event) => {
-						// Prevent stealing focus from the tree.
-						if (!event.defaultPrevented) event.preventDefault();
-					}}
-					onClick={onCancel}
-				>
-					Cancel
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
-							Cancel
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
-		</div>
-	);
 };
 
-const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; projectId: string }> = ({
-	checkedAddressCount,
-	projectId,
-}) => {
+/**
+ * The way out of a toolbox that has nothing pending to abandon: a close affordance rather than a
+ * peer of the acts beside it, with its chord stated in the strip above.
+ */
+const CloseButton: FC<{ onCancel: () => void; size?: ButtonSize }> = ({ onCancel, size }) => (
+	<Button
+		className={getButtonClassName({ variant: "ghost", iconOnly: true, size })}
+		aria-label="Cancel"
+		onMouseDown={(event) => {
+			// Prevent stealing focus from the tree.
+			if (!event.defaultPrevented) event.preventDefault();
+		}}
+		onClick={onCancel}
+	>
+		<Icon name="cross" />
+	</Button>
+);
+
+const CancelButton: FC<{ onCancel: () => void; size?: ButtonSize }> = ({ onCancel, size }) => (
+	<ToolboxButton
+		label="Cancel"
+		hotkey={operationHotkeys.cancel.hotkey}
+		size={size}
+		onClick={onCancel}
+	/>
+);
+
+/** What ends an operation, gathered where a dialog would put it. */
+const ConfirmSection: FC<{ confirm: Confirm; onCancel: () => void }> = ({ confirm, onCancel }) => (
+	<ToolboxSection variant="confirm">
+		<ToolboxButton
+			label={confirm.label}
+			hotkey={operationHotkeys.confirm.hotkey}
+			variant="gray"
+			size="small"
+			enabled={confirm.canRun}
+			onClick={confirm.onRun}
+		/>
+		<CancelButton onCancel={onCancel} size="small" />
+	</ToolboxSection>
+);
+
+const CheckedAddressOperationControls: FC<{
+	checkedAddressCount: number;
+	projectId: string;
+	appliedAddressSpace: AddressSpace<Address>;
+}> = ({ checkedAddressCount, projectId, appliedAddressSpace }) => {
 	const dispatch = useAppDispatch();
 
-	const checkedType = useAppSelector((state): string | null => {
-		switch (projectSlice.selectors.selectCheckedAddressesContext(state, projectId)) {
-			case "Commit":
-				return "commit";
-			case "File":
-				return "file";
-			case "Hunk":
-				return "line";
-			case null:
-				return null;
-		}
-	});
-	if (checkedType === null) return;
+	// A primitive, so a check that leaves the context alone doesn't re-render the bar.
+	const checkedContext = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressesContext(state, projectId),
+	);
+	const actions = useCheckedActions({ projectId, appliedAddressSpace });
 
 	const cancel = () => {
 		dispatch(projectSlice.actions.clearCheckedAddresses({ projectId }));
 	};
+	useControlHotkeys({ onCancel: cancel });
+
+	if (checkedContext === null) return;
+
+	const { noun, icon } = Match.value(checkedContext).pipe(
+		Match.withReturnType<{ noun: string; icon: IconName }>(),
+		Match.when("Commit", () => ({ noun: "commit", icon: "commit" as const })),
+		Match.when("File", () => ({ noun: "file", icon: "file-diff" as const })),
+		Match.when("Hunk", () => ({ noun: "line", icon: "diff" as const })),
+		Match.exhaustive,
+	);
 
 	return (
-		<Container>
-			<ControlsRow>
-				<Label>
-					{new Intl.NumberFormat().format(checkedAddressCount)} {checkedType}
+		<Toolbox>
+			<ToolboxMeta icon={icon}>
+				<span>
+					{new Intl.NumberFormat().format(checkedAddressCount)} {noun}
 					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
-				</Label>
-				<Controls onCancel={cancel} />
-			</ControlsRow>
-		</Container>
+				</span>
+				<ToolboxMetaHint>
+					{formatForDisplaySorted(operationHotkeys.cancel.hotkey)} to close
+				</ToolboxMetaHint>
+			</ToolboxMeta>
+			<ToolboxSection>
+				{actions.map((action) => (
+					<ToolboxButton
+						key={action.label}
+						label={action.label}
+						hotkey={action.hotkey}
+						variant={action.variant}
+						enabled={action.enabled}
+						onClick={action.run}
+					/>
+				))}
+				{actions.length > 0 && <ToolboxSeparator />}
+				<CloseButton onCancel={cancel} />
+			</ToolboxSection>
+		</Toolbox>
 	);
 };
 
@@ -200,21 +266,46 @@ const AbsorbOperationControls: FC<{
 		cancelPendingOperation();
 	};
 
+	const confirm: Confirm = { label: "Absorb", canRun: canAbsorb, onRun: run };
+	useControlHotkeys({ onCancel: cancel, confirm });
+
+	const sourcesLabel = addressesLabel({ headInfoIndex, addresses: pending.sources });
+
+	// The plan answers where these changes belong. With no answer — because nothing owns them, or
+	// because working it out failed — there is nothing left to aim, and an operation that cannot be
+	// aimed must not hold the workspace open: it stands down and leaves a notice saying why.
+	const refusal = isAbsorptionPlanPending
+		? null
+		: isAbsorptionPlanError
+			? `Couldn’t work out where to absorb ${sourcesLabel}`
+			: canAbsorb
+				? null
+				: `Nothing to absorb ${sourcesLabel} into`;
+
+	useEffect(() => {
+		if (refusal === null) return;
+
+		dispatch(projectSlice.actions.refusePendingOperation({ projectId, notice: refusal }));
+	}, [dispatch, projectId, refusal]);
+
+	if (refusal !== null) return null;
+
 	return (
 		<Container>
-			<ControlsRow>
-				{isAbsorptionPlanPending ? (
-					<Icon name="spinner" aria-label="Loading absorb plan" />
-				) : isAbsorptionPlanError ? (
-					<Label>Failed to load absorb plan</Label>
-				) : (
-					<Label>
-						Absorb {addressesLabel({ headInfoIndex, addresses: pending.sources })} into{" "}
-						{absorptionPlan.length} commits
-					</Label>
-				)}
-				<Controls onCancel={cancel} confirm={{ canRun: canAbsorb, onRun: run }} />
-			</ControlsRow>
+			<Toolbox>
+				<ToolboxMeta icon={isAbsorptionPlanPending ? "spinner" : "absorb"}>
+					{isAbsorptionPlanPending ? (
+						<span>Loading absorb plan</span>
+					) : (
+						<>
+							<strong>Absorb</strong>
+							<ToolboxMetaText>{sourcesLabel}</ToolboxMetaText>
+							<strong>into {absorptionPlan?.length ?? 0} commits</strong>
+						</>
+					)}
+				</ToolboxMeta>
+				<ConfirmSection confirm={confirm} onCancel={cancel} />
+			</Toolbox>
 		</Container>
 	);
 };
@@ -268,59 +359,43 @@ const TransferTypeToggleGroup: FC<{
 			aria-label="Placement"
 			value={[placement]}
 			onValueChange={onValueChange}
-			className={styles.toggleGroupRow}
+			render={<ToggleGroupStyles />}
 			onMouseDown={(event) => {
 				// Prevent stealing focus from the tree.
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"above" satisfies Placement}
 				disabled={!operations.above}
 			>
-				{operations.above && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.above.label}</div>
-				)}
-				<div className="text-semibold">
-					Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} />
-				</div>
+				Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} variant="button" />
 			</Toggle>
 
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"into" satisfies Placement}
 				disabled={!operations.into}
 			>
-				{operations.into && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.into.label}</div>
-				)}
-				<div className="text-semibold">
-					Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} />
-				</div>
+				Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} variant="button" />
 			</Toggle>
 
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"below" satisfies Placement}
 				disabled={!operations.below}
 			>
-				{operations.below && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.below.label}</div>
-				)}
-				<div className="text-semibold">
-					Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} />
-				</div>
+				Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} variant="button" />
 			</Toggle>
 		</ToggleGroup>
 	);
 };
 
 const TransferKindToggleGroup: FC<{
-	canCopy: boolean;
 	kind: TransferKind;
 	projectId: string;
-}> = ({ canCopy, kind, projectId }) => {
+}> = ({ kind, projectId }) => {
 	const dispatch = useAppDispatch();
 
 	const setKind = (kind: TransferKind) =>
@@ -335,7 +410,7 @@ const TransferKindToggleGroup: FC<{
 		{
 			hotkey: operationHotkeys.selectCopy.hotkey,
 			callback: () => setKind("copy"),
-			options: { conflictBehavior: "allow", enabled: canCopy },
+			options: { conflictBehavior: "allow" },
 		},
 	]);
 
@@ -349,28 +424,77 @@ const TransferKindToggleGroup: FC<{
 			aria-label="Transfer kind"
 			value={[kind]}
 			onValueChange={onValueChange}
-			className={styles.toggleGroupRow}
+			render={<ToggleGroupStyles />}
 			onMouseDown={(evt) => {
 				// Prevent stealing focus from the tree.
 				if (!evt.defaultPrevented) evt.preventDefault();
 			}}
 		>
-			<Toggle className={styles.toggleGroupRowToggle} value={"move" satisfies TransferKind}>
-				<div className="text-semibold">
-					Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} />
-				</div>
+			<Toggle render={<ToggleStyles />} value={"move" satisfies TransferKind}>
+				Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} variant="button" />
 			</Toggle>
 
-			<Toggle
-				className={styles.toggleGroupRowToggle}
-				value={"copy" satisfies TransferKind}
-				disabled={!canCopy}
-			>
-				<div className="text-semibold">
-					Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} />
-				</div>
+			<Toggle render={<ToggleStyles />} value={"copy" satisfies TransferKind}>
+				Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} variant="button" />
 			</Toggle>
 		</ToggleGroup>
+	);
+};
+
+/**
+ * Why a target refuses everything it was offered. A transfer aims by moving the cursor, so a target
+ * that resolves to nothing is a step in aiming rather than a failure: the strip says what it cannot
+ * do and leaves the ways out — a different target, a different kind — where they already were.
+ */
+const transferRefusal = ({
+	headInfoIndex,
+	sources,
+	target,
+	kind,
+}: {
+	headInfoIndex: HeadInfoIndex;
+	sources: Array<Address>;
+	target: Address;
+	kind: TransferKind;
+}): ReactNode => {
+	const sourcesLabel = (
+		<ToolboxMetaText>{addressesLabel({ headInfoIndex, addresses: sources })}</ToolboxMetaText>
+	);
+
+	// Uncommitted changes are one bucket with no order and no lanes, so a change already in it has
+	// nowhere within it to go.
+	if (
+		target._tag === "UncommittedChanges" &&
+		sources.length > 0 &&
+		sources.every((source) => addressFileParent(source)?._tag === "UncommittedChanges")
+	) {
+		return (
+			<>
+				<strong>Already uncommitted:</strong>
+				{sourcesLabel}
+			</>
+		);
+	}
+
+	const verb = kind === "copy" ? "copy" : "move";
+
+	if (sources.some((source) => addressEquals(source, target))) {
+		return (
+			<>
+				<strong>Can’t {verb}</strong>
+				{sourcesLabel}
+				<strong>onto {sources.length === 1 ? "itself" : "themselves"}</strong>
+			</>
+		);
+	}
+
+	return (
+		<>
+			<strong>Can’t {verb}</strong>
+			{sourcesLabel}
+			<strong>to</strong>
+			<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
+		</>
 	);
 };
 
@@ -388,10 +512,15 @@ const TransferKeyboardOperationControls: FC<{
 	const { mutate: executeOperation } = useExecuteOperation(projectId);
 
 	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
-	if (!target) return null;
 
-	const operations = getOperations(transfer.sources, target, transfer.kind);
-	const operation = operations[transfer.placement];
+	const operations = target ? getOperations(transfer.sources, target, transfer.kind) : null;
+	const operation = operations?.[transfer.placement];
+	// Three disabled placements and a confirm that cannot be taken say only that something is
+	// wrong. When no placement resolves, the toolbox states the reason instead.
+	const refusal =
+		target && operations && !operations.into && !operations.above && !operations.below
+			? transferRefusal({ headInfoIndex, sources: transfer.sources, target, kind: transfer.kind })
+			: null;
 	const canCopy =
 		transfer.sources.length > 0 && transfer.sources.every((source) => source._tag === "Commit");
 
@@ -407,33 +536,58 @@ const TransferKeyboardOperationControls: FC<{
 		cancelPendingOperationAndRestoreFocus(onFocusRestore);
 	};
 
+	const confirm: Confirm = {
+		// The placement toggles say where; the operation they resolve to says what, so the
+		// confirm button is where it belongs.
+		label: operation?.label ?? "Confirm",
+		canRun: !!operation,
+		onRun: run,
+		extraHotkeys: [{ hotkey: operationHotkeys.confirmTransfer.hotkey }],
+	};
+	useControlHotkeys({ onCancel: cancel, confirm });
+
+	if (!target || !operations) return null;
+
 	return (
 		<Container>
-			<TransferKindToggleGroup canCopy={canCopy} kind={transfer.kind} projectId={projectId} />
-			<TransferTypeToggleGroup
-				projectId={projectId}
-				operations={operations}
-				placement={transfer.placement}
-			/>
-			<Separator />
-			<ControlsRow>
-				<Label>
-					<div>Source: {addressesLabel({ headInfoIndex, addresses: transfer.sources })}</div>
-					<div>Target: {addressLabel({ headInfoIndex, address: target })}</div>
-				</Label>
-				<Controls
-					onCancel={cancel}
-					confirm={{
-						canRun: !!operation,
-						onRun: run,
-						extraHotkeys: [
-							{
-								hotkey: operationHotkeys.confirmTransfer.hotkey,
-							},
-						],
-					}}
-				/>
-			</ControlsRow>
+			{/* Only commits can be copied, so for any other source the addon offers a choice of one:
+			    the kind is already `move` and cannot become anything else. */}
+			{canCopy && (
+				<Toolbox>
+					<ToolboxSection variant="stretch">
+						<TransferKindToggleGroup kind={transfer.kind} projectId={projectId} />
+					</ToolboxSection>
+				</Toolbox>
+			)}
+			<Toolbox>
+				{refusal !== null ? (
+					<>
+						<ToolboxMeta icon="warning">{refusal}</ToolboxMeta>
+						<ToolboxSection variant="confirm">
+							<CancelButton onCancel={cancel} size="small" />
+						</ToolboxSection>
+					</>
+				) : (
+					<>
+						<ToolboxMeta icon={iconForAddress(transfer.sources[0])}>
+							<strong>{transfer.kind === "copy" ? "Copy" : "Move"}</strong>
+							<ToolboxMetaText>
+								{addressesLabel({ headInfoIndex, addresses: transfer.sources })}
+							</ToolboxMetaText>
+							<strong>{transfer.placement}</strong>
+							<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
+						</ToolboxMeta>
+						<ToolboxSection variant="stretch">
+							<TransferTypeToggleGroup
+								projectId={projectId}
+								operations={operations}
+								placement={transfer.placement}
+							/>
+						</ToolboxSection>
+						<ConfirmSection confirm={confirm} onCancel={cancel} />
+					</>
+				)}
+			</Toolbox>
 		</Container>
 	);
 };
@@ -453,15 +607,43 @@ export const OperationControls: FC<{
 	const checkedAddressCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
+	const notice = useAppSelector((state) => projectSlice.selectors.selectNotice(state, projectId));
+	const dispatch = useAppDispatch();
+	const clearNotice = () => dispatch(projectSlice.actions.clearNotice({ projectId }));
+
+	// A notice is the end of something, not a thing to attend to: it carries no way out of its own
+	// and leaves on a click or on its own, so the only close button on screen belongs to whatever
+	// the workspace still has in hand.
+	useEffect(() => {
+		if (notice === null) return;
+
+		const timer = setTimeout(
+			() => dispatch(projectSlice.actions.clearNotice({ projectId })),
+			NOTICE_TIMEOUT_MS,
+		);
+		return () => clearTimeout(timer);
+	}, [dispatch, notice, projectId]);
 
 	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () =>
-				checkedAddressCount > 0 && (
-					<CheckedAddressOperationControls
-						checkedAddressCount={checkedAddressCount}
-						projectId={projectId}
-					/>
+				(notice !== null || checkedAddressCount > 0) && (
+					<div className={styles.container}>
+						<ToolboxStack>
+							{notice !== null && (
+								<Snackbar variant="danger" className={styles.notice} onClick={clearNotice}>
+									{notice}
+								</Snackbar>
+							)}
+							{checkedAddressCount > 0 && (
+								<CheckedAddressOperationControls
+									checkedAddressCount={checkedAddressCount}
+									projectId={projectId}
+									appliedAddressSpace={appliedAddressSpace}
+								/>
+							)}
+						</ToolboxStack>
+					</div>
 				),
 			Absorb: (pending) =>
 				headInfoIndex && (

@@ -1,0 +1,66 @@
+.snackbar {
+	display: inline-flex;
+	column-gap: 8px;
+	align-items: center;
+	max-width: 100%;
+
+	/* The design gives the snackbar 31px around its sentence and 36px once the close button raises the
+	   row to 20px. Boxes here are border-box and the message is trimmed to its caps, so both the
+	   padding and the floor state what the design measures minus the 1px border. */
+	min-height: 31px;
+	padding: 7px 9px;
+	border: 1px solid var(--border-2);
+	/* The design names `--radius-m`; the token set spells that size `--radius-lg`. */
+	border-radius: var(--radius-lg);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-md);
+	color: var(--text-1);
+	white-space: nowrap;
+}
+
+/* The whole verdict: the surface, the border, and the sentence stay the same across variants, so
+   the glyph is the only thing saying how the news landed. */
+.icon {
+	color: var(--snackbar-icon);
+}
+
+.info {
+	--snackbar-icon: var(--text-3);
+}
+
+.danger {
+	--snackbar-icon: var(--text-danger);
+}
+
+.safe {
+	--snackbar-icon: var(--text-safe);
+}
+
+/* Takes the width it needs and gives it back before the snackbar grows past its container: a long
+   sentence ellipsises rather than pushing the way out off the end. Centring is on the cap band
+   rather than the line box, so the row reads evenly however the font hangs its ascent and descent
+   — and since the trimmed box ends at the baseline, the clip gets its descenders back by hand. */
+.message {
+	flex: 0 1 auto;
+	min-width: 0;
+	margin-block-end: -0.25em;
+	padding-block-end: 0.25em;
+	overflow: hidden;
+	text-box: trim-both cap alphabetic;
+	text-overflow: ellipsis;
+}
+
+/* Fences the way out off from what it would be closing, down the middle of its own lane. */
+.divider {
+	align-self: stretch;
+	width: 1px;
+	min-height: 20px;
+	margin-inline: 3.5px;
+	background-color: var(--border-3);
+}
+
+/* The button's own padding is optical rather than structural, so the design seats it in a slot 2px
+   narrower on each side and lets the glyph, not the hit area, line up with the sentence above. */
+.dismiss {
+	margin-inline: -2px;
+}
