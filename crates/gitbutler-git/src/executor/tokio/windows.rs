@@ -1,4 +1,4 @@
-use std::{os::windows::io::AsRawHandle, path::Path, time::Duration};
+use std::{os::windows::io::AsRawHandle, path::Path};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufStream},
@@ -71,14 +71,10 @@ impl AskpassServer for TokioAskpassServer {
     type Error = std::io::Error;
     type SocketHandle = BufStream<NamedPipeServer>;
 
-    async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
+    async fn accept(&self) -> Result<Self::SocketHandle, Self::Error> {
         let mut server = self.server.lock().await;
 
-        if let Some(timeout) = timeout {
-            tokio::time::timeout(timeout, server.connect()).await??;
-        } else {
-            server.connect().await?;
-        }
+        server.connect().await?;
 
         // Windows is weird. The server becomes the peer connection,
         // and before we use the new connection, we first create

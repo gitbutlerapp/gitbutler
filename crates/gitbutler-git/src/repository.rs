@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     ffi::OsString,
     path::{Path, PathBuf},
-    time::Duration,
 };
 
 use futures::{FutureExt, select};
@@ -27,7 +26,7 @@ pub enum RepositoryError<
 > {
     #[error("failed to execute git command: {0}")]
     Exec(Eexec),
-    #[error("failed to create askpass server: {0}")]
+    #[error("failed to accept connection to askpass server: {0}")]
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
@@ -233,7 +232,7 @@ where
             res = child_process => {
                 return res;
             },
-            res = sock_server.accept(Some(Duration::from_secs(120))).fuse() => {
+            res = sock_server.accept().fuse() => {
                 let mut sock = res.map_err(Error::<E>::AskpassServer)?;
 
                 // get the PID of the peer

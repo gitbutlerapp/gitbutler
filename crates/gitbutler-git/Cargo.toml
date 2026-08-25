@@ -65,7 +65,7 @@ file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce
 [dev-dependencies]
 but-testsupport.workspace = true
 snapbox.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
 
 [lints]
 workspace = true
