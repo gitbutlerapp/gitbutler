@@ -93,8 +93,20 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
-        checkout_conflict_occurred: bool,
+        include_revision: bool,
     ) -> anyhow::Result<WorkspaceState> {
+        let workspace_revision = include_revision
+            .then(|| {
+                crate::workspace_revision::compute_for_workspace(repo, meta, workspace, prs_by_head)
+            })
+            .transpose()
+            .unwrap_or_else(|err| {
+                tracing::warn!(
+                    ?err,
+                    "Failed to compute workspace revision for mutation response"
+                );
+                None
+            });
         #[cfg(not(feature = "graph-workspace"))]
         {
             let _ = (meta, db);
@@ -119,7 +131,8 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 head_info,
-                checkout_conflict_occurred,
+                workspace_revision,
+                checkout_conflict_occurred: false,
             })
         }
         #[cfg(feature = "graph-workspace")]
@@ -134,7 +147,8 @@ impl WorkspaceState {
             Ok(WorkspaceState {
                 replaced_commits,
                 graph_workspace: graph_workspace.into(),
-                checkout_conflict_occurred,
+                workspace_revision,
+                checkout_conflict_occurred: false,
             })
         }
     }
@@ -144,6 +158,7 @@ impl WorkspaceState {
     /// This is the API-facing constructor for callers that already hold the
     /// workspace cache DB. It derives PR associations from the forge review
     /// cache before projecting the workspace state.
+    /// Set `include_revision` to `false` when `workspace` is an unmaterialized preview.
     ///
     /// It reports `checkout_conflict_occurred: false`, which is only true of a workspace that
     /// was never checked out. Use [`Self::from_materialized`] after a materialize with checkout.
@@ -153,6 +168,7 @@ impl WorkspaceState {
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         db: &mut but_db::DbHandle,
+        include_revision: bool,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(db)?;
         Self::from_workspace_with_prs(
@@ -162,7 +178,7 @@ impl WorkspaceState {
             replaced_commits,
             &prs_by_head,
             db,
-            false,
+            include_revision,
         )
     }
 
@@ -216,15 +232,18 @@ impl WorkspaceState {
         repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(materialized.db)?;
-        Self::from_workspace_with_prs(
+        let checkout_conflict_occurred = materialized.checkout_conflict_occurred;
+        let mut state = Self::from_workspace_with_prs(
             materialized.workspace,
             materialized.meta,
             repo,
             materialized.history.commit_mappings(),
             &prs_by_head,
             materialized.db,
-            materialized.checkout_conflict_occurred,
-        )
+            true,
+        )?;
+        state.checkout_conflict_occurred = checkout_conflict_occurred;
+        Ok(state)
     }
 
     /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.

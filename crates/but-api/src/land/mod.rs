@@ -595,6 +595,7 @@ fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> 
         &repo,
         std::collections::BTreeMap::new(),
         &mut db,
+        true,
     )
 }
 

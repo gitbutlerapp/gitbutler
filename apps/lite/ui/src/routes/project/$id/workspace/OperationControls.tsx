@@ -602,7 +602,7 @@ export const OperationControls: FC<{
 	);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	const checkedAddressCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressCount(state, projectId),

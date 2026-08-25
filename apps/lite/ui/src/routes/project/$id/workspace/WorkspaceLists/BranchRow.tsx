@@ -157,7 +157,7 @@ export const BranchRow: FC<
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	const { data: reviews } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),

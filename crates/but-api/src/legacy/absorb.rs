@@ -140,7 +140,7 @@ pub fn absorption_plan_with_perm(
             let dependencies = worktree_changes.dependencies;
 
             // Get the stack ID for this branch
-            let workspace = crate::legacy::workspace::head_info(ctx)?;
+            let workspace = crate::legacy::workspace::head_info_data(ctx)?;
 
             // Find the stack that contains this branch
             let stack = workspace
@@ -252,7 +252,7 @@ fn group_changes_by_target_commit(
 
     // One projection of the workspace serves every candidate; it is re-read whenever
     // `ensure_target_commit()` inserts a blank commit.
-    let mut workspace = crate::legacy::workspace::head_info(ctx)?;
+    let mut workspace = crate::legacy::workspace::head_info_data(ctx)?;
 
     // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
@@ -459,7 +459,7 @@ fn ensure_target_commit(
         )?;
 
         // Project the workspace again to see the newly created commit
-        *workspace = crate::legacy::workspace::head_info(ctx)?;
+        *workspace = crate::legacy::workspace::head_info_data(ctx)?;
         if let (_, Some(commit_id)) = target_segment(workspace, stack_id, branch_ref)? {
             return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment));
         }
@@ -484,7 +484,7 @@ fn ensure_target_commit(
         )?;
 
         // Now project the workspace again to see the newly created commit
-        *workspace = crate::legacy::workspace::head_info(ctx)?;
+        *workspace = crate::legacy::workspace::head_info_data(ctx)?;
         if let (_, Some(commit_id)) = target_segment(workspace, stack_id, None)? {
             return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack));
         }
@@ -508,7 +508,7 @@ fn prepare_commit_absorptions(
     let mut commit_absorptions = Vec::new();
 
     // The workspace projection carries every stack's segments and commits in order
-    let workspace = crate::legacy::workspace::head_info(ctx)?;
+    let workspace = crate::legacy::workspace::head_info_data(ctx)?;
     let all_stack_ids = changes_by_commit
         .keys()
         .map(|(stack_id, _)| *stack_id)

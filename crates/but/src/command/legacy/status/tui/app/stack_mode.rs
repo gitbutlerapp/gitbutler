@@ -320,7 +320,7 @@ impl App {
             FilesStatusFlag::None | FilesStatusFlag::All => {}
         }
 
-        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
 
         let stack_heads = head_info
             .stacks
@@ -497,7 +497,7 @@ impl App {
 
         {
             let mut guard = ctx.exclusive_worktree_access();
-            let head_info = but_api::legacy::workspace::head_info(ctx)?;
+            let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
             unapply::run(
                 ctx,
                 guard.write_permission(),

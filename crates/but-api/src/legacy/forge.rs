@@ -1770,7 +1770,7 @@ fn review_updates_after_push(
     branch: &gix::refs::FullNameRef,
     pushed_branches: &[(String, String, String)],
 ) -> Result<Vec<Vec<but_forge::ForgeReviewUpdate>>> {
-    let info = crate::legacy::workspace::head_info(ctx)?;
+    let info = crate::legacy::workspace::head_info_data(ctx)?;
     let selected_stack_index = info
         .stacks
         .iter()
@@ -1856,7 +1856,7 @@ fn review_updates_for_branch(
     branch: &gix::refs::FullNameRef,
 ) -> Result<Vec<but_forge::ForgeReviewUpdate>> {
     let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
-    let info = crate::legacy::workspace::head_info(ctx)?;
+    let info = crate::legacy::workspace::head_info_data(ctx)?;
     let (stack, _) = stack_and_segment_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
     Ok(review_updates_for_stack(stack, &base_branch, &open_reviews)
@@ -1875,7 +1875,7 @@ pub(crate) fn review_target_updates_for_branch(
         Option<String>,
     )>,
 > {
-    let info = crate::legacy::workspace::head_info(ctx)?;
+    let info = crate::legacy::workspace::head_info_data(ctx)?;
     let (stack, _) = stack_and_segment_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
     if !stack
@@ -1934,7 +1934,7 @@ fn review_updates_for_stack(
 }
 
 fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
-    let info = crate::legacy::workspace::head_info(ctx)?;
+    let info = crate::legacy::workspace::head_info_data(ctx)?;
     let (stack, selected_index) = stack_and_segment_for_branch(&info, branch)?;
     let repo = ctx.repo.get()?;
 
@@ -2138,7 +2138,7 @@ pub async fn list_reviews_for_branch(
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
     // Get all applied stacks and their branches
-    let workspace = crate::legacy::workspace::head_info(ctx)?;
+    let workspace = crate::legacy::workspace::head_info_data(ctx)?;
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();

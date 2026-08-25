@@ -6,6 +6,7 @@ import {
 	currentForgeLoginQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
+	headInfoSnapshotQueryOptions,
 	guiSettingsQueryOptions,
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
@@ -121,7 +122,10 @@ export const syncCoreCaches = (
 				: null;
 	if (workspace === null) return;
 
-	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
+	queryClient.setQueryData(headInfoSnapshotQueryOptions(projectId).queryKey, {
+		headInfo: workspace.headInfo,
+		workspaceRevision: workspace.workspaceRevision,
+	});
 	dispatch(
 		projectSlice.actions.updateRewrittenCommitReferences({
 			projectId,

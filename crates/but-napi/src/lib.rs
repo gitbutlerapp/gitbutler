@@ -284,7 +284,10 @@ fn open_prepared_context(project_id: &ProjectHandleOrLegacyProjectId) -> anyhow:
     Ok(ctx)
 }
 
-fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
+fn event_from_change(
+    change: gitbutler_watcher::Change,
+    workspace_revision: Option<String>,
+) -> WatcherEvent {
     match change {
         gitbutler_watcher::Change::GitFetch(project_id) => WatcherEvent {
             name: format!("project://{project_id}/git/fetch"),
@@ -307,13 +310,14 @@ fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
         } => WatcherEvent {
             name: format!("project://{project_id}/git/activity"),
             payload: serde_json::json!(WatcherPayload::GitActivity(WatcherGitActivityPayload {
-                head_sha
+                head_sha,
+                workspace_revision,
             })),
         },
         gitbutler_watcher::Change::WorkspaceActivity { project_id } => WatcherEvent {
             name: format!("project://{project_id}/workspace-activity"),
             payload: serde_json::json!(WatcherPayload::WorkspaceActivity(
-                WatcherWorkspaceActivityPayload
+                WatcherWorkspaceActivityPayload { workspace_revision }
             )),
         },
         gitbutler_watcher::Change::WorktreeChanges {
@@ -342,8 +346,25 @@ fn start_project_watcher(
 
     let handler = gitbutler_watcher::Handler::new({
         let watched_project = project_id.clone();
+        let revision_ctx = ctx.to_sync();
         move |change| {
-            let event = event_from_change(change);
+            let workspace_revision = matches!(
+                change,
+                gitbutler_watcher::Change::GitActivity { .. }
+                    | gitbutler_watcher::Change::WorkspaceActivity { .. }
+            )
+            .then(|| {
+                but_api::workspace_revision::compute(&revision_ctx.clone().into_thread_local())
+                    .map_err(|err| {
+                        tracing::warn!(
+                            ?err,
+                            "Failed to compute workspace revision for watcher event"
+                        );
+                    })
+                    .ok()
+            })
+            .flatten();
+            let event = event_from_change(change, workspace_revision);
             let status = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
             if status != Status::Ok {
                 tracing::warn!(

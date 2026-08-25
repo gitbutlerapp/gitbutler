@@ -22,9 +22,32 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
+/// A workspace projection paired with the checksum of the inputs it represents.
+#[derive(Debug, Clone)]
+pub struct HeadInfoResponse {
+    /// The projected workspace.
+    pub head_info: but_workspace::RefInfo,
+    /// Present only when the inputs stayed unchanged while the projection was built.
+    pub workspace_revision: Option<String>,
+}
+
+#[but_api(napi, try_from = crate::json::HeadInfoResponse, provides = [Workspace])]
 #[instrument(err(Debug))]
-pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
+pub fn head_info(ctx: &but_ctx::Context) -> Result<HeadInfoResponse> {
+    let before = crate::workspace_revision::compute(ctx).ok();
+    let head_info = head_info_data(ctx)?;
+    let after = crate::workspace_revision::compute(ctx).ok();
+    Ok(HeadInfoResponse {
+        head_info,
+        workspace_revision: match (before, after) {
+            (Some(before), Some(after)) if before == after => Some(after),
+            _ => None,
+        },
+    })
+}
+
+/// Build the legacy workspace projection without its transport checksum.
+pub fn head_info_data(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     // The worktree-discovering database borrow must end before the gerrit handle

@@ -9,7 +9,7 @@
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
-import { getReviewQueryOptions } from "#ui/api/queries.ts";
+import { getReviewQueryOptions, headInfoSnapshotQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
@@ -83,9 +83,8 @@ for (const query of projectQueryKeys) {
  * re-reading the target commits so their annotations can be matched.
  */
 const refreshIntegratedReviews = async (client: QueryClient, projectId: string): Promise<void> => {
-	const headInfo = await client.fetchQuery({
-		queryKey: [projectId, "headInfo"],
-		queryFn: () => window.lite.headInfo(projectId),
+	const { headInfo } = await client.fetchQuery({
+		...headInfoSnapshotQueryOptions(projectId),
 		staleTime: 0,
 	});
 	const reviewIds = new Set(
@@ -121,8 +120,23 @@ export const handleProjectEvent = (
 	if (payload.type === "gitHead")
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
-	for (const query of invalidateOn.get(payload.type) ?? [])
+	const workspaceRevision =
+		payload.type === "gitActivity" || payload.type === "workspaceActivity"
+			? payload.subject.workspaceRevision
+			: null;
+	const cachedWorkspaceRevision = client.getQueryData(
+		headInfoSnapshotQueryOptions(projectId).queryKey,
+	)?.workspaceRevision;
+
+	for (const query of invalidateOn.get(payload.type) ?? []) {
+		if (
+			query === "headInfo" &&
+			workspaceRevision !== null &&
+			workspaceRevision === cachedWorkspaceRevision
+		)
+			continue;
 		void client.invalidateQueries({ queryKey: [projectId, query] });
+	}
 
 	// The annotations read the backend's review cache, so integrated reviews have
 	// to land before the listing is re-read. A failed refresh degrades to

@@ -1029,8 +1029,14 @@ pub fn branch_create_with_perm(
 
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut db,
+        true,
+    )?;
     drop((ws, repo, db, meta));
     if checkout_after_create {
         let checkout = branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
@@ -1200,8 +1206,14 @@ pub fn branch_remove_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut db,
+        true,
+    )?;
     Ok(BranchRemoveResult { workspace })
 }
 
@@ -1265,6 +1277,7 @@ pub fn branch_rename_with_perm(
             &repo,
             BTreeMap::new(),
             &mut db,
+            true,
         )?;
         return Ok(BranchRenameResult { workspace, new_ref });
     }
@@ -1488,8 +1501,14 @@ pub fn branch_rename_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut db,
+        true,
+    )?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
 
@@ -1664,8 +1683,14 @@ fn checkout_ref_with_perm(
     ctx.reload_repo_and_invalidate_workspace(perm)?;
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut db,
+        true,
+    )?;
     Ok(BranchCheckoutResult { workspace })
 }
 
@@ -2022,6 +2047,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             repo,
             replaced_commits,
             db,
+            false,
         );
     }
 

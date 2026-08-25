@@ -160,7 +160,7 @@ export const CommitForm: FC<{
 
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	const isAmendCommitPending = useIsMutating({ mutationKey: [projectId, "commitAmend"] }) > 0;
 	// The branch creation is the first half of a commit here, so it keeps the

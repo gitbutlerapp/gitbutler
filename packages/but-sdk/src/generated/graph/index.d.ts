@@ -3236,6 +3236,14 @@ export type HeadAndMode = {
   operatingMode: OperatingMode;
 };
 
+/** A workspace projection paired with the checksum of the inputs it represents. */
+export type HeadInfoResponse = {
+  /** The projected workspace. */
+  headInfo: RefInfo;
+  /** Present only when the inputs stayed unchanged while the projection was built. */
+  workspaceRevision: string | null;
+};
+
 export type HeadSha = {
   headSha: string;
 };
@@ -4602,6 +4610,8 @@ export type Verification = {
 export type WatcherGitActivityPayload = {
   /** The SHA of the repository's HEAD. */
   headSha: string;
+  /** Checksum of the workspace inputs after this watcher batch settled. */
+  workspaceRevision: string | null;
 };
 
 /** Git fetch event */
@@ -4633,8 +4643,11 @@ export type WatcherPayload = {
   subject: WatcherWorkspaceActivityPayload;
 };
 
-/** Workspace activity that requires the UI to re-read branch/stack state. */
-export type WatcherWorkspaceActivityPayload = null;
+/** Workspace activity that may require the UI to re-read branch/stack state. */
+export type WatcherWorkspaceActivityPayload = {
+  /** Checksum of the workspace inputs after this watcher batch settled. */
+  workspaceRevision: string | null;
+};
 
 /** Worktree files changes. */
 export type WatcherWorktreeChangesPayload = {
@@ -4675,6 +4688,8 @@ export type WorkspaceState = {
    * rendered graph projection.
    */
   graphWorkspace: DetailedGraphWorkspace;
+  /** Checksum of the on-disk inputs represented by this workspace, or `null` for previews. */
+  workspaceRevision: string | null;
   /**
    * True if a checkout occurred, and a conflict occurred during that
    * checkout.
@@ -4739,4 +4754,3 @@ export type WorktreeListing = {
   /** Archived worktrees, hidden from the workspace but still on disk. */
   archived: Array<ListedWorktree>;
 };
-

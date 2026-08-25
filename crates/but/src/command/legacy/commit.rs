@@ -134,7 +134,7 @@ pub fn commit(
             .operating_mode;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
-        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
         resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
     Ok(run(

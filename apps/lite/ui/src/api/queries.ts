@@ -151,10 +151,16 @@ export const editChangesFromInitialQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.editChangesFromInitial(projectId),
 	});
 
-export const headInfoQueryOptions = (projectId: string) =>
+export const headInfoSnapshotQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "headInfo"],
 		queryFn: () => window.lite.headInfo(projectId),
+	});
+
+export const headInfoQueryOptions = (projectId: string) =>
+	queryOptions({
+		...headInfoSnapshotQueryOptions(projectId),
+		select: (snapshot) => snapshot.headInfo,
 	});
 
 export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>

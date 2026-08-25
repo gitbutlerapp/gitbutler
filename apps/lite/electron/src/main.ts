@@ -355,7 +355,13 @@ const registerIpcHandlers = (): void => {
 		const captureWrapped = Object.hasOwn(apiParamNames, name)
 			? withApiCommandCapture(name, handler)
 			: handler;
-		senderValidatingHandle(name, (_e, params: unknown) => captureWrapped(params));
+		senderValidatingHandle(name, (_e, params: unknown) => {
+			if (name === "headInfo" && process.env.E2E_TEST_APP_DATA_DIR !== undefined) {
+				// oxlint-disable-next-line no-console
+				console.log("[lite-e2e] headInfo");
+			}
+			return captureWrapped(params);
+		});
 	}
 	senderValidatingHandle("watcherUnsubscribe", (_e, { subscriptionId }: WatcherUnsubscribeParams) =>
 		WatcherManager.getInstance().removeSubscription(subscriptionId),
