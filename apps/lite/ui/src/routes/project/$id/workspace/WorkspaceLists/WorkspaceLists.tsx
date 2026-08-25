@@ -93,6 +93,8 @@ import {
 	selectCommitTargetComboboxItem,
 } from "./commitTargetComboboxItems.ts";
 
+const uncommittedChangesHeadingId = "uncommitted-changes-heading";
+
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
@@ -305,6 +307,7 @@ const UncommittedChanges: FC<
 			{fileFilter.rowProps === null ? (
 				<UncommittedChangesRow
 					changes={worktreeChanges?.changes ?? []}
+					headingId={uncommittedChangesHeadingId}
 					projectId={projectId}
 					onOpenFilter={fileFilter.open}
 				/>
@@ -320,6 +323,7 @@ const UncommittedChanges: FC<
 				)}
 			>
 				<FilesTree
+					aria-labelledby={uncommittedChangesHeadingId}
 					canUncommit={false}
 					data-preview-source={activeList === "uncommitted"}
 					focusScope="uncommitted-files"
