@@ -1,6 +1,11 @@
+use std::time::SystemTime;
+
+use anyhow::Context as _;
+use bstr::ByteSlice as _;
 use but_ctx::Context;
 use gix::refs::Category;
-use ratatui::text::Span;
+use nonempty::NonEmpty;
+use ratatui::{style::Style, text::Span};
 
 use crate::{
     CliId,
@@ -17,9 +22,11 @@ use crate::{
             tui::{
                 Message, ReloadCause, SelectAfterReload,
                 app::{
-                    App,
+                    App, Modal,
                     mark::{Marks, MarksRef},
                 },
+                fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, SearchableToken},
+                key_bind::fuzzy_picker_key_binds,
                 mode::Mode,
                 render::{
                     ModeRender, RenderSingleLineSpans, SpanExt as _, branch_operation_display,
@@ -27,7 +34,8 @@ use crate::{
             },
         },
     },
-    utils::targeting::Side,
+    theme::Theme,
+    utils::{targeting::Side, time::format_relative_time},
 };
 
 use super::MoveCursorDiration;
@@ -61,6 +69,7 @@ pub enum BranchMessage {
     Start,
     Switch,
     New { switch: bool },
+    PickAndSwitch,
 }
 
 impl App {
@@ -74,6 +83,7 @@ impl App {
             BranchMessage::Start => self.handle_branch_start(messages),
             BranchMessage::Switch => self.handle_branch_switch(ctx, messages)?,
             BranchMessage::New { switch } => self.handle_branch_new(ctx, messages, switch)?,
+            BranchMessage::PickAndSwitch => self.handle_pick_and_switch(ctx)?,
         }
 
         Ok(())
@@ -128,6 +138,72 @@ impl App {
                 ReloadCause::Mutation,
             ),
         ]);
+
+        Ok(())
+    }
+
+    fn handle_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let current_branch = {
+            let repo = ctx.repo.get()?;
+            repo.head_ref()?
+                .map(|head_ref| head_ref.name().shorten().to_owned())
+        };
+        let branch_listings = but_api::branch::branch_list(ctx)
+            .context("Failed to list branches available to switch to")?
+            .into_iter()
+            .flat_map(|stack| stack.branches)
+            .map(|listed_branch| listed_branch.branch)
+            .filter(|branch| branch.has_local)
+            .filter(|branch| {
+                current_branch
+                    .as_ref()
+                    .is_none_or(|current_branch| current_branch.as_bstr() != *branch.display_name)
+            });
+
+        let now = SystemTime::now();
+        let mut branches = branch_listings
+            .map(|listing| SwitchBranchItem {
+                name: listing.display_name.to_str_lossy().into_owned(),
+                updated_at: listing.updated_at_ms,
+                updated_at_display: listing
+                    .updated_at_ms
+                    .map(|updated_at| format_relative_time(now, updated_at / 1000))
+                    .unwrap_or_default(),
+            })
+            .collect::<Vec<_>>();
+        branches.sort_by(|a, b| {
+            b.updated_at
+                .cmp(&a.updated_at)
+                .then_with(|| a.name.cmp(&b.name))
+        });
+
+        let Some(items) = NonEmpty::from_vec(branches) else {
+            return Ok(());
+        };
+
+        let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
+            let branch = Category::LocalBranch.to_full_name(&*item.name)?;
+
+            // TODO(david): we should rewrite `but switch` to use the new command architecture and
+            // share the "switch" code path with this
+            let mut guard = ctx.exclusive_worktree_access();
+            but_api::branch::branch_checkout_with_perm(ctx, branch, guard.write_permission())?;
+
+            messages.extend([
+                Message::EnterNormalModeAfterConfirmingOperation,
+                Message::Reload(
+                    Some(SelectAfterReload::Branch(item.name.clone())),
+                    ReloadCause::Mutation,
+                ),
+            ]);
+
+            Ok(())
+        });
+
+        self.modal = Some(Modal::SwitchBranchPicker {
+            picker: Box::new(picker),
+            key_binds: fuzzy_picker_key_binds(),
+        });
 
         Ok(())
     }
@@ -210,5 +286,31 @@ impl App {
         ]);
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SwitchBranchItem {
+    name: String,
+    updated_at: Option<i64>,
+    updated_at_display: String,
+}
+
+impl FuzzyPickerItem for SwitchBranchItem {
+    fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
+        [
+            Col {
+                text: self.name.as_str().into(),
+                searchable: Some(searchable),
+            },
+            Col {
+                text: self.updated_at_display.as_str().into(),
+                searchable: None,
+            },
+        ]
+    }
+
+    fn style(&self, theme: &'static Theme) -> Style {
+        theme.local_branch
     }
 }

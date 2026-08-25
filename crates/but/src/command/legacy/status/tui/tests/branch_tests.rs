@@ -7,7 +7,7 @@ use crate::{
         Message, ReloadCause, SelectAfterReload, backstack::BackstackEntry,
         tests::utils::test_status_tui,
     },
-    tui::test_utils::Shift,
+    tui::test_utils::{Control, Shift},
 };
 
 #[test]
@@ -285,7 +285,7 @@ fn switch_branch() {
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_001.svg"]);
     tui.input('j')
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_002.svg"]);
-    tui.input('s')
+    tui.input(Shift('s'))
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_003.svg"]);
 
     // apply a different branch
@@ -298,7 +298,7 @@ fn switch_branch() {
     // switch to the newly applied branch
     tui.input('b')
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_006.svg"]);
-    tui.input('s')
+    tui.input(Shift('s'))
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_007.svg"]);
 }
 
@@ -466,7 +466,9 @@ fn create_and_switch_to_stacked_branch() {
 
     tui.input('j');
     tui.input('b');
-    tui.input(Shift('n'));
+    tui.input(Shift('n')).assert_rendered_term_svg_eq(file![
+        "snapshots/create_and_switch_to_stacked_branch_001.svg"
+    ]);
 
     snapbox::assert_data_eq!(
         tui.env().git_log(),
@@ -480,4 +482,45 @@ fn create_and_switch_to_stacked_branch() {
 
 "#]]
     );
+}
+
+#[test]
+fn pick_and_switch_to_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input('s')
+        .assert_rendered_term_svg_eq(file!["snapshots/pick_and_switch_to_branches_001.svg"]);
+    tui.input(Control('n'))
+        .assert_rendered_term_svg_eq(file!["snapshots/pick_and_switch_to_branches_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/pick_and_switch_to_branches_003.svg"]);
+}
+
+#[test]
+fn pick_and_switch_to_stacked_branches() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_001.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_002.svg"
+    ]);
+
+    tui.input('b');
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_003.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_004.svg"
+    ]);
 }

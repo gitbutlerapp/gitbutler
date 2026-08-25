@@ -97,7 +97,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.branch_new().register();
                 if feature_flags.single_branch {
                     builder.branch_new_and_switch().register();
-                    builder.branch_switch().register();
+                    builder.branch_pick_and_switch().register();
+                    builder.branch_switch_to_selection().register();
                 }
                 builder.discard().register();
                 builder.mark().register();
@@ -994,10 +995,20 @@ impl KeyBindsBuilder<'_> {
         .long_description("Create a new branch, then pick to it")
     }
 
-    fn branch_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
+    fn branch_pick_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("switch", press().code(KeyCode::Char('s')), || {
-            Message::Branch(BranchMessage::Switch)
+            Message::Branch(BranchMessage::PickAndSwitch)
         })
+        .long_description("Pick and switch to branch")
+    }
+
+    fn branch_switch_to_selection(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "switch to selection",
+            press().shift().code(KeyCode::Char('S')),
+            || Message::Branch(BranchMessage::Switch),
+        )
+        .hide_from_hotbar()
         .long_description("Switch to the selected branch")
     }
 
@@ -1010,7 +1021,7 @@ impl KeyBindsBuilder<'_> {
 
     fn branch_new_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "new and switch",
+            "new+switch",
             press().shift().code(KeyCode::Char('N')),
             || Message::Branch(BranchMessage::New { switch: true }),
         )

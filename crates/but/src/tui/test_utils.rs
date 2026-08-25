@@ -805,7 +805,6 @@ impl EventPolling for Shift {
     }
 }
 
-#[cfg_attr(feature = "legacy", expect(dead_code))]
 pub struct Control(pub char);
 
 impl InputEventPolling for Control {}
