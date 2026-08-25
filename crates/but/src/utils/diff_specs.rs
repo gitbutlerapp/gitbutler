@@ -87,6 +87,9 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::Stack { .. } => {
                 anyhow::bail!("Cannot compute diff specs for stacks")
             }
+            CliId::CommittedHunk(_) => {
+                anyhow::bail!("Cannot (yet) compute diff specs for committed hunks")
+            }
         }
     }
 

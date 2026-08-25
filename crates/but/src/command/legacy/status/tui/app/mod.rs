@@ -338,6 +338,7 @@ impl App {
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..)
+            | ResolvedCliIdArg::CommittedHunk(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Worktree(..)
@@ -1160,6 +1161,7 @@ impl App {
                                             }
                                             CliId::PathPrefix { .. }
                                             | CliId::CommittedFile { .. }
+                                            | CliId::CommittedHunk { .. }
                                             | CliId::Branch(..)
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
@@ -1207,6 +1209,7 @@ impl App {
                         }
                         CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
+                        | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
                         | CliId::Worktree { .. }
@@ -1589,9 +1592,10 @@ impl App {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
             CliId::Worktree { name, .. } => name.to_str_lossy(),
-            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
-                return Ok(());
-            }
+            CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. } => return Ok(()),
         };
 
         self.clipboard.set_text(what_to_copy)?;
@@ -1642,9 +1646,10 @@ impl App {
             CliId::Worktree { id, name } => {
                 copy_selection_picker::worktree_picker(name.to_owned(), id.to_owned(), self.theme)
             }
-            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
-                return Ok(());
-            }
+            CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. } => return Ok(()),
         };
         self.modal = Some(Modal::CopySelectionPicker {
             picker: Box::new(picker),
@@ -1677,7 +1682,8 @@ impl App {
                         committed_file: CommittedFileId { path, .. },
                         id: _,
                     } => Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr()).map(Some),
-                    CliId::Commit { .. }
+                    CliId::CommittedHunk(..)
+                    | CliId::Commit { .. }
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
                     | CliId::Uncommitted { .. }

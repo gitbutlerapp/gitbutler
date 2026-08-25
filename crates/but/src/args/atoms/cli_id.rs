@@ -7,7 +7,7 @@ use crate::{
     CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{CommitId, CommitIdRef, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme,
     utils::change_source::ChangeSourceId,
 };
@@ -96,6 +96,7 @@ impl CliIdArg {
             CliId::CommittedFile { committed_file, .. } => {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
+            CliId::CommittedHunk(committed) => ResolvedCliIdArg::CommittedHunk(Box::new(committed)),
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Worktree { name, .. } => ResolvedCliIdArg::Worktree(name),
             CliId::Stack { id, stack_id } => ResolvedCliIdArg::Stack { id, stack_id },
@@ -349,6 +350,7 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(..) => "an uncommitted change",
             CliId::PathPrefix { .. } => "a path",
             CliId::CommittedFile { .. } => "a committed file",
+            CliId::CommittedHunk(..) => "a committed change",
             CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Worktree { .. } => "a worktree",
             CliId::Stack { .. } => "a stack",
@@ -409,6 +411,7 @@ fn try_resolve_cli_id(
                 CliId::UncommittedHunkOrFile(..) => uncommitted.push(id),
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
+                | CliId::CommittedHunk { .. }
                 | CliId::Uncommitted { .. }
                 | CliId::Worktree { .. }
                 | CliId::Stack { .. } => {}
@@ -492,6 +495,7 @@ pub enum ResolvedCliIdArg {
     Branch(BranchArg),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
+    CommittedHunk(Box<CommittedHunk>),
     Uncommitted,
     /// A linked worktree, named by its stable name.
     Worktree(BString),
@@ -536,6 +540,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::UncommittedHunkOrFile { .. } => "an uncommitted file or hunk",
             ResolvedCliIdArg::PathPrefix { .. } => "a path prefix",
             ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
+            ResolvedCliIdArg::CommittedHunk { .. } => "a committed hunk",
             ResolvedCliIdArg::Branch { .. } => "a branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
@@ -554,6 +559,9 @@ impl ResolvedCliIdArg {
             }
             ResolvedCliIdArg::CommittedFile(committed_file) => {
                 ResolvedCliIdArgRef::CommittedFile(committed_file)
+            }
+            ResolvedCliIdArg::CommittedHunk(committed_hunk) => {
+                ResolvedCliIdArgRef::CommittedHunk(committed_hunk)
             }
             ResolvedCliIdArg::PathPrefix { id, hunks } => {
                 ResolvedCliIdArgRef::PathPrefix { id, hunks }
@@ -600,6 +608,11 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                     return lhs == rhs;
                 }
             }
+            ResolvedCliIdArg::CommittedHunk(lhs) => {
+                if let CliId::CommittedHunk(rhs) = other {
+                    return &**lhs == rhs;
+                }
+            }
             ResolvedCliIdArg::Uncommitted => {
                 return matches!(other, CliId::Uncommitted { .. });
             }
@@ -641,6 +654,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix { .. } => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
+            ResolvedCliIdArg::CommittedHunk(..) => f.write_str("committed hunk"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Worktree(name) => write!(f, "worktree {name}"),
             ResolvedCliIdArg::Stack { .. } => f.write_str("stack"),
@@ -656,6 +670,7 @@ pub enum ResolvedCliIdArgRef<'a> {
     Branch(&'a str),
     UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
     CommittedFile(&'a CommittedFileId),
+    CommittedHunk(&'a CommittedHunk),
     PathPrefix {
         id: &'a str,
         hunks: &'a NonEmpty<IdAndHunk>,
