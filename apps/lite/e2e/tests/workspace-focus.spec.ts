@@ -14,7 +14,8 @@ test.describe("workspace focus", () => {
 		await appWindow.reload();
 		await appWindow.getByRole("main").waitFor();
 
-		const file = appWindow.getByRole("treeitem", { name: "Addition added.txt" });
+		const uncommittedFiles = appWindow.getByRole("tree", { name: "Uncommitted" });
+		const file = uncommittedFiles.getByRole("treeitem", { name: "Addition added.txt" });
 		await file.click();
 
 		const commit = appWindow.getByRole("treeitem", { name: "C: first commit" });
@@ -56,7 +57,7 @@ test.describe("workspace focus", () => {
 			)
 			.toBe("sidebar");
 
-		await appWindow.getByRole("checkbox", { name: "Check file added.txt" }).click();
+		await uncommittedFiles.getByRole("checkbox", { name: "Check file added.txt" }).click();
 		await expect.poll(() => new URL(appWindow.url()).searchParams.get("active")).toBeNull();
 
 		await file.click();

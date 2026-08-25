@@ -31,9 +31,10 @@ import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
+	headingId: string;
 	projectId: string;
 	onOpenFilter: () => void;
-}> = ({ changes, projectId, onOpenFilter }) => {
+}> = ({ changes, headingId, projectId, onOpenFilter }) => {
 	const lineStats = useQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => getLineStats(results.map((result) => result.data)),
@@ -106,6 +107,7 @@ export const UncommittedChangesRow: FC<{
 
 	return (
 		<SectionHeaderRow
+			id={headingId}
 			label="Uncommitted"
 			childrenBefore={<FocusScopeKbd hotkey="1" scope="uncommitted-files" />}
 			onContextMenu={(event) => {
