@@ -1988,8 +1988,17 @@ mod single_branch_mode {
         )?;
         rebase.materialize(Default::default())?;
 
-        // A reorder is computed and returned...
-        assert!(branch_stack_order.is_some());
+        // The preview order is computed and returned...
+        assert_eq!(
+            branch_stack_order,
+            Some(vec![
+                r("refs/heads/main").to_owned(),
+                r("refs/heads/empty-bottom").to_owned(),
+                r("refs/heads/empty-top").to_owned(),
+                r("refs/heads/base").to_owned(),
+            ]),
+            "the caller should receive the exact reordered chain"
+        );
         // ...but nothing is written to metadata until the caller persists it.
         assert_eq!(
             meta.branch_stack_order(main_ref)?,

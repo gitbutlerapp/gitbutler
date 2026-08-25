@@ -1,6 +1,48 @@
 use crate::table::in_memory_db;
 
 #[test]
+fn snapshot_roundtrip_replaces_all_rows() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+    db.branch_order_mut()?
+        .set_order(&refs(["refs/heads/A", "refs/heads/B"]))?;
+    let snapshot = db.branch_order().get_snapshot()?;
+
+    db.branch_order_mut()?
+        .set_order(&refs(["refs/heads/C", "refs/heads/D"]))?;
+    db.branch_order_mut()?.replace_snapshot(&snapshot)?;
+
+    assert_eq!(
+        db.branch_order().get_snapshot()?,
+        snapshot,
+        "restoring a snapshot should replace the complete table"
+    );
+    assert!(
+        db.branch_order()
+            .order_for_reference("refs/heads/C")?
+            .is_none(),
+        "rows absent from the snapshot should be removed"
+    );
+    Ok(())
+}
+
+#[test]
+fn empty_snapshot_clears_all_rows() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+    let empty = db.branch_order().get_snapshot()?;
+    db.branch_order_mut()?
+        .set_order(&refs(["refs/heads/A", "refs/heads/B"]))?;
+
+    db.branch_order_mut()?.replace_snapshot(&empty)?;
+
+    assert_eq!(
+        db.branch_order().get_snapshot()?,
+        empty,
+        "an explicitly empty snapshot should clear the table"
+    );
+    Ok(())
+}
+
+#[test]
 fn adding_branch_above_another_updates_order() -> anyhow::Result<()> {
     let mut db = in_memory_db();
     db.branch_order_mut()?

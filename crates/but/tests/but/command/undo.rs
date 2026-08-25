@@ -350,6 +350,45 @@ fn can_undo_but_branch_in_stack() {
 }
 
 #[test]
+fn can_undo_and_redo_single_branch_order_updates() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new middle").assert().success();
+    env.but("branch new bottom --below middle")
+        .assert()
+        .success();
+    let before = env.but("status").output().unwrap();
+
+    env.but("branch new top --above middle").assert().success();
+    let after = env.but("status").output().unwrap();
+
+    env.but("undo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Undid [..] (2000-01-02 00:00:00): [..]
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(before.stdout)
+        .stderr_eq(before.stderr);
+
+    env.but("redo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Redid [..] (2000-01-02 00:00:00): [..]
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(after.stdout)
+        .stderr_eq(after.stderr);
+}
+
+#[test]
 fn can_undo_but_branch_delete() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);

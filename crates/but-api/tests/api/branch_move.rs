@@ -1,8 +1,10 @@
 use but_core::{DryRun, RefMetadata, ref_metadata::ProjectMeta};
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
+use gitbutler_oplog::{OplogExt, RestoreKind};
 
 use crate::support::{
-    assert_workspace_ref, create_empty_branch_above, repo_with_feature_branch, write_file,
+    assert_workspace_ref, create_empty_branch_above, persist_default_target,
+    repo_with_feature_branch, write_file,
 };
 
 fn context_with_three_branch_stack_options(
@@ -279,6 +281,7 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
         .meta()?
         .branch_stack_order(tip.as_ref())?
         .expect("branch order is configured");
+    let oplog_head_before = ctx.oplog_head()?;
 
     let result =
         but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::Yes)?;
@@ -299,6 +302,62 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
         Some(order_before),
         "dry-run leaves the persisted order unchanged"
     );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head_before,
+        "dry-run should not create an oplog entry"
+    );
 
+    Ok(())
+}
+
+#[test]
+fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main: gix::refs::FullName = "refs/heads/main".try_into()?;
+    let middle: gix::refs::FullName = "refs/heads/middle".try_into()?;
+    let tip: gix::refs::FullName = "refs/heads/tip".try_into()?;
+    create_empty_branch_above(&mut ctx, &middle, &main)?;
+    create_empty_branch_above(&mut ctx, &tip, &middle)?;
+    let order_before = ctx
+        .meta()?
+        .branch_stack_order(tip.as_ref())?
+        .expect("branch order is configured");
+
+    but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
+    let order_after = ctx
+        .meta()?
+        .branch_stack_order(middle.as_ref())?
+        .expect("the move persists a reordered chain");
+    assert_ne!(
+        order_after, order_before,
+        "the move should change branch order"
+    );
+    let move_snapshot = ctx.oplog_head()?.expect("the move records an undo point");
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let redo_snapshot = ctx.restore_snapshot(
+        move_snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.meta()?.branch_stack_order(tip.as_ref())?,
+        Some(order_before),
+        "undo should restore the original branch order"
+    );
+
+    ctx.restore_snapshot(
+        redo_snapshot,
+        RestoreKind::RestoreFromSnapshotViaRedo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.meta()?.branch_stack_order(middle.as_ref())?,
+        Some(order_after),
+        "redo should restore the moved branch order"
+    );
     Ok(())
 }

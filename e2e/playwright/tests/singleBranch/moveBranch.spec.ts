@@ -24,6 +24,7 @@ import {
 	dragAndDropByLocator,
 	getByTestId,
 	stack,
+	waitForTestId,
 } from "../../src/util.ts";
 import { type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
@@ -129,6 +130,18 @@ test("can reorder empty branches by dragging within the single-branch stack", as
 	await expectBranchHeaderOrder(page, ["empty-top", "empty-low", "empty-mid", SINGLE_BRANCH_NAME]);
 	await expectCurrentBranchChip(page, "empty-top");
 	await assertBranch("empty-top", localClone);
+
+	await gitbutler.runScript("undo-redo.sh", ["undo", "local-clone"]);
+	await page.reload();
+	await waitForTestId(page, "workspace-view");
+	await expectBranchHeaderOrder(page, ["empty-top", "empty-mid", "empty-low", SINGLE_BRANCH_NAME]);
+	await expectCurrentBranchChip(page, "empty-top");
+
+	await gitbutler.runScript("undo-redo.sh", ["redo", "local-clone"]);
+	await page.reload();
+	await waitForTestId(page, "workspace-view");
+	await expectBranchHeaderOrder(page, ["empty-top", "empty-low", "empty-mid", SINGLE_BRANCH_NAME]);
+	await expectCurrentBranchChip(page, "empty-top");
 });
 
 test("moving an empty branch above the checked-out branch checks out the new tip", async ({

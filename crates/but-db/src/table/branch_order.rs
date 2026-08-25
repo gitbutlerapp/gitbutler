@@ -28,6 +28,50 @@ pub struct BranchOrderHandleMut<'conn> {
     sp: rusqlite::Savepoint<'conn>,
 }
 
+/// Complete persisted branch-order state, suitable for snapshots and restoration.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BranchOrderSnapshot {
+    /// All branch-order rows, sorted by branch reference name.
+    pub entries: Vec<BranchOrderEntry>,
+}
+
+/// One persisted branch-order relationship.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BranchOrderEntry {
+    /// The ordered branch reference.
+    pub branch_ref_name: String,
+    /// The branch immediately below this one, or `None` for the base.
+    pub parent_ref_name: Option<String>,
+}
+
+impl BranchOrderSnapshot {
+    /// Validate the constraints enforced by the branch-order table before restoration starts.
+    pub fn validate(&self) -> Result<(), String> {
+        let mut branches = BTreeSet::new();
+        let mut parents = BTreeSet::new();
+        for entry in &self.entries {
+            if !branches.insert(&entry.branch_ref_name) {
+                return Err(format!(
+                    "duplicate branch reference '{}'",
+                    entry.branch_ref_name
+                ));
+            }
+            if let Some(parent) = &entry.parent_ref_name {
+                if parent == &entry.branch_ref_name {
+                    return Err(format!(
+                        "branch '{}' cannot be its own parent",
+                        entry.branch_ref_name
+                    ));
+                }
+                if !parents.insert(parent) {
+                    return Err(format!("duplicate parent reference '{parent}'"));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl DbHandle {
     /// Return a read-only handle for ad-hoc branch ordering metadata.
     pub fn branch_order(&self) -> BranchOrderHandle<'_> {
@@ -57,6 +101,25 @@ impl<'conn> Transaction<'conn> {
 }
 
 impl BranchOrderHandle<'_> {
+    /// Read the complete branch-order table in deterministic order.
+    pub fn get_snapshot(&self) -> rusqlite::Result<BranchOrderSnapshot> {
+        let entries = self
+            .conn
+            .prepare(
+                "SELECT branch_ref_name, parent_ref_name
+                 FROM branch_order
+                 ORDER BY branch_ref_name",
+            )?
+            .query_map([], |row| {
+                Ok(BranchOrderEntry {
+                    branch_ref_name: row.get(0)?,
+                    parent_ref_name: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(BranchOrderSnapshot { entries })
+    }
+
     /// Return the ordered chain containing `ref_name`, from tip to base.
     pub fn order_for_reference(&self, ref_name: &str) -> rusqlite::Result<Option<Vec<String>>> {
         let has_row = match self.has_reference(ref_name) {
@@ -144,6 +207,23 @@ impl BranchOrderHandleMut<'_> {
     /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> BranchOrderHandle<'_> {
         BranchOrderHandle { conn: &self.sp }
+    }
+
+    /// Replace the complete branch-order table with `snapshot` atomically.
+    pub fn replace_snapshot(self, snapshot: &BranchOrderSnapshot) -> rusqlite::Result<()> {
+        let sp = self.sp;
+        sp.execute("DELETE FROM branch_order", [])?;
+        let mut insert = sp.prepare(
+            "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES (?1, ?2)",
+        )?;
+        for entry in &snapshot.entries {
+            insert.execute(rusqlite::params![
+                entry.branch_ref_name,
+                entry.parent_ref_name
+            ])?;
+        }
+        drop(insert);
+        sp.commit()
     }
 
     /// Replace the persisted chain containing `branches` with `branches` in tip-to-base order.
