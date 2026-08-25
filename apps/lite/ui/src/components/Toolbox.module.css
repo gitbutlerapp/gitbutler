@@ -29,7 +29,7 @@
 	padding: 8px 10px;
 	overflow: hidden;
 	border-bottom: 1px solid var(--border-2);
-	background-color: var(--bg-mute);
+	background-color: var(--bg-2);
 	color: var(--text-2);
 	white-space: nowrap;
 
