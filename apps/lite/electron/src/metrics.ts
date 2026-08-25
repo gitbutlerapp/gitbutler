@@ -2,6 +2,7 @@ import { getAppSettings, getUserProfileLocal, updateTelemetryDistinctId } from "
 import type { UserProfile } from "@gitbutler/but-sdk";
 import { PostHog } from "posthog-node";
 import { randomUUID } from "node:crypto";
+import { apiCommandFailureLimitConfig, createApiCommandSampler } from "./api-command-sampling.js";
 
 /**
  * Product metrics for the main process. Events go to the same PostHog
@@ -15,6 +16,12 @@ import { randomUUID } from "node:crypto";
  * (`telemetry.appDistinctId`): `user_<id>` once any surface has seen a login,
  * a random UUID otherwise. The CLI on the same machine reads whatever is
  * stored there.
+ *
+ * In PostHog, estimate successful command totals with
+ * `sum(1 / coalesce(samplingRate, 1))`.
+ * Failures are not randomly sampled; use `sum(coalesce(occurrenceCount, 1))`
+ * because one retained event may represent suppressed repeats. Its `durationMs`
+ * still describes only the retained call.
  */
 
 // The same publishable project key the desktop app and the web app use.
@@ -23,10 +30,42 @@ const POSTHOG_HOST = "https://eu.i.posthog.com";
 const APP_NAME = "gitbutler-lite";
 const CONTAINER = "electron";
 const SHUTDOWN_TIMEOUT_MS = 2000;
+const FAILURE_LIMIT_FLAG = "lite-api-command-failure-limit";
+const FAILURE_LIMIT_CONFIG_ID = "gitbutler-lite-failure-limit";
+const FAILURE_LIMIT_CONFIG_TIMEOUT_MS = 1_000;
 
 let client: PostHog | null = null;
 let distinctId = "";
 let appVersion = "";
+let failureLimit = apiCommandFailureLimitConfig(undefined);
+let sampleApiCommand = createApiCommandSampler({ failureLimit });
+
+const setDistinctId = (nextDistinctId: string): void => {
+	if (distinctId !== nextDistinctId) sampleApiCommand = createApiCommandSampler({ failureLimit });
+	distinctId = nextDistinctId;
+};
+
+const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
+	try {
+		const payload = await metricsClient.getFeatureFlagPayload(
+			FAILURE_LIMIT_FLAG,
+			FAILURE_LIMIT_CONFIG_ID,
+		);
+		if (client !== metricsClient) return;
+
+		const nextFailureLimit = apiCommandFailureLimitConfig(payload);
+		if (
+			nextFailureLimit.bucketSize === failureLimit.bucketSize &&
+			nextFailureLimit.refillIntervalMs === failureLimit.refillIntervalMs
+		)
+			return;
+
+		failureLimit = nextFailureLimit;
+		sampleApiCommand = createApiCommandSampler({ failureLimit });
+	} catch {
+		// The built-in defaults are safe when remote configuration is unavailable.
+	}
+};
 
 /**
  * Reads the shared app settings and starts the client. A no-op when metrics
@@ -44,12 +83,18 @@ export const initMetrics = async (version: string): Promise<void> => {
 		appVersion = version;
 		// The client exists from here on even if resolving the identity below
 		// fails; a session then captures under the stored or fresh id.
-		distinctId = telemetry.appDistinctId ?? randomUUID();
-		client = new PostHog(POSTHOG_API_KEY, { host: POSTHOG_HOST });
+		setDistinctId(telemetry.appDistinctId ?? randomUUID());
+		client = new PostHog(POSTHOG_API_KEY, {
+			host: POSTHOG_HOST,
+			featureFlagsRequestTimeoutMs: FAILURE_LIMIT_CONFIG_TIMEOUT_MS,
+		});
 
 		const profile = await getUserProfileLocal();
 		if (profile !== null) await metricsOnLogin(profile);
 		else if (distinctId !== telemetry.appDistinctId) await updateTelemetryDistinctId(distinctId);
+		// Bound the remote lookup so IPC capture starts with one stable policy
+		// without making app startup depend on PostHog being reachable.
+		await configureFailureLimit(client);
 	} catch (error) {
 		// oxlint-disable-next-line no-console
 		console.error("Failed to initialize metrics", error);
@@ -82,12 +127,16 @@ export const withApiCommandCapture =
 	async (params: unknown): Promise<unknown> => {
 		if (client === null) return handler(params);
 		const start = performance.now();
-		const record = (failure: boolean) =>
+		const record = (failure: boolean) => {
+			const decision = sampleApiCommand(command, failure);
+			if (decision === null) return;
 			capture("api_command", {
 				command,
 				durationMs: Math.round(performance.now() - start),
 				failure,
+				...decision,
 			});
+		};
 		try {
 			const result = await handler(params);
 			record(false);
@@ -106,7 +155,7 @@ export const withApiCommandCapture =
  */
 export const metricsOnLogin = async (profile: UserProfile): Promise<void> => {
 	if (client === null) return;
-	distinctId = `user_${profile.id}`;
+	setDistinctId(`user_${profile.id}`);
 	try {
 		await updateTelemetryDistinctId(distinctId);
 	} catch (error) {
