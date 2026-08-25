@@ -345,10 +345,9 @@ const TransferTypeToggleGroup: FC<{
 };
 
 const TransferKindToggleGroup: FC<{
-	canCopy: boolean;
 	kind: TransferKind;
 	projectId: string;
-}> = ({ canCopy, kind, projectId }) => {
+}> = ({ kind, projectId }) => {
 	const dispatch = useAppDispatch();
 
 	const setKind = (kind: TransferKind) =>
@@ -363,7 +362,7 @@ const TransferKindToggleGroup: FC<{
 		{
 			hotkey: operationHotkeys.selectCopy.hotkey,
 			callback: () => setKind("copy"),
-			options: { conflictBehavior: "allow", enabled: canCopy },
+			options: { conflictBehavior: "allow" },
 		},
 	]);
 
@@ -389,11 +388,7 @@ const TransferKindToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle
-				className={styles.toggleGroupRowToggle}
-				value={"copy" satisfies TransferKind}
-				disabled={!canCopy}
-			>
+			<Toggle className={styles.toggleGroupRowToggle} value={"copy" satisfies TransferKind}>
 				<div className="text-semibold">
 					Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} />
 				</div>
@@ -437,7 +432,9 @@ const TransferKeyboardOperationControls: FC<{
 
 	return (
 		<Container>
-			<TransferKindToggleGroup canCopy={canCopy} kind={transfer.kind} projectId={projectId} />
+			{/* Only commits can be copied, so for any other source the row offers a choice of one:
+			    the kind is already `move` and cannot become anything else. */}
+			{canCopy && <TransferKindToggleGroup kind={transfer.kind} projectId={projectId} />}
 			<TransferTypeToggleGroup
 				projectId={projectId}
 				operations={operations}
