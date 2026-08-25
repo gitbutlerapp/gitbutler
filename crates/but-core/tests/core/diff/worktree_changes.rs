@@ -2038,6 +2038,8 @@ WorktreeChanges {
 fn modified_in_index_and_worktree_rename_add() -> Result<()> {
     let repo = repo("modified-in-index-and-worktree-rename-add")?;
     let actual = diff::worktree_changes(&repo)?;
+    // The index rename and the recreated source merge into two untracked additions,
+    // emitted in path order ("file" before "file-renamed-in-index").
     snapbox::assert_data_eq!(
         actual.to_debug(),
         snapbox::str![[r#"
@@ -2066,11 +2068,11 @@ WorktreeChanges {
     ],
     ignored_changes: [
         IgnoredWorktreeChange {
-            path: "file-renamed-in-index",
+            path: "file",
             status: TreeIndex,
         },
         IgnoredWorktreeChange {
-            path: "file",
+            path: "file-renamed-in-index",
             status: TreeIndex,
         },
     ],
@@ -2104,6 +2106,373 @@ WorktreeChanges {
         snapbox::str![[r#"
 @@ -1,0 +1,1 @@
 +initial
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn modified_in_index_and_worktree_del_rename() -> Result<()> {
+    // A deletion staged for `replaced` while the worktree renames `file` onto that path:
+    // the net effect is a modification of `replaced` and a deletion of `file`.
+    let repo = repo("modified-in-index-and-worktree-del-rename")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
+                    kind: Blob,
+                },
+            },
+        },
+        TreeChange {
+            path: "replaced",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(c452352bbbff3f54ba625e2466377c4c037ca4af),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "replaced",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+
+    // With identical content the destination is unchanged, leaving only the source deletion.
+    let repo =
+        crate::diff::worktree_changes::repo("modified-in-index-and-worktree-del-rename-noop")?;
+    snapbox::assert_data_eq!(
+        diff::worktree_changes(&repo)?.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(1275430f1765c63e539cb0452565563bd6aef6a6),
+                    kind: Blob,
+                },
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "replaced",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn modified_in_index_and_worktree_del_rename_of_modified() -> Result<()> {
+    // Like `del_rename`, but the rename source also has a staged modification. The rename
+    // first absorbs that modification, then folds into the staged deletion of its
+    // destination, so the net result matches plain `del_rename`: one change per path.
+    let repo = repo("modified-in-index-and-worktree-del-rename-of-modified")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
+                    kind: Blob,
+                },
+            },
+        },
+        TreeChange {
+            path: "replaced",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(c452352bbbff3f54ba625e2466377c4c037ca4af),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "replaced",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn modified_in_index_and_worktree_del_rename_of_modified_twice() -> Result<()> {
+    // Two independent del+rename-of-modified groups must both fold; the second fold's
+    // lookup must not be confused by the first fold's results.
+    let repo = repo("modified-in-index-and-worktree-del-rename-of-modified-twice")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file-a",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(aaf5a69a08ed8573de2dcf0fa9b3f3b53fd0578b),
+                    kind: Blob,
+                },
+            },
+        },
+        TreeChange {
+            path: "file-b",
+            status: Deletion {
+                previous_state: ChangeState {
+                    id: Sha1(d88594a326575a0a15d681630e568d9fa3f55959),
+                    kind: Blob,
+                },
+            },
+        },
+        TreeChange {
+            path: "replaced-a",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(045431e52f630b3e91a5847c8d13e49db533a145),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+        TreeChange {
+            path: "replaced-b",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(45f1ae81e503659d0ab1fae16666661a950d3a8f),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file-a",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "file-b",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "replaced-a",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "replaced-b",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn renamed_in_index_destination_deleted_and_source_recreated() -> Result<()> {
+    // The staged rename and the worktree deletion of its destination collapse into a
+    // deletion of the source, which the recreated source file then continues:
+    // the net result is a single modification of `a`.
+    let repo = repo("renamed-in-index-destination-deleted-and-source-recreated")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "a",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "a",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "b",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn renamed_in_index_source_recreated_and_destination_modified() -> Result<()> {
+    // The worktree modification of `z` continues the index entry the rename `a` → `z`
+    // created, so it must win the pairing even though the recreated `a` sorts first and
+    // also matches the rename via its source path. The recreation stays a plain
+    // untracked addition.
+    let repo = repo("renamed-in-index-source-recreated-and-destination-modified")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "a",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                is_untracked: true,
+            },
+        },
+        TreeChange {
+            path: "z",
+            status: Rename {
+                previous_path: "a",
+                previous_state: ChangeState {
+                    id: Sha1(d95f3ad14dee633a758d2e331151e950dd13e4ed),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "z",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn swapped_in_index_and_modified_in_worktree() -> Result<()> {
+    // Swapping `a` and `b` in the index leaves both paths present, so the tree/index diff
+    // reports two modifications rather than renames. A worktree edit of `a` merges with
+    // its staged modification while `b` stays untouched.
+    let repo = repo("swapped-in-index-and-modified-in-worktree")?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "a",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(045431e52f630b3e91a5847c8d13e49db533a145),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+        TreeChange {
+            path: "b",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(45f1ae81e503659d0ab1fae16666661a950d3a8f),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(045431e52f630b3e91a5847c8d13e49db533a145),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "a",
+            status: TreeIndex,
+        },
+    ],
+}
 
 "#]]
     );
