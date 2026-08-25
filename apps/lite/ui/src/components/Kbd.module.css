@@ -5,24 +5,23 @@
 }
 
 .key {
-	--outline-color: light-dark(
-		color-mix(in srgb, var(--text-1) 10%, transparent),
-		color-mix(in srgb, var(--text-1) 20%, transparent)
-	);
-	display: inline-flex;
+	--outline-color: color-mix(in srgb, var(--text-1) 16%, transparent);
+	/* Not a flex container: `text-box-trim` applies only to block containers and
+	   inline boxes, so a bare text child of a flex box lands in an anonymous item
+	   we cannot target. The parent `.keys` still centers the cap-height box. */
+	display: block;
 	position: relative;
-	align-items: center;
-	justify-content: center;
-	padding: 2px 3px;
+	min-width: 14px;
+	padding: 4px 3px;
 	border-radius: var(--radius-xs);
-	background-color: var(--bg-1);
-	box-shadow:
-		0 1px 3px 0 rgba(0, 0, 0, 0.18),
-		0 0 0 1px var(--outline-color);
+	background-color: color-mix(in srgb, var(--scale-gray-60) 5%, transparent);
+	box-shadow: 0 0 0 1px var(--outline-color);
 	color: color-mix(in srgb, var(--text-1) 60%, transparent);
 	font-size: 11px;
 	line-height: 1.2;
 	font-family: inherit;
+	text-box: trim-both cap alphabetic;
+	text-align: center;
 	white-space: nowrap;
 }
 

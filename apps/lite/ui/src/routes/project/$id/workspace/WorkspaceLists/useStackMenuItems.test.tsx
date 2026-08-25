@@ -47,7 +47,7 @@ const stack = { id: "stack-id", base: null, segments: [] } as Stack;
 const Probe: FC = () => {
 	const unapply = useStackMenuItems(projectId, stack).find(
 		(item): item is Extract<NativeMenuItem, { _tag: "Item" }> =>
-			item._tag === "Item" && item.label === "Unapply Whole Stack",
+			item._tag === "Item" && item.label === "Unapply Stack",
 	);
 	return <output data-enabled={String(unapply?.enabled)} />;
 };

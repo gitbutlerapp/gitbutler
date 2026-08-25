@@ -2,7 +2,11 @@
 	display: flex;
 }
 
+/* Fixed square, so the base key's padding would only fight it: zero it out and
+   let `align-content` center the trimmed cap-height box in the 15px height. */
 .key {
+	align-content: center;
 	width: 15px;
 	height: 15px;
+	padding: 0;
 }
