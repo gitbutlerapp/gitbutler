@@ -1,4 +1,4 @@
-import { MutationCache, QueryClient, focusManager } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, focusManager } from "@tanstack/react-query";
 import { App } from "#ui/App.tsx";
 import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
 import { createAppRouter } from "#ui/router.ts";
@@ -21,6 +21,14 @@ const queryClient: QueryClient = new QueryClient({
 			staleTime: Number.POSITIVE_INFINITY,
 		},
 	},
+	// A failed query reports itself where its data would have gone — a panel says so in place
+	// rather than raising a toast — but the reason has to land somewhere.
+	queryCache: new QueryCache({
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+		},
+	}),
 	// A mutation's cache effects come from its endpoint's `invalidates`
 	// declaration, recognized by the `mutationFn` itself, and its failure
 	// toast from `meta.failureTitle`; per-mutation handlers keep only
