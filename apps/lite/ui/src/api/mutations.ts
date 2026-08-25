@@ -890,12 +890,14 @@ export const useDiscardFileChanges = ({
 	/**
 	 * Discard `change`, extended to the checked files when `extendToCheckedFiles` — a row's menu
 	 * passes its own checked state, as dragging does; a list hotkey passes true, as cut and move do.
+	 * A caller with no row of its own, like the checked-set toolbar, passes a null `change` and
+	 * leans wholly on the checked set.
 	 */
 	const discard = async ({
 		change,
 		extendToCheckedFiles,
 	}: {
-		change: TreeChange;
+		change: TreeChange | null;
 		extendToCheckedFiles: boolean;
 	}): Promise<void> => {
 		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
@@ -906,7 +908,7 @@ export const useDiscardFileChanges = ({
 			);
 
 		if (!extendToCheckedFiles || sources.length === 0 || !areAllFilesUnder())
-			return runDiscard([createDiffSpec(change, [])]);
+			return change === null ? undefined : runDiscard([createDiffSpec(change, [])]);
 
 		// Checked files carry only paths, so their changes have to be looked up.
 		try {

@@ -109,7 +109,7 @@ const commitIdFromParent = (parent: FileParent) =>
  * Gets the file parent from an array of sibling sources, if any. Disparate file parents are not
  * currently supported.
  */
-const fileParentFromSources = (sources: Array<Address>): FileParent | null => {
+export const fileParentFromSources = (sources: Array<Address>): FileParent | null => {
 	const [source, ...rest] = sources;
 	if (!source) return null;
 

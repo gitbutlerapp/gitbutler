@@ -16,6 +16,11 @@
 	box-shadow: var(--shadow-md);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	/* The checked-set bar carries a row of actions alongside its count, which the
+	   width the transfer toolbar needs would truncate. */
+	&:has(.actions) {
+		max-width: min(calc(100% - (2 * var(--panel-padding-inline))), 640px);
+	}
 }
 
 .toggleGroupRow {
@@ -54,6 +59,12 @@
 .label {
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.actions {
+	display: flex;
+	column-gap: 4px;
+	margin-left: auto;
 }
 
 .controls {

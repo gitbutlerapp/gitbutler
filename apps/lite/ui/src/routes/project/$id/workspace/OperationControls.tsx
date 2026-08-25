@@ -23,6 +23,10 @@ import {
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
+import {
+	useCheckedActions,
+	type CheckedAction,
+} from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
@@ -139,10 +143,32 @@ const Controls: FC<{
 	);
 };
 
-const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; projectId: string }> = ({
-	checkedAddressCount,
-	projectId,
-}) => {
+const CheckedActions: FC<{ actions: Array<CheckedAction> }> = ({ actions }) => (
+	<div className={styles.actions}>
+		{actions.map((action) => (
+			<Button
+				key={action.label}
+				className={getButtonClassName({ variant: action.variant })}
+				disabled={!action.enabled}
+				focusableWhenDisabled
+				onMouseDown={(event) => {
+					// Prevent stealing focus from the tree.
+					if (!event.defaultPrevented) event.preventDefault();
+				}}
+				onClick={action.run}
+			>
+				{action.label}
+				{action.hotkey !== undefined && <Kbd hotkey={action.hotkey} variant="button" />}
+			</Button>
+		))}
+	</div>
+);
+
+const CheckedAddressOperationControls: FC<{
+	checkedAddressCount: number;
+	projectId: string;
+	appliedAddressSpace: AddressSpace<Address>;
+}> = ({ checkedAddressCount, projectId, appliedAddressSpace }) => {
 	const dispatch = useAppDispatch();
 
 	const checkedType = useAppSelector((state): string | null => {
@@ -157,6 +183,7 @@ const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; project
 				return null;
 		}
 	});
+	const actions = useCheckedActions({ projectId, appliedAddressSpace });
 	if (checkedType === null) return;
 
 	const cancel = () => {
@@ -170,6 +197,7 @@ const CheckedAddressOperationControls: FC<{ checkedAddressCount: number; project
 					{new Intl.NumberFormat().format(checkedAddressCount)} {checkedType}
 					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
 				</Label>
+				{actions.length > 0 && <CheckedActions actions={actions} />}
 				<Controls onCancel={cancel} />
 			</ControlsRow>
 		</Container>
@@ -461,6 +489,7 @@ export const OperationControls: FC<{
 					<CheckedAddressOperationControls
 						checkedAddressCount={checkedAddressCount}
 						projectId={projectId}
+						appliedAddressSpace={appliedAddressSpace}
 					/>
 				),
 			Absorb: (pending) =>
