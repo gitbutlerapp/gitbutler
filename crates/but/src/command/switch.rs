@@ -1,4 +1,13 @@
-use crate::{CliResult, IdMap, args::atoms::CliIdArg, utils::OutputChannel};
+use crate::{
+    CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg},
+    command::legacy::branch::{
+        self,
+        new::{NewOperation, NewUnstackedBranchOperation},
+    },
+    print_deprecation_warning,
+    utils::OutputChannel,
+};
 
 pub fn handle(
     ctx: &mut but_ctx::Context,
@@ -18,16 +27,22 @@ pub fn handle(
     }
 
     if new {
-        let requested_name = target.map(|target| target.0);
-        but_api::branch::branch_checkout_new_with_perm(
-            ctx,
-            requested_name,
-            guard.write_permission(),
-        )?;
-        let branch_name = current_head_short_name(ctx)?;
-        if let Some(out) = out.for_human() {
-            writeln!(out, "Created and switched to branch '{branch_name}'")?;
-        }
+        print_deprecation_warning(
+            "`--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead",
+        );
+
+        let mut meta = ctx.meta()?;
+        let name = target
+            .map(|target| {
+                let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+                BranchArg(target.0).resolve_for_creation(&repo, &ws)
+            })
+            .transpose()?;
+        let operation =
+            NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation { name, switch: true });
+        let outcome = branch::new::run(ctx, &mut meta, guard.write_permission(), operation)?;
+        out.print_cli_output(outcome)?;
+
         return Ok(());
     }
 
@@ -44,12 +59,4 @@ pub fn handle(
         writeln!(out, "Switched to branch '{}'", branch.shorten())?;
     }
     Ok(())
-}
-
-fn current_head_short_name(ctx: &but_ctx::Context) -> CliResult<String> {
-    let repo = ctx.repo.get()?;
-    let head_name = repo
-        .head_name()?
-        .ok_or_else(|| anyhow::anyhow!("HEAD is detached after switching branches"))?;
-    Ok(head_name.shorten().to_string())
 }

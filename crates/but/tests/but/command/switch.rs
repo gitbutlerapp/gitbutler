@@ -231,9 +231,12 @@ fn creates_named_branch_and_switches_to_it() {
     env.but("switch --new my-feature")
         .assert()
         .success()
-        .stderr_eq(str![])
+        .stderr_eq(str![[r#"
+⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
+
+"#]])
         .stdout_eq(str![[r#"
-Created and switched to branch 'my-feature'
+Created branch 'my-feature'
 
 "#]]);
 
@@ -254,9 +257,12 @@ fn creates_generated_branch_and_switches_to_it() {
     env.but("switch --new")
         .assert()
         .success()
-        .stderr_eq(str![])
+        .stderr_eq(str![[r#"
+⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
+
+"#]])
         .stdout_eq(str![[r#"
-Created and switched to branch 'a-branch-1'
+Created branch 'a-branch-1'
 
 "#]]);
 
