@@ -4,11 +4,12 @@ use but_core::{Commit, RefMetadata, ref_metadata::ProjectMeta};
 use but_graph::init::{Options, Tip};
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{
-    CommandExt, InMemoryRefMetadata, git, graph_workspace, visualize_commit_graph_all,
+    CommandExt, InMemoryRefMetadata, git, git_at_dir, graph_workspace, open_repo,
+    visualize_commit_graph_all,
 };
 use but_workspace::{
-    BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, integrate_upstream,
-    integrate_upstream_with_hints, worktree_conflicts_for_rebase,
+    BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, fast_forward_local_tracking_branch,
+    integrate_upstream, integrate_upstream_with_hints, worktree_conflicts_for_rebase,
 };
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
@@ -3956,5 +3957,156 @@ fn remove_managed_workspace_ref(repo: &gix::Repository) -> Result<()> {
     if let Some(reference) = repo.try_find_reference(but_core::WORKSPACE_REF_NAME)? {
         reference.delete()?;
     }
+    Ok(())
+}
+
+fn repo_with_local_target_branches() -> Result<(gix::Repository, tempfile::TempDir)> {
+    Ok(crate::utils::writable_scenario("local-target-tracking"))
+}
+
+fn configure_tracking(tmp: &tempfile::TempDir, branch: &str) {
+    git_at_dir(tmp.path())
+        .args(["config", &format!("branch.{branch}.remote"), "origin"])
+        .run();
+    git_at_dir(tmp.path())
+        .args([
+            "config",
+            &format!("branch.{branch}.merge"),
+            "refs/heads/main",
+        ])
+        .run();
+}
+
+#[test]
+fn fast_forwards_local_target_branch() -> Result<()> {
+    let (_repo, tmp) = repo_with_local_target_branches()?;
+    configure_tracking(&tmp, "feature");
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    let target_id = repo.find_reference(&target_ref)?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
+
+    assert_eq!(
+        repo.find_reference("refs/heads/feature")?.id().detach(),
+        target_id,
+        "the local tracking branch should fast-forward to the target"
+    );
+    Ok(())
+}
+
+#[test]
+fn leaves_diverged_local_target_branch_unchanged() -> Result<()> {
+    let (_repo, tmp) = repo_with_local_target_branches()?;
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+    std::fs::write(tmp.path().join("feature.txt"), "feature\n")?;
+    git_at_dir(tmp.path()).args(["add", "feature.txt"]).run();
+    git_at_dir(tmp.path())
+        .args(["commit", "-m", "feature"])
+        .run();
+    configure_tracking(&tmp, "feature");
+    let repo = open_repo(tmp.path())?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    let target_id = repo.find_reference(&target_ref)?.id().detach();
+    let local_id = repo.find_reference("refs/heads/feature")?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
+
+    assert_eq!(
+        repo.find_reference("refs/heads/feature")?.id().detach(),
+        local_id,
+        "a diverged local target branch must stay unchanged"
+    );
+    Ok(())
+}
+
+#[test]
+fn leaves_local_target_refs_unchanged() -> Result<()> {
+    let (repo, _tmp) = repo_with_local_target_branches()?;
+    let local_target: gix::refs::FullName = "refs/heads/feature".try_into()?;
+    let local_id = repo.find_reference(&local_target)?.id().detach();
+    let newer_id = repo.find_reference("refs/heads/main")?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, local_target.as_ref(), newer_id)?;
+
+    assert_eq!(
+        repo.find_reference(&local_target)?.id().detach(),
+        local_id,
+        "local target refs must not be updated"
+    );
+    Ok(())
+}
+
+#[test]
+fn prefers_same_named_local_target_branch() -> Result<()> {
+    let (_repo, tmp) = repo_with_local_target_branches()?;
+    configure_tracking(&tmp, "feature");
+    configure_tracking(&tmp, "main");
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/heads/main", "refs/heads/feature"])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    let target_id = repo.find_reference(&target_ref)?.id().detach();
+    let feature_id = repo.find_reference("refs/heads/feature")?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
+
+    assert_eq!(
+        repo.find_reference("refs/heads/main")?.id().detach(),
+        target_id,
+        "the same-named main branch should fast-forward to the target"
+    );
+    assert_eq!(
+        repo.find_reference("refs/heads/feature")?.id().detach(),
+        feature_id,
+        "the same-named main branch should be preferred over another tracker"
+    );
+    Ok(())
+}
+
+#[test]
+fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
+    let (_repo, tmp) = repo_with_local_target_branches()?;
+    configure_tracking(&tmp, "main");
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "refs/heads/main"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/heads/main", "refs/heads/feature"])
+        .run();
+    let linked = tempfile::tempdir()?;
+    let linked_path = linked.path().join("main");
+    git_at_dir(tmp.path())
+        .args([
+            "worktree",
+            "add",
+            linked_path.to_str().expect("utf-8 path"),
+            "main",
+        ])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    let target_id = repo.find_reference(&target_ref)?.id().detach();
+    let local_id = repo.find_reference("refs/heads/main")?.id().detach();
+
+    fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
+
+    assert_eq!(
+        repo.find_reference("refs/heads/main")?.id().detach(),
+        local_id,
+        "a checked-out target branch must stay aligned with its worktree"
+    );
     Ok(())
 }

@@ -142,6 +142,13 @@ pub trait OplogExt {
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
+    /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving one reference.
+    fn prepare_snapshot_with_ref(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        perm: &RepoShared,
+    ) -> Result<gix::ObjectId>;
+
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
     /// Use `details` to provide metadata about the snapshot.
@@ -227,6 +234,15 @@ pub trait OplogExt {
 impl OplogExt for Context {
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId> {
         prepare_snapshot(self, perm)
+    }
+
+    fn prepare_snapshot_with_ref(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        perm: &RepoShared,
+    ) -> Result<gix::ObjectId> {
+        prepare_snapshot_with_target_and_ref(self, perm, Some(ref_name))
+            .map(|snapshot| snapshot.tree_id)
     }
 
     fn commit_snapshot(
@@ -521,6 +537,37 @@ struct SnapshotCheckout {
     commit_id: gix::ObjectId,
 }
 
+struct SnapshotReference {
+    ref_name: gix::refs::FullName,
+    target: Option<gix::ObjectId>,
+}
+
+fn snapshot_reference(
+    snapshot_tree: &gix::Tree<'_>,
+    repo: &gix::Repository,
+) -> Result<Option<SnapshotReference>> {
+    let Some(name_entry) = snapshot_tree.lookup_entry_by_path("additional-ref/name")? else {
+        return Ok(None);
+    };
+    let name_blob = repo.find_blob(name_entry.id())?;
+    let ref_name = gix::refs::FullName::try_from(name_blob.data.as_bstr())
+        .context("snapshot additional ref is invalid")?;
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        bail!("snapshot additional ref is not a local branch");
+    }
+    let target = snapshot_tree
+        .lookup_entry_by_path("additional-ref/target")?
+        .map(|entry| {
+            let blob = repo.find_blob(entry.id())?;
+            gix::ObjectId::from_hex(&blob.data).context("snapshot additional ref target is invalid")
+        })
+        .transpose()?;
+    if target.is_some_and(|target| target.is_null()) {
+        bail!("snapshot additional ref target is null");
+    }
+    Ok(Some(SnapshotReference { ref_name, target }))
+}
+
 fn snapshot_checkout(
     snapshot_tree: &gix::Tree<'_>,
     repo: &gix::Repository,
@@ -707,6 +754,14 @@ fn prepare_snapshot_with_target(
     ctx: &Context,
     shared_access: &RepoShared,
 ) -> Result<PreparedSnapshot> {
+    prepare_snapshot_with_target_and_ref(ctx, shared_access, None)
+}
+
+fn prepare_snapshot_with_target_and_ref(
+    ctx: &Context,
+    shared_access: &RepoShared,
+    additional_ref: Option<&gix::refs::FullNameRef>,
+) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
     let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
@@ -742,6 +797,21 @@ fn prepare_snapshot_with_target(
         &project_meta,
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
+
+    if let Some(ref_name) = additional_ref {
+        snapshot_tree.upsert(
+            "additional-ref/name",
+            EntryKind::Blob,
+            repo.write_blob(ref_name.as_bstr())?,
+        )?;
+        if let Some(reference) = repo.try_find_reference(ref_name)? {
+            snapshot_tree.upsert(
+                "additional-ref/target",
+                EntryKind::Blob,
+                repo.write_blob(reference.id().to_string().as_bytes())?,
+            )?;
+        }
+    }
 
     let mut head = repo.head()?;
     if let Some(head_ref) = head
@@ -949,11 +1019,33 @@ fn restore_snapshot(
     let (restored_project_meta, restored_virtual_branches) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
+    let restored_reference = snapshot_reference(&snapshot_tree, &repo)?;
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
-    let before_restore_snapshot_tree_id =
-        prepare_snapshot(ctx, exclusive_access.read_permission())?;
+    if let Some(reference) = restored_reference.as_ref()
+        && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
+        && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
+        && let Some(dirs) =
+            but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
+    {
+        bail!(
+            "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}",
+            reference.ref_name.shorten()
+        );
+    }
+
+    let before_restore_snapshot_tree_id = match restored_reference.as_ref() {
+        Some(reference) => {
+            prepare_snapshot_with_target_and_ref(
+                ctx,
+                exclusive_access.read_permission(),
+                Some(reference.ref_name.as_ref()),
+            )?
+            .tree_id
+        }
+        None => prepare_snapshot(ctx, exclusive_access.read_permission())?,
+    };
     let before_restore_snapshot_workdir_tree_id =
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
@@ -1095,6 +1187,23 @@ fn restore_snapshot(
     for stack in legacy_virtual_branches::in_workspace_stacks(vb_state.data()) {
         for branch in &stack.heads {
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
+        }
+    }
+    if let Some(reference) = restored_reference {
+        match reference.target {
+            Some(target) => {
+                repo.reference(
+                    reference.ref_name,
+                    target,
+                    gix::refs::transaction::PreviousValue::Any,
+                    "restore snapshot additional ref",
+                )?;
+            }
+            None => {
+                if let Some(reference) = repo.try_find_reference(reference.ref_name.as_ref())? {
+                    reference.delete()?;
+                }
+            }
         }
     }
     ctx.set_project_meta(restored_project_meta)?;

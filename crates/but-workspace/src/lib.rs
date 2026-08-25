@@ -66,7 +66,8 @@ use but_graph::{SegmentIndex, workspace::TargetCommit};
 mod upstream_integration;
 pub use upstream_integration::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
-    integrate_upstream, integrate_upstream_with_hints,
+    fast_forward_local_tracking_branch, integrate_upstream, integrate_upstream_with_hints,
+    local_tracking_branch_to_fast_forward,
 };
 mod worktree;
 pub use worktree::{resolve_worktree_conflicts, worktree_conflicts_for_rebase};

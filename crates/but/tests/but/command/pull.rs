@@ -44,6 +44,122 @@ fn merge_into_upstream(env: &Sandbox, branch: &str, add_upstream_commit: bool) {
     env.invoke_git("fetch origin");
 }
 
+fn target_branch_pull_scenario(diverged: bool) -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-two-integrated-stacks-with-local-target",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "A~1");
+    let old_target = env
+        .project_meta()
+        .target_commit_id
+        .expect("fixture has a target commit");
+    if diverged {
+        let local_commit = env.invoke_git(&format!(
+            "commit-tree {old_target}^{{tree}} -p {old_target} -m local-main"
+        ));
+        env.invoke_git(&format!("update-ref refs/heads/main {local_commit}"));
+    }
+    env
+}
+
+fn single_branch_target_branch_pull_scenario(diverged: bool) -> Sandbox {
+    let env = target_branch_pull_scenario(diverged);
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env
+}
+
+fn assert_pull_fast_forwards_local_target(env: Sandbox) {
+    assert_ne!(rev_parse(&env, "main"), rev_parse(&env, "origin/main"));
+
+    env.but("pull").assert().success();
+
+    assert_eq!(
+        rev_parse(&env, "main"),
+        rev_parse(&env, "origin/main"),
+        "pull should fast-forward the local target branch"
+    );
+}
+
+fn assert_pull_preserves_diverged_local_target(env: Sandbox) {
+    let local_main = rev_parse(&env, "main");
+
+    env.but("pull").assert().success();
+
+    assert_eq!(
+        rev_parse(&env, "main"),
+        local_main,
+        "pull must preserve local commits on a diverged target branch"
+    );
+    assert_ne!(rev_parse(&env, "main"), rev_parse(&env, "origin/main"));
+}
+
+#[test]
+fn pull_fast_forwards_the_local_target_branch() {
+    assert_pull_fast_forwards_local_target(target_branch_pull_scenario(false));
+}
+
+#[test]
+fn undo_and_redo_restore_the_local_target_branch() {
+    let env = target_branch_pull_scenario(false);
+    let old_target = rev_parse(&env, "main");
+    let new_target = rev_parse(&env, "origin/main");
+
+    env.but("pull").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "undo should restore the local target branch"
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        new_target,
+        "redo should fast-forward the local target branch again"
+    );
+}
+
+#[test]
+fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
+    let env = target_branch_pull_scenario(false);
+    env.but("pull").assert().success();
+    let target = rev_parse(&env, "main");
+    let workspace_head = rev_parse(&env, "HEAD");
+    let worktree = env.app_data_dir().join("linked-main");
+    env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
+
+    env.but("undo").assert().failure();
+
+    assert_eq!(
+        rev_parse(&env, "main"),
+        target,
+        "undo must not move a branch checked out in a linked worktree"
+    );
+    assert_eq!(
+        rev_parse(&env, "HEAD"),
+        workspace_head,
+        "a refused undo must not change the managed workspace"
+    );
+}
+
+#[test]
+fn single_branch_pull_fast_forwards_the_local_target_branch() {
+    assert_pull_fast_forwards_local_target(single_branch_target_branch_pull_scenario(false));
+}
+
+#[test]
+fn pull_leaves_a_diverged_local_target_branch_unchanged() {
+    assert_pull_preserves_diverged_local_target(target_branch_pull_scenario(true));
+}
+
+#[test]
+fn single_branch_pull_leaves_a_diverged_local_target_branch_unchanged() {
+    assert_pull_preserves_diverged_local_target(single_branch_target_branch_pull_scenario(true));
+}
+
 #[test]
 fn single_branch_pull_replaces_a_fully_integrated_checkout() {
     let env = single_branch_integration_scenario();
