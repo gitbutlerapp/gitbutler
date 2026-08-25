@@ -9,6 +9,8 @@
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
+import { getReviewQueryOptions } from "#ui/api/queries.ts";
+import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
@@ -89,23 +91,19 @@ const refreshIntegratedReviews = async (client: QueryClient, projectId: string):
 	const reviewIds = new Set(
 		headInfo.stacks.flatMap((stack) =>
 			stack.segments.flatMap((segment) => {
-				const reviewId = segment.metadata?.review.pullRequest;
-				return segment.pushStatus === "integrated" && reviewId != null ? [reviewId] : [];
+				// Integrated segments only: an open association needs no
+				// refresh here, and the landed view fetches on demand.
+				const reviewId = segment.pushStatus === "integrated" ? recordedPullRequest(segment) : null;
+				return reviewId !== null ? [reviewId] : [];
 			}),
 		),
 	);
 	await Promise.allSettled(
 		[...reviewIds].flatMap((reviewId) => {
-			const queryKey = ["getReview", projectId, reviewId] as const;
-			return client.getQueryData<ForgeReview>(queryKey)?.mergedAt != null
+			const options = getReviewQueryOptions({ projectId, reviewId });
+			return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
 				? []
-				: [
-						client.fetchQuery({
-							queryKey,
-							queryFn: () => window.lite.getReview({ projectId, reviewId }),
-							staleTime: Number.POSITIVE_INFINITY,
-						}),
-					];
+				: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
 		}),
 	);
 };

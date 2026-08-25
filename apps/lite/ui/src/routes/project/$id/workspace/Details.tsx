@@ -10,7 +10,12 @@ import {
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
-import { type DraftPRExtras, draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
+import {
+	type DraftPRExtras,
+	draftPRQueryOptions,
+	useLandedReviewId,
+	usePersistDraftPR,
+} from "#ui/pr.ts";
 import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
@@ -164,7 +169,7 @@ import {
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
@@ -2685,7 +2690,8 @@ const CommitDetails: FC<{
 
 /**
  * A landed review fetched by number, for the surfaces that only know the
- * number: the target-commit listing and the branch listing's merged review.
+ * number: the target-commit listing, the branch listing's merged review, and
+ * an integrated applied branch's stored identity.
  */
 const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ projectId, reviewId }) => {
 	const { data: review, isError } = useQuery(getReviewQueryOptions({ projectId, reviewId }));
@@ -2696,26 +2702,6 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ project
 	}
 	if (!review) return <div className={classes(styles.loadingTab, "text-13")}>Loading…</div>;
 	return <ReviewView projectId={projectId} sourceBranch={review.sourceBranch} review={review} />;
-};
-
-/**
- * The number of the branch's landed review, from the branch listing's cached
- * review — the same source the branch rows render, with the merged/closed
- * distinction derived server-side. Null while nothing is known to have
- * merged; a review closed without merging stays null on purpose, so an
- * integrated branch whose work landed some other way keeps its create-PR
- * flow.
- */
-const useLandedReviewId = (projectId: string, branchName: string): number | null => {
-	const { data: landedReviewId } = useQuery({
-		...branchListQueryOptions(projectId),
-		select: (stacks) =>
-			stacks
-				.flatMap((stack) => stack.branches)
-				.find((listed) => listed.displayName === branchName && listed.reviewStatus === "merged")
-				?.review?.number ?? null,
-	});
-	return landedReviewId ?? null;
 };
 
 /** A branch's own changes, whatever the branch's standing. */
@@ -2983,8 +2969,19 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 		select: (reviews) => reviews.find((review) => review.sourceBranch === branchName) ?? null,
 	});
 	// A merged review has left the open listing; the branch listing's cached
-	// review — the same one the branch's row shows — still knows its number.
-	const landedReviewId = useLandedReviewId(projectId, branchName);
+	// review — the same source this branch's row chip renders, with the
+	// merged/closed distinction derived server-side — still knows its number.
+	// Unapplied branches have no durable stored identity (their metadata is
+	// garbage-collected once integrated), so the cache is the source here.
+	const { data: listedLandedNumber } = useQuery({
+		...branchListQueryOptions(projectId),
+		select: (stacks) =>
+			stacks
+				.flatMap((stack) => stack.branches)
+				.find((listed) => listed.displayName === branchName && listed.reviewStatus === "merged")
+				?.review?.number ?? null,
+	});
+	const landedReviewId = listedLandedNumber ?? null;
 
 	const reviewTab = review ? (
 		<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
@@ -2995,9 +2992,9 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
-	// The review is what the branch is judged by, so a branch that has one
-	// opens on it; without one only the diff is on offer.
-	const branchTab = chosenTab ?? (review ? "pr" : "diff");
+	// The review is what the branch is judged by, so a branch that has one —
+	// open or landed — opens on it; without one only the diff is on offer.
+	const branchTab = chosenTab ?? (reviewTab !== null ? "pr" : "diff");
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
 	};
@@ -3103,13 +3100,22 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				? undefined
 				: parentSegment.refName?.displayName;
 
-	// A merged review drops out of the open listing, but the branch listing's
-	// cached review still knows it merged — show that review rather than
-	// offering to create a second one. Only for an integrated branch: a
-	// branch continuing after its old review merged is new work and gets the
-	// create-PR flow.
-	const mergedReviewId = useLandedReviewId(projectId, branchName);
-	const landedReviewId = branchCtx?.segment.pushStatus === "integrated" ? mergedReviewId : null;
+	// The open listing already carries everything an open review needs, so the
+	// verification fetch is spent only when the listing has nothing for this
+	// branch — the case where the recorded number's fate actually decides the
+	// tab between the landed review and the create-PR flow.
+	const { data: hasOpenReview } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		// The listing is alive anyway (every branch row subscribes to it), so
+		// this gate expresses intent rather than saving a fetch.
+		enabled: branchTab === "pr" && !!forgeInfo?.capabilities.prService,
+		select: (reviews) => reviews.some((review) => review.sourceBranch === branchName),
+	});
+	const landedReviewId = useLandedReviewId(
+		projectId,
+		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
+		branchTab === "pr" && hasOpenReview === false,
+	);
 
 	return (
 		<div className={styles.container} ref={ref}>

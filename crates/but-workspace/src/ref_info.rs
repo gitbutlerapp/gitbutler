@@ -612,17 +612,42 @@ pub fn graph_to_ref_info(
     Ok(info)
 }
 
-/// Set (or clear) the forge review association on a segment's metadata.
+/// Set (or clear) the forge review association exposed on a segment's metadata.
 ///
-/// `review` is the number resolved from the forge cache for the segment, or `None`
-/// when nothing matched. A match on a segment that has no stored metadata (e.g.
-/// an ad-hoc branch in single-branch mode) synthesizes a default metadata entry
-/// to carry the association; a non-match only clears an existing entry and never
-/// synthesizes one. `review_id` is projection-unused and always cleared.
+/// `cached` is the review the forge cache resolves for the segment, as
+/// `(number, is open, merged head)`, or `None` when nothing matched. The whole
+/// association rule lives here: an integrated branch keeps its stored review
+/// number — the durable identity of the review that landed it — with any
+/// cached match as a fallback for numbers persisted before this existed.
+/// Every other branch associates with an OPEN cached review, or one merged
+/// exactly at `tip` — a merge whose integration the graph has not yet seen —
+/// so continuing work after a merge does not revive the old review as an
+/// active one. A cache match on an ad-hoc branch synthesizes projection-only
+/// metadata; a miss clears an active segment's stored number, while an
+/// integrated one keeps it. `review_id` is projection-unused and always
+/// cleared.
 fn apply_review_to_metadata(
     metadata: &mut Option<but_core::ref_metadata::Branch>,
-    review: Option<usize>,
+    cached: Option<(usize, bool, Option<String>)>,
+    integrated: bool,
+    tip: Option<&str>,
 ) {
+    let review = if integrated {
+        metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request)
+            .or(cached.map(|(number, ..)| number))
+    } else {
+        cached.and_then(|(number, open, merged_head)| {
+            // Prefix match with a floor: forges may report truncated commit
+            // hashes (Bitbucket), and 12 hex characters are unambiguous
+            // enough for a display association.
+            let merged_at_tip = merged_head.as_deref().is_some_and(|head| {
+                head.len() >= 12 && tip.is_some_and(|tip| tip.starts_with(head))
+            });
+            (open || merged_at_tip).then_some(number)
+        })
+    };
     match review {
         Some(number) => {
             let meta = metadata.get_or_insert_with(Default::default);
@@ -639,21 +664,21 @@ fn apply_review_to_metadata(
 }
 
 fn forge_review_for_branch(
-    reviews_by_head: &std::collections::HashMap<String, usize>,
+    reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     short_name: &str,
-) -> Option<usize> {
+) -> Option<(usize, bool, Option<String>)> {
     if let Some(review) = reviews_by_head.get(short_name) {
-        return Some(*review);
+        return Some(review.clone());
     }
 
     let mut prefixed_matches = reviews_by_head.iter().filter_map(|(head, review)| {
         let (_, branch) = head.rsplit_once(':')?;
-        (branch == short_name).then_some(*review)
+        (branch == short_name).then_some(review)
     });
     let review = prefixed_matches.next()?;
     prefixed_matches
         .all(|candidate| candidate == review)
-        .then_some(review)
+        .then(|| review.clone())
 }
 
 impl RefInfo {
@@ -661,18 +686,24 @@ impl RefInfo {
     /// keyed by the segment's remote/pushed short name (what the forge records as
     /// a review's `source_branch`).
     ///
-    /// This is a projection-time view of forge truth, not stored state: the value
-    /// is as fresh as the last cache sync and is not persisted here. A stale
-    /// stored number is overwritten (or cleared when the review is gone), and a match
-    /// on an otherwise metadata-less segment synthesizes metadata so single-branch
-    /// mode surfaces the association too. `reviews_by_head` maps a pushed short name
-    /// to its review number; build it from the forge review cache at the call boundary so
-    /// this crate stays free of DB and forge wiring. As a defensive fallback, a uniquely
-    /// matching `owner:branch` key is accepted, while ambiguous fork heads are ignored.
+    /// For active branches this remains a projection-time view of forge truth:
+    /// an open review, or a review merged exactly at the branch's tip — the
+    /// window between a merge and the fetch that lets integration detection
+    /// catch up. A branch continued (or re-created) past a merge has a
+    /// different tip and associates with nothing. An integrated branch instead
+    /// keeps its stored review number — the settled review that landed it —
+    /// with the cache as a migration fallback when no number has been
+    /// persisted yet. A cache match on an otherwise metadata-less segment
+    /// synthesizes metadata so single-branch mode surfaces the association
+    /// too. `reviews_by_head` maps a pushed short name to
+    /// `(number, is open, merged head)`; build it from the forge cache at the
+    /// call boundary so this crate stays free of DB and forge wiring. As a
+    /// defensive fallback, a uniquely matching `owner:branch` key is accepted,
+    /// while ambiguous fork heads are ignored.
     pub fn apply_forge_review_associations(
         &mut self,
         repo: &gix::Repository,
-        reviews_by_head: &std::collections::HashMap<String, usize>,
+        reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     ) {
         let remote_names = repo.remote_names();
         for segment in self
@@ -680,7 +711,7 @@ impl RefInfo {
             .iter_mut()
             .flat_map(|stack| stack.segments.iter_mut())
         {
-            let review = segment
+            let cached = segment
                 .remote_tracking_ref_name
                 .as_ref()
                 .and_then(|rtb| {
@@ -689,7 +720,19 @@ impl RefInfo {
                 .and_then(|(_, short)| {
                     forge_review_for_branch(reviews_by_head, short.to_str().ok()?)
                 });
-            apply_review_to_metadata(&mut segment.metadata, review);
+            // The merged head is the review's PUSHED commit, so match the
+            // tip's remote counterpart when it has one: a local rewrite
+            // between push and merge must not break the window.
+            let tip = segment.commits.first().map(|commit| match commit.relation {
+                LocalCommitRelation::LocalAndRemote(remote_id) => remote_id.to_string(),
+                _ => commit.id.to_string(),
+            });
+            apply_review_to_metadata(
+                &mut segment.metadata,
+                cached,
+                segment.push_status == crate::ui::PushStatus::Integrated,
+                tip.as_deref(),
+            );
         }
     }
 
@@ -890,7 +933,7 @@ mod review_association_tests {
     #[test]
     fn managed_segment_gets_the_matched_review() {
         let mut metadata = Some(branch_with_review(None));
-        apply_review_to_metadata(&mut metadata, Some(42));
+        apply_review_to_metadata(&mut metadata, Some((42, true, None)), false, None);
         assert_eq!(metadata.unwrap().review.pull_request, Some(42));
     }
 
@@ -898,14 +941,14 @@ mod review_association_tests {
     fn ad_hoc_segment_synthesizes_metadata_on_a_match() {
         // Single-branch mode: no stored metadata, but a cache match still surfaces.
         let mut metadata = None;
-        apply_review_to_metadata(&mut metadata, Some(7));
+        apply_review_to_metadata(&mut metadata, Some((7, true, None)), false, None);
         assert_eq!(metadata.expect("synthesized").review.pull_request, Some(7));
     }
 
     #[test]
-    fn stale_stored_review_is_cleared_when_nothing_matches() {
+    fn stale_stored_review_is_cleared_when_nothing_matches_an_active_segment() {
         let mut metadata = Some(branch_with_review(Some(99)));
-        apply_review_to_metadata(&mut metadata, None);
+        apply_review_to_metadata(&mut metadata, None, false, None);
         assert_eq!(
             metadata.expect("metadata kept").review.pull_request,
             None,
@@ -916,7 +959,7 @@ mod review_association_tests {
     #[test]
     fn ad_hoc_segment_without_a_match_stays_metadata_less() {
         let mut metadata = None;
-        apply_review_to_metadata(&mut metadata, None);
+        apply_review_to_metadata(&mut metadata, None, false, None);
         assert!(
             metadata.is_none(),
             "no match must not fabricate metadata on a plain branch"
@@ -928,17 +971,85 @@ mod review_association_tests {
         let mut branch = Branch::default();
         branch.review.review_id = Some("stale".into());
         let mut metadata = Some(branch);
-        apply_review_to_metadata(&mut metadata, Some(1));
+        apply_review_to_metadata(&mut metadata, Some((1, true, None)), false, None);
         assert!(metadata.unwrap().review.review_id.is_none());
     }
 
     #[test]
+    fn integrated_segment_keeps_its_stored_review_without_a_cache_match() {
+        let mut metadata = Some(branch_with_review(Some(99)));
+        apply_review_to_metadata(&mut metadata, None, true, None);
+        assert_eq!(metadata.unwrap().review.pull_request, Some(99));
+    }
+
+    #[test]
+    fn integrated_segment_prefers_its_stored_review_over_a_cache_match() {
+        let mut metadata = Some(branch_with_review(Some(99)));
+        apply_review_to_metadata(&mut metadata, Some((42, false, None)), true, None);
+        assert_eq!(metadata.unwrap().review.pull_request, Some(99));
+    }
+
+    #[test]
+    fn integrated_segment_keeps_its_stored_review_even_over_an_open_cache_twin() {
+        // A new open review from the same still-integrated head is unusual;
+        // the stored number stays the landed identity until the branch leaves
+        // integration, at which point the active rule associates the open one.
+        let mut metadata = Some(branch_with_review(Some(99)));
+        apply_review_to_metadata(&mut metadata, Some((42, true, None)), true, None);
+        assert_eq!(metadata.unwrap().review.pull_request, Some(99));
+    }
+
+    #[test]
+    fn settled_cache_review_without_a_tip_match_never_associates_with_an_active_segment() {
+        // A branch continuing after its old review settled is new work; the
+        // settled number must neither associate nor survive as stored state.
+        let mut metadata = Some(branch_with_review(Some(99)));
+        apply_review_to_metadata(&mut metadata, Some((42, false, None)), false, None);
+        assert_eq!(metadata.unwrap().review.pull_request, None);
+    }
+
+    #[test]
+    fn review_merged_at_the_branch_tip_associates_during_the_integration_lag() {
+        // The window between a merge on the forge and the fetch that lets
+        // integration detection catch up: the tip matching the merged head
+        // proves the branch's exact state landed.
+        let mut metadata = Some(branch_with_review(None));
+        apply_review_to_metadata(
+            &mut metadata,
+            Some((42, false, Some("abc123abc123".into()))),
+            false,
+            Some("abc123abc123abc123abc123abc123abc123abc1"),
+        );
+        assert_eq!(metadata.unwrap().review.pull_request, Some(42));
+    }
+
+    #[test]
+    fn review_merged_at_another_tip_never_associates_with_an_active_segment() {
+        // Continued or re-created work: the branch moved past the merge.
+        let mut metadata = Some(branch_with_review(Some(42)));
+        apply_review_to_metadata(
+            &mut metadata,
+            Some((42, false, Some("abc123abc123".into()))),
+            false,
+            Some("fff999fff999fff999fff999fff999fff999fff9"),
+        );
+        assert_eq!(metadata.unwrap().review.pull_request, None);
+    }
+
+    #[test]
+    fn settled_cache_review_is_the_fallback_for_an_integrated_segment_without_stored_identity() {
+        let mut metadata = Some(branch_with_review(None));
+        apply_review_to_metadata(&mut metadata, Some((42, false, None)), true, None);
+        assert_eq!(metadata.unwrap().review.pull_request, Some(42));
+    }
+
+    #[test]
     fn owner_prefixed_review_head_matches_the_short_branch_name() {
-        let reviews = HashMap::from([("alice:feature".to_string(), 42)]);
+        let reviews = HashMap::from([("alice:feature".to_string(), (42, true, None))]);
 
         assert_eq!(
             forge_review_for_branch(&reviews, "feature"),
-            Some(42),
+            Some((42, true, None)),
             "a uniquely matching fork head should be accepted defensively"
         );
     }
@@ -946,13 +1057,13 @@ mod review_association_tests {
     #[test]
     fn exact_review_head_takes_precedence_over_a_prefixed_head() {
         let reviews = HashMap::from([
-            ("feature".to_string(), 42),
-            ("alice:feature".to_string(), 99),
+            ("feature".to_string(), (42, true, None)),
+            ("alice:feature".to_string(), (99, true, None)),
         ]);
 
         assert_eq!(
             forge_review_for_branch(&reviews, "feature"),
-            Some(42),
+            Some((42, true, None)),
             "the forge's normal short-name representation should take precedence"
         );
     }
@@ -960,8 +1071,8 @@ mod review_association_tests {
     #[test]
     fn ambiguous_owner_prefixed_review_heads_do_not_match() {
         let reviews = HashMap::from([
-            ("alice:feature".to_string(), 42),
-            ("bob:feature".to_string(), 99),
+            ("alice:feature".to_string(), (42, true, None)),
+            ("bob:feature".to_string(), (99, true, None)),
         ]);
 
         assert_eq!(

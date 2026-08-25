@@ -946,6 +946,7 @@ async fn publish_review_for_branch(
     // Publish a new review for the branch
     but_api::legacy::forge::publish_review_only(
         ctx.to_sync(),
+        gix::refs::Category::LocalBranch.to_full_name(branch_name)?,
         but_forge::CreateForgeReviewParams {
             title,
             body,
@@ -955,9 +956,6 @@ async fn publish_review_for_branch(
         },
     )
     .await
-    // The PR association is derived from the forge review cache; `publish_review_only`
-    // optimistically caches the created review, so there is no PR number to
-    // persist onto branch metadata here.
     .map(|review| PublishReviewResult::Published(Box::new(review)))
 }
 

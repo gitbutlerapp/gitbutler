@@ -63,12 +63,12 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     )?
     .pruned_to_entrypoint();
 
-    // Resolve each segment's PR association from the forge review cache instead
-    // of stored branch metadata, keyed by the segment's remote/pushed short name.
+    // Enrich active associations from the forge cache while keeping durable
+    // stored identity for integrated branches.
     let forge_db = ctx.db.get_cache()?;
     info.apply_forge_review_associations(
         &repo,
-        &crate::workspace_state::forge_prs_by_head(&forge_db)?,
+        &but_forge::review_associations_by_head(&forge_db)?,
     );
 
     Ok(info)
@@ -178,10 +178,11 @@ pub fn branch_details(
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;
 
-    // Derive the PR association from the forge cache rather than reading a stored
-    // number off branch metadata: match the branch's remote/pushed short name
-    // (what the forge records as a review's `source_branch`) against the cached
-    // reviews. `review_id` is no longer used, so it is always cleared.
+    // The open forge-cache association, matching the workspace projection's
+    // rule for active branches. There is no integrated arm here on purpose:
+    // `but_workspace::branch_details` never computes the `Integrated` push
+    // status, so branch-scoped surfaces resolve a landed branch's review from
+    // the branch listing's cached review instead.
     details.review_id = None;
     details.pr_number = {
         let pushed_short_name = details
@@ -194,6 +195,7 @@ pub fn branch_details(
             });
         match pushed_short_name {
             Some(short) => but_forge::review_for_head_ref(&db, &short)?
+                .filter(but_forge::ForgeReview::is_open)
                 .and_then(|review| usize::try_from(review.number).ok()),
             None => None,
         }

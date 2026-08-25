@@ -167,7 +167,7 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
     .pruned_to_entrypoint();
     drop(db);
     let db = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::pr_numbers_by_head(&db)?;
+    let prs_by_head = but_forge::review_associations_by_head(&db)?;
     info.apply_forge_review_associations(&repo, &prs_by_head);
     Ok(info)
 }

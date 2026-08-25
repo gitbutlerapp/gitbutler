@@ -112,7 +112,11 @@ impl CachedReviews {
         // for the rest. Settled rows are retained from older syncs and say
         // nothing about listing freshness, so they are ignored — one of them
         // at the front of the unordered scan must not make the cache look
-        // stale either.
+        // stale either. With zero open rows there is no watermark at all, so
+        // every fallback read refetches — deliberate: representing "the open
+        // set was confirmed empty at T" would need a stored watermark, and
+        // one listing request per fallback window on a dormant repo is
+        // cheaper than that machinery.
         let last_sync_at = self
             .reviews
             .iter()

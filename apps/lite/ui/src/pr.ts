@@ -1,9 +1,36 @@
+import { forgeInfoOptions, getReviewQueryOptions } from "#ui/api/queries.ts";
 import type { ForgeInfo, ReviewMergeMethod } from "@gitbutler/but-sdk";
-import { type QueryClient, queryOptions, useMutation } from "@tanstack/react-query";
+import { type QueryClient, queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
 
 export const prForgeUrl = (prNo: number, forge: ForgeInfo): string =>
 	`${forge.baseUrl}${forge.prUrlPath}${prNo}`;
+
+/**
+ * Verify that a persisted review number identifies a merged review: the
+ * stored number alone cannot say what became of its review, so the review is
+ * fetched and the number is returned until the fetch proves it did NOT merge.
+ * Optimistic on purpose — while loading, on a failed fetch, and offline,
+ * suppressing the create-PR flow beats flashing it for a landed branch, and
+ * it matches the branch row's chip. Null only for a review verified as
+ * closed-without-merging, and when no number was given. `enabled` defers the
+ * fetch until the consumer actually needs the verdict; the returned value
+ * stays live either way, so read it only where review state is shown.
+ */
+export const useLandedReviewId = (
+	projectId: string,
+	reviewId: number | null,
+	enabled: boolean,
+): number | null => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: isMerged } = useQuery({
+		...getReviewQueryOptions({ projectId, reviewId: reviewId ?? 0 }),
+		enabled: enabled && reviewId !== null && forgeInfo?.capabilities.prService === true,
+		select: (review) => review.mergedAt !== null,
+	});
+	if (reviewId === null) return null;
+	return isMerged === false ? null : reviewId;
+};
 
 const mergeMethodKey = (projectId: string): string => `pr_merge_method:v1:${projectId}`;
 

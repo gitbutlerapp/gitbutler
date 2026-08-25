@@ -99,10 +99,10 @@ fn head_info(
     };
     let mut info = ref_info::graph_to_ref_info(&ws, &repo, options)?.pruned_to_entrypoint();
 
-    // Derive each segment's PR association from the forge review cache instead of
-    // stored branch metadata, mirroring the desktop's `head_info` command.
+    // Enrich active associations from the forge cache while keeping durable
+    // stored identity for integrated branches, mirroring desktop `head_info`.
     let review_cache = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::pr_numbers_by_head(&review_cache)?;
+    let prs_by_head = but_forge::review_associations_by_head(&review_cache)?;
     info.apply_forge_review_associations(&repo, &prs_by_head);
 
     Ok((info, object_hash))

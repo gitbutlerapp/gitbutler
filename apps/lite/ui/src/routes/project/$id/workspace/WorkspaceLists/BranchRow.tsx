@@ -126,8 +126,8 @@ export const BranchRow: FC<
 		canRemoveBranch: boolean;
 		downstackPushStatus: DownstackPushStatus;
 		pushStatus: PushStatus;
-		/** The integrated segment's recorded review number, if any. */
-		landedPullRequest: number | null;
+		/** The segment's projection-recorded review number, if any. */
+		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
@@ -142,7 +142,7 @@ export const BranchRow: FC<
 	canRemoveBranch,
 	downstackPushStatus,
 	pushStatus,
-	landedPullRequest,
+	recordedPullRequest,
 	graphStatus,
 	bottomRelativeTo,
 	isTopSegment,
@@ -160,9 +160,11 @@ export const BranchRow: FC<
 		enabled: !!forgeInfo?.capabilities.prService,
 	});
 	const openPullRequest = reviews?.reviewsBySourceBranch.get(refName.displayName)?.number ?? null;
-	// A merged review is absent from the open listing; an integrated segment's
-	// recorded number keeps the chip and link alive.
-	const pullRequest = openPullRequest ?? landedPullRequest;
+	// The chip renders the recorded number as-is: the projection only records
+	// display-worthy reviews, the chip must survive being offline, and a
+	// per-row verification fetch is not worth it. The details pane does verify
+	// before suppressing the create-PR flow.
+	const pullRequest = openPullRequest ?? recordedPullRequest;
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
 	const { data: ciChecksData } = useQuery({

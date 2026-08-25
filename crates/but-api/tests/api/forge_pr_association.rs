@@ -55,7 +55,7 @@ fn single_branch_gets_pr_without_stored_metadata() -> anyhow::Result<()> {
 }
 
 #[test]
-fn empty_cache_clears_a_stale_stored_pr() -> anyhow::Result<()> {
+fn empty_cache_preserves_the_stored_pr_of_an_integrated_branch() -> anyhow::Result<()> {
     let (mut ctx, _tmp) = context_with_remote_branch()?;
     let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
     but_api::branch::apply_only(&mut ctx, branch_name.as_ref())?;
@@ -65,15 +65,47 @@ fn empty_cache_clears_a_stale_stored_pr() -> anyhow::Result<()> {
     branch.review.pull_request = Some(99);
     meta.set_branch(&branch)?;
     drop(meta);
+    integrate_feature(&ctx, branch_name.as_ref())?;
 
     let info = but_api::legacy::workspace::head_info(&ctx)?;
+    assert_eq!(
+        segment(&info).push_status,
+        but_workspace::ui::PushStatus::Integrated
+    );
     assert_eq!(
         segment(&info)
             .metadata
             .as_ref()
             .and_then(|meta| meta.review.pull_request),
+        Some(99),
+        "an empty forge cache must not erase durable review identity"
+    );
+    Ok(())
+}
+
+#[test]
+fn settled_cache_review_is_only_a_fallback_for_an_integrated_branch() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_remote_branch()?;
+    let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    but_api::branch::apply_only(&mut ctx, branch_name.as_ref())?;
+
+    let mut settled = review(PR_NUMBER);
+    settled.merged_at = Some("2026-01-01T00:00:00Z".into());
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        but_forge::cache_review(&mut db, &settled)?;
+    }
+    assert_eq!(
+        projected_pr(&ctx)?,
         None,
-        "an empty forge cache should clear stale persisted association in the projection"
+        "a merged review must not become active on ongoing work"
+    );
+
+    integrate_feature(&ctx, branch_name.as_ref())?;
+    assert_eq!(
+        projected_pr(&ctx)?,
+        Some(PR_NUMBER),
+        "the settled cache remains a migration fallback after integration"
     );
     Ok(())
 }
@@ -137,6 +169,41 @@ fn context_with_remote_branch() -> anyhow::Result<(
         but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache(),
         tmp,
     ))
+}
+
+fn integrate_feature(
+    ctx: &but_ctx::Context,
+    branch_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    // Simulate a squash merge: target gets the same tree in a different commit,
+    // while the local and remote feature refs keep pointing at the reviewed commit.
+    let repo = ctx.repo.get()?;
+    let feature_id = repo.find_reference(branch_name)?.peel_to_id()?.detach();
+    let target_id = repo
+        .find_reference("refs/remotes/origin/main")?
+        .peel_to_id()?
+        .detach();
+    let integration_commit = {
+        let feature_commit = repo.find_commit(feature_id)?;
+        gix::objs::Commit {
+            message: "feature (#99)".into(),
+            parents: [target_id].into(),
+            ..feature_commit.decode()?.to_owned()?
+        }
+    };
+    let integration_id = repo.write_object(integration_commit)?.detach();
+    repo.reference(
+        "refs/remotes/origin/main",
+        integration_id,
+        PreviousValue::Any,
+        "test merged review",
+    )?;
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(integration_id),
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)
 }
 
 fn cache_review(ctx: &but_ctx::Context, number: usize) -> anyhow::Result<()> {

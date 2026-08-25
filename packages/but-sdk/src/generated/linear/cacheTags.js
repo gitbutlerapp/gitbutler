@@ -54,7 +54,7 @@ export const apiInvalidates = {
 	forgetGithubAccount: ["ForgeAccounts", "ForgeLogin"],
 	forgetGitlabAccount: ["ForgeAccounts", "ForgeLogin"],
 	mergeReview: ["Reviews", "MergeStatus", "Checks", "Branches"],
-	publishReview: ["Reviews", "Branches"],
+	publishReview: ["Reviews", "Branches", "Workspace"],
 	removeCommentReaction: ["CommentReactions", "ReviewComments"],
 	removeReviewLabel: ["Reviews"],
 	removeReviewReaction: ["ReviewReactions"],
