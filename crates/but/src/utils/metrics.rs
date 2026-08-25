@@ -144,7 +144,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Open { .. } => Open,
             #[cfg(feature = "legacy")]
-            Subcommands::Switch { .. } => Switch,
+            Subcommands::Switch(..) => Switch,
             Subcommands::Gui { .. } => Gui,
             Subcommands::_Open { .. } => Open,
             #[cfg(feature = "legacy")]

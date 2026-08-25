@@ -26,6 +26,7 @@ use crate::{
                 },
             },
         },
+        r#switch::{self, SwitchOperation},
     },
     utils::targeting::Side,
 };
@@ -116,10 +117,12 @@ impl App {
 
         let branch = Category::LocalBranch.to_full_name(&*branch_id.name)?;
 
-        // TODO(david): we should rewrite `but switch` to use the new command architecture and
-        // share the "switch" code path with this
         let mut guard = ctx.exclusive_worktree_access();
-        but_api::branch::branch_checkout_with_perm(ctx, branch, guard.write_permission())?;
+        let _outcome = r#switch::run(
+            ctx,
+            guard.write_permission(),
+            SwitchOperation::Branch { branch },
+        )?;
 
         messages.extend([
             Message::EnterNormalModeAfterConfirmingOperation,
