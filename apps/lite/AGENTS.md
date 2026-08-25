@@ -1,39 +1,38 @@
-# Dependencies
+# Lite
 
 JavaScript dependencies are sourced from pnpm. Commands are surfaced via pnpm.
 
-# Automation
+## Writing the code
 
-In dev the app is accessible for agent automation on port 9222. A working
-CDP driver script and its gotchas are in
-`.agents/skills/lite-render-perf/SKILL.md` under "Driving the dev app over
-CDP".
+### Memoization
 
-# Components
+Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are usually redundant as we use React Compiler, however may be necessary in hot paths where the compiler fails to understand that a computation is pure and therefore safe to memoise. Always validate the memoisation properties of modified React body code directly against React Compiler.
 
-Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are usually redundant as we use React Compiler, however may be necessary in hot paths where the compiler fails to understand that a computation is pure and therefore safe to memoise.
+To bypass this issue, where Redux store values are only needed at event-time (i.e. non-reactively), prefer `useAppStore` over `useAppSelector` subscriptions. The same goes for React Query where only cache reads are required.
 
-The compiler does not prevent re-render regressions: it silently skips memoizing calls to imported functions, and context still re-renders every consumer. Before writing code that derives values during render, adds a context, subscribes to the store, or renders lists of rows — or when the UI is slow or re-renders too much — use the `lite-render-perf` skill (`.agents/skills/lite-render-perf/SKILL.md`).
+### Code smells
 
-Component definitions should follow this pattern, optionally destructuring `p`:
+`useEffect` is typically an anti-pattern. Think long and hard before declaring it the best option. Should it appear to be the best option, always ask for consent to include it.
 
-```tsx
-type Props = {
-  ...
-};
+### Comments
 
-export const MyComponent: FC<Props> = (p) => {
-  // [...]
-};
-```
+Only include code comments where the higher-level purpose of the code may not be self-evident, for example unobvious technical edge cases. The "what" should be self-evident. If in doubt don't include a comment.
 
-# Design
+### Data fetching
+
+All data fetching in React should take place via React Query. If abstraction is necessary, start by extracting query options.
+
+All persisted client-side state that's not a setting should live in IndexedDB.
+
+Consider backwards compatibility for any persisted state.
+
+## Design
 
 The visual language — how icons, color, and composition should look — is in
 `apps/lite/DESIGN.md`. Read it before changing anything users see. This section
 covers the tooling that enforces it.
 
-## Icons
+### Icons
 
 There are two icon sets with two separate scripts, and each script only walks
 its own directory:
@@ -72,29 +71,13 @@ the script minifies them.
 After running the script, render the icon in the app (or in `Icon.stories.tsx`)
 at both 16px and a larger size before committing.
 
-# State
+## Verifying your work
 
-Share machinery, not state: when a new surface (a tab, pane, or mode) has its
-own configuration or lifecycle, give it its own sub-state with its own
-reducers/selectors (see `ui/src/projects/branches.ts`), even when it reuses the
-same address/navigation machinery. Don't multiplex an existing state container
-behind mode conditionals — the tell is an `if (tab === ...)` guard, or a
-comment explaining a special case, in code that shouldn't know that mode
-exists.
-
-List cursors are the ratified exception: every list's cursor lives in the one
-`cursors` table (`ui/src/cursors.ts`) because the entries are structurally
-uniform — one identity-keyed value per named list, resolved against what the
-list currently shows. That uniformity is the license. The moment an entry
-needs a list-specific conditional inside the shared machinery
-(`if (list === ...)`), it has stopped being an instance of the concept —
-eject it back into its own sub-state.
-
-# Verifying your work
+In dev the app is accessible for automation over CDP on port 9222.
 
 Always run the specified commands **exactly** as written.
 
-## Typechecking
+### Typechecking
 
 Typechecking is the fastest way to validate that everything is okay.
 
@@ -102,7 +85,7 @@ Typechecking is the fastest way to validate that everything is okay.
 $ pnpm -F @gitbutler/lite check
 ```
 
-## Testing
+### Testing
 
 Our unit tests are written with Vitest and our E2E tests with Playwright.
 
@@ -111,7 +94,7 @@ $ pnpm -F @gitbutler/lite test
 $ pnpm -F @gitbutler/lite test:e2e
 ```
 
-## Linting & formatting
+### Linting & formatting
 
 Once the work is functionally complete, run the following linters and formatters.
 
