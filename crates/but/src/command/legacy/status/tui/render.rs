@@ -431,6 +431,7 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
             },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UpstreamChanges
@@ -1228,9 +1229,7 @@ pub fn commit_operation_display(
         // A linked worktree's heading doubles as the top of its lane, which is the only place a
         // commit made from that checkout can go. Scoping to a stack excludes it, as a worktree
         // branch is by definition outside the workspace.
-        StatusOutputLineData::UncommittedChanges { cli_id }
-            if matches!(&**cli_id, CliId::Worktree { .. }) =>
-        {
+        StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
             scope_to_stack.is_none().then_some("commit to worktree")
         }
         StatusOutputLineData::StagedChanges { .. }
@@ -1268,9 +1267,7 @@ pub fn move_operation_display(
             StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
             // A linked worktree's heading doubles as the top of its lane, which is the only
             // place in the lane a whole commit can move to.
-            StatusOutputLineData::UncommittedChanges { cli_id }
-                if matches!(&**cli_id, CliId::Worktree { .. }) =>
-            {
+            StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
                 Some("move commit to worktree")
             }
             StatusOutputLineData::UpdateNotice
@@ -1303,9 +1300,7 @@ pub fn move_operation_display(
                     Some("move commits to branch")
                 }
             }
-            StatusOutputLineData::UncommittedChanges { cli_id }
-                if matches!(&**cli_id, CliId::Worktree { .. }) =>
-            {
+            StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
                 if marks.len() == 1 {
                     Some("move commit to worktree")
                 } else {
@@ -1338,6 +1333,7 @@ pub fn move_operation_display(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -1361,6 +1357,7 @@ pub fn reorder_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Commit { .. }
@@ -1397,6 +1394,7 @@ pub fn stack_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
@@ -1421,14 +1419,9 @@ pub fn cherry_pick_operation_display(
             InsertSide::Above => Some("pick above"),
             InsertSide::Below => Some("pick below"),
         },
-        StatusOutputLineData::UncommittedChanges { cli_id } => {
-            if let CliId::Worktree { .. } = &**cli_id {
-                Some("pick to worktree")
-            } else {
-                None
-            }
-        }
+        StatusOutputLineData::WorktreeUncommittedChanges { .. } => Some("pick to worktree"),
         StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
@@ -1451,6 +1444,7 @@ pub fn branch_operation_display(
 ) -> Option<&'static str> {
     match data {
         StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::MergeBase => Some("branch"),
         StatusOutputLineData::UpdateNotice

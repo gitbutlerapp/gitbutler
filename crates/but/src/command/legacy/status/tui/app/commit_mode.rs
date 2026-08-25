@@ -77,7 +77,7 @@ impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
         let is_worktree_heading = matches!(
             data,
-            StatusOutputLineData::UncommittedChanges { cli_id } if matches!(&**cli_id, CliId::Worktree { .. })
+            StatusOutputLineData::WorktreeUncommittedChanges { .. }
         );
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()

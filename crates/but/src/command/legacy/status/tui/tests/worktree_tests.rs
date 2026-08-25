@@ -25,14 +25,13 @@ fn worktree_tui() -> (TestTui<App>, String) {
     )
     .expect("app data dir is writable");
     let editor_command = format!("sh {}", editor_script.display());
-    let mut tui = test_status_tui_with_options(
+    let tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
             worktree_manipulation: true,
             ..Default::default()
         },
     );
-    tui.reload();
     (tui, editor_command)
 }
 

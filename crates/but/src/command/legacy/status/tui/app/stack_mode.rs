@@ -167,7 +167,8 @@ impl FuzzyPickerItem for ApplyBranchItem {
 
 fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
     match &line.data {
-        StatusOutputLineData::UncommittedChanges { .. } => true,
+        StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. } => true,
         StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::StagedFile { cli_id }
         | StatusOutputLineData::File { cli_id } => {
@@ -221,6 +222,7 @@ fn stack_id_for_line(
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
         | StatusOutputLineData::MergeBase
@@ -268,6 +270,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
                 | StatusOutputLineData::UncommittedChanges { .. }
+                | StatusOutputLineData::WorktreeUncommittedChanges { .. }
                 | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::CommitMessage

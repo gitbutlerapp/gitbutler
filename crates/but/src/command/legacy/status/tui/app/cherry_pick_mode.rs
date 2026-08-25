@@ -42,10 +42,11 @@ impl ModeRender for CherryPickMode {
             && !self.source.contains(target)
         {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
-            ExtensionDirection::Below
-        } else if let StatusOutputLineData::UncommittedChanges { cli_id } = data
-            && let CliId::Worktree { .. } = &**cli_id
+        } else if matches!(data, StatusOutputLineData::Branch { .. })
+            || matches!(
+                data,
+                StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            )
         {
             ExtensionDirection::Below
         } else {

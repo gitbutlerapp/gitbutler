@@ -99,7 +99,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub fn unstaged_changes(
+    pub fn uncommitted_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: UncommittedLineContent,
@@ -109,6 +109,21 @@ impl StatusOutput<'_> {
             Some(connector),
             StatusOutputContent::Uncommitted(line),
             StatusOutputLineData::UncommittedChanges {
+                cli_id: Arc::new(id),
+            },
+        )
+    }
+
+    pub fn uncommitted_changes_in_worktree(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: UncommittedLineContent,
+        id: CliId,
+    ) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Uncommitted(line),
+            StatusOutputLineData::WorktreeUncommittedChanges {
                 cli_id: Arc::new(id),
             },
         )
@@ -361,6 +376,7 @@ impl StatusOutputLine {
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
@@ -391,6 +407,9 @@ pub enum StatusOutputLineData {
     UncommittedChanges {
         cli_id: Arc<CliId>,
     },
+    WorktreeUncommittedChanges {
+        cli_id: Arc<CliId>,
+    },
     UncommittedFile {
         cli_id: Arc<CliId>,
     },
@@ -419,6 +438,7 @@ impl StatusOutputLineData {
     pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
             StatusOutputLineData::UncommittedChanges { cli_id }
+            | StatusOutputLineData::WorktreeUncommittedChanges { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id, .. }
             | StatusOutputLineData::StagedChanges { cli_id }
