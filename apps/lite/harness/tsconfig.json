@@ -25,6 +25,7 @@
 		"../ui/src",
 		"../electron/src/ipc.ts",
 		"../electron/src/lite-api.ts",
-		"../electron/src/endpoint-table.ts"
+		"../electron/src/endpoint-table.ts",
+		"../electron/src/api-command-sampling.ts"
 	]
 }
