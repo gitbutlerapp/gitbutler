@@ -1,7 +1,7 @@
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useAppDispatch, useAppStore } from "#ui/store.ts";
 import { Tooltip } from "@base-ui/react";
-import type { ComponentProps, FC } from "react";
+import { type ComponentProps, type FC, useEffect, useEffectEvent, useRef } from "react";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 export const DependencyIndicator: FC<
@@ -13,6 +13,9 @@ export const DependencyIndicator: FC<
 	} & ComponentProps<"button">
 > = ({ projectId, commitIds, branchNameByCommitId, tooltipHandle, ...restProps }) => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
+	const ownedCommitIds = useRef<Set<string> | null>(null);
+
 	const branchNames = new Set(
 		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
 	);
@@ -20,17 +23,39 @@ export const DependencyIndicator: FC<
 		branchNames.size > 0
 			? `Depends on ${branchNames.values().toArray().join(", ")}`
 			: "Unknown dependencies";
+
 	const highlightCommitIds = () => {
 		dispatch(
-			projectSlice.actions.setHighlightedCommitIds({
+			projectSlice.actions.setDependencyCommitIds({
 				projectId,
 				commitIds,
 			}),
 		);
+
+		ownedCommitIds.current = projectSlice.selectors.selectDependencyCommitIds(
+			store.getState(),
+			projectId,
+		);
 	};
+
 	const clearHighlightedCommitIds = () => {
-		dispatch(projectSlice.actions.setHighlightedCommitIds({ projectId, commitIds: null }));
+		ownedCommitIds.current = null;
+
+		dispatch(projectSlice.actions.setDependencyCommitIds({ projectId, commitIds: null }));
 	};
+
+	// Virtualisation can unmount a hovered or focused indicator without firing leave or blur.
+	// Read the latest state without making the mount-scoped effect reactive, and clear only the
+	// Set this indicator installed so its cleanup cannot erase a newer indicator's highlight.
+	const clearHighlightedCommitIdsOnUnmount = useEffectEvent(() => {
+		if (
+			projectSlice.selectors.selectDependencyCommitIds(store.getState(), projectId) ===
+			ownedCommitIds.current
+		)
+			clearHighlightedCommitIds();
+	});
+
+	useEffect(() => () => clearHighlightedCommitIdsOnUnmount(), []);
 
 	return (
 		<Tooltip.Trigger
@@ -38,7 +63,6 @@ export const DependencyIndicator: FC<
 			handle={tooltipHandle}
 			payload={{ content: tooltip }}
 			onMouseEnter={highlightCommitIds}
-			// TODO: we should also clear if the element unmounts
 			onMouseLeave={clearHighlightedCommitIds}
 			onFocus={highlightCommitIds}
 			onBlur={clearHighlightedCommitIds}
