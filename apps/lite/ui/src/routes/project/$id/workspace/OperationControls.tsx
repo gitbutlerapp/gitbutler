@@ -8,7 +8,7 @@ import {
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName, type ButtonSize, type ButtonVariant } from "#ui/components/Button.tsx";
-import { ChipToast } from "#ui/components/ChipToast.tsx";
+import { Snackbar } from "#ui/components/Snackbar.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -23,7 +23,7 @@ import {
 	ToolboxStack,
 } from "#ui/components/Toolbox.tsx";
 import { formatForDisplaySorted, operationHotkeys } from "#ui/hotkeys.ts";
-import type { Address } from "#ui/addresses.ts";
+import { addressEquals, addressFileParent, type Address } from "#ui/addresses.ts";
 import {
 	getOperations,
 	useExecuteOperation,
@@ -441,6 +441,63 @@ const TransferKindToggleGroup: FC<{
 	);
 };
 
+/**
+ * Why a target refuses everything it was offered. A transfer aims by moving the cursor, so a target
+ * that resolves to nothing is a step in aiming rather than a failure: the strip says what it cannot
+ * do and leaves the ways out — a different target, a different kind — where they already were.
+ */
+const transferRefusal = ({
+	headInfoIndex,
+	sources,
+	target,
+	kind,
+}: {
+	headInfoIndex: HeadInfoIndex;
+	sources: Array<Address>;
+	target: Address;
+	kind: TransferKind;
+}): ReactNode => {
+	const sourcesLabel = (
+		<ToolboxMetaText>{addressesLabel({ headInfoIndex, addresses: sources })}</ToolboxMetaText>
+	);
+
+	// Uncommitted changes are one bucket with no order and no lanes, so a change already in it has
+	// nowhere within it to go.
+	if (
+		target._tag === "UncommittedChanges" &&
+		sources.length > 0 &&
+		sources.every((source) => addressFileParent(source)?._tag === "UncommittedChanges")
+	) {
+		return (
+			<>
+				<strong>Already uncommitted:</strong>
+				{sourcesLabel}
+			</>
+		);
+	}
+
+	const verb = kind === "copy" ? "copy" : "move";
+
+	if (sources.some((source) => addressEquals(source, target))) {
+		return (
+			<>
+				<strong>Can’t {verb}</strong>
+				{sourcesLabel}
+				<strong>onto {sources.length === 1 ? "itself" : "themselves"}</strong>
+			</>
+		);
+	}
+
+	return (
+		<>
+			<strong>Can’t {verb}</strong>
+			{sourcesLabel}
+			<strong>to</strong>
+			<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
+		</>
+	);
+};
+
 const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
@@ -458,6 +515,12 @@ const TransferKeyboardOperationControls: FC<{
 
 	const operations = target ? getOperations(transfer.sources, target, transfer.kind) : null;
 	const operation = operations?.[transfer.placement];
+	// Three disabled placements and a confirm that cannot be taken say only that something is
+	// wrong. When no placement resolves, the toolbox states the reason instead.
+	const refusal =
+		target && operations && !operations.into && !operations.above && !operations.below
+			? transferRefusal({ headInfoIndex, sources: transfer.sources, target, kind: transfer.kind })
+			: null;
 	const canCopy =
 		transfer.sources.length > 0 && transfer.sources.every((source) => source._tag === "Commit");
 
@@ -497,22 +560,33 @@ const TransferKeyboardOperationControls: FC<{
 				</Toolbox>
 			)}
 			<Toolbox>
-				<ToolboxMeta icon={iconForAddress(transfer.sources[0])}>
-					<strong>{transfer.kind === "copy" ? "Copy" : "Move"}</strong>
-					<ToolboxMetaText>
-						{addressesLabel({ headInfoIndex, addresses: transfer.sources })}
-					</ToolboxMetaText>
-					<strong>{transfer.placement}</strong>
-					<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
-				</ToolboxMeta>
-				<ToolboxSection variant="stretch">
-					<TransferTypeToggleGroup
-						projectId={projectId}
-						operations={operations}
-						placement={transfer.placement}
-					/>
-				</ToolboxSection>
-				<ConfirmSection confirm={confirm} onCancel={cancel} />
+				{refusal !== null ? (
+					<>
+						<ToolboxMeta icon="warning">{refusal}</ToolboxMeta>
+						<ToolboxSection variant="confirm">
+							<CancelButton onCancel={cancel} size="small" />
+						</ToolboxSection>
+					</>
+				) : (
+					<>
+						<ToolboxMeta icon={iconForAddress(transfer.sources[0])}>
+							<strong>{transfer.kind === "copy" ? "Copy" : "Move"}</strong>
+							<ToolboxMetaText>
+								{addressesLabel({ headInfoIndex, addresses: transfer.sources })}
+							</ToolboxMetaText>
+							<strong>{transfer.placement}</strong>
+							<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
+						</ToolboxMeta>
+						<ToolboxSection variant="stretch">
+							<TransferTypeToggleGroup
+								projectId={projectId}
+								operations={operations}
+								placement={transfer.placement}
+							/>
+						</ToolboxSection>
+						<ConfirmSection confirm={confirm} onCancel={cancel} />
+					</>
+				)}
 			</Toolbox>
 		</Container>
 	);
@@ -557,9 +631,9 @@ export const OperationControls: FC<{
 					<div className={styles.container}>
 						<ToolboxStack>
 							{notice !== null && (
-								<ChipToast variant="danger" className={styles.notice} onClick={clearNotice}>
+								<Snackbar variant="danger" className={styles.notice} onClick={clearNotice}>
 									{notice}
-								</ChipToast>
+								</Snackbar>
 							)}
 							{checkedAddressCount > 0 && (
 								<CheckedAddressOperationControls
