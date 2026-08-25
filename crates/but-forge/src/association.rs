@@ -1,6 +1,4 @@
-//! Resolve which forge review (PR/MR) is associated with a local branch by
-//! matching the branch against the cached review list, instead of reading a
-//! stored PR number off branch metadata.
+//! Resolve cached forge review (PR/MR) candidates for local branches.
 //!
 //! The join key is the branch's remote/pushed short name (e.g. `"my-feature"`),
 //! which is exactly [`ForgeReview::source_branch`]. Callers derive that key from
@@ -8,10 +6,9 @@
 //! `but_core::extract_remote_name_and_short_name`) so the association follows the
 //! branch that was actually pushed, which can differ from the local branch name.
 //!
-//! Everything here reads only from the cache: it never performs network I/O and
-//! is safe to call inside a workspace projection. A `None` result means nothing
-//! in the cache matches — no PR yet, forge not connected, or the branch simply
-//! isn't published. That is a correct "not published" answer, not an error.
+//! Everything here reads only from the cache and is safe inside a workspace
+//! projection. Callers decide whether a cache candidate represents an active
+//! review or a migration fallback for an integrated branch with no durable link.
 
 use std::collections::HashMap;
 
@@ -30,17 +27,30 @@ pub fn review_for_head_ref(
     Ok(best_match(&reviews, head_ref_short).cloned())
 }
 
-/// Build a lookup from a branch's remote/pushed short name to its associated
-/// PR number, for enriching a workspace projection (see
-/// `but_workspace::RefInfo::apply_forge_review_associations`) in one pass.
+/// A cached review candidate for branch association: `(number, is open,
+/// merged head)`. The merged head is the merged review's source commit
+/// (lowercased hex), absent for open/closed reviews and unreported heads.
+pub type ReviewAssociation = (usize, bool, Option<String>);
+
+/// Build a lookup from a branch's remote/pushed short name to the preferred
+/// cached review's `(number, is open, merged head)`.
 ///
-/// This is [`reviews_by_head`] reduced to just the number each projection needs,
-/// so callers across crates don't each re-implement the `ForgeReview -> usize`
-/// extraction.
-pub fn pr_numbers_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, usize>> {
+/// The merged head is the review's source commit (lowercased hex) when the
+/// review merged, letting the projection recognize a branch whose tip landed
+/// exactly while integration detection still lags a fetch.
+pub fn review_associations_by_head(
+    db: &but_db::DbHandle,
+) -> anyhow::Result<HashMap<String, ReviewAssociation>> {
     Ok(reviews_by_head(db)?
         .into_iter()
-        .filter_map(|(head, review)| usize::try_from(review.number).ok().map(|n| (head, n)))
+        .filter_map(|(head, review)| {
+            let number = usize::try_from(review.number).ok()?;
+            let merged_head = review
+                .is_merged()
+                .then(|| review.sha.to_ascii_lowercase())
+                .filter(|sha| !sha.is_empty());
+            Some((head, (number, review.is_open(), merged_head)))
+        })
         .collect())
 }
 
@@ -68,14 +78,22 @@ pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, 
 /// `source_branch` (a closed PR plus a freshly opened one, or a same-named
 /// branch on a fork). Higher is preferred:
 ///
-/// 1. an open review over a merged/closed one, and
-/// 2. a review whose head is in the base repo over one in a fork — a local
+/// 1. an open review over a merged/closed one,
+/// 2. a merged review over a closed-without-merging one — the merged review
+///    is the branch's landed fate; an abandoned closed twin must not shadow
+///    it,
+/// 3. a review whose head is in the base repo over one in a fork — a local
 ///    branch normally pushes to the base repo, so this avoids latching onto a
-///    fork's same-named branch when a base-repo review also exists.
-/// 3. the highest review number, which is deterministic and usually the newest
+///    fork's same-named branch when a base-repo review also exists, and
+/// 4. the highest review number, which is deterministic and usually the newest
 ///    review among otherwise equivalent matches.
-fn preference(review: &ForgeReview) -> (bool, bool, i64) {
-    (review.is_open(), !review.head_repo_is_fork, review.number)
+fn preference(review: &ForgeReview) -> (bool, bool, bool, i64) {
+    (
+        review.is_open(),
+        review.is_merged(),
+        !review.head_repo_is_fork,
+        review.number,
+    )
 }
 
 /// Pick the preferred review from an already-associated set using the same
@@ -102,7 +120,10 @@ fn best_match<'a>(reviews: &'a [ForgeReview], head_ref_short: &str) -> Option<&'
 
 #[cfg(test)]
 mod tests {
-    use super::{best_match, preferred_review, review_for_head_ref, reviews_by_head};
+    use super::{
+        best_match, preferred_review, review_associations_by_head, review_for_head_ref,
+        reviews_by_head,
+    };
     use crate::ForgeReview;
 
     /// An open, non-fork review on `source_branch` with the given `number`.
@@ -144,6 +165,11 @@ mod tests {
         review
     }
 
+    fn closed(mut review: ForgeReview) -> ForgeReview {
+        review.closed_at = Some("2026-01-01T00:00:00Z".to_string());
+        review
+    }
+
     #[test]
     fn matches_by_source_branch() {
         let reviews = vec![review(1, "other"), review(2, "feature")];
@@ -165,6 +191,14 @@ mod tests {
     fn prefers_open_over_merged() {
         let reviews = vec![merged(review(1, "feature")), review(2, "feature")];
         assert_eq!(best_match(&reviews, "feature").map(|r| r.number), Some(2));
+    }
+
+    #[test]
+    fn prefers_merged_over_closed_without_merging() {
+        // The higher number must not win here: the abandoned closed review
+        // would otherwise shadow the branch's actual landed fate.
+        let reviews = vec![closed(review(9, "feature")), merged(review(1, "feature"))];
+        assert_eq!(best_match(&reviews, "feature").map(|r| r.number), Some(1));
     }
 
     #[test]
@@ -240,5 +274,21 @@ mod tests {
 
         let map = reviews_by_head(&db).unwrap();
         assert_eq!(map.get("feature").map(|r| r.number), Some(2));
+    }
+
+    #[test]
+    fn review_associations_include_settled_state() {
+        let (_tmp, mut db) = test_db();
+        let mut settled = merged(review(1, "feature"));
+        // Not redundant with `merged()`: its fixed 2026 timestamp is past the
+        // merged-retention window, so `cache_reviews` would prune the row.
+        settled.merged_at = Some(chrono::Utc::now().to_rfc3339());
+        crate::db::cache_reviews(&mut db, &[settled]).unwrap();
+
+        assert_eq!(
+            review_associations_by_head(&db).unwrap().get("feature"),
+            // The fixture's sha is empty, so no merged head is exposed.
+            Some(&(1, false, None))
+        );
     }
 }

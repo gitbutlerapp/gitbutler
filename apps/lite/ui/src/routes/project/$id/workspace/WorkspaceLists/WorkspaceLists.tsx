@@ -2,7 +2,7 @@ import rowStyles from "../Row.module.css";
 import { setCursor, useIsCursorAt, useSelection, useActiveList } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
@@ -420,6 +420,7 @@ const BranchSegment: FC<{
 				canRemoveBranch={canRemoveBranch}
 				downstackPushStatus={downstackPushStatus}
 				pushStatus={segment.pushStatus}
+				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}

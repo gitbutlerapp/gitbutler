@@ -10,10 +10,16 @@ import {
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
-import { type DraftPRExtras, draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
+import {
+	type DraftPRExtras,
+	draftPRQueryOptions,
+	useLandedReviewId,
+	usePersistDraftPR,
+} from "#ui/pr.ts";
 import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
+	branchListQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
 	commitConflictsQueryOptions,
@@ -163,7 +169,7 @@ import {
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { IconName } from "#ui/components/iconNames.ts";
@@ -2683,8 +2689,9 @@ const CommitDetails: FC<{
 };
 
 /**
- * A review a target commit landed, fetched by number: the listing only knows
- * the number, title and link, while the view needs the whole review.
+ * A landed review fetched by number, for the surfaces that only know the
+ * number: the target-commit listing, the branch listing's merged review, and
+ * an integrated applied branch's stored identity.
  */
 const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ projectId, reviewId }) => {
 	const { data: review, isError } = useQuery(getReviewQueryOptions({ projectId, reviewId }));
@@ -2961,13 +2968,33 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 		enabled: forgeInfo?.capabilities.prService === true,
 		select: (reviews) => reviews.find((review) => review.sourceBranch === branchName) ?? null,
 	});
+	// A merged review has left the open listing; the branch listing's cached
+	// review — the same source this branch's row chip renders, with the
+	// merged/closed distinction derived server-side — still knows its number.
+	// Unapplied branches have no durable stored identity (their metadata is
+	// garbage-collected once integrated), so the cache is the source here.
+	const { data: listedLandedNumber } = useQuery({
+		...branchListQueryOptions(projectId),
+		select: (stacks) =>
+			stacks
+				.flatMap((stack) => stack.branches)
+				.find((listed) => listed.displayName === branchName && listed.reviewStatus === "merged")
+				?.review?.number ?? null,
+	});
+	const landedReviewId = listedLandedNumber ?? null;
+
+	const reviewTab = review ? (
+		<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+	) : landedReviewId !== null ? (
+		<LandedReviewView projectId={projectId} reviewId={landedReviewId} />
+	) : null;
 
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
-	// The review is what the branch is judged by, so a branch that has one
-	// opens on it; without one only the diff is on offer.
-	const branchTab = chosenTab ?? (review ? "pr" : "diff");
+	// The review is what the branch is judged by, so a branch that has one —
+	// open or landed — opens on it; without one only the diff is on offer.
+	const branchTab = chosenTab ?? (reviewTab !== null ? "pr" : "diff");
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
 	};
@@ -2975,7 +3002,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	// The review is the only second tab on offer here, so the toggle and the keys
 	// that drive it both wait for one to exist.
-	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: !!review });
+	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 
@@ -2985,7 +3012,11 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 				<BranchTitleRow branchName={branchName} />
 
 				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} prDisabled={!review} />
+					<BranchTabToggle
+						branchTab={branchTab}
+						setBranchTab={setBranchTab}
+						prDisabled={reviewTab === null}
+					/>
 
 					<div className={styles.tabsRowRight}>
 						<button
@@ -3002,11 +3033,9 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			</div>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{review && branchTab === "pr" ? (
+				{reviewTab !== null && branchTab === "pr" ? (
 					<div className={styles.prTabScroll}>
-						<div className={styles.prTab}>
-							<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
-						</div>
+						<div className={styles.prTab}>{reviewTab}</div>
 					</div>
 				) : (
 					<BranchDiff
@@ -3071,6 +3100,23 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				? undefined
 				: parentSegment.refName?.displayName;
 
+	// The open listing already carries everything an open review needs, so the
+	// verification fetch is spent only when the listing has nothing for this
+	// branch — the case where the recorded number's fate actually decides the
+	// tab between the landed review and the create-PR flow.
+	const { data: hasOpenReview } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		// The listing is alive anyway (every branch row subscribes to it), so
+		// this gate expresses intent rather than saving a fetch.
+		enabled: branchTab === "pr" && !!forgeInfo?.capabilities.prService,
+		select: (reviews) => reviews.some((review) => review.sourceBranch === branchName),
+	});
+	const landedReviewId = useLandedReviewId(
+		projectId,
+		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
+		branchTab === "pr" && hasOpenReview === false,
+	);
+
 	return (
 		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
@@ -3131,6 +3177,9 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 										const canSubmit =
 											targetBranch !== undefined &&
 											branchCtx?.segment.pushStatus !== "completelyUnpushed";
+
+										if (!review && landedReviewId !== null)
+											return <LandedReviewView projectId={projectId} reviewId={landedReviewId} />;
 
 										return !review || !canSubmit ? (
 											<NewPullRequestView

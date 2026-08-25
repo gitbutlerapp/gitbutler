@@ -250,15 +250,16 @@ pub(super) fn confirm_direct_target_update(
 /// all are surfaced.
 ///
 /// Only applied workspace segments can land, so this reads the forge review associations that
-/// `head_info` projects onto the workspace segments (`segment.metadata.review.pull_request` is
-/// overwritten from the forge review cache there, not stored state) instead of computing the
-/// repository-wide branch listing.
+/// `head_info` projects onto the workspace segments instead of computing the repository-wide
+/// branch listing. Only open reviews are surfaced: a segment's number can also be settled
+/// display identity (a landed review), which landing cannot close.
 pub(super) fn attached_pr_numbers(
     ctx: &Context,
     branch_name: &str,
     lower_segments: &[String],
 ) -> anyhow::Result<Vec<(String, usize)>> {
     let info = but_api::legacy::workspace::head_info(ctx)?;
+    let open_reviews = but_api::legacy::forge::open_review_numbers(ctx)?;
     // A segment shared between stacks is listed once per stack; dedup so the warning doesn't
     // repeat it.
     let mut seen = std::collections::HashSet::new();
@@ -277,6 +278,9 @@ pub(super) fn attached_pr_numbers(
                 return None;
             }
             let pr = segment.metadata.as_ref()?.review.pull_request?;
+            if !open_reviews.contains(&(pr as i64)) {
+                return None;
+            }
             Some((name.to_string(), pr))
         })
         .filter(|(name, _)| seen.insert(name.clone()))

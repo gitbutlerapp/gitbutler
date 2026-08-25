@@ -55,8 +55,8 @@ export declare const apiInvalidates: {
 	readonly forgetBitbucketAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGithubAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGitlabAccount: readonly ["ForgeAccounts", "ForgeLogin"];
-	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks"];
-	readonly publishReview: readonly ["Reviews"];
+	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks", "Branches"];
+	readonly publishReview: readonly ["Reviews", "Branches", "Workspace"];
 	readonly removeCommentReaction: readonly ["CommentReactions", "ReviewComments"];
 	readonly removeReviewLabel: readonly ["Reviews"];
 	readonly removeReviewReaction: readonly ["ReviewReactions"];

@@ -16,6 +16,20 @@ pub async fn list(
     }
 }
 
+pub async fn list_recently_closed(
+    preferred_account: Option<&crate::GitlabAccountIdentifier>,
+    project_id: GitLabProjectId,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::MergeRequest>> {
+    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
+        gl.list_recently_closed_mrs(project_id)
+            .await
+            .context("Failed to list recently closed merge requests")
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn list_all_for_target(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     project_id: GitLabProjectId,

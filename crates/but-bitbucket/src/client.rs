@@ -157,6 +157,31 @@ impl BitbucketClient {
         Ok(prs.into_iter().map(Into::into).collect())
     }
 
+    /// Fetch the single page of the most recently updated merged, declined,
+    /// or superseded pull requests.
+    ///
+    /// This is the fate sweep for the review cache: everything that left the
+    /// open listing since the last sync appears here, unless more than a
+    /// page's worth of settled pull requests were updated in between — the
+    /// leftovers then fall back to cache deletion, the pre-sweep behavior.
+    pub async fn list_recently_closed_prs(
+        &self,
+        workspace: &str,
+        repo_slug: &str,
+    ) -> Result<Vec<BitbucketPullRequest>> {
+        let url = format!(
+            "{}/repositories/{}/{}/pullrequests?pagelen=50&sort=-updated_on&q={}",
+            self.base_url,
+            urlencoding::encode(workspace),
+            urlencoding::encode(repo_slug),
+            urlencoding::encode(
+                "state = \"MERGED\" OR state = \"DECLINED\" OR state = \"SUPERSEDED\""
+            ),
+        );
+        let prs: Vec<BitbucketApiPullRequest> = self.get_first_page(url).await?;
+        Ok(prs.into_iter().map(Into::into).collect())
+    }
+
     pub async fn get_pull_request(
         &self,
         workspace: &str,

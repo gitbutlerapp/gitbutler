@@ -88,6 +88,16 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	return index;
 };
 
+/**
+ * The review number the projection recorded on the segment. The projection
+ * only ever associates display-worthy reviews — an open one, a merge still
+ * awaiting integration detection, or an integrated branch's landed identity —
+ * so this is safe to render as-is; callers needing the review's actual state
+ * must fetch it.
+ */
+export const recordedPullRequest = (segment: Segment): number | null =>
+	segment.metadata?.review.pullRequest ?? null;
+
 export const resolveRelativeTo = ({
 	headInfoIndex,
 	relativeTo,

@@ -6,13 +6,16 @@ pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferre
 mod association;
 mod ci;
 mod db;
-pub use db::list_cached_forge_reviews;
+pub use db::{cached_review_states, list_cached_forge_reviews};
 mod forge_info;
 mod merge_message;
 pub use merge_message::{MergedReviewFromMessage, merged_review_from_message};
 mod repo;
 mod review;
-pub use association::{pr_numbers_by_head, preferred_review, review_for_head_ref, reviews_by_head};
+pub use association::{
+    ReviewAssociation, preferred_review, review_associations_by_head, review_for_head_ref,
+    reviews_by_head,
+};
 pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
 pub use forge_info::{ForgeCapabilities, ForgeInfo, ForgeUnitInfo, compare_branch_url, forge_info};
 pub use repo::{RepoInfo, RepoPermissions, get_repo_info};

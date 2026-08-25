@@ -4,16 +4,6 @@ use std::collections::{BTreeMap, HashMap};
 use but_core::{DryRun, RefMetadata};
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 
-/// Build a `{ pushed short name -> PR number }` lookup from the forge review
-/// cache, for resolving branch PR associations at projection time.
-///
-/// This is the same view of forge truth the `head_info` read command uses, so
-/// that mutation responses — which the Lite app writes straight into its
-/// head_info cache without refetching — stay consistent with the query.
-pub(crate) fn forge_prs_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, usize>> {
-    but_forge::pr_numbers_by_head(db)
-}
-
 impl WorkspaceState {
     /// Map each projected local reference to whether its commits contain conflicts.
     #[cfg(not(feature = "graph-workspace"))]
@@ -101,7 +91,7 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        prs_by_head: &HashMap<String, usize>,
+        prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
         checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
@@ -120,8 +110,10 @@ impl WorkspaceState {
             )?
             .pruned_to_entrypoint();
 
-            // Same pass the `head_info` read command runs, so mutation responses
-            // (which Lite renders directly) carry cache-derived PR associations.
+            // Same pass the `head_info` read command runs, so mutation
+            // responses (which Lite renders directly) carry the same
+            // associations: open reviews from the forge cache for active
+            // branches, durable stored identity for integrated ones.
             head_info.apply_forge_review_associations(repo, prs_by_head);
 
             Ok(WorkspaceState {
@@ -162,7 +154,7 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(db)?;
+        let prs_by_head = but_forge::review_associations_by_head(db)?;
         Self::from_workspace_with_prs(
             workspace,
             meta,
@@ -185,7 +177,7 @@ impl WorkspaceState {
     fn from_rebase_preview_with_prs<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        prs_by_head: &HashMap<String, usize>,
+        prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
@@ -209,7 +201,7 @@ impl WorkspaceState {
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(rebase.db())?;
+        let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
         Self::from_rebase_preview_with_prs(rebase, replaced_commits, &prs_by_head)
     }
 
@@ -223,7 +215,7 @@ impl WorkspaceState {
         materialized: MaterializeOutcome<'_, '_, M>,
         repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = forge_prs_by_head(materialized.db)?;
+        let prs_by_head = but_forge::review_associations_by_head(materialized.db)?;
         Self::from_workspace_with_prs(
             materialized.workspace,
             materialized.meta,
@@ -252,7 +244,7 @@ impl WorkspaceState {
     ) -> anyhow::Result<WorkspaceState> {
         if dry_run.into() {
             let mut rebase = rebase;
-            let prs_by_head = forge_prs_by_head(rebase.db())?;
+            let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
             let replaced_commits = rebase.history.commit_mappings();
             return Self::from_rebase_preview_with_prs(&mut rebase, replaced_commits, &prs_by_head);
         }

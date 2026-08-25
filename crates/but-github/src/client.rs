@@ -231,6 +231,33 @@ impl GitHubClient {
         Ok(items)
     }
 
+    /// Fetch the single page of the most recently updated closed pull
+    /// requests — merged or not.
+    ///
+    /// This is the fate sweep for the review cache: everything that left the
+    /// open listing since the last sync appears here, unless more than a
+    /// page's worth of closed pull requests were updated in between — the
+    /// leftovers then fall back to cache deletion, the pre-sweep behavior.
+    pub async fn list_recently_closed_pulls(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Vec<PullRequest>> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls?state=closed&sort=updated&direction=desc",
+            self.base_url, owner, repo
+        );
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("per_page", "100"), ("page", "1")])
+            .send()
+            .await?;
+        let response = ensure_success(response).await?;
+        let pulls: Vec<GitHubPullRequest> = response.json().await?;
+        Ok(pulls.into_iter().map(Into::into).collect())
+    }
+
     /// The actual REST API call to fetch a page of the checks.
     async fn fetch_check_runs(&self, url: &str, page: usize) -> Result<reqwest::Response> {
         let response = self
