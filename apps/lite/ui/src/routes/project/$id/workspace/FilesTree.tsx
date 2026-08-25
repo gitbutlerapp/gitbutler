@@ -18,7 +18,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { mergeProps, useRender } from "@base-ui/react";
+import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -46,8 +46,7 @@ import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
-import { createFileRowTooltipHandles } from "./file-row-tooltip.ts";
-import { FileRowTooltipRoot } from "./FileRowTooltip.tsx";
+import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 const useFilesTreeHotkeys = ({
 	checkRow,
@@ -356,7 +355,9 @@ export const FilesTree: FC<
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
-	const [tooltipHandles] = useState(createFileRowTooltipHandles);
+	// Create once per tree: rows in separate trees can have the same DOM ID, but a tooltip store
+	// can register only one element for each ID.
+	const [tooltipHandle] = useState(() => Tooltip.createHandle<FileRowTooltipPayload>());
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -534,7 +535,7 @@ export const FilesTree: FC<
 			className={classes(props.className, styles.tree)}
 			ref={useMergedRefs(refProp, ref)}
 		>
-			<FileRowTooltipRoot handles={tooltipHandles} />
+			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
 					<RowLabelContainer>
@@ -646,7 +647,7 @@ export const FilesTree: FC<
 													canUncommit={canUncommit}
 													uncommit={uncommit}
 													focusScope={focusScope}
-													tooltipHandles={tooltipHandles}
+													tooltipHandle={tooltipHandle}
 													branchNameByCommitId={(commitId) =>
 														headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
 															?.displayName
@@ -669,7 +670,7 @@ export const FilesTree: FC<
 											projectId={projectId}
 											fileParent={fileParent}
 											focusScope={focusScope}
-											tooltipHandles={tooltipHandles}
+											tooltipHandle={tooltipHandle}
 											branchNameByCommitId={() => undefined}
 											anyOperationPending
 											menuItems={[]}

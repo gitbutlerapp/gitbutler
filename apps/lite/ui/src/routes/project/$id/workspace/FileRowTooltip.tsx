@@ -1,13 +1,20 @@
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import type { FocusScope } from "#ui/focus-scopes.ts";
 import { Tooltip } from "@base-ui/react";
+import type { HotkeySequence } from "@tanstack/react-hotkeys";
 import type { FC } from "react";
-import type { FileRowTooltipHandles, FileRowTooltipPayload } from "./file-row-tooltip.ts";
+
+export type FileRowTooltipPayload = {
+	content: string;
+	kbd?: string | HotkeySequence;
+	kbdScope?: FocusScope;
+};
 
 type Props = {
 	handle: Tooltip.Handle<FileRowTooltipPayload>;
 };
 
-const SharedFileRowTooltipRoot: FC<Props> = (p) => (
+export const FileRowTooltipRoot: FC<Props> = (p) => (
 	<Tooltip.Root handle={p.handle} disableHoverablePopup>
 		{({ payload }) => (
 			<Tooltip.Portal>
@@ -27,11 +34,4 @@ const SharedFileRowTooltipRoot: FC<Props> = (p) => (
 			</Tooltip.Portal>
 		)}
 	</Tooltip.Root>
-);
-
-export const FileRowTooltipRoot: FC<{ handles: FileRowTooltipHandles }> = (p) => (
-	<>
-		<SharedFileRowTooltipRoot handle={p.handles.row} />
-		<SharedFileRowTooltipRoot handle={p.handles.control} />
-	</>
 );

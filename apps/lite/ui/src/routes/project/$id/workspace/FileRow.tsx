@@ -21,7 +21,7 @@ import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuIt
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import type { FileRowTooltipHandles } from "./file-row-tooltip.ts";
+import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 type FileRowProps = {
 	item: FileRowItem;
@@ -41,7 +41,7 @@ type FileRowProps = {
 	 */
 	pathDisplay: "lead" | "trail" | "hidden";
 	focusScope: FocusScope;
-	tooltipHandles: FileRowTooltipHandles;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
 } & Omit<ComponentProps<typeof Row>, "projectId">;
 
 type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
@@ -87,8 +87,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	focusScope,
 	anyOperationPending,
 	menuItems,
-	tooltipHandles,
-	id,
+	tooltipHandle,
 	...restProps
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
@@ -103,33 +102,23 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	return (
-		<Tooltip.Trigger
-			handle={tooltipHandles.row}
-			payload={{ content: rowTooltip }}
-			data-tooltip-requires-overflow={hasConflictHint ? undefined : ""}
-			// Row receives this ID through render composition, but the trigger also needs it directly
-			// so its shared handle registers the same identity as the rendered element.
-			id={id}
-			render={
-				<Row
-					{...restProps}
-					isChecked={isChecked}
-					onShiftSelect={
-						!anyOperationPending && canCheck
-							? () => checkFile({ path: relativePath, shiftKey: true })
-							: undefined
-					}
-					onContextMenu={(event) => {
-						// Hand the file path along so a plugin host can add its own
-						// actions (the app's native menus ignore it).
-						void showNativeContextMenu(
-							event,
-							menuItems,
-							fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
-						);
-					}}
-				/>
+		<Row
+			{...restProps}
+			isChecked={isChecked}
+			onShiftSelect={
+				!anyOperationPending && canCheck
+					? () => checkFile({ path: relativePath, shiftKey: true })
+					: undefined
 			}
+			onContextMenu={(event) => {
+				// Hand the file path along so a plugin host can add its own
+				// actions (the app's native menus ignore it).
+				void showNativeContextMenu(
+					event,
+					menuItems,
+					fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+				);
+			}}
 		>
 			<TreeSteps depth={depth} />
 
@@ -143,7 +132,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 					nativeButton
 					render={
 						<Tooltip.Trigger
-							handle={tooltipHandles.control}
+							handle={tooltipHandle}
 							payload={{
 								content: changesFileHotkeys.checkFile.meta.name,
 								kbd: changesFileHotkeys.checkFile.hotkey,
@@ -160,7 +149,11 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 				/>
 			</div>
 
-			<RowLabelContainer>
+			<Tooltip.Trigger
+				handle={tooltipHandle}
+				payload={{ content: rowTooltip }}
+				render={<RowLabelContainer />}
+			>
 				{item._tag === "Conflict" && (
 					<ConflictIcon
 						variant="conflict"
@@ -168,7 +161,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						aria-label="Conflicted"
 					/>
 				)}
-				<RowLabel singleLine data-file-row-label>
+				<RowLabel singleLine>
 					{directoryPath !== null && pathDisplay === "lead" && (
 						<span className={classes(styles.pathLead, rowStyles.fadedText)}>{directoryPath}/</span>
 					)}
@@ -177,7 +170,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 					)}
 				</RowLabel>
-			</RowLabelContainer>
+			</Tooltip.Trigger>
 
 			{!anyOperationPending && (
 				<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
@@ -208,7 +201,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 									projectId={projectId}
 									commitIds={item.dependencyCommitIds}
 									branchNameByCommitId={branchNameByCommitId}
-									tooltipHandle={tooltipHandles.control}
+									tooltipHandle={tooltipHandle}
 									className={getRowButtonClassName({ iconOnly: true })}
 								/>
 							}
@@ -220,7 +213,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 
 			{item._tag === "Change" && (
 				<Tooltip.Trigger
-					handle={tooltipHandles.control}
+					handle={tooltipHandle}
 					payload={{ content: item.change.status.type }}
 					className={styles.statusBadge}
 					aria-label={item.change.status.type}
@@ -238,6 +231,6 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 					)}
 				</Tooltip.Trigger>
 			)}
-		</Tooltip.Trigger>
+		</Row>
 	);
 };

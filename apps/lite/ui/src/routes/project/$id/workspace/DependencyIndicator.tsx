@@ -2,7 +2,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { Tooltip } from "@base-ui/react";
 import type { ComponentProps, FC } from "react";
-import type { FileRowTooltipPayload } from "./file-row-tooltip.ts";
+import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 export const DependencyIndicator: FC<
 	{
