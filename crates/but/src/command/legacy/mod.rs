@@ -31,6 +31,7 @@ pub mod setup;
 pub mod show;
 pub mod squash;
 pub mod status;
+pub mod r#switch;
 pub mod teardown;
 pub mod unapply;
 pub mod uncommit;

@@ -840,6 +840,7 @@ pub enum Subcommands {
     /// ```text
     /// but switch --new my-feature
     /// ```
+    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true, group(
         clap::ArgGroup::new("switch_target")

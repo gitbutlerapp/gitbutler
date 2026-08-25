@@ -55,6 +55,7 @@ mod skill;
 mod squash;
 #[cfg(feature = "legacy")]
 mod status;
+#[cfg(feature = "legacy")]
 mod r#switch;
 #[cfg(feature = "legacy")]
 mod teardown;

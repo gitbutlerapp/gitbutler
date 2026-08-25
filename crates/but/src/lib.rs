@@ -800,6 +800,7 @@ async fn match_subcommand(
             },
             out,
         )?,
+        #[cfg(feature = "legacy")]
         Subcommands::Switch { .. } => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -1070,12 +1071,13 @@ async fn match_subcommand(
                 .into());
             }
         },
+        #[cfg(feature = "legacy")]
         Subcommands::Switch {
             target,
             workspace,
             new,
         } => {
-            command::r#switch::handle(&mut ctx, out, target, workspace, new)
+            command::legacy::r#switch::handle(&mut ctx, out, target, workspace, new)
                 .emit_metrics(metrics_ctx)?;
             None
         }
