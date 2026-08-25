@@ -635,7 +635,9 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 CherryPickMessage::Start | CherryPickMessage::ToggleInsertSide => false,
             },
             Message::Branch(message) => match message {
-                BranchMessage::Switch | BranchMessage::New { .. } => true,
+                BranchMessage::Switch
+                | BranchMessage::PickAndSwitch
+                | BranchMessage::New { .. } => true,
                 BranchMessage::Start => false,
             },
             Message::Stack(message) => match message {
@@ -693,6 +695,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | Modal::GotoBranchPicker { .. }
                 | Modal::ApplyStackPicker { .. }
                 | Modal::ProgramPicker { .. }
+                | Modal::SwitchBranchPicker { .. }
                 | Modal::Help { .. } => false,
             },
             Message::Undo | Message::Redo | Message::Discard => true,

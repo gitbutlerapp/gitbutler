@@ -444,6 +444,7 @@ impl App {
             Some(Modal::Confirm { .. }) => &self.app_key_binds.confirm_key_binds,
             Some(Modal::GotoBranchPicker { key_binds, .. })
             | Some(Modal::ApplyStackPicker { key_binds, .. })
+            | Some(Modal::SwitchBranchPicker { key_binds, .. })
             | Some(Modal::CopySelectionPicker { key_binds, .. })
             | Some(Modal::ProgramPicker { key_binds, .. })
             | Some(Modal::Help { key_binds, .. }) => key_binds,
@@ -677,6 +678,14 @@ impl App {
                             self.modal = picker
                                 .handle_message(fuzzy_picker_message, ctx, messages)?
                                 .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::SwitchBranchPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::SwitchBranchPicker {
                                     picker: Box::new(picker),
                                     key_binds,
                                 });
@@ -1981,6 +1990,10 @@ pub enum Modal {
         picker: Box<FuzzyPicker<ApplyBranchItem>>,
         key_binds: KeyBinds,
     },
+    SwitchBranchPicker {
+        picker: Box<FuzzyPicker<SwitchBranchItem>>,
+        key_binds: KeyBinds,
+    },
     ProgramPicker {
         picker: Box<FuzzyPicker<ProgramSpec>>,
         key_binds: KeyBinds,
@@ -1997,6 +2010,7 @@ impl Modal {
             Modal::CopySelectionPicker { .. }
             | Modal::GotoBranchPicker { .. }
             | Modal::ApplyStackPicker { .. }
+            | Modal::SwitchBranchPicker { .. }
             | Modal::ProgramPicker { .. } => {
                 Some(Message::FuzzyPicker(FuzzyPickerMessage::Input(event)))
             }
