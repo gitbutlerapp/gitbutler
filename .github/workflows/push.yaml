@@ -175,7 +175,7 @@ jobs:
           sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
       - uses: ./.github/actions/init-env-node
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: but-sdk-build-check
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -202,7 +202,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -275,7 +275,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -303,7 +303,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-no-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -395,7 +395,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-but-api-macros-${{ matrix.cache_suffix }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -421,7 +421,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -444,7 +444,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -488,7 +488,7 @@ jobs:
           echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
           rustup target add ${{ matrix.target }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: installer
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -754,7 +754,7 @@ jobs:
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - uses: ./.github/actions/init-env-node
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lite-e2e-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
