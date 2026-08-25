@@ -145,11 +145,11 @@ eleven
         else {
             unreachable!("We know there are hunks")
         };
-        assert_ne!(
-            hunks.len(),
-            0,
-            "the reason we see it is file modifications: {change:#?}"
-        );
+        if hunks.is_empty() {
+            // Only the executable-bit change of the worktree file remains; it has no
+            // content hunks and is discarded separately.
+            break;
+        }
 
         let before = file_content()?;
         let mut last_hunk = hunks
@@ -205,6 +205,7 @@ eleven
 "#]]
         .raw()
     );
+    assert_residual_executable_bit_change(&repo, filename)?;
     Ok(())
 }
 
@@ -224,11 +225,11 @@ fn from_beginning() -> anyhow::Result<()> {
         else {
             unreachable!("We know there are hunks")
         };
-        assert_ne!(
-            hunks.len(),
-            0,
-            "the reason we see it is file modifications: {change:#?}"
-        );
+        if hunks.is_empty() {
+            // Only the executable-bit change of the worktree file remains; it has no
+            // content hunks and is discarded separately.
+            break;
+        }
 
         let before = file_content()?;
         let mut first_hun_hunk = hunks.remove(0);
@@ -281,6 +282,43 @@ fn from_beginning() -> anyhow::Result<()> {
 
 "#]]
         .raw()
+    );
+    assert_residual_executable_bit_change(&repo, filename)?;
+    Ok(())
+}
+
+/// After all content hunks are discarded, the worktree file still differs from `HEAD^{tree}`
+/// by its executable bit, and that change stays visible so it can be discarded separately.
+fn assert_residual_executable_bit_change(
+    repo: &gix::Repository,
+    filename: &str,
+) -> anyhow::Result<()> {
+    let residual = but_core::diff::worktree_changes(repo)?
+        .changes
+        .into_iter()
+        .find(|change| change.path == filename)
+        .expect("the executable-bit change remains");
+    snapbox::assert_data_eq!(
+        residual.to_debug(),
+        snapbox::str![[r#"
+TreeChange {
+    path: "file-in-index",
+    status: Modification {
+        previous_state: ChangeState {
+            id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+            kind: Blob,
+        },
+        state: ChangeState {
+            id: Sha1(0000000000000000000000000000000000000000),
+            kind: BlobExecutable,
+        },
+        flags: Some(
+            ExecutableBitAdded,
+        ),
+    },
+}
+
+"#]]
     );
     Ok(())
 }
@@ -941,6 +979,22 @@ WorktreeChanges {
             },
         },
         TreeChange {
+            path: "file-in-index",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(3d3b36f021391fa57312d7dfd1ad8cf5a13dca6d),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: BlobExecutable,
+                },
+                flags: Some(
+                    ExecutableBitAdded,
+                ),
+            },
+        },
+        TreeChange {
             path: "file-renamed",
             status: Rename {
                 previous_path: "file-to-be-renamed",
@@ -976,7 +1030,7 @@ WorktreeChanges {
     ignored_changes: [
         IgnoredWorktreeChange {
             path: "file-in-index",
-            status: TreeIndexWorktreeChangeIneffective,
+            status: TreeIndex,
         },
     ],
 }

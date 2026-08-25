@@ -204,6 +204,76 @@ git init modified-in-index-and-worktree-rename-add
   echo $'initial\nwt-change' >file
 )
 
+git init modified-in-index-and-worktree-del-rename
+(cd modified-in-index-and-worktree-del-rename
+  echo replaced-content >replaced && echo initial >file
+  git add . && git commit -m "init"
+  git rm replaced
+  mv file replaced
+)
+
+git init modified-in-index-and-worktree-del-rename-noop
+(cd modified-in-index-and-worktree-del-rename-noop
+  echo same >replaced && echo same >file
+  git add . && git commit -m "init"
+  git rm replaced
+  mv file replaced
+)
+
+git init modified-in-index-and-worktree-del-rename-of-modified
+(cd modified-in-index-and-worktree-del-rename-of-modified
+  echo replaced-content >replaced && echo initial >file
+  git add . && git commit -m "init"
+  git rm replaced
+  echo staged >>file && git add file
+  mv file replaced
+)
+
+git init modified-in-index-and-worktree-del-rename-of-modified-twice
+(cd modified-in-index-and-worktree-del-rename-of-modified-twice
+  echo a-content >replaced-a && echo b-content >replaced-b
+  echo initial-a >file-a && echo initial-b >file-b
+  git add . && git commit -m "init"
+  git rm replaced-a replaced-b
+  echo staged-a >>file-a && echo staged-b >>file-b && git add file-a file-b
+  mv file-a replaced-a && mv file-b replaced-b
+)
+
+git init renamed-in-index-destination-deleted-and-source-recreated
+(cd renamed-in-index-destination-deleted-and-source-recreated
+  echo content >a
+  git add . && git commit -m "init"
+  git mv a b
+  rm b
+  echo recreated-differently >a
+)
+
+git init renamed-in-index-source-recreated-and-destination-modified
+(cd renamed-in-index-source-recreated-and-destination-modified
+  echo content >a
+  git add . && git commit -m "init"
+  git mv a z
+  echo wt-change >>z
+  echo recreated >a
+)
+
+git init swapped-in-index-and-modified-in-worktree
+(cd swapped-in-index-and-modified-in-worktree
+  echo a-content >a && echo b-content >b
+  git add . && git commit -m "init"
+  git mv a tmp && git mv b a && git mv tmp b
+  echo wt-change >>a
+)
+
+git init renamed-in-index-source-recreated-and-neighbor-modified
+(cd renamed-in-index-source-recreated-and-neighbor-modified
+  echo content >z && echo neighbor >b
+  git add . && git commit -m "init"
+  git mv z a
+  echo staged >>b && git add b
+  echo recreated >z
+)
+
 git init modified-in-index-and-worktree-add-rename
 (cd modified-in-index-and-worktree-add-rename
   echo initial >file && git add .
