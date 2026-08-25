@@ -48,9 +48,28 @@
 	}
 }
 
+/* Three tiers, because a row can be selected in three different senses. Every
+   selected row keeps a fill: the lists are navigated with the keyboard, so
+   where each one's cursor sits has to stay legible from the other one. What
+   separates them is the rail below and the focused fill further down. */
 .containerSelected {
-	&:not([data-preview-source="false"] *) {
-		background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+
+	/* Only one row in the window is the source of what the details pane shows.
+	   A rail on its leading edge says so even when focus has moved away — into
+	   the other list, or into the pane itself — so two tinted rows never read
+	   as equals. */
+	&:is([data-preview-source="true"] *) {
+		position: relative;
+
+		&::before {
+			position: absolute;
+			width: 4px;
+			inset-block: 0;
+			inset-inline-start: 0;
+			background-color: var(--fill-gray-bg);
+			content: "";
+		}
 	}
 
 	&:has(:is(textarea, input):focus),
@@ -60,9 +79,25 @@
 	}
 }
 
+/* Answers a hovered dependency indicator. */
 .containerHighlighted {
 	background-color: color-mix(var(--fill-pop-bg) 20%, transparent);
 	color: var(--text-1);
+
+	/* The row pointed at is often the selected one, and when that selection is
+	   focused its solid fill out-specifies the tint above — leaving a hover that
+	   changes nothing. It deepens instead of going solid: enough over the tint
+	   to separate the selected row from its fellow dependencies, not so much
+	   that a passing hover repaints the panel. */
+	&.containerSelected:has(:is(textarea, input):focus),
+	[data-selection-focus-styles="true"]
+		[data-focus-scope][data-selection-focused="true"]
+		&.containerSelected {
+		background-color: color-mix(var(--fill-pop-bg) 30%, transparent);
+		/* Restated because the selection's own rule ties this one and would
+		   otherwise leave its inverted text on a fill no longer dark enough. */
+		color: var(--text-1);
+	}
 }
 
 .toolbar {
@@ -165,9 +200,9 @@
 	   only its border marks it out. */
 	[data-selection-focus-styles="true"]
 		[data-focus-scope][data-selection-focused="true"]
-		.containerSelected
+		.containerSelected:not(.containerHighlighted)
 		&,
-	.containerSelected:has(:is(textarea, input):focus) & {
+	.containerSelected:not(.containerHighlighted):has(:is(textarea, input):focus) & {
 		--checkbox-bg: var(--fill-gray-bg);
 	}
 }
@@ -249,7 +284,7 @@
 
 	[data-selection-focus-styles="true"]
 		[data-focus-scope][data-selection-focused="true"]
-		.containerSelected
+		.containerSelected:not(.containerHighlighted)
 		& {
 		color: var(--text-2-invert);
 	}
@@ -258,9 +293,9 @@
 .buttonGhost {
 	[data-selection-focus-styles="true"]
 		[data-focus-scope][data-selection-focused="true"]
-		.containerSelected
+		.containerSelected:not(.containerHighlighted)
 		&,
-	.containerSelected:has(:is(textarea, input):focus) & {
+	.containerSelected:not(.containerHighlighted):has(:is(textarea, input):focus) & {
 		/* Duplicated styles for ghost-inverted button variant. This is necessary to
 		make the variant responsive to selection/focus changes purely with CSS. */
 
@@ -275,9 +310,9 @@
 .buttonOutline {
 	[data-selection-focus-styles="true"]
 		[data-focus-scope][data-selection-focused="true"]
-		.containerSelected
+		.containerSelected:not(.containerHighlighted)
 		&,
-	.containerSelected:has(:is(textarea, input):focus) & {
+	.containerSelected:not(.containerHighlighted):has(:is(textarea, input):focus) & {
 		/* Duplicated styles for outline-inverted button variant. This is necessary to
 		make the variant responsive to selection/focus changes purely with CSS. */
 
@@ -307,10 +342,12 @@
    badges and graph segments — so they can restyle themselves for the selected
    state without cross-module class references. Raised for both states that give
    the row its solid inverted fill: a focused selection, and a row carrying an
-   inline editor. */
+   inline editor — but not for a highlighted row, whose dependency fill is light
+   enough that its contents stay in the normal palette. The same exclusion runs
+   through the inverted text and button rules above. */
 [data-selection-focus-styles="true"]
 	[data-focus-scope][data-selection-focused="true"]
-	.containerSelected,
-.containerSelected:has(:is(textarea, input):focus) {
+	.containerSelected:not(.containerHighlighted),
+.containerSelected:not(.containerHighlighted):has(:is(textarea, input):focus) {
 	--selection-inverted: true;
 }
