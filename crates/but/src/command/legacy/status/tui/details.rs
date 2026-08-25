@@ -24,7 +24,7 @@ use ratatui::{
 use syntect::{easy::HighlightLines, highlighting, parsing::SyntaxSet};
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::{
         discard::{DiscardOperation, DiscardOutcome, UncommittedSelection},
         status::tui::{
@@ -363,9 +363,23 @@ impl Details {
                     },
                 )
             }
-            CliId::Worktree { .. } => {
-                self.diff_not_supported("(viewing diffs for worktrees is not supported)");
-                Ok(true)
+            CliId::Worktree { name, .. } => {
+                let name = name.clone();
+                self.poll_render_thread(
+                    ctx,
+                    None,
+                    selection_did_change,
+                    move |ctx, theme, id_gen, line_writer, options| {
+                        diff_rendering::render_uncommitted_source(
+                            ctx,
+                            ChangeSourceId::Worktree(name),
+                            theme,
+                            id_gen,
+                            options,
+                            line_writer,
+                        )
+                    },
+                )
             }
             CliId::Stack { .. } => {
                 self.diff_not_supported("(viewing diffs for stacks is not supported)");
