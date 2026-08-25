@@ -3,7 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useDeferredValue, useRef, useState } from "react";
 import { classes } from "#ui/components/classes.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import styles from "./PickerDialog.module.css";
@@ -46,6 +46,8 @@ export const PickerDialog = <Item,>({
 	statusLabel?: string;
 }) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
+	const [inputValue, setInputValue] = useState("");
+	const deferredInputValue = useDeferredValue(inputValue);
 
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -57,12 +59,15 @@ export const PickerDialog = <Item,>({
 							items={items}
 							inline
 							open
+							value={deferredInputValue}
+							onValueChange={setInputValue}
 							autoHighlight="always"
 							keepHighlight
 							itemToStringValue={itemToStringValue ?? getItemLabel}
 						>
 							<Autocomplete.Input
 								ref={inputRef}
+								value={inputValue}
 								className={styles.input}
 								placeholder={placeholder}
 								aria-label={placeholder}
