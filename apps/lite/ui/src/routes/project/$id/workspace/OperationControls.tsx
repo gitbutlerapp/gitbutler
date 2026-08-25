@@ -7,12 +7,21 @@ import {
 } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { getButtonClassName, type ButtonSize, type ButtonVariant } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { operationHotkeys } from "#ui/hotkeys.ts";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import {
+	Toolbox,
+	ToolboxMeta,
+	ToolboxMetaHint,
+	ToolboxMetaText,
+	ToolboxSection,
+	ToolboxSeparator,
+	ToolboxStack,
+} from "#ui/components/Toolbox.tsx";
+import { formatForDisplaySorted, operationHotkeys } from "#ui/hotkeys.ts";
 import type { Address } from "#ui/addresses.ts";
 import {
 	getOperations,
@@ -23,12 +32,9 @@ import {
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
-import {
-	useCheckedActions,
-	type CheckedAction,
-} from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
+import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Button, Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -44,27 +50,66 @@ import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes("text-14", styles.container)}>{children}</div>
+	<div className={styles.container}>
+		<ToolboxStack>{children}</ToolboxStack>
+	</div>
 );
 
-const ControlsRow: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={styles.controlsRow}>{children}</div>
+/** The kind of thing an operation is holding, so its toolbox can say so at a glance. */
+const iconForAddress = (address: Address | undefined): IconName | undefined => {
+	switch (address?._tag) {
+		case "Commit":
+			return "commit";
+		case "File":
+			return "file-diff";
+		case "Hunk":
+			return "diff";
+		default:
+			return undefined;
+	}
+};
+
+/**
+ * Every act in a toolbox wears the chord that runs it, so the toolbox teaches the keyboard rather
+ * than standing in for it.
+ */
+const ToolboxButton: FC<{
+	label: string;
+	hotkey?: string;
+	variant?: ButtonVariant;
+	size?: ButtonSize;
+	enabled?: boolean;
+	onClick: () => void;
+}> = ({ label, hotkey, variant, size, enabled = true, onClick }) => (
+	<Button
+		className={getButtonClassName({ variant, size })}
+		disabled={!enabled}
+		focusableWhenDisabled
+		onMouseDown={(event) => {
+			// Prevent stealing focus from the tree.
+			if (!event.defaultPrevented) event.preventDefault();
+		}}
+		onClick={onClick}
+	>
+		{label}
+		{hotkey !== undefined && <Kbd hotkey={hotkey} variant="button" />}
+	</Button>
 );
 
-const Label: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes(styles.label, "text-bold", "text-13")}>{children}</div>
-);
+type Confirm = {
+	label: string;
+	canRun: boolean;
+	onRun: () => void;
+	extraHotkeys?: Array<Omit<UseHotkeyDefinition, "callback">>;
+};
 
-const Separator: FC = () => <div className={styles.separator} />;
-
-const Controls: FC<{
+const useControlHotkeys = ({
+	onCancel,
+	confirm,
+}: {
 	onCancel: () => void;
-	confirm?: {
-		canRun: boolean;
-		onRun: () => void;
-		extraHotkeys?: Array<Omit<UseHotkeyDefinition, "callback">>;
-	};
-}> = ({ onCancel, confirm }) => {
+	confirm?: Confirm;
+}): void => {
 	const confirmHotkeys: Array<Omit<UseHotkeyDefinition, "callback">> = [
 		...(confirm?.extraHotkeys ?? []),
 		{ hotkey: operationHotkeys.confirm.hotkey },
@@ -92,76 +137,48 @@ const Controls: FC<{
 			},
 		},
 	]);
-
-	return (
-		<div className={styles.controls}>
-			{confirm && (
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						className={getButtonClassName({ variant: "gray" })}
-						onMouseDown={(event) => {
-							// Prevent stealing focus from the tree.
-							if (!event.defaultPrevented) event.preventDefault();
-						}}
-						onClick={confirm.onRun}
-						// We pass `disabled` here because we want to disable the button, not
-						// the tooltip. Other props should be passed above.
-						render={<Button focusableWhenDisabled disabled={!confirm.canRun} />}
-					>
-						Confirm
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.confirm.hotkey} />}>
-								Confirm
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			)}
-
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={getButtonClassName({})}
-					onMouseDown={(event) => {
-						// Prevent stealing focus from the tree.
-						if (!event.defaultPrevented) event.preventDefault();
-					}}
-					onClick={onCancel}
-				>
-					Cancel
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
-							Cancel
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
-		</div>
-	);
 };
 
-const CheckedActions: FC<{ actions: Array<CheckedAction> }> = ({ actions }) => (
-	<div className={styles.actions}>
-		{actions.map((action) => (
-			<Button
-				key={action.label}
-				className={getButtonClassName({ variant: action.variant })}
-				disabled={!action.enabled}
-				focusableWhenDisabled
-				onMouseDown={(event) => {
-					// Prevent stealing focus from the tree.
-					if (!event.defaultPrevented) event.preventDefault();
-				}}
-				onClick={action.run}
-			>
-				{action.label}
-				{action.hotkey !== undefined && <Kbd hotkey={action.hotkey} variant="button" />}
-			</Button>
-		))}
-	</div>
+/**
+ * The way out of a toolbox that has nothing pending to abandon: a close affordance rather than a
+ * peer of the acts beside it, with its chord stated in the strip above.
+ */
+const CloseButton: FC<{ onCancel: () => void }> = ({ onCancel }) => (
+	<Button
+		className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+		aria-label="Cancel"
+		onMouseDown={(event) => {
+			// Prevent stealing focus from the tree.
+			if (!event.defaultPrevented) event.preventDefault();
+		}}
+		onClick={onCancel}
+	>
+		<Icon name="cross" />
+	</Button>
+);
+
+const CancelButton: FC<{ onCancel: () => void; size?: ButtonSize }> = ({ onCancel, size }) => (
+	<ToolboxButton
+		label="Cancel"
+		hotkey={operationHotkeys.cancel.hotkey}
+		size={size}
+		onClick={onCancel}
+	/>
+);
+
+/** What ends an operation, gathered where a dialog would put it. */
+const ConfirmSection: FC<{ confirm: Confirm; onCancel: () => void }> = ({ confirm, onCancel }) => (
+	<ToolboxSection variant="confirm">
+		<ToolboxButton
+			label={confirm.label}
+			hotkey={operationHotkeys.confirm.hotkey}
+			variant="gray"
+			size="small"
+			enabled={confirm.canRun}
+			onClick={confirm.onRun}
+		/>
+		<CancelButton onCancel={onCancel} size="small" />
+	</ToolboxSection>
 );
 
 const CheckedAddressOperationControls: FC<{
@@ -171,35 +188,54 @@ const CheckedAddressOperationControls: FC<{
 }> = ({ checkedAddressCount, projectId, appliedAddressSpace }) => {
 	const dispatch = useAppDispatch();
 
-	const checkedType = useAppSelector((state): string | null => {
-		switch (projectSlice.selectors.selectCheckedAddressesContext(state, projectId)) {
-			case "Commit":
-				return "commit";
-			case "File":
-				return "file";
-			case "Hunk":
-				return "line";
-			case null:
-				return null;
-		}
-	});
+	// A primitive, so a check that leaves the context alone doesn't re-render the bar.
+	const checkedContext = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressesContext(state, projectId),
+	);
 	const actions = useCheckedActions({ projectId, appliedAddressSpace });
-	if (checkedType === null) return;
 
 	const cancel = () => {
 		dispatch(projectSlice.actions.clearCheckedAddresses({ projectId }));
 	};
+	useControlHotkeys({ onCancel: cancel });
+
+	if (checkedContext === null) return;
+
+	const { noun, icon } = Match.value(checkedContext).pipe(
+		Match.withReturnType<{ noun: string; icon: IconName }>(),
+		Match.when("Commit", () => ({ noun: "commit", icon: "commit" as const })),
+		Match.when("File", () => ({ noun: "file", icon: "file-diff" as const })),
+		Match.when("Hunk", () => ({ noun: "line", icon: "diff" as const })),
+		Match.exhaustive,
+	);
 
 	return (
 		<Container>
-			<ControlsRow>
-				<Label>
-					{new Intl.NumberFormat().format(checkedAddressCount)} {checkedType}
-					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
-				</Label>
-				{actions.length > 0 && <CheckedActions actions={actions} />}
-				<Controls onCancel={cancel} />
-			</ControlsRow>
+			<Toolbox>
+				<ToolboxMeta icon={icon}>
+					<span>
+						{new Intl.NumberFormat().format(checkedAddressCount)} {noun}
+						{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
+					</span>
+					<ToolboxMetaHint>
+						{formatForDisplaySorted(operationHotkeys.cancel.hotkey)} to close
+					</ToolboxMetaHint>
+				</ToolboxMeta>
+				<ToolboxSection>
+					{actions.map((action) => (
+						<ToolboxButton
+							key={action.label}
+							label={action.label}
+							hotkey={action.hotkey}
+							variant={action.variant}
+							enabled={action.enabled}
+							onClick={action.run}
+						/>
+					))}
+					{actions.length > 0 && <ToolboxSeparator />}
+					<CloseButton onCancel={cancel} />
+				</ToolboxSection>
+			</Toolbox>
 		</Container>
 	);
 };
@@ -228,21 +264,29 @@ const AbsorbOperationControls: FC<{
 		cancelPendingOperation();
 	};
 
+	const confirm: Confirm = { label: "Absorb", canRun: canAbsorb, onRun: run };
+	useControlHotkeys({ onCancel: cancel, confirm });
+
 	return (
 		<Container>
-			<ControlsRow>
-				{isAbsorptionPlanPending ? (
-					<Icon name="spinner" aria-label="Loading absorb plan" />
-				) : isAbsorptionPlanError ? (
-					<Label>Failed to load absorb plan</Label>
-				) : (
-					<Label>
-						Absorb {addressesLabel({ headInfoIndex, addresses: pending.sources })} into{" "}
-						{absorptionPlan.length} commits
-					</Label>
-				)}
-				<Controls onCancel={cancel} confirm={{ canRun: canAbsorb, onRun: run }} />
-			</ControlsRow>
+			<Toolbox>
+				<ToolboxMeta icon={isAbsorptionPlanPending ? "spinner" : "absorb"}>
+					{isAbsorptionPlanPending ? (
+						<span>Loading absorb plan</span>
+					) : isAbsorptionPlanError ? (
+						<span>Failed to load absorb plan</span>
+					) : (
+						<>
+							<strong>Absorb</strong>
+							<ToolboxMetaText>
+								{addressesLabel({ headInfoIndex, addresses: pending.sources })}
+							</ToolboxMetaText>
+							<strong>into {absorptionPlan.length} commits</strong>
+						</>
+					)}
+				</ToolboxMeta>
+				<ConfirmSection confirm={confirm} onCancel={cancel} />
+			</Toolbox>
 		</Container>
 	);
 };
@@ -296,49 +340,34 @@ const TransferTypeToggleGroup: FC<{
 			aria-label="Placement"
 			value={[placement]}
 			onValueChange={onValueChange}
-			className={styles.toggleGroupRow}
+			render={<ToggleGroupStyles />}
 			onMouseDown={(event) => {
 				// Prevent stealing focus from the tree.
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"above" satisfies Placement}
 				disabled={!operations.above}
 			>
-				{operations.above && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.above.label}</div>
-				)}
-				<div className="text-semibold">
-					Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} />
-				</div>
+				Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} variant="button" />
 			</Toggle>
 
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"into" satisfies Placement}
 				disabled={!operations.into}
 			>
-				{operations.into && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.into.label}</div>
-				)}
-				<div className="text-semibold">
-					Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} />
-				</div>
+				Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} variant="button" />
 			</Toggle>
 
 			<Toggle
-				className={styles.toggleGroupRowToggle}
+				render={<ToggleStyles />}
 				value={"below" satisfies Placement}
 				disabled={!operations.below}
 			>
-				{operations.below && (
-					<div className={classes("text-12", styles.operationLabel)}>{operations.below.label}</div>
-				)}
-				<div className="text-semibold">
-					Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} />
-				</div>
+				Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} variant="button" />
 			</Toggle>
 		</ToggleGroup>
 	);
@@ -376,22 +405,18 @@ const TransferKindToggleGroup: FC<{
 			aria-label="Transfer kind"
 			value={[kind]}
 			onValueChange={onValueChange}
-			className={styles.toggleGroupRow}
+			render={<ToggleGroupStyles />}
 			onMouseDown={(evt) => {
 				// Prevent stealing focus from the tree.
 				if (!evt.defaultPrevented) evt.preventDefault();
 			}}
 		>
-			<Toggle className={styles.toggleGroupRowToggle} value={"move" satisfies TransferKind}>
-				<div className="text-semibold">
-					Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} />
-				</div>
+			<Toggle render={<ToggleStyles />} value={"move" satisfies TransferKind}>
+				Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} variant="button" />
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"copy" satisfies TransferKind}>
-				<div className="text-semibold">
-					Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} />
-				</div>
+			<Toggle render={<ToggleStyles />} value={"copy" satisfies TransferKind}>
+				Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} variant="button" />
 			</Toggle>
 		</ToggleGroup>
 	);
@@ -411,10 +436,9 @@ const TransferKeyboardOperationControls: FC<{
 	const { mutate: executeOperation } = useExecuteOperation(projectId);
 
 	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
-	if (!target) return null;
 
-	const operations = getOperations(transfer.sources, target, transfer.kind);
-	const operation = operations[transfer.placement];
+	const operations = target ? getOperations(transfer.sources, target, transfer.kind) : null;
+	const operation = operations?.[transfer.placement];
 	const canCopy =
 		transfer.sources.length > 0 && transfer.sources.every((source) => source._tag === "Commit");
 
@@ -430,35 +454,47 @@ const TransferKeyboardOperationControls: FC<{
 		cancelPendingOperationAndRestoreFocus(onFocusRestore);
 	};
 
+	const confirm: Confirm = {
+		// The placement toggles say where; the operation they resolve to says what, so the
+		// confirm button is where it belongs.
+		label: operation?.label ?? "Confirm",
+		canRun: !!operation,
+		onRun: run,
+		extraHotkeys: [{ hotkey: operationHotkeys.confirmTransfer.hotkey }],
+	};
+	useControlHotkeys({ onCancel: cancel, confirm });
+
+	if (!target || !operations) return null;
+
 	return (
 		<Container>
-			{/* Only commits can be copied, so for any other source the row offers a choice of one:
+			{/* Only commits can be copied, so for any other source the addon offers a choice of one:
 			    the kind is already `move` and cannot become anything else. */}
-			{canCopy && <TransferKindToggleGroup kind={transfer.kind} projectId={projectId} />}
-			<TransferTypeToggleGroup
-				projectId={projectId}
-				operations={operations}
-				placement={transfer.placement}
-			/>
-			<Separator />
-			<ControlsRow>
-				<Label>
-					<div>Source: {addressesLabel({ headInfoIndex, addresses: transfer.sources })}</div>
-					<div>Target: {addressLabel({ headInfoIndex, address: target })}</div>
-				</Label>
-				<Controls
-					onCancel={cancel}
-					confirm={{
-						canRun: !!operation,
-						onRun: run,
-						extraHotkeys: [
-							{
-								hotkey: operationHotkeys.confirmTransfer.hotkey,
-							},
-						],
-					}}
-				/>
-			</ControlsRow>
+			{canCopy && (
+				<Toolbox>
+					<ToolboxSection variant="stretch">
+						<TransferKindToggleGroup kind={transfer.kind} projectId={projectId} />
+					</ToolboxSection>
+				</Toolbox>
+			)}
+			<Toolbox>
+				<ToolboxMeta icon={iconForAddress(transfer.sources[0])}>
+					<strong>{transfer.kind === "copy" ? "Copy" : "Move"}</strong>
+					<ToolboxMetaText>
+						{addressesLabel({ headInfoIndex, addresses: transfer.sources })}
+					</ToolboxMetaText>
+					<strong>{transfer.placement}</strong>
+					<ToolboxMetaText>{addressLabel({ headInfoIndex, address: target })}</ToolboxMetaText>
+				</ToolboxMeta>
+				<ToolboxSection variant="stretch">
+					<TransferTypeToggleGroup
+						projectId={projectId}
+						operations={operations}
+						placement={transfer.placement}
+					/>
+				</ToolboxSection>
+				<ConfirmSection confirm={confirm} onCancel={cancel} />
+			</Toolbox>
 		</Container>
 	);
 };

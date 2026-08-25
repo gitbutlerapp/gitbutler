@@ -31,7 +31,7 @@ import { selectAfterDiscardedCommits } from "./WorkspaceLists/selectAfterDiscard
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 
-export type CheckedAction = {
+type CheckedAction = {
 	label: string;
 	/** The chord that runs the same act from the list, shown so the toolbar teaches it. */
 	hotkey?: string;
