@@ -393,6 +393,40 @@ fn details_view_syntax_highlighting_survives_scrolling() {
 }
 
 #[test]
+fn details_view_highlights_swift() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file(
+        "AppModel.swift",
+        r#"import Foundation
+
+@MainActor
+final class AppModel: ObservableObject {
+    @Published private(set) var isRefreshing = false
+    private let refreshInterval: Int = 5
+
+    func refresh() async throws {
+        print("Refreshing every \(refreshInterval) minutes")
+    }
+}
+"#,
+    );
+
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 18,
+            ..Default::default()
+        },
+    );
+
+    tui.input('l')
+        .assert_rendered_term_svg_eq(file!["snapshots/details_view_highlights_swift_001.svg"]);
+}
+
+#[test]
 fn details_view_can_grow_and_shrink() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
