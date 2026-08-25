@@ -11,58 +11,50 @@ import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
-import { type ComponentProps, type FC, useRef } from "react";
+import type { ComponentProps, FC } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
 import type { TreeChange } from "@gitbutler/but-sdk";
+import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
-export const FileRow: FC<
-	{
-		item: FileRowItem;
-		projectId: string;
-		fileParent: FileParent;
-		branchNameByCommitId: (commitId: string) => string | undefined;
-		canCheck: boolean;
-		canUncommit: boolean;
-		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
-		isChecked: boolean;
-		checkFile: (evt: { path: string; shiftKey: boolean }) => void;
-		/** How many directories this row sits inside. Zero in list mode. */
-		depth: number;
-		/**
-		 * Where the directory goes: leading the file name, trailing it, or nowhere
-		 * — the tree already says which directory this is. Resolved by the list.
-		 */
-		pathDisplay: "lead" | "trail" | "hidden";
-		focusScope: FocusScope;
-	} & Omit<ComponentProps<typeof Row>, "projectId">
-> = ({
-	item,
-	projectId,
-	fileParent,
-	branchNameByCommitId,
-	canCheck,
-	canUncommit,
-	uncommit,
-	isChecked,
-	checkFile,
-	depth,
-	pathDisplay,
-	focusScope,
-	id,
-	...restProps
-}) => {
+type FileRowProps = {
+	item: FileRowItem;
+	projectId: string;
+	fileParent: FileParent;
+	branchNameByCommitId: (commitId: string) => string | undefined;
+	canCheck: boolean;
+	canUncommit: boolean;
+	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
+	isChecked: boolean;
+	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
+	/** How many directories this row sits inside. Zero in list mode. */
+	depth: number;
+	/**
+	 * Where the directory goes: leading the file name, trailing it, or nowhere
+	 * — the tree already says which directory this is. Resolved by the list.
+	 */
+	pathDisplay: "lead" | "trail" | "hidden";
+	focusScope: FocusScope;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+} & Omit<ComponentProps<typeof Row>, "projectId">;
+
+type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
+	anyOperationPending: boolean;
+	menuItems: ReturnType<typeof useFileMenuItems>;
+};
+
+export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
+	const { item, projectId, fileParent } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
-	const noOperationPending = useAppSelector(
-		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
+	const anyOperationPending = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag !== "None",
 	);
 	const menuItems = useFileMenuItems({
 		projectId,
@@ -73,6 +65,33 @@ export const FileRow: FC<
 		uncommit,
 	});
 
+	return (
+		<FileRowPresentational
+			{...props}
+			anyOperationPending={anyOperationPending}
+			menuItems={menuItems}
+		/>
+	);
+};
+
+export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
+	item,
+	projectId,
+	fileParent,
+	branchNameByCommitId,
+	canCheck,
+	isChecked,
+	checkFile,
+	depth,
+	pathDisplay,
+	focusScope,
+	anyOperationPending,
+	menuItems,
+	tooltipHandle,
+	...restProps
+}) => {
+	const relativePath = item._tag === "Change" ? item.change.path : item.path;
+
 	const hasConflictHint = item._tag === "Conflict" && fileParent._tag === "UncommittedChanges";
 	// An uncommitted conflict is a state to get out of, so the row says how.
 	const rowTooltip = hasConflictHint
@@ -81,171 +100,137 @@ export const FileRow: FC<
 	const lastSepIdx = relativePath.lastIndexOf("/");
 	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
-	const rowLabelRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<Tooltip.Root
-			disableHoverablePopup
-			onOpenChange={(open, eventDetails) => {
-				const label = rowLabelRef.current;
-				if (open && !hasConflictHint && (label === null || label.scrollWidth <= label.clientWidth))
-					eventDetails.cancel();
+		<Row
+			{...restProps}
+			isChecked={isChecked}
+			onShiftSelect={
+				!anyOperationPending && canCheck
+					? () => checkFile({ path: relativePath, shiftKey: true })
+					: undefined
+			}
+			onContextMenu={(event) => {
+				// Hand the file path along so a plugin host can add its own
+				// actions (the app's native menus ignore it).
+				void showNativeContextMenu(
+					event,
+					menuItems,
+					fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+				);
 			}}
 		>
+			<TreeSteps depth={depth} />
+
+			<div className={treeStyles.leading}>
+				<FileIcon fileName={fileName} className={treeStyles.leadingMark} />
+				<RowCheckbox
+					disabled={anyOperationPending || !canCheck}
+					aria-label={`Check file ${relativePath}`}
+					checked={isChecked}
+					className={treeStyles.leadingCheckbox}
+					nativeButton
+					render={
+						<Tooltip.Trigger
+							handle={tooltipHandle}
+							payload={{
+								content: changesFileHotkeys.checkFile.meta.name,
+								kbd: changesFileHotkeys.checkFile.hotkey,
+								kbdScope: focusScope,
+							}}
+						/>
+					}
+					onCheckedChange={(_checked, { event }) => {
+						const shiftKey =
+							(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
+							event.shiftKey === true;
+						checkFile({ path: relativePath, shiftKey });
+					}}
+				/>
+			</div>
+
 			<Tooltip.Trigger
-				// We pass the ID here instead of including it with the other props as a
-				// workaround for Base UI issue:
-				// https://github.com/mui/base-ui/issues/5108
-				id={id}
-				render={
-					<Row
-						{...restProps}
-						isChecked={isChecked}
-						onShiftSelect={
-							noOperationPending && canCheck
-								? () => checkFile({ path: relativePath, shiftKey: true })
-								: undefined
-						}
-						className={classes(restProps.className, treeStyles.row)}
-						onContextMenu={(event) => {
-							// Hand the file path along so a plugin host can add its own
-							// actions (the app's native menus ignore it).
-							void showNativeContextMenu(
-								event,
+				handle={tooltipHandle}
+				payload={{ content: rowTooltip }}
+				render={<RowLabelContainer />}
+			>
+				{item._tag === "Conflict" && (
+					<ConflictIcon
+						variant="conflict"
+						className={styles.conflictIcon}
+						aria-label="Conflicted"
+					/>
+				)}
+				<RowLabel singleLine>
+					{directoryPath !== null && pathDisplay === "lead" && (
+						<span className={classes(styles.pathLead, rowStyles.fadedText)}>{directoryPath}/</span>
+					)}
+					{fileName}
+					{directoryPath !== null && pathDisplay === "trail" && (
+						<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
+					)}
+				</RowLabel>
+			</Tooltip.Trigger>
+
+			{!anyOperationPending && (
+				<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
+					<Toolbar.Button
+						aria-label="File menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(
+								event.currentTarget,
 								menuItems,
 								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
 							);
 						}}
-					/>
-				}
-			>
-				<TreeSteps depth={depth} />
-
-				<div className={treeStyles.leading}>
-					<FileIcon fileName={fileName} className={treeStyles.leadingMark} />
-					<Tooltip.Root
-						// This gets in the way when the user tries to move their hover to a
-						// sibling row.
-						disableHoverablePopup
+						className={getRowButtonClassName({ iconOnly: true })}
 					>
-						<RowCheckbox
-							disabled={!noOperationPending || !canCheck}
-							aria-label={`Check file ${relativePath}`}
-							checked={isChecked}
-							className={treeStyles.leadingCheckbox}
-							nativeButton
-							render={<Tooltip.Trigger />}
-							onCheckedChange={(_checked, { event }) => {
-								const shiftKey =
-									(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
-									event.shiftKey === true;
-								checkFile({ path: relativePath, shiftKey });
-							}}
-						/>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={
-										<TooltipPopup kbd={changesFileHotkeys.checkFile.hotkey} kbdScope={focusScope} />
-									}
-								>
-									{changesFileHotkeys.checkFile.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				</div>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
+			)}
 
-				<RowLabelContainer>
-					{item._tag === "Conflict" && (
-						<ConflictIcon
-							variant="conflict"
-							className={styles.conflictIcon}
-							aria-label="Conflicted"
-						/>
-					)}
-					<RowLabel singleLine ref={rowLabelRef}>
-						{directoryPath !== null && pathDisplay === "lead" && (
-							<span className={classes(styles.pathLead, rowStyles.fadedText)}>
-								{directoryPath}/
-							</span>
-						)}
-						{fileName}
-						{directoryPath !== null && pathDisplay === "trail" && (
-							<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
-						)}
-					</RowLabel>
-				</RowLabelContainer>
-
-				{noOperationPending && (
-					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
+			{!anyOperationPending &&
+				item._tag === "Change" &&
+				fileParent._tag === "UncommittedChanges" &&
+				item.dependencyCommitIds.length > 0 && (
+					<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
 						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(
-									event.currentTarget,
-									menuItems,
-									fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
-								);
-							}}
-							className={getRowButtonClassName({ iconOnly: true })}
+							render={
+								<DependencyIndicator
+									projectId={projectId}
+									commitIds={item.dependencyCommitIds}
+									branchNameByCommitId={branchNameByCommitId}
+									tooltipHandle={tooltipHandle}
+									className={getRowButtonClassName({ iconOnly: true })}
+								/>
+							}
 						>
-							<Icon name="kebab" />
+							<Icon name="link" />
 						</Toolbar.Button>
 					</Toolbar.Root>
 				)}
 
-				{noOperationPending &&
-					item._tag === "Change" &&
-					fileParent._tag === "UncommittedChanges" &&
-					item.dependencyCommitIds.length > 0 && (
-						<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
-							<Toolbar.Button
-								render={
-									<DependencyIndicator
-										projectId={projectId}
-										commitIds={item.dependencyCommitIds}
-										branchNameByCommitId={branchNameByCommitId}
-										className={getRowButtonClassName({ iconOnly: true })}
-									/>
-								}
-							>
-								<Icon name="link" />
-							</Toolbar.Button>
-						</Toolbar.Root>
+			{item._tag === "Change" && (
+				<Tooltip.Trigger
+					handle={tooltipHandle}
+					payload={{ content: item.change.status.type }}
+					className={styles.statusBadge}
+					aria-label={item.change.status.type}
+					data-status-type={item.change.status.type}
+					// By default it's a button, but we don't want this to be
+					// interactive.
+					render={<span />}
+				>
+					{Match.value(item.change.status).pipe(
+						Match.when({ type: "Addition" }, () => "A"),
+						Match.when({ type: "Deletion" }, () => "D"),
+						Match.when({ type: "Modification" }, () => "M"),
+						Match.when({ type: "Rename" }, () => "R"),
+						Match.exhaustive,
 					)}
-
-				{item._tag === "Change" && (
-					<Tooltip.Root disableHoverablePopup>
-						<Tooltip.Trigger
-							className={styles.statusBadge}
-							aria-label={item.change.status.type}
-							data-status-type={item.change.status.type}
-							// By default it's a button, but we don't want this to be
-							// interactive.
-							render={<span />}
-						>
-							{Match.value(item.change.status).pipe(
-								Match.when({ type: "Addition" }, () => "A"),
-								Match.when({ type: "Deletion" }, () => "D"),
-								Match.when({ type: "Modification" }, () => "M"),
-								Match.when({ type: "Rename" }, () => "R"),
-								Match.exhaustive,
-							)}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				)}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{rowTooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+				</Tooltip.Trigger>
+			)}
+		</Row>
 	);
 };

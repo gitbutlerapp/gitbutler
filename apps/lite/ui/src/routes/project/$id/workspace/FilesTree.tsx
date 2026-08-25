@@ -18,9 +18,17 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { mergeProps, useRender } from "@base-ui/react";
+import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ComponentProps, type FC, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+	type ComponentProps,
+	type FC,
+	useDeferredValue,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -29,7 +37,7 @@ import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-s
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { FileRow } from "./FileRow.tsx";
+import { FileRow, FileRowPresentational } from "./FileRow.tsx";
 import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
@@ -37,6 +45,8 @@ import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
+import type { CSSProperties } from "react";
+import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 const useFilesTreeHotkeys = ({
 	checkRow,
@@ -336,13 +346,40 @@ export const FilesTree: FC<
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
+	const hasPendingOperationSources = useAppSelector((state) => {
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return pendingOperation._tag === "Absorb" || pendingOperation._tag === "Transfer";
+	});
 	const checkedAddressKeys = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
+	// Create once per tree: rows in separate trees can have the same DOM ID, but a tooltip store
+	// can register only one element for each ID.
+	const [tooltipHandle] = useState(() => Tooltip.createHandle<FileRowTooltipPayload>());
 
 	const ref = useRef<HTMLDivElement>(null);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
+	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
+		count: rows.length,
+		getScrollElement: () => ref.current?.parentElement ?? null,
+		// Keep in sync with --single-line-row-height.
+		estimateSize: () => 28,
+		getItemKey: (index) => rows[index]?.path ?? index,
+		// Matches --scroll-gradient-height.
+		scrollPaddingStart: 14,
+		scrollPaddingEnd: 14,
+	});
+	const deferredIsScrolling = useDeferredValue(rowVirtualizer.isScrolling, true);
+	// Keep OperationSourceC mounted while an operation refers to its rows, especially while a
+	// pointer transfer auto-scrolls. Otherwise render the cheap rows immediately on scroll and
+	// wait for deferredIsScrolling to catch up before upgrading them in an interruptible render.
+	const renderInteractiveRows =
+		hasPendingOperationSources || (!rowVirtualizer.isScrolling && !deferredIsScrolling);
 
 	const fileCheckRangeAnchor = useRef<string>(null);
 	const fileCheckRangeEnd = useRef<string>(null);
@@ -353,6 +390,8 @@ export const FilesTree: FC<
 	);
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
+	const selectedRowIndex =
+		selection === null ? -1 : rows.findIndex((row) => row.path === selection);
 	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
 	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
 
@@ -481,6 +520,11 @@ export const FilesTree: FC<
 		toggleDirectoryCollapsed: onToggleDirectoryCollapsed,
 	});
 
+	// Virtualisation-friendly equivalent to Row's own scrollIntoView.
+	useLayoutEffect(() => {
+		if (selectedRowIndex !== -1) rowVirtualizer.scrollToIndex(selectedRowIndex, { align: "auto" });
+	}, [rowVirtualizer, selectedRowIndex]);
+
 	return (
 		<div
 			{...props}
@@ -491,6 +535,7 @@ export const FilesTree: FC<
 			className={classes(props.className, styles.tree)}
 			ref={useMergedRefs(refProp, ref)}
 		>
+			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
 					<RowLabelContainer>
@@ -499,10 +544,20 @@ export const FilesTree: FC<
 				</Row>
 			) : (
 				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
-				<div role="group">
-					{rows.map((row) => {
+				<div role="group" ref={rowVirtualizer.containerRef} style={{ position: "relative" }}>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const row = rows[virtualRow.index];
+						if (row === undefined) return null;
+
 						const isSelected = selection !== null && selection === row.path;
 						const inert = !addressSpaceIncludes(addressSpace, row.path, (path) => path);
+						const virtStyle: CSSProperties = {
+							position: "absolute",
+							top: 0,
+							left: 0,
+							width: "100%",
+							height: virtualRow.size,
+						};
 
 						if (row._tag === "Directory") {
 							const isCollapsed = collapsedDirectories[row.path] === true;
@@ -510,10 +565,13 @@ export const FilesTree: FC<
 							return (
 								<TreeItem
 									key={row.path}
+									data-index={virtualRow.index}
+									ref={rowVirtualizer.measureElement}
 									row={row}
 									isSelected={isSelected}
 									isExpanded={!isCollapsed}
 									aria-label={`Directory ${row.path}`}
+									style={virtStyle}
 									render={
 										<DirectoryRow
 											projectId={projectId}
@@ -522,6 +580,7 @@ export const FilesTree: FC<
 											fileCount={row.filePaths.length}
 											depth={row.depth}
 											isCollapsed={isCollapsed}
+											scrollSelectedIntoView={false}
 											onToggleCollapsed={() => {
 												// Collapsing over the selection hides it, and it would
 												// fall back to the first row: hand it to the directory
@@ -554,42 +613,69 @@ export const FilesTree: FC<
 						return (
 							<TreeItem
 								key={row.path}
+								data-index={virtualRow.index}
+								ref={rowVirtualizer.measureElement}
 								row={row}
 								isSelected={isSelected}
+								style={virtStyle}
 								aria-label={
 									item._tag === "Change"
 										? `${item.change.status.type} ${item.change.path}`
 										: `Conflict ${item.path}`
 								}
 								render={
-									<OperationSourceC
-										projectId={projectId}
-										source={address}
-										outline="outside"
-										acceptOriginDrop
-										render={
-											<FileRow
-												item={item}
-												depth={row.depth}
-												pathDisplay={pathDisplay}
-												inert={inert}
-												isSelected={isSelected}
-												isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
-												onSelect={() => onRowSelection(row.path)}
-												canCheck={canCheck && item._tag === "Change"}
-												checkFile={checkFile}
-												projectId={projectId}
-												fileParent={fileParent}
-												canUncommit={canUncommit}
-												uncommit={uncommit}
-												focusScope={focusScope}
-												branchNameByCommitId={(commitId) =>
-													headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
-														?.displayName
-												}
-											/>
-										}
-									/>
+									renderInteractiveRows ? (
+										<OperationSourceC
+											projectId={projectId}
+											source={address}
+											outline="outside"
+											acceptOriginDrop
+											render={
+												<FileRow
+													item={item}
+													depth={row.depth}
+													pathDisplay={pathDisplay}
+													inert={inert}
+													isSelected={isSelected}
+													scrollSelectedIntoView={false}
+													isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
+													onSelect={() => onRowSelection(row.path)}
+													canCheck={canCheck && item._tag === "Change"}
+													checkFile={checkFile}
+													projectId={projectId}
+													fileParent={fileParent}
+													canUncommit={canUncommit}
+													uncommit={uncommit}
+													focusScope={focusScope}
+													tooltipHandle={tooltipHandle}
+													branchNameByCommitId={(commitId) =>
+														headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
+															?.displayName
+													}
+												/>
+											}
+										/>
+									) : (
+										<FileRowPresentational
+											item={item}
+											depth={row.depth}
+											pathDisplay={pathDisplay}
+											inert={inert}
+											isSelected={isSelected}
+											scrollSelectedIntoView={false}
+											isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
+											onSelect={() => onRowSelection(row.path)}
+											canCheck={false}
+											checkFile={() => {}}
+											projectId={projectId}
+											fileParent={fileParent}
+											focusScope={focusScope}
+											tooltipHandle={tooltipHandle}
+											branchNameByCommitId={() => undefined}
+											anyOperationPending
+											menuItems={[]}
+										/>
+									)
 								}
 							/>
 						);
@@ -623,5 +709,7 @@ const TreeItem: FC<
 			"aria-selected": isSelected,
 			"aria-expanded": isExpanded,
 			"aria-level": row.depth + 1,
+			"aria-posinset": row.positionInSet,
+			"aria-setsize": row.setSize,
 		}),
 	});

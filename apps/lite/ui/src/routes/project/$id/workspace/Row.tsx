@@ -32,6 +32,8 @@ export const Row: FC<
 		isSelected?: boolean;
 		onSelect?: () => void;
 		onShiftSelect?: () => void;
+		/** @default true */
+		scrollSelectedIntoView?: boolean;
 		/** @default false */
 		isHighlighted?: boolean;
 		/**
@@ -47,6 +49,7 @@ export const Row: FC<
 	isSelected,
 	onSelect,
 	onShiftSelect,
+	scrollSelectedIntoView = true,
 	isHighlighted,
 	isChecked,
 	interactive = true,
@@ -57,12 +60,12 @@ export const Row: FC<
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
 	useLayoutEffect(() => {
-		if (!isSelected) return;
+		if (!isSelected || !scrollSelectedIntoView) return;
 		rowRef.current?.scrollIntoView({
 			block: "nearest",
 			inline: "nearest",
 		});
-	}, [isSelected]);
+	}, [isSelected, scrollSelectedIntoView]);
 
 	return (
 		// This is safe because the tree is focusable.

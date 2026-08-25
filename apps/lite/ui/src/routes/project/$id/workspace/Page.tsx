@@ -32,7 +32,7 @@ import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
@@ -42,6 +42,7 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Match } from "effect";
 import {
 	type FC,
@@ -77,6 +78,7 @@ import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import {
 	setCursor,
 	setActiveList,
+	cancelPendingOperation,
 	useCanShowFiles,
 	useSidebarFocusScope,
 	usePage,
@@ -84,6 +86,7 @@ import {
 	useActiveList,
 } from "#ui/use-cursor.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import { parseDragData } from "./DragData.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -91,11 +94,9 @@ type PanelId = "sidebar-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
+	const store = useAppStore();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
-	const filesVisibleState = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
 	const canShowFiles = useCanShowFiles();
 	const activeElement = useActiveElement();
 	const focusedFocusScope = getFocusedScope(activeElement);
@@ -103,8 +104,9 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const sidebarFocusScope = useSidebarFocusScope();
-	const filesVisible = canShowFiles && filesVisibleState;
 	const page = usePage();
+	const getFilesVisible = () =>
+		canShowFiles && projectSlice.selectors.selectFilesVisible(store.getState(), projectId);
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -113,7 +115,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	// Shared by the arrow keys and their h/l aliases so the pairs cannot diverge.
 	const focusPane = (offset: -1 | 1) => {
 		focusHorizontalScope({
-			filesVisible,
+			filesVisible: getFilesVisible(),
 			offset,
 			sidebarFocusScope,
 			detailsFullWindow,
@@ -158,7 +160,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				if (focusedFocusScope === "files" && filesVisible)
+				if (focusedFocusScope === "files" && getFilesVisible())
 					focusScope(detailsFullWindow ? "diff" : "sidebar");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));
@@ -298,6 +300,18 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
+
+	// A virtualised drag source may unmount before the drag ends, leaving us stuck in a pending
+	// operation state. This monitor is essentially a finally block for this scenario; its onDrop runs
+	// after those of valid drop targets, in which case it's a no-op.
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDrop: cancelPendingOperation,
+			}),
+		[],
+	);
 
 	const dispatch = useAppDispatch();
 

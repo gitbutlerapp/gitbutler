@@ -1,16 +1,17 @@
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
 import type { ComponentProps, FC } from "react";
+import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 export const DependencyIndicator: FC<
 	{
 		projectId: string;
 		commitIds: Array<string>;
 		branchNameByCommitId: (commitId: string) => string | undefined;
+		tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
 	} & ComponentProps<"button">
-> = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
+> = ({ projectId, commitIds, branchNameByCommitId, tooltipHandle, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	const branchNames = new Set(
 		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
@@ -32,21 +33,16 @@ export const DependencyIndicator: FC<
 	};
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				{...restProps}
-				onMouseEnter={highlightCommitIds}
-				// TODO: we should also clear if the element unmounts
-				onMouseLeave={clearHighlightedCommitIds}
-				onFocus={highlightCommitIds}
-				onBlur={clearHighlightedCommitIds}
-				aria-label={tooltip}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		<Tooltip.Trigger
+			{...restProps}
+			handle={tooltipHandle}
+			payload={{ content: tooltip }}
+			onMouseEnter={highlightCommitIds}
+			// TODO: we should also clear if the element unmounts
+			onMouseLeave={clearHighlightedCommitIds}
+			onFocus={highlightCommitIds}
+			onBlur={clearHighlightedCommitIds}
+			aria-label={tooltip}
+		/>
 	);
 };

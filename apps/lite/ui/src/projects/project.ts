@@ -135,7 +135,7 @@ export type ProjectState = {
 };
 
 export const createInitialProjectState = (): ProjectState => ({
-	filesVisible: false,
+	filesVisible: true,
 	branches: createInitialBranchesState(),
 	upstream: createInitialUpstreamState(),
 	workspace: createInitialWorkspaceState(),

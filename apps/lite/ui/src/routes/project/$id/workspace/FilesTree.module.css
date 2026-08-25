@@ -14,10 +14,6 @@
 	}
 }
 
-/* `.row` is carried by both row kinds and only anchors the hover rules below —
-   the indent is drawn by `.steps` rather than padded in, so the lines a step
-   carries have somewhere to sit. */
-
 .steps {
 	display: flex;
 	column-gap: 4px;

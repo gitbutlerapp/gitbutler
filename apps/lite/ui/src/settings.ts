@@ -15,8 +15,8 @@ export const defaultSettings = {
 	// Previewing while dragging runs a dry run for every target the pointer crosses, and
 	// each one takes the same workspace lock as the real operation. Off until that's cheap.
 	dryRunOperations: false,
-	// Lite has always shown a flat list; the tree is the mode you opt into.
-	fileDisplayMode: "list",
+	// Show the folder tree until the user chooses a display mode.
+	fileDisplayMode: "tree",
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.

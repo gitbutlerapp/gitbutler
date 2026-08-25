@@ -41,6 +41,20 @@ describe("buildFileTreeRows", () => {
 		]);
 	});
 
+	test("reports each row's position among its siblings", () => {
+		const rows = tree(["readme.md", "src/app.ts", "src/ui/row.ts", "docs/guide.md"]);
+
+		expect(rows.map(({ path, positionInSet, setSize }) => [path, positionInSet, setSize])).toEqual([
+			["docs", 1, 3],
+			["docs/guide.md", 1, 1],
+			["src", 2, 3],
+			["src/ui", 1, 2],
+			["src/ui/row.ts", 1, 1],
+			["src/app.ts", 2, 2],
+			["readme.md", 3, 3],
+		]);
+	});
+
 	test("folds a chain of sole-child directories into one row", () => {
 		const rows = tree(["src/lib/files/row.ts", "src/lib/files/tree.ts"]);
 
