@@ -21,7 +21,14 @@ import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ComponentProps, type FC, useDeferredValue, useLayoutEffect, useRef } from "react";
+import {
+	type ComponentProps,
+	type FC,
+	useDeferredValue,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -39,6 +46,8 @@ import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
+import { createFileRowTooltipHandles } from "./file-row-tooltip.ts";
+import { FileRowTooltipRoot } from "./FileRowTooltip.tsx";
 
 const useFilesTreeHotkeys = ({
 	checkRow,
@@ -347,6 +356,7 @@ export const FilesTree: FC<
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
+	const [tooltipHandles] = useState(createFileRowTooltipHandles);
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -524,6 +534,7 @@ export const FilesTree: FC<
 			className={classes(props.className, styles.tree)}
 			ref={useMergedRefs(refProp, ref)}
 		>
+			<FileRowTooltipRoot handles={tooltipHandles} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
 					<RowLabelContainer>
@@ -635,6 +646,7 @@ export const FilesTree: FC<
 													canUncommit={canUncommit}
 													uncommit={uncommit}
 													focusScope={focusScope}
+													tooltipHandles={tooltipHandles}
 													branchNameByCommitId={(commitId) =>
 														headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
 															?.displayName
@@ -657,6 +669,7 @@ export const FilesTree: FC<
 											projectId={projectId}
 											fileParent={fileParent}
 											focusScope={focusScope}
+											tooltipHandles={tooltipHandles}
 											branchNameByCommitId={() => undefined}
 											anyOperationPending
 											menuItems={[]}
