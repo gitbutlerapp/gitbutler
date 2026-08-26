@@ -79,8 +79,8 @@ export const CommitRow: FC<
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckCommits(state, projectId),
 	);
-	const isHighlighted = useAppSelector((state) =>
-		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
+	const isDependency = useAppSelector((state) =>
+		projectSlice.selectors.selectDependencyCommitIds(state, projectId).has(commit.id),
 	);
 	const isChecked = useAppSelector((state) =>
 		projectSlice.selectors.selectAddressChecked(state, projectId, address),
@@ -370,7 +370,7 @@ export const CommitRow: FC<
 			{...restProps}
 			address={address}
 			isChecked={isChecked}
-			isHighlighted={isHighlighted}
+			isHighlighted={isDependency}
 			onDoubleClick={noOperationPending ? startEditing : undefined}
 			onShiftSelect={
 				noOperationPending && canCheck

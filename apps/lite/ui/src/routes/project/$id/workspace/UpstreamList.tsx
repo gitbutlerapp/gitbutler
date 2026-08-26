@@ -15,7 +15,6 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import {
 	olderTargetCommitsInfiniteQueryOptions,
 	workspaceTargetCommitsQueryOptions,
@@ -427,11 +426,7 @@ export const UpstreamList: FC<
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			{/* Headed like the other tabs: one title over the whole pane, held out
 			    of the scroller so it stays put while the listing moves. */}
-			<SectionHeaderRow
-				className={styles.header}
-				label="Incoming changes"
-				childrenBefore={<FocusScopeKbd hotkey="1" scope="sidebar" />}
-			/>
+			<SectionHeaderRow className={styles.header} label="Incoming changes" />
 
 			{/* One graph across three regions: what is coming in, where the
 			    workspace's branches sit against it, and the history behind them.

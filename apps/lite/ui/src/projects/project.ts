@@ -79,7 +79,7 @@ type WorkspaceState = {
 	 * hiding them that is the exception worth recording.
 	 */
 	foldedSegments: Record<string, true>;
-	highlightedCommitIds: Array<string>;
+	dependencyCommitIds: Array<string>;
 	pendingOperation: PendingOperation;
 	/**
 	 * What became of the last operation that ended without one, stated where the operation's own
@@ -119,7 +119,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	checkedAddresses: {},
 	checkedConflicts: {},
 	foldedSegments: {},
-	highlightedCommitIds: [],
+	dependencyCommitIds: [],
 	pendingOperation: noPendingOperation,
 	notice: null,
 	selectedBranchTabs: {},
@@ -324,11 +324,20 @@ export const projectReducers = {
 	clearNotice: (state: ProjectState) => {
 		state.workspace.notice = null;
 	},
-	setHighlightedCommitIds: (
+	setDependencyCommitIds: (
 		state: ProjectState,
 		{ commitIds }: { commitIds: Array<string> | null },
 	) => {
-		state.workspace.highlightedCommitIds = commitIds ?? [];
+		const nextCommitIds = commitIds ?? [];
+		if (
+			state.workspace.dependencyCommitIds.length === nextCommitIds.length &&
+			state.workspace.dependencyCommitIds.every(
+				(commitId, index) => commitId === nextCommitIds[index],
+			)
+		)
+			return;
+
+		state.workspace.dependencyCommitIds = nextCommitIds;
 	},
 	checkAddress: (
 		state: ProjectState,
@@ -592,6 +601,11 @@ const selectCheckedAddressCount = createSelector(
 	(checkedAddresses) => checkedAddresses.length,
 );
 
+const selectDependencyCommitIds = createSelector(
+	(state: ProjectState) => state.workspace.dependencyCommitIds,
+	(commitIds): Set<string> => new Set(commitIds),
+);
+
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
 	/**
@@ -619,7 +633,7 @@ export const projectSelectors = {
 	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
 	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
 		state.workspace.foldedSegments[branchRef] === true,
-	selectHighlightedCommitIds: (state: ProjectState) => state.workspace.highlightedCommitIds,
+	selectDependencyCommitIds,
 	selectAddressChecked: (state: ProjectState, address: CheckableAddress) =>
 		state.workspace.checkedAddresses[addressIdentityKey(address)] !== undefined,
 	selectCheckedAddresses,

@@ -64,7 +64,6 @@ import {
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -216,7 +215,8 @@ const AddressC: FC<
 		render: (
 			<OperationSourceC
 				projectId={projectId}
-				source={address}
+				sources={[address]}
+				respectChecked={address._tag === "Commit" || address._tag === "File"}
 				outline={outline}
 				render={
 					<OperationTarget
@@ -902,7 +902,8 @@ export const WorkspaceLists: FC<
 				>
 					<OperationSourceC
 						projectId={projectId}
-						source={uncommittedChangesAddress}
+						sources={[uncommittedChangesAddress]}
+						respectChecked={false}
 						outline="inside"
 						render={
 							<OperationTarget
@@ -934,7 +935,6 @@ export const WorkspaceLists: FC<
 				<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
 					<SectionHeaderRow
 						label="Stacks and branches"
-						childrenBefore={<FocusScopeKbd hotkey="2" scope="sidebar" />}
 						className={styles.stacksHeader}
 						actions={stacksHeaderActions}
 					/>

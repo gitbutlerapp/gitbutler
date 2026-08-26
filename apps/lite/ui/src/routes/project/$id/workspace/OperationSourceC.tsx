@@ -1,4 +1,4 @@
-import { type Address, addressEquals } from "#ui/addresses.ts";
+import { type Address, addressIdentityKey } from "#ui/addresses.ts";
 import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getOperationSources, pointerTransfer } from "#ui/operations/pending-operation.ts";
 import styles from "./OperationSourceC.module.css";
@@ -7,7 +7,7 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import {
 	draggable,
 	dropTargetForElements,
@@ -30,7 +30,9 @@ type OperationSourceOutline = "inside" | "outside";
 export const OperationSourceC: FC<
 	{
 		projectId: string;
-		source: Address;
+		sources: Array<Address>;
+		/** Whether any checked source expands the transfer to the complete checked set. */
+		respectChecked: boolean;
 		outline: OperationSourceOutline;
 		/**
 		 * Accept dropping a drag back on its exact source element when it has no organic operation
@@ -39,7 +41,15 @@ export const OperationSourceC: FC<
 		 */
 		acceptOriginDrop?: boolean;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, source, outline, acceptOriginDrop = false, render, ...props }) => {
+> = ({
+	projectId,
+	sources,
+	respectChecked,
+	outline,
+	acceptOriginDrop = false,
+	render,
+	...props
+}) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -47,19 +57,24 @@ export const OperationSourceC: FC<
 	const pendingOperation = useAppSelector((state) =>
 		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);
-	// We don't necessarily wrap in an array here in order to preserve reference identity.
-	const dragSource = useAppSelector((state) => {
-		if (source._tag !== "Commit" && source._tag !== "File") return source;
+	const store = useAppStore();
 
-		const isChecked = projectSlice.selectors.selectAddressChecked(state, projectId, source);
-		return isChecked ? projectSlice.selectors.selectCheckedAddresses(state, projectId) : source;
-	});
-	const dragSources = Array.isArray(dragSource) ? dragSource : [dragSource];
+	const resolveDragSources = (): Array<Address> => {
+		if (!respectChecked) return sources;
+
+		const state = store.getState();
+		const checkedAddressKeys = projectSlice.selectors.selectCheckedAddressKeys(state, projectId);
+		return sources.some((source) => checkedAddressKeys.has(addressIdentityKey(source)))
+			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
+			: sources;
+	};
 
 	const dispatch = useAppDispatch();
 	const dragRef = useRef<HTMLElement>(null);
 	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
 		useEffectEvent(({ nativeSetDragImage }) => {
+			const dragSources = resolveDragSources();
+
 			setCustomNativeDragPreview({
 				nativeSetDragImage,
 				getOffset: centerUnderPointer,
@@ -77,6 +92,8 @@ export const OperationSourceC: FC<
 		});
 	const canDrag = useEffectEvent(() => pendingOperation._tag !== "InlineEdit");
 	const onDragStart = useEffectEvent(() => {
+		const dragSources = resolveDragSources();
+
 		dispatch(
 			projectSlice.actions.startTransfer({
 				projectId,
@@ -88,7 +105,8 @@ export const OperationSourceC: FC<
 			}),
 		);
 	});
-	const getInitialData = useEffectEvent((): DragData => ({ sources: dragSources }));
+
+	const getInitialData = useEffectEvent((): DragData => ({ sources: resolveDragSources() }));
 
 	useEffect(() => {
 		const element = dragRef.current;
@@ -122,8 +140,9 @@ export const OperationSourceC: FC<
 	}, [acceptOriginDrop, dispatch, projectId]);
 
 	const operationSources = getOperationSources(pendingOperation);
-	const isActiveSource = operationSources
-		? operationSources.some((operationSource) => addressEquals(operationSource, source))
+	const operationSourceKeys = operationSources && new Set(operationSources.map(addressIdentityKey));
+	const isActiveSource = operationSourceKeys
+		? sources.every((source) => operationSourceKeys.has(addressIdentityKey(source)))
 		: false;
 
 	return useRender({
