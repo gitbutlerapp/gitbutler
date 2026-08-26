@@ -78,7 +78,8 @@ impl GitLabClient {
         } else {
             Err(anyhow::anyhow!(
                 "No GitLab access token found for account '{account_id}'.\nRun 'but config forge auth' to re-authenticate."
-            ))
+            )
+            .context(NOT_AUTHENTICATED))
         }
     }
 
@@ -1118,23 +1119,33 @@ fn source_project_differs_from_target(
     source_project_id != target_project_id
 }
 
+/// Marks credential lookups that came up empty, so consumers can tell "the
+/// user is not authenticated" apart from a failing forge and e.g. keep
+/// serving cached data instead of surfacing an error.
+pub(crate) const NOT_AUTHENTICATED: but_error::Context = but_error::Context::new_static(
+    but_error::Code::ForgeNotAuthenticated,
+    "Not authenticated with GitLab.",
+);
+
 pub(crate) fn resolve_account(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::GitlabAccountIdentifier, anyhow::Error> {
     let known_accounts = crate::token::list_known_gitlab_accounts(storage)?;
     let Some(default_account) = known_accounts.first() else {
-        bail!(
+        return Err(anyhow::anyhow!(
             "No authenticated GitLab users found.\nRun 'but config forge auth' to authenticate with GitLab."
-        );
+        )
+        .context(NOT_AUTHENTICATED));
     };
     let account = if let Some(account) = preferred_account {
         if known_accounts.contains(account) {
             account
         } else {
-            bail!(
+            return Err(anyhow::anyhow!(
                 "Preferred GitLab account '{account}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account."
-            );
+            )
+            .context(NOT_AUTHENTICATED));
         }
     } else {
         default_account

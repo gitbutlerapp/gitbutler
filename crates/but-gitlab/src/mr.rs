@@ -7,13 +7,10 @@ pub async fn list(
     project_id: GitLabProjectId,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_open_mrs(project_id)
-            .await
-            .context("Failed to list open merge requests")
-    } else {
-        Ok(vec![])
-    }
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_open_mrs(project_id)
+        .await
+        .context("Failed to list open merge requests")
 }
 
 pub async fn list_recently_closed(
@@ -21,13 +18,10 @@ pub async fn list_recently_closed(
     project_id: GitLabProjectId,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_recently_closed_mrs(project_id)
-            .await
-            .context("Failed to list recently closed merge requests")
-    } else {
-        Ok(vec![])
-    }
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_recently_closed_mrs(project_id)
+        .await
+        .context("Failed to list recently closed merge requests")
 }
 
 pub async fn list_all_for_target(
@@ -36,13 +30,10 @@ pub async fn list_all_for_target(
     target_branch: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_mrs_for_target(project_id, target_branch)
-            .await
-            .context("Failed to list merge requests for target branch")
-    } else {
-        Ok(vec![])
-    }
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_mrs_for_target(project_id, target_branch)
+        .await
+        .context("Failed to list merge requests for target branch")
 }
 
 pub async fn list_for_commit(
@@ -51,13 +42,10 @@ pub async fn list_for_commit(
     commit_sha: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
-    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_mrs_for_commit(project_id, commit_sha)
-            .await
-            .context("Failed to list merge requests for commit")
-    } else {
-        Ok(vec![])
-    }
+    GitLabClient::from_storage(storage, preferred_account)?
+        .list_mrs_for_commit(project_id, commit_sha)
+        .await
+        .context("Failed to list merge requests for commit")
 }
 
 pub async fn create(

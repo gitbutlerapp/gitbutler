@@ -21,6 +21,7 @@ doctest = false
 
 [dependencies]
 but-utils.workspace = true
+but-error.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-bitbucket.workspace = true

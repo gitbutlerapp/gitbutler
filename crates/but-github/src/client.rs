@@ -79,7 +79,8 @@ impl GitHubClient {
         } else {
             Err(anyhow::anyhow!(
                 "No GitHub access token found for account '{account_id}'.\nRun 'but config forge auth' to re-authenticate."
-            ))
+            )
+            .context(NOT_AUTHENTICATED))
         }
     }
 
@@ -2001,23 +2002,33 @@ impl From<GitHubPullRequest> for PullRequest {
     }
 }
 
+/// Marks credential lookups that came up empty, so consumers can tell "the
+/// user is not authenticated" apart from a failing forge and e.g. keep
+/// serving cached data instead of surfacing an error.
+pub(crate) const NOT_AUTHENTICATED: but_error::Context = but_error::Context::new_static(
+    but_error::Code::ForgeNotAuthenticated,
+    "Not authenticated with GitHub.",
+);
+
 pub(crate) fn resolve_account(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
     let known_accounts = crate::token::list_known_github_accounts(storage)?;
     let Some(default_account) = known_accounts.first() else {
-        bail!(
+        return Err(anyhow::anyhow!(
             "No authenticated GitHub users found.\nRun 'but config forge auth' to authenticate with GitHub."
-        );
+        )
+        .context(NOT_AUTHENTICATED));
     };
     let account = if let Some(account) = preferred_account {
         if known_accounts.contains(account) {
             account
         } else {
-            bail!(
+            return Err(anyhow::anyhow!(
                 "Preferred GitHub account '{account}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account."
-            );
+            )
+            .context(NOT_AUTHENTICATED));
         }
     } else {
         default_account

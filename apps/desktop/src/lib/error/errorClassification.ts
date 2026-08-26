@@ -157,6 +157,18 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	`,
 	},
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
+	/**
+	 * No forge credentials are stored — the user never authenticated or
+	 * logged out. Cached review reads fall back to the last known data;
+	 * this surfaces on explicit forge actions (sync, PR mutations), so
+	 * the copy stays operation-neutral.
+	 */
+	ForgeNotAuthenticated: {
+		severity: "warning",
+		terminal: true,
+		userMessage:
+			"You are not logged in to your forge. Connect your account under Settings → Integrations to work with pull requests.",
+	},
 	ProjectDatabaseIncompatible: {
 		severity: "error",
 		userMessage: `
