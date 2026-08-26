@@ -30,6 +30,8 @@ type VirtualRow<T> =
 
 type VirtualizerHandle = {
 	itemCount: number;
+	highlightEdgeItem: (edge: "start" | "end") => void;
+	highlightPageItem: (currentItemIndex: number | null, direction: -1 | 1) => void;
 	scrollToItemIndex: (
 		index: number,
 		options: Parameters<ReturnType<typeof useVirtualizer>["scrollToIndex"]>[1],
@@ -61,21 +63,20 @@ const VirtualizedListArea = <T,>({
 	// React Compiler leaves components using useVirtualizer uncompiled because its returned
 	// functions cannot be memoised safely:
 	//   https://github.com/TanStack/virtual/issues/1119
-	const virtualRows = useMemo(() => {
+	const { virtualRows, virtualRowIndexByItemIndex } = useMemo(() => {
 		let itemIndex = 0;
-		return filteredGroups.flatMap(
-			(group): Array<VirtualRow<T>> => [
-				{ _tag: "Group", group },
-				...group.items.map(
-					(item): VirtualRow<T> => ({
-						_tag: "Item",
-						group,
-						item,
-						itemIndex: itemIndex++,
-					}),
-				),
-			],
-		);
+		const virtualRows: Array<VirtualRow<T>> = [];
+		const virtualRowIndexByItemIndex = new Map<number, number>();
+
+		for (const group of filteredGroups) {
+			virtualRows.push({ _tag: "Group", group });
+			for (const item of group.items) {
+				virtualRowIndexByItemIndex.set(itemIndex, virtualRows.length);
+				virtualRows.push({ _tag: "Item", group, item, itemIndex: itemIndex++ });
+			}
+		}
+
+		return { virtualRows, virtualRowIndexByItemIndex };
 	}, [filteredGroups]);
 
 	const getVirtualRowKey = useCallback(
@@ -104,14 +105,63 @@ const VirtualizedListArea = <T,>({
 		scrollPaddingStart: 8,
 		scrollPaddingEnd: 8,
 	});
+	const highlightRequestRef = useRef(0);
+
+	const highlightItemIndex = (index: number) => {
+		const virtualRowIndex = virtualRowIndexByItemIndex.get(index);
+		if (virtualRowIndex === undefined) return;
+
+		const request = ++highlightRequestRef.current;
+		virtualizer.scrollToIndex(virtualRowIndex, { align: "auto" });
+		let remainingFrames = 2;
+
+		const highlightMountedItem = () => {
+			if (request !== highlightRequestRef.current) return;
+			const item = scrollElementRef.current?.querySelector<HTMLElement>(
+				`[data-item-index="${index}"]`,
+			);
+			if (item) {
+				// Base UI has no public highlighted-index setter, so use its item handler once
+				// the virtualizer has mounted the target option.
+				item.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+				return;
+			}
+			if (remainingFrames-- > 0) requestAnimationFrame(highlightMountedItem);
+		};
+
+		queueMicrotask(highlightMountedItem);
+	};
 
 	useImperativeHandle(virtualizerRef, () => ({
 		itemCount,
-		scrollToItemIndex: (index, options) => {
-			const virtualRowIndex = virtualRows.findIndex(
-				(row) => row._tag === "Item" && row.itemIndex === index,
+		highlightEdgeItem: (edge) => {
+			if (itemCount > 0) highlightItemIndex(edge === "start" ? 0 : itemCount - 1);
+		},
+		highlightPageItem: (currentItemIndex, direction) => {
+			if (itemCount === 0) return;
+
+			const scrollElement = scrollElementRef.current;
+			const visibleItemCount = scrollElement
+				? virtualizer
+						.getVirtualItems()
+						.filter(
+							(row) =>
+								virtualRows[row.index]?._tag === "Item" &&
+								row.end > scrollElement.scrollTop &&
+								row.start < scrollElement.scrollTop + scrollElement.clientHeight,
+						).length
+				: 1;
+			const currentIndex = currentItemIndex ?? (direction === 1 ? 0 : itemCount - 1);
+			const pageItemCount = Math.max(1, visibleItemCount - 1);
+			const targetIndex = Math.max(
+				0,
+				Math.min(itemCount - 1, currentIndex + direction * pageItemCount),
 			);
-			if (virtualRowIndex !== -1) virtualizer.scrollToIndex(virtualRowIndex, options);
+			highlightItemIndex(targetIndex);
+		},
+		scrollToItemIndex: (index, options) => {
+			const virtualRowIndex = virtualRowIndexByItemIndex.get(index);
+			if (virtualRowIndex !== undefined) virtualizer.scrollToIndex(virtualRowIndex, options);
 		},
 	}));
 
@@ -165,6 +215,7 @@ const VirtualizedListArea = <T,>({
 										key={virtualItem.key}
 										index={row.itemIndex}
 										data-index={virtualItem.index}
+										data-item-index={row.itemIndex}
 										ref={virtualizer.measureElement}
 										className={styles.item}
 										value={row.item}
@@ -221,6 +272,7 @@ export const PickerDialog = <T,>({
 }: Props<T>) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const virtualizerRef = useRef<VirtualizerHandle | null>(null);
+	const highlightedItemIndexRef = useRef<number | null>(null);
 	const [inputValue, setInputValue] = useState("");
 	const deferredInputValue = useDeferredValue(inputValue);
 
@@ -238,6 +290,7 @@ export const PickerDialog = <T,>({
 							onValueChange={setInputValue}
 							virtualized
 							onItemHighlighted={(_, { reason, index }) => {
+								highlightedItemIndexRef.current = index < 0 ? null : index;
 								const virtualizer = virtualizerRef.current;
 								if (!virtualizer || index < 0) return;
 
@@ -260,6 +313,28 @@ export const PickerDialog = <T,>({
 							<Autocomplete.Input
 								ref={inputRef}
 								value={inputValue}
+								onKeyDown={(event) => {
+									const virtualizer = virtualizerRef.current;
+									if (!virtualizer) return;
+
+									if (event.metaKey && event.key === "ArrowUp") {
+										event.preventDefault();
+										event.preventBaseUIHandler();
+										virtualizer.highlightEdgeItem("start");
+									} else if (event.metaKey && event.key === "ArrowDown") {
+										event.preventDefault();
+										event.preventBaseUIHandler();
+										virtualizer.highlightEdgeItem("end");
+									} else if (event.key === "PageUp") {
+										event.preventDefault();
+										event.preventBaseUIHandler();
+										virtualizer.highlightPageItem(highlightedItemIndexRef.current, -1);
+									} else if (event.key === "PageDown") {
+										event.preventDefault();
+										event.preventBaseUIHandler();
+										virtualizer.highlightPageItem(highlightedItemIndexRef.current, 1);
+									}
+								}}
 								className={styles.input}
 								placeholder={placeholder}
 								aria-label={placeholder}
