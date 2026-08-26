@@ -56,6 +56,16 @@ export class ListingService {
 		return branchNames.map((branch) => prSelectors.selectById(result, branch)).filter(isDefined);
 	}
 
+	/**
+	 * Latest cached `list_reviews` result for the project, read without
+	 * subscribing or fetching. The workspace's polled listing keeps this
+	 * current; its `error` lets settings surface a degraded integration
+	 * state (e.g. an org-level OAuth restriction).
+	 */
+	listingState(projectId: string) {
+		return this.backendApi.endpoints.listPrs.useQueryState(projectId);
+	}
+
 	async refresh(projectId: string): Promise<void> {
 		// Force a live fetch so the DB cache is refreshed, then invalidate the
 		// cached listing so its subscribers re-read the just-updated data.

@@ -1,7 +1,7 @@
 <script lang="ts" generics="TAccount">
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { Button, CardGroup, Link, Select, SelectItem } from "@gitbutler/ui";
-	import type { Component } from "svelte";
+	import type { Component, Snippet } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -15,6 +15,8 @@
 		AccountBadge: Component<{ account: TAccount; class?: string }>;
 		docsUrl: string;
 		requestType: "pull request" | "merge request";
+		/** Degraded-integration notice rendered below the account select. */
+		notice?: Snippet;
 	};
 
 	const {
@@ -29,6 +31,7 @@
 		AccountBadge,
 		docsUrl,
 		requestType,
+		notice,
 	}: Props = $props();
 
 	const { openGeneralSettings } = useSettingsModal();
@@ -85,5 +88,9 @@
 				</SelectItem>
 			{/snippet}
 		</Select>
+	{/if}
+
+	{#if notice}
+		{@render notice()}
 	{/if}
 </CardGroup.Item>

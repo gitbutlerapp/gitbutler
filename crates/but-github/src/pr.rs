@@ -79,13 +79,25 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
             "Unable to connect to GitHub.",
         ));
     }
-    if let Some(http_err) = err.downcast_ref::<HttpStatusError>()
-        && http_err.status == reqwest::StatusCode::UNAUTHORIZED
-    {
-        return err.context(but_error::Context::new_static(
-            but_error::Code::GitHubTokenExpired,
-            "GitHub authentication failed.",
-        ));
+    if let Some(http_err) = err.downcast_ref::<HttpStatusError>() {
+        if http_err.status == reqwest::StatusCode::UNAUTHORIZED {
+            return err.context(but_error::Context::new_static(
+                but_error::Code::GitHubTokenExpired,
+                "GitHub authentication failed.",
+            ));
+        }
+        // GitHub explains an organization-level OAuth App block in the 403
+        // body, which `ensure_success` keeps as context in the chain.
+        if http_err.status == reqwest::StatusCode::FORBIDDEN
+            && err
+                .chain()
+                .any(|cause| cause.to_string().contains("OAuth App access restrictions"))
+        {
+            return err.context(but_error::Context::new_static(
+                but_error::Code::GitHubOrgOAuthRestricted,
+                "A GitHub organization has restricted access for the GitButler OAuth app. Ask an organization owner to approve it, or authenticate with a personal access token instead.",
+            ));
+        }
     }
     err
 }
@@ -421,4 +433,41 @@ pub async fn set_auto_merge(
         .set_pull_request_auto_merge(&params)
         .await
         .context("Failed to update PR auto-merge state")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Shape the error like `ensure_success` does: the status-carrying error
+    /// wrapped by what the forge said in the response body.
+    fn http_error(status: reqwest::StatusCode, body: &str) -> anyhow::Error {
+        anyhow::Error::from(HttpStatusError { status }).context(body.to_string())
+    }
+
+    #[test]
+    fn org_oauth_restriction_403_gets_dedicated_code() {
+        let err = classify_forge_error(http_error(
+            reqwest::StatusCode::FORBIDDEN,
+            r#"403 Forbidden: {"message":"Although you appear to have the correct authorization credentials, the organization has enabled OAuth App access restrictions."}"#,
+        ));
+        let ctx = err.downcast_ref::<but_error::Context>();
+        assert_eq!(
+            ctx.map(|c| c.code),
+            Some(but_error::Code::GitHubOrgOAuthRestricted),
+            "the frontend keys its presentation off this code"
+        );
+    }
+
+    #[test]
+    fn other_403s_stay_unclassified() {
+        let err = classify_forge_error(http_error(
+            reqwest::StatusCode::FORBIDDEN,
+            r#"403 Forbidden: {"message":"Resource not accessible by integration"}"#,
+        ));
+        assert!(
+            err.downcast_ref::<but_error::Context>().is_none(),
+            "an unrelated 403 must not be presented as an org OAuth restriction"
+        );
+    }
 }
