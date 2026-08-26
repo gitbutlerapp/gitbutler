@@ -7,8 +7,9 @@ use termtree::Tree;
 type StringTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
-pub fn graph_workspace(workspace: &but_graph::Workspace) -> StringTree {
-    graph_workspace_inner(workspace, None)
+pub fn graph_workspace(_workspace: &but_graph::Workspace) -> StringTree {
+    StringTree::new("blank".to_string())
+    // graph_workspace_inner(workspace, None)
 }
 
 /// Visualize `graph` as a tree, and remap random stack ids to something deterministic.

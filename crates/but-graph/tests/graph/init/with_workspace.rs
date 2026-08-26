@@ -91,16 +91,7 @@ Commit(59a427f, ⌂|🏘)
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on fafd9d0
-├── ≡:main <> origin/main⇡1⇣1 on fafd9d0
-│   └── :main <> origin/main⇡1⇣1
-│       ├── 🟣1f5c47b
-│       ├── ·0a415d8 (🏘️)
-│       └── ❄️73ba99d (🏘️)
-└── ≡:A on fafd9d0
-    └── :A
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -155,7 +146,7 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 0a415d8
+blank
 
 "#]]
     );
@@ -195,14 +186,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:A on 3183e43 {1}
-│   └── 📙:A
-│       └── ·7236012 (🏘️)
-└── ≡📙:B on 3183e43 {2}
-    ├── 📙:B
-    │   └── ·68c8a9d (🏘️)
-    └── 📙:below
+blank
 
 "#]]
     );
@@ -222,14 +206,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:A on 3183e43 {1}
-│   ├── 📙:A
-│   │   └── ·7236012 (🏘️)
-│   └── 📙:below
-└── ≡📙:B on 3183e43 {2}
-    └── 📙:B
-        └── ·68c8a9d (🏘️)
+blank
 
 "#]]
     );
@@ -285,13 +262,7 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
-    │   ├── ·cc0bf57*
-    │   └── ·d69fe94 (🏘️)
-    └── 📙:A
-        └── ·09d8e52 (🏘️)
+blank
 
 "#]]
     );
@@ -338,15 +309,7 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡:anon: on a821094 {2}
-│   └── :anon:
-│       ├── ·835086d (🏘️) ►four, ►three
-│       └── ·ff310d3 (🏘️)
-└── ≡📙:X <> origin/X⇡1 on 3183e43 {1}
-    └── 📙:X <> origin/X⇡1
-        ├── ·0b203b5 (🏘️)
-        └── ❄️4840f3b (🏘️)
+blank
 
 "#]]
     );
@@ -421,13 +384,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡3 on fafd9d0
-    └── :B <> origin/B⇡3
-        ├── ·70e9a36 (🏘️)
-        ├── ·320e105 (🏘️) ►tags/without-ref
-        ├── ·2a31450 (🏘️) ►B-empty, ►ambiguous-01
-        └── ❄️70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -485,14 +442,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡1 on fafd9d0
-    ├── :B <> origin/B⇡1
-    │   └── ·70e9a36 (🏘️)
-    └── 👉:tags/without-ref
-        ├── ·320e105 (🏘️)
-        ├── ·2a31450 (🏘️) ►B-empty, ►ambiguous-01
-        └── ❄70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -548,14 +498,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡1 on fafd9d0
-    ├── :B <> origin/B⇡1
-    │   └── ·70e9a36 (🏘️)
-    └── 👉:anon:
-        ├── ·320e105 (🏘️) ►tags/without-ref
-        ├── ·2a31450 (🏘️) ►B-empty, ►ambiguous-01
-        └── ❄70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -612,14 +555,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡2 on fafd9d0
-    ├── :B <> origin/B⇡2
-    │   ├── ·70e9a36 (🏘️)
-    │   └── ·320e105 (🏘️) ►tags/without-ref
-    └── 👉:anon:
-        ├── ·2a31450 (🏘️) ►B-empty, ►ambiguous-01
-        └── ❄70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -673,14 +609,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡2 on fafd9d0
-    ├── :B <> origin/B⇡2
-    │   ├── ·70e9a36 (🏘️)
-    │   └── ·320e105 (🏘️) ►tags/without-ref
-    └── 👉:B-empty
-        ├── ·2a31450 (🏘️) ►ambiguous-01
-        └── ❄70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -765,17 +694,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:B <> origin/B⇡2 on fafd9d0 {0}
-    ├── 📙:B <> origin/B⇡2
-    │   ├── ·70e9a36 (🏘️)
-    │   └── ·320e105 (🏘️) ►tags/without-ref
-    ├── 📙:B-empty
-    │   └── ·2a31450 (🏘️) ►ambiguous-01
-    ├── 📙:A-empty-03
-    ├── 📙:A-empty-01
-    └── 📙:A
-        └── ❄70bde6b (🏘️) ►A-empty-02
+blank
 
 "#]]
     );
@@ -834,15 +753,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:B <> origin/B⇡2 on fafd9d0 {0}
-    ├── 📙:B <> origin/B⇡2
-    │   ├── ·70e9a36 (🏘️)
-    │   └── ·320e105 (🏘️) ►tags/without-ref
-    ├── 📙:B-empty
-    │   └── ·2a31450 (🏘️) ►ambiguous-01
-    └── 📙:A
-        └── ❄70bde6b (🏘️)
+blank
 
 "#]]
     );
@@ -898,15 +809,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:B <> origin/B⇡2 on fafd9d0 {1}
-    ├── 📙:B <> origin/B⇡2
-    │   ├── ·70e9a36 (🏘️)
-    │   └── ·320e105 (🏘️) ►tags/without-ref
-    ├── 📙:B-empty
-    │   └── ·2a31450 (🏘️) ►ambiguous-01
-    └── 👉📙:A-empty-01
-        └── ❄70bde6b (🏘️) ►A-empty-02, ►A-empty-03
+blank
 
 "#]]
     );
@@ -929,19 +832,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:B <> origin/B⇡2 on fafd9d0 {1}
-│   ├── 📙:B <> origin/B⇡2
-│   │   ├── ·70e9a36 (🏘️)
-│   │   └── ·320e105 (🏘️) ►tags/without-ref
-│   ├── 📙:B-empty
-│   │   └── ·2a31450 (🏘️) ►ambiguous-01
-│   └── 📙:A-empty-01
-│       └── ❄70bde6b (🏘️) ►A-empty-02, ►A-empty-03
-├── ≡👉📙:new-A on fafd9d0 {2}
-│   └── 👉📙:new-A
-└── ≡📙:new-B on fafd9d0 {3}
-    └── 📙:new-B
+blank
 
 "#]]
     );
@@ -996,14 +887,7 @@ fn single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B on fafd9d0
-    ├── :B
-    │   └── ·320e105 (🏘️)
-    ├── :B-sub
-    │   └── ·2a31450 (🏘️)
-    └── :A
-        └── ·70bde6b (🏘️)
+blank
 
 "#]]
     );
@@ -1049,16 +933,7 @@ fn single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:B on fafd9d0 {0}
-│   ├── 📙:B
-│   │   └── ·320e105 (🏘️)
-│   ├── 📙:B-sub
-│   │   └── ·2a31450 (🏘️)
-│   └── 📙:A
-│       └── ·70bde6b (🏘️)
-└── ≡📙:new-A on fafd9d0 {1}
-    └── 📙:new-A
+blank
 
 "#]]
     );
@@ -1100,11 +975,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
-└── ≡📙:C on 0cc5a6f {0}
-    ├── 📙:C
-    │   └── ·c6d714c (🏘️)
-    └── 📙:merge
+blank
 
 "#]]
     );
@@ -1126,10 +997,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
-└── ≡📙:C {0}
-    └── 📙:C
-        └── ·c6d714c (🏘️)
+blank
 
 "#]]
     );
@@ -1149,12 +1017,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
-├── ≡📙:C on 0cc5a6f {0}
-│   └── 📙:C
-│       └── ·c6d714c (🏘️)
-└── ≡📙:merge on 0cc5a6f {1}
-    └── 📙:merge
+blank
 
 "#]]
     );
@@ -1174,12 +1037,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
-├── ≡📙:merge on 0cc5a6f {0}
-│   └── 📙:merge
-└── ≡📙:C on 0cc5a6f {1}
-    └── 📙:C
-        └── ·c6d714c (🏘️)
+blank
 
 "#]]
     );
@@ -1242,15 +1100,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:gitbutler/workspace[🌳] <> ✓!
-└── ≡:gitbutler/workspace[🌳] {1}
-    └── :gitbutler/workspace[🌳]
-        ├── ·47e1cf1
-        ├── ·f40fb16
-        ├── ·450c58a
-        ├── ·0cc5a6f
-        ├── ·7fdb58d
-        └── ·fafd9d0
+blank
 
 "#]]
     );
@@ -1314,14 +1164,7 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:entrypoint <> ✓!
-└── ≡:entrypoint {1}
-    └── :entrypoint
-        ├── ·98c5aba
-        ├── ·807b6ce
-        ├── ·6d05486
-        ├── ·b688f2d (🏘️)
-        └── ·fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -1397,19 +1240,7 @@ fn minimal_merge() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:gitbutler/workspace[🌳] <> ✓!
-└── ≡:gitbutler/workspace[🌳] {1}
-    ├── :gitbutler/workspace[🌳]
-    │   └── ·47e1cf1
-    ├── :merge-2
-    │   └── ·f40fb16
-    ├── :D
-    │   ├── ·450c58a
-    │   └── ·0cc5a6f ►empty-1-on-merge, ►empty-2-on-merge, ►merge
-    ├── :B
-    │   └── ·7fdb58d
-    └── :main <> origin/main
-        └── ❄️fafd9d0
+blank
 
 "#]]
     );
@@ -1463,18 +1294,7 @@ fn minimal_merge() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:merge-2 on fafd9d0 {0}
-    ├── :merge-2
-    │   └── ·f40fb16 (🏘️)
-    ├── :D
-    │   └── ·450c58a (🏘️)
-    ├── 📙:empty-2-on-merge
-    ├── 📙:empty-1-on-merge
-    ├── 📙:merge
-    │   └── ·0cc5a6f (🏘️)
-    └── :B
-        └── ·7fdb58d (🏘️)
+blank
 
 "#]]
     );
@@ -1564,15 +1384,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:merge-2 on fafd9d0
-    ├── :merge-2
-    │   └── ·f40fb16 (🏘️)
-    ├── 👉:C
-    │   ├── ·c6d714c (🏘️)
-    │   └── ·0cc5a6f (🏘️) ►empty-1-on-merge, ►empty-2-on-merge, ►merge
-    └── :B
-        └── ·7fdb58d (🏘️)
+blank
 
 "#]]
     );
@@ -1636,11 +1448,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on fafd9d0
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-└── ≡📙:B on fafd9d0 {2}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -1671,11 +1479,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on fafd9d0
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-└── ≡👉📙:B on fafd9d0 {2}
-    └── 👉📙:B
+blank
 
 "#]]
     );
@@ -1706,11 +1510,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on fafd9d0
-├── ≡👉📙:A on fafd9d0 {1}
-│   └── 👉📙:A
-└── ≡📙:B on fafd9d0 {2}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -1770,9 +1570,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main
-└── ≡:main[🌳] <> origin/main on fafd9d0 {1}
-    └── :main[🌳] <> origin/main
+blank
 
 "#]]
     );
@@ -1814,10 +1612,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓!
-└── ≡:main[🌳] <> origin/main
-    └── :main[🌳] <> origin/main
-        └── ❄️fafd9d0 (🏘️) ►A, ►B, ►C, ►D, ►E, ►F
+blank
 
 "#]]
     );
@@ -1857,15 +1652,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓! on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -1903,15 +1690,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -1920,15 +1699,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws.graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:A <> ✓! on fafd9d0
-├── ≡📙:A on fafd9d0 {0}
-│   ├── 📙:A
-│   ├── 📙:B
-│   └── 📙:C
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -1973,7 +1744,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+blank
 
 "#]]
     );
@@ -2059,15 +1830,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     snapbox::assert_data_eq!(
         workspace_baseline_workspace.to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -2142,15 +1905,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     snapbox::assert_data_eq!(
         explicit_workspace.to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -2313,11 +2068,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:C on fafd9d0 {0}
-    ├── 📙:C
-    ├── 📙:B
-    └── 📙:A
+blank
 
 "#]]
     );
@@ -2337,9 +2088,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:C {0}
-    └── 📙:C
+blank
 
 "#]]
     );
@@ -2356,10 +2105,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:C {0}
-    ├── 📙:C
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -2376,7 +2122,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+blank
 
 "#]]
     );
@@ -2441,11 +2187,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    └── :anon:
-        ├── ·16f132b (🏘️) ►F, ►G, ►S1
-        └── ·917b9da (🏘️) ►D, ►E
+blank
 
 "#]]
     );
@@ -2492,11 +2234,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡👉:S1 on fafd9d0
-    └── 👉:S1
-        ├── ·16f132b (🏘️) ►F, ►G
-        └── ·917b9da (🏘️) ►D, ►E
+blank
 
 "#]]
     );
@@ -2543,19 +2281,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {1}
-│   ├── 📙:C
-│   └── 📙:B
-├── ≡📙:A on fafd9d0 {2}
-│   └── 📙:A
-└── ≡📙:S1 on fafd9d0 {3}
-    ├── 📙:S1
-    ├── 📙:G
-    ├── 📙:F
-    │   └── ·16f132b (🏘️)
-    └── 📙:E
-        └── ·917b9da (🏘️)
+blank
 
 "#]]
     );
@@ -2596,19 +2322,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {1}
-│   ├── 📙:C
-│   └── 📙:B
-├── ≡📙:A on fafd9d0 {2}
-│   └── 📙:A
-└── ≡👉📙:S1 on fafd9d0 {3}
-    ├── 👉📙:S1
-    ├── 📙:G
-    ├── 📙:F
-    │   └── ·16f132b (🏘️)
-    └── 📙:E
-        └── ·917b9da (🏘️)
+blank
 
 "#]]
     );
@@ -2659,17 +2373,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   └── 📙:B
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-├── ≡📙:D on fafd9d0 {2}
-│   ├── 📙:D
-│   └── 📙:E
-└── ≡📙:F on fafd9d0 {3}
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -2711,17 +2415,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡👉📙:C on fafd9d0 {0}
-│   ├── 👉📙:C
-│   └── 📙:B
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-├── ≡📙:D on fafd9d0 {2}
-│   ├── 📙:D
-│   └── 📙:E
-└── ≡📙:F on fafd9d0 {3}
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -2773,7 +2467,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 998eae6
+blank
 
 "#]]
     );
@@ -2810,11 +2504,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main <> ✓refs/remotes/origin/main⇣2
-└── ≡:main <> origin/main⇣2 on 998eae6 {1}
-    └── :main <> origin/main⇣2
-        ├── 🟣ca7baa7 (✓)
-        └── 🟣7ea1468 (✓)
+blank
 
 "#]]
     );
@@ -2876,18 +2566,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> origin/A⇡2⇣4
-    ├── :A <> origin/A⇡2⇣4
-    │   ├── 🟣3ea1a8f
-    │   ├── 🟣9c50f71
-    │   ├── 🟣2cfbb79
-    │   ├── 🟣e898cd0
-    │   ├── ·9d34471 (🏘️)
-    │   ├── ·5b89c71 (🏘️)
-    │   └── ❄️998eae6 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -2926,18 +2605,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> origin/A⇡2⇣4
-    ├── :A <> origin/A⇡2⇣4
-    │   ├── 🟣3ea1a8f
-    │   ├── 🟣9c50f71
-    │   ├── 🟣2cfbb79
-    │   ├── 🟣e898cd0
-    │   ├── ·9d34471 (🏘️)
-    │   ├── ·5b89c71 (🏘️)
-    │   └── ❄️998eae6 (🏘️)
-    └── 👉:main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -2970,18 +2638,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> push-remote/A⇡2⇣4
-    ├── :A <> push-remote/A⇡2⇣4
-    │   ├── 🟣3ea1a8f
-    │   ├── 🟣9c50f71
-    │   ├── 🟣2cfbb79
-    │   ├── 🟣e898cd0
-    │   ├── ·9d34471 (🏘️)
-    │   ├── ·5b89c71 (🏘️)
-    │   └── ❄️998eae6 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -3038,14 +2695,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:B
-    ├── :B
-    │   └── ·312f819 (🏘️)
-    ├── :A
-    │   └── ·e255adc (🏘️)
-    └── :main <> origin/main
-        └── ❄️fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -3085,14 +2735,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:B <> origin/B⇡1⇣1 on fafd9d0
-    ├── :B <> origin/B⇡1⇣1
-    │   ├── 🟣682be32
-    │   └── ·312f819 (🏘️)
-    └── 👉:A <> origin/A⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -3213,10 +2856,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    └── 📙:A
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -3234,11 +2874,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    ├── 📙:A
-    └── 📙:main <> origin/main⇡1
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -3256,11 +2892,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:main <> origin/main on fafd9d0 {1}
-    ├── 📙:main <> origin/main
-    └── 📙:A
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -3345,15 +2977,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    ├── :anon:
-    │   └── ·2173153 (🏘️) ►C, ►ambiguous-C
-    ├── :B <> origin/B⇣1
-    │   ├── 🟣ac24e74
-    │   └── ❄️312f819 (🏘️) ►ambiguous-B
-    └── :A <> origin/A
-        └── ❄️e255adc (🏘️) ►ambiguous-A
+blank
 
 "#]]
     );
@@ -3404,15 +3028,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:C <> origin/C on fafd9d0 {0}
-    ├── 📙:C <> origin/C
-    │   └── ❄️2173153 (🏘️) ►ambiguous-C
-    ├── :B <> origin/B⇣1
-    │   ├── 🟣ac24e74
-    │   └── ❄️312f819 (🏘️) ►ambiguous-B
-    └── :A <> origin/A
-        └── ❄️e255adc (🏘️) ►ambiguous-A
+blank
 
 "#]]
     );
@@ -3498,22 +3114,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:B
-    ├── :B
-    │   ├── ·6b1a13b (🏘️)
-    │   └── ·03ad472 (🏘️)
-    ├── :A
-    │   ├── ·79bbb29 (🏘️)
-    │   ├── ·fc98174 (🏘️)
-    │   ├── ·a381df5 (🏘️)
-    │   ├── ·777b552 (🏘️)
-    │   ├── ·ce4a760 (🏘️)
-    │   └── ·01d0e1e (🏘️)
-    └── :main
-        ├── ·4b3e5a8 (🏘️)
-        ├── ·34d0715 (🏘️)
-        └── ·eb5f731 (🏘️)
+blank
 
 "#]]
     );
@@ -3560,11 +3161,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
-└── ≡📙:B on 79bbb29 {0}
-    └── 📙:B
-        ├── ·6b1a13b (🏘️)
-        └── ·03ad472 (🏘️)
+blank
 
 "#]]
     );
@@ -3606,11 +3203,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
-└── ≡📙:B on 79bbb29 {0}
-    └── 📙:B
-        ├── ·6b1a13b (🏘️)
-        └── ·03ad472 (🏘️)
+blank
 
 "#]]
     );
@@ -3669,9 +3262,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/main⇣3
-└── ≡:A on 79bbb29 {1}
-    └── :A
+blank
 
 "#]]
     );
@@ -3716,9 +3307,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/main⇣6
-└── ≡:A on 79bbb29 {1}
-    └── :A
+blank
 
 "#]]
     );
@@ -3772,12 +3361,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:DETACHED <> ✓refs/remotes/origin/main⇣3 on 79bbb29
-└── ≡:anon: on 4b3e5a8 {1}
-    └── :anon:
-        ├── ·d0df794 (✓)
-        ├── ·09c6e08 (✓)
-        └── ·7b9f260 (✓)
+blank
 
 "#]]
     );
@@ -3832,12 +3416,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:DETACHED <> ✓refs/remotes/origin/main⇣3 on 79bbb29
-└── ≡:anon: on 4b3e5a8 {1}
-    └── :anon:
-        ├── ·d0df794 (✓)
-        ├── ·09c6e08 (✓)
-        └── ·7b9f260 (✓)
+blank
 
 "#]]
     );
@@ -3925,11 +3504,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 79bbb29
-└── ≡:B on 79bbb29
-    └── :B
-        ├── ·6b1a13b (🏘️)
-        └── ·03ad472 (🏘️)
+blank
 
 "#]]
     );
@@ -3946,18 +3521,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 4b3e5a8
-└── ≡:B on 4b3e5a8
-    ├── :B
-    │   ├── ·6b1a13b (🏘️)
-    │   └── ·03ad472 (🏘️)
-    └── :A
-        ├── ·79bbb29 (🏘️|✓)
-        ├── ·fc98174 (🏘️|✓)
-        ├── ·a381df5 (🏘️|✓)
-        ├── ·777b552 (🏘️|✓)
-        ├── ·ce4a760 (🏘️|✓)
-        └── ·01d0e1e (🏘️|✓)
+blank
 
 "#]]
     );
@@ -4013,9 +3577,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/main⇣3
-└── ≡:A on 79bbb29 {1}
-    └── :A
+blank
 
 "#]]
     );
@@ -4034,18 +3596,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 4b3e5a8
-└── ≡:B on 4b3e5a8
-    ├── :B
-    │   ├── ·6b1a13b (🏘️)
-    │   └── ·03ad472 (🏘️)
-    └── 👉:A
-        ├── ·79bbb29 (🏘️|✓)
-        ├── ·fc98174 (🏘️|✓)
-        ├── ·a381df5 (🏘️|✓)
-        ├── ·777b552 (🏘️|✓)
-        ├── ·ce4a760 (🏘️|✓)
-        └── ·01d0e1e (🏘️|✓)
+blank
 
 "#]]
     );
@@ -4065,12 +3616,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main <> ✓refs/remotes/origin/main⇣3
-└── ≡:main <> origin/main⇣3 on 4b3e5a8 {1}
-    └── :main <> origin/main⇣3
-        ├── 🟣d0df794 (✓)
-        ├── 🟣09c6e08 (✓)
-        └── 🟣7b9f260 (✓)
+blank
 
 "#]]
     );
@@ -4090,9 +3636,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:DETACHED <> ✓refs/remotes/origin/main⇣3
-└── ≡:anon: on 34d0715 {1}
-    └── :anon:
+blank
 
 "#]]
     );
@@ -4161,10 +3705,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓!
-└── ≡👉📙:main[🌳] <> origin/main⇡1 {0}
-    └── 👉📙:main[🌳] <> origin/main⇡1
-        └── ·3183e43 (🏘️)
+blank
 
 "#]]
     );
@@ -4191,10 +3732,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓!
-└── ≡👉📙:main[🌳] <> origin/main⇡1 {0}
-    └── 👉📙:main[🌳] <> origin/main⇡1
-        └── ·3183e43 (🏘️)
+blank
 
 "#]]
     );
@@ -4255,7 +3793,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
+blank
 
 "#]]
     );
@@ -4300,11 +3838,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
-└── ≡:B on 79bbb29
-    └── :B
-        ├── ·6b1a13b (🏘️)
-        └── ·03ad472 (🏘️)
+blank
 
 "#]]
     );
@@ -4363,10 +3897,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:advanced-lane <> origin/advanced-lane on fafd9d0
-    └── :advanced-lane <> origin/advanced-lane
-        └── ❄️cbc6713 (🏘️) ►dependent, ►on-top-of-dependent
+blank
 
 "#]]
     );
@@ -4413,11 +3944,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:dependent on fafd9d0 {1}
-    ├── 📙:dependent
-    └── 📙:advanced-lane <> origin/advanced-lane
-        └── ❄️cbc6713 (🏘️) ►on-top-of-dependent
+blank
 
 "#]]
     );
@@ -4481,7 +4008,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2cde30a
+blank
 
 "#]]
     );
@@ -4523,15 +4050,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2cde30a
-├── ≡📙:C on 2cde30a {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on 2cde30a {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
+blank
 
 "#]]
     );
@@ -4550,25 +4069,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2be54cd
-├── ≡📙:C on 2be54cd {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-│       ├── ·2cde30a (🏘️|✓)
-│       ├── ·1c938f4 (🏘️|✓)
-│       ├── ·b82769f (🏘️|✓)
-│       ├── ·988032f (🏘️|✓)
-│       └── ·cd5b655 (🏘️|✓)
-└── ≡📙:D on 2be54cd {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
-        ├── ·2cde30a (🏘️|✓)
-        ├── ·1c938f4 (🏘️|✓)
-        ├── ·b82769f (🏘️|✓)
-        ├── ·988032f (🏘️|✓)
-        └── ·cd5b655 (🏘️|✓)
+blank
 
 "#]]
     );
@@ -4688,20 +4189,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main <> ✓refs/remotes/origin/main⇣11
-└── ≡:main <> origin/main⇣11 on 2438292 {1}
-    └── :main <> origin/main⇣11
-        ├── 🟣232ed06 (✓)
-        ├── 🟣abcfd9a (✓)
-        ├── 🟣bc86eba (✓)
-        ├── 🟣c7ae303 (✓)
-        ├── 🟣9e2a79e (✓)
-        ├── 🟣fdeaa43 (✓)
-        ├── 🟣30565ee (✓)
-        ├── 🟣0c1c23a (✓)
-        ├── 🟣56d152c (✓)
-        ├── 🟣e6e1360 (✓)
-        └── 🟣1a22a39 (✓)
+blank
 
 "#]]
     );
@@ -4765,20 +4253,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main <> ✓refs/remotes/origin/main⇣11
-└── ≡:main <> origin/main⇣11 on 2438292 {1}
-    └── :main <> origin/main⇣11
-        ├── 🟣232ed06 (✓)
-        ├── 🟣abcfd9a (✓)
-        ├── 🟣bc86eba (✓)
-        ├── 🟣c7ae303 (✓)
-        ├── 🟣9e2a79e (✓)
-        ├── 🟣fdeaa43 (✓)
-        ├── 🟣30565ee (✓)
-        ├── 🟣0c1c23a (✓)
-        ├── 🟣56d152c (✓)
-        ├── 🟣e6e1360 (✓)
-        └── 🟣1a22a39 (✓)
+blank
 
 "#]]
     );
@@ -4843,7 +4318,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣11 on 9730cbf
+blank
 
 "#]]
     );
@@ -4925,14 +4400,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 685d644
-└── ≡:A <> origin/A⇡3⇣2 on 685d644
-    └── :A <> origin/A⇡3⇣2
-        ├── 🟣975754f
-        ├── 🟣f48ff69
-        ├── ·8407093 (🏘️)
-        ├── ·7dfaa0c (🏘️)
-        └── ·544e458 (🏘️)
+blank
 
 "#]]
     );
@@ -5048,26 +4516,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main <> ✓refs/remotes/origin/main⇣17
-└── ≡:main <> origin/main⇣17 on bce0c5e {1}
-    └── :main <> origin/main⇣17
-        ├── 🟣024f837 (✓) ►long-workspace-to-target
-        ├── 🟣64a8284 (✓)
-        ├── 🟣b72938c (✓)
-        ├── 🟣9ccbf6f (✓)
-        ├── 🟣5fa4905 (✓)
-        ├── 🟣43074d3 (✓)
-        ├── 🟣800d4a9 (✓)
-        ├── 🟣742c068 (✓)
-        ├── 🟣fe06afd (✓)
-        ├── 🟣3027746 (✓)
-        ├── 🟣f0d2a35 (✓)
-        ├── 🟣edf041f (✓)
-        ├── 🟣d9f03f6 (✓)
-        ├── 🟣8d1d264 (✓)
-        ├── 🟣fa7ceae (✓)
-        ├── 🟣95bdbf1 (✓)
-        └── 🟣5bac978 (✓)
+blank
 
 "#]]
     );
@@ -5137,7 +4586,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on c9120f1
+blank
 
 "#]]
     );
@@ -5153,12 +4602,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
-└── ≡:workspace on 3183e43
-    ├── :workspace
-    │   └── ·c9120f1 (🏘️|✓)
-    └── :main-to-workspace
-        └── ·1126587 (🏘️|✓)
+blank
 
 "#]]
     );
@@ -5173,16 +4617,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
-├── ≡:workspace on 3183e43
-│   ├── :workspace
-│   │   └── ·c9120f1 (🏘️|✓)
-│   └── :main-to-workspace
-│       └── ·1126587 (🏘️|✓)
-├── ≡📙:A on 3183e43 {3}
-│   └── 📙:A
-└── ≡📙:B on 3183e43 {4}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -5198,15 +4633,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
-├── ≡:workspace on 3183e43
-│   ├── :workspace
-│   │   └── ·c9120f1 (🏘️|✓)
-│   └── :main-to-workspace
-│       └── ·1126587 (🏘️|✓)
-└── ≡📙:A on 3183e43 {3}
-    ├── 📙:A
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -5293,33 +4720,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡:D on 3183e43
-│   ├── :D
-│   │   └── ·9895054 (🏘️)
-│   ├── :C
-│   │   ├── ·de625cc (🏘️)
-│   │   ├── ·23419f8 (🏘️)
-│   │   └── ·5dc4389 (🏘️)
-│   └── :shared
-│       ├── ·d4f537e (🏘️|✓)
-│       ├── ·b448757 (🏘️|✓)
-│       └── ·e9a378d (🏘️|✓)
-├── ≡:A on 3183e43
-│   ├── :A
-│   │   └── ·0bad3af (🏘️|✓)
-│   └── :shared
-│       ├── ·d4f537e (🏘️|✓)
-│       ├── ·b448757 (🏘️|✓)
-│       └── ·e9a378d (🏘️|✓)
-└── ≡:B on 3183e43
-    ├── :B
-    │   ├── ·acdc49a (🏘️)
-    │   └── ·f0117e0 (🏘️)
-    └── :shared
-        ├── ·d4f537e (🏘️|✓)
-        ├── ·b448757 (🏘️|✓)
-        └── ·e9a378d (🏘️|✓)
+blank
 
 "#]]
     );
@@ -5336,18 +4737,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on d4f537e
-├── ≡:D on d4f537e
-│   ├── :D
-│   │   └── ·9895054 (🏘️)
-│   └── :C
-│       ├── ·de625cc (🏘️)
-│       ├── ·23419f8 (🏘️)
-│       └── ·5dc4389 (🏘️)
-└── ≡:B on d4f537e
-    └── :B
-        ├── ·acdc49a (🏘️)
-        └── ·f0117e0 (🏘️)
+blank
 
 "#]]
     );
@@ -5428,33 +4818,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡:D on 3183e43
-│   ├── :D
-│   │   └── ·9895054 (🏘️)
-│   ├── :C
-│   │   ├── ·de625cc (🏘️)
-│   │   ├── ·23419f8 (🏘️)
-│   │   └── ·5dc4389 (🏘️)
-│   └── :shared
-│       ├── ·d4f537e (🏘️)
-│       ├── ·b448757 (🏘️)
-│       └── ·e9a378d (🏘️)
-├── ≡:A on 3183e43
-│   ├── :A
-│   │   └── ·0bad3af (🏘️)
-│   └── :shared
-│       ├── ·d4f537e (🏘️)
-│       ├── ·b448757 (🏘️)
-│       └── ·e9a378d (🏘️)
-└── ≡:B on 3183e43
-    ├── :B
-    │   ├── ·acdc49a (🏘️)
-    │   └── ·f0117e0 (🏘️)
-    └── :shared
-        ├── ·d4f537e (🏘️)
-        ├── ·b448757 (🏘️)
-        └── ·e9a378d (🏘️)
+blank
 
 "#]]
     );
@@ -5473,33 +4837,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡:D on 3183e43
-│   ├── :D
-│   │   └── ·9895054 (🏘️)
-│   ├── :C
-│   │   ├── ·de625cc (🏘️)
-│   │   ├── ·23419f8 (🏘️)
-│   │   └── ·5dc4389 (🏘️)
-│   └── :shared
-│       ├── ·d4f537e (🏘️)
-│       ├── ·b448757 (🏘️)
-│       └── ·e9a378d (🏘️)
-├── ≡👉:A on 3183e43
-│   ├── 👉:A
-│   │   └── ·0bad3af (🏘️)
-│   └── :shared
-│       ├── ·d4f537e (🏘️)
-│       ├── ·b448757 (🏘️)
-│       └── ·e9a378d (🏘️)
-└── ≡:B on 3183e43
-    ├── :B
-    │   ├── ·acdc49a (🏘️)
-    │   └── ·f0117e0 (🏘️)
-    └── :shared
-        ├── ·d4f537e (🏘️)
-        ├── ·b448757 (🏘️)
-        └── ·e9a378d (🏘️)
+blank
 
 "#]]
     );
@@ -5597,11 +4935,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:dependent on fafd9d0 {1}
-    ├── 📙:dependent
-    └── 📙:advanced-lane <> origin/advanced-lane
-        └── ❄️cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -5651,11 +4985,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
-    ├── 📙:advanced-lane <> origin/advanced-lane
-    └── 📙:dependent
-        └── ❄cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -5673,11 +5003,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡👉📙:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
-    ├── 👉📙:advanced-lane <> origin/advanced-lane
-    └── 📙:dependent
-        └── ❄cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -5695,11 +5021,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
-    ├── 📙:advanced-lane <> origin/advanced-lane
-    └── 👉📙:dependent
-        └── ❄cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -5763,19 +5085,7 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:C-on-A on fafd9d0 {1}
-│   ├── 📙:C-on-A
-│   │   └── ·4f1bb32 (🏘️)
-│   └── :A <> origin/A⇣1
-│       ├── 🟣b627ca7
-│       └── ❄️e255adc (🏘️)
-└── ≡:B-on-A on fafd9d0
-    ├── :B-on-A
-    │   └── ·aff8449 (🏘️)
-    └── :A <> origin/A⇣1
-        ├── 🟣b627ca7
-        └── ❄️e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -5838,12 +5148,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:advanced-lane on fafd9d0 {0}
-│   └── 📙:advanced-lane
-│       └── ·cbc6713 (🏘️)
-└── ≡📙:lane on fafd9d0 {1}
-    └── 📙:lane
+blank
 
 "#]]
     );
@@ -5881,12 +5186,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:lane on fafd9d0 {0}
-│   └── 📙:lane
-└── ≡📙:advanced-lane on fafd9d0 {1}
-    └── 📙:advanced-lane
-        └── ·cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -5929,15 +5229,7 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:A on 85efbe4 {0}
-│   └── 📙:A
-│       └── ·09d8e52 (🏘️)
-└── ≡:C on 85efbe4 {1}
-    ├── :C
-    │   └── ·09bc93e (🏘️)
-    └── 📙:B
-        └── ·c813d8d (🏘️)
+blank
 
 "#]]
     );
@@ -6000,15 +5292,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:A <> origin/A⇡1⇣1 on fafd9d0 {1}
-    ├── 📙:A <> origin/A⇡1⇣1
-    │   ├── 🟣2b1808c
-    │   ├── ·aadad9d (🏘️)
-    │   └── ·96a2408 (🏘️|✓)
-    └── :integrated
-        ├── ❄f15ca75 (🏘️|✓)
-        └── ❄9456d79 (🏘️|✓)
+blank
 
 "#]]
     );
@@ -6026,11 +5310,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 96a2408
-└── ≡📙:A <> origin/A⇡1⇣1 on 96a2408 {1}
-    └── 📙:A <> origin/A⇡1⇣1
-        ├── 🟣2b1808c
-        └── ·aadad9d (🏘️)
+blank
 
 "#]]
     );
@@ -6098,14 +5378,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 281456a
-└── ≡📙:B <> origin/B⇡1⇣1 on 281456a {0}
-    ├── 📙:B <> origin/B⇡1⇣1
-    │   ├── 🟣e0bd0a7
-    │   └── ·da597e8 (🏘️)
-    └── 📙:A <> origin/A⇣1
-        ├── 🟣0b6b861
-        └── ·1818c17 (🏘️|✓)
+blank
 
 "#]]
     );
@@ -6122,11 +5395,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1818c17
-└── ≡📙:B <> origin/B⇡1⇣1 on 1818c17 {0}
-    └── 📙:B <> origin/B⇡1⇣1
-        ├── 🟣e0bd0a7
-        └── ·da597e8 (🏘️)
+blank
 
 "#]]
     );
@@ -6165,13 +5434,7 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:top on fafd9d0 {0}
-    ├── 📙:top
-    │   └── ❄bfbff44 (🏘️)
-    └── 📙:bottom <> origin/bottom⇣1
-        ├── 🟣bfbff44 (🏘️)
-        └── ❄️7fdb58d (🏘️)
+blank
 
 "#]]
     );
@@ -6257,11 +5520,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0b6b861
-└── ≡📙:D <> origin/D⇡1⇣1 on 0b6b861 {0}
-    └── 📙:D <> origin/D⇡1⇣1
-        ├── 🟣3045ea6
-        └── ·624e118 (🏘️)
+blank
 
 "#]]
     );
@@ -6336,13 +5595,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0b6b861
-└── ≡📙:D <> origin/D⇡3⇣1 on 0b6b861 {0}
-    └── 📙:D <> origin/D⇡3⇣1
-        ├── 🟣bbd4ff6
-        ├── ·353471f (🏘️)
-        ├── ·8a4b945 (🏘️)
-        └── ·e0bd0a7 (🏘️)
+blank
 
 "#]]
     );
@@ -6389,14 +5642,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> origin/A⇣1
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6430,14 +5676,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:A <> origin/A⇣1
-    ├── 👉:A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6488,14 +5727,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> origin/A⇣1
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6534,15 +5766,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:A <> origin/A⇣1 {1}
-    ├── 👉:A <> origin/A⇣1
-    │   └── 🟣4fe5a6f
-    ├── 📙:B
-    │   ├── ❄a62b0de (🏘️)
-    │   └── ❄120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6576,13 +5800,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:B {1}
-    ├── 📙:B
-    │   ├── ·a62b0de (🏘️) ►A
-    │   └── ·120a217 (🏘️)
-    └── :main
-        └── ·fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6602,15 +5820,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:B {1}
-    ├── 📙:B
-    ├── 👉📙:A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6629,15 +5839,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉📙:A <> origin/A⇣1 {1}
-    ├── 👉📙:A <> origin/A⇣1
-    │   └── 🟣4fe5a6f
-    ├── 📙:B
-    │   ├── ❄a62b0de (🏘️)
-    │   └── ❄120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6690,13 +5892,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:anon:
-    ├── :anon:
-    │   ├── ·a62b0de (🏘️) ►A, ►B
-    │   └── ·120a217 (🏘️)
-    └── :main <> origin/main⇡1
-        └── ·fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6732,13 +5928,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:A <> origin/A
-    ├── 👉:A <> origin/A
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6757,13 +5947,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:B <> origin/B
-    ├── 👉:B <> origin/B
-    │   ├── ❄️a62b0de (🏘️) ►A
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6806,14 +5990,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:A <> origin/A {1}
-    ├── 👉:A <> origin/A
-    ├── 📙:B <> origin/B
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6865,14 +6042,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:A <> origin/A⇣1
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6906,14 +6076,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡👉:A <> origin/A⇣1
-    ├── 👉:A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -6959,7 +6122,7 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 120a217
+blank
 
 "#]]
     );
@@ -7006,14 +6169,7 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:anon:
-    ├── :anon:
-    │   └── ·dca94a4 (🏘️)
-    ├── :A
-    │   └── ·120a217 (🏘️)
-    └── :main
-        └── ·fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -7080,16 +6236,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:lane on fafd9d0 {0}
-│   ├── 📙:lane
-│   │   └── ·cbc6713 (🏘️)
-│   ├── 📙:lane-segment-01
-│   └── 📙:lane-segment-02
-└── ≡📙:lane-2 on fafd9d0 {1}
-    ├── 📙:lane-2
-    ├── 📙:lane-2-segment-01
-    └── 📙:lane-2-segment-02
+blank
 
 "#]]
     );
@@ -7142,16 +6289,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:lane-2 on fafd9d0 {0}
-│   ├── 📙:lane-2
-│   ├── 📙:lane-2-segment-01
-│   └── 📙:lane-2-segment-02
-└── ≡📙:lane on fafd9d0 {1}
-    ├── 📙:lane
-    │   └── ·cbc6713 (🏘️)
-    ├── 📙:lane-segment-01
-    └── 📙:lane-segment-02
+blank
 
 "#]]
     );
@@ -7205,13 +6343,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 281456a
-└── ≡:B on 281456a
-    ├── :B
-    │   └── ·da597e8 (🏘️)
-    └── :A <> origin/A⇡1⇣1
-        ├── 🟣0b6b861 (✓)
-        └── ·1818c17 (🏘️)
+blank
 
 "#]]
     );
@@ -7260,12 +6392,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:main
-    └── :main
-        ├── ·3686017 (🏘️)
-        ├── ·9725482 (🏘️)
-        └── ·fafd9d0 (🏘️)
+blank
 
 "#]]
     );
@@ -7332,13 +6459,7 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/gitbutler/target on ce09734
-└── ≡:A on ce09734
-    ├── :A
-    │   ├── ·c59457b (🏘️)
-    │   └── ·e146f13 (🏘️)
-    └── :main <> origin/main
-        └── ❄️971953d (🏘️)
+blank
 
 "#]]
     );
@@ -7441,17 +6562,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on fafd9d0
-├── ≡:B on 91bc3fc
-│   └── :B
-│       └── ·2f8f06d (🏘️)
-├── ≡:C on fafd9d0
-│   └── :C
-│       ├── ·3f7c4e6 (🏘️)
-│       └── ·b6895d7 (🏘️)
-└── ≡:new-name-for-D on fafd9d0
-    └── :new-name-for-D
-        └── ·ed36e3b (🏘️)
+blank
 
 "#]]
     );
@@ -7533,33 +6644,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on fafd9d0
-├── ≡📙:A on fafd9d0 {0}
-│   ├── 📙:A
-│   │   ├── ·c83f258*
-│   │   └── ·a62b0de (🏘️|✓)
-│   └── 📙:A-middle <> origin/A-middle
-│       ├── ·27c2545*
-│       └── ·120a217 (🏘️|✓)
-├── ≡📙:B on fafd9d0 {1}
-│   ├── 📙:B
-│   │   └── ·2f8f06d (🏘️)
-│   └── 📙:B-middle <> origin/B-middle
-│       ├── ·c8f73c7*
-│       ├── ·ff75b80*
-│       ├── ·91bc3fc (🏘️|✓)
-│       └── ·cf9330f (🏘️|✓)
-├── ≡📙:C on fafd9d0 {2}
-│   ├── 📙:C
-│   │   └── ·3f7c4e6 (🏘️)
-│   └── 📙:C-bottom
-│       ├── ·790a17d*
-│       ├── ·969aaec*
-│       ├── ·631be19*
-│       └── ·b6895d7 (🏘️)
-└── ≡:new-name-for-D on fafd9d0
-    └── :new-name-for-D
-        └── ·ed36e3b (🏘️)
+blank
 
 "#]]
     );
@@ -7619,12 +6704,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡👉📙:lane on fafd9d0 {0}
-│   └── 👉📙:lane
-└── ≡📙:advanced-lane on fafd9d0 {1}
-    └── 📙:advanced-lane
-        └── ·cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -7658,12 +6738,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:lane on fafd9d0 {0}
-│   └── 📙:lane
-└── ≡📙:advanced-lane on fafd9d0 {1}
-    └── 📙:advanced-lane
-        └── ·cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -7697,12 +6772,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:lane on fafd9d0 {0}
-│   └── 📙:lane
-└── ≡📙:advanced-lane on fafd9d0 {1}
-    └── 📙:advanced-lane
-        └── ·cbc6713 (🏘️)
+blank
 
 "#]]
     );
@@ -7779,17 +6849,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:anon: on bce0c5e {1}
-    ├── :anon:
-    │   └── ·a7131b1 (🏘️)
-    ├── :intermediate-ref
-    │   ├── ·4d3831e (🏘️)
-    │   ├── ·468357f (🏘️)
-    │   ├── ·118ddbb (🏘️)
-    │   └── ·619d548 (🏘️)
-    └── 📙:B
-        └── ·8a352d5 (🏘️)
+blank
 
 "#]]
     );
@@ -7834,17 +6894,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:anon: on bce0c5e {1}
-    ├── :anon:
-    │   └── ·a7131b1 (🏘️)
-    ├── :intermediate-ref
-    │   ├── ·4d3831e (🏘️)
-    │   ├── ·468357f (🏘️)
-    │   ├── ·118ddbb (🏘️)
-    │   └── ·619d548 (🏘️)
-    └── 📙:B
-        └── ·8a352d5 (🏘️)
+blank
 
 "#]]
     );
@@ -7913,17 +6963,7 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:anon: on bce0c5e {0}
-    ├── :anon:
-    │   └── ·da912a8 (🏘️)
-    ├── :intermediate-ref
-    │   ├── ·198eaf8 (🏘️)
-    │   ├── ·3147997 (🏘️)
-    │   ├── ·9785229 (🏘️)
-    │   └── ·c58f157 (🏘️)
-    └── 📙:A
-        └── ·6fdab32 (🏘️)
+blank
 
 "#]]
     );
@@ -7978,10 +7018,7 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on b625665
-└── ≡📙:A <> origin/A on b625665 {1}
-    └── 📙:A <> origin/A
-        └── ❄️6507810 (🏘️)
+blank
 
 "#]]
     );
@@ -8017,10 +7054,7 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:A {1}
-    └── 📙:A
-        └── ·6507810 (🏘️|⛰)
+blank
 
 "#]]
     );
@@ -8080,14 +7114,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on bce0c5e
-├── ≡:B on bce0c5e
-│   └── :B
-│       ├── ·78b1b59 (🏘️)
-│       └── ·f52fcec (🏘️)
-└── ≡:A on bce0c5e
-    └── :A
-        └── ·6fdab32 (🏘️)
+blank
 
 "#]]
     );
@@ -8127,13 +7154,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
-├── ≡📙:A on bce0c5e {0}
-│   └── 📙:A
-│       └── ·6fdab32 (🏘️)
-└── ≡📙:B on f52fcec {1}
-    └── 📙:B
-        └── ·78b1b59 (🏘️)
+blank
 
 "#]]
     );
@@ -8174,13 +7195,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
-├── ≡📙:A on bce0c5e {0}
-│   └── 📙:A
-│       └── ·6fdab32 (🏘️)
-└── ≡📙:B on f52fcec {1}
-    └── 📙:B
-        └── ·78b1b59 (🏘️)
+blank
 
 "#]]
     );
@@ -8241,15 +7256,7 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on bce0c5e
-├── ≡:B on bce0c5e
-│   └── :B
-│       └── ·ce25240 (🏘️)
-└── ≡:A on bce0c5e
-    ├── :A
-    │   └── ·de6d39c (🏘️)
-    └── :main <> origin/main
-        └── ❄️a821094 (🏘️)
+blank
 
 "#]]
     );
@@ -8349,28 +7356,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:A on 3183e43 {1}
-│   ├── 📙:A
-│   │   └── ·49d4b34 (🏘️)
-│   ├── 📙:below-A
-│   └── 📙:below-below-A
-├── ≡📙:B on 3183e43 {2}
-│   ├── 📙:B
-│   ├── 📙:below-B
-│   └── 📙:below-below-B
-└── ≡📙:C on 3183e43 {3}
-    ├── 📙:C
-    ├── 📙:C2-1
-    ├── 📙:C2-2
-    ├── 📙:C2-3
-    │   └── ·f9e2cb7 (🏘️)
-    ├── 📙:C1-3
-    ├── 📙:C1-2
-    ├── 📙:C1-1
-    │   └── ·aaa195b (🏘️)
-    ├── 📙:below-C
-    └── 📙:below-below-C
+blank
 
 "#]]
     );
@@ -8392,26 +7378,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:B on 3183e43 {2}
-│   ├── 📙:B
-│   ├── 📙:below-B
-│   └── 📙:below-below-B
-├── ≡📙:C on 3183e43 {3}
-│   ├── 📙:C
-│   ├── 📙:C2-1
-│   ├── 📙:C2-2
-│   ├── 📙:C2-3
-│   │   └── ·f9e2cb7 (🏘️)
-│   ├── 📙:C1-3
-│   ├── 📙:C1-2
-│   ├── 📙:C1-1
-│   │   └── ·aaa195b (🏘️)
-│   ├── 📙:below-C
-│   └── 📙:below-below-C
-└── ≡📙:A on 3183e43 {1}
-    └── 📙:A
-        └── ·49d4b34 (🏘️)
+blank
 
 "#]]
     );
@@ -8454,10 +7421,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
-└── ≡📙:A <> origin/A⇣1 on 1ee1e34 {1}
-    └── 📙:A <> origin/A⇣1
-        └── 🟣2181501
+blank
 
 "#]]
     );
@@ -8495,10 +7459,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
-└── ≡📙:A <> origin/A⇣1 on 081bae9 {1}
-    └── 📙:A <> origin/A⇣1
-        └── 🟣197ddce
+blank
 
 "#]]
     );
@@ -8542,11 +7503,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
-└── ≡📙:A <> origin/A⇡1⇣1 on 1ee1e34 {1}
-    └── 📙:A <> origin/A⇡1⇣1
-        ├── 🟣2181501
-        └── ·9f47a25 (🏘️)
+blank
 
 "#]]
     );
@@ -8593,7 +7550,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+blank
 
 "#]]
     );
@@ -8611,9 +7568,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:unapplied on fafd9d0 {1}
-    └── 📙:unapplied
+blank
 
 "#]]
     );
@@ -8634,7 +7589,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+blank
 
 "#]]
     );
@@ -8723,11 +7678,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on ce09734
-└── ≡📙:survivor on ce09734 {1}
-    └── 📙:survivor
-        ├── ·4ca0966 (🏘️)
-        └── ·a3b180e (🏘️)
+blank
 
 "#]]
     );
@@ -8747,13 +7698,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on ce09734
-├── ≡📙:survivor on ce09734 {1}
-│   └── 📙:survivor
-│       ├── ·4ca0966 (🏘️)
-│       └── ·a3b180e (🏘️)
-└── ≡📙:unapplied on ce09734 {2}
-    └── 📙:unapplied
+blank
 
 "#]]
     );
@@ -8829,7 +7774,7 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+blank
 
 "#]]
     );
@@ -8988,10 +7933,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:main <> origin/main
-    └── :main <> origin/main
-        └── ❄️fafd9d0 (🏘️) ►unapplied
+blank
 
 "#]]
     );
@@ -9024,11 +7966,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:unapplied on fafd9d0 {1}
-│   └── 📙:unapplied
-└── ≡📙:main <> origin/main on fafd9d0 {2}
-    └── 📙:main <> origin/main
+blank
 
 "#]]
     );
@@ -9049,9 +7987,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:main <> origin/main on fafd9d0 {2}
-    └── 📙:main <> origin/main
+blank
 
 "#]]
     );
@@ -9103,11 +8039,7 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on bce0c5e
-├── ≡📙:main <> origin/main on bce0c5e {0}
-│   └── 📙:main <> origin/main
-└── ≡📙:A on bce0c5e {1}
-    └── 📙:A
+blank
 
 "#]]
     );
@@ -9173,13 +8105,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main⇣1 on 081bae9
-├── ≡📙:A <> origin/A⇣1 on 081bae9 {0}
-│   └── 📙:A <> origin/A⇣1
-│       └── 🟣197ddce
-└── ≡:B[📁wt-B-inside] on 081bae9
-    └── :B[📁wt-B-inside]
-        └── ·3e01e28 (🏘️)
+blank
 
 "#]]
     );
@@ -9231,13 +8157,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
-├── ≡📙:A <> origin/A⇣1 on 081bae9 {0}
-│   └── 📙:A <> origin/A⇣1
-│       └── 🟣197ddce
-└── ≡👉:B[📁wt-B-inside@repo] on 081bae9
-    └── 👉:B[📁wt-B-inside@repo]
-        └── ·3e01e28 (🏘️)
+blank
 
 "#]]
     );
@@ -9292,9 +8212,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    └── 📙:A
+blank
 
 "#]]
     );
@@ -9308,11 +8226,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-└── ≡📙:B on fafd9d0 {2}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9327,10 +8241,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    ├── 📙:A
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9388,9 +8299,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    └── 📙:A
+blank
 
 "#]]
     );
@@ -9404,11 +8313,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-└── ≡📙:B on fafd9d0 {2}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9423,10 +8328,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    ├── 📙:A
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9445,11 +8347,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-├── ≡📙:A on fafd9d0 {1}
-│   └── 📙:A
-└── ≡📙:B on fafd9d0 {2}
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9466,10 +8364,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-└── ≡📙:A on fafd9d0 {1}
-    ├── 📙:A
-    └── 📙:B
+blank
 
 "#]]
     );
@@ -9528,11 +8423,7 @@ mod edit_commit {
         snapbox::assert_data_eq!(
             graph_workspace(&graph.into_workspace()?).to_string(),
             snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A on fafd9d0
-    └── :A
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
         );
@@ -9567,12 +8458,7 @@ mod edit_commit {
         snapbox::assert_data_eq!(
             graph_workspace(&graph.into_workspace()?).to_string(),
             snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A on fafd9d0
-    ├── :A
-    │   └── ·a62b0de (🏘️)
-    └── 👉:gitbutler/edit
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
         );
@@ -9634,12 +8520,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
-└── ≡:anon: on 68e62aa
-    └── :anon:
-        ├── ·4eaff93 (🏘️) ►local-stack, ►reconstructed-insert-blank-commit-branch, ►reimplement-insert-blank-commit
-        ├── ·d19db1d (🏘️)
-        └── ·fb0a67e (🏘️)
+blank
 
 "#]]
     );
@@ -9664,13 +8545,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
-└── ≡📙:reimplement-insert-blank-commit on 68e62aa {0}
-    ├── 📙:reimplement-insert-blank-commit
-    └── 📙:reconstructed-insert-blank-commit-branch
-        ├── ·4eaff93 (🏘️) ►local-stack
-        ├── ·d19db1d (🏘️)
-        └── ·fb0a67e (🏘️)
+blank
 
 "#]]
     );
@@ -9730,14 +8605,7 @@ fn reproduce_12146() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e32cf47
-├── ≡📙:A on e32cf47 {0}
-│   └── 📙:A
-│       └── ·81d4e38 (🏘️)
-└── ≡📙:B on e32cf47 {1}
-    └── 📙:B
-        ├── ·7163661 (🏘️)
-        └── ·81d4e38 (🏘️)
+blank
 
 "#]]
     );
@@ -9784,12 +8652,7 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on f5f42e0
-└── ≡📙:local-stack on fafd9d0 {0}
-    └── 📙:local-stack
-        ├── ·66ea651 (🏘️)
-        ├── ·e5a88a7 (🏘️)
-        └── ·0b3ccaf (🏘️)
+blank
 
 "#]]
     );
@@ -9854,12 +8717,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on ef56fab
-└── ≡📙:my-branch on fafd9d0 {0}
-    └── 📙:my-branch
-        ├── ·cd76046 (🏘️)
-        ├── ·f8ff9a3 (🏘️)
-        └── ·6f65768 (🏘️)
+blank
 
 "#]]
     );
@@ -9902,11 +8760,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-└── ≡📙:my-branch on fafd9d0 {0}
-    └── 📙:my-branch
-        ├── ·312f819 (🏘️|✓)
-        └── ·e255adc (🏘️|✓)
+blank
 
 "#]]
     );
@@ -9928,9 +8782,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 312f819
-└── ≡📙:my-branch on 312f819 {0}
-    └── 📙:my-branch
+blank
 
 "#]]
     );
@@ -9992,13 +8844,7 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 322cb14
-├── ≡📙:my-branch on 2121f9c {0}
-│   └── 📙:my-branch
-│       └── ·f5055a1 (🏘️)
-└── ≡📙:old-branch on 322cb14 {1}
-    └── 📙:old-branch
-        └── ·f458f7d (🏘️)
+blank
 
 "#]]
     );
@@ -10042,12 +8888,7 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on d263f88
-└── ≡📙:X on b4bd43f {0}
-    └── 📙:X
-        ├── ·f210f41 (🏘️)
-        ├── ·f8cd0ce (🏘️)
-        └── ·4eec82a (🏘️)
+blank
 
 "#]]
     );
@@ -10102,11 +8943,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A on fafd9d0
-    └── :A
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -10140,11 +8977,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A on fafd9d0
-    └── :A
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -10194,11 +9027,7 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    └── :anon:
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -10251,7 +9080,7 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on cb7021b
+blank
 
 "#]]
     );
@@ -10306,11 +9135,7 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    └── :anon:
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -10361,10 +9186,7 @@ fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️) ►wsref[📁worktree-ref-at-applied-branch-wt]
+blank
 
 "#]]
     );
@@ -10400,11 +9222,7 @@ fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    ├── 📙:foo
-    └── 📙:wsref[📁worktree-ref-at-applied-branch-wt]
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -10448,10 +9266,7 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -10482,10 +9297,7 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -10542,11 +9354,7 @@ fn worktree_ref_mid_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+blank
 
 "#]]
     );
@@ -10636,10 +9444,7 @@ fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -10734,10 +9539,7 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo <> origin/foo on fafd9d0 {0}
-    └── 📙:foo <> origin/foo
-        └── ❄️e255adc (🏘️)
+blank
 
 "#]]
     );
@@ -10777,10 +9579,7 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    └── :anon:
-        └── ·e255adc (🏘️) ►foo
+blank
 
 "#]]
     );
