@@ -184,6 +184,7 @@ import { diffGutterUnsafeCSS, useDiffGutterCheckboxes } from "./diff-gutter.ts";
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
+import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
@@ -438,6 +439,7 @@ const DiffContents: FC<{
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
 	const hunkMenuItems = useHunkMenuItems({ projectId });
+	const revealInFolder = useRevealInFolder(projectId);
 	const store = useAppStore();
 	const queryClient = useQueryClient();
 	const lineCheckRangeAnchor = useRef<string>(null);
@@ -920,6 +922,19 @@ const DiffContents: FC<{
 				conflictBehavior: "allow",
 				target: focusScopeRef,
 				meta: diffHotkeys.openInEditor.meta,
+			},
+		},
+		{
+			hotkey: diffHotkeys.revealInFolder.hotkey,
+			callback: () => {
+				if (!diffSelectionHunk) return;
+				void revealInFolder(diffSelectionHunk.file.change.path);
+			},
+			options: {
+				enabled: !!diffSelectionHunk,
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.revealInFolder.meta,
 			},
 		},
 	]);

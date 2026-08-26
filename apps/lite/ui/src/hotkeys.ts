@@ -266,6 +266,14 @@ export const changesHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
+/** What the platform calls revealing a file in its file manager. */
+export const revealInFolderLabel =
+	globalThis.window.lite.platform === "darwin"
+		? "Reveal in Finder"
+		: globalThis.window.lite.platform === "win32"
+			? "Show in File Explorer"
+			: "Show in File Manager";
+
 export const changesFileHotkeys = {
 	absorb: {
 		hotkey: "A",
@@ -286,6 +294,10 @@ export const changesFileHotkeys = {
 	openInEditor: {
 		hotkey: "E",
 		meta: { group: "File", name: "Open in editor" },
+	},
+	revealInFolder: {
+		hotkey: "Shift+E",
+		meta: { group: "File", name: revealInFolderLabel },
 	},
 	toggleFoldDirectory: {
 		hotkey: "Z",
@@ -371,6 +383,10 @@ export const diffHotkeys = {
 	openInEditor: {
 		hotkey: "E",
 		meta: { group: "Diff", name: "Open in editor" },
+	},
+	revealInFolder: {
+		hotkey: "Shift+E",
+		meta: { group: "Diff", name: revealInFolderLabel },
 	},
 	search: {
 		hotkey: "Mod+F",

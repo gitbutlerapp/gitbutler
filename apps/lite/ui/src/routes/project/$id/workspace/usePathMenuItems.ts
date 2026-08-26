@@ -4,17 +4,10 @@ import {
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { changesFileHotkeys, revealInFolderLabel, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem } from "#ui/native-menu.ts";
+import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-
-/** What the platform calls revealing a file in its file manager. */
-const revealLabel =
-	window.lite.platform === "darwin"
-		? "Reveal in Finder"
-		: window.lite.platform === "win32"
-			? "Show in File Explorer"
-			: "Show in File Manager";
 
 /**
  * What a file offers wherever it is listed: open it, reveal it, copy its
@@ -41,6 +34,7 @@ export const usePathMenuItems = ({
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
+	const revealInFolder = useRevealInFolder(projectId);
 
 	return [
 		preferredEditor
@@ -74,11 +68,9 @@ export const usePathMenuItems = ({
 						) ?? [],
 				}),
 		nativeMenuItem({
-			label: revealLabel,
-			onSelect: async () => {
-				const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
-				await window.lite.showItemInFolder(absolutePath);
-			},
+			label: revealInFolderLabel,
+			accelerator: toElectronAccelerator(changesFileHotkeys.revealInFolder.hotkey),
+			onSelect: () => revealInFolder(path),
 		}),
 		nativeMenuItem({
 			label: "Copy Path",
