@@ -586,7 +586,7 @@ impl Event {
         if let EventKind::Cli(command) = event_name {
             event.insert_prop("command", command);
         }
-        event.insert_prop("samplingRate", event_name.sample_rate());
+        event.update_sampling_rate();
         event.insert_prop("appVersion", option_env!("VERSION").unwrap_or_default());
         event.insert_prop("releaseChannel", option_env!("CHANNEL").unwrap_or_default());
         event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
@@ -602,6 +602,16 @@ impl Event {
         if let Ok(value) = serde_json::to_value(prop) {
             let _ = self.props.insert(key.into(), value);
         }
+    }
+
+    fn update_sampling_rate(&mut self) -> f32 {
+        let sample_rate = if self.props.contains_key("errorKind") {
+            1.0
+        } else {
+            self.event_name.sample_rate()
+        };
+        self.insert_prop("samplingRate", sample_rate);
+        sample_rate
     }
 
     fn normalize_os(os: &str) -> String {
@@ -627,10 +637,10 @@ pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
 /// Note that `client` is *only* available if telemetry is enabled.
 async fn do_capture(
     client: &Client,
-    event: Event,
+    mut event: Event,
     app_settings: &AppSettings,
 ) -> Result<(), posthog_rs::Error> {
-    if event.event_name.sample_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
+    if event.update_sampling_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
         return Ok(());
     }
 
@@ -806,6 +816,20 @@ mod tests {
         let event = Event::new(EventKind::Cli(CommandName::Commit));
 
         assert_eq!(event.props["samplingRate"], serde_json::json!(1.0));
+    }
+
+    #[test]
+    fn failed_sampled_cli_events_use_full_sampling_rate() {
+        let mut event = Event::new(EventKind::Cli(CommandName::Status));
+        event.insert_prop("errorKind", "internal");
+
+        event.update_sampling_rate();
+
+        assert_eq!(
+            event.props["samplingRate"],
+            serde_json::json!(1.0),
+            "failed events should bypass command sampling"
+        );
     }
 
     #[test]
