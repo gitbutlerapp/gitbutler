@@ -25,6 +25,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 reqwest = { workspace = true, features = ["json"] }
+serde_json.workspace = true
 urlencoding.workspace = true
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
