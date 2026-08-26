@@ -74,13 +74,16 @@ pub enum CommandName {
 }
 
 impl CommandName {
-    /// Percentage sample rate, between 0 and 1.
+    /// Sampling rate for successful events, in (0, 1].
     ///
-    /// 1 indicates that the command should always be submitted to posthog, and
-    /// 0 should never be submitted to posthog.
+    /// Failures bypass this policy and are emitted with a rate of 1. In PostHog,
+    /// estimate successful command totals with
+    /// `sum(1 / coalesce(samplingRate, 1))`.
     pub fn sample_rate(&self) -> f32 {
         match self {
-            Self::Unknown | Self::Status => 0.05,
+            Self::Status => 0.01,
+            Self::Diff | Self::RefreshRemoteData => 0.05,
+            Self::BranchList => 0.10,
             _ => 1.0,
         }
     }

@@ -807,10 +807,29 @@ mod tests {
     }
 
     #[test]
-    fn sampled_cli_events_include_sampling_rate() {
+    fn status_events_include_one_percent_sampling_rate() {
         let event = Event::new(EventKind::Cli(CommandName::Status));
 
-        assert_eq!(event.props["samplingRate"], serde_json::json!(0.05));
+        assert_eq!(
+            event.props["samplingRate"],
+            serde_json::json!(0.01),
+            "status events should carry their effective sampling rate"
+        );
+    }
+
+    #[test]
+    fn cli_command_sampling_policy_matches_expected_rates() {
+        assert_eq!(
+            [
+                CommandName::Status.sample_rate(),
+                CommandName::Diff.sample_rate(),
+                CommandName::RefreshRemoteData.sample_rate(),
+                CommandName::BranchList.sample_rate(),
+                CommandName::Unknown.sample_rate(),
+            ],
+            [0.01, 0.05, 0.05, 0.10, 1.0],
+            "only the selected read-only commands should be sampled"
+        );
     }
 
     #[test]
