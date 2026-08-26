@@ -120,6 +120,26 @@ describe("classify", () => {
 	});
 
 	describe("title resolution", () => {
+		test("recognises a GitHub org OAuth restriction from a real list_reviews IPC error", () => {
+			// The backend tags the org-restriction 403 with a dedicated code
+			// (`classify_forge_error` in `but-github`); the classification's
+			// title override must beat the generic `API error: (<command>)`
+			// name so the opt-out action is reachable.
+			const error = new IpcError(
+				{
+					message:
+						'Failed to list open pull requests\n\nCaused by:\n    1: 403 Forbidden: {"message":"Although you appear to have the correct authorization credentials, the organization has enabled OAuth App access restrictions."}\n    2: HTTP 403',
+					code: "GitHubOrgOAuthRestricted",
+				},
+				"list_reviews",
+			);
+
+			const result = classify(error);
+
+			expect(result.title).toBe("GitHub Organizations OAuth Error");
+			expect(result.actionHint?.label).toBe("Don't show this again");
+		});
+
 		test("uses the error's own name when present (IPC commands)", () => {
 			const error = new IpcError({ message: "boom" }, "workspace_branch_and_ancestors_push");
 			expect(classify(error, "Caller title").title).toBe(
@@ -138,11 +158,13 @@ describe("classify", () => {
 		});
 
 		test("rewrites the GitHub-org-auth message prefix to a stable title", () => {
-			expect(
-				classify(
-					"Although you appear to have the correct authorization credentials, the org has SSO enforced.",
-				).title,
-			).toBe("GitHub Organizations OAuth Error");
+			// The octokit path carries no backend code, so the message
+			// pattern must yield the same classification as the code entry.
+			const result = classify(
+				"Although you appear to have the correct authorization credentials, the org has SSO enforced.",
+			);
+			expect(result.title).toBe("GitHub Organizations OAuth Error");
+			expect(result.actionHint?.label).toBe("Don't show this again");
 		});
 	});
 });

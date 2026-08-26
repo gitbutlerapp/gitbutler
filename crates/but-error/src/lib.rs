@@ -171,6 +171,10 @@ pub enum Code {
     /// "Not Found -" — kept here so the wire-level `Code` enum is the
     /// single source of truth for codes the desktop app may surface.
     GitHubTokenExpired,
+    /// A GitHub organization has enabled OAuth App access restrictions and
+    /// blocked the GitButler OAuth app. Terminal until the org approves the
+    /// app or the user switches credentials — retrying won't help.
+    GitHubOrgOAuthRestricted,
     /// The operation was rejected because the current state doesn't allow it.
     /// Not a bug — the user's request simply can't be fulfilled right now.
     /// The frontend should present this as a warning rather than an error.

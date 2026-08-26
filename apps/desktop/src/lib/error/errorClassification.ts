@@ -10,7 +10,8 @@ export type Severity = "error" | "warning" | "silent";
 
 export type ActionHint = {
 	label: string;
-	onClick: () => void;
+	/** `dismiss` closes the toast the action was clicked on. */
+	onClick: (dismiss: () => void) => void;
 };
 
 /**
@@ -26,6 +27,18 @@ export type ActionHint = {
  */
 export type Classification = {
 	severity: Severity;
+	/**
+	 * Replaces the error's own name as the toast/capture title. IPC errors
+	 * all arrive named `API error: (<command>)`, so a code that identifies
+	 * a specific condition needs this to surface under a stable title.
+	 */
+	title?: string;
+	/**
+	 * A persistent environment state rather than a one-off defect —
+	 * repeated occurrences carry no new information, so telemetry
+	 * captures it once per session instead of once per occurrence.
+	 */
+	terminal?: boolean;
 	userMessage?: string;
 	actionHint?: ActionHint;
 };
@@ -35,6 +48,7 @@ export type ClassifiedError = {
 	message: string;
 	code?: Code;
 	severity: Severity;
+	terminal?: boolean;
 	userMessage?: string;
 	actionHint?: ActionHint;
 };
@@ -42,17 +56,29 @@ export type ClassifiedError = {
 const GH_ORG_AUTH_ERROR = "GitHub Organizations OAuth Error";
 
 /**
- * Rewrite distinctive raw-message prefixes to a stable title so two
- * variants of the same root cause land under the same Sentry/PostHog
- * bucket — and so title-keyed rules below can match.
+ * A GitHub organization has blocked the GitButler OAuth app. Terminal
+ * until the org approves the app or the user switches credentials, and
+ * `list_reviews` polling keeps rediscovering it — the action lets the
+ * user opt out of repeats (honoured by the swallow check in `classify`).
+ *
+ * Shared between the code-keyed entry (IPC errors, tagged by the
+ * backend) and the message-pattern entry (octokit errors, which never
+ * pass through the backend and so carry no code).
  */
-const MESSAGE_PATTERN_TITLES: Record<string, string> = {
-	"Although you appear to have the correct authorization credentials,": GH_ORG_AUTH_ERROR,
-};
-
-const GITHUB_ORG_AUTH_ACTION: ActionHint = {
-	label: "Don't show this again",
-	onClick: () => persistSwallowGitHubOrgAuthErrors(true),
+const GH_ORG_AUTH_CLASSIFICATION: Classification = {
+	severity: "error",
+	terminal: true,
+	title: GH_ORG_AUTH_ERROR,
+	actionHint: {
+		label: "Don't show this again",
+		onClick: (dismiss) => {
+			persistSwallowGitHubOrgAuthErrors(true);
+			dismiss();
+		},
+	},
+	userMessage: `
+A GitHub organization has restricted access for the GitButler OAuth app. Ask an organization owner to approve the app, or connect GitHub with a personal access token instead — see the [GitHub integration docs](https://docs.gitbutler.com/features/forge-integration/github-integration?utm_source=gitbutler-app&utm_medium=error-toast&utm_campaign=org-oauth-restriction#connect-a-github-account).
+	`,
 };
 
 /**
@@ -130,6 +156,7 @@ With \`seahorse\` or equivalent, create a \`Login\` password store, right click 
 Your GitHub token appears expired. Please log out and back in to refresh it. (Settings -> Integrations -> Forget)
 	`,
 	},
+	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
 	ProjectDatabaseIncompatible: {
 		severity: "error",
 		userMessage: `
@@ -175,14 +202,12 @@ const MESSAGE_PATTERNS: ReadonlyArray<{
 				"The `gitbutler-git` binary is missing. Run `cargo build -p gitbutler-git` to build it.",
 		},
 	},
+	{
+		matches: ({ message }) =>
+			message.startsWith("Although you appear to have the correct authorization credentials,"),
+		classification: GH_ORG_AUTH_CLASSIFICATION,
+	},
 ];
-
-function titleFromMessagePattern(message: string): string | undefined {
-	for (const [prefix, title] of Object.entries(MESSAGE_PATTERN_TITLES)) {
-		if (message.startsWith(prefix)) return title;
-	}
-	return undefined;
-}
 
 /**
  * Combine the parsed error with the per-code classification table
@@ -202,7 +227,10 @@ export function classify(error: unknown, callerTitle?: string): ClassifiedError 
 	}
 
 	const { name, message, code, origin } = parseError(error);
-	const title = name ?? titleFromMessagePattern(message) ?? callerTitle ?? message;
+	const byMessage = MESSAGE_PATTERNS.find((p) => p.matches({ code, message }))?.classification;
+	const byCode = code ? CLASSIFICATIONS[code] : undefined;
+	const effective = byMessage ?? byCode;
+	const title = effective?.title ?? name ?? callerTitle ?? message;
 
 	if (isUnrecoverableBundlingError(message)) {
 		return { title, message, code, severity: "silent" };
@@ -216,22 +244,17 @@ export function classify(error: unknown, callerTitle?: string): ClassifiedError 
 		return { title, message, code, severity: "silent" };
 	}
 
-	const byMessage = MESSAGE_PATTERNS.find((p) => p.matches({ code, message }))?.classification;
-	const byCode = code ? CLASSIFICATIONS[code] : undefined;
-	const effective = byMessage ?? byCode;
 	if (effective?.severity === "silent") {
 		return { title, message, code, severity: "silent" };
 	}
-
-	const actionHint =
-		effective?.actionHint ?? (title === GH_ORG_AUTH_ERROR ? GITHUB_ORG_AUTH_ACTION : undefined);
 
 	return {
 		title,
 		message,
 		code,
 		severity: effective?.severity ?? "error",
+		terminal: effective?.terminal,
 		userMessage: effective?.userMessage,
-		actionHint,
+		actionHint: effective?.actionHint,
 	};
 }

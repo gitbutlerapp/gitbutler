@@ -137,6 +137,11 @@ export function parseQueryError(error: unknown): QueryError {
 	};
 }
 
+// Terminal states (persistent environment conditions, e.g. an org-level
+// OAuth restriction hit by every poll) are captured once per app session —
+// repeats carry no new information and would just flood the error stream.
+const capturedTerminalKeys = new Set<string>();
+
 export function emitQueryError(
 	posthog: PostHogWrapper | undefined,
 	error: unknown,
@@ -144,6 +149,7 @@ export function emitQueryError(
 		command?: string;
 		actionName?: string;
 		severity?: "error" | "warning" | "silent";
+		terminal?: boolean;
 	},
 ) {
 	const { name, message, code } = parseQueryError(error);
@@ -155,8 +161,23 @@ export function emitQueryError(
 	// known noise), not defects — keep them out of error telemetry.
 	if (context?.severity === "silent") return;
 	if (!posthog) return;
-	const key = `${context?.command ?? ""}|${name}`;
-	if (!shouldCaptureQueryError(key)) return;
+	if (context?.terminal) {
+		// The code identifies the state; messages may embed volatile detail
+		// (e.g. the forge's own wording), which would defeat the dedup. This
+		// path is deliberately outside the windowed limiter: volume is
+		// bounded by the set itself — at most one capture per terminal state
+		// per session — and an unrelated error flood must not starve it.
+		const terminalKey = `${context?.command ?? ""}|${code ?? message}`;
+		if (capturedTerminalKeys.has(terminalKey)) return;
+		capturedTerminalKeys.add(terminalKey);
+	} else {
+		// IPC errors share one name per command (`API error: (<command>)`),
+		// so the message must be part of the key — otherwise one hot failure
+		// (e.g. a polled 403) exhausts the per-key budget for every other
+		// failure of the same command. The global limit bounds total volume.
+		const key = `${context?.command ?? ""}|${name}|${message}`;
+		if (!shouldCaptureQueryError(key)) return;
+	}
 	posthog.capture(QUERY_ERROR_EVENT_NAME, {
 		error_title: name,
 		error_message: message,

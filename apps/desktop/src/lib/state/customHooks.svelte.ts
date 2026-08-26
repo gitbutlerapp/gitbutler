@@ -128,10 +128,12 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			if (result.error) {
 				const error = result.error;
 				// track({ failure: true, startTime, error });
+				const classified = classify(error);
 				emitQueryError(posthog, error, {
 					command,
 					actionName,
-					severity: classify(error).severity,
+					severity: classified.severity,
+					terminal: classified.terminal,
 				});
 			}
 			if (options?.transform && data) {
