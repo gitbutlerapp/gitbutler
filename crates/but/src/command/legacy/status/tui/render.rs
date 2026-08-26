@@ -1331,10 +1331,10 @@ pub fn branch_operation_display(
 ) -> Option<&'static str> {
     match data {
         StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::MergeBase => Some("branch"),
         StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
